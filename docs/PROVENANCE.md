@@ -28,6 +28,11 @@ XL Project Authors' copyright notice and name the source files they translate.
 - Highway at `457c891775a7397bdb0376bb1031e6e027af1c48`, selected by upstream's
   submodule: C++ oracle compilation only. Its code remains in that submodule
   with its original LICENSE; it is not compiled into the Rust library.
+- `enc_huffman_tree`, `huffman_table`, `enc_huffman`, and `dec_huffman` headers
+  and implementations from the same pinned source: tree construction,
+  serialization, lookup tables, and prefix decoding. The histogram corpora,
+  code-length RLE cases, malformed/truncated streams, and table-reuse fixtures
+  are local test infrastructure, not claimed as translated upstream tests.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

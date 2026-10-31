@@ -24,6 +24,9 @@ mod bundles;
 #[path = "parity/entropy.rs"]
 mod entropy;
 
+#[path = "parity/huffman.rs"]
+mod huffman;
+
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -591,6 +594,7 @@ fn observe(request: &str) -> String {
         "default" => default_case(&mut args),
         "append" => append_case(&mut args),
         kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
+        kind if kind.starts_with("huffman") => huffman::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

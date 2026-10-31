@@ -1,8 +1,9 @@
 # Port status
 
-This repository contains bitstream/header and ANS-table slices. It cannot encode or
-decode JPEG XL images. There are no C++ runtime fallbacks and no placeholder
-codec APIs. The source revision is pinned in [upstream.json](../upstream.json).
+This repository contains bitstream/header, ANS-table, and Huffman coding slices.
+It cannot encode or decode JPEG XL images. There are no C++ runtime fallbacks
+and no placeholder codec APIs. The source revision is pinned in
+[upstream.json](../upstream.json).
 
 ## Source mapping
 
@@ -17,6 +18,10 @@ codec APIs. The source revision is pinned in [upstream.json](../upstream.json).
 | `../include/jxl/types.h` | `types.rs` | Endianness only; other public API types unported |
 | `ans_params.h` | `ans_params.rs` | ANS and prefix coding constants |
 | `ans_common.h`, `.cc` | `ans_common.rs` | Alias table construction/lookup, flat histograms, count precision; prefetch unported |
+| `enc_huffman_tree.h`, `.cc` | `enc_huffman_tree.rs` | Population trees, depth limiting, canonical symbols, and code-length RLE |
+| `huffman_table.h`, `.cc` | `huffman_table.rs` | Two-level lookup tables and in-place count consumption |
+| `enc_huffman.h`, `.cc` | `enc_huffman.rs` | Simple/general tree serialization from histograms |
+| `dec_huffman.h`, `.cc` | `dec_huffman.rs` | Tree parsing, preserved partial state, and prefix symbol decoding |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive writes, Bundle::Write and size-header wrapper; full codestream/frame/quantizer writes unported |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
@@ -40,17 +45,24 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 44 tests, including 14 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 44 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 44 tests and corpus |
+| Rust debug | PASSED | 52 tests, including 19 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 52 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 52 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 
-Each differential run compares **224,790 requests** against C++. These include
+Each differential run compares **252,433 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
-validation; unsigned word/byte helpers; and ANS alias tables. Alias comparisons
-include all 4,096 lookups for every successful generated table.
+validation; unsigned word/byte helpers; ANS alias tables; and Huffman coding.
+Alias comparisons include all 4,096 lookups for every successful generated
+table. Huffman comparisons cover exact serialized bytes, depths/canonical
+codes, every populated table entry, decoded symbols, consumed-bit counters,
+and close status. Cases include depth-limited and tied populations, unsigned
+population-sum wrapping, RLE boundaries, unaligned positions, truncated and
+damaged streams, and preservation of reused tables on failed parses. Direct
+table-builder cases include the 32,768-symbol limit; generated encoder
+histograms range from 1 to 4,096 symbols.
 The native writer test additionally round-trips 1,048,576 generated bit patches.
 
 The default-bundle test first failed on an early Rust return after a truncated
@@ -70,10 +82,9 @@ The Linux/macOS workflow is configured but has not run on a hosted service.
 
 ## Next dependency boundaries
 
-1. Port Huffman trees, code-length serialization, and prefix decoding with C++ comparisons.
-2. Build ANS stream decoding/encoding on the translated alias tables.
-3. Port image metadata and frame headers, then the first actual frame path.
-4. Expand through modular and VarDCT decoding and encoding before introducing
+1. Build ANS stream decoding/encoding on the translated alias tables.
+2. Port image metadata and frame headers, then the first actual frame path.
+3. Expand through modular and VarDCT decoding and encoding before introducing
    the C ABI and optimized target-specific kernels.
 
 Preserve the upstream test inventory as that scope grows. Adapted tests in this

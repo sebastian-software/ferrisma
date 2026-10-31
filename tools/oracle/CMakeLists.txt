@@ -19,10 +19,14 @@ add_executable(jxl_oracle
   main.cc
   "${UPSTREAM}/lib/jxl/ans_common.cc"
   "${UPSTREAM}/lib/jxl/dec_bit_reader.cc"
+  "${UPSTREAM}/lib/jxl/dec_huffman.cc"
   "${UPSTREAM}/lib/jxl/enc_bit_writer.cc"
   "${UPSTREAM}/lib/jxl/fields.cc"
   "${UPSTREAM}/lib/jxl/enc_fields.cc"
+  "${UPSTREAM}/lib/jxl/enc_huffman.cc"
+  "${UPSTREAM}/lib/jxl/enc_huffman_tree.cc"
   "${UPSTREAM}/lib/jxl/headers.cc"
+  "${UPSTREAM}/lib/jxl/huffman_table.cc"
   "${UPSTREAM}/lib/jxl/memory_manager_internal.cc"
   "${UPSTREAM}/lib/jxl/simd_util.cc")
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)

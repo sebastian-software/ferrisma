@@ -32,6 +32,16 @@ explicit representations while retaining source algorithms.
   lookup on little-endian targets. The unaligned word read is contained in
   the lookup with its layout, initialization, and borrow proof. Prefetch is
   not yet exposed; no no-op hint substitutes for the source implementation.
+- Huffman node/table pointers become indices into borrowed slices. Leaf nodes
+  are sorted by population and descending symbol index, exactly as in C++;
+  that comparator is a total order, so the standard library sort's internal
+  implementation does not change ties. Temporary tables/arenas are initialized
+  before borrowing, and only populated entries are observed. Keep signed
+  16-bit node indices, unsigned count wrapping, and the original depth-limiting
+  loop. Invalid internal preconditions panic rather than allowing invalid
+  memory access; they do not add checks to accepted bitstream parsing. Failed
+  parses preserve the source's table resize/mutation order. Symbol reads retain
+  the caller's refill obligation and the reader's deferred bounds checkpoint.
 - Padded storage preserves the minimum capacity, growth rule, padding, alignment,
   and rotating alignment groups. The initial backend uses Rust's allocator and
   initializes allocated bytes to zero so safe slices never expose uninitialized
