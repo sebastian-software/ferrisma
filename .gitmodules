@@ -1,0 +1,3 @@
+[submodule "upstream/libjxl"]
+	path = upstream/libjxl
+	url = https://github.com/libjxl/libjxl.git

@@ -1,0 +1,29 @@
+name: Checks
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  port:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize the pinned reference and Highway
+        run: |
+          git submodule update --init --depth 1 upstream/libjxl
+          git -C upstream/libjxl submodule update --init --depth 1 third_party/highway
+      - name: Install Rust toolchains
+        run: rustup toolchain install stable 1.85 --profile minimal --component rustfmt --component clippy
+      - name: Check the mechanical port
+        run: python3 tools/check.py --sanitizers --msrv

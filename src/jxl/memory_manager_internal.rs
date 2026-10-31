@@ -1,0 +1,102 @@
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license in LICENSE.
+
+//! Ported from the `AlignedMemory` portion of `memory_manager_internal.{h,cc}`.
+//! Uses Rust's allocator and zero-initializes storage. C allocator callbacks and
+//! image-row sizing are not part of this slice. See ADR 0003.
+
+use super::base::status::{StatusCode, StatusOr};
+use std::alloc::{Layout, alloc_zeroed, dealloc};
+use std::ptr::NonNull;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+pub(crate) const ALIGNMENT: usize = 128;
+pub(crate) const NUM_ALIGNMENT_GROUPS: usize = 16;
+pub(crate) const ALIAS: usize = NUM_ALIGNMENT_GROUPS * ALIGNMENT;
+
+pub(crate) struct AlignedMemory {
+    allocation: NonNull<u8>,
+    layout: Layout,
+    address_offset: usize,
+    size: usize,
+}
+
+// SAFETY: This value exclusively owns a global-allocator allocation, which can
+// be freed on another thread. Moving it transfers that ownership exactly once.
+unsafe impl Send for AlignedMemory {}
+
+// SAFETY: Shared access exposes only initialized immutable bytes; mutation
+// requires &mut self. The global allocator and group counter are thread-safe.
+unsafe impl Sync for AlignedMemory {}
+
+impl AlignedMemory {
+    pub(crate) fn create(size: usize, pre_padding: usize) -> StatusOr<Self> {
+        if pre_padding > ALIAS {
+            return Err(StatusCode::GenericError);
+        }
+        let allocation_size = size
+            .checked_add(pre_padding)
+            .and_then(|n| n.checked_add(ALIAS))
+            .ok_or(StatusCode::GenericError)?;
+        let layout =
+            Layout::from_size_align(allocation_size, 1).map_err(|_| StatusCode::GenericError)?;
+        // SAFETY: The checked layout has nonzero size (at least ALIAS) and a
+        // valid alignment. The returned allocation is owned by this value and
+        // is deallocated with this exact layout in Drop. All bytes start valid.
+        let allocation =
+            NonNull::new(unsafe { alloc_zeroed(layout) }).ok_or(StatusCode::GenericError)?;
+
+        static NEXT_GROUP: AtomicU32 = AtomicU32::new(0);
+        // Relaxed ordering is sufficient: only a rotating numeric group is
+        // shared, never the allocation or its contents, as in the source.
+        let group = NEXT_GROUP.fetch_add(1, Ordering::Relaxed) as usize;
+        let group = group & (NUM_ALIGNMENT_GROUPS - 1);
+        let offset = ALIGNMENT * group;
+        let address = allocation.as_ptr() as usize + pre_padding;
+        let mut aligned_address = (address & !(ALIAS - 1)) + offset;
+        if aligned_address < address {
+            aligned_address += ALIAS;
+        }
+        // Keep provenance in `allocation`; use only the integer difference to
+        // create references into it, rather than constructing integer pointers.
+        let address_offset = aligned_address - allocation.as_ptr() as usize;
+        debug_assert!(address_offset >= pre_padding);
+        debug_assert!(address_offset + size <= allocation_size);
+        debug_assert_eq!(aligned_address % ALIGNMENT, 0);
+        Ok(Self {
+            allocation,
+            layout,
+            address_offset,
+            size,
+        })
+    }
+
+    pub(crate) fn bytes(&self) -> &[u8] {
+        // SAFETY: create establishes an initialized, in-bounds range of `size`
+        // bytes. Its owner lives for the borrow. The shared borrow prevents a
+        // simultaneous mutable borrow through bytes_mut.
+        unsafe {
+            std::slice::from_raw_parts(self.allocation.as_ptr().add(self.address_offset), self.size)
+        }
+    }
+
+    pub(crate) fn bytes_mut(&mut self) -> &mut [u8] {
+        // SAFETY: This is the same initialized range as bytes(), with exclusive
+        // access through &mut self. No pointer or mutable slice escapes its
+        // borrow, and the backing allocation cannot be freed during it.
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                self.allocation.as_ptr().add(self.address_offset),
+                self.size,
+            )
+        }
+    }
+}
+
+impl Drop for AlignedMemory {
+    fn drop(&mut self) {
+        // SAFETY: allocation was produced by alloc_zeroed with this layout,
+        // is owned exactly once, and has not been resized or deallocated.
+        unsafe { dealloc(self.allocation.as_ptr(), self.layout) };
+    }
+}

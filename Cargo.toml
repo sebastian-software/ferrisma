@@ -1,0 +1,16 @@
+[package]
+name = "libjxl-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "BSD-3-Clause"
+description = "A mechanical Rust port of the JPEG XL reference implementation"
+publish = false
+
+[lib]
+name = "jxl"
+
+[features]
+# The C++ oracle is an executable used by integration tests, never a dependency
+# of the Rust library. Enabling this feature requires building it first.
+cpp-oracle = []
