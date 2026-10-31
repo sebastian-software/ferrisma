@@ -1,9 +1,9 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Ported token/state, histogram normalization, and uint-configuration portions
-//! of `enc_ans.{h,cc}`. Context clustering, uint-strategy selection, and LZ77
-//! token generation remain unported. Token bitfields use a packed integer.
+//! Ported from `enc_ans.{h,cc}` with normalization and orchestration in private
+//! companion modules. Token bitfields use a packed integer. The debug-only
+//! ANS fuzzer setter remains unported; ordinary release behavior is retained.
 
 use super::ans_params::{ANS_LOG_TAB_SIZE, ANS_SIGNATURE};
 use super::base::bits::ceil_log2_nonzero;
@@ -11,6 +11,8 @@ use super::base::status::Status;
 use super::dec_ans::{HybridUintConfig, LZ77Params};
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+
+pub use super::enc_entropy::{build_and_encode_histograms, encode_histograms};
 
 pub(crate) const RECIPROCAL_PRECISION: u32 = 32 + ANS_LOG_TAB_SIZE;
 
@@ -207,6 +209,14 @@ impl super::enc_ans_params::Histogram {
 }
 
 pub fn encode_uint_config(config: HybridUintConfig, writer: &mut BitWriter, log_alpha_size: usize) {
+    encode_uint_config_to(config, writer, log_alpha_size);
+}
+
+pub(crate) fn encode_uint_config_to(
+    config: HybridUintConfig,
+    writer: &mut impl Writer,
+    log_alpha_size: usize,
+) {
     writer.write(
         ceil_log2_nonzero(log_alpha_size + 1),
         u64::from(config.split_exponent),
@@ -225,8 +235,16 @@ pub fn encode_uint_configs(
     writer: &mut BitWriter,
     log_alpha_size: usize,
 ) {
+    encode_uint_configs_to(configs, writer, log_alpha_size);
+}
+
+pub(crate) fn encode_uint_configs_to(
+    configs: &[HybridUintConfig],
+    writer: &mut impl Writer,
+    log_alpha_size: usize,
+) {
     for &cfg in configs {
-        encode_uint_config(cfg, writer, log_alpha_size);
+        encode_uint_config_to(cfg, writer, log_alpha_size);
     }
 }
 

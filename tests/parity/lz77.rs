@@ -11,7 +11,7 @@ use jxl::jxl::enc_lz77::{SymbolCostEstimator, apply_lz77, dist_cost, len_cost};
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("lz-")
 }
-fn method(raw: u32) -> LZ77Method {
+pub(super) fn method(raw: u32) -> LZ77Method {
     match raw {
         0 => LZ77Method::None,
         1 => LZ77Method::RLE,
@@ -32,7 +32,10 @@ fn method(raw: u32) -> LZ77Method {
         _ => panic!("test LZ77 method"),
     }
 }
-fn token_streams(args: &mut std::str::SplitWhitespace<'_>, flags: bool) -> Vec<Vec<Token>> {
+pub(super) fn token_streams(
+    args: &mut std::str::SplitWhitespace<'_>,
+    flags: bool,
+) -> Vec<Vec<Token>> {
     let count: usize = number(args);
     (0..count)
         .map(|_| {

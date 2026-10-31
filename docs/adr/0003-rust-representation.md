@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-10-31
+- Updated: 2026-11-01
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -100,6 +100,17 @@ explicit representations while retaining source algorithms.
   storage; it does not change the bit-writing algorithm. The scoped callback
   receives reborrows of both the writer and optional accounting context, so
   nested writes can charge the same context without aliased mutable references.
+- Complete entropy encoding retains optional output versus size-only writers,
+  transposition, scalar token-cost counting, config candidate order, nested
+  accounting, and prior histogram/context prefixes. The scalar MaxVectorSize
+  value is four bytes; upstream adds that value to a count of u32 elements, and
+  the Rust storage keeps the same padding. A newly encoded histogram writer is
+  locally owned during table construction and appended even on error, retaining
+  the source's observable partial state without cloning the encoding data.
+  Streaming finalization accepts mutable codes because bundle visitors can
+  mutate fields, following the existing bundle mapping above. The source's
+  release-state fuzzer flag remains false; its debug-only global setter is not
+  yet exposed. Ordinary Rust debug/release builds both match that reference.
 
 Retain defined unsigned truncation and wrapping explicitly. Invalid programmer
 preconditions must not cause undefined behavior in Rust. Record any discovered

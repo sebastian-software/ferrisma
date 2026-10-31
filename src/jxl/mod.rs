@@ -12,6 +12,8 @@ pub mod enc_ans_params;
 pub mod enc_aux_out;
 pub mod enc_bit_writer;
 pub mod enc_cluster;
+pub mod enc_context_map;
+mod enc_entropy;
 pub mod enc_fields;
 pub mod enc_huffman;
 pub mod enc_huffman_tree;

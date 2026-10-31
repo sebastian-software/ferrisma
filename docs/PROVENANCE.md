@@ -5,7 +5,7 @@ as the `upstream/libjxl` Git submodule. Its original LICENSE and PATENTS are
 copied without changes to the repository root. Ported modules retain the JPEG
 XL Project Authors' copyright notice and name the source files they translate.
 
-## Initial inputs, 2026-10-31
+## Source and test inputs
 
 - `libjxl/libjxl` at `a16d32d0ac113f5e54125e49bb571281c5d0b704`:
   `dec_bit_reader`, `enc_bit_writer`, `field_encodings`, `fields`, `enc_fields`,
@@ -64,6 +64,13 @@ XL Project Authors' copyright notice and name the source files they translate.
   reference compiler's fused scalar accumulation and final penalty. The oracle
   preserves upstream's Clang `-fno-slp-vectorize -fno-vectorize` settings from
   `lib/CMakeLists.txt`; omitting them changed this cost model's float rounding.
+- Remaining release-state entropy orchestration in `enc_ans.cc`, the scalar
+  token-cost specialization in `enc_ans_simd.cc`, scalar MaxValue/vector-size
+  support in `simd_util`, and context output in `enc_context_map.cc`: uint
+  strategy selection, complete histogram/code output, streaming state, and MTF
+  cost decisions. The new oracle adapter calls the original complete encoder
+  entry points. Its corpus, cross-decoding checks, and native entropy pipeline
+  test are local infrastructure; they are not image-codec acceptance evidence.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
