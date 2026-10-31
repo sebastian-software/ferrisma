@@ -41,6 +41,8 @@ def check_source():
     for name in ("LICENSE", "PATENTS"):
         if (ROOT / name).read_bytes() != (source / name).read_bytes():
             raise SystemExit(f"{name} differs from the pinned upstream notice")
+    if (ROOT / "licenses/HIGHWAY-BSD-3-Clause.txt").read_bytes() != (highway / "LICENSE-BSD3").read_bytes():
+        raise SystemExit("The translated Highway helper's notice differs from upstream")
     print(f"Pinned source and notices verified: {revision}", flush=True)
 
 

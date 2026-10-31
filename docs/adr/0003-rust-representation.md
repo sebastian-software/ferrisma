@@ -30,8 +30,26 @@ explicit representations while retaining source algorithms.
   visitor helper is a free function to keep `Visitor` object-safe.
 - ANS alias entries retain the eight-byte packed layout and original word
   lookup on little-endian targets. The unaligned word read is contained in
-  the lookup with its layout, initialization, and borrow proof. Prefetch is
-  not yet exposed; no no-op hint substitutes for the source implementation.
+  the lookup with its layout, initialization, and borrow proof. Prefetch uses
+  the source's Clang configuration: a T0 read hint on x86_64 with SSE2, disabled
+  otherwise. Read top-level preprocessor guards as well as function bodies:
+  Highway's SSE2 guard disables its apparent AArch64 builtin branch. Emitting
+  an ARM hint would introduce an optimization absent from the reference.
+- Entropy readers borrow their code tables for their entire lifetime and take
+  a separate mutable bit-reader borrow for each operation. Aligned storage
+  owns typed integer/alias slices; local proofs cover initialization, alignment,
+  bounds, and exclusive mutable access. The LZ77 window starts initialized as
+  required for safe Rust storage; defined decoder reads still follow the
+  source's history/zero-distance rules. Keep all state and history counters
+  32-bit with explicit wrapping, including the unhealthy-reader path for a
+  wrapping decoded run length. Checkpoints restore entropy state and the same
+  512 window entries; restoring the bit-reader position remains the caller's
+  responsibility. Token bitfields use a private packed `u32` and accessors that
+  retain truncation to the source's 31-bit context field. This does not yet
+  establish a public C bitfield ABI.
+- The inverse move-to-front transform initially translates the existing
+  one-lane Highway scalar specialization. Its vector specializations remain
+  separate future work; no SIMD or performance parity is inferred from it.
 - Huffman node/table pointers become indices into borrowed slices. Leaf nodes
   are sorted by population and descending symbol index, exactly as in C++;
   that comparator is a total order, so the standard library sort's internal

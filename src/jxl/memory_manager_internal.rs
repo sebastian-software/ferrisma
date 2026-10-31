@@ -30,6 +30,43 @@ unsafe impl Send for AlignedMemory {}
 unsafe impl Sync for AlignedMemory {}
 
 impl AlignedMemory {
+    pub(crate) fn alias_entries(&self) -> &[super::ans_common::Entry] {
+        assert_eq!(
+            self.size % std::mem::size_of::<super::ans_common::Entry>(),
+            0
+        );
+        // SAFETY: Entry is packed, contains only integers, and has no padding.
+        // Zero initialization and later field writes give valid entries.
+        // The checked byte count covers whole entries in this live borrow.
+        unsafe { std::slice::from_raw_parts(self.bytes().as_ptr().cast(), self.size / 8) }
+    }
+
+    pub(crate) fn alias_entries_mut(&mut self) -> &mut [super::ans_common::Entry] {
+        assert_eq!(
+            self.size % std::mem::size_of::<super::ans_common::Entry>(),
+            0
+        );
+        let len = self.size / 8;
+        // SAFETY: Same representation and bounds proof as alias_entries;
+        // the exclusive owner borrow prevents simultaneous slice aliases.
+        unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
+    }
+
+    pub(crate) fn u32s(&self) -> &[u32] {
+        assert_eq!(self.size % 4, 0);
+        // SAFETY: create aligns to 128 bytes, all u32 bit patterns are valid,
+        // and the checked byte count covers whole initialized elements.
+        unsafe { std::slice::from_raw_parts(self.bytes().as_ptr().cast(), self.size / 4) }
+    }
+
+    pub(crate) fn u32s_mut(&mut self) -> &mut [u32] {
+        assert_eq!(self.size % 4, 0);
+        let len = self.size / 4;
+        // SAFETY: Same validity/alignment/bounds proof as u32s, with exclusive
+        // access through the owner for the entire returned slice lifetime.
+        unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
+    }
+
     pub(crate) fn create(size: usize, pre_padding: usize) -> StatusOr<Self> {
         if pre_padding > ALIAS {
             return Err(StatusCode::GenericError);

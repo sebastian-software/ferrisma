@@ -33,6 +33,18 @@ XL Project Authors' copyright notice and name the source files they translate.
   serialization, lookup tables, and prefix decoding. The histogram corpora,
   code-length RLE cases, malformed/truncated streams, and table-reuse fixtures
   are local test infrastructure, not claimed as translated upstream tests.
+- `dec_ans`, `dec_context_map`, token/state/config portions of `enc_ans`, the
+  scalar specialization in `inverse_mtf-inl.h`, and the used prefetch operation
+  from Highway's `hwy/cache_control.h`: entropy streams and supporting storage.
+  The uint-config vector round trip adapts `ans_test.cc`; deterministic stream,
+  corruption, ring-wrap, and fast-path fixtures are local test infrastructure.
+  Original `BuildAndStoreANSEncodingData` and `WriteTokens` generate reference
+  fixtures without changing or copying their algorithms into the oracle.
+  The oracle generates public export/version headers through CMake using the
+  pinned source's template, version settings, and export-target pattern.
+  The translated Highway prefetch helper uses Highway's offered BSD-3-Clause
+  alternative; its unchanged notice is in
+  [licenses/HIGHWAY-BSD-3-Clause.txt](../licenses/HIGHWAY-BSD-3-Clause.txt).
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

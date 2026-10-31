@@ -21,6 +21,11 @@ Port dependency boundaries incrementally, with a tested bitstream/header slice
 before image decoding and encoding. Existing test cases remain part of the
 migration backlog until translated or explicitly accounted for.
 
+The [first-image milestone](../FIRST_IMAGE.md) requires a complete Rust image
+encode/decode path with cross-decoding against the original implementation.
+Keep that integration gate distinct from completion of individual dependency
+slices and from completion of the entire library port.
+
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a
 specific source construct has no sound Rust representation. Compilation alone

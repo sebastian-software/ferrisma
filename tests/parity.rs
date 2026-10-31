@@ -27,6 +27,9 @@ mod entropy;
 #[path = "parity/huffman.rs"]
 mod huffman;
 
+#[path = "parity/ans.rs"]
+mod ans;
+
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -595,11 +598,12 @@ fn observe(request: &str) -> String {
         "append" => append_case(&mut args),
         kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
         kind if kind.starts_with("huffman") => huffman::observe(kind, &mut args),
+        kind if ans::handles(kind) => ans::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }
 
-fn compare(requests: Vec<String>) {
+fn original_observations(requests: &[String]) -> Vec<String> {
     let oracle = std::env::var_os("JXL_CPP_ORACLE")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
@@ -632,8 +636,13 @@ fn compare(requests: Vec<String>) {
     );
     fed.expect("write all oracle requests");
     let text = String::from_utf8(output.stdout).expect("UTF-8 oracle protocol");
-    let observations: Vec<_> = text.lines().collect();
+    let observations: Vec<_> = text.lines().map(str::to_owned).collect();
     assert_eq!(observations.len(), requests.len(), "oracle response count");
+    observations
+}
+
+fn compare(requests: Vec<String>) {
+    let observations = original_observations(&requests);
     for (request, cpp) in requests.iter().zip(observations) {
         assert_eq!(observe(request), cpp, "request: {request}");
     }

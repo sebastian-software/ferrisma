@@ -1,9 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Ported from `lib/jxl/ans_common.{h,cc}` except the prefetch hint.
+//! Ported from `lib/jxl/ans_common.{h,cc}`.
 //! Keeps alias-table construction order, packed entries, and word-based lookup.
-//! Output slices replace caller-owned pointers. Prefetch remains unported.
+//! Output slices replace caller-owned pointers. Prefetch uses the original
+//! cache hint, including its disabled branch in the reference configuration.
 
 use super::ans_params::{ANS_LOG_TAB_SIZE, ANS_TAB_SIZE};
 use super::base::status::{Status, StatusCode};
@@ -44,7 +45,13 @@ pub struct Entry {
     pub freq1_xor_freq0: u16,
 }
 
+const _: () = assert!(std::mem::size_of::<Entry>() == 8);
+
 impl AliasTable {
+    pub fn prefetch(table: &[Entry], value: usize, log_entry_size: usize) {
+        super::base::cache_control::prefetch(&table[value >> log_entry_size]);
+    }
+
     pub fn lookup(
         table: &[Entry],
         value: usize,
