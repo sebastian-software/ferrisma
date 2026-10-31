@@ -81,6 +81,14 @@ XL Project Authors' copyright notice and name the source files they translate.
   are local infrastructure, including parameter ranges from the upstream
   transfer/tone test scenarios; they do not claim to port those SIMD tests.
   Native MD5 known answers and ICC tag-layout checks are local tests.
+- `cms/color_encoding_cms.h`, `color_encoding_internal.{h,cc}`,
+  `image_metadata.{h,cc}`, the name visitor in `frame_header.h`, the used
+  quantizer bias constants, and codestream/metadata writers in `enc_fields.cc`:
+  metadata field storage, conversion, visitors, and header output. Native
+  coordinate/gamma scenarios adapt `color_encoding_internal_test.cc`; complete
+  header, malformed input, custom-weight, and reused-object corpora are local
+  infrastructure. These compare original source entry points, without
+  substituting test framing for the codestream-header writer.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Ported from `lib/jxl/enc_fields.cc`: primitive coders and Bundle::Write.
-//! Complete codestream, frame, and quantizer writing remain unported.
+//! Codestream/image metadata writes are also translated. Frame and quantizer
+//! writing remain unported.
 
 use super::base::status::{Status, StatusCode};
 use super::enc_aux_out::{AuxOut, LayerType};
@@ -204,4 +205,50 @@ pub fn write_size_header(
     aux_out: Option<&mut AuxOut>,
 ) -> Status {
     bundle::write(size, writer, layer, aux_out)
+}
+
+pub fn write_image_metadata(
+    metadata: &mut super::image_metadata::ImageMetadata,
+    writer: &mut BitWriter,
+    layer: LayerType,
+    aux_out: Option<&mut AuxOut>,
+) -> Status {
+    bundle::write(metadata, writer, layer, aux_out)
+}
+
+pub fn write_codestream_headers(
+    metadata: &mut super::image_metadata::CodecMetadata,
+    writer: &mut BitWriter,
+    mut aux_out: Option<&mut AuxOut>,
+) -> Status {
+    writer.with_max_bits(
+        16,
+        LayerType::Header,
+        aux_out.as_deref_mut(),
+        |w, _| {
+            w.write(8, 0xff);
+            w.write(8, u64::from(super::headers::CODESTREAM_MARKER));
+            Ok(())
+        },
+        false,
+    )?;
+    write_size_header(
+        &mut metadata.size,
+        writer,
+        LayerType::Header,
+        aux_out.as_deref_mut(),
+    )?;
+    write_image_metadata(
+        &mut metadata.m,
+        writer,
+        LayerType::Header,
+        aux_out.as_deref_mut(),
+    )?;
+    metadata.transform_data.nonserialized_xyb_encoded = metadata.m.xyb_encoded;
+    bundle::write(
+        &mut metadata.transform_data,
+        writer,
+        LayerType::Header,
+        aux_out,
+    )
 }

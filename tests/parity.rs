@@ -42,6 +42,9 @@ mod enc_entropy;
 #[path = "parity/cms.rs"]
 mod cms;
 
+#[path = "parity/metadata.rs"]
+mod metadata;
+
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -615,6 +618,7 @@ fn observe(request: &str) -> String {
         kind if lz77::handles(kind) => lz77::observe(kind, &mut args),
         kind if enc_entropy::handles(kind) => enc_entropy::observe(kind, &mut args),
         kind if cms::handles(kind) => cms::observe(kind, &mut args),
+        kind if metadata::handles(kind) => metadata::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

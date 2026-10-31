@@ -126,6 +126,18 @@ explicit representations while retaining source algorithms.
   is linked. Darwin omits a NaN sign, covered by an exact negative-NaN regression.
   These are reference-configuration results, not cross-platform or SIMD parity.
 
+- Metadata names use byte vectors, because C++ strings accept arbitrary bytes
+  even where comments call them UTF-8. Names and extra-channel vectors resize
+  only on the source's reading branches; default visitation of a reused object
+  must not clear them. Preserve unsigned field offsets before a failed visit,
+  hidden color-storage synchronization, and mutations made before setter errors.
+  The non-callback FromExternal color API deliberately ignores profile-generation
+  failure, as the source does; field parsing propagates that failure instead.
+  Static color encodings use OnceLock for the source's lazy static arrays.
+  Their first-use timing is not performance evidence. Differential inputs to
+  external C enums stay inside C++'s defined enum representation range; invalid
+  decoded internal values still use the existing raw wrappers and validation.
+
 Retain defined unsigned truncation and wrapping explicitly. Invalid programmer
 preconditions must not cause undefined behavior in Rust. Record any discovered
 source ambiguity before changing its interpretation. Do not add blanket unsafe

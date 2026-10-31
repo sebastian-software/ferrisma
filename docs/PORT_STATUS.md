@@ -1,6 +1,6 @@
 # Port status
 
-This repository contains bitstream/header, entropy coding, and color-profile dependencies.
+This repository contains codestream-header, metadata, entropy, and color-profile dependencies.
 It cannot encode or decode JPEG XL images. There are no C++ runtime fallbacks
 and no placeholder codec APIs. The source revision is pinned in
 [upstream.json](../upstream.json).
@@ -34,12 +34,16 @@ and no placeholder codec APIs. The source revision is pinned in
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs` | Existing scalar FastLog2f and its degree-two polynomial; other functions/targets unported |
 | `common.h` | `common.rs` | SpeedTier only; other constants unported |
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage; public C ABI and CMS callbacks unported |
+| `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, and partial setter state; callback-driven ICC parsing unported |
+| `color_encoding_internal.h`, `.cc` | `color_encoding_internal.rs` | Field bundles, profile generation, raw ICC storage, static encodings, and non-callback field APIs; CMS callbacks/transforms unported |
+| `image_metadata.h`, `.cc`, quantizer bias constants | `image_metadata.rs`, `image_metadata_weights.rs` | Bit depth, extra channels, opsin/custom weights, tone mapping, image/codec metadata, sample/alpha/orientation helpers, and metadata reading; diagnostic output unported |
+| `frame_header.h` | `frame_header.rs` | Shared name-string visitor only; frame types, fields, and parsing unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; ICC parsing and color transforms unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
-| `enc_fields.cc` | `enc_fields.rs` | Primitive writes, Bundle::Write and size-header wrapper; full codestream/frame/quantizer writes unported |
+| `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, and complete codestream-header output; frame/quantizer writes unported |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer storage subset; other container operations unported |
@@ -62,13 +66,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 83 tests, including 40 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 83 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 83 tests and corpus |
+| Rust debug | PASSED | 92 tests, including 46 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 92 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 92 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **496,799 requests** against C++. These include
+Each differential run compares **501,541 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -124,6 +128,17 @@ reference Darwin formatter omits a negative NaN's sign; an exact regression
 retains that platform behavior. Other platform runtime formatting remains
 unverified, as do SIMD and alternative ICC compile settings.
 
+Metadata comparisons cover color storage/conversion and serialized bundles,
+raw ICC selection, bit-depth validation and unsigned offsets, complete
+codestream-header bytes/accounting, orientation, preview/animation/intrinsic
+sizes, extra-channel byte names, custom transform masks/weights, and truncated
+or damaged input. Observations retain private field storage exposed by the
+source's View, including partial conversion failures and exact ICC bytes.
+Reused-object cases preserve stale extra-channel vectors and names in the
+source's default visitor. Native RGB/gray header round trips, upstream-derived
+coordinate/gamma scenarios, and a reused-name regression run without C++.
+Header completion is not a complete image encode/decode path.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -155,8 +170,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the color-field storage/visitors to image metadata and frame headers,
-   then the first actual frame path.
+1. Port frame headers, section tables, and backing image/channel storage, then
+   the first actual frame path.
 2. Connect modular prediction/residual coding and the transforms reached by the
    first-image configuration.
 3. Expand through remaining modular and VarDCT decoding and encoding before

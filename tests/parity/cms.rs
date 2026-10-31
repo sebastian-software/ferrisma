@@ -18,7 +18,7 @@ fn f64_arg(args: &mut std::str::SplitWhitespace<'_>) -> f64 {
 fn f32_arg(args: &mut std::str::SplitWhitespace<'_>) -> f32 {
     f32::from_bits(number(args))
 }
-fn color_encoding(args: &mut std::str::SplitWhitespace<'_>) -> JxlColorEncoding {
+pub(super) fn color_encoding(args: &mut std::str::SplitWhitespace<'_>) -> JxlColorEncoding {
     JxlColorEncoding {
         color_space: ColorSpace(number(args)),
         white_point: WhitePoint(number(args)),
@@ -163,7 +163,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         _ => panic!("test CMS command"),
     }
 }
-fn external_args(c: &JxlColorEncoding) -> String {
+pub(super) fn external_args(c: &JxlColorEncoding) -> String {
     let mut out = format!(
         "{} {} {} {} {} {}",
         c.color_space.0,
@@ -185,7 +185,7 @@ fn external_args(c: &JxlColorEncoding) -> String {
     }
     out
 }
-fn srgb() -> JxlColorEncoding {
+pub(super) fn srgb() -> JxlColorEncoding {
     JxlColorEncoding {
         color_space: ColorSpace::RGB,
         white_point: WhitePoint::D65,

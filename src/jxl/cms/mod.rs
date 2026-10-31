@@ -1,3 +1,4 @@
+pub mod color_encoding_cms;
 pub mod icc;
 mod icc_description;
 mod icc_math;
