@@ -69,6 +69,16 @@ explicit representations while retaining source algorithms.
   Do not replace it with a library logarithm or fused operations. Disjoint
   slice borrows allow merging two histogram entries without cloning the source
   entry solely to satisfy the borrow checker.
+- LZ77 retains the RLE, greedy ring-bucket, and optimal hash-chain algorithms,
+  including their different special-distance collision winners and first-match
+  ties. Owned vectors replace source pointers; initialized match records expose
+  only fields assigned by the original dynamic program. The cost tables retain
+  exact f32 bits. Upstream disables Clang auto-vectorization; on AArch64 the
+  scalar histogram accumulation and final `6 - total_cost * inv_total`
+  expression use fused rounding. The Rust mapping makes those rounding sites
+  explicit. The x86_64 baseline has no FMA target; this is configuration-specific
+  evidence, not cross-target bit parity.
+  Differential regressions check all model float bits as well as chosen tokens.
 - Huffman node/table pointers become indices into borrowed slices. Leaf nodes
   are sorted by population and descending symbol index, exactly as in C++;
   that comparator is a total order, so the standard library sort's internal

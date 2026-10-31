@@ -56,6 +56,14 @@ XL Project Authors' copyright notice and name the source files they translate.
   dependencies. The approximation's bounded native test adapts
   `fast_math_test.cc`; bit-pattern and cluster corpora are local differential
   infrastructure. SIMD targets and other fast-math functions remain unported.
+- `enc_lz77.{h,cc}`: original cost tables/model, RLE, greedy bucket variants,
+  optimal hash-chain variants, and dispatch. The oracle includes the pristine
+  `.cc` in its adapter translation unit to observe the private cost helper
+  directly. Generated token/cost corpora and the native copy-expansion test are
+  local infrastructure. Explicit float-bit regressions retain the AArch64
+  reference compiler's fused scalar accumulation and final penalty. The oracle
+  preserves upstream's Clang `-fno-slp-vectorize -fno-vectorize` settings from
+  `lib/CMakeLists.txt`; omitting them changed this cost model's float rounding.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

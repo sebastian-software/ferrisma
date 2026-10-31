@@ -23,3 +23,10 @@ This requires a C++ toolchain and the reference's pinned Highway dependency for
 the checks. Review the oracle whenever a source revision, compile configuration,
 protocol, or ported boundary changes. Never turn missing oracle evidence into a
 passing test.
+
+The scalar Clang build retains upstream `lib/CMakeLists.txt`'s
+`-fno-slp-vectorize -fno-vectorize` settings. They affect floating-point
+reductions: allowing auto-vectorization changed LZ77 cost rounding, and ASan
+then selected a different reduction loop. Both ordinary and instrumented
+oracles must use the upstream settings. Keep exact float-bit comparisons;
+do not compensate with relaxed tolerances or changed reference algorithms.

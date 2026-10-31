@@ -8,7 +8,7 @@ source algorithms and behavior before any redesign or additional optimization.
 implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
 field visitors, size/preview/animation headers, ANS alias tables, and Huffman
 tree encoding and prefix decoding, entropy-stream parsing, hybrid integers,
-LZ77 decoding, histogram normalization/clustering, and token output.
+LZ77 decoding/token generation, histogram normalization/clustering, and token output.
 Encoding-strategy selection and the image path are still being translated; the
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate

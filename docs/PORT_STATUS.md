@@ -25,7 +25,8 @@ and no placeholder codec APIs. The source revision is pinned in
 | `dec_ans.h`, `.cc` | `dec_ans.rs` | Hybrid integers, histogram parsing, ANS/prefix symbols, LZ77, fast paths, and checkpoints |
 | `dec_context_map.h`, `.cc` | `dec_context_map.rs` | Simple/entropy-coded maps, completeness validation, and recursion restriction |
 | `inverse_mtf-inl.h` | `inverse_mtf.rs` | Existing scalar Highway specialization; SIMD specializations unported |
-| `enc_ans.h`, `.cc` | `enc_ans.rs`, `enc_ans_histogram.rs` | ANS state, packed tokens, uint-config writes, normalization, table construction, cost search, and token output; entropy orchestration, uint-strategy selection, and LZ77 token generation unported |
+| `enc_ans.h`, `.cc` | `enc_ans.rs`, `enc_ans_histogram.rs` | ANS state, packed tokens, uint-config writes, normalization, table construction, cost search, and token output; entropy orchestration and uint-strategy selection unported |
+| `enc_lz77.h`, `.cc` | `enc_lz77.rs`, `enc_lz77_costs.rs` | Symbol costs, RLE, greedy bucket variants, optimal hash-chain variants, and original method dispatch |
 | `enc_ans_params.h` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, and uint config; ForModular unported |
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs` | Existing scalar FastLog2f and its degree-two polynomial; other functions/targets unported |
@@ -54,13 +55,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 68 tests, including 29 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 68 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 68 tests and corpus |
+| Rust debug | PASSED | 71 tests, including 31 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 71 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 71 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **409,144 requests** against C++. These include
+Each differential run compares **420,218 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -82,11 +83,18 @@ normalization cases compare every reciprocal/reverse-map entry, serialized
 histograms, all three cost-search strategies, estimates with no output writer,
 and exact population-cost float bits. Native tests also round-trip complete
 normalized ANS histogram/token sequences without reference tables. Entropy
-orchestration and uint/LZ77 strategy selection remain unported. Clustering cases compare
+orchestration and uint strategy selection remain unported. Clustering cases compare
 source scalar logarithm bits, entropy/divergence, mutable input/output caches,
 cluster IDs and order, prior histogram prefixes, limits, and all three
 clustering policies. The native prefix-code regression preserves the source's
 penalty for merging a large singleton into a multi-symbol histogram.
+LZ77 comparisons cover all 16 method settings, force-Huffman choices, changing
+contexts, multiple streams, short tails, empty inputs, periodic/random/running
+values, special-distance collisions, all cost-table entries, extreme unsigned
+inputs, and exact model float bits. A native test expands the output of every
+compressing method across multiple streams and widths, including overlapping
+copies. The AArch64 cost regression preserves the original compiler's fused
+scalar accumulation and final penalty.
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -118,8 +126,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Translate uint-strategy selection and LZ77 token
-   generation, then integrate complete entropy encoding and context-map output.
+1. Translate uint-strategy selection, then integrate complete entropy encoding
+   and context-map output.
 2. Port image metadata and frame headers, then the first actual frame path.
 3. Expand through modular and VarDCT decoding and encoding before introducing
    the C ABI and optimized target-specific kernels.

@@ -15,6 +15,8 @@ pub mod enc_cluster;
 pub mod enc_fields;
 pub mod enc_huffman;
 pub mod enc_huffman_tree;
+pub mod enc_lz77;
+mod enc_lz77_costs;
 pub mod field_encodings;
 pub mod fields;
 pub mod headers;

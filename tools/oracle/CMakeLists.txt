@@ -55,6 +55,12 @@ target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/inc
   "${CMAKE_CURRENT_BINARY_DIR}/include")
 target_compile_definitions(jxl_oracle PRIVATE HWY_COMPILE_ONLY_SCALAR=1 JXL_STATIC_DEFINE)
 target_link_libraries(jxl_oracle PRIVATE hwy)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  # Preserve upstream lib/CMakeLists.txt's numeric code-generation flags.
+  # Auto-vectorizing scalar cost reductions changes their FMA rounding, and
+  # sanitizer instrumentation can otherwise select a different reduction loop.
+  target_compile_options(jxl_oracle PRIVATE -fno-slp-vectorize -fno-vectorize)
+endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   target_compile_options(jxl_oracle PRIVATE -ffunction-sections -fdata-sections)
   if(APPLE)
