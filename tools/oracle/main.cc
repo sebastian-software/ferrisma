@@ -447,6 +447,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "enc_entropy.inc"
 #include "cms.inc"
 #include "metadata.inc"
+#include "frame.inc"
 
 int main() {
   try {
@@ -475,6 +476,7 @@ int main() {
       else if (EncodeEntropyCommand(command, in, &mm)) {}
       else if (CmsCommand(command, in)) {}
       else if (MetadataCommand(command, in, &mm)) {}
+      else if (FrameCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);

@@ -1,7 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! SpeedTier from `lib/jxl/common.h`. Other shared constants remain unported.
+//! SpeedTier and the pass-count bound from `lib/jxl/common.h`.
+//! Other shared constants remain unported.
+
+pub const MAX_NUM_PASSES: usize = 11;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(i32)]

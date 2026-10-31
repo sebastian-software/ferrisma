@@ -46,6 +46,8 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/enc_context_map.cc"
   "${UPSTREAM}/lib/jxl/color_encoding_internal.cc"
   "${UPSTREAM}/lib/jxl/image_metadata.cc"
+  "${UPSTREAM}/lib/jxl/frame_header.cc"
+  "${UPSTREAM}/lib/jxl/loop_filter.cc"
   "${UPSTREAM}/lib/jxl/fields.cc"
   "${UPSTREAM}/lib/jxl/enc_fields.cc"
   "${UPSTREAM}/lib/jxl/enc_huffman.cc"

@@ -143,6 +143,26 @@ preconditions must not cause undefined behavior in Rust. Record any discovered
 source ambiguity before changing its interpretation. Do not add blanket unsafe
 code or blanket lint suppression to imitate C++ syntax.
 
+Frame and animation metadata pointers use optional shared borrows, preserving
+the source's nullable cases and branch-local dereferences. Constructors assign
+safe initial storage before running the original field visitor. Inactive pass
+array entries have no defined initial C++ values; the oracle explicitly seeds
+those entries as caller input before comparing state. Serialized fields and
+the last-pass shift retain the source's mutation order. Chroma subsampling
+keeps cached maxima when Set fails partway through: byte operands promote to
+signed int before the difference converts to size_t. Unsigned rectangle
+coordinates and group dimensions use pointer-width wrapping and the original
+clamping, units, and padding; signed RectT and image-row views remain absent.
+Filter validation promotes stored floats to double for the source's unsuffixed
+`1e-8` threshold. Rounding that threshold to f32 incorrectly accepts the nearest
+float below it; an exact differential rejection regression covers this case.
+Bundle::AllDefault retains the release reference's accumulated predicate after
+a failed visit; the source's JXL_DEBUG_ABORT is disabled in that configuration.
+The enclosing CanEncode visit propagates its own validation error. Rust debug
+and release both follow this release-state contract, with source crash-on-error
+instrumentation still outside the translated boundary. The sigma regression
+also checks this error path rather than converting it to a Rust panic.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

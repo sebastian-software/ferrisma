@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Ported from `lib/jxl/enc_fields.cc`: primitive coders and Bundle::Write.
-//! Codestream/image metadata writes are also translated. Frame and quantizer
-//! writing remain unported.
+//! Codestream/image metadata and frame header writes are also translated.
+//! Quantizer writing remains unported.
 
 use super::base::status::{Status, StatusCode};
 use super::enc_aux_out::{AuxOut, LayerType};
@@ -251,4 +251,12 @@ pub fn write_codestream_headers(
         LayerType::Header,
         aux_out,
     )
+}
+
+pub fn write_frame_header(
+    frame: &mut super::frame_header::FrameHeader<'_>,
+    writer: &mut BitWriter,
+    aux_out: Option<&mut AuxOut>,
+) -> Status {
+    bundle::write(frame, writer, LayerType::Header, aux_out)
 }

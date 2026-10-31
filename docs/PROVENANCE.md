@@ -90,6 +90,14 @@ XL Project Authors' copyright notice and name the source files they translate.
   infrastructure. These compare original source entry points, without
   substituting test framing for the codestream-header writer.
 
+- `frame_header.{h,cc}`, `frame_dimensions.h`, `base/rect.h`, `pack_signed.h`,
+  `loop_filter.{h,cc}`, and the frame writer in `enc_fields.cc`: frame fields,
+  progressive passes, geometry, and filter parameter bundles. Cross-language
+  byte/state corpora, malformed/truncated headers, geometry edge cases, and
+  native metadata/frame integration tests are local infrastructure. The oracle
+  seeds inactive pass-array entries before observations to avoid reading
+  undefined initial C++ storage. Pixel filter kernels remain separate work.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises

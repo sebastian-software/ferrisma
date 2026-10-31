@@ -703,7 +703,10 @@ pub mod bundle {
             base: VisitorBase::default(),
             all_default: true,
         };
-        visitor.visit(fields).expect("AllDefault should never fail");
+        // The release reference ignores a failed visit after JXL_DEBUG_ABORT,
+        // then returns the accumulated predicate, including partial state,
+        // to the enclosing visitor.
+        let _status = visitor.visit(fields);
         visitor.all_default
     }
 
