@@ -112,6 +112,20 @@ explicit representations while retaining source algorithms.
   release-state fuzzer flag remains false; its debug-only global setter is not
   yet exposed. Ordinary Rust debug/release builds both match that reference.
 
+- Color matrices use typed float/double arrays and a 16-byte aligned temporary,
+  preserving source mixed-precision accumulation and inversion order. The
+  translated callers have disjoint input/output storage; native borrows express
+  that boundary. Ordinary Clang AArch64 expression contraction is explicit,
+  including double results later narrowed through `copysignf`. C++ min/max
+  operand order and unordered comparisons are retained instead of using Rust's
+  different NaN rules. Opsin constants and the A2B cube keep constexpr float
+  evaluation. ICC tag output remains byte-oriented, with the original profile
+  date, aliasing of curve tags, padding, and unsigned MD5 wrapping. Rust's
+  standard formatter supplies the source's default six-significant-digit `%g`
+  output, with explicit fixed/exponent selection and C spellings; no C formatter
+  is linked. Darwin omits a NaN sign, covered by an exact negative-NaN regression.
+  These are reference-configuration results, not cross-platform or SIMD parity.
+
 Retain defined unsigned truncation and wrapping explicitly. Invalid programmer
 preconditions must not cause undefined behavior in Rust. Record any discovered
 source ambiguity before changing its interpretation. Do not add blanket unsafe

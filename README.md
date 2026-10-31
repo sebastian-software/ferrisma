@@ -9,7 +9,8 @@ implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
 field visitors, size/preview/animation headers, ANS alias tables, and Huffman
 tree encoding and prefix decoding, entropy-stream parsing, hybrid integers,
 LZ77 decoding/token generation, histogram normalization/clustering, hybrid
-strategy selection, context-map output, and complete entropy-stream encoding.
+strategy selection, context-map output, complete entropy-stream encoding, and
+ICC profile generation with its scalar color-math dependencies.
 The image path is still being translated; the
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate

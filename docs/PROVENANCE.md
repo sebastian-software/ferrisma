@@ -71,6 +71,16 @@ XL Project Authors' copyright notice and name the source files they translate.
   cost decisions. The new oracle adapter calls the original complete encoder
   entry points. Its corpus, cross-decoding checks, and native entropy pipeline
   test are local infrastructure; they are not image-codec acceptance evidence.
+- `base/matrix_ops.h`, `cms/opsin_params.h`, `cms/transfer_functions.h`,
+  `cms/tone_mapping.h`, and `cms/jxl_cms_internal.h`: profile-generation
+  dependencies, original scaling/cube construction, transfer/tone functions,
+  descriptions, ICC tags/tables, and profile-ID MD5. The enum masks and external
+  color fields originate in `color_encoding_internal.h` and
+  `lib/include/jxl/color_encoding.h`. The `%g` mapping follows `base/common.h`
+  through Rust formatting, without linking a C formatter. Differential corpora
+  are local infrastructure, including parameter ranges from the upstream
+  transfer/tone test scenarios; they do not claim to port those SIMD tests.
+  Native MD5 known answers and ICC tag-layout checks are local tests.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

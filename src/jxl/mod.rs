@@ -1,6 +1,8 @@
 pub mod ans_common;
 pub mod ans_params;
 pub mod base;
+pub mod cms;
+pub mod color_encoding;
 pub mod common;
 pub mod dec_ans;
 pub mod dec_bit_reader;
