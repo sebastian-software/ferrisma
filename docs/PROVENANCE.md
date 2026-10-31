@@ -51,6 +51,11 @@ XL Project Authors' copyright notice and name the source files they translate.
   and reciprocal/reverse encoding maps. Local differential cases cover sparse,
   tied, high-count, empty, oversized, and prefix histograms with all original
   search strategies and both writer-present/absent paths.
+- `enc_cluster.{h,cc}`, HistogramParams defaults/strategies and SpeedTier, plus
+  scalar `FastLog2f` and its rational polynomial: clustering and encoder cost
+  dependencies. The approximation's bounded native test adapts
+  `fast_math_test.cc`; bit-pattern and cluster corpora are local differential
+  infrastructure. SIMD targets and other fast-math functions remain unported.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

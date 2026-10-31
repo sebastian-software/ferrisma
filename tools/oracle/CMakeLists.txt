@@ -41,6 +41,7 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/dec_huffman.cc"
   "${UPSTREAM}/lib/jxl/enc_bit_writer.cc"
   "${UPSTREAM}/lib/jxl/enc_ans.cc"
+  "${UPSTREAM}/lib/jxl/enc_cluster.cc"
   "${UPSTREAM}/lib/jxl/fields.cc"
   "${UPSTREAM}/lib/jxl/enc_fields.cc"
   "${UPSTREAM}/lib/jxl/enc_huffman.cc"

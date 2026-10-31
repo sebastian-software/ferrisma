@@ -1,6 +1,7 @@
 pub mod ans_common;
 pub mod ans_params;
 pub mod base;
+pub mod common;
 pub mod dec_ans;
 pub mod dec_bit_reader;
 pub mod dec_context_map;
@@ -10,6 +11,7 @@ mod enc_ans_histogram;
 pub mod enc_ans_params;
 pub mod enc_aux_out;
 pub mod enc_bit_writer;
+pub mod enc_cluster;
 pub mod enc_fields;
 pub mod enc_huffman;
 pub mod enc_huffman_tree;

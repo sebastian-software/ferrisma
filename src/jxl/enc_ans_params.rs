@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Histogram storage and ANS strategy from `lib/jxl/enc_ans_params.h`.
-//! Clustering, hybrid/LZ77 strategy selection, and entropy cache evaluation
-//! remain outside this boundary until their dependencies are translated.
+//! Encoder parameter fields/defaults and histogram storage are translated;
+//! ForModular still depends on the unported compression/image options.
 
 use super::ans_common::create_flat_histogram;
+use super::common::SpeedTier;
+use super::dec_ans::HybridUintConfig;
 
 pub type ANSHistBin = i32;
 
@@ -14,6 +16,100 @@ pub enum ANSHistogramStrategy {
     Fast,
     Approximate,
     Precise,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ClusteringType {
+    Fastest,
+    Fast,
+    Best,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HybridUintMethod {
+    None,
+    Uint000,
+    Fast,
+    ContextMap,
+    Best,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LZ77Method {
+    None,
+    RLE,
+    LZ77b1w3f,
+    LZ77b3w3f,
+    LZ77b7w3f,
+    LZ77b15w3f,
+    LZ77b31w3f,
+    LZ77b1w3t,
+    LZ77b3w3t,
+    LZ77b7w3t,
+    LZ77b15w3t,
+    LZ77b31w3t,
+    Optc1,
+    Optc3,
+    Optc8,
+    Optc256,
+}
+
+#[derive(Clone)]
+pub struct HistogramParams {
+    pub clustering: ClusteringType,
+    pub uint_method: HybridUintMethod,
+    pub lz77_method: LZ77Method,
+    pub ans_histogram_strategy: ANSHistogramStrategy,
+    pub image_widths: Vec<usize>,
+    pub max_histograms: usize,
+    pub force_huffman: bool,
+    pub initialize_global_state: bool,
+    pub streaming_mode: bool,
+    pub add_missing_symbols: bool,
+    pub add_fixed_histograms: bool,
+}
+
+impl Default for HistogramParams {
+    fn default() -> Self {
+        Self {
+            clustering: ClusteringType::Best,
+            uint_method: HybridUintMethod::Best,
+            lz77_method: LZ77Method::RLE,
+            ans_histogram_strategy: ANSHistogramStrategy::Precise,
+            image_widths: Vec::new(),
+            max_histograms: usize::MAX,
+            force_huffman: false,
+            initialize_global_state: true,
+            streaming_mode: false,
+            add_missing_symbols: false,
+            add_fixed_histograms: false,
+        }
+    }
+}
+impl HistogramParams {
+    pub fn new(tier: SpeedTier, _num_ctx: usize) -> Self {
+        let mut result = Self::default();
+        if tier > SpeedTier::Falcon {
+            result.clustering = ClusteringType::Fastest;
+            result.lz77_method = LZ77Method::None;
+        } else if tier > SpeedTier::Tortoise {
+            result.clustering = ClusteringType::Fast;
+        } else {
+            result.clustering = ClusteringType::Best;
+        }
+        if tier > SpeedTier::Tortoise {
+            result.uint_method = HybridUintMethod::None;
+        }
+        if tier >= SpeedTier::Squirrel {
+            result.ans_histogram_strategy = ANSHistogramStrategy::Approximate;
+        }
+        result
+    }
+    pub fn uint_config(&self) -> HybridUintConfig {
+        match self.uint_method {
+            HybridUintMethod::ContextMap => HybridUintConfig::new(2, 0, 1),
+            HybridUintMethod::Uint000 => HybridUintConfig::new(0, 0, 0),
+            _ => HybridUintConfig::default(),
+        }
+    }
 }
 
 #[derive(Clone, Default)]

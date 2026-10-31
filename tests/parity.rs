@@ -30,6 +30,9 @@ mod huffman;
 #[path = "parity/ans.rs"]
 mod ans;
 
+#[path = "parity/cluster.rs"]
+mod cluster;
+
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -599,6 +602,7 @@ fn observe(request: &str) -> String {
         kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
         kind if kind.starts_with("huffman") => huffman::observe(kind, &mut args),
         kind if ans::handles(kind) => ans::observe(kind, &mut args),
+        kind if cluster::handles(kind) => cluster::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

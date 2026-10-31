@@ -442,6 +442,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "entropy.inc"
 #include "huffman.inc"
 #include "ans.inc"
+#include "cluster.inc"
 
 int main() {
   try {
@@ -465,6 +466,7 @@ int main() {
       else if (command == "append") AppendCase(in, &mm);
       else if (HuffmanCommand(command, in, &mm)) {}
       else if (ANSCommand(command, in, &mm)) {}
+      else if (ClusterCommand(command, in)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);

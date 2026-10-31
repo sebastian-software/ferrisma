@@ -60,6 +60,15 @@ explicit representations while retaining source algorithms.
   preserve that with strict comparisons, rather than Rust's last-winner
   maximum iterator behavior. Internal writer traits express source Writer
   templates for actual output and bit-count-only estimation.
+- Histogram clustering takes mutable input borrows because the C++ const
+  interface writes a mutable entropy cache. Preserve those cache changes and
+  first-winner ties. A Rust heap uses the original reversed `(cost, first,
+  second, version)` ordering; maps retain canonical first-use reindexing. The
+  scalar FastLog2f keeps the source coefficients as exact f32 bit patterns,
+  integer range reduction, and separate polynomial multiplication/addition.
+  Do not replace it with a library logarithm or fused operations. Disjoint
+  slice borrows allow merging two histogram entries without cloning the source
+  entry solely to satisfy the borrow checker.
 - Huffman node/table pointers become indices into borrowed slices. Leaf nodes
   are sorted by population and descending symbol index, exactly as in C++;
   that comparator is a total order, so the standard library sort's internal
