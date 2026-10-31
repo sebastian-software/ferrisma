@@ -45,6 +45,12 @@ XL Project Authors' copyright notice and name the source files they translate.
   The translated Highway prefetch helper uses Highway's offered BSD-3-Clause
   alternative; its unchanged notice is in
   [licenses/HIGHWAY-BSD-3-Clause.txt](../licenses/HIGHWAY-BSD-3-Clause.txt).
+- Histogram storage and ANS strategy in `enc_ans_params.h`, and the anonymous
+  `ANSEncodingHistogram` implementation plus table-building/cost entry points
+  in `enc_ans.cc`: normalization, fixed-point cost tables, histogram output,
+  and reciprocal/reverse encoding maps. Local differential cases cover sparse,
+  tied, high-count, empty, oversized, and prefix histograms with all original
+  search strategies and both writer-present/absent paths.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,

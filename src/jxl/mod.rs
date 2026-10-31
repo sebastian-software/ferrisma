@@ -6,6 +6,8 @@ pub mod dec_bit_reader;
 pub mod dec_context_map;
 pub mod dec_huffman;
 pub mod enc_ans;
+mod enc_ans_histogram;
+pub mod enc_ans_params;
 pub mod enc_aux_out;
 pub mod enc_bit_writer;
 pub mod enc_fields;

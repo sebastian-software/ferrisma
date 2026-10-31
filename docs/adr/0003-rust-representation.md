@@ -50,6 +50,16 @@ explicit representations while retaining source algorithms.
 - The inverse move-to-front transform initially translates the existing
   one-lane Highway scalar specialization. Its vector specializations remain
   separate future work; no SIMD or performance parity is inferred from it.
+- ANS histogram lookup tables use `OnceLock` with initialized, contiguous
+  Rust-owned arrays in place of C++ static initialization. Their formulas,
+  numeric widths, and row order stay unchanged; initialization occurs on first
+  use under the reference's default floating-point environment. This changes
+  storage/initialization timing, not the search algorithm, and does not imply
+  memory or performance parity. Keep `f64` rounding and `f32` cost-conversion
+  points explicit. C++ `max_element`/`min_element` choose the first equal winner;
+  preserve that with strict comparisons, rather than Rust's last-winner
+  maximum iterator behavior. Internal writer traits express source Writer
+  templates for actual output and bit-count-only estimation.
 - Huffman node/table pointers become indices into borrowed slices. Leaf nodes
   are sorted by population and descending symbol index, exactly as in C++;
   that comparator is a total order, so the standard library sort's internal

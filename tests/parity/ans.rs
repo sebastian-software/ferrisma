@@ -9,6 +9,7 @@ use jxl::jxl::dec_context_map::decode_context_map;
 use jxl::jxl::enc_ans::{
     ANSEncSymbolInfo, EntropyEncodingData, Token, encode_uint_configs, write_tokens_with_allotment,
 };
+use jxl::jxl::enc_ans_params::{ANSHistogramStrategy, Histogram};
 use jxl::jxl::inverse_mtf::inverse_move_to_front_transform;
 
 pub(super) fn handles(kind: &str) -> bool {
@@ -195,6 +196,77 @@ fn ans_read(args: &mut std::str::SplitWhitespace<'_>, mode: &str) -> String {
 
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
     match kind {
+        "ans-normalize" => {
+            let prefix: u32 = number(args);
+            let log_alpha = number(args);
+            let strategy = match number::<u32>(args) {
+                0 => ANSHistogramStrategy::Fast,
+                1 => ANSHistogramStrategy::Approximate,
+                2 => ANSHistogramStrategy::Precise,
+                _ => panic!("test strategy"),
+            };
+            let offset = number(args);
+            let write: u32 = number(args);
+            let size: usize = number(args);
+            let counts: Vec<i32> = (0..size).map(|_| number(args)).collect();
+            let histogram = Histogram {
+                total_count: counts.iter().map(|&n| n as usize).sum(),
+                counts,
+                entropy: 0.0,
+            };
+            let mut codes = EntropyEncodingData {
+                use_prefix_code: prefix != 0,
+                log_alpha_size: log_alpha,
+                encoding_info: vec![
+                    (0..histogram.alphabet_size().max(1))
+                        .map(|_| ANSEncSymbolInfo::default())
+                        .collect(),
+                ],
+                ..EntropyEncodingData::default()
+            };
+            let mut writer = BitWriter::new();
+            super::prefix(&mut writer, offset);
+            let mut cost = 0;
+            let status = writer.with_max_bits(
+                32 * size + 256,
+                LayerType::Header,
+                None,
+                |w, _| {
+                    cost = codes.build_and_store_ans_encoding_data(
+                        strategy,
+                        &histogram,
+                        if write != 0 { Some(w) } else { None },
+                    )?;
+                    Ok(())
+                },
+                false,
+            );
+            let population_cost = histogram.ans_population_cost().unwrap();
+            let bits = writer.bits_written();
+            pad(&mut writer);
+            let mut result = format!(
+                "{} {cost} {bits} {} {}",
+                status_code(&status),
+                hex(writer.get_span()),
+                population_cost.to_bits()
+            );
+            for symbol in &codes.encoding_info[0] {
+                write!(
+                    result,
+                    " {},{},{},{},{}",
+                    symbol.freq,
+                    symbol.ifreq,
+                    symbol.depth,
+                    symbol.bits,
+                    symbol.reverse_map.len()
+                )
+                .unwrap();
+                for offset in &symbol.reverse_map {
+                    write!(result, ",{offset}").unwrap();
+                }
+            }
+            result
+        }
         "ans-hist" | "ans-stream" | "ans-checkpoint" | "ans-single" | "ans-rle" | "ans-nolz" => {
             ans_read(args, kind)
         }
@@ -534,6 +606,57 @@ fn original_encoder_payloads_and_streams_match_rust_tokens_and_decoder() {
             codes.encoding_info.push(histogram);
         }
         assert!(args.next().is_none());
+        let mut histograms = vec![Histogram::default(); codes.uint_config.len()];
+        for &(ctx, value, length) in &tokens {
+            let cfg = if length != 0 {
+                codes.lz77.length_uint_config
+            } else {
+                codes.uint_config[ctx as usize]
+            };
+            let (mut symbol, _, _) = cfg.encode(value);
+            if length != 0 {
+                symbol += codes.lz77.min_symbol;
+            }
+            histograms[ctx as usize].add(symbol as usize);
+        }
+        let mut rust_info = Vec::new();
+        for (histogram, original_info) in histograms.iter().zip(&codes.encoding_info) {
+            let mut generated = EntropyEncodingData {
+                use_prefix_code: codes.use_prefix_code,
+                log_alpha_size: codes.log_alpha_size,
+                encoding_info: vec![
+                    (0..histogram.alphabet_size().max(1))
+                        .map(|_| ANSEncSymbolInfo::default())
+                        .collect(),
+                ],
+                ..EntropyEncodingData::default()
+            };
+            generated
+                .build_and_store_ans_encoding_data(ANSHistogramStrategy::Precise, histogram, None)
+                .unwrap();
+            let info = generated.encoding_info.pop().unwrap();
+            for (actual, expected) in info.iter().zip(original_info) {
+                assert_eq!(
+                    (
+                        actual.freq,
+                        actual.ifreq,
+                        actual.depth,
+                        actual.bits,
+                        &actual.reverse_map
+                    ),
+                    (
+                        expected.freq,
+                        expected.ifreq,
+                        expected.depth,
+                        expected.bits,
+                        &expected.reverse_map
+                    ),
+                    "{request}"
+                );
+            }
+            rust_info.push(info);
+        }
+        codes.encoding_info = rust_info;
         let tokens: Vec<_> = tokens
             .into_iter()
             .map(|(ctx, value, length)| {
@@ -580,6 +703,56 @@ fn original_encoder_payloads_and_streams_match_rust_tokens_and_decoder() {
         }
     }
     println!("{} C++/Rust differential cases matched", requests.len());
+    compare(cases);
+}
+
+#[test]
+fn histogram_normalization_costs_serialization_and_reverse_maps_match_original() {
+    let mut cases = Vec::new();
+    let mut seed = 99881;
+    for size in [0, 1, 2, 3, 8, 31, 32, 64, 128, 255, 256, 257, 512, 4096] {
+        for trial in 0..8 {
+            let mut counts = vec![0i32; size];
+            for (i, count) in counts.iter_mut().enumerate() {
+                *count = match trial {
+                    0 => 0,
+                    1 => i32::from(i == 0),
+                    2 => i32::from(i + 1 == size) * 1000000,
+                    3 => 1,
+                    4 => (i % 3 + 1) as i32,
+                    5 => (next(&mut seed) % 100) as i32,
+                    6 => {
+                        if i == size / 2 {
+                            1000000000
+                        } else {
+                            1
+                        }
+                    }
+                    _ => {
+                        if i % 7 == 0 {
+                            (next(&mut seed) % 100000 + 1) as i32
+                        } else {
+                            0
+                        }
+                    }
+                };
+            }
+            for prefix in [0, 1] {
+                for strategy in 0..3 {
+                    for write in [0, 1] {
+                        let mut line = format!(
+                            "ans-normalize {prefix} 8 {strategy} {} {write} {size}",
+                            (trial + strategy) % 8
+                        );
+                        for count in &counts {
+                            write!(line, " {count}").unwrap();
+                        }
+                        cases.push(line);
+                    }
+                }
+            }
+        }
+    }
     compare(cases);
 }
 

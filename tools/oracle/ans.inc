@@ -213,6 +213,40 @@ void ANSFixture(std::istringstream& in, JxlMemoryManager* mm, int context_mtf = 
 bool ANSCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm) {
   if (command == "ans-hist" || command == "ans-stream" || command == "ans-checkpoint" || command == "ans-single" || command == "ans-rle" || command == "ans-nolz") ANSRead(in, mm, command);
   else if (command == "ans-fixture") ANSFixture(in, mm);
+  else if (command == "ans-normalize") {
+    bool prefix, write;
+    size_t log_alpha, strategy, offset, size;
+    in >> prefix >> log_alpha >> strategy >> offset >> write >> size;
+    jxl::Histogram histogram;
+    histogram.counts.resize(size);
+    for (auto& count : histogram.counts) { in >> count; histogram.total_count += count; }
+    jxl::EntropyEncodingData codes;
+    codes.use_prefix_code = prefix; codes.log_alpha_size = log_alpha;
+    codes.encoding_info.resize(1);
+    codes.encoding_info[0].resize(std::max(size_t{1}, histogram.alphabet_size()));
+    BitWriter writer(mm);
+    if (!Prefix(writer, offset)) throw std::runtime_error("ANS normalization prefix");
+    size_t cost = 0;
+    Status status = writer.WithMaxBits(32 * size + 256, LayerType::Header, nullptr, [&]() -> Status {
+      JXL_ASSIGN_OR_RETURN(cost, codes.BuildAndStoreANSEncodingData(mm,
+          static_cast<jxl::HistogramParams::ANSHistogramStrategy>(strategy), histogram,
+          write ? &writer : nullptr));
+      return true;
+    });
+    auto population_cost = histogram.ANSPopulationCost();
+    if (!population_cost.ok()) throw std::runtime_error("ANS population cost");
+    float value = std::move(population_cost).value_();
+    uint32_t float_bits; std::memcpy(&float_bits, &value, 4);
+    size_t bits = writer.BitsWritten();
+    if (!Pad(writer)) throw std::runtime_error("ANS normalization padding");
+    std::cout << Code(status) << ' ' << cost << ' ' << bits << ' ' << Hex(writer.GetSpan()) << ' ' << float_bits;
+    for (const auto& symbol : codes.encoding_info[0]) {
+      std::cout << ' ' << (prefix ? 0 : symbol.freq_) << ',' << (prefix ? 0 : symbol.ifreq_)
+                << ',' << (prefix ? unsigned(symbol.depth) : 0) << ',' << (prefix ? symbol.bits : 0)
+                << ',' << symbol.reverse_map_.size();
+      for (auto offset : symbol.reverse_map_) std::cout << ',' << offset;
+    }
+  }
   else if (command == "context-fixture") {
     bool prefix, mtf; size_t size; in >> prefix >> mtf >> size;
     std::ostringstream text;
