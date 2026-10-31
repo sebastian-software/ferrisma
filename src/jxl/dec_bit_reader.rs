@@ -5,6 +5,7 @@
 //! Borrowed bytes and byte offsets replace C++ pointers. Buffering, refill,
 //! zero-extension, bounds checkpoints, and close behavior follow the source.
 
+use super::base::byte_order::load_le64;
 use super::base::status::{Status, StatusCode};
 use std::ops::{Deref, DerefMut};
 
@@ -36,9 +37,7 @@ impl<'a> BitReader<'a> {
         if bytes.len() - self.next_byte < 8 {
             self.bounds_checked_refill();
         } else {
-            let mut word = [0u8; 8];
-            word.copy_from_slice(&bytes[self.next_byte..self.next_byte + 8]);
-            self.buf |= u64::from_le_bytes(word) << self.bits_in_buf;
+            self.buf |= load_le64(&bytes[self.next_byte..]) << self.bits_in_buf;
             self.next_byte += (63 - self.bits_in_buf) >> 3;
             self.bits_in_buf |= 56;
             debug_assert!(56 <= self.bits_in_buf && self.bits_in_buf < 64);

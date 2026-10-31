@@ -732,3 +732,21 @@ pub mod bundle {
 pub fn check_has_enough_bits(visitor: &mut dyn Visitor, bits: usize) -> Status {
     visitor.check_has_enough_bits(bits)
 }
+
+/// The source's templated Visitor::Enum helper, kept outside the object-safe
+/// Visitor trait. A decoded raw value is assigned before enum validation.
+pub fn visit_enum<E: super::field_encodings::FieldEnum>(
+    visitor: &mut dyn Visitor,
+    default_value: E,
+    value: &mut E,
+) -> Status {
+    use super::field_encodings::{U32Enc, bits_offset, enum_valid, val};
+    let mut u32_value = value.raw();
+    visitor.u32(
+        U32Enc::new(val(0), val(1), bits_offset(4, 2), bits_offset(6, 18)),
+        default_value.raw(),
+        &mut u32_value,
+    )?;
+    *value = E::from_raw(u32_value);
+    enum_valid(*value)
+}

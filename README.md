@@ -5,8 +5,9 @@ the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserve
 source algorithms and behavior before any redesign or additional optimization.
 
 **This is an initial porting slice, not an image encoder or decoder.** It
-implements bit I/O, primitive field coding, field visitors, and size, preview,
-and animation headers. The Rust library has no external crate dependencies and
+implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
+field visitors, size/preview/animation headers, and ANS alias tables. The Rust
+library has no external crate dependencies and
 does not compile or link C/C++. A separate executable built from the original
 C++ source verifies the translated boundaries.
 

@@ -19,6 +19,12 @@ XL Project Authors' copyright notice and name the source files they translate.
   yet translated or verified.
 - Upstream `padded_bytes_test.cc`: first-byte initialization scenarios, extended
   with local checks for storage preservation, padding, and alignment.
+- `base/bits.h`, `base/byte_order.h`, the endianness definition in
+  `lib/include/jxl/types.h`, enum helpers in `field_encodings.h`/`fields.h`,
+  `ans_params.h`, and `ans_common.{h,cc}` from the same pinned source: shared
+  helpers and ANS alias tables. Native cases are adapted from `bits_test.cc`,
+  `byte_order_test.cc`, and `ans_common_test.cc`; the raw enum fixture and
+  generated differential distributions are local test infrastructure.
 - Highway at `457c891775a7397bdb0376bb1031e6e027af1c48`, selected by upstream's
   submodule: C++ oracle compilation only. Its code remains in that submodule
   with its original LICENSE; it is not compiled into the Rust library.

@@ -24,6 +24,14 @@ explicit representations while retaining source algorithms.
 - Field visitors mutate borrowed fields. Bundle encoding accepts a mutable
   bundle because upstream's const visitor casts away constness and may update
   `all_default`; do not clone complete bundles to hide that mutation.
+- Serialized enums use raw `u32` wrappers implementing `FieldEnum`, so an
+  invalid decoded value can be stored and then rejected in the same order as
+  C++. Never create an invalid Rust enum discriminant. The templated Enum
+  visitor helper is a free function to keep `Visitor` object-safe.
+- ANS alias entries retain the eight-byte packed layout and original word
+  lookup on little-endian targets. The unaligned word read is contained in
+  the lookup with its layout, initialization, and borrow proof. Prefetch is
+  not yet exposed; no no-op hint substitutes for the source implementation.
 - Padded storage preserves the minimum capacity, growth rule, padding, alignment,
   and rotating alignment groups. The initial backend uses Rust's allocator and
   initializes allocated bytes to zero so safe slices never expose uninitialized

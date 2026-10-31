@@ -1,6 +1,6 @@
 # Port status
 
-This repository contains the first bitstream/header slice. It cannot encode or
+This repository contains bitstream/header and ANS-table slices. It cannot encode or
 decode JPEG XL images. There are no C++ runtime fallbacks and no placeholder
 codec APIs. The source revision is pinned in [upstream.json](../upstream.json).
 
@@ -10,8 +10,13 @@ codec APIs. The source revision is pinned in [upstream.json](../upstream.json).
 | --- | --- | --- |
 | `dec_bit_reader.h`, `.cc` | `dec_bit_reader.rs` | Reader, checkpoints, native moves, scoped closer; unused private aligned-word helper omitted |
 | `enc_bit_writer.h`, `.cc` | `enc_bit_writer.rs` | Bit writes, byte/unaligned appends, nested allotments and charging; custom allocator and padded-buffer transfer unported |
-| `field_encodings.h` | `field_encodings.rs` | Fields trait and U32 distributions; generic enum helpers unported |
-| `fields.h`, `.cc` | `fields.rs` | Bits/U32/U64/F16 coders and bundle visitors; generic enum visitor helper unported |
+| `field_encodings.h` | `field_encodings.rs` | Fields trait, U32 distributions, raw enum enumeration and validation |
+| `fields.h`, `.cc` | `fields.rs` | Bits/U32/U64/F16 coders, bundle visitors, and enum visitor helper |
+| `base/bits.h` | `base/bits.rs` | Unsigned 32/64-bit and pointer-width zero counts and logarithms |
+| `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
+| `../include/jxl/types.h` | `types.rs` | Endianness only; other public API types unported |
+| `ans_params.h` | `ans_params.rs` | ANS and prefix coding constants |
+| `ans_common.h`, `.cc` | `ans_common.rs` | Alias table construction/lookup, flat histograms, count precision; prefetch unported |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive writes, Bundle::Write and size-header wrapper; full codestream/frame/quantizer writes unported |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
@@ -35,15 +40,17 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 36 tests, including 11 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 36 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 36 tests and corpus |
+| Rust debug | PASSED | 44 tests, including 14 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 44 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 44 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 
-Each differential run compares **211,067 requests** against C++. These include
+Each differential run compares **224,790 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
-appends; extension compatibility; and default/nested bundle control flow.
+appends; extension compatibility; default/nested bundle control flow; raw enum
+validation; unsigned word/byte helpers; and ANS alias tables. Alias comparisons
+include all 4,096 lookups for every successful generated table.
 The native writer test additionally round-trips 1,048,576 generated bit patches.
 
 The default-bundle test first failed on an early Rust return after a truncated
@@ -63,8 +70,8 @@ The Linux/macOS workflow is configured but has not run on a hosted service.
 
 ## Next dependency boundaries
 
-1. Finish common bit/byte and enum helpers needed by metadata and entropy code.
-2. Port ANS/Huffman coding with independent C++ comparisons.
+1. Port Huffman trees, code-length serialization, and prefix decoding with C++ comparisons.
+2. Build ANS stream decoding/encoding on the translated alias tables.
 3. Port image metadata and frame headers, then the first actual frame path.
 4. Expand through modular and VarDCT decoding and encoding before introducing
    the C ABI and optimized target-specific kernels.

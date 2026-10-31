@@ -1,10 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Ported from the integer-distribution portion of `lib/jxl/field_encodings.h`.
-//! Generic enum enumeration/validation is not yet needed by the header slice.
+//! Ported from `lib/jxl/field_encodings.h`.
+//! Raw-value wrappers implement FieldEnum to retain invalid wire values safely.
 
-use super::base::status::Status;
+use super::base::status::{Status, StatusCode};
 
 pub trait Fields {
     fn visit_fields(&mut self, visitor: &mut dyn super::fields::Visitor) -> Status;
@@ -66,4 +66,38 @@ impl U32Enc {
     pub fn get_distr(self, selector: u32) -> U32Distr {
         self.d[selector as usize]
     }
+}
+
+/// A source enum's raw representation, including invalid decoded values.
+/// Implement with a u32 wrapper rather than constructing an invalid Rust enum.
+pub trait FieldEnum: Copy {
+    const BITS: u64;
+    const NAME: &'static str;
+    fn from_raw(value: u32) -> Self;
+    fn raw(self) -> u32;
+}
+
+pub const fn make_bit(index: u32) -> u64 {
+    assert!(index < 64);
+    1u64 << index
+}
+
+pub fn values<E: FieldEnum>() -> Vec<E> {
+    let mut bits = E::BITS;
+    let mut values = Vec::with_capacity(bits.count_ones() as usize);
+    while bits != 0 {
+        values.push(E::from_raw(bits.trailing_zeros()));
+        bits &= bits - 1;
+    }
+    values
+}
+
+pub fn enum_valid<E: FieldEnum>(value: E) -> Status {
+    if value.raw() >= 64 {
+        return Err(StatusCode::GenericError);
+    }
+    if E::BITS & make_bit(value.raw()) == 0 {
+        return Err(StatusCode::GenericError);
+    }
+    Ok(())
 }

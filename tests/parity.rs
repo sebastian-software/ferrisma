@@ -21,6 +21,9 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/entropy.rs"]
+mod entropy;
+
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -587,7 +590,8 @@ fn observe(request: &str) -> String {
         "bundle" => bundle_case(&mut args),
         "default" => default_case(&mut args),
         "append" => append_case(&mut args),
-        kind => primitive(kind, &mut args),
+        kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
+        kind => entropy::observe(kind, &mut args),
     }
 }
 

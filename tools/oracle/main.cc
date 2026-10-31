@@ -439,6 +439,8 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
             << writer.BitsWritten() << ' ' << Hex(writer.GetSpan());
 }
 
+#include "entropy.inc"
+
 int main() {
   try {
     JxlMemoryManager mm;
@@ -459,6 +461,7 @@ int main() {
       else if (command == "bundle") BundleCase(in, &mm);
       else if (command == "default") DefaultCase(in, &mm);
       else if (command == "append") AppendCase(in, &mm);
+      else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");
