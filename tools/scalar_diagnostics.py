@@ -29,6 +29,40 @@ def instructions(path, names):
             run("objdump", "-d", "--disassemble=" + symbol, path)
 
 
+def dct_observations(original):
+    # Exercise the actual complete original adapter, not a substitute arithmetic
+    # probe. These pairs include the native failure's precise coefficient words.
+    for first, second in ((0x7fc12345, 0xffc98765),
+                          (0xffc98765, 0x7fc12345),
+                          (0x7fa12345, 0xffc98765)):
+        coefficients = [1040187392] * 64
+        coefficients[0], coefficients[1] = first, second
+        request = "dct-pixels 8 8 11 0 " + " ".join(map(str, coefficients)) + "\n"
+        result = run(original, input=request, text=True, capture_output=True)
+        blocks = result.stdout.strip().split(" B")
+        if len(blocks) != 3 or len(blocks[1].split()) != 92:
+            raise RuntimeError("Unexpected original DCT observation: " + result.stdout)
+        output = blocks[1].split()
+        pixels = [output[y * 11 + x] for y in range(8) for x in range(8)]
+        print(f"original native DCT {original.parent.name} inputs {first}/{second} pixels:",
+              " ".join(pixels), flush=True)
+    for positions in ((0, 1), (2, 16)):
+        for first, second in ((0x7fc12345, 0xffc98765),
+                              (0xffc98765, 0x7fc12345),
+                              (0x7fa12345, 0xffc98765)):
+            coefficients = [1040187392] * 64
+            coefficients[positions[0]], coefficients[positions[1]] = first, second
+            request = "dct-pixels 8 8 11 14 " + " ".join(map(str, coefficients)) + "\n"
+            result = run(original, input=request, text=True, capture_output=True)
+            blocks = result.stdout.strip().split(" B")
+            if len(blocks) != 3 or len(blocks[1].split()) != 92:
+                raise RuntimeError("Unexpected original AFV observation: " + result.stdout)
+            output = blocks[1].split()
+            pixels = [output[y * 11 + x] for y in range(8) for x in range(8)]
+            print(f"original native AFV {original.parent.name} positions {positions} "
+                  f"inputs {first}/{second} pixels:", " ".join(pixels), flush=True)
+
+
 def main():
     run("rustc", "-vV")
     compiler = os.environ.get("CXX", "clang++")
@@ -99,12 +133,23 @@ def main():
                     if len(result.stdout.split()) != 3:
                         raise RuntimeError("Unexpected original XYB observation: " + result.stdout)
                     print("original native XYB words:", result.stdout.strip(), flush=True)
+        if (ROOT / "src/jxl/dct.rs").is_file():
+            if original.is_file():
+                dct_observations(original)
+            instructions(directory / "CMakeFiles/jxl_oracle.dir/dct.cc.o",
+                         ("DctCommand", "TransformToPixels", "AFVIDCT4x4",
+                          "AFVTransformToPixels", "LowestFrequenciesFromDC",
+                          "IDCT1DImplILm4", "IDCT1DImplILm8", "IDCT1DImplILm16",
+                          "DCT1DImplILm4", "DCT1DImplILm8", "DCT1DImplILm16"))
+            instructions(directory / "upstream/lib/CMakeFiles/jxl_dec-obj.dir/jxl/quant_weights.cc.o",
+                         ("ComputeQuantTable",))
         instructions(directory / "CMakeFiles/jxl_oracle.dir/sample_conversion.cc.o",
                      ("GamutMap",))
     for profile in ("debug", "release"):
         for candidate in sorted((ROOT / "target" / profile / "deps").glob("parity-*")):
             if candidate.is_file() and candidate.open("rb").read(4) == b"\x7fELF":
-                instructions(candidate, ("add_gamut", "gamut_map"))
+                instructions(candidate, ("add_gamut", "gamut_map", "idct_add", "afv_add",
+                                         "identity_add", "dct_1d", "idct_1d", "idct_finish"))
 
 
 if __name__ == "__main__":

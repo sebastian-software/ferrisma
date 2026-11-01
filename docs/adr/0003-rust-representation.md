@@ -904,3 +904,80 @@ its optional frame decoder is an immutable borrow of the same original frame
 dimensions/tree/code/context owners because that source routine mutates none of
 them. Native allocators and the null-pool scalar path retain their established
 scope; general AC encoding and VarDCT frame orchestration remain separate work.
+
+Scalar DCT templates retain the original radix-2 recursion, normalization,
+transpose order, coefficient mutation, and scratch offsets. Valid power-of-two
+sizes become checked internal parameters rather than C++ template arguments.
+A single exclusive scratch slice and owner-relative offsets express recursive
+in-place calls without aliased Rust borrows or replacement temporary allocations.
+The source's DCTFrom/DCTTo adapters become separate bounded slices and strides;
+callers retain the original disjoint-owner and valid-span preconditions.
+Local arrays are safely initialized, but their source-indeterminate unused
+contents are never claimed as observations. Strategy geometry and natural
+coefficient orders retain the original LUTs and zigzag traversal.
+
+The native AArch64 scalar identity loop contracts the DC residual as
+sum.mul_add(-1/16, dc), matching the fixed original configuration in ADR 0002.
+A local out-of-line pixel addition retains the original coefficient-first
+operand order. The exact contraction matters at subnormal underflow and signed
+zero as well as for NaN signs. With coefficient 0 set to binary32 word 1,
+residual words 1 at positions 2/4/6/16/18/20/22/32, and all other words zero,
+both the default original and selected original builds give word 0 at pixel
+index 14 for stride 13; a separate multiplication/subtraction would give word 1.
+Other targets retain their existing ordinary-expression mapping and require
+native differential evidence.
+
+Before the new fixture's unrolling boundary was fixed, the optimized ordinary
+AppleClang 21 AArch64 object emitted FMSUB, whereas its ASan/UBSan object emitted
+FMADD with a negative scale. For 64 coefficients set to 0.125 except coefficient
+21 set to 0x7fc12345, IDENTITY, and stride 13, the original output words at index
+4 were respectively 0xffc12345 and 0x7fc12345; both gave 0x7fc12345 at index 19.
+Actual complete-adapter objects establish those observations. With the loop
+shape retained, both original graphs emit FMADD and give 0x7fc12345 at both
+indices. The captured native AArch64 regression follows that fixed configuration
+and independently checks its fused finite underflow result. All exception inputs
+and exact comparisons remain enabled; the original archive and existing fixture
+flags remain unchanged. Review this mapping after compiler, source, target,
+or instrumentation changes; SIMD and VarDCT frame decoding remain unported.
+
+Competing-payload tests additionally retain the selected AArch64 IDCT object's
+addend-first FADD, AFV's coefficient-1-first final DC sum, and its
+accumulator-first basis FADD. Local out-of-line additions keep those observed
+operand choices in native debug/release builds without changing association,
+normalization, or finite results. The original length-one scaled DCT folds its
+constant multiply-by-one into raw loads/stores in both selected objects. Retain
+that copy so a signaling coefficient is not quieted before a later competing
+addition. Native captures from both complete original graphs check the distinct
+DCT/AFV winning payloads, the later LLF signaling-NaN winner, and the length-one
+unquieted copy. These are target/configuration mappings, not cross-target NaN
+payload equivalence or a replacement of the original scalar algorithms.
+
+Native x86_64 Linux run 41345075028, job 124963054935, separately exercised
+both complete ordinary and ASan/UBSan original graphs. For an 8x8 DCT with
+stride 11, coefficients 0/1 set to 0x7fc12345/0xffc98765, and every other
+coefficient set to 0.125, both original graphs retain 0x7fc12345 at pixel zero.
+The earlier product-first Rust addition instead selected 0xffc98765 in 32
+pixels while coefficients and scratch already matched. The local IDCT addition
+therefore keeps the addend first on both native targets; an x86 captured
+regression retains that original word. The competing-payload corpus still
+compares every complete observation exactly, collecting all mismatches before
+failing. Linux diagnostics inspect the actual ordinary and instrumented DCT
+objects as well as the Rust helpers; small arithmetic probes and emulation do
+not establish the original objects' operand selection.
+
+The next native Linux run, 41347513370 / job 124970408958, matches every
+IDCT, identity, and LLF request. Its two complete original graphs expose the
+same 24 AFV differences: strategies 14 through 17, six ordered NaN pairs at
+coefficients 0/1, and the 16 AFV-quadrant pixels only. Coefficients, scratch,
+padding, and the other 210 differential groups match. In the ordinary original
+DctCommand object, offsets 0x31c6/0x31ca/0x31cd add c to a, copy b, then add
+(a+c) into b. The instrumented object's 0x374d/0x3751/0x3754 retain the same
+operand order. Reuse the existing local afv_add(b, a+c) on both native targets.
+
+The actual ordinary basis loop at 0x324a adds the product into the accumulator;
+the instrumented AFVIDCT4x4 at 0x87/0x8d multiplies the product and adds it into
+the accumulator too. Preserve accumulator-first addition on x86 as on ARM.
+Another 24 exact requests place competing payloads at coefficients 2/16, which
+both enter that basis loop, across all four orientations. Retain every prior
+request and expected word. These changes leave the selected ARM operations,
+association, finite arithmetic, compiler flags, and original source unchanged.

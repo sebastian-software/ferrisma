@@ -3,8 +3,8 @@
 
 //! AcStrategyType and AcStrategy size/count constants from lib/jxl/ac_strategy.h.
 //! AcStrategyImage construction, fills, validity, and counting are also ported
-//! from ac_strategy.{h,cc}. Strategy objects, geometry/transform methods, setters,
-//! and interpreted AcStrategyRow views remain unported.
+//! from ac_strategy.{h,cc}, with strategy objects, geometry and natural orders.
+//! Setters and interpreted AcStrategyRow views remain unported.
 use super::base::rect::Rect;
 use super::base::status::StatusOr;
 use super::frame_dimensions::BLOCK_DIM;
@@ -115,5 +115,134 @@ impl AcStrategyImage {
             }
         }
         ret
+    }
+}
+
+/// Original strategy descriptor. Construction admits only defined strategies;
+/// non-first-block descriptors are supplied by interpreted rows in the source.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AcStrategy {
+    strategy: AcStrategyType,
+    is_first: bool,
+}
+impl AcStrategy {
+    pub const fn type_bit(kind: AcStrategyType) -> u32 {
+        1u32 << kind.0
+    }
+    pub const fn is_raw_strategy_valid(raw: i32) -> bool {
+        raw >= 0 && raw < NUM_VALID_STRATEGIES as i32
+    }
+    pub fn from_raw_strategy(kind: AcStrategyType) -> Self {
+        assert!(Self::is_raw_strategy_valid(kind.0 as i32));
+        Self {
+            strategy: kind,
+            is_first: true,
+        }
+    }
+    pub fn is_first_block(&self) -> bool {
+        self.is_first
+    }
+    pub fn raw_strategy(&self) -> u8 {
+        self.strategy.0 as u8
+    }
+    pub fn strategy(&self) -> AcStrategyType {
+        self.strategy
+    }
+    pub fn is_multiblock(&self) -> bool {
+        const BITS: u32 = (1 << 4)
+            | (1 << 5)
+            | (1 << 6)
+            | (1 << 7)
+            | (1 << 8)
+            | (1 << 9)
+            | (1 << 10)
+            | (1 << 11)
+            | (1 << 18)
+            | (1 << 19)
+            | (1 << 20)
+            | (1 << 21)
+            | (1 << 22)
+            | (1 << 23)
+            | (1 << 24)
+            | (1 << 25)
+            | (1 << 26);
+        (Self::type_bit(self.strategy) & BITS) != 0
+    }
+    pub fn covered_blocks_x(&self) -> usize {
+        const LUT: [u8; 27] = [
+            1, 1, 1, 1, 2, 4, 1, 2, 1, 4, 2, 4, 1, 1, 1, 1, 1, 1, 8, 4, 8, 16, 8, 16, 32, 16, 32,
+        ];
+        usize::from(LUT[self.strategy.0 as usize])
+    }
+    pub fn covered_blocks_y(&self) -> usize {
+        const LUT: [u8; 27] = [
+            1, 1, 1, 1, 2, 4, 2, 1, 4, 1, 4, 2, 1, 1, 1, 1, 1, 1, 8, 8, 4, 16, 16, 8, 32, 32, 16,
+        ];
+        usize::from(LUT[self.strategy.0 as usize])
+    }
+    pub fn log2_covered_blocks(&self) -> usize {
+        const LUT: [u8; 27] = [
+            0, 0, 0, 0, 2, 4, 1, 1, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 6, 5, 5, 8, 7, 7, 10, 9, 9,
+        ];
+        usize::from(LUT[self.strategy.0 as usize])
+    }
+    pub fn compute_natural_coeff_order(&self, order: &mut [u32]) {
+        self.coeff_order_and_lut(false, order);
+    }
+    pub fn compute_natural_coeff_order_lut(&self, lut: &mut [u32]) {
+        self.coeff_order_and_lut(true, lut);
+    }
+    fn coeff_order_and_lut(&self, is_lut: bool, out: &mut [u32]) {
+        let mut cx = self.covered_blocks_x();
+        let mut cy = self.covered_blocks_y();
+        super::coeff_order_fwd::coefficient_layout(&mut cy, &mut cx);
+        let xs = cx / cy;
+        let xsm = xs - 1;
+        let xss = xs.ilog2();
+        let mut cur = cx * cy;
+        for i in 0..cx * BLOCK_DIM {
+            for j in 0..=i {
+                let (mut x, mut y) = (j, i - j);
+                if i % 2 != 0 {
+                    std::mem::swap(&mut x, &mut y);
+                }
+                if (y & xsm) != 0 {
+                    continue;
+                }
+                y >>= xss;
+                let val = if x < cx && y < cy {
+                    y * cx + x
+                } else {
+                    let v = cur;
+                    cur += 1;
+                    v
+                };
+                if is_lut {
+                    out[y * cx * BLOCK_DIM + x] = val as u32;
+                } else {
+                    out[val] = (y * cx * BLOCK_DIM + x) as u32;
+                }
+            }
+        }
+        for ip in (1..cx * BLOCK_DIM).rev() {
+            let i = ip - 1;
+            for j in 0..=i {
+                let (mut x, mut y) = (cx * BLOCK_DIM - 1 - (i - j), cx * BLOCK_DIM - 1 - j);
+                if i % 2 != 0 {
+                    std::mem::swap(&mut x, &mut y);
+                }
+                if (y & xsm) != 0 {
+                    continue;
+                }
+                y >>= xss;
+                let val = cur;
+                cur += 1;
+                if is_lut {
+                    out[y * cx * BLOCK_DIM + x] = val as u32;
+                } else {
+                    out[val] = (y * cx * BLOCK_DIM + x) as u32;
+                }
+            }
+        }
     }
 }

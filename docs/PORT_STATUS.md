@@ -45,7 +45,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs`, `cms/transfer_functions_scalar.rs` | Existing one-lane FastLog2f/FastPow2f/FastPowf and degree-two/degree-four rational evaluation with original x86 fence sites; other functions/targets unported |
 | Highway `hwy/ops/scalar-inl.h`, `generic_ops-inl.h` | `base/hwy_scalar.rs` | Used one-lane Min/Max, unfused MulAdd, Clamp, Floor, saturating float-to-i32 conversion, and sign-bit ZeroIfNegative; other operations/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
-| `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, and AcStrategyImage allocation/fills/validity/counting; strategy objects, interpreted row views, geometry/transform methods, and strategy setters unported |
+| `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, strategy objects/geometry, complete natural coefficient order/LUT traversal, and AcStrategyImage allocation/fills/validity/counting; interpreted row views and strategy setters unported |
 | `chroma_from_luma.h`, `.cc` | `chroma_from_luma.rs` | Complete ColorCorrelation constants/defaults, ratios, setters/getters, DC parsing, and ColorCorrelationMap allocation/default/move ownership/delegated DC parsing |
 | `quantizer.h`, `.cc` | `quantizer.rs` | Constructors, RecomputeFromGlobalScale, DC scaling getters, inverse AC scaling, and ClearDCMul; quantization fields, scale selection, parsing, and other APIs unported |
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points unported |
@@ -71,6 +71,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
+| `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
+| `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; VarDCT frame/group integration remains unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, remaining VarDCT methods, and debug descriptions unported; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
@@ -85,7 +87,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
-| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits, permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; AC-strategy coefficient orders unported |
+| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits, permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; natural AC-strategy coefficient orders are tracked with ac_strategy above |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
 | `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, and native moves; C allocators and MSan-only padding instrumentation unported |
 | `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
@@ -145,15 +147,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 356 tests, including 204 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 356 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 356 tests and corpus |
+| Rust debug | PASSED | 365 tests, including 211 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 365 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 365 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 356 tests and 747,248 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 365 tests and 750,177 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **747,248 requests** against C++. These include
+Each differential run compares **750,177 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -1111,14 +1113,13 @@ exact C++/Rust requests. Ordinary Rust tests cover complete alpha image paths,
 every uint16 alpha value, invisible RGB, and rejection of associated,
 subsampled, mismatched-depth, non-alpha, and multiple-extra metadata.
 
-
 Both local native macOS arm64 commands, `python3 tools/check.py --msrv` and
 `python3 tools/check.py --sanitizers --msrv`, pass with the complete alpha corpus:
 351 tests, 199 differential groups, and 745,762 exact requests in each debug,
 release, and Rust 1.85 configuration; zero failed or ignored cases. The earlier
-hosted Linux/macOS results above belong to the baseline tree. Current-head
-hosted validation for this alpha extension remains a separate integration gate.
-
+hosted Linux/macOS results above belong to the baseline tree. The hosted
+validation for this alpha extension is recorded in the integrated checkpoint
+below.
 
 ## Integrated alpha and AC matrix checkpoint
 
@@ -1137,3 +1138,60 @@ Rust 1.85; macOS ran the instrumented graph in those three configurations.
 Every block passed 351 tests and 745,762 requests with zero failed or ignored
 cases. That hosted evidence belongs to the alpha tree, independently of this
 combined checkpoint.
+
+## Scalar DCT and inverse-transform dependencies
+
+The scalar DCT/IDCT recursion, literal scale tables, maybe-transposed coefficient
+layout, mutable coefficients, and original scratch scheduling are translated
+for power-of-two sizes 1 through 256. TransformToPixels covers all 27 strategies,
+including identity, hierarchical 2x2, split 4x4/4x8, all AFV orientations, and the
+large DCTs. LowestFrequenciesFromDC retains its sparse writes and warm-scratch
+branch; its required forward DCT is included. AcStrategy geometry and natural
+coefficient orders/LUTs use the original tables and traversal.
+
+Seven differential groups initially added 2,905 requests against the pristine
+original methods, comparing all initialized coefficient, padded-output, and scratch
+words. Coverage includes square/rectangular shapes, strides, DC and impulse
+inputs, deterministic finite samples, signed zeros, subnormals, overflow,
+infinities, signaling/quiet NaNs, and 342 competing-payload requests. Another
+192 requests retain identity subnormal/cancellation/signed-zero rounding. Two
+native AArch64 tests use independently captured original words for identity
+contraction, IDCT/AFV operand order, and length-one signaling-NaN copies.
+
+The native macOS ordinary reference passes Debug and Release with 353 tests,
+202 differential test groups, and 747,029 exact requests per configuration.
+The complete ASan/UBSan reference passes the same corpus with Debug, Release,
+and Rust 1.85. No cases are failed or ignored. The new dct.cc observation unit
+retains its source loops with scoped -fno-unroll-loops while keeping default
+contraction, O3, and all sanitizers; ADRs 0002/0003 record the actual-object
+numeric evidence. Both complete original graphs agree on all 2,905 focused
+requests, and every finite-input observation matches the saved default ordinary
+adapter. Existing fixtures and the original archive retain their flags.
+
+This closes transform dependency boundaries, not general VarDCT group/frame
+decoding or encoding. SIMD, other native target evidence, full-codec conformance,
+and performance remain separate gates.
+
+## Integrated alpha, AC, and transform checkpoint
+
+Both complete local native ARM macOS commands, `python3 tools/check.py --msrv`
+and `python3 tools/check.py --sanitizers --msrv`, pass with all three slices
+combined. Every debug, release, and Rust 1.85 configuration runs 365 tests,
+including 211 differential groups and 750,177 exact C++/Rust requests, with
+zero failed or ignored cases. Existing corpora and expected words remain intact.
+The captured-word unit tests are target-specific: two run on each of AArch64
+and x86_64; every target runs the same complete differential corpus.
+[Integration PR #7](https://github.com/sebastian-software/libjxl-rs/pull/7)
+records the native hosted matrix for this combined tree.
+
+The new scalar dependencies do not expand the admitted complete image profile.
+General VarDCT group/frame orchestration, AC quantization encoding, SIMD,
+full-codec conformance, and performance remain separate work.
+
+The native Linux refinement retains the actual original IDCT addend-first
+addition and AFV coefficient-1-first DC sum and accumulator-first basis sum.
+Both complete original Linux graphs agree on the 24 formerly mismatching AFV
+requests. Another 24 competing-basis requests exercise two even-even AFV
+coefficients in all four orientations, increasing the DCT slice to 2,929
+requests and its mixed-payload group to 366. No previous request or expected
+word is removed or changed; the selected ARM operations remain identical.
