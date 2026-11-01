@@ -15,3 +15,8 @@ original test bodies. A successful assembly-disabled Meson run alone cannot
 establish internal DSP parity. Keep original tools and fuzz drivers as consumers,
 and do not replace the working libavif dependency before the standalone decoder
 and its original suites establish parity.
+
+Keep Debug and Release preprocessing as separate reproducible translations:
+the original Debug validation macros abort on invalid API calls, while Release
+returns the specified errors. Select the matching source profile with Rust's
+`debug_assertions` setting, using the normal unoptimized development profile.

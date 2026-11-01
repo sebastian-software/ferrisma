@@ -1,0 +1,15 @@
+[package]
+name = "libavif-dav1d"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "Mechanical portable Rust translation of dav1d 1.5.4"
+publish = false
+
+[lib]
+name = "dav1d"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+libc = "=0.2.191"
+c2rust-bitfields = "=0.3.0"

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sharpyuv"]
+members = ["crates/sharpyuv", "crates/dav1d"]
 resolver = "2"
 
 [package]

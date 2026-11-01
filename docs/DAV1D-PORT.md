@@ -1,6 +1,8 @@
 # Portable dav1d port
 
-Status: source and test inputs pinned; reference inventory and translation in progress.
+Status: both portable source profiles are translated. All 1,711 original corpus
+tests pass against the Rust Release decoder on macOS ARM64; standalone
+acceptance and integration remain in progress.
 
 The selected decoder is dav1d 1.5.4 at
 `54706fc6bc0cdecab7e9593974a4039cc038fca7`. Its complete immutable source,
@@ -33,5 +35,16 @@ Required evidence before integration:
 - Reproducible source translation, complete licenses, symbol/linkage audit,
   and the original libavif integration suite after dependency replacement.
 
-These are pending gates, not claims of completed decoder parity. The existing
-libavif implementation continues to use native dav1d while this crate is built.
+The independent layout probe currently matches all 12,157 checks across 1,201
+named record instances. Both Debug and Release retain their own original C
+preprocessing. Reproducible corrections preserve field alignment, C11 atomic
+operations and orderings, raw address-taking, and target runtime types.
+
+The initial Rust Debug run passed 1,708 corpus tests with three wall-clock
+timeouts. A run with an explicit fourfold time budget is in progress; original
+commands, input data, and expected hashes remain unchanged. This is not a
+performance parity claim. Internal DSP comparisons, public API edge cases,
+sanitizers, and Linux validation are still pending acceptance gates.
+
+The existing libavif implementation continues to use native dav1d while this
+standalone crate is validated.

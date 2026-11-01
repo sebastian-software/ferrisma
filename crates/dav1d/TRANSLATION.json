@@ -1,0 +1,654 @@
+{
+  "translator": "c2rust 0.21.0",
+  "llvm": "16.0.6",
+  "preprocessing_profile": "debug",
+  "generation_target": "aarch64-apple-darwin",
+  "units": [
+    {
+      "source": "upstream/dav1d/src/cdf.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/cdf.rs",
+      "corrections": {
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "raw-c-mutable-address": 6,
+        "raw-c-static-address": 2,
+        "original-c-record-field-alignment": 109
+      },
+      "raw_sha256": "5eed5a5cec256b6b1be9c763955bb374767e3729bcc03b0367fd7c2c3728dea5",
+      "rust_sha256": "5fb32cec230562fb864fb2b315508a35d7c88b703003447d867f62baa5e38c5b"
+    },
+    {
+      "source": "upstream/dav1d/src/cpu.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/cpu.rs",
+      "corrections": {
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "9e0c1c47b37c36c53259bdc2b1bca89bae87a05fcc28a96ce1ae02ddfcef5ab4",
+      "rust_sha256": "9f949230a275478cc27cc19ce9ecc08409d72396d0d50faa236877405bafaf07"
+    },
+    {
+      "source": "upstream/dav1d/src/ctx.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/ctx.rs",
+      "corrections": {
+        "raw-c-mutable-address": 6
+      },
+      "raw_sha256": "0caf70b04d28f5c6675e05d7a4407ec724bbe9310589c10c999f570ff31acb6d",
+      "rust_sha256": "1db07c2e8ff80ce639265cd25b4946e54912888750ccb16421ea5c59557c170e"
+    },
+    {
+      "source": "upstream/dav1d/src/data.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/data.rs",
+      "corrections": {
+        "target-runtime-assertion": 7,
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 9
+      },
+      "raw_sha256": "98ce73b1b9b171f07f848292b7b39b1449880d39c48d687acbe35e326b5fe610",
+      "rust_sha256": "28a91dfdeb3f4c45a1bf127dffb6aff56d4ca3cb6a059d6dc89b85d2437495c9"
+    },
+    {
+      "source": "upstream/dav1d/src/decode.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/decode.rs",
+      "corrections": {
+        "canonical-cfg-labels": 34,
+        "target-runtime-assertion": 58,
+        "target-libc-thread-storage": 3,
+        "pinned-rust-atomic-intrinsic-spelling": 15,
+        "raw-c-mutable-address": 616,
+        "raw-c-assignment-temporary": 4,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "ecff30a3db6d8ee3d2b78b806122023ce4a161564baed52a00bba2107ff1f0e6",
+      "rust_sha256": "12400512998a47f95b88dbf006b0183ff82fc5b213d297badc353b8413fc26ba"
+    },
+    {
+      "source": "upstream/dav1d/src/dequant_tables.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/dequant_tables.rs",
+      "corrections": {},
+      "raw_sha256": "2a0481545816e646ec4c703be4ab05aeeec3b3d5bb6c9937b5b3ce350f123239",
+      "rust_sha256": "e3a508e8c391c0b8a9d48cbf4f5c8f67dff320db1ad2fde9e9580eef4f0c96d0"
+    },
+    {
+      "source": "upstream/dav1d/src/getbits.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/getbits.rs",
+      "corrections": {
+        "target-runtime-assertion": 6
+      },
+      "raw_sha256": "d93c1d1701973bed82f5f24d31071f466b447d29b8bf5e0305510e32faadeead",
+      "rust_sha256": "16b8fb39fe965b6c9ab7b81673b9266ebf42fcbb287f85b8bb3ea77c68bf0dfa"
+    },
+    {
+      "source": "upstream/dav1d/src/intra_edge.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/intra_edge.rs",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "target-runtime-assertion": 7,
+        "raw-static-field-array-address": 18,
+        "raw-c-mutable-address": 16,
+        "raw-c-static-address": 7
+      },
+      "raw_sha256": "f2ed7ad514888ecea31f5e01578a2f9e075cada420dcd5ea1f08fa64223de2d0",
+      "rust_sha256": "29208359f80b7300e4927d2be360cce277eb0158a9a7a5c55b76491054ced378"
+    },
+    {
+      "source": "upstream/dav1d/src/itx_1d.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/itx_1d.rs",
+      "corrections": {
+        "target-runtime-assertion": 13,
+        "raw-c-mutable-address": 3,
+        "raw-c-assignment-temporary": 2
+      },
+      "raw_sha256": "1846a3a6d18fe9faceea62edcdb1fed2f872790f73576e939123bde3e600d50d",
+      "rust_sha256": "99eb82e94a0c3e35a8671ac59c655b5782ea2bc21fb91fd0e8514bd19718996d"
+    },
+    {
+      "source": "upstream/dav1d/src/lf_mask.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/lf_mask.rs",
+      "corrections": {
+        "target-runtime-assertion": 6,
+        "raw-c-mutable-address": 14,
+        "raw-c-assignment-temporary": 17,
+        "original-c-record-field-alignment": 3
+      },
+      "raw_sha256": "0a3d250af50d9ae438f9e241a7a837feb03472fd4ada213e0f260035d777e2d9",
+      "rust_sha256": "37ca570abb869930a38c8a05727797baed4f18456d45e4e6f85ffad8610a70d5"
+    },
+    {
+      "source": "upstream/dav1d/src/lib.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/lib.rs",
+      "corrections": {
+        "canonical-cfg-labels": 6,
+        "target-runtime-assertion": 2,
+        "target-libc-thread-storage": 7,
+        "variadic-abi": 1,
+        "target-libc-once-initializer": 1,
+        "target-libc-attribute-storage": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 10,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 130,
+        "raw-c-assignment-temporary": 5,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "f45b3dee80b8c7521ec5661087bc7add03247ec8dbb69718fc1848ec2f9f480f",
+      "rust_sha256": "0e3d4dd3923cce5859e43f4453edbd1c00fc61b8cb8b527eef521219813f56f3"
+    },
+    {
+      "source": "upstream/dav1d/src/log.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/log.rs",
+      "corrections": {
+        "target-runtime-assertion": 1,
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "variadic-local": 1,
+        "target-libc-file-handle": 1,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "9c93a43153a370b7664feedf43e06147915053f5768834d431d8157294a08c6c",
+      "rust_sha256": "1e6d080e2d51431f1f39fa708f806368264a4d4ff7b64b28a2bcceb4990e9d8d"
+    },
+    {
+      "source": "upstream/dav1d/src/mem.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/mem.rs",
+      "corrections": {
+        "canonical-cfg-labels": 2,
+        "target-runtime-assertion": 2,
+        "target-libc-thread-storage": 2,
+        "raw-c-mutable-address": 13
+      },
+      "raw_sha256": "118434b770358d0fe774d820c77d708e53cb1aceb101ce5dd165bdc0ee0cea7a",
+      "rust_sha256": "2b69e2537c0a1e5d34cfcbb14de8f1ef50c5623c7f4d2f58f9ab17d74b9bc78d"
+    },
+    {
+      "source": "upstream/dav1d/src/msac.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/msac.rs",
+      "corrections": {
+        "target-runtime-assertion": 7,
+        "raw-c-assignment-temporary": 4
+      },
+      "raw_sha256": "afd742f583b94ea9dec02119d9afcbf9c6aeb4e16b2f846b73ba5677a1be037c",
+      "rust_sha256": "10b2e8afee7d3e1d1bd124e1c738a9f41032bacd42a638e7fc4089302def620a"
+    },
+    {
+      "source": "upstream/dav1d/src/obu.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/obu.rs",
+      "corrections": {
+        "canonical-cfg-labels": 34,
+        "target-runtime-assertion": 10,
+        "target-libc-thread-storage": 3,
+        "pinned-rust-atomic-intrinsic-spelling": 9,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 106,
+        "raw-c-assignment-temporary": 1,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "9c2c50a54a69901a295573e7b08876ed33be2e97b8897e0f6370cd932ffd4659",
+      "rust_sha256": "4685c870c9c4400d838e23a349809568ba124dfd27b3cf429243700e284dab1b"
+    },
+    {
+      "source": "upstream/dav1d/src/pal.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/pal.rs",
+      "corrections": {
+        "target-runtime-assertion": 4,
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "aca5fd6892d394b643695281318589e74e6211b6151a5dad743b6a96ebf507b8",
+      "rust_sha256": "0f92eca02eca94f0013ba2229c9d690390b567a692d68934c071692fbb591cd4"
+    },
+    {
+      "source": "upstream/dav1d/src/picture.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/picture.rs",
+      "corrections": {
+        "target-runtime-assertion": 9,
+        "target-libc-thread-storage": 3,
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 35,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "0a6fb77371bfe399bb0ac7267168e6927e0ab17a953a9520225c39397c6cb3be",
+      "rust_sha256": "3dc66551848b37a0bdb6c2086e07a53492d4d1f9aaa3add2ffbc92d846e4810a"
+    },
+    {
+      "source": "upstream/dav1d/src/qm.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/qm.rs",
+      "corrections": {},
+      "raw_sha256": "a8d2e7c6b47fb5a814cdd2df061b85e68e6d0b0acae70ac39a41cb9621ea7471",
+      "rust_sha256": "81ea53c023a5a985c5c44507f9983a966deb315ef0b125667637a334cfe10c10"
+    },
+    {
+      "source": "upstream/dav1d/src/ref.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/ref.rs",
+      "corrections": {
+        "target-runtime-assertion": 4,
+        "target-libc-thread-storage": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "raw-c-mutable-address": 5
+      },
+      "raw_sha256": "f3fd4f1909b1a119095d86b77ed65a5fccc04dce7a645a0574403e8da5f3c21c",
+      "rust_sha256": "2271a72617e20399b352a4af171083738dbf04bef7af4451a0bfae94a2314895"
+    },
+    {
+      "source": "upstream/dav1d/src/refmvs.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/refmvs.rs",
+      "corrections": {
+        "canonical-cfg-labels": 2,
+        "target-runtime-assertion": 13,
+        "raw-c-mutable-address": 35,
+        "raw-c-assignment-temporary": 6,
+        "original-c-record-field-alignment": 2
+      },
+      "raw_sha256": "03f985e6f2883bb2fcc2fdda17bebe78d754a771e1754390f96e673496e700c7",
+      "rust_sha256": "fcaddab84c6909af3aa841f359f298f39cfc651e3af67066c303c992409d8b50"
+    },
+    {
+      "source": "upstream/dav1d/src/scan.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/scan.rs",
+      "corrections": {
+        "static-raw-address": 66,
+        "target-libc-thread-storage": 1,
+        "target-libc-once-initializer": 1,
+        "remove-inferred-identity-pointer-cast": 19,
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "af0161691d6fa717fe1e8cc186404f4853d11fe86f8995aa0bbc2d504f4c3a81",
+      "rust_sha256": "541174420f0a04a8a914135c745999b15b157db0ea22ceb7d80b5cf7dfca01ae"
+    },
+    {
+      "source": "upstream/dav1d/src/tables.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/tables.rs",
+      "corrections": {},
+      "raw_sha256": "4723d714e2d40b65f7eebe29ae03809af5e4d8e3de2df388f4876928b635bf70",
+      "rust_sha256": "d2aaeb62fda4b74e351576c6b25b32c1bf6467542699f91313870522753555a5"
+    },
+    {
+      "source": "upstream/dav1d/src/thread_task.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/thread_task.rs",
+      "corrections": {
+        "canonical-cfg-labels": 19,
+        "target-runtime-assertion": 13,
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 100,
+        "raw-c-mutable-address": 161,
+        "raw-c-assignment-temporary": 1,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "335c02f8a3586c7237ea68bfa7511b473e1d0ea1d91c3b7bc1a220ded4e76c4b",
+      "rust_sha256": "fb3e1aa8856864973e8c2941ebc8a69ea8a9580a475de97942b3d81c8f4ab2cb"
+    },
+    {
+      "source": "upstream/dav1d/src/warpmv.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/warpmv.rs",
+      "corrections": {
+        "target-runtime-assertion": 2,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "2e6dc79b1c2ed183ed94e686a807ea95086635096cdb21fbfba841417c6fb127",
+      "rust_sha256": "f14dc43b4553a0cfdc026d347edc1ba844cfd844a818098d7598ad5b6856885e"
+    },
+    {
+      "source": "upstream/dav1d/src/wedge.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/common/wedge.rs",
+      "corrections": {
+        "static-raw-address": 9,
+        "raw-static-record-array-address": 38,
+        "raw-c-mutable-address": 55,
+        "original-c-record-field-alignment": 37
+      },
+      "raw_sha256": "61a7a06244558ba2a267ca2725f0a75dd4619ab054929455b4e3ac9f04a73a51",
+      "rust_sha256": "3587f02a8efb600b48915d50af3766e93b96ea9af5dd1f7612e23dbc5f6fc002"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/cdef_apply_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 4,
+        "target-runtime-assertion": 1,
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 16,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "935bd9e82b40789b93866893b1bb3018f52ade37b10de00f27b6e95390c37db1",
+      "rust_sha256": "5712bfb4d9ce493f25a6c8b6be7c5181a966ac7f748e1b571b2acdd33ee50f8f"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/cdef_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 2,
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "494217fd000efd322c9eacae93ee7bb66fa9f5b955ea557a7674b034f923f153",
+      "rust_sha256": "5f12cfac96b1d3e43177eb1d68678d255887ff8dac8a3408ab305da0d35049e2"
+    },
+    {
+      "source": "upstream/dav1d/src/fg_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/fg_apply_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 3,
+        "raw-c-mutable-address": 3
+      },
+      "raw_sha256": "bc0a1d3deacc32fa452ff34a9954a2675b4859b8bd85a89a396dc6537439da00",
+      "rust_sha256": "51687cbb79537416653c15c1f3b393ed0899996e06c4045368f9dab4929ea2e2"
+    },
+    {
+      "source": "upstream/dav1d/src/filmgrain_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/filmgrain_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 2,
+        "raw-c-mutable-address": 4
+      },
+      "raw_sha256": "34448d8118159232b906ca648a9a0f9dacf7d96b47c06b55ecad19eea3b81960",
+      "rust_sha256": "5a5590f44eba642341a2a21d989fb86b3c7e3a2d5a3bc9360a89eae6c8c87eb8"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_prepare_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/ipred_prepare_tmpl.rs",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "target-runtime-assertion": 1,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "f79b0b59c2a70c948037ccf82b07e311981f67a3c0681b2a9a7631cfa656d1f5",
+      "rust_sha256": "7a034ea7df23de54647fbfd195379d9d5915011f3548a342097f6130420e3285"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/ipred_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 10,
+        "raw-c-mutable-address": 17,
+        "raw-c-assignment-temporary": 1
+      },
+      "raw_sha256": "811c2eff1dc7e9f4ee792ac5acb955475a28b729a2608c53d0717dc77ac65826",
+      "rust_sha256": "53d5f31852d6c23de8141cfbd5d4c87ecc0a6b0e63e7227132e528b9566a2df2"
+    },
+    {
+      "source": "upstream/dav1d/src/itx_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/itx_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 4,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "b6d249ac8850630870b58df91bbd77a22ec8f03dbfb6677e950a7fa6b42a3b4d",
+      "rust_sha256": "4d80e9db8e1904195a6f2442bdb5e4a0d904f385ec346222fcd7f3ca5f6aa414"
+    },
+    {
+      "source": "upstream/dav1d/src/lf_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/lf_apply_tmpl.rs",
+      "corrections": {
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 22,
+        "raw-c-assignment-temporary": 14,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "4be1185666e37e9687a6fe24c10a47c1c876c7da32cbeb36be6f8092bec223d7",
+      "rust_sha256": "494c9572e3a8c1393faf3e6c93e6faa7725b21aa55bf01b39435fdbc1284f4aa"
+    },
+    {
+      "source": "upstream/dav1d/src/loopfilter_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/loopfilter_tmpl.rs",
+      "corrections": {
+        "original-c-record-field-alignment": 3
+      },
+      "raw_sha256": "f8a65491a86d67ebd77d362a65aa4271b698cba5eb0a988cb3dfe8c0a2d70bfa",
+      "rust_sha256": "d9cfb9e5d82629b4074e83d843cbb5ff58d4a6e08e09cea3197e0269cc0260c6"
+    },
+    {
+      "source": "upstream/dav1d/src/looprestoration_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/looprestoration_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 22,
+        "raw-c-mutable-address": 36,
+        "raw-c-assignment-temporary": 11,
+        "original-c-record-field-alignment": 1
+      },
+      "raw_sha256": "bcafdf31ca81d929d64a7e1a53dde6f34b22c2d08223608abf18d41709984b1a",
+      "rust_sha256": "b1ec20b303619020a74483699928f89d46eefddf30a67f638f595d277128a90b"
+    },
+    {
+      "source": "upstream/dav1d/src/lr_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/lr_apply_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 1,
+        "target-libc-thread-storage": 3,
+        "raw-c-mutable-address": 3,
+        "raw-c-assignment-temporary": 6,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "58b91920abbfdd07fabecf591826bc56b53b2b230ee34e3230981964d257933b",
+      "rust_sha256": "527475b20078c2728e25d1c0b6547248d9541449b9706695407936aed2317692"
+    },
+    {
+      "source": "upstream/dav1d/src/mc_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/mc_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 3,
+        "raw-c-mutable-address": 11
+      },
+      "raw_sha256": "6cd75e054faaafbc24c3ab565b543404aa7557a5a516e1ff6058dc709131d1bf",
+      "rust_sha256": "84bba3da9b918341df4665178fc18d4d41d446db54a5d80dd16745e9330be254"
+    },
+    {
+      "source": "upstream/dav1d/src/recon_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/b8/recon_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 13,
+        "target-runtime-assertion": 33,
+        "target-libc-thread-storage": 3,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 152,
+        "raw-c-assignment-temporary": 4,
+        "original-c-record-field-alignment": 144
+      },
+      "raw_sha256": "020c7e3aed900670cd40df19aa3a62ce6beab9c5cad56b098f49365e3d86bfe8",
+      "rust_sha256": "60e7e004c51f740bf7c1ab9479c069ff9011c126263efb3ae094a655b604ea84"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/cdef_apply_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 4,
+        "target-runtime-assertion": 2,
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 16,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "674affc93dbaa0ae822f5cf43d86802025640d1dc8cc3dfd44fa1cc5a3bf98dd",
+      "rust_sha256": "47ebe1217f8f0914f8eb061fba54c566147fd926f8fb5cdf8df57fa64e6cf1e7"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/cdef_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 3,
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "59c9dac3c765e46876c5de46a18370e4ff2f0ea02349bf361742c09ef50ce7c8",
+      "rust_sha256": "f3ef7bdd25356cc8c2140280085cd99628e087e392a92ea03c49ddb40cb00148"
+    },
+    {
+      "source": "upstream/dav1d/src/fg_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/fg_apply_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 5,
+        "raw-c-mutable-address": 3
+      },
+      "raw_sha256": "89f9c5c640849be71f7c6d399e2b3147f7553511cce3746ae467eeaa7cad2890",
+      "rust_sha256": "9888266de380e847c89a8d29905eaca5ea1dc2a113e808ecf6c12aa6288dd1b6"
+    },
+    {
+      "source": "upstream/dav1d/src/filmgrain_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/filmgrain_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 3,
+        "raw-c-mutable-address": 4
+      },
+      "raw_sha256": "b7989b85370768c9f31e377fcca9741073448b62b19e6f1d8ed4d8f38a4a5c6f",
+      "rust_sha256": "69163039653cd38e130d4fc33632ef626e2c94f26bab4fbb678169e9317a6f44"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_prepare_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/ipred_prepare_tmpl.rs",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "target-runtime-assertion": 2,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "73ace0ef34a802f4082e9a2e7c5c772be38348035c627f81e6ba7cbf575fe62e",
+      "rust_sha256": "d3ba00b36118bf2012fbb27a3b33ec953f40162b9edc9fb35f74ab56c7eb5220"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/ipred_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 11,
+        "raw-c-mutable-address": 16,
+        "raw-c-assignment-temporary": 1
+      },
+      "raw_sha256": "ea98f316a52a9ff3e7d881eab190315f3f8c0c05122701e82b5808a9a58b0a4f",
+      "rust_sha256": "e49e9262c3d835c15df3ae6b19c4db6a24dcebeeab60b5a3330528adc9e3c367"
+    },
+    {
+      "source": "upstream/dav1d/src/itx_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/itx_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 5,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "22374736ff0e7ded28ed76a7fed18edfaec41b978b4a7e035f83770578ada2a6",
+      "rust_sha256": "ef922e11acbddd2af25795f16113099846d9583621fbad03462afff50aa4db85"
+    },
+    {
+      "source": "upstream/dav1d/src/lf_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/lf_apply_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 1,
+        "target-libc-thread-storage": 3,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 22,
+        "raw-c-assignment-temporary": 14,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "d2fa73e222879e6fb8f514b354ede18075f79376f3dbca1b4e56967f87486ef4",
+      "rust_sha256": "42a7f707c70c22de43fe5c20e9fc7c357dcf80f9b2c33ce56f62cfa905485616"
+    },
+    {
+      "source": "upstream/dav1d/src/loopfilter_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/loopfilter_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 1,
+        "original-c-record-field-alignment": 3
+      },
+      "raw_sha256": "7c175284bf1f00e6db402ead1190f60fc03d42d93e84c21044591ac595bd506f",
+      "rust_sha256": "e7269d84707eebdc54e1db79e0ab08b8cc8ce4a456899381a5f1f55107497e4d"
+    },
+    {
+      "source": "upstream/dav1d/src/looprestoration_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/looprestoration_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 22,
+        "target-runtime-assertion": 1,
+        "raw-c-mutable-address": 36,
+        "raw-c-assignment-temporary": 11,
+        "original-c-record-field-alignment": 1
+      },
+      "raw_sha256": "4f19cc0c06054af9b98147bfacb1ed2f9212524f80c26ee052eb3efd8c4762c8",
+      "rust_sha256": "2f8587a94a8362c8852441b631117f0511406c92569dc8703eae9b40e61a3633"
+    },
+    {
+      "source": "upstream/dav1d/src/lr_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/lr_apply_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 2,
+        "target-libc-thread-storage": 3,
+        "raw-c-mutable-address": 3,
+        "raw-c-assignment-temporary": 7,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "54c1bba42b5863090b78749830fbf70b4f03e5af0f40b7b2e1dfd39fe2350d74",
+      "rust_sha256": "007e96e29c1b10a4e9133bd5ace698ec06df98d7920cb65f8ed88b8a0fefe9cf"
+    },
+    {
+      "source": "upstream/dav1d/src/mc_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/mc_tmpl.rs",
+      "corrections": {
+        "target-runtime-assertion": 4,
+        "raw-c-mutable-address": 11
+      },
+      "raw_sha256": "ffab22e4ec4ad282e3ca05ee2a19a642c6cdc8345b7f57b05a89d0d02df910ba",
+      "rust_sha256": "bbee89c7354cbcc23c45b8f87d7407de6c309d46b71101b76acd5b090d47fd65"
+    },
+    {
+      "source": "upstream/dav1d/src/recon_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/b16/recon_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 13,
+        "target-runtime-assertion": 34,
+        "target-libc-thread-storage": 3,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 152,
+        "raw-c-assignment-temporary": 4,
+        "original-c-record-field-alignment": 144
+      },
+      "raw_sha256": "278efbaa38a3ae99498bc6a1fddb5a723ddfcf8c7a513af40681a9dcf29c39fb",
+      "rust_sha256": "461ddeaac8d88911a1afd2b7e1a74b189593bb80b7b18c772e9fb66d7c834406"
+    }
+  ]
+}
