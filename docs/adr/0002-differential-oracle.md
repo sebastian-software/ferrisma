@@ -134,3 +134,37 @@ adapter, alongside its existing access-control option. No runtime algorithm or
 source access declaration is changed. Observations omit undefined padding and
 unfilled groups. Image setter fixtures initialize their input pixels before
 testing ownership and post-assignment errors.
+
+The dedicated XYB fixture translation unit includes pristine stage_xyb.cc and
+its dec_xyb-inl.h helper and compiles with source-scoped -O0, alongside the
+existing access-control/no-RTTI fixture options. Its original factories and
+stage methods bind from this object; the archive does not supply a second XYB
+implementation. Ordinary optimization commutes competing-NaN operands
+differently after ASan inserts matrix-load checks. For example, a quiet-NaN
+matrix coefficient multiplied by an independently produced canonical NaN
+selects a different payload between the original optimized ordinary and
+sanitized objects. A small noinline adapter alone does not remove this drift.
+The isolated -O0 setting retains the original scalar expression operand order
+for both configurations, including the actual stage, without replacing any
+source routine or changing the original codec-library/other fixture settings.
+All sanitizers and every raw-parameter/exceptional-value case remain enabled.
+This is a reproducible numeric reference configuration, not a performance
+comparison or a change to an existing source algorithm/optimization. Review it
+with compiler/target/source changes; do not replace it with NaN rewriting or
+relaxed comparisons. Ordinary and instrumented complete-image parity remain
+separate required regression gates.
+
+Select libc++ explicitly for the Linux Clang reference and install its
+development packages in CI. The translated palette sort preserves the recorded
+libc++ non-arithmetic specialization; silently selecting libstdc++ compares a
+different algorithm with a different equivalent-element order. The complete
+existing sort and codec corpus remains enabled for the selected library.
+Other standard-library algorithms/configurations require separate translation
+and evidence. This does not add a C++ dependency to the Rust library.
+
+The frame-finalization fixture allocates backing storage for an empty group
+through the original BitWriter::WithMaxBits without writing bits. Its vector
+append calls memcpy even for a zero-byte span when other groups are nonempty;
+Linux's nonnull declaration rejects a null source. Supply a real zero-length
+span rather than suppress that sanitizer check or remove empty-group cases.
+The original writer and codec source stay unchanged.

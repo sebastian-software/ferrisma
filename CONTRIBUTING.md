@@ -39,6 +39,15 @@ algorithm is replaced. Review the original-stage/factory link binding and exact
 float-word evidence with compiler, source, target, linker, or instrumentation
 changes. See ADRs 0002 and 0003.
 
+The separate XYB fixture unit compiles its included pristine stage/helper at
+`-O0` to retain original scalar operand order with and without ASan matrix-load
+checks. All sanitizers remain active. This flag affects no other fixture or
+original codec-library object. Native local Add/Mul boundaries keep the same
+operand order and separate MulAdd rounding in release builds. See
+[ADR 0002](docs/adr/0002-differential-oracle.md) and
+[ADR 0003](docs/adr/0003-rust-representation.md). This reference configuration
+makes no performance parity claim.
+
 The complete-file oracle compiles the original DecodeFile and ReadICC helper
 bodies without their unrelated test framework. At CMake configure time,
 `tools/oracle/extract_source.py` copies their exact pinned source ranges and
@@ -53,6 +62,13 @@ is reimplemented in the adapter.
 - Rust 1.85 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.
 - Python 3, Git, CMake 3.18 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
+
+The Linux oracle requires Clang and the libc++/libc++abi development packages
+(`libc++-dev` and `libc++abi-dev` on Ubuntu). CMake explicitly selects libc++:
+the Rust palette sorting boundary translates that library's recorded algorithm.
+Using libstdc++ changes the order of equivalent palette entries. This choice
+affects only the C++ test reference; ordinary Rust builds remain independent
+of a C++ standard library.
 
 Initialize the reference source and its pinned Highway, Brotli, and skcms
 dependencies. The oracle builds the complete original static codec library

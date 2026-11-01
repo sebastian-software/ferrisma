@@ -1,6 +1,9 @@
 name: Checks
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
@@ -25,5 +28,10 @@ jobs:
           git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
       - name: Install Rust toolchains
         run: rustup toolchain install stable 1.85 --profile minimal --component rustfmt --component clippy
+      - name: Install the Linux reference standard library
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libc++-dev libc++abi-dev
       - name: Check the mechanical port
         run: python3 tools/check.py --sanitizers --msrv

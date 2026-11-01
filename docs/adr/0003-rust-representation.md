@@ -642,6 +642,27 @@ at the original float assignments/call boundaries.
 Setting the copied linear profile's transfer function retains its ICC bytes;
 regeneration belongs to the later original caller, not to this setter.
 
+The scalar XYB helper returns three float values instead of assigning restrict
+output pointers; the stage resolves its three input rows through existing
+owner-relative descriptors and stores each result in source channel order.
+It copies exactly OpsinParams and the output-is-XYB predicate at construction,
+independently of later caller mutations. Only the leading word of each original
+four-lane inverse-matrix entry participates in the scalar helper. Local Add/Mul
+call boundaries retain the source scalar operand order when native release
+optimization would otherwise commute NaN operands. MulAdd remains exactly
+Add(Mul(a,b),c), with separate rounding; global Highway helpers are unchanged.
+Each local Mul additionally preserves scalar-inl.h's float-to-double promotions,
+binary64 product, and narrowing to the float lane. Out-of-line widening and
+binary64 multiplication keep native optimization from collapsing those source
+checkpoints. Both XybToRgb and the scaled-output stage use this same mapping.
+The helper remains out of line, and its source dataflow matches the isolated
+original-source compiler configuration in ADR 0002. Captured-word regressions
+cover competing NaN payloads, overflow/cancellation, and finite pixels. Review
+this mapping with compiler/target changes; no performance parity is claimed.
+The normal stage's scalar tail has zero length, so its MSan annotations access
+no storage. Scaled XYB retains the original B-minus-Y expression and constants.
+Extra channels are ignored, and failed xextra guards precede every row access.
+
 The derived one-lane tone/HLG classes compose their actual base constructors;
 their Highway bodies keep separate multiply/add operations and the original
 right-nested luminance order. They do not reuse the base classes' different
@@ -652,11 +673,15 @@ FastPow2f retains Highway Floor's positive-zero result for negative zero and
 its sign-based saturating NaN/infinity conversion before wrapped exponent math.
 ZeroIfNegative tests the sign bit, including negative NaNs.
 
-In the scalar GamutMap blend, the reference Clang object emits the original
+In the scalar GamutMap blend, the AArch64 reference Clang object emits the original
 channel value as the first add operand, followed by the separately computed
 product. Express that emitted operand order explicitly so a quiet-NaN channel
 retains its payload. This does not change finite arithmetic or fuse operations;
-exact differential and captured-word regressions cover it. Review this mapping
+exact differential and captured-word regressions cover it. The original x86_64
+configuration selects the red/green NaN payload in all three channels for the
+native regression's input. Capture that target's exact original result without
+changing the AArch64 words; include the same input in the real differential
+corpus. Cross-target NaN payload equality is not assumed. Review this mapping
 with compiler/target changes. ToneMappingStage retains the original unneeded
 return before argument guards, then RGB load/scale/map/gamut/scale/store order.
 
@@ -777,7 +802,39 @@ owners, per-thread u32 cache, nullable-channel ones, scalar NearestInt, store
 order, endianness, orientation mapping, and conditional alpha unpremultiplication.
 Disjoint temporary-plane borrows replace original channel-pointer rebinding.
 Output allocation size and row-span validity remain caller preconditions where
-the source uses restrict pointers. Callback/float-output entry points remain
-absent. JxlEndianness value 3 is representable but unnamed and exercises the
+the source uses restrict pointers. Separate floating buffer functions select
+float_out=true and admit only 16/32-bit samples; callback entry points remain
+absent. Float32 output copies words without arithmetic, preserving signaling
+NaN bits. Float16 temporary planes own u16 words instead of Highway float16_t;
+native-endian writes precede the source's separate byte-swap pass. Byte slices
+replace typed destination casts without requiring unsafe or aliased references.
+
+The reference Clang/GCC builds select Highway F16FromF32's native-half-operator
+branch. Stable Rust has no binary16 scalar, so preserve that cast's default IEEE
+nearest-even mapping explicitly. Finite conversion follows Highway's existing
+mantissa rounding, carry, exponent clamping, subnormal shift, and sign restoration
+algorithm. Native-cast NaNs retain their sign and high payload bits and set the
+quiet bit; do not substitute Highway's alternate canonical-NaN fallback branch.
+The float oracle fails compilation if HWY_HAVE_SCALAR_F16_OPERATORS is absent,
+rather than claiming those different compile branches are equivalent. Exact
+original-kernel comparisons cover every half word, finite half midpoints and
+their binary32 neighbors, both signs, tiny/subnormal values, overflow, and NaN
+payloads. Review this language-required representation for compiler/target or
+floating-environment changes; alternate rounding modes and fallback branches
+remain separate boundaries.
+
+JxlEndianness value 3 is representable but unnamed and exercises the
 source fall-through; value 9 produces an undefined C++ enum load and has no
 assigned source codec meaning.
+
+The x86_64 reference downsampling loop keeps its accumulator as the destination
+of ADDSS. A local out-of-line scalar addition retains that operand order in
+Rust Debug and Release, including competing NaN payloads. The original x86_64
+DC-scaling object uses the matrix as the multiplication destination for its
+first two lanes and the reciprocal scale for the third; a local out-of-line
+multiplication and the same per-lane argument order retain that behavior.
+AArch64 keeps its existing source expressions. These are explicit mappings of
+the fixed reference compiler's scalar instructions, not changes to the sums,
+scales, rounding, or error checkpoints. Review them after compiler/target
+changes. Captured-word native regressions and the unchanged differential
+corpora cover the observed failures.

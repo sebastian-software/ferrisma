@@ -26,13 +26,38 @@ Generated complete images, prefix/corruption cases, and the exhaustive native
 16-bit image are local test infrastructure. They satisfy the fixed
 [first-image gate](FIRST_IMAGE.md), not the full upstream image-test inventory.
 
-`dec_external_image.cc`, its used scalar Highway NearestInt, and the
-UnpremultiplyAlpha loop in `alpha.cc` supply integer buffer export, orientation,
-clamping, rounding, interleaving, alpha behavior, and output-span checks.
-Float output, callback output, and custom runners remain separate. Source
+`dec_external_image.cc`, its used scalar Highway NearestInt/DemoteTo, and the
+UnpremultiplyAlpha loop in `alpha.cc` supply integer and floating buffer export,
+orientation, clamping, rounding, interleaving, alpha behavior, and output-span
+checks. The float functions explicitly select float_out=true with 16/32 bits;
+the existing integer functions retain their original types and implementation.
+Callback output and custom runners remain separate. Source
 JxlEndianness value 9 produces an undefined C++ enum load; the representable but
 unnamed value 3 tests its defined fall-through instead, with identical expected
 bytes and no dropped case. No sanitizer or exact-comparison suppression is used.
+
+Highway `hwy/ops/scalar-inl.h` delegates FloatToF16's DemoteTo to F16FromF32 in
+`hwy/base.h`. The reference's current Clang/GCC configurations select
+HWY_HAVE_SCALAR_F16_OPERATORS=1 and a native half cast. Stable Rust represents
+the resulting binary16 words with u16. Its finite nearest-even rounding follows
+Highway's explicit exponent/mantissa/carry algorithm; the selected native cast's
+NaN branch preserves sign and the top ten payload bits and sets the quiet bit.
+The fallback source branch instead canonicalizes NaNs, so it is not silently
+used as native-cast behavior. The float oracle rejects a non-native-operator
+configuration at compile time and invokes the unchanged original FloatToF16 and
+conversion functions. Float32 stores copy raw binary32 words, retaining signaling
+NaNs. Both branches retain original x-major interleaving and the half branch's
+native stores followed by a separate byte-swap pass. The original default IEEE
+rounding environment remains a precondition. Alternate floating environments,
+old compiler branches, SIMD, and performance parity are separate work.
+
+Generated floating-output cases cover every half word, both signs around every
+finite half midpoint, overflow boundaries, NaN payloads, generated binary32
+words, nullable channels, orientations, endian stores, alpha unpremultiplication,
+unchanged allocation suffixes, and failure/lifecycle guards. Native tests also
+round-trip all half words with the selected cast's NaN quieting. These are local
+component fixtures, not complete floating-image decoding or the full upstream
+test inventory.
 
 Modular group decoding, image-to-pipeline conversion, and finalization translate
 the complete corresponding methods in `lib/jxl/dec_modular.cc` under a null pool
@@ -82,7 +107,28 @@ parameter initialization, output-profile selection, and matrix/luminance/gamma
 updates. Original methods supply all reference observations; generated profile
 and reuse sequences are local infrastructure. Fixtures value-initialize source
 aggregate scalars explicitly and retain partial state after errors. Pixel
-conversion and frame-pipeline integration remain separate boundaries.
+conversion is translated separately below; general image conversion and
+frame-profile integration remain separate boundaries.
+
+`dec_xyb-inl.h` and the normal stage/factory in
+`render_pipeline/stage_xyb.cc` supply the one-lane XybToRgb helper and XYBStage.
+`tools/oracle/xyb_stage.cc` includes `xyb_stage.inc`, which includes the pristine
+stage source and calls its actual scalar helper and public factory. Its
+source-scoped -O0 setting retains source operand order across ordinary and
+ASan/UBSan builds; all instrumentations stay active. Other fixture/original
+codec-library flags are unchanged. The native helper's local Add/Mul call
+boundaries retain the same Highway scalar order, binary64 multiplication with
+float narrowing, and unfused rounding. The scaled-output stage uses the same
+local product mapping. This
+pins a numeric configuration without changing any source algorithm or claiming
+performance parity. It supplies input/profile/parameter
+fixtures, observes all output words and unchanged guards/extra channels, and
+executes the original simple pipeline with reverse group submission. Default
+and raw custom parameter corpora include every scalar parameter position,
+signed zeros, subnormals, infinities, and NaN payloads. Generated corpora remain
+local infrastructure; no conversion algorithm is supplied by the fixture.
+FastXYB/sRGB8, SIMD targets, general image conversion, and decoder-profile
+integration remain separate boundaries.
 
 `passes_state.cc`, decoder storage/constructor/Init and callback carriers in
 `dec_cache.h`, InitForAC in `dec_cache.cc`, callback typedefs in the public
@@ -400,3 +446,20 @@ writer unchanged. The native zero-gray test uses independently captured original
 42-bit modular sections (`258cc50ac100`, padded), not a JPEG XL codestream.
 Generated state/action corpora remain local infrastructure; complete frame
 entry points, decoding, and the first-image corpus are separate requirements.
+
+The Linux reference explicitly uses Clang with libc++ for the translated
+palette sort boundary. The same tied-element and heap-fallback differential
+corpus compares the actual selected standard library; no sort implementation
+is substituted in the adapter. Empty frame-group fixtures allocate a real
+zero-length span using the original writer before its original vector append.
+`tests/linux_scalar.rs` records the original x86_64/AArch64 downsampling and
+failed DC-scaling observations. Local x86 scalar calls retain the original
+ADDSS/MULSS operand order for competing NaN payloads; the source algorithms,
+existing AArch64 words, and differential comparison semantics remain unchanged.
+
+The original x86_64 GamutMap result for the existing native regression was
+captured independently with the ordinary Clang 21 reference. Its
+three output words are `0x7fe12345`; AArch64 retains the existing distinct blue
+word `0x7fc98765`. The native test now checks its target's exact source words,
+and the same input is added to the differential corpus. No production gamut
+algorithm or existing AArch64 expectation changes.

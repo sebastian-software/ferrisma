@@ -23,6 +23,7 @@ pub mod dec_huffman;
 pub mod dec_modular;
 pub mod dec_patch_dictionary;
 pub mod dec_xyb;
+pub mod dec_xyb_scalar;
 pub mod enc_ans;
 mod enc_ans_histogram;
 pub mod enc_ans_params;

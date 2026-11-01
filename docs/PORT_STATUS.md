@@ -22,7 +22,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
 | `base/float.h` | `base/float.rs` | Complete LoadFloat16 and callback-based LoadFloatRow, including unsupported-format failure before access |
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
-| `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer/buffer/null-pool specialization of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; float output, callbacks, and custom runners unported |
+| `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer and Float16/Float32 buffer/null-pool specializations of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32/FloatToF16 with selected native-half-cast mapping, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; callbacks, custom runners, and alternate Highway half-conversion compile branches unported |
 | `encode_internal.h` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, and the buffer-backed adapter/channel construction, binding, copying, views, and format accessors; callback/JPEG input, CopyFromBuffer, queued frames, and output processors unported |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
@@ -60,7 +60,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, general preparation, VarDCT cache initialization, output lifecycle, and custom runners unported |
 | `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; general/progressive frame APIs, JPEG, and VarDCT orchestration unported |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export; preview/animation/ICC/general profiles remain outside admission |
-| `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; pixel conversion and fast XYB output unported |
+| `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, and decoded-byte accessors; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
@@ -68,6 +68,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
+| `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
@@ -143,14 +144,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 329 tests, including 187 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 329 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 329 tests and corpus |
+| Rust debug | PASSED | 344 tests, including 195 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 344 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 344 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 329 tests and 705,532 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 344 tests and 744,124 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; component runtime evidence below does not establish the full Linux suite |
 
-Each differential run compares **705,532 requests** against C++. These include
+Each differential run compares **744,124 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -864,6 +865,22 @@ JxlEndianness enum load. Its unknown-value case now uses representable value 3,
 which retains the same source fall-through/output while preserving the case
 count; undefined value 9 receives no invented C++ codec meaning.
 
+Floating buffer export adds 27,587 differential requests in five groups and
+three ordinary native tests. The half-kernel groups compare 2,641 rows covering
+all 65,536 half words and both signs at every finite half midpoint's immediate
+binary32 neighbors, plus 1,434 rows of NaN payloads, exponent boundaries, and
+generated binary32 words. Another 2,232 raw-bit buffer cases compare native
+half casts and binary32 copies through both byte orders and 1..4 channels.
+The 2,848 channel cases retain orientation, missing channels, span/format guards,
+zero-row lifecycle, and unchanged padding/suffixes; 18,432 bundle cases preserve
+gray/RGB layouts, alpha presence/association/unpremultiplication, metadata state,
+and guard order. Native coverage independently checks every half word with
+native-cast NaN quieting, exact signaling-NaN Float32 copies, nullable-channel
+ones, endian/orientation stores, and error-time untouched buffers.
+The oracle enforces Highway's selected native-half-operator compile branch;
+alternate compiler/floating-environment behavior remains outside this slice.
+Floating file-level decoding is not inferred from this output component.
+
 Complete first-image integration adds 1,081 differential requests. The C++
 oracle executes the exact original DecodeFile and ReadICC helper bodies,
 extracted without rewriting and checked against pinned SHA-256 hashes.
@@ -935,3 +952,69 @@ object. Emulated ASan is unavailable; it is not counted as a passing gate.
 Native hosted CI must validate the complete Linux ASan/UBSan graph and MSRV
 before merge. The complete ordinary/sanitized macOS runs in the evidence table
 remain separate, fully instrumented reference gates.
+
+### Scalar XYB render boundary follow-up
+
+The normal scalar XYB stage adds 11,004 exact differential requests in three
+groups: 6,540 helper/default/custom/exceptional-value cases, 4,320 factory,
+channel-mode, row-offset, guard, and retained-storage cases, and 144 simple
+pipeline cases including reverse group submission across group edges. The
+raw-parameter corpus independently varies all 48 stored words and combines
+coefficient/bias and input NaN payloads; unused broadcast/fourth/quant lanes
+remain ignored. Two ordinary Rust tests use independently captured original
+words and exercise both the actual helper and scaled stage, guards before row
+access, copied output selection, and untouched extra channels/storage.
+
+The reference uses the actual original helper/stage from a dedicated fixture
+unit at -O0, with every ASan/UBSan check active. ADRs 0002 and 0003 document
+why competing-NaN operand order requires that isolated numeric configuration
+and native local primitive call boundaries. The original codec build, other
+fixtures, old tests, and complete first-image corpus retain their existing
+configuration and cases. This does not translate FastXYB/sRGB8, SIMD targets,
+general image conversion, a VarDCT decoder, or any new admitted image profile.
+
+Validated on 2026-11-01 on macOS arm64 with
+`python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`: each configuration passes 328
+tests, including 186 differential test groups and 714,423 requests, with no
+failed or ignored cases. Both references pass debug, release, and Rust 1.85.1,
+including the existing complete first-image corpus. The Linux x86_64 all-target,
+all-feature offline cargo check also passes; Linux runtime evidence remains a
+separate hosted gate. The ordinary native XYB test executable links only
+libSystem and introduces no C++ runtime dependency.
+
+A structural precision review additionally preserves Highway scalar operator*'s
+literal float-to-double promotions, binary64 product, and narrowing to the
+float lane in both XybToRgb and scaled XYB output. Local out-of-line widening
+and product calls retain those checkpoints in native release assembly. The
+existing finite/NaN corpora and captured regression words stay unchanged; no
+extra request, expected-word replacement, or global helper change is needed.
+Renewed ordinary and sanitized full checks retain the same test/group/request
+counts in debug, release, and Rust 1.85.1 after this precision mapping repair.
+
+## Linux reference configuration and scalar operand order
+
+The first hosted Linux run identified four reference-platform gaps. The Linux
+oracle now explicitly selects libc++ for the recorded palette-sort algorithm;
+libstdc++ uses a different equivalent-element order. The frame-finalization
+adapter gives empty groups real backing storage without adding bits, retaining
+all empty-group cases and the original writer under Linux's nonnull memcpy
+checks. Local out-of-line x86 scalar additions/multiplications preserve the
+original downsampling/DC-scaling instruction operand order and NaN payloads.
+Existing AArch64 expressions and all prior differential cases are unchanged.
+Two ordinary Rust regressions retain independently observed source words and
+failed-roundtrip partial state. Compiler and standard-library changes require
+renewed evidence; these fixes do not establish any new codec configuration.
+
+The ordinary macOS check with `--msrv` passes all 325 tests and 703,420
+differential requests in each Debug, Release, and Rust 1.85 configuration.
+The two captured regressions also pass in the isolated x86_64 Linux runtime;
+full Linux and sanitized checks remain required before integration. CI runs
+the unchanged full Linux/macOS matrix on each PR update and on pushes to main,
+avoiding duplicate full runs for a feature-branch push followed by its PR.
+
+After those four fixes, native Linux CI passed every existing differential
+group and exposed an AArch64-only captured GamutMap word in an ordinary test.
+The test now retains independently captured exact words for both reference
+targets, with its input also added to the differential corpus. The existing
+AArch64 expectation and production gamut code remain unchanged.

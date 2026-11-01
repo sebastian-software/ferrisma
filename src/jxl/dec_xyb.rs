@@ -1,7 +1,8 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! OpsinParams, CanOutputToColorEncoding, and complete OutputEncodingInfo
-//! storage/setters from dec_xyb.{h,cc}. Pixel conversion remains unported.
+//! storage/setters from dec_xyb.{h,cc}. The scalar pixel helper is translated
+//! separately in dec_xyb_scalar; general image conversion remains unported.
 //! Safe zero storage represents source-indeterminate scalar members; it does
 //! not assign them source meaning before the corresponding original write.
 use super::base::matrix_ops::{Matrix3x3, Vector3, inv3x3_matrix, mul3x3_matrix};

@@ -101,4 +101,5 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "tone_mapping.inc"
 #include "decode_frame.inc"
 #include "uint_output.inc"
+#include "float_output.inc"
 #include "whole_image.inc"

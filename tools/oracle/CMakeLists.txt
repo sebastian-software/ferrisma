@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.18)
 project(libjxl_rust_oracle LANGUAGES C CXX)
 
+# The Rust palette sort follows the recorded libc++ specialization. Select
+# that same standard library explicitly on Linux instead of silently using
+# libstdc++, whose equivalent-element order differs. This is oracle-only.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "The Linux differential oracle requires Clang with libc++")
+  endif()
+  string(APPEND CMAKE_CXX_FLAGS " -stdlib=libc++")
+endif()
+
 get_filename_component(PORT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 set(UPSTREAM "${PORT_ROOT}/upstream/libjxl")
 if(NOT EXISTS "${UPSTREAM}/third_party/highway/hwy/base.h")
@@ -58,7 +68,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc gaborish.cc
+add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
@@ -72,6 +82,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Retain the pristine operator bodies in their own TU, with all sanitizer
   # flags active. The old adapter and original library flags stay unchanged.
   set_source_files_properties(gaborish.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")
+  # Keep original scalar XYB operand order reproducible with active sanitizers.
+  # Only this new adapter and its included pristine stage/helper use -O0;
+  # neither the original codec library nor another fixture changes flags.
+  set_source_files_properties(xyb_stage.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-access-control;-fno-rtti")
 else()
   message(FATAL_ERROR "Frame state fixtures require Clang or GCC access-control support")
 endif()
