@@ -96,3 +96,37 @@ fn original_native_x86_idct_keeps_addend_payload_in_competing_products() {
     );
     assert_eq!(pixels[0].to_bits(), 0x7fc1_2345);
 }
+
+// Native Linux DC payload observations and original-object operands from run
+// 41347513370, job 124970408958, establish block01 as the winning payload.
+// Check that payload throughout the AFV quadrant in all four orientations.
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn original_native_x86_afv_keeps_block01_payload_in_the_dc_sum() {
+    use jxl::jxl::ac_strategy::AcStrategyType;
+    use jxl::jxl::dec_transforms::transform_to_pixels;
+    for raw in 14..18 {
+        let mut coefficients = [0.125; 64];
+        coefficients[0] = f32::from_bits(std::hint::black_box(0x7fc1_2345));
+        coefficients[1] = f32::from_bits(std::hint::black_box(0xffc9_8765));
+        let mut pixels = [0.0; 88];
+        let mut scratch = [0.0; 308];
+        transform_to_pixels(
+            AcStrategyType(raw),
+            &mut coefficients,
+            &mut pixels,
+            11,
+            &mut scratch,
+        );
+        let quadrant_x = (raw - 14) as usize & 1;
+        let quadrant_y = (raw - 14) as usize / 2;
+        for y in 0..4 {
+            for x in 0..4 {
+                assert_eq!(
+                    pixels[(quadrant_y * 4 + y) * 11 + quadrant_x * 4 + x].to_bits(),
+                    0xffc9_8765
+                );
+            }
+        }
+    }
+}

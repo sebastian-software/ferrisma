@@ -964,3 +964,20 @@ compares every complete observation exactly, collecting all mismatches before
 failing. Linux diagnostics inspect the actual ordinary and instrumented DCT
 objects as well as the Rust helpers; small arithmetic probes and emulation do
 not establish the original objects' operand selection.
+
+The next native Linux run, 41347513370 / job 124970408958, matches every
+IDCT, identity, and LLF request. Its two complete original graphs expose the
+same 24 AFV differences: strategies 14 through 17, six ordered NaN pairs at
+coefficients 0/1, and the 16 AFV-quadrant pixels only. Coefficients, scratch,
+padding, and the other 210 differential groups match. In the ordinary original
+DctCommand object, offsets 0x31c6/0x31ca/0x31cd add c to a, copy b, then add
+(a+c) into b. The instrumented object's 0x374d/0x3751/0x3754 retain the same
+operand order. Reuse the existing local afv_add(b, a+c) on both native targets.
+
+The actual ordinary basis loop at 0x324a adds the product into the accumulator;
+the instrumented AFVIDCT4x4 at 0x87/0x8d multiplies the product and adds it into
+the accumulator too. Preserve accumulator-first addition on x86 as on ARM.
+Another 24 exact requests place competing payloads at coefficients 2/16, which
+both enter that basis loop, across all four orientations. Retain every prior
+request and expected word. These changes leave the selected ARM operations,
+association, finite arithmetic, compiler flags, and original source unchanged.

@@ -151,11 +151,11 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | Rust release | PASSED | Same 365 tests and corpus |
 | Rust 1.85.1 | PASSED | Same 365 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 365 tests and 750,153 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 365 tests and 750,177 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **750,153 requests** against C++. These include
+Each differential run compares **750,177 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -1149,8 +1149,8 @@ large DCTs. LowestFrequenciesFromDC retains its sparse writes and warm-scratch
 branch; its required forward DCT is included. AcStrategy geometry and natural
 coefficient orders/LUTs use the original tables and traversal.
 
-Seven differential groups add 2,905 requests against the pristine original
-methods, comparing all initialized coefficient, padded-output, and scratch
+Seven differential groups initially added 2,905 requests against the pristine
+original methods, comparing all initialized coefficient, padded-output, and scratch
 words. Coverage includes square/rectangular shapes, strides, DC and impulse
 inputs, deterministic finite samples, signed zeros, subnormals, overflow,
 infinities, signaling/quiet NaNs, and 342 competing-payload requests. Another
@@ -1177,13 +1177,21 @@ and performance remain separate gates.
 Both complete local native ARM macOS commands, `python3 tools/check.py --msrv`
 and `python3 tools/check.py --sanitizers --msrv`, pass with all three slices
 combined. Every debug, release, and Rust 1.85 configuration runs 365 tests,
-including 211 differential groups and 750,153 exact C++/Rust requests, with
+including 211 differential groups and 750,177 exact C++/Rust requests, with
 zero failed or ignored cases. Existing corpora and expected words remain intact.
-The captured-word unit tests are target-specific: two run on AArch64 and one
-on x86_64; every target runs the same complete differential corpus.
+The captured-word unit tests are target-specific: two run on each of AArch64
+and x86_64; every target runs the same complete differential corpus.
 [Integration PR #7](https://github.com/sebastian-software/libjxl-rs/pull/7)
 records the native hosted matrix for this combined tree.
 
 The new scalar dependencies do not expand the admitted complete image profile.
 General VarDCT group/frame orchestration, AC quantization encoding, SIMD,
 full-codec conformance, and performance remain separate work.
+
+The native Linux refinement retains the actual original IDCT addend-first
+addition and AFV coefficient-1-first DC sum and accumulator-first basis sum.
+Both complete original Linux graphs agree on the 24 formerly mismatching AFV
+requests. Another 24 competing-basis requests exercise two even-even AFV
+coefficients in all four orientations, increasing the DCT slice to 2,929
+requests and its mixed-payload group to 366. No previous request or expected
+word is removed or changed; the selected ARM operations remain identical.

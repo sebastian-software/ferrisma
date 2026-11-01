@@ -295,14 +295,7 @@ fn afv_idct4x4(coeffs: &[f32], pixels: &mut [f32]) {
         let mut pixel = 0.0f32;
         for j in 0..16 {
             let product = scalar_mul(coeffs[j], AFV_BASIS[j][i]);
-            #[cfg(target_arch = "aarch64")]
-            {
-                pixel = afv_add(pixel, product);
-            }
-            #[cfg(not(target_arch = "aarch64"))]
-            {
-                pixel = afv_add(product, pixel);
-            }
+            pixel = afv_add(pixel, product);
         }
         pixels[i] = pixel;
     }
@@ -314,10 +307,9 @@ fn afv_transform_to_pixels(kind: usize, coefficients: &[f32], pixels: &mut [f32]
     let a = coefficients[0];
     let b = coefficients[1];
     let c = coefficients[8];
-    #[cfg(target_arch = "aarch64")]
+    // The native AArch64 and x86_64 original objects retain block01 as the
+    // first operand of the final sum, after evaluating block00 + block10.
     let dc0 = afv_add(b, a + c) * 4.0;
-    #[cfg(not(target_arch = "aarch64"))]
-    let dc0 = (a + c + b) * 4.0;
     let dcs = [dc0, a + c - b, a - c];
     let mut coeff = [0.0; 16];
     coeff[0] = dcs[0];

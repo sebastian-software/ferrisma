@@ -335,6 +335,11 @@ fn dct_competing_nan_payloads_match_identity_afv_and_anisotropic_transform_paths
             &[(0, 1), (0, 8), (21, 42)],
         );
     }
+    // Both positions enter the AFV basis loop rather than its neighboring
+    // rectangular IDCT blocks, so distinct payloads compete in the sum.
+    for raw in [14, 15, 16, 17] {
+        add("dct-pixels", 8, 8, raw, &[(2, 16)]);
+    }
     for (rows, cols) in [(4, 8), (8, 4), (8, 8), (8, 16), (16, 8)] {
         for inverse in 0..2 {
             let fs = if inverse == 0 { cols + 3 } else { cols };

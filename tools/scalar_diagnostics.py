@@ -46,6 +46,21 @@ def dct_observations(original):
         pixels = [output[y * 11 + x] for y in range(8) for x in range(8)]
         print(f"original native DCT {original.parent.name} inputs {first}/{second} pixels:",
               " ".join(pixels), flush=True)
+    for positions in ((0, 1), (2, 16)):
+        for first, second in ((0x7fc12345, 0xffc98765),
+                              (0xffc98765, 0x7fc12345),
+                              (0x7fa12345, 0xffc98765)):
+            coefficients = [1040187392] * 64
+            coefficients[positions[0]], coefficients[positions[1]] = first, second
+            request = "dct-pixels 8 8 11 14 " + " ".join(map(str, coefficients)) + "\n"
+            result = run(original, input=request, text=True, capture_output=True)
+            blocks = result.stdout.strip().split(" B")
+            if len(blocks) != 3 or len(blocks[1].split()) != 92:
+                raise RuntimeError("Unexpected original AFV observation: " + result.stdout)
+            output = blocks[1].split()
+            pixels = [output[y * 11 + x] for y in range(8) for x in range(8)]
+            print(f"original native AFV {original.parent.name} positions {positions} "
+                  f"inputs {first}/{second} pixels:", " ".join(pixels), flush=True)
 
 
 def main():
