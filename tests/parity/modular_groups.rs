@@ -11,7 +11,7 @@ use jxl::jxl::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuild
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("mg-")
 }
-fn output(out: &mut String, image: &Image3<f32>) {
+pub(super) fn output(out: &mut String, image: &Image3<f32>) {
     write!(out, " O {} {}", image.xsize(), image.ysize()).unwrap();
     for c in 0..3 {
         for y in 0..image.ysize() {

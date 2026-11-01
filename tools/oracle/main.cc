@@ -471,6 +471,7 @@ bool SharedPrimitivesCommand(const std::string& command,std::istringstream& in,J
 bool ModularFrameDecoderCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool RenderPipelineCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool ModularGroupsCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+bool UpsamplingCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
 int main() {
   try {
@@ -522,6 +523,7 @@ int main() {
       else if (ModularFrameDecoderCommand(command, in, &mm)) {}
       else if (RenderPipelineCommand(command, in, &mm)) {}
       else if (ModularGroupsCommand(command, in, &mm)) {}
+      else if (UpsamplingCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);

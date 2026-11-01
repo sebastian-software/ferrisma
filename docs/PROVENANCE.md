@@ -16,6 +16,16 @@ sections or standalone modular streams and initialized output sentinels.
 Native expected-sample integration is local infrastructure; neither fixture
 replaces complete codestream decoder or upstream image-test coverage.
 
+`render_pipeline/stage_upsampling.{h,cc}` and Highway's scalar Min/Max/MulAdd
+operations supply the complete scalar upsampling stage. Differential requests
+execute the original stage with the original simple pipeline; the 3x2 native
+rounding regression uses independently captured original words. Weight, edge,
+chunk, factory, and argument-guard corpora are local infrastructure. No original
+interpolation algorithm is copied into the C++ fixture.
+The translated Highway scalar helpers use its offered BSD-3-Clause alternative;
+the unchanged notice is in
+[licenses/HIGHWAY-BSD-3-Clause.txt](../licenses/HIGHWAY-BSD-3-Clause.txt).
+
 - `libjxl/libjxl` at `a16d32d0ac113f5e54125e49bb571281c5d0b704`:
   `dec_bit_reader`, `enc_bit_writer`, `field_encodings`, `fields`, `enc_fields`,
   `headers`, the relevant `base/status` semantics, writer storage, alignment,

@@ -187,7 +187,7 @@ impl RenderPipelineStage for Probe<'_> {
         }
     }
 }
-fn value(c: usize, x: usize, y: usize, pass: usize, mode: u32) -> f32 {
+pub(super) fn value(c: usize, x: usize, y: usize, pass: usize, mode: u32) -> f32 {
     if mode == 0 {
         return 0.0;
     }

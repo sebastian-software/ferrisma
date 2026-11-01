@@ -93,3 +93,4 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "modular_frame_decoder.inc"
 #include "render_pipeline.inc"
 #include "modular_groups.inc"
+#include "upsampling.inc"

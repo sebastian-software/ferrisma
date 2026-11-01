@@ -56,6 +56,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes, and decoded-byte accessors; general import/export/copy and metadata verification unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
+| `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
@@ -130,14 +131,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 290 tests, including 162 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 290 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 290 tests and corpus |
+| Rust debug | PASSED | 293 tests, including 164 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 293 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 293 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 290 tests and 668,078 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 293 tests and 669,438 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **668,078 requests** against C++. These include
+Each differential run compares **669,438 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -524,7 +525,9 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the frame/image decoder to the translated modular decoder, metadata,
+1. Translate decoder-state construction/initialization and output-encoding
+   dependencies, retaining the original unconditional 8x stage construction.
+   Connect the frame/image decoder to the translated modular decoder, metadata,
    sections, entropy, prediction, and transforms. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
    input evidence. The fixed encoder and C++ cross-decoding cover only the
@@ -712,3 +715,22 @@ The translated callees borrow real shared-state and pipeline fields separately;
 they do not substitute a partial PassesDecoderState constructor. Full state
 construction, outer frame parsing/scheduling, and final external pixel-buffer
 conversion remain required for the first-image acceptance gate.
+
+The original scalar UpsamplingStage adds 1,360 differential requests. The
+actual original factory/stage runs inside the original simple pipeline, with
+all three shifts and each RGB channel, mirrored odd/tiny dimensions, edge
+groups, reversed group order, default/custom/zero/NaN weights, signed zeros,
+infinities, subnormals, and signaling/quiet NaN inputs. Wide rows cross the
+original 1,024-input-pixel chunk boundary, including 8x output beyond 8,192
+pixels. Factory rejection, zero/repeated workspace preparation, zero-width row
+processing, and nonzero-extra guards retain exact statuses and untouched output.
+All observed source pixels are initialized, including direct error fixtures.
+
+The scalar kernel uses separate multiply/add rounding, matching the actual
+original object; a fused replacement changed a mirrored 3x2 result by one ULP.
+The native regression retains independently captured output words for that
+case. Highway scalar min/max ignore one NaN and choose the second equal operand;
+those rules are distinct from the port's C++ std::min/max helpers. Workspace
+owners retain the original allocation sizes/order and transfer float words
+through existing aligned u32 views, adding no unsafe casts. This stage is a
+decoder-initialization dependency, not a complete frame decoder.

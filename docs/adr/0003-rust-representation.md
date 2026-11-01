@@ -598,6 +598,16 @@ guard (ARM 24, other supported targets 32). Allocation padding uses hwy/base.h's
 kMaxVectorSize (x86 64, other baseline targets 16), independently of the scalar
 MaxVectorSize() function. RVV intrinsic builds remain unported.
 
+The scalar upsampling stage keeps three vectors of aligned temporary owners,
+with the original resize/allocation order and byte counts. Existing u32 views
+store/load float words without adding pointer casts or changing workspace
+layout. Kernel entries not initialized by the source constructor receive safe
+zero storage and remain unused. Preserve Highway's scalar min/max separately:
+they ignore one NaN and choose the second operand on equality. Its scalar
+MulAdd in this stage retains separate multiplication/addition in the original
+compiled object, including on AArch64; it must not inherit another algorithm's
+explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
+
 RenderPipelineInput borrows its simple pipeline and stores owner-relative
 buffer indices/rectangles. Done retains its binding on success or failure, as
 in C++; explicit move_from nulls the old binding and transfers its buffer vector.
