@@ -7,7 +7,8 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 subprocess.run(["python3", str(ROOT / "tools/verify_upstream.py")], check=True)
-manifests = [ROOT / "TRANSLATION.json", *sorted((ROOT / "translations").glob("*.json"))]
+manifests = [ROOT / "TRANSLATION.json", *sorted((ROOT / "translations").glob("*.json")),
+             *sorted((ROOT / "crates").glob("*/TRANSLATION.json"))]
 sources, outputs = set(), set()
 for path in manifests:
     for unit in json.loads(path.read_text()).get("units", []):
@@ -23,3 +24,7 @@ missing = expected - sources
 if missing:
     raise SystemExit("Untranslated library sources: " + ", ".join(str(path) for path in sorted(missing)))
 print(f"All {len(expected)} libavif C source files are represented; verified {len(outputs)} Rust implementation files")
+sharp = set((ROOT / "upstream/libwebp/sharpyuv").glob("*.c"))
+if sharp - sources:
+    raise SystemExit("Untranslated portable SharpYUV sources")
+print(f"All {len(sharp)} portable SharpYUV translation units are represented")
