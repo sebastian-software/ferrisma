@@ -207,6 +207,24 @@ the source's nonoverflowing input requirement; inverse Highway Add/Sub use
 explicit wrapping. Keep the in-place forward no-op's false Status distinct from
 the separate-buffer and inverse no-ops' successful Status.
 
+Prediction row pointers become a borrowed sample slice, a position, and a signed
+row stride. The slice includes owned physical padding; relative reads retain
+the source boundary/interior branches and cannot outlive storage. Weighted state
+borrows its immutable header and owns the original two-row buffers and per-state
+reciprocal table. Keep unsigned error sums, signed fixed-point operations,
+narrowing, strict magnitude ties, and division-versus-shift rounding explicit.
+Weighted header parameter reads synchronize their local u32 back to i32 only
+after a successful visit, preserving partial failures.
+
+FlatDecisionNode uses raw integer slots for the original unions, with typed
+accessors and native-endian packing of the two i16 property indices. This avoids
+inactive-union references and invalid enum discriminants while keeping the
+24-byte layout and original twice-unrolled traversal. Rust initializes storage
+that C++ leaves indeterminate, including PredictionResult::multiplier without a
+tree; this gives that member no added non-tree meaning. The oracle must omit
+such undefined observations rather than turning extra initialization into a
+parity claim. Prediction-tree parsing/learning remain separate boundaries.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

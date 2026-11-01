@@ -10,7 +10,7 @@ use jxl::jxl::modular::transform::rct::inv_rct;
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("rct-")
 }
-fn fill(image: &mut Image, args: &mut std::str::SplitWhitespace<'_>) {
+pub(super) fn fill(image: &mut Image, args: &mut std::str::SplitWhitespace<'_>) {
     for c in &mut image.channel {
         paint(&mut c.plane, 81 + c.component as u64);
         for y in 0..c.h {

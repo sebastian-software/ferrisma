@@ -159,6 +159,14 @@ impl<T: Sample> Plane<T> {
     pub fn bytes_mut(&mut self) -> Option<&mut [u8]> {
         self.base.bytes.as_mut().map(AlignedMemory::bytes_mut)
     }
+    /// Complete initialized sample storage, including physical row padding.
+    /// Used to represent source pointers with relative row/sample offsets.
+    pub fn pixels(&self) -> Option<&[T]> {
+        self.base
+            .bytes
+            .as_ref()
+            .map(|memory| self.row_at(0, memory.bytes().len()))
+    }
     pub(crate) fn have_memory_manager(&self) -> bool {
         self.base.bytes.is_some()
     }

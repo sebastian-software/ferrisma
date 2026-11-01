@@ -50,6 +50,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, and native moves; C allocators and MSan-only padding instrumentation unported |
 | `image_ops.h` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular copies, plane copies with padding, and Mirror; arithmetic, conversion, min/max, and image_ops.cc unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
+| `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
 | `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, and resize failure state; transform execution and diagnostics unported |
 | `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, and channel-range validation; MetaApply/Inverse dispatch and palette/squeeze kernels unported |
 | `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
@@ -81,13 +82,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 121 tests, including 64 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 121 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 121 tests and corpus |
+| Rust debug | PASSED | 129 tests, including 69 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 129 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 129 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **533,528 requests** against C++. These include
+Each differential run compares **538,248 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -202,6 +203,19 @@ trips, and padding checks complement the source comparisons. This evidence is
 for the original scalar/null-pool path; it does not establish thread-runner or
 SIMD behavior.
 
+Prediction comparisons check every weighted error-buffer entry after each
+pixel, all presets and basic predictors, integer reciprocal/weight arithmetic,
+negative-value rounding, property narrowing, previous-channel filters/scattering,
+flat-node layout and two-level traversal, and the complete no-tree/tree/learning
+wrappers with and without weighted state. Interior-only variants run alongside
+the original boundary handling. Cases include signed 32-bit samples and error
+wrapping, absent reference properties, and reused/truncated weighted headers.
+The oracle observes only defined result members: the source leaves multiplier
+indeterminate without a tree, whereas Rust initializes that storage. Native
+tests check signed ties/rounding, raw union storage, parameter-read failure
+ordering, and prediction from only the already decoded pixel prefix. This
+prefix replay has no bitstream and is not an image codec.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -233,7 +247,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port modular prediction/residual coding and the transforms reached by the
+1. Port modular prediction-tree serialization/learning, residual coding, and the
+   remaining transforms reached by the
    first-image configuration.
 2. Connect the original image/frame path and run the complete cross-language
    image corpus in the first-image acceptance gate.

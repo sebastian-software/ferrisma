@@ -194,7 +194,7 @@ fn transform(out: &mut String, t: &Transform) {
         .unwrap();
     }
 }
-fn channel(out: &mut String, c: &Channel, rows: usize, full: bool) {
+pub(super) fn channel(out: &mut String, c: &Channel, rows: usize, full: bool) {
     write!(
         out,
         " {},{},{},{},{}",

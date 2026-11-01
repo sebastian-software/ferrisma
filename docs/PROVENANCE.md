@@ -124,6 +124,15 @@ XL Project Authors' copyright notice and name the source files they translate.
   signed overflow; inverse cases include the source's defined Highway wrapping.
   No upstream color-transform test inventory or custom runner is claimed here.
 
+- `modular/encoding/context_predict.h`: basic/weighted predictors, header and
+  presets, original fixed-point reciprocal table, two-row error state, reference
+  properties, flat-node unions/lookup, and all prediction wrappers. Differential
+  header/math/property/tree/raster corpora and native rounding/prefix-replay tests
+  are local infrastructure. The oracle calls the actual inline source and
+  inspects only defined result members, never an indeterminate non-tree
+  multiplier. No residual codec or prediction-tree learning algorithm is
+  substituted by these test fixtures.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises
