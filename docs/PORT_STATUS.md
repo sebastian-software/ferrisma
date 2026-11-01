@@ -1006,10 +1006,10 @@ Two ordinary Rust regressions retain independently observed source words and
 failed-roundtrip partial state. Compiler and standard-library changes require
 renewed evidence; these fixes do not establish any new codec configuration.
 
-The ordinary macOS check with `--msrv` passes all 325 tests and 703,420
-differential requests in each Debug, Release, and Rust 1.85 configuration.
-The two captured regressions also pass in the isolated x86_64 Linux runtime;
-full Linux and sanitized checks remain required before integration. CI runs
+The ordinary and ASan/UBSan macOS checks with `--msrv` each pass all 325 tests
+and 703,420 differential requests in Debug, Release, and Rust 1.85 configurations.
+The captured regressions also pass in the isolated x86_64 Linux runtime;
+the full hosted Linux matrix remains a separate integration gate. CI runs
 the unchanged full Linux/macOS matrix on each PR update and on pushes to main,
 avoiding duplicate full runs for a feature-branch push followed by its PR.
 
@@ -1017,4 +1017,18 @@ After those four fixes, native Linux CI passed every existing differential
 group and exposed an AArch64-only captured GamutMap word in an ordinary test.
 The test now retains independently captured exact words for both reference
 targets, with its input also added to the differential corpus. The existing
-AArch64 expectation and production gamut code remain unchanged.
+AArch64 arithmetic and captured words remain unchanged. The x86 production
+helper now additionally preserves the original optimized luminance ADDSS
+operand order through local out-of-line Add calls. The same old scalar and
+stage/pipeline cases retain exact comparisons in both native build modes;
+no expected word or existing request is changed by that mapping.
+
+Focused x86_64 ordinary and UBSan-reference runs both pass four filtered groups
+and 56,085 requests in Debug and Release, including the original scalar gamut
+and stage/pipeline corpora. Both native tone-mapping tests also pass in each
+mode. The focused UBSan variant instruments the unchanged original-source
+adapter containing the actual scalar functions/stage and links the cached
+ordinary codec archive; this is not a fully instrumented Linux codec run.
+All six complete macOS ordinary/sanitized configurations retain the same 325
+tests, 183 differential groups, and 703,420 requests after this repair. Existing
+cases and expected words remain unchanged; no emulated ASan gate is claimed.

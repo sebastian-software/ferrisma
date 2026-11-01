@@ -107,7 +107,18 @@ impl HlgOotf {
         self.base.apply_ootf && self.base.exponent < 0.0
     }
 }
+// Match the selected x86 scalar object's ADDSS destination operand without
+// allowing the surrounding release function to commute competing NaN payloads.
+#[cfg(target_arch = "x86_64")]
+#[inline(never)]
+fn add_gamut(first: f32, second: f32) -> f32 {
+    first + second
+}
+
 pub fn gamut_map(rgb: &mut Color, p: Vector3, preserve: f32) {
+    #[cfg(target_arch = "x86_64")]
+    let luminance = add_gamut(add_gamut(p[2] * rgb[2], p[1] * rgb[1]), p[0] * rgb[0]);
+    #[cfg(not(target_arch = "x86_64"))]
     let luminance = mul_add(p[0], rgb[0], mul_add(p[1], rgb[1], p[2] * rgb[2]));
     let mut saturation = 0.0;
     let mut lum = 0.0;

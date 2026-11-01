@@ -463,3 +463,13 @@ three output words are `0x7fe12345`; AArch64 retains the existing distinct blue
 word `0x7fc98765`. The native test now checks its target's exact source words,
 and the same input is added to the differential corpus. No production gamut
 algorithm or existing AArch64 expectation changes.
+
+The x86_64 optimized GamutMap luminance calculation retains the original
+right-nested operation tree with ADDSS operands in blue-product, green-product,
+then red-product order. Local native x86 Add call boundaries preserve those
+commutative operand choices in release builds; an unrestricted expression had
+selected the other competing NaN payload. Original optimized ordinary and
+UBSan-only probes agree on the captured input. Their MULSS products preserve
+separate rounding without executing the source's folded double promotions.
+The original source, oracle settings, global Highway helpers, existing cases,
+expected words, and AArch64 arithmetic remain unchanged.
