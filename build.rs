@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(libavif_rs_asan)");
-    let mut packages = vec!["aom", "dav1d", "libsharpyuv"];
+    let mut packages = vec!["aom", "dav1d"];
     for (feature, package) in [("RAV1E", "rav1e"), ("SVT", "SvtAv1Enc")] {
         if std::env::var_os(format!("CARGO_FEATURE_{feature}")).is_some() {
             packages.push(package);

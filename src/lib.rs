@@ -13,4 +13,7 @@
 #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
 compile_error!("This generated configuration is validated only for aarch64-apple-darwin");
 
+// Retain the source-corresponding SharpYUV symbols in all library artifacts.
+extern crate sharpyuv as _;
+
 include!("modules.rs");

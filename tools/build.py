@@ -103,7 +103,7 @@ def main():
             target = target / "asan"
             environment["CARGO_TARGET_DIR"] = str(target)
             flags = environment.get("CARGO_ENCODED_RUSTFLAGS", "").split("\x1f") if environment.get("CARGO_ENCODED_RUSTFLAGS") else shlex.split(environment.get("RUSTFLAGS", ""))
-            flags += ["-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
+            flags += ["-Cllvm-args=-fp-contract=fast", "-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
                       "--cfg", "libavif_rs_asan", "-Lnative=" + str(runtime_path),
                       "-ldylib=rustc-nightly_rt.asan", "-Clink-arg=-Wl,-rpath," + str(runtime_path)]
             environment["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
