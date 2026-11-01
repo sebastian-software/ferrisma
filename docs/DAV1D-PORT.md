@@ -41,10 +41,45 @@ preprocessing. Reproducible corrections preserve field alignment, C11 atomic
 operations and orderings, raw address-taking, and target runtime types.
 
 The initial Rust Debug run passed 1,708 corpus tests with three wall-clock
-timeouts. A run with an explicit fourfold time budget is in progress; original
-commands, input data, and expected hashes remain unchanged. This is not a
-performance parity claim. Internal DSP comparisons, public API edge cases,
+timeouts. The subsequent run passes all 1,711 tests with an explicit fourfold
+time budget; original commands, input data, and expected hashes remain unchanged.
+Both original C profiles and Rust Release pass all 1,711 tests at the original
+limits. This is not a performance parity claim. Public API edge cases,
 sanitizers, and Linux validation are still pending acceptance gates.
+
+The original checkasm bodies now pass in both profiles: seventeen source
+instantiations, 3,155 nonnull C/Rust function selections each, and 1,923 matching
+unsupported null combinations. ADR 0029 records the test-only binding bridge
+and native helpers. Public API edge cases, sanitizers, and Linux validation
+remain pending.
 
 The existing libavif implementation continues to use native dav1d while this
 standalone crate is validated.
+
+## Current reproduction commands
+
+Install Meson 1.7.2 in an isolated environment if Meson is unavailable:
+
+```sh
+python3 -m venv build/dav1d-tools
+build/dav1d-tools/bin/python -m pip install meson==1.7.2
+python3 tools/build_dav1d.py --debug
+python3 tools/build_dav1d.py
+python3 tools/transpile_dav1d.py --check
+python3 tools/transpile_dav1d.py --release --check
+python3 tools/check_dav1d_abi.py
+python3 tools/build_dav1d_consumers.py
+python3 tools/run_dav1d_tests.py build/dav1d-rust-release
+python3 tools/build_dav1d_consumers.py --debug
+python3 tools/run_dav1d_tests.py build/dav1d-rust-debug --timeout-multiplier 4
+python3 tools/check_dav1d_dsp.py
+python3 tools/check_dav1d_dsp.py --debug
+python3 tools/check_dav1d_linkage.py
+python3 tools/check_dav1d_linkage.py --debug
+```
+
+The C baseline uses `meson test -C build/dav1d-reference-debug --no-rebuild`
+and the corresponding Release directory. The pinned C2Rust/LLVM requirements
+are the same as SharpYUV. Compile/link records are saved alongside the candidate
+consumers; they use the Rust archive and retain the exact original Meson test
+definitions with only the executable location replaced.
