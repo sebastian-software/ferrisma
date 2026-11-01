@@ -783,8 +783,28 @@ owners, per-thread u32 cache, nullable-channel ones, scalar NearestInt, store
 order, endianness, orientation mapping, and conditional alpha unpremultiplication.
 Disjoint temporary-plane borrows replace original channel-pointer rebinding.
 Output allocation size and row-span validity remain caller preconditions where
-the source uses restrict pointers. Callback/float-output entry points remain
-absent. JxlEndianness value 3 is representable but unnamed and exercises the
+the source uses restrict pointers. Separate floating buffer functions select
+float_out=true and admit only 16/32-bit samples; callback entry points remain
+absent. Float32 output copies words without arithmetic, preserving signaling
+NaN bits. Float16 temporary planes own u16 words instead of Highway float16_t;
+native-endian writes precede the source's separate byte-swap pass. Byte slices
+replace typed destination casts without requiring unsafe or aliased references.
+
+The reference Clang/GCC builds select Highway F16FromF32's native-half-operator
+branch. Stable Rust has no binary16 scalar, so preserve that cast's default IEEE
+nearest-even mapping explicitly. Finite conversion follows Highway's existing
+mantissa rounding, carry, exponent clamping, subnormal shift, and sign restoration
+algorithm. Native-cast NaNs retain their sign and high payload bits and set the
+quiet bit; do not substitute Highway's alternate canonical-NaN fallback branch.
+The float oracle fails compilation if HWY_HAVE_SCALAR_F16_OPERATORS is absent,
+rather than claiming those different compile branches are equivalent. Exact
+original-kernel comparisons cover every half word, finite half midpoints and
+their binary32 neighbors, both signs, tiny/subnormal values, overflow, and NaN
+payloads. Review this language-required representation for compiler/target or
+floating-environment changes; alternate rounding modes and fallback branches
+remain separate boundaries.
+
+JxlEndianness value 3 is representable but unnamed and exercises the
 source fall-through; value 9 produces an undefined C++ enum load and has no
 assigned source codec meaning.
 
