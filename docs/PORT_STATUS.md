@@ -903,9 +903,15 @@ Two ordinary Rust regressions retain independently observed source words and
 failed-roundtrip partial state. Compiler and standard-library changes require
 renewed evidence; these fixes do not establish any new codec configuration.
 
-The ordinary macOS check with `--msrv` passes all 325 tests and 703,419
+The ordinary macOS check with `--msrv` passes all 325 tests and 703,420
 differential requests in each Debug, Release, and Rust 1.85 configuration.
 The two captured regressions also pass in the isolated x86_64 Linux runtime;
 full Linux and sanitized checks remain required before integration. CI runs
 the unchanged full Linux/macOS matrix on each PR update and on pushes to main,
 avoiding duplicate full runs for a feature-branch push followed by its PR.
+
+After those four fixes, native Linux CI passed every existing differential
+group and exposed an AArch64-only captured GamutMap word in an ordinary test.
+The test now retains independently captured exact words for both reference
+targets, with its input also added to the differential corpus. The existing
+AArch64 expectation and production gamut code remain unchanged.

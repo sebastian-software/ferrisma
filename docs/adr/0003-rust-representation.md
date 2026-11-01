@@ -633,11 +633,15 @@ FastPow2f retains Highway Floor's positive-zero result for negative zero and
 its sign-based saturating NaN/infinity conversion before wrapped exponent math.
 ZeroIfNegative tests the sign bit, including negative NaNs.
 
-In the scalar GamutMap blend, the reference Clang object emits the original
+In the scalar GamutMap blend, the AArch64 reference Clang object emits the original
 channel value as the first add operand, followed by the separately computed
 product. Express that emitted operand order explicitly so a quiet-NaN channel
 retains its payload. This does not change finite arithmetic or fuse operations;
-exact differential and captured-word regressions cover it. Review this mapping
+exact differential and captured-word regressions cover it. The original x86_64
+configuration selects the red/green NaN payload in all three channels for the
+native regression's input. Capture that target's exact original result without
+changing the AArch64 words; include the same input in the real differential
+corpus. Cross-target NaN payload equality is not assumed. Review this mapping
 with compiler/target changes. ToneMappingStage retains the original unneeded
 return before argument guards, then RGB load/scale/map/gamut/scale/store order.
 

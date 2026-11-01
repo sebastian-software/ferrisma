@@ -25,6 +25,12 @@ fn gamut_blend_keeps_original_add_operand_nan_payload() {
     let mut rgb = [-0.0, f32::from_bits(0x7fa12345), f32::from_bits(0x7fc98765)];
     gamut_map(&mut rgb, [0.2126, 0.7152, 0.0722], 0.0);
     // Captured from the original one-lane GamutMap, independently of the
-    // differential fixture: the blue quiet-NaN payload survives its blend.
-    assert_eq!(rgb.map(f32::to_bits), [0x7fe12345, 0x7fe12345, 0x7fc98765]);
+    // differential fixture. AArch64 retains the blue quiet-NaN payload;
+    // the original x86_64 reference selects the red/green payload in all lanes.
+    let blue = if cfg!(target_arch = "x86_64") {
+        0x7fe12345
+    } else {
+        0x7fc98765
+    };
+    assert_eq!(rgb.map(f32::to_bits), [0x7fe12345, 0x7fe12345, blue]);
 }
