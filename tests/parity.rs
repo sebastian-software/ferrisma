@@ -48,6 +48,9 @@ mod metadata;
 #[path = "parity/frame.rs"]
 mod frame;
 
+#[path = "parity/enc_frame.rs"]
+mod enc_frame;
+
 #[path = "parity/toc.rs"]
 mod toc;
 
@@ -643,6 +646,7 @@ fn observe(request: &str) -> String {
         kind if cms::handles(kind) => cms::observe(kind, &mut args),
         kind if metadata::handles(kind) => metadata::observe(kind, &mut args),
         kind if frame::handles(kind) => frame::observe(kind, &mut args),
+        kind if enc_frame::handles(kind) => enc_frame::observe(kind, &mut args),
         kind if toc::handles(kind) => toc::observe(kind, &mut args),
         kind if image::handles(kind) => image::observe(kind, &mut args),
         kind if rct::handles(kind) => rct::observe(kind, &mut args),

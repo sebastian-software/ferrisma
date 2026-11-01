@@ -33,6 +33,7 @@ color_enum!(TransferFunction, (1<<1)|(1<<2)|(1<<8)|(1<<13)|(1<<16)|(1<<17)|(1<<1
 color_enum!(RenderingIntent, 0xf, { PERCEPTUAL=0, RELATIVE=1, SATURATION=2, ABSOLUTE=3 });
 
 #[derive(Clone, Debug, Default)]
+#[repr(C)]
 pub struct JxlColorEncoding {
     pub color_space: ColorSpace,
     pub white_point: WhitePoint,

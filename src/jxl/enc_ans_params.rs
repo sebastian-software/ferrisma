@@ -3,11 +3,13 @@
 
 //! Histogram storage and ANS strategy from `lib/jxl/enc_ans_params.h`.
 //! Encoder parameter fields/defaults and histogram storage are translated;
-//! ForModular still depends on the unported compression/image options.
+//! ForModular follows the original policy in enc_ans.cc.
 
 use super::ans_common::create_flat_histogram;
 use super::common::SpeedTier;
 use super::dec_ans::HybridUintConfig;
+use super::enc_params::CompressParams;
+use super::modular::options::Predictor;
 
 pub type ANSHistBin = i32;
 
@@ -85,6 +87,55 @@ impl Default for HistogramParams {
     }
 }
 impl HistogramParams {
+    pub fn for_modular(
+        cparams: &CompressParams<'_>,
+        extra_dc_precision: &[u8],
+        streaming_mode: bool,
+    ) -> Self {
+        let mut params = Self {
+            streaming_mode,
+            ..Self::default()
+        };
+        if cparams.speed_tier > SpeedTier::Kitten {
+            params.clustering = ClusteringType::Fast;
+            params.ans_histogram_strategy = if cparams.speed_tier > SpeedTier::Thunder {
+                ANSHistogramStrategy::Fast
+            } else {
+                ANSHistogramStrategy::Approximate
+            };
+            params.lz77_method = if cparams.modular_mode && cparams.speed_tier <= SpeedTier::Hare {
+                LZ77Method::RLE
+            } else {
+                LZ77Method::None
+            };
+            if (!extra_dc_precision.is_empty() && extra_dc_precision[0] != 0)
+                || (cparams.modular_mode && cparams.speed_tier < SpeedTier::Cheetah)
+            {
+                params.uint_method = HybridUintMethod::Fast;
+            } else {
+                params.uint_method = HybridUintMethod::None;
+            }
+        } else if cparams.speed_tier <= SpeedTier::Tortoise {
+            params.lz77_method = LZ77Method::Optc256;
+        } else {
+            params.lz77_method = LZ77Method::LZ77b3w3f;
+        }
+        if cparams.decoding_speed_tier >= 2 {
+            params.max_histograms = 12;
+        }
+        if cparams.options.predictor == Predictor::ZERO && cparams.modular_mode {
+            params.lz77_method = if cparams.speed_tier >= SpeedTier::Falcon {
+                LZ77Method::None
+            } else if cparams.speed_tier >= SpeedTier::Hare {
+                LZ77Method::RLE
+            } else if cparams.speed_tier >= SpeedTier::Kitten {
+                LZ77Method::LZ77b3w3f
+            } else {
+                LZ77Method::Optc256
+            };
+        }
+        params
+    }
     pub fn new(tier: SpeedTier, _num_ctx: usize) -> Self {
         let mut result = Self::default();
         if tier > SpeedTier::Falcon {

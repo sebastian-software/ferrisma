@@ -13,12 +13,12 @@ Create commits without signatures, using `git commit --no-gpg-sign`.
 - Python 3, Git, CMake 3.16 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
 
-Initialize only the reference source and Highway; other upstream submodules are
-not needed for this slice:
+Initialize the reference source, Highway, and Brotli. The frame oracle needs
+the pinned Brotli headers; other upstream submodules are not needed yet:
 
 ```sh
 git submodule update --init --depth 1 upstream/libjxl
-git -C upstream/libjxl submodule update --init --depth 1 third_party/highway
+git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli
 ```
 
 After those downloads, the checks do not require network access. Keep the

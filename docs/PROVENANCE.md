@@ -218,3 +218,32 @@ LLVM notices; the translation uses
 dependency boundary is not a claim to translate the full standard library.
 The oracle calls its actual C++ standard-library algorithms; the snapshots
 are reference material and are never a Rust runtime fallback.
+
+`enc_params.h`, the preparation functions in `enc_frame.{h,cc}`,
+`enc_progressive_split.h`, `base/override.h`, ModularStreamId in
+`dec_modular.h`, and QuantTable indices in `quant_weights.h` provide the
+original parameter state/defaults, lossless setters, entropy policy, group
+indices, progressive/header preparation, filter policy, and error-time state.
+`splines.h` supplies point comparison, quantized storage/copy, and non-owning
+views; spline algorithms remain outside this boundary. Parsed JPEG storage
+from `jpeg/jpeg_data.h` and chroma/color-selection helpers from
+`jpeg/enc_jpeg_data.cc` retain the source's marker precedence and partial
+subsampling failures. These do not provide JPEG parsing or reconstruction.
+
+`lib/include/jxl/cms_interface.h`, the debug callback signature in `encode.h`,
+and bit-depth descriptors in `types.h` supply non-owning C data carriers.
+Their Rust layouts, plus the external color-encoding layout, are checked
+against original sizes, alignments, and offsets. No callback is invoked by
+these storage/setter tests. Source-indeterminate CMS/opaque storage is omitted
+from observations before assignment; source fixtures explicitly initialize
+inactive storage when copying it.
+
+The oracle includes pristine `enc_frame.cc` in its adapter translation unit
+to observe private helpers and compiles the actual original JPEG data/helper
+sources. The source's Brotli submodule at
+`db24a98aed38a16de78cc05ca15cdd8dc2a0d92d` supplies their required headers.
+It remains unmodified and outside the Rust library. The oracle generates the
+CMS export header using upstream's CMake export-header pattern and uses the
+static CMS configuration. Generated parameter/header corpora and native
+ownership/partial-state tests are local infrastructure, not the upstream
+full-image test inventory or first-image acceptance evidence.

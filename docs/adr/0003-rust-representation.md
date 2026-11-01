@@ -310,6 +310,27 @@ hold Default values for the source's vector/pair instantiations; those holes
 are never compared. This avoids raw pointers and extra clones for element
 moves. Other C++ library versions/specializations need their own evidence.
 
+CompressParams copies owning vectors and non-owning descriptors at the source's
+checkpoints. Custom spline/progressive inputs use borrowed slices/references;
+they must outlive the copied parameters. CMS/debug callback signatures and raw
+data pointers are stored without invocation or ownership transfer. Their C
+profile/color/bit-depth layouts use explicit representation and are checked
+against original size, alignment, and member offsets. This establishes data
+carriers, not callback execution or the encoder C API. Initialized Rust CMS and
+opaque storage has no source meaning before assignment; do not observe the
+source's indeterminate members before SetCms/caller assignment. Future callback
+invocation needs its own lifetime, buffer, thread, and cleanup proof.
+
+Progressive configuration retains aggregate initialization and leaves reused
+Passes entries untouched except at the source's assignments. Preserve narrowing
+before zero-count rejection and the last-pass shift reset. Stream IDs retain
+size_t wrapping; fixed-underlying raw kinds preserve the source switch's zero
+result for unknown values. Header preparation retains byte names, copied blend
+records, field narrowing, and changes completed before each validation failure.
+Metadata and parsed JPEG inputs are borrowed; JPEG storage does not implement
+the unported field/parser/reconstruction APIs. Source-indeterminate JPEG/spline
+storage receives safe Rust initialization without extra observable meaning.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

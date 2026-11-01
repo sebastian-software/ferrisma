@@ -5,6 +5,7 @@ pub mod fast_math;
 pub(crate) mod float;
 pub mod libcpp_sort;
 pub mod matrix_ops;
+pub mod override_option;
 pub mod random;
 pub mod rect;
 pub mod status;

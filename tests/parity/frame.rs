@@ -51,7 +51,7 @@ fn dimensions(out: &mut String, d: &FrameDimensions) {
         write!(out, " {v}").unwrap();
     }
 }
-fn filter(out: &mut String, f: &LoopFilter) {
+pub(super) fn filter(out: &mut String, f: &LoopFilter) {
     write!(
         out,
         " {},{},{},{},{},{},{},{},{}",
@@ -89,7 +89,7 @@ fn filter(out: &mut String, f: &LoopFilter) {
         write!(out, " {}", v.to_bits()).unwrap();
     }
 }
-fn configure_filter(f: &mut LoopFilter, variant: u32) {
+pub(super) fn configure_filter(f: &mut LoopFilter, variant: u32) {
     if variant == 3 {
         f.epf_sigma_for_modular = 1e-8;
     }
@@ -111,7 +111,7 @@ fn configure_filter(f: &mut LoopFilter, variant: u32) {
         f.epf_sigma_for_modular = 0.5;
     }
 }
-fn subsampling(out: &mut String, c: &YCbCrChromaSubsampling) {
+pub(super) fn subsampling(out: &mut String, c: &YCbCrChromaSubsampling) {
     write!(
         out,
         " {},{},{},{},{},{}",
@@ -135,7 +135,7 @@ fn subsampling(out: &mut String, c: &YCbCrChromaSubsampling) {
         .unwrap();
     }
 }
-fn passes(out: &mut String, p: &Passes) {
+pub(super) fn passes(out: &mut String, p: &Passes) {
     write!(out, " {},{}", p.num_passes, p.num_downsample).unwrap();
     for v in p.downsample.iter().chain(&p.last_pass).chain(&p.shift) {
         write!(out, " {v}").unwrap();
@@ -168,7 +168,7 @@ fn blending(out: &mut String, b: &BlendingInfo) {
     )
     .unwrap();
 }
-fn frame(out: &mut String, f: &FrameHeader<'_>, with_dimensions: bool) {
+pub(super) fn frame(out: &mut String, f: &FrameHeader<'_>, with_dimensions: bool) {
     write!(
         out,
         " {},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
@@ -223,7 +223,7 @@ fn frame(out: &mut String, f: &FrameHeader<'_>, with_dimensions: bool) {
         dimensions(out, &f.to_frame_dimensions());
     }
 }
-fn configure_metadata(args: &mut std::str::SplitWhitespace<'_>) -> CodecMetadata {
+pub(super) fn configure_metadata(args: &mut std::str::SplitWhitespace<'_>) -> CodecMetadata {
     let xyb: u32 = number(args);
     let animation: u32 = number(args);
     let extras: usize = number(args);

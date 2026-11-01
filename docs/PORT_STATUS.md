@@ -16,7 +16,8 @@ and no placeholder codec APIs. The source revision is pinned in
 | `fields.h`, `.cc` | `fields.rs` | Bits/U32/U64/F16 coders, bundle visitors, and enum visitor helper |
 | `base/bits.h` | `base/bits.rs` | Unsigned 32/64-bit and pointer-width zero counts and logarithms |
 | `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
-| `../include/jxl/types.h` | `types.rs` | Endianness only; other public API types unported |
+| `../include/jxl/types.h` | `types.rs` | Endianness and bit-depth descriptor storage; other public API types unported |
+| `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
 | `ans_params.h` | `ans_params.rs` | ANS and prefix coding constants |
 | `ans_common.h`, `.cc` | `ans_common.rs` | Alias table construction/lookup/prefetch, flat histograms, count precision |
 | `enc_huffman_tree.h`, `.cc` | `enc_huffman_tree.rs` | Population trees, depth limiting, canonical symbols, and code-length RLE |
@@ -30,15 +31,23 @@ and no placeholder codec APIs. The source revision is pinned in
 | `enc_ans_simd.h`, `.cc`, `simd_util.h`, `.cc` | `enc_entropy.rs` | Existing scalar token-cost loop, MaxValue, and maximum-vector padding for config selection; other functions/targets unported |
 | `enc_context_map.h`, `.cc` | `enc_context_map.rs` | MTF, cost comparison, and simple/entropy-coded context output; VarDCT BlockCtxMap output unported |
 | `enc_lz77.h`, `.cc` | `enc_lz77.rs`, `enc_lz77_costs.rs` | Symbol costs, RLE, greedy bucket variants, optimal hash-chain variants, and original method dispatch |
-| `enc_ans_params.h` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, and uint config; ForModular unported |
+| `enc_ans_params.h`, ForModular in `enc_ans.cc` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, uint config, and complete modular entropy-policy selection |
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs` | Existing scalar FastLog2f and its degree-two polynomial; other functions/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
-| `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage; public C ABI and CMS callbacks unported |
+| `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points and CMS callback execution unported |
+| `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; invocation, transform lifecycle, and public encoder API remain unported |
 | `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, and partial setter state; callback-driven ICC parsing unported |
 | `color_encoding_internal.h`, `.cc` | `color_encoding_internal.rs` | Field bundles, profile generation, raw ICC storage, static encodings, and non-callback field APIs; CMS callbacks/transforms unported |
 | `image_metadata.h`, `.cc`, quantizer bias constants | `image_metadata.rs`, `image_metadata_weights.rs` | Bit depth, extra channels, opsin/custom weights, tone mapping, image/codec metadata, sample/alpha/orientation helpers, and metadata reading; diagnostic output unported |
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
+| `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
+| `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
+| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, and complete MakeFrameHeader including JPEG inputs, partial state, blending, and animation; pixel/section orchestration unported |
+| `dec_modular.h` | `dec_modular.rs` | ModularStreamId constructors and complete stream-index/count mapping; frame decoder and debug descriptions unported |
+| `quant_weights.h` | `quant_weights.rs` | QuantTable indices and count; weights/matrix APIs unported |
+| `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
+| `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
@@ -88,15 +97,15 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
+| Source revision, Highway/Brotli pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 181 tests, including 103 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 181 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 181 tests and corpus |
+| Rust debug | PASSED | 193 tests, including 111 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 193 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 193 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **592,507 requests** against C++. These include
+Each differential run compares **605,635 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -314,6 +323,21 @@ The translated libc++ specialization has its own source snapshots and LLVM
 notices. These results establish the reference configuration's sort order,
 not arbitrary C++ standard-library versions or other specializations.
 
+Encoder parameter/header preparation adds 13,128 differential requests.
+They compare every defined default parameter, lossless setters/predicates,
+post-initialization mutation/error order, all modular entropy policy choices,
+group geometry, wrapped stream indices, progressive modes and reused arrays,
+filter overrides/NaN bits, JPEG marker precedence/subsampling failures, spline
+point thresholds, and complete prepared headers and bytes. Descriptor layout
+checks compare sizes, alignments, and member offsets against the actual C types.
+The oracle includes unmodified `enc_frame.cc` to call its private preparation
+helpers and compiles original JPEG data/helper sources for their real types and
+functions. Its pinned Brotli headers are a C++ reference prerequisite only.
+Native tests check copied owners/borrowed views, inactive callback descriptors,
+failed-call partial state, progressive array preservation, and lossless RGB/gray
+header I/O. No callback execution, complete frame/group pixel codec, or complete
+JPEG XL image is established by these preparation tests.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -345,8 +369,9 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the original image/frame path and run the complete cross-language
-   image corpus in the first-image acceptance gate.
+1. Connect original modular frame/group pixel processing, sample conversion,
+   and section orchestration, then run the complete cross-language image corpus
+   in the first-image acceptance gate.
 2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.
 

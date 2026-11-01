@@ -6,13 +6,16 @@ set(UPSTREAM "${PORT_ROOT}/upstream/libjxl")
 if(NOT EXISTS "${UPSTREAM}/third_party/highway/hwy/base.h")
   message(FATAL_ERROR "Initialize upstream/libjxl and its third_party/highway submodule first")
 endif()
+if(NOT EXISTS "${UPSTREAM}/third_party/brotli/c/include/brotli/encode.h")
+  message(FATAL_ERROR "Initialize upstream/libjxl/third_party/brotli for frame reference headers")
+endif()
 
 set(HWY_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(HWY_ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(HWY_ENABLE_CONTRIB OFF CACHE BOOL "" FORCE)
 add_subdirectory("${UPSTREAM}/third_party/highway" highway EXCLUDE_FROM_ALL)
 
-# Follow upstream lib/jxl.cmake's export/version header generation. The
+# Follow upstream lib/jxl.cmake and jxl_cms.cmake export/version generation. The
 # upstream empty object source only supplies CMake target metadata; it is not
 # linked and does not replace any codec implementation.
 include(GenerateExportHeader)
@@ -21,6 +24,11 @@ set_target_properties(jxl_oracle_export PROPERTIES CXX_VISIBILITY_PRESET hidden
   VISIBILITY_INLINES_HIDDEN 1 DEFINE_SYMBOL JXL_INTERNAL_LIBRARY_BUILD)
 generate_export_header(jxl_oracle_export BASE_NAME JXL
   EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/jxl/jxl_export.h")
+add_library(jxl_oracle_cms_export OBJECT EXCLUDE_FROM_ALL "${UPSTREAM}/lib/nothing.cc")
+set_target_properties(jxl_oracle_cms_export PROPERTIES CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN 1)
+generate_export_header(jxl_oracle_cms_export BASE_NAME JXL_CMS
+  EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/jxl/jxl_cms_export.h")
 file(STRINGS "${UPSTREAM}/lib/CMakeLists.txt" JXL_VERSION_SETTINGS
   REGEX "^set\\(JPEGXL_(MAJOR|MINOR|PATCH)_VERSION [0-9]+\\)$")
 foreach(setting IN LISTS JXL_VERSION_SETTINGS)
@@ -47,6 +55,8 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/color_encoding_internal.cc"
   "${UPSTREAM}/lib/jxl/image_metadata.cc"
   "${UPSTREAM}/lib/jxl/frame_header.cc"
+  "${UPSTREAM}/lib/jxl/jpeg/enc_jpeg_data.cc"
+  "${UPSTREAM}/lib/jxl/jpeg/jpeg_data.cc"
   "${UPSTREAM}/lib/jxl/loop_filter.cc"
   "${UPSTREAM}/lib/jxl/toc.cc"
   "${UPSTREAM}/lib/jxl/enc_toc.cc"
@@ -76,8 +86,9 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/simd_util.cc")
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/include"
+  "${UPSTREAM}/third_party/brotli/c/include"
   "${CMAKE_CURRENT_BINARY_DIR}/include")
-target_compile_definitions(jxl_oracle PRIVATE HWY_COMPILE_ONLY_SCALAR=1 JXL_STATIC_DEFINE)
+target_compile_definitions(jxl_oracle PRIVATE HWY_COMPILE_ONLY_SCALAR=1 JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE)
 target_link_libraries(jxl_oracle PRIVATE hwy)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
   # Preserve upstream lib/CMakeLists.txt's numeric code-generation flags.

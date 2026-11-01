@@ -39,6 +39,12 @@ def check_source():
         raise SystemExit("Initialize upstream's third_party/highway submodule; see CONTRIBUTING.md")
     if git("-C", highway, "rev-parse", "HEAD") != expected:
         raise SystemExit("Highway revision does not match upstream's submodule pin")
+    brotli = source / "third_party/brotli"
+    expected = git("-C", source, "ls-tree", "HEAD", "third_party/brotli").split()[2]
+    if not (brotli / "c/include/brotli/encode.h").is_file():
+        raise SystemExit("Initialize upstream's third_party/brotli submodule; see CONTRIBUTING.md")
+    if git("-C", brotli, "rev-parse", "HEAD") != expected:
+        raise SystemExit("Brotli revision does not match upstream's submodule pin")
     for name in ("LICENSE", "PATENTS"):
         if (ROOT / name).read_bytes() != (source / name).read_bytes():
             raise SystemExit(f"{name} differs from the pinned upstream notice")
