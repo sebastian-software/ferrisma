@@ -54,7 +54,7 @@ pub(super) fn tier(value: i32) -> SpeedTier {
         SpeedTier::Lightning,
     ][(value + 1) as usize]
 }
-fn read_params(args: &mut std::str::SplitWhitespace<'_>) -> CompressParams<'static> {
+pub(super) fn read_params(args: &mut std::str::SplitWhitespace<'_>) -> CompressParams<'static> {
     let mut p = CompressParams {
         butteraugli_distance: f32::from_bits(number(args)),
         modular_mode: number::<u32>(args) != 0,
@@ -85,13 +85,13 @@ fn read_params(args: &mut std::str::SplitWhitespace<'_>) -> CompressParams<'stat
     p.ec_distance = floats(args);
     p
 }
-fn histogram(out: &mut String, p: &HistogramParams) {
+pub(super) fn histogram(out: &mut String, p: &HistogramParams) {
     vals!(out;p.clustering as u32,p.uint_method as u32,p.lz77_method as u32,p.ans_histogram_strategy as u32,p.max_histograms,u32::from(p.force_huffman),u32::from(p.initialize_global_state),u32::from(p.streaming_mode),u32::from(p.add_missing_symbols),u32::from(p.add_fixed_histograms),p.image_widths.len());
     for v in &p.image_widths {
         vals!(out;v);
     }
 }
-fn params(out: &mut String, p: &CompressParams<'_>) {
+pub(super) fn params(out: &mut String, p: &CompressParams<'_>) {
     vals!(out;p.butteraugli_distance.to_bits());
     output_floats(out, &p.ec_distance);
     vals!(out;u32::from(p.max_error_mode));
@@ -445,7 +445,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     }
 }
 
-fn parameter_input(p: &CompressParams<'_>) -> String {
+pub(super) fn parameter_input(p: &CompressParams<'_>) -> String {
     let mut s = String::new();
     vals!(s;p.butteraugli_distance.to_bits(),u32::from(p.modular_mode),p.color_transform.0,p.speed_tier as i32,p.decoding_speed_tier,p.modular_group_size_shift,p.resampling,p.ec_resampling,u32::from(p.already_downsampled),p.original_butteraugli_distance.to_bits(),
         p.progressive_mode.0,p.qprogressive_mode.0,p.responsive,p.epf,p.gaborish.0,p.noise.0,u32::from(p.disable_perceptual_optimizations),p.photon_noise_iso.to_bits(),p.progressive_dc,u32::from(p.lossy_palette),p.force_lfs_jpeg_recompression,p.options.predictor.0);

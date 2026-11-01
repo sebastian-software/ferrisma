@@ -1,16 +1,26 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
+use jxl::jxl::base::rect::Rect;
+use jxl::jxl::base::status::StatusCode;
+use jxl::jxl::color_encoding::{ColorSpace, RenderingIntent};
 use jxl::jxl::common::SpeedTier;
+use jxl::jxl::dec_modular::ModularStreamId;
+use jxl::jxl::enc_ans::Token;
+use jxl::jxl::enc_aux_out::LayerType;
+use jxl::jxl::enc_bit_writer::BitWriter;
 use jxl::jxl::enc_modular::{
-    do_transform, estimate_wp_cost, maybe_do_transform, merge_trees, quantize_channel, try_palettes,
+    GroupParams, ModularFrameEncoder, do_transform, estimate_wp_cost, maybe_do_transform,
+    merge_trees, quantize_channel, try_palettes,
 };
 use jxl::jxl::enc_modular_simd::estimate_cost;
 use jxl::jxl::enc_params::CompressParams;
+use jxl::jxl::frame_header::{FrameEncoding, FrameHeader};
+use jxl::jxl::image_metadata::CodecMetadata;
 use jxl::jxl::modular::encoding::context_predict::weighted;
 use jxl::jxl::modular::encoding::dec_ma::PropertyDecisionNode;
 use jxl::jxl::modular::modular_image::{Channel, Image};
-use jxl::jxl::modular::options::Predictor;
+use jxl::jxl::modular::options::{Predictor, TreeMode};
 use jxl::jxl::modular::transform::transform::{Transform, TransformId};
 
 fn samples(image: &Image) -> Vec<i32> {
@@ -134,4 +144,205 @@ fn quantization_uses_the_plane_and_costs_reject_unrepresentable_weighted_residua
     let mut extremes = Image::create(2, 1, 32, 1).unwrap();
     extremes.channel[0].row_mut(0)[..2].copy_from_slice(&[i32::MIN, i32::MAX]);
     assert_eq!(estimate_wp_cost(&extremes, 0).to_bits(), f32::MAX.to_bits());
+}
+
+fn metadata(w: usize, h: usize, gray: bool) -> CodecMetadata {
+    let mut m = CodecMetadata::default();
+    m.size.set(w, h).unwrap();
+    m.m.color_encoding
+        .set_srgb(
+            if gray {
+                ColorSpace::GRAY
+            } else {
+                ColorSpace::RGB
+            },
+            RenderingIntent::RELATIVE,
+        )
+        .unwrap();
+    m
+}
+fn header(m: &CodecMetadata) -> FrameHeader<'_> {
+    let mut h = FrameHeader::new(Some(m));
+    h.encoding = FrameEncoding::MODULAR;
+    h.group_size_shift = 0;
+    h
+}
+
+#[test]
+fn frame_constructor_copies_parameters_and_applies_original_progressive_lossless_policy() {
+    let m = metadata(17, 9, false);
+    let h = header(&m);
+    let mut p = CompressParams {
+        responsive: 1,
+        decoding_speed_tier: 1,
+        ..Default::default()
+    };
+    p.ec_distance = vec![0.5, -0.0];
+    p.set_lossless();
+    p.options.max_properties = 2;
+    let mut e = ModularFrameEncoder::create(&h, &p, false).unwrap();
+    assert_eq!(e.stream_images.len(), 22);
+    assert!(e.stream_images.iter().all(Image::empty));
+    assert_eq!(
+        (
+            e.cparams.responsive,
+            e.cparams.decoding_speed_tier,
+            e.cparams.colorspace
+        ),
+        (1, 2, 6)
+    );
+    assert_eq!(e.cparams.options.wp_tree_mode, TreeMode::NoWP);
+    assert_eq!(e.cparams.options.predictor, Predictor::ZERO);
+    assert_eq!(
+        e.cparams.options.fast_decode_multiplier.to_bits(),
+        1.015f32.to_bits()
+    );
+    assert_eq!(
+        e.cparams.options.splitting_heuristics_properties,
+        vec![0, 1, 4, 5, 6, 7, 8, 19, 23]
+    );
+    e.cparams.ec_distance[0] = 2.0;
+    assert_eq!(p.ec_distance[0], 0.0);
+    assert_eq!(p.decoding_speed_tier, 1);
+    assert_eq!(p.colorspace, -1);
+}
+
+#[test]
+fn frame_group_copy_preserves_crop_shift_selection_and_clear_retains_other_state() {
+    let m = metadata(129, 33, false);
+    let h = header(&m);
+    let mut p = CompressParams {
+        speed_tier: SpeedTier::Thunder,
+        colorspace: 0,
+        ..Default::default()
+    };
+    p.set_lossless();
+    let mut e = ModularFrameEncoder::create(&h, &p, false).unwrap();
+    let mut image = Image::create(129, 33, 16, 0).unwrap();
+    image.nb_meta_channels = 1;
+    for (c, (w, h, hs, vs)) in [(2, 1, 0, 0), (32, 9, 2, 2), (129, 33, 0, 0), (65, 17, 1, 1)]
+        .into_iter()
+        .enumerate()
+    {
+        let mut ch = Channel::create_with_shifts(w, h, hs, vs).unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                ch.row_mut(y)[x] = (c * 1000 + y * 100 + x) as i32;
+            }
+        }
+        image.channel.push(ch);
+    }
+    e.stream_images[0] = image;
+    e.gi_channel.resize_with(e.stream_images.len(), Vec::new);
+    e.stream_options[0].wp_mode = 4;
+    e.prepare_stream_params(
+        &Rect::new(0, 0, 129, 33),
+        0,
+        1000,
+        &ModularStreamId::global(),
+        true,
+        false,
+    )
+    .unwrap();
+    assert_eq!(e.stream_options[0].wp_mode, 4);
+    assert!(e.stream_images[0].transform.is_empty());
+    let id = ModularStreamId::modular_ac(1, 0);
+    let s = id.id(&e.frame_dim);
+    let rect = Rect::new(128, 0, 1, 33);
+    e.prepare_stream_params(&rect, 0, 1, &id, true, false)
+        .unwrap();
+    assert_eq!(e.gi_channel[s], vec![2]);
+    assert_eq!(e.stream_images[s].channel.len(), 1);
+    let ch = &e.stream_images[s].channel[0];
+    assert_eq!(
+        (ch.w, ch.h, ch.hshift, ch.vshift, ch.component),
+        (1, 33, 0, 0, -1)
+    );
+    assert_eq!(ch.row(0)[0], 2128);
+    assert_eq!(ch.row(32)[0], 5328);
+    e.tokens = vec![vec![Token::new(3, 29)]];
+    e.stream_params.push(GroupParams {
+        rect,
+        min_shift: 0,
+        max_shift: 1,
+        id,
+    });
+    e.clear_modular_stream_data();
+    assert!(e.stream_params.is_empty());
+    assert!(e.stream_images[s].channel.is_empty());
+    assert!(e.stream_images[s].error);
+    assert_eq!(e.gi_channel[s], vec![2]);
+    assert_eq!(e.tokens[0][0].value, 29);
+    assert_eq!(e.stream_images[0].channel.len(), 4);
+}
+
+#[test]
+fn frame_token_error_retains_written_prefix_header_and_previous_width() {
+    let m = metadata(3, 1, true);
+    let h = header(&m);
+    let mut p = CompressParams {
+        speed_tier: SpeedTier::Lightning,
+        ..Default::default()
+    };
+    p.set_lossless();
+    let mut e = ModularFrameEncoder::create(&h, &p, false).unwrap();
+    e.stream_images[0] = Image::create(3, 1, 32, 1).unwrap();
+    e.stream_images[0].channel[0].row_mut(0)[..3].copy_from_slice(&[i32::MIN, i32::MAX, i32::MIN]);
+    e.image_widths = vec![99; e.stream_images.len()];
+    e.compute_tree().unwrap();
+    assert_eq!(e.compute_tokens(), Err(StatusCode::GenericError));
+    assert_eq!(e.tokens[0].len(), 3);
+    assert_eq!(e.tokens[0][0].value, u32::MAX);
+    assert_eq!(e.image_widths[0], 99);
+    assert!(e.stream_headers[0].use_global_tree);
+    assert_eq!(e.tree.len(), 1);
+}
+
+#[test]
+fn frame_global_modular_sections_reproduce_independently_captured_cpp_zero_gray_bytes() {
+    // Original pinned ModularFrameEncoder, scalar Clang, 1x1 zero gray,
+    // lossless TectonicPlate, group shift 0. These are modular sections,
+    // without image/frame headers or a JPEG XL section table.
+    let m = metadata(1, 1, true);
+    let h = header(&m);
+    let mut p = CompressParams {
+        speed_tier: SpeedTier::TectonicPlate,
+        ..Default::default()
+    };
+    p.set_lossless();
+    let mut e = ModularFrameEncoder::create(&h, &p, false).unwrap();
+    e.stream_images[0] = Image::create(1, 1, 8, 1).unwrap();
+    e.stream_images[0].channel[0].row_mut(0)[0] = 0;
+    e.gi_channel.resize_with(e.stream_images.len(), Vec::new);
+    let rect = Rect::new(0, 0, 1, 1);
+    let global = ModularStreamId::global();
+    e.prepare_stream_params(&rect, -1, 30, &global, true, false)
+        .unwrap();
+    let ac = ModularStreamId::modular_ac(0, 0);
+    let s = ac.id(&e.frame_dim);
+    e.stream_options[s] = e.stream_options[0].clone();
+    e.prepare_stream_params(&rect, -1, 30, &ac, true, false)
+        .unwrap();
+    for _ in 0..2 {
+        e.compute_tree().unwrap();
+        e.compute_tokens().unwrap();
+    }
+    let mut writer = BitWriter::new();
+    e.encode_global_info(false, &mut writer, None).unwrap();
+    e.encode_stream(&mut writer, None, LayerType::ModularGlobal, &global)
+        .unwrap();
+    assert_eq!(writer.bits_written(), 42);
+    writer
+        .with_max_bits(
+            7,
+            LayerType::Header,
+            None,
+            |w, _| {
+                w.zero_pad_to_byte();
+                Ok(())
+            },
+            false,
+        )
+        .unwrap();
+    assert_eq!(writer.get_span(), &[0x25, 0x8c, 0xc5, 0x0a, 0xc1, 0x00]);
 }

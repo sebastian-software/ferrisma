@@ -12,7 +12,7 @@ use jxl::jxl::modular::modular_image::Image;
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("mf-")
 }
-fn image(out: &mut String, image: &Image, pixels: bool) {
+pub(super) fn image(out: &mut String, image: &Image, pixels: bool) {
     transforms::metadata(out, image);
     write!(out, " {}", u32::from(pixels)).unwrap();
     if pixels {

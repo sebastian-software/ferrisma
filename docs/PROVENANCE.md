@@ -276,3 +276,28 @@ Metadata-only force fixtures do not read uninitialized pixel planes. Newly
 created source transforms' indeterminate max_delta_error is omitted from state
 observations. Generated helper corpora and native tests do not replace complete
 frame/group integration or the first-image acceptance corpus.
+
+`ModularFrameEncoder` storage and Create/Init, PrepareStreamParams, ComputeTree,
+ComputeTokens, EncodeGlobalInfo, EncodeStream, both clearing methods, and
+ComputeStreamingAbsoluteAcGroupId come from `enc_modular.{h,cc}`. Their Rust
+translation retains the original native/null-pool algorithms, resizing and
+copy checkpoints, unsigned arithmetic, group/shift filtering, local transform
+selection, multiplier-range merging, token/header state, and entropy output.
+ComputeEncodingData and VarDCT-specific methods remain outside this boundary.
+The private preparation method borrows its owner's parameter field directly;
+all upstream calls pass that same field. Existing native allocation and borrowed
+custom-view mappings remain in effect.
+
+`tools/oracle/modular_frame_state.inc` calls the actual original methods and
+observes defined private state using `-fno-access-control` on its fixture
+translation unit only. No source/layout/algorithm substitution is involved.
+Inputs seed group options at the original caller's checkpoint. Shared and local
+stream tests follow enc_frame.cc's distinct non-streaming/streaming lifecycles;
+they do not treat invalid predictor indices or unsupported repeated global-info
+calls as reference results. Entropy tables are exercised through serialized
+output; indeterminate scalars are omitted from direct observations. Writer
+observations copy bits before padding, leaving the real
+writer unchanged. The native zero-gray test uses independently captured original
+42-bit modular sections (`258cc50ac100`, padded), not a JPEG XL codestream.
+Generated state/action corpora remain local infrastructure; complete frame
+entry points, decoding, and the first-image corpus are separate requirements.

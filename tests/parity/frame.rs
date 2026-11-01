@@ -27,7 +27,7 @@ fn rect(out: &mut String, r: Rect) {
     )
     .unwrap();
 }
-fn dimensions(out: &mut String, d: &FrameDimensions) {
+pub(super) fn dimensions(out: &mut String, d: &FrameDimensions) {
     for v in [
         d.xsize,
         d.ysize,

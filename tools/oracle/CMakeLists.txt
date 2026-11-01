@@ -86,6 +86,13 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/huffman_table.cc"
   "${UPSTREAM}/lib/jxl/memory_manager_internal.cc"
   "${UPSTREAM}/lib/jxl/simd_util.cc")
+# Expose original internal state to the frame fixture adapter without changing
+# source files, class layouts, or runtime algorithms. Limit this to its TU.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  set_source_files_properties(sample_conversion.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
+else()
+  message(FATAL_ERROR "Frame state fixtures require Clang or GCC access-control support")
+endif()
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/include"
   "${UPSTREAM}/third_party/brotli/c/include"

@@ -32,6 +32,7 @@ pub const NUM_MODULAR_PREDICTORS: usize = 14;
 pub const NUM_MODULAR_ENCODER_PREDICTORS: usize = 16;
 pub const NUM_STATIC_PROPERTIES: isize = 2;
 pub type StaticPropRange = [[u32; 2]; NUM_STATIC_PROPERTIES as usize];
+#[derive(Clone, Copy, Default)]
 pub struct ModularMultiplierInfo {
     pub range: StaticPropRange,
     pub multiplier: u32,

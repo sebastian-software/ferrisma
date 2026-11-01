@@ -45,7 +45,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, and complete MakeFrameHeader including JPEG inputs, partial state, blending, and animation; pixel/section orchestration unported |
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
-| Helpers in `enc_modular.cc` | `enc_modular.rs` | Complete integer/custom-float sample conversion, plane quantization, weighted predictor cost, transform attempts/rejection/undo, global palette/compaction selection, and tree merging; frame encoder state and orchestration unported |
+| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, plus sample/transform helpers; ComputeEncodingData pixel preparation, VarDCT entry points, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h` | `quant_weights.rs` | QuantTable indices and count; weights/matrix APIs unported |
 | `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
@@ -101,13 +101,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 213 tests, including 121 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 213 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 213 tests and corpus |
+| Rust debug | PASSED | 224 tests, including 128 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 224 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 224 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **622,356 requests** against C++. These include
+Each differential run compares **623,972 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -365,7 +365,31 @@ force-mode pixels are outside observations. New transform observations omit
 the source's indeterminate max_delta_error field. Native tests check merge
 direction/offsets, original pixel restoration after rejection, retained fast
 transforms, palette undo, physical-plane quantization, and weighted rejection.
-These helpers remain dependencies of the unported frame encoder state/path.
+These helpers also feed the translated frame stream state below.
+
+Modular frame stream state adds 1,616 differential requests. Constructor cases
+compare copied parameters, metadata/group geometry, all speed/predictor/property
+policies, raw float bits, and unsigned threshold arithmetic. Action sequences
+compare defined stream state, entropy-table sizes/maps, channels and transformations,
+learned/predefined/custom trees, multiple useful/empty tree chunks, quantization
+ranges, heterogeneous channel shifts/crops, tokens, headers, encoded
+bits/bytes, and all layer accounting. They cover repeated tree/token work,
+cleanup with retained mappings/tokens, generic streams, original streaming-tile
+local streams, and partial image/token/tree errors. Shared entropy follows the
+source's non-streaming lifecycle; streaming fixtures omit shared tree/token
+generation as the original enc_frame.cc caller does. Group options are seeded
+at that caller's input checkpoint. Entropy-table contents are exercised through
+serialized output; indeterminate entropy scalars and transform scratch fields
+are omitted from direct observations. Observation pads
+a scratch copy, preserving the real writer's position and accounting.
+
+The oracle calls unmodified ModularFrameEncoder methods and uses compiler
+access-control support only in its fixture translation unit. Native tests
+check copied owners, progressive policy, cropped/shifted group selection,
+cleanup, retained error prefixes/widths, and independently captured C++ modular
+section bytes. Those 42-bit zero-gray sections do not include codestream/frame
+headers or a section table. ComputeEncodingData, actual frame entry points,
+frame decoding, and the complete first-image acceptance gate remain unported.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
@@ -398,9 +422,9 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect original modular frame/group pixel processing and section
-   orchestration, then run the complete cross-language image corpus
-   in the first-image acceptance gate.
+1. Port original ComputeEncodingData pixel preparation, frame decoding, and
+   image/frame/section entry points, then run the complete cross-language image
+   corpus in the first-image acceptance gate.
 2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.
 

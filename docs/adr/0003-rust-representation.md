@@ -353,6 +353,25 @@ weighted cost instead records overflow and rejects that mode with FLT_MAX.
 Preserve per-context float-to-size_t truncation, the accumulated fraction, and
 the final size_t-to-float conversion rather than summing costs in float.
 
+ModularFrameEncoder owns its stream images/options, trees, tokens, headers,
+entropy data, mappings, and copied parameters. Native image allocations retain
+the existing crate allocator boundary; custom C allocators remain separate.
+Preparing a group splits the stream vector into disjoint global/group borrows.
+Keep channel-map insertion before allocation/copy and retain completed changes
+on failure. RCT search owns scratch channels and swaps planes at the original
+checkpoints; do not add atomic rollback to partially completed source work.
+
+Every upstream call to the private PrepareStreamParams passes the encoder's
+own cparams member. The Rust method borrows that field directly, removing a
+same-owner argument that would otherwise require aliasing or an extra parameter
+copy. Other fields remain independently borrowed. ClearStreamData swaps in an
+empty owner and releases the previous image at the source scope exit; it does
+not clear token, mapping, or width state. Stream options and vector resizing
+retain old entries except at the source's assignments. The splitting threshold
+uses size_t arithmetic because decoding_speed_tier is unsigned, including its
+wrapping before float conversion. Multiplier sorting retains the reference
+algorithm; safe Default values fill moved-from holes with no added meaning.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

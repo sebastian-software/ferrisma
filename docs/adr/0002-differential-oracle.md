@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-10-31
+- Updated: 2026-11-01
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -30,3 +30,17 @@ reductions: allowing auto-vectorization changed LZ77 cost rounding, and ASan
 then selected a different reduction loop. Both ordinary and instrumented
 oracles must use the upstream settings. Keep exact float-bit comparisons;
 do not compensate with relaxed tolerances or changed reference algorithms.
+
+The frame fixture translation unit uses Clang/GCC `-fno-access-control` to
+observe and seed the original private state at internal boundaries. This is
+limited to the test adapter and does not change declarations, layouts, source
+files, or runtime algorithms. Do not replace private methods with test versions
+or rewrite source access specifiers. Omit source-indeterminate state until the
+original algorithm initializes it. Observe writer bits through a padded scratch
+copy so inspecting an intermediate result does not alter the real writer.
+
+Frame fixtures follow the original caller's lifecycle: shared trees/tokens and
+histograms belong to the non-streaming path; streaming uses local generic
+streams. Internal callers must satisfy source preconditions before observation.
+Undefined source inputs or invalid lifecycle combinations do not become passing
+Rust behavior by suppressing sanitizer failures or changing reference routines.

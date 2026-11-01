@@ -54,7 +54,7 @@ pub(super) fn tree(out: &mut String, tree: &Tree) {
         .unwrap();
     }
 }
-fn tokens(out: &mut String, tokens: &[Token]) {
+pub(super) fn tokens(out: &mut String, tokens: &[Token]) {
     write!(out, " {}", tokens.len()).unwrap();
     for t in tokens {
         write!(
