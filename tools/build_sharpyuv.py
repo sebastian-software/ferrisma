@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the pinned original portable SharpYUV reference."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 
@@ -12,7 +13,8 @@ def main():
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
     subprocess.run(["python3", ROOT / "tools/verify_upstream.py"], check=True)
-    build = ROOT / "build" / ("sharpyuv-reference-debug" if args.debug else "sharpyuv-reference")
+    base = Path(os.environ.get("SHARPYUV_BUILD_ROOT", ROOT / "build"))
+    build = base / ("sharpyuv-reference-debug" if args.debug else "sharpyuv-reference")
     command = ["cmake", "-S", ROOT / "upstream/libwebp", "-B", build, "-G", "Ninja",
                "-DCMAKE_BUILD_TYPE=" + ("Debug" if args.debug else "Release"),
                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON", "-DBUILD_SHARED_LIBS=ON",
