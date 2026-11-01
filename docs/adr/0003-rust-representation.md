@@ -623,6 +623,27 @@ at the original float assignments/call boundaries.
 Setting the copied linear profile's transfer function retains its ICC bytes;
 regeneration belongs to the later original caller, not to this setter.
 
+The scalar XYB helper returns three float values instead of assigning restrict
+output pointers; the stage resolves its three input rows through existing
+owner-relative descriptors and stores each result in source channel order.
+It copies exactly OpsinParams and the output-is-XYB predicate at construction,
+independently of later caller mutations. Only the leading word of each original
+four-lane inverse-matrix entry participates in the scalar helper. Local Add/Mul
+call boundaries retain the source scalar operand order when native release
+optimization would otherwise commute NaN operands. MulAdd remains exactly
+Add(Mul(a,b),c), with separate rounding; global Highway helpers are unchanged.
+Each local Mul additionally preserves scalar-inl.h's float-to-double promotions,
+binary64 product, and narrowing to the float lane. Out-of-line widening and
+binary64 multiplication keep native optimization from collapsing those source
+checkpoints. Both XybToRgb and the scaled-output stage use this same mapping.
+The helper remains out of line, and its source dataflow matches the isolated
+original-source compiler configuration in ADR 0002. Captured-word regressions
+cover competing NaN payloads, overflow/cancellation, and finite pixels. Review
+this mapping with compiler/target changes; no performance parity is claimed.
+The normal stage's scalar tail has zero length, so its MSan annotations access
+no storage. Scaled XYB retains the original B-minus-Y expression and constants.
+Extra channels are ignored, and failed xextra guards precede every row access.
+
 The derived one-lane tone/HLG classes compose their actual base constructors;
 their Highway bodies keep separate multiply/add operations and the original
 right-nested luminance order. They do not reuse the base classes' different

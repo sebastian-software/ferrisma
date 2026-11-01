@@ -95,6 +95,9 @@ mod decoder_state;
 #[path = "parity/cms_stage.rs"]
 mod cms_stage;
 
+#[path = "parity/xyb_stage.rs"]
+mod xyb_stage;
+
 #[path = "parity/tone_mapping.rs"]
 mod tone_mapping;
 
@@ -731,6 +734,7 @@ fn observe(request: &str) -> String {
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),
         kind if decoder_state::handles(kind) => decoder_state::observe(kind, &mut args),
         kind if cms_stage::handles(kind) => cms_stage::observe(kind, &mut args),
+        kind if xyb_stage::handles(kind) => xyb_stage::observe(kind, &mut args),
         kind if tone_mapping::handles(kind) => tone_mapping::observe(kind, &mut args),
         kind if decode_frame::handles(kind) => decode_frame::observe(kind, &mut args),
         kind if uint_output::handles(kind) => uint_output::observe(kind, &mut args),

@@ -84,7 +84,28 @@ parameter initialization, output-profile selection, and matrix/luminance/gamma
 updates. Original methods supply all reference observations; generated profile
 and reuse sequences are local infrastructure. Fixtures value-initialize source
 aggregate scalars explicitly and retain partial state after errors. Pixel
-conversion and frame-pipeline integration remain separate boundaries.
+conversion is translated separately below; general image conversion and
+frame-profile integration remain separate boundaries.
+
+`dec_xyb-inl.h` and the normal stage/factory in
+`render_pipeline/stage_xyb.cc` supply the one-lane XybToRgb helper and XYBStage.
+`tools/oracle/xyb_stage.cc` includes `xyb_stage.inc`, which includes the pristine
+stage source and calls its actual scalar helper and public factory. Its
+source-scoped -O0 setting retains source operand order across ordinary and
+ASan/UBSan builds; all instrumentations stay active. Other fixture/original
+codec-library flags are unchanged. The native helper's local Add/Mul call
+boundaries retain the same Highway scalar order, binary64 multiplication with
+float narrowing, and unfused rounding. The scaled-output stage uses the same
+local product mapping. This
+pins a numeric configuration without changing any source algorithm or claiming
+performance parity. It supplies input/profile/parameter
+fixtures, observes all output words and unchanged guards/extra channels, and
+executes the original simple pipeline with reverse group submission. Default
+and raw custom parameter corpora include every scalar parameter position,
+signed zeros, subnormals, infinities, and NaN payloads. Generated corpora remain
+local infrastructure; no conversion algorithm is supplied by the fixture.
+FastXYB/sRGB8, SIMD targets, general image conversion, and decoder-profile
+integration remain separate boundaries.
 
 `passes_state.cc`, decoder storage/constructor/Init and callback carriers in
 `dec_cache.h`, InitForAC in `dec_cache.cc`, callback typedefs in the public

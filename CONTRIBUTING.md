@@ -29,6 +29,15 @@ hierarchy when deriving fixture stages. The original archive does not provide
 base RTTI. The setting is limited to that adapter; reference algorithms remain
 unmodified.
 
+The separate XYB fixture unit compiles its included pristine stage/helper at
+`-O0` to retain original scalar operand order with and without ASan matrix-load
+checks. All sanitizers remain active. This flag affects no other fixture or
+original codec-library object. Native local Add/Mul boundaries keep the same
+operand order and separate MulAdd rounding in release builds. See
+[ADR 0002](docs/adr/0002-differential-oracle.md) and
+[ADR 0003](docs/adr/0003-rust-representation.md). This reference configuration
+makes no performance parity claim.
+
 The complete-file oracle compiles the original DecodeFile and ReadICC helper
 bodies without their unrelated test framework. At CMake configure time,
 `tools/oracle/extract_source.py` copies their exact pinned source ranges and

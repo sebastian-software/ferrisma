@@ -5,3 +5,4 @@ pub mod simple_render_pipeline;
 pub mod stage_cms;
 pub mod stage_tone_mapping;
 pub mod stage_upsampling;
+pub mod stage_xyb;
