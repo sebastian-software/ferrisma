@@ -59,6 +59,8 @@ mod rct;
 
 #[path = "parity/ma.rs"]
 mod ma;
+#[path = "parity/modular_decode.rs"]
+mod modular_decode;
 #[path = "parity/predict.rs"]
 mod predict;
 #[path = "parity/transforms.rs"]
@@ -645,6 +647,7 @@ fn observe(request: &str) -> String {
         kind if predict::handles(kind) => predict::observe(kind, &mut args),
         kind if ma::handles(kind) => ma::observe(kind, &mut args),
         kind if transforms::handles(kind) => transforms::observe(kind, &mut args),
+        kind if modular_decode::handles(kind) => modular_decode::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

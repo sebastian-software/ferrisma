@@ -262,6 +262,18 @@ metadata-only oracle observations omit it. Reverse stack execution copies one
 Transform as the source does, pops it after success, and leaves a failed entry
 and the error flag visible. Custom runners remain a separate boundary.
 
+ModularDecode temporarily moves its transform-vector owner out while applying
+each mutable entry to the image, then restores it on success or failure.
+MetaApply reads channel/size/meta state and never reads that vector, so this
+avoids aliasing and additional transform copies while preserving partial entry
+mutations. A Result scope performs the original armed guard's zero-filling on
+every status-return path and disarms it before final ANS validation. Allowed
+truncation retains its separate early-header clearing and later nonfatal undo
+rules. Optional global tree/code/map inputs remain independent borrowed options;
+validate their presence at the original checkpoint. Do not compare indeterminate
+source pixels after allowed truncated transforms. Caller-supplied dimensions and
+bit depth remain outside the standalone modular stream's serialized boundary.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

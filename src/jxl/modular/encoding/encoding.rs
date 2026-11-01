@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! GroupHeader, FilterTree, and TreeToLookupTable from modular/encoding/
-//! encoding.{h,cc}, including channel residual decoding. Image orchestration
-//! remains absent. Conditional arrays
+//! encoding.{h,cc}, including complete modular image/channel decoding.
+//! Conditional arrays
 //! use vectors of exactly the source lengths (zero or 2 * PROP_RANGE_FAST).
 //! Rust initializes LUT storage; callers must only observe source-defined data.
 
@@ -16,14 +16,16 @@ use super::context_predict::{
     predict_tree_no_wp, predict_tree_no_wp_nec, predict_tree_wp, predict_tree_wp_nec,
 };
 use super::dec_ma::PropertyDecisionNode;
-use super::dec_ma::Tree;
-use crate::jxl::base::status::Status;
-use crate::jxl::dec_ans::ANSSymbolReader;
+use super::dec_ma::{Tree, decode_tree};
+use crate::jxl::base::status::{Status, StatusCode};
+use crate::jxl::dec_ans::{ANSCode, ANSSymbolReader, decode_histograms};
 use crate::jxl::dec_bit_reader::BitReader;
 use crate::jxl::field_encodings::{Fields, U32Enc, bits_offset, val};
 use crate::jxl::fields::{Visitor, bundle};
+use crate::jxl::frame_dimensions::BLOCK_DIM;
+use crate::jxl::image_ops::zero_fill_image;
 use crate::jxl::modular::modular_image::{Channel, Image};
-use crate::jxl::modular::options::{NUM_STATIC_PROPERTIES, Predictor};
+use crate::jxl::modular::options::{ModularOptions, NUM_STATIC_PROPERTIES, Predictor};
 use crate::jxl::modular::transform::transform::Transform;
 use crate::jxl::pack_signed::unpack_signed;
 use std::collections::VecDeque;
@@ -806,4 +808,261 @@ pub fn decode_modular_channel_maans(
             fl_v,
         )
     }
+}
+
+pub fn validate_channel_dimensions(image: &Image, options: &ModularOptions) -> Status {
+    let nb_channels = image.channel.len();
+    for is_dc in [true, false] {
+        let group_dim = options
+            .group_dim
+            .wrapping_mul(if is_dc { BLOCK_DIM } else { 1 });
+        let mut c = image.nb_meta_channels;
+        while c < nb_channels {
+            let ch = &image.channel[c];
+            if ch.w > options.group_dim || ch.h > options.group_dim {
+                break;
+            }
+            c += 1;
+        }
+        while c < nb_channels {
+            let ch = &image.channel[c];
+            c += 1;
+            if ch.w == 0 || ch.h == 0 {
+                continue;
+            }
+            let is_dc_channel = ch.hshift.min(ch.vshift) >= 3;
+            if is_dc_channel != is_dc {
+                continue;
+            }
+            let shift = ch.hshift.max(ch.vshift);
+            // Source shifts outside the machine word are undefined caller
+            // preconditions. Serialized transforms keep these shifts bounded.
+            assert!((0..usize::BITS as i32).contains(&shift));
+            let tile_dim = group_dim >> shift;
+            if tile_dim == 0 {
+                return Err(StatusCode::GenericError);
+            }
+        }
+    }
+    Ok(())
+}
+fn meta_apply_transforms(image: &mut Image) -> Status {
+    // MetaApply uses channel/size/meta state and never reads image.transform.
+    // Move its owner out temporarily to permit separate mutable borrows of the
+    // actual entries and image. Restore all entry mutations even on failure.
+    let mut transforms = std::mem::take(&mut image.transform);
+    let result = (|| {
+        for t in &mut transforms {
+            t.meta_apply(image)?;
+        }
+        Ok(())
+    })();
+    image.transform = transforms;
+    result
+}
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve original optional global entropy/tree inputs and truncation control"
+)]
+pub fn modular_decode(
+    br: &mut BitReader<'_>,
+    image: &mut Image,
+    header: &mut GroupHeader,
+    group_id: usize,
+    options: &mut ModularOptions,
+    global_tree: Option<&Tree>,
+    global_code: Option<&ANSCode>,
+    global_ctx_map: Option<&[u8]>,
+    allow_truncated_group: bool,
+) -> Status {
+    if image.channel.is_empty() {
+        return Ok(());
+    }
+    let status = bundle::read(br, header);
+    if !allow_truncated_group {
+        status?;
+    }
+    if status.is_err_and(StatusCode::is_fatal_error) {
+        return status;
+    }
+    if br.all_reads_within_bounds().is_err() {
+        header.transforms.clear();
+        image.transform = header.transforms.clone();
+        for ch in &mut image.channel {
+            zero_fill_image(&mut ch.plane);
+        }
+        return Err(StatusCode::NotEnoughBytes);
+    }
+    image.transform = header.transforms.clone();
+    meta_apply_transforms(image)?;
+    if image.error {
+        return Err(StatusCode::GenericError);
+    }
+    validate_channel_dimensions(image, options)?;
+    let nb_channels = image.channel.len();
+    let mut num_chans = 0;
+    let mut distance_multiplier = 0;
+    for (i, channel) in image.channel.iter().enumerate() {
+        if i >= image.nb_meta_channels
+            && (channel.w > options.max_chan_size || channel.h > options.max_chan_size)
+        {
+            break;
+        }
+        if channel.w == 0 || channel.h == 0 {
+            continue;
+        }
+        if channel.w > distance_multiplier {
+            distance_multiplier = channel.w;
+        }
+        num_chans += 1;
+    }
+    if num_chans == 0 {
+        return Ok(());
+    }
+    let mut next_channel = 0;
+    let mut guard_armed = !allow_truncated_group;
+    // A Result scope preserves the source guard's cleanup at every return,
+    // including table/reader creation failures, without aliased image borrows.
+    let result = (|| {
+        let mut tree_storage = Vec::new();
+        let mut map_storage = Vec::new();
+        let mut code_storage = ANSCode::default();
+        let (tree, code, context_map) = if !header.use_global_tree {
+            let mut max_tree_size = 1024u64;
+            for (i, channel) in image.channel.iter().enumerate() {
+                if i >= image.nb_meta_channels
+                    && (channel.w > options.max_chan_size || channel.h > options.max_chan_size)
+                {
+                    break;
+                }
+                let pixels = channel.w.wrapping_mul(channel.h) as u64;
+                max_tree_size = max_tree_size.wrapping_add(pixels);
+            }
+            max_tree_size = max_tree_size.min(1 << 20);
+            decode_tree(br, &mut tree_storage, max_tree_size as usize)?;
+            decode_histograms(
+                br,
+                tree_storage.len().div_ceil(2),
+                &mut code_storage,
+                &mut map_storage,
+                false,
+            )?;
+            (&tree_storage, &code_storage, map_storage.as_slice())
+        } else {
+            let (Some(tree), Some(code), Some(map)) = (global_tree, global_code, global_ctx_map)
+            else {
+                return Err(StatusCode::GenericError);
+            };
+            if tree.is_empty() {
+                return Err(StatusCode::GenericError);
+            }
+            (tree, code, map)
+        };
+        let mut reader = ANSSymbolReader::create(code, br, distance_multiplier)?;
+        let mut tree_lut = Box::new(TreeLut::<u8, false, false>::default());
+        let mut fl_run = 0;
+        let mut fl_v = 0;
+        while next_channel < nb_channels {
+            let channel = &image.channel[next_channel];
+            if next_channel >= image.nb_meta_channels
+                && (channel.w > options.max_chan_size || channel.h > options.max_chan_size)
+            {
+                break;
+            }
+            if channel.w == 0 || channel.h == 0 {
+                next_channel += 1;
+                continue;
+            }
+            decode_modular_channel_maans(
+                br,
+                &mut reader,
+                context_map,
+                tree,
+                &header.wp_header,
+                next_channel as i32,
+                group_id,
+                &mut tree_lut,
+                image,
+                &mut fl_run,
+                &mut fl_v,
+            )?;
+            if br.all_reads_within_bounds().is_err() {
+                return Err(if allow_truncated_group {
+                    StatusCode::NotEnoughBytes
+                } else {
+                    StatusCode::GenericError
+                });
+            }
+            next_channel += 1;
+        }
+        guard_armed = false;
+        if !reader.check_ans_final_state() {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(())
+    })();
+    if guard_armed {
+        for ch in image.channel.iter_mut().skip(next_channel) {
+            zero_fill_image(&mut ch.plane);
+        }
+    }
+    result
+}
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve the original public modular decompression boundary"
+)]
+pub fn modular_generic_decompress(
+    br: &mut BitReader<'_>,
+    image: &mut Image,
+    header: Option<&mut GroupHeader>,
+    group_id: usize,
+    options: &mut ModularOptions,
+    undo_transforms: bool,
+    tree: Option<&Tree>,
+    code: Option<&ANSCode>,
+    ctx_map: Option<&[u8]>,
+    allow_truncated_group: bool,
+) -> Status {
+    let mut req_sizes = Vec::with_capacity(image.channel.len());
+    for c in &image.channel {
+        req_sizes.push((c.w, c.h));
+    }
+    let mut local_header = GroupHeader::default();
+    let header = header.unwrap_or(&mut local_header);
+    let _bit_pos = br.total_bits_consumed();
+    let dec_status = modular_decode(
+        br,
+        image,
+        header,
+        group_id,
+        options,
+        tree,
+        code,
+        ctx_map,
+        allow_truncated_group,
+    );
+    if !allow_truncated_group {
+        dec_status?;
+    }
+    if dec_status.is_err_and(StatusCode::is_fatal_error) {
+        return dec_status;
+    }
+    if undo_transforms {
+        image.undo_transforms(&header.wp_header);
+    }
+    if image.error {
+        return Err(StatusCode::GenericError);
+    }
+    if undo_transforms {
+        if image.channel.len() != req_sizes.len() {
+            return Err(StatusCode::GenericError);
+        }
+        for (c, &(w, h)) in req_sizes.iter().enumerate() {
+            if w != image.channel[c].w || h != image.channel[c].h {
+                return Err(StatusCode::GenericError);
+            }
+        }
+    }
+    dec_status
 }

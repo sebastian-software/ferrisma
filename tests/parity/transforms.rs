@@ -14,7 +14,7 @@ use jxl::jxl::modular::transform::transform::{Transform, TransformId};
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("pal-") || kind.starts_with("sq-") || kind.starts_with("tr-")
 }
-fn read_image(args: &mut std::str::SplitWhitespace<'_>) -> Image {
+pub(super) fn read_image(args: &mut std::str::SplitWhitespace<'_>) -> Image {
     let w = number(args);
     let h = number(args);
     let depth = number(args);
@@ -42,7 +42,7 @@ fn read_image(args: &mut std::str::SplitWhitespace<'_>) -> Image {
     }
     image
 }
-fn metadata(out: &mut String, image: &Image) {
+pub(super) fn metadata(out: &mut String, image: &Image) {
     write!(
         out,
         " {},{},{},{},{},{} {}",

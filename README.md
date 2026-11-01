@@ -4,7 +4,7 @@ A mechanical Rust port of the JPEG XL reference implementation, starting from
 the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserves
 source algorithms and behavior before any redesign or additional optimization.
 
-**This is an initial porting slice, not an image encoder or decoder.** It
+**Complete JPEG XL codestream encoding and decoding are still unported.** It
 implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
 field visitors, size/preview/animation headers, ANS alias tables, and Huffman
 tree encoding and prefix decoding, entropy-stream parsing, hybrid integers,
@@ -21,7 +21,9 @@ flat-tree lookup, lookup tables, and group-header bundles. Given-tree residual
 encoding and channel decoding now connect samples through real entropy streams.
 Palette lookup/inversion and scalar Squeeze encoding/decoding now run through
 the original transform dispatch and reverse stack traversal.
-The image path is still being translated; the
+The original modular image decoder now reads standalone streams with local or
+global entropy tables and applies their transformations. Its caller supplies
+dimensions and bit depth; frame integration is still being translated. The
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate
 dependencies and does not compile or link C/C++. A separate executable built

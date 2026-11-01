@@ -119,7 +119,7 @@ fn luts<T: TreeLutWord + std::fmt::Display + PartialEq>(
         _ => unreachable!(),
     }
 }
-fn header_seed(count: usize) -> GroupHeader {
+pub(super) fn header_seed(count: usize) -> GroupHeader {
     let mut h = GroupHeader {
         use_global_tree: true,
         ..GroupHeader::default()
@@ -152,7 +152,7 @@ fn header_seed(count: usize) -> GroupHeader {
     }
     h
 }
-fn header(out: &mut String, h: &mut GroupHeader) {
+pub(super) fn header(out: &mut String, h: &mut GroupHeader) {
     write!(out, " {}", u32::from(h.use_global_tree)).unwrap();
     predict::header(out, &h.wp_header);
     write!(out, " {}", h.transforms.len()).unwrap();

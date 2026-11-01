@@ -153,8 +153,8 @@ XL Project Authors' copyright notice and name the source files they translate.
   token-state, malformed-stream, and native integration tests are local
   infrastructure. They call the actual original functions, including the
   cross-channel run-state guard, and supply no substitute image/frame codec.
-  Tree learning, image orchestration, and the upstream image test inventory
-  remain separate boundaries.
+  Tree learning, generic image encoding, frame orchestration, and the upstream
+  image test inventory remain separate boundaries.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
@@ -173,3 +173,15 @@ observations omit indeterminate pixel storage; forward arithmetic cases remain
 inside the source's defined i32 range. No forward palette algorithm, SIMD
 specialization, custom runner, or upstream full-image test inventory is claimed
 by these fixtures.
+
+The remaining image-level portions of `modular/encoding/encoding.{h,cc}` now
+provide ValidateChannelDimensions, ModularDecode, and ModularGenericDecompress.
+Generated standalone images use the actual original ModularGenericCompress,
+including original forward Palette/Squeeze/RCT calls in the oracle. Global
+table fixtures compose the source entropy writers and ModularCompress as test
+infrastructure, not a replacement frame encoder. Full decodes independently
+check source samples and shape; malformed cases compare defined partial state.
+Two native fixed fixtures are captured from the pinned scalar C++ generator
+with their configurations documented in `tests/modular_decode.rs`. No Rust
+generic image encoder, tree-learning algorithm, forward palette algorithm, or
+complete JPEG XL codestream is supplied by these fixtures.

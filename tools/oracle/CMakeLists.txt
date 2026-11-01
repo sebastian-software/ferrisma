@@ -61,6 +61,8 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/modular/transform/palette.cc"
   "${UPSTREAM}/lib/jxl/modular/transform/squeeze.cc"
   "${UPSTREAM}/lib/jxl/modular/transform/enc_squeeze.cc"
+  "${UPSTREAM}/lib/jxl/modular/transform/enc_palette.cc"
+  "${UPSTREAM}/lib/jxl/modular/transform/enc_transform.cc"
   "${UPSTREAM}/lib/jxl/modular/encoding/dec_ma.cc"
   "${UPSTREAM}/lib/jxl/modular/encoding/enc_ma.cc"
   "${UPSTREAM}/lib/jxl/modular/encoding/encoding.cc"
