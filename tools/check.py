@@ -2,6 +2,7 @@
 """Validate the pinned source, Rust port, and original C++ differential oracle."""
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,11 @@ def check_source():
             raise SystemExit(f"{name} differs from the pinned upstream notice")
     if (ROOT / "licenses/HIGHWAY-BSD-3-Clause.txt").read_bytes() != (highway / "LICENSE-BSD3").read_bytes():
         raise SystemExit("The translated Highway helper's notice differs from upstream")
+    sort_reference = ROOT / "tools/reference/libcxx"
+    sort_pin = json.loads((sort_reference / "source.json").read_text())
+    for name, expected in sort_pin["files"].items():
+        if hashlib.sha256((sort_reference / name).read_bytes()).hexdigest() != expected:
+            raise SystemExit(f"libc++ reference snapshot mismatch: {name}")
     print(f"Pinned source and notices verified: {revision}", flush=True)
 
 

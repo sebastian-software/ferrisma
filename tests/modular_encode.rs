@@ -7,12 +7,14 @@ use jxl::jxl::dec_bit_reader::BitReader;
 use jxl::jxl::enc_ans_params::LZ77Method;
 use jxl::jxl::enc_aux_out::LayerType;
 use jxl::jxl::enc_bit_writer::BitWriter;
+use jxl::jxl::modular::encoding::context_predict::weighted;
 use jxl::jxl::modular::encoding::enc_encoding::modular_generic_compress;
 use jxl::jxl::modular::encoding::encoding::{GroupHeader, modular_generic_decompress};
 use jxl::jxl::modular::modular_image::Image;
 use jxl::jxl::modular::options::{ModularOptions, Predictor, TreeKind, UNDEFINED_PREDICTOR};
 use jxl::jxl::modular::transform::enc_rct::fwd_rct;
 use jxl::jxl::modular::transform::enc_squeeze::fwd_squeeze;
+use jxl::jxl::modular::transform::enc_transform::transform_forward;
 use jxl::jxl::modular::transform::squeeze::default_squeeze_parameters;
 use jxl::jxl::modular::transform::transform::{Transform, TransformId};
 
@@ -169,4 +171,58 @@ fn failed_learning_retains_the_written_header_and_leaves_caller_options_intact()
     assert_eq!(writer.get_span(), &[2]);
     assert_eq!(options.predictor, UNDEFINED_PREDICTOR);
     assert!(options.splitting_heuristics_properties.is_empty());
+}
+
+#[test]
+fn forward_palette_squeeze_and_generic_encoder_reproduce_the_original_rgb_fixture() {
+    let mut image = Image::create(9, 5, 8, 3).unwrap();
+    for (c, ch) in image.channel.iter_mut().enumerate() {
+        for y in 0..5 {
+            for x in 0..9 {
+                ch.row_mut(y)[x] = (c * 32 + ((x + y) % 2) * 10) as i32;
+            }
+        }
+    }
+    let mut palette = Transform {
+        num_c: 3,
+        nb_colors: 256,
+        ordered_palette: false,
+        ..Transform::new(TransformId::PALETTE)
+    };
+    transform_forward(&mut palette, &mut image, &weighted::Header::default()).unwrap();
+    assert_eq!(palette.nb_colors, 2);
+    assert_eq!(palette.nb_deltas, 0);
+    assert_eq!(palette.predictor, Predictor::ZERO);
+    assert_eq!(&image.channel[0].row(0)[..2], &[0, 10]);
+    assert_eq!(&image.channel[0].row(1)[..2], &[32, 42]);
+    assert_eq!(&image.channel[0].row(2)[..2], &[64, 74]);
+    image.transform.push(palette);
+    let mut squeeze = Transform::new(TransformId::SQUEEZE);
+    default_squeeze_parameters(&mut squeeze.squeezes, &image);
+    transform_forward(&mut squeeze, &mut image, &weighted::Header::default()).unwrap();
+    image.transform.push(squeeze);
+    let options = ModularOptions {
+        predictor: Predictor::WEIGHTED,
+        wp_mode: 2,
+        tree_kind: TreeKind::GradientFixedDC,
+        ..ModularOptions::default()
+    };
+    let mut writer = BitWriter::new();
+    modular_generic_compress(
+        &image,
+        &options,
+        &mut writer,
+        None,
+        LayerType::ModularGlobal,
+        0,
+    )
+    .unwrap();
+    assert_eq!(writer.bits_written(), 291);
+    pad(&mut writer);
+    let expected = "a8740080a9b959088400603041c2586c10ca8c6dd6c4460f8c1e18818240412038d038d000";
+    let expected: Vec<_> = (0..expected.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&expected[i..i + 2], 16).unwrap())
+        .collect();
+    assert_eq!(writer.get_span(), expected);
 }

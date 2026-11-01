@@ -21,6 +21,8 @@ flat-tree lookup, lookup tables, and group-header bundles. Given-tree residual
 encoding and channel decoding now connect samples through real entropy streams.
 Palette lookup/inversion and scalar Squeeze encoding/decoding now run through
 the original transform dispatch and reverse stack traversal.
+Forward palettes include the original lossless selection and RGB lossy
+iterations/dithering, with the reference sort order retained for tied colors.
 The original modular image decoder now reads standalone streams with local or
 global entropy tables and applies their transformations. The generic modular
 encoder includes original sample collection, quantization, tree learning, and

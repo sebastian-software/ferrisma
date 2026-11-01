@@ -58,7 +58,9 @@ and no placeholder codec APIs. The source revision is pinned in
 | `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, resize failure state, and reverse transform-stack execution with retained failures; diagnostics/custom runners unported |
 | `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, channel-range validation, and complete MetaApply/Inverse dispatch to scalar null-pool kernels |
 | `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
-| `modular/transform/palette.h`, `.cc` | `modular/transform/palette.rs` | Explicit/implicit/delta palette lookup, unsigned scaling, metadata channel edits, and all inverse prediction paths; forward palette selection/encoding unported |
+| `modular/transform/palette.h`, `.cc`, `enc_palette.h`, `.cc` | `modular/transform/palette.rs`, `modular/transform/enc_palette.rs` | Explicit/implicit/delta lookup, metadata edits, inverse prediction, lossless lookup/set selection, ordered palettes, and original lossy iterations, delta learning, and dithering in defined source configurations |
+| `modular/transform/enc_transform.h`, `.cc` | `modular/transform/enc_transform.rs` | Complete forward transform dispatch and optional-output min/max scan in the null-pool configuration |
+| Reference libc++ non-arithmetic `std::sort` specialization | `base/libcpp_sort.rs` | Original pivot selection, partitions, insertion loops, equivalent-element order, and heap fallback; source version/hashes retained in `tools/reference/libcxx` |
 | `modular/transform/squeeze.h`, `.cc`, `enc_squeeze.h`, `.cc` | `modular/transform/squeeze.rs`, `modular/transform/enc_squeeze.rs` | Original scalar forward/inverse kernels, tendency, default schedules, validation, metadata edits, task spans, and channel replacement; SIMD/custom runners unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
@@ -88,13 +90,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 174 tests, including 97 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 174 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 174 tests and corpus |
+| Rust debug | PASSED | 181 tests, including 103 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 181 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 181 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **585,778 requests** against C++. These include
+Each differential run compares **592,507 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -264,7 +266,7 @@ tests verify retained failed transforms, popped successes, and combined RCT/
 Squeeze sample restoration. Metadata-only calls omit undefined newly allocated
 samples. Native tests check known palette colors, the empty-palette regression,
 RGB expansion, odd/negative Squeeze samples, partial failure state, and stack
-ownership/order. Forward palette selection remains unported.
+ownership/order. Forward palette selection has additional evidence below.
 
 Modular image orchestration adds 3,128 differential requests. The original C++
 ModularGenericCompress supplies standalone streams for grayscale/RGB, 8-/16-bit
@@ -279,8 +281,8 @@ work, and error-check order. Metadata-only observations omit indeterminate sourc
 storage after allowed truncated transforms. Native tests decode two fixed
 original streams without C++, and verify header/global-reference cleanup.
 Standalone modular streams require caller-supplied dimensions and bit depth;
-they do not include JPEG XL codestream/frame headers. Forward palette selection
-and frame orchestration remain unported.
+they do not include JPEG XL codestream/frame headers. Frame orchestration
+remains unported.
 
 Tree learning and generic modular encoding add 2,593 differential requests.
 RNG cases compare every distribution draw and shuffle state. Sample cases
@@ -295,6 +297,22 @@ settings, prefixes, RCT/Squeeze, and partial output on errors. Native tests
 reproduce the fixed C++ gray fixture and round-trip learned gray/RGB streams
 with reference properties and odd dimensions. These streams still require
 caller-supplied dimensions and bit depth; they are not complete JPEG XL files.
+
+Forward palette selection and dispatch add 6,729 differential requests.
+Cases compare all color-distance float bits, symmetric rounding, implicit cube
+quantization, exact tied-element sort order and forced heap fallback, complete
+palette/index planes, optional min/max output, failed-call mutations, and
+inverse reconstruction. Lossy cases include both iterations, learned deltas,
+error diffusion, weighted presets, and RGB configurations at multiple bit
+depths. For >=8-bit lossy palettes, a generated four-channel case exposed
+indeterminate entries in the source's fourth delta row; observations use the
+source frame encoder's three-color-channel configuration there. No new source
+validation or fourth-row meaning is inferred. Standalone integration compares
+Palette/Squeeze plus generic encoder bytes, accounting, and decoded samples;
+the native encoder also reproduces the previously captured C++ RGB fixture.
+The translated libc++ specialization has its own source snapshots and LLVM
+notices. These results establish the reference configuration's sort order,
+not arbitrary C++ standard-library versions or other specializations.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
@@ -327,10 +345,9 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port remaining encoder transforms reached by the first-image configuration.
-2. Connect the original image/frame path and run the complete cross-language
+1. Connect the original image/frame path and run the complete cross-language
    image corpus in the first-image acceptance gate.
-3. Expand through remaining modular and VarDCT decoding and encoding before
+2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.
 
 Preserve the upstream test inventory as that scope grows. Adapted tests in this

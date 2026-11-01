@@ -1,5 +1,7 @@
+pub mod enc_palette;
 pub mod enc_rct;
 pub mod enc_squeeze;
+pub mod enc_transform;
 pub mod palette;
 pub mod rct;
 pub mod squeeze;

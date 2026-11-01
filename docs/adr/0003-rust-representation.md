@@ -292,6 +292,24 @@ preconditions. Generic compression clones options at the source checkpoint,
 writes its header before learning errors, and reborrows accounting for nested
 writers. Caller options and transform ownership remain unchanged.
 
+Palette selection uses ordered Rust maps/sets for the source's lexicographic
+keys. A separate owned image retains lossy reconstruction samples while input
+indices are written only in the final iteration. Short row borrows load all
+components before writing an index. Preserve prepass predictor changes,
+palette-count mutation checkpoints, implicit-color promotions, strict distance
+ties, row-error swaps, and original float/double rounding. Do not assign meaning
+to indeterminate source delta entries beyond its RGB lossy configuration.
+
+For palette comparator ties, Rust's general-purpose sort does not specify the
+reference C++ library's concrete order. Preserve it with a mechanical translation
+of the reference libc++ non-arithmetic specialization, including insertion,
+partition, pivot, and heap-fallback behavior. Its versioned/hash-checked SDK
+snapshots and LLVM notices form an explicit dependency boundary. This favors
+reference bitstream reproducibility over using Rust's sort. Moved-from holes
+hold Default values for the source's vector/pair instantiations; those holes
+are never compared. This avoids raw pointers and extra clones for element
+moves. Other C++ library versions/specializations need their own evidence.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

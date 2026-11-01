@@ -3,6 +3,7 @@ pub mod byte_order;
 pub(crate) mod cache_control;
 pub mod fast_math;
 pub(crate) mod float;
+pub mod libcpp_sort;
 pub mod matrix_ops;
 pub mod random;
 pub mod rect;

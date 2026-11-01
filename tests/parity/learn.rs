@@ -16,6 +16,7 @@ use jxl::jxl::modular::modular_image::Image;
 use jxl::jxl::modular::options::{ModularMultiplierInfo, ModularOptions, Predictor, TreeMode};
 use jxl::jxl::modular::transform::enc_rct::fwd_rct;
 use jxl::jxl::modular::transform::enc_squeeze::fwd_squeeze;
+use jxl::jxl::modular::transform::enc_transform::transform_forward;
 use jxl::jxl::modular::transform::squeeze::default_squeeze_parameters;
 use jxl::jxl::modular::transform::transform::{Transform, TransformId};
 pub(super) fn handles(kind: &str) -> bool {
@@ -204,7 +205,25 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                     image.transform.push(t);
                 }
             }
-            if transform == 2 || transform == 3 {
+            if (4..=7).contains(&transform) {
+                let mut t = Transform {
+                    max_delta_error: 77,
+                    num_c: image.channel.len() as u32,
+                    nb_colors: if transform >= 6 { 4 } else { 256 },
+                    ordered_palette: transform >= 6,
+                    lossy_palette: transform >= 6,
+                    predictor: if transform >= 6 {
+                        Predictor::AVERAGE4
+                    } else {
+                        Predictor::ZERO
+                    },
+                    ..Transform::new(TransformId::PALETTE)
+                };
+                if transform_forward(&mut t, &mut image, &weighted::Header::default()).is_ok() {
+                    image.transform.push(t);
+                }
+            }
+            if transform == 2 || transform == 3 || transform == 5 || transform == 7 {
                 let mut t = Transform {
                     max_delta_error: 77,
                     ..Transform::new(TransformId::SQUEEZE)
@@ -861,6 +880,51 @@ fn learning_generic_encoder_matches_complete_bytes_accounting_and_decoded_raster
         cases.push(format!(
             "learn-generic {} 0 0 0 {} {image}",
             i % 8,
+            parameters(&p)
+        ));
+    }
+    compare(cases);
+}
+
+#[test]
+fn learning_generic_palette_squeeze_bytes_and_reconstructed_samples_match_source() {
+    let mut cases = Vec::new();
+    let mut seed = 952321;
+    for i in 0..320 {
+        let transforms = 4 + (i / 80) % 4;
+        let (w, h) = [(1, 1), (3, 2), (9, 5), (17, 9), (65, 17)][i % 5];
+        let n = if transforms >= 6 { 3 } else { [1, 3, 4][i % 3] };
+        let p = Parameters {
+            kind: (i % 7) as u32,
+            pred: [0, 5, 6, 14, 15, u32::MAX][i % 6],
+            wp: (i % 5) as i32,
+            mode: (i / 7) % 4,
+            repeats: [0.0, 0.01, 0.5, 1.0][i % 4],
+            huffman: i % 2 == 0,
+            lz: usize::from(i % 3 != 0),
+            uint: [0, 1, 2, 4][i % 4],
+            strategy: i % 3,
+            ..Default::default()
+        };
+        let mut image = format!("{w} {h} 8 0 0 {n}");
+        for c in 0..n {
+            write!(image, " {w} {h} 0 0 {c}").unwrap();
+            for y in 0..h {
+                for x in 0..w {
+                    let value = match i % 4 {
+                        0 => c * 32,
+                        1 => c * 32 + (x + y) % 2 * 10,
+                        2 => (x * 37 + y * 117 + c * 31) & 255,
+                        _ => (next(&mut seed) & 255) as usize,
+                    };
+                    write!(image, " {value}").unwrap();
+                }
+            }
+        }
+        cases.push(format!(
+            "learn-generic {} {} {transforms} 1 {} {image}",
+            i % 8,
+            i % 11,
             parameters(&p)
         ));
     }

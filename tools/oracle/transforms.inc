@@ -4,6 +4,10 @@
 #include "lib/jxl/modular/transform/palette.h"
 #include "lib/jxl/modular/transform/squeeze.h"
 #include "lib/jxl/modular/transform/enc_squeeze.h"
+#include "lib/jxl/modular/transform/enc_transform.h"
+// Include the unmodified source to observe its private scalar palette helpers.
+// This .cc is deliberately not separately compiled into the oracle.
+#include "lib/jxl/modular/transform/enc_palette.cc"
 std::vector<jxl::SqueezeParams> SqueezeReadParams(std::istringstream& in) {
   size_t count;in>>count;std::vector<jxl::SqueezeParams> result(count);
   for(auto& p:result) in>>p.horizontal>>p.in_place>>p.begin_c>>p.num_c;
@@ -32,7 +36,33 @@ void TransformMetadata(const jxl::Image& image) {
   for(const auto& c:image.channel) std::cout<<' '<<c.w<<','<<c.h<<','<<c.hshift<<','<<c.vshift<<','<<c.component<<','<<c.plane.xsize()<<','<<c.plane.ysize()<<','<<c.plane.bytes_per_row()<<','<<c.plane.PixelsPerRow()<<','<<(c.plane.bytes()!=nullptr);
 }
 bool TransformsCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
-  if(command=="tr-meta" || command=="tr-inverse") {
+  if(command=="pal-distance") {
+    size_t count;in>>count;std::vector<float> a(count);std::vector<int32_t> b(count);
+    for(auto& v:a) {uint32_t bits;in>>bits;memcpy(&v,&bits,4);}for(auto& v:b) in>>v;
+    float value=jxl::palette_internal::ColorDistance(a,b);uint32_t bits;memcpy(&bits,&value,4);std::cout<<bits;
+  } else if(command=="pal-quant") {
+    size_t count;int size,depth;bool high;in>>count>>size>>depth>>high;std::vector<int32_t> color(count);for(auto& v:color) in>>v;
+    std::cout<<jxl::palette_internal::QuantizeColorToImplicitPaletteIndex(color,size,depth,high);
+  } else if(command=="pal-round") {
+    int value,div;in>>value>>div;std::cout<<jxl::RoundInt(value,div);
+  } else if(command=="pal-forward") {
+    uint32_t begin,end,colors,deltas,predictor;bool ordered,lossy,undo;int preset;in>>begin>>end>>colors>>deltas>>ordered>>lossy>>predictor>>preset>>undo;
+    auto image=TransformReadImage(in,mm);jxl::weighted::Header header;jxl::weighted::PredictorMode(preset,&header);auto pred=static_cast<jxl::Predictor>(predictor);
+    Status status=jxl::FwdPalette(image,begin,end,colors,deltas,ordered,lossy,pred,header);
+    std::cout<<Code(status)<<' '<<colors<<' '<<deltas<<' '<<unsigned(pred);ImageModularObservation(image);
+    if(status && undo) {status=jxl::InvPalette(image,begin,colors,deltas,pred,header,nullptr);std::cout<<' '<<Code(status);ImageModularObservation(image);}
+  } else if(command=="pal-sort") {
+    bool heap,reverse;size_t count;in>>heap>>reverse>>count;std::vector<std::array<int64_t,2>> values(count);
+    for(size_t i=0;i<count;++i) {in>>values[i][0];values[i][1]=i;}
+    auto cmp=[&](const auto& a,const auto& b){return reverse?a[0]>b[0]:a[0]<b[0];};
+    if(heap) std::partial_sort(values.begin(),values.end(),values.end(),cmp);else std::sort(values.begin(),values.end(),cmp);
+    std::cout<<count;for(const auto& v:values) std::cout<<' '<<v[0]<<','<<v[1];
+  } else if(command=="tr-forward") {
+    int preset;bool ordered,lossy;in>>preset>>ordered>>lossy;auto t=TransformRead(in);t.ordered_palette=ordered;t.lossy_palette=lossy;auto image=TransformReadImage(in,mm);jxl::weighted::Header header;jxl::weighted::PredictorMode(preset,&header);
+    Status status=jxl::TransformForward(t,image,header,nullptr);std::cout<<Code(status);ImageTransformObservation(t);ImageModularObservation(image);
+  } else if(command=="tr-minmax") {
+    bool min,max;in>>min>>max;auto image=TransformReadImage(in,mm);int32_t lo=17,hi=23;jxl::compute_minmax(image.channel[0],min?&lo:nullptr,max?&hi:nullptr);std::cout<<lo<<' '<<hi;
+  } else if(command=="tr-meta" || command=="tr-inverse") {
     int preset;in>>preset;auto t=TransformRead(in);auto image=TransformReadImage(in,mm);jxl::weighted::Header header;jxl::weighted::PredictorMode(preset,&header);
     Status s=command=="tr-meta"?t.MetaApply(image):t.Inverse(image,header,nullptr);std::cout<<Code(s);ImageTransformObservation(t);
     if(command=="tr-meta") TransformMetadata(image);else ImageModularObservation(image);

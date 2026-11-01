@@ -5,8 +5,12 @@ use super::*;
 use jxl::jxl::modular::encoding::context_predict::weighted;
 use jxl::jxl::modular::modular_image::{Channel, Image};
 use jxl::jxl::modular::options::Predictor;
+use jxl::jxl::modular::transform::enc_palette::{
+    fwd_palette, palette_internal as enc_palette_internal, round_int,
+};
 use jxl::jxl::modular::transform::enc_rct::fwd_rct;
 use jxl::jxl::modular::transform::enc_squeeze::fwd_squeeze;
+use jxl::jxl::modular::transform::enc_transform::{compute_minmax, transform_forward};
 use jxl::jxl::modular::transform::palette::{inv_palette, meta_palette, palette_internal};
 use jxl::jxl::modular::transform::squeeze::*;
 use jxl::jxl::modular::transform::squeeze_params::SqueezeParams;
@@ -75,6 +79,107 @@ pub(super) fn metadata(out: &mut String, image: &Image) {
 }
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
     match kind {
+        "tr-forward" => {
+            let preset = number(args);
+            let ordered_palette = number::<u32>(args) != 0;
+            let lossy_palette = number::<u32>(args) != 0;
+            let mut t = read_transform(args);
+            t.ordered_palette = ordered_palette;
+            t.lossy_palette = lossy_palette;
+            let mut image = read_image(args);
+            let mut header = weighted::Header::default();
+            weighted::predictor_mode(preset, &mut header);
+            let s = transform_forward(&mut t, &mut image, &header);
+            let mut out = status_code(&s).to_string();
+            image::transform(&mut out, &t);
+            image::modular(&mut out, &image);
+            out
+        }
+        "tr-minmax" => {
+            let min = number::<u32>(args) != 0;
+            let max = number::<u32>(args) != 0;
+            let image = read_image(args);
+            let (mut lo, mut hi) = (17, 23);
+            compute_minmax(
+                &image.channel[0],
+                min.then_some(&mut lo),
+                max.then_some(&mut hi),
+            );
+            format!("{lo} {hi}")
+        }
+        "pal-distance" => {
+            let n: usize = number(args);
+            let a: Vec<_> = (0..n).map(|_| f32::from_bits(number(args))).collect();
+            let b: Vec<_> = (0..n).map(|_| number(args)).collect();
+            enc_palette_internal::color_distance(&a, &b)
+                .to_bits()
+                .to_string()
+        }
+        "pal-quant" => {
+            let n: usize = number(args);
+            let size = number(args);
+            let depth = number(args);
+            let high = number::<u32>(args) != 0;
+            let color: Vec<_> = (0..n).map(|_| number(args)).collect();
+            enc_palette_internal::quantize_color_to_implicit_palette_index(
+                &color, size, depth, high,
+            )
+            .to_string()
+        }
+        "pal-round" => round_int(number(args), number(args)).to_string(),
+        "pal-forward" => {
+            let begin = number(args);
+            let end = number(args);
+            let mut colors = number(args);
+            let mut deltas = number(args);
+            let ordered = number::<u32>(args) != 0;
+            let lossy = number::<u32>(args) != 0;
+            let mut pred = Predictor(number(args));
+            let preset = number(args);
+            let undo = number::<u32>(args) != 0;
+            let mut image = read_image(args);
+            let mut header = weighted::Header::default();
+            weighted::predictor_mode(preset, &mut header);
+            let status = fwd_palette(
+                &mut image,
+                begin,
+                end,
+                &mut colors,
+                &mut deltas,
+                ordered,
+                lossy,
+                &mut pred,
+                &header,
+            );
+            let mut out = format!("{} {colors} {deltas} {}", status_code(&status), pred.0);
+            image::modular(&mut out, &image);
+            if status.is_ok() && undo {
+                let s = inv_palette(&mut image, begin, colors, deltas, pred, &header);
+                write!(out, " {}", status_code(&s)).unwrap();
+                image::modular(&mut out, &image);
+            }
+            out
+        }
+        "pal-sort" => {
+            let heap = number::<u32>(args) != 0;
+            let reverse = number::<u32>(args) != 0;
+            let count: usize = number(args);
+            let mut values: Vec<(i64, i64)> =
+                (0..count).map(|i| (number(args), i as i64)).collect();
+            let mut cmp = |a: &(i64, i64), b: &(i64, i64)| {
+                if reverse { a.0 > b.0 } else { a.0 < b.0 }
+            };
+            if heap {
+                jxl::jxl::base::libcpp_sort::introsort(&mut values, 0, count, &mut cmp, 0, true);
+            } else {
+                jxl::jxl::base::libcpp_sort::sort_by(&mut values, cmp);
+            }
+            let mut out = count.to_string();
+            for (key, id) in values {
+                write!(out, " {key},{id}").unwrap();
+            }
+            out
+        }
         "tr-meta" | "tr-inverse" => {
             let preset = number(args);
             let mut t = read_transform(args);
@@ -374,6 +479,52 @@ fn palette_values_keep_implicit_cubes_delta_cycles_and_unsigned_scale() {
     for c in 0..6 {
         for index in 0..256 {
             cases.push(format!("pal-value {index} {c} 256 256 16"));
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn palette_reference_sort_keeps_tied_element_order_and_heap_fallback() {
+    let mut cases = Vec::new();
+    let mut seed = 91237;
+    for n in [
+        0, 1, 2, 3, 4, 5, 6, 8, 23, 24, 25, 63, 127, 128, 129, 257, 1024, 4096,
+    ] {
+        for pattern in 0..12 {
+            for reverse in 0..2 {
+                let keys: Vec<i64> = (0..n)
+                    .map(|i| match pattern {
+                        0 => 0,
+                        1 => i as i64,
+                        2 => -(i as i64),
+                        3 => (i / 7) as i64,
+                        4 => ((n - i) / 7) as i64,
+                        5 => i.min(n - i) as i64,
+                        6 => (i % 5) as i64,
+                        7 => (i % 2 * (n / 2) + i / 2) as i64,
+                        8 => (next(&mut seed) % 3) as i64,
+                        9 => (next(&mut seed) % 17) as i64,
+                        10 => next(&mut seed) as i64,
+                        _ => {
+                            if i % 29 == 0 {
+                                -1
+                            } else {
+                                i as i64
+                            }
+                        }
+                    })
+                    .collect();
+                let data = keys
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                cases.push(format!("pal-sort 0 {reverse} {n} {data}"));
+                if n >= 24 {
+                    cases.push(format!("pal-sort 1 {reverse} {n} {data}"));
+                }
+            }
         }
     }
     compare(cases);
@@ -720,6 +871,239 @@ fn transform_stack_rct_and_squeeze_restore_rasters_in_source_order() {
                 image_request(w, h, 16, 0, &channels)
             ));
         }
+    }
+    compare(cases);
+}
+
+#[test]
+fn palette_encoder_color_distance_rounding_and_cube_quantization_match_source_bits() {
+    let mut cases = Vec::new();
+    let mut seed = 883142;
+    for i in 0..1800 {
+        let n = i % 7;
+        let mut data = String::new();
+        for _ in 0..n {
+            let value = (next(&mut seed) as i32 % 1000000) as f32 / 32.0;
+            write!(data, " {}", value.to_bits()).unwrap();
+        }
+        for _ in 0..n {
+            write!(data, " {}", next(&mut seed) as i32 % 1000000).unwrap();
+        }
+        cases.push(format!("pal-distance {n}{data}"));
+    }
+    for value in [
+        0.0f32,
+        -0.0,
+        f32::from_bits(1),
+        f32::from_bits(0x80000001),
+        f32::MIN_POSITIVE,
+        f32::MAX,
+        -f32::MAX,
+    ] {
+        for n in 0..7 {
+            for b in [-1, 0, 1, 31] {
+                cases.push(format!(
+                    "pal-distance {n} {} {}",
+                    vec![value.to_bits().to_string(); n].join(" "),
+                    vec![b.to_string(); n].join(" ")
+                ));
+            }
+        }
+    }
+    for depth in [1, 2, 3, 7, 8, 9, 10, 12, 16, 24] {
+        for n in 0..5 {
+            for high in 0..2 {
+                for i in 0..15 {
+                    let max = (1i32 << depth) - 1;
+                    let color: Vec<_> = (0..n)
+                        .map(|_| match i {
+                            0 => 0,
+                            1 => max,
+                            2 => max / 2,
+                            _ => (next(&mut seed) % (max as u64 + 1)) as i32,
+                        })
+                        .collect();
+                    cases.push(format!(
+                        "pal-quant {n} {} {depth} {high} {}",
+                        i * 17,
+                        color
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    ));
+                }
+            }
+        }
+    }
+    for div in [1, 2, 3, 6, 12, 24, 48, 96, 192, 768, 3072, 196608] {
+        for i in -30..=30 {
+            cases.push(format!("pal-round {} {div}", i * div / 2 + i % 3));
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn palette_encoder_lossless_images_keep_palette_order_indices_and_failure_mutations() {
+    let mut cases = Vec::new();
+    let mut seed = 99455;
+    for i in 0..900 {
+        let (w, h) = [
+            (0, 0),
+            (0, 1),
+            (1, 0),
+            (1, 1),
+            (3, 2),
+            (9, 5),
+            (17, 9),
+            (31, 17),
+            (65, 17),
+        ][i % 9];
+        let nb = [1, 2, 3, 4, 6][i % 5];
+        let begin = usize::from(i % 4 == 0);
+        let depth = [1, 2, 8, 10, 16, 24, 31, 32][i % 8];
+        let colors = [0, 1, 2, 4, 16, 256, u32::MAX][i % 7];
+        let mut channels: Vec<_> = (0..nb + begin + usize::from(i % 3 == 0))
+            .map(|c| fixture(w, h, c as i32 + 21, &mut seed))
+            .collect();
+        for (c, ch) in channels.iter_mut().enumerate().skip(begin).take(nb) {
+            for (j, pixel) in ch.pixels.iter_mut().enumerate() {
+                let slot = match i % 8 {
+                    0 => 0,
+                    1 => j % 2,
+                    2 => j % 5,
+                    3 => j % 17,
+                    4 => j % 189,
+                    5 => next(&mut seed) as usize % 64,
+                    6 => j,
+                    _ => j % 3,
+                };
+                *pixel = match i % 8 {
+                    0 => c as i32 * 32,
+                    1 => (c * 32 + slot * 10) as i32,
+                    2 => {
+                        if slot == 0 {
+                            0
+                        } else {
+                            255
+                        }
+                    }
+                    3 => (slot * 41 + c * 72) as i32,
+                    4 => palette_internal::get_palette_value(
+                        &[],
+                        slot as i32,
+                        c - begin,
+                        0,
+                        0,
+                        depth.min(31),
+                    ),
+                    5 => (slot * 17) as i32,
+                    6 => (slot * 17 + c * 23) as i32,
+                    _ => [-1000000, 1000000, 0][slot],
+                };
+            }
+        }
+        let meta = if i % 29 == 0 { begin + 1 } else { begin };
+        let end = if i % 43 == 0 {
+            channels.len() + 1
+        } else {
+            begin + nb - 1
+        };
+        if i % 31 == 0 && nb > 1 {
+            channels[begin + 1].hs = 1;
+        }
+        let image = image_request(w, h, depth, meta, &channels);
+        cases.push(format!(
+            "pal-forward {begin} {end} {colors} 7 {} 0 {} {} 1 {image}",
+            i % 2,
+            i % 14,
+            i % 5
+        ));
+    }
+    compare(cases);
+}
+
+#[test]
+fn palette_encoder_lossy_iterations_deltas_dithering_and_reconstruction_match_source() {
+    let mut cases = Vec::new();
+    let mut seed = 835152;
+    for i in 0..150 {
+        let (w, h) = [(1, 1), (3, 2), (9, 5), (17, 9), (31, 17)][i % 5];
+        let depth = [1, 2, 7, 8, 9, 10, 12, 16][i % 8];
+        // At >=8 bits, the source learns three delta rows. A fourth row is
+        // uninitialized for those entries; the frame encoder uses RGB here.
+        let nb = 3 + usize::from(depth < 8 && i % 7 == 0);
+        let max = (1u32 << depth) - 1;
+        let mut channels: Vec<_> = (0..nb)
+            .map(|c| fixture(w, h, c as i32 + 11, &mut seed))
+            .collect();
+        for (c, ch) in channels.iter_mut().enumerate() {
+            for (j, pixel) in ch.pixels.iter_mut().enumerate() {
+                *pixel = match i % 6 {
+                    0 => (max / 3) as i32,
+                    1 => ((j % 2 * max as usize / 2 + c * max as usize / 7) & max as usize) as i32,
+                    2 => {
+                        ((j / w * max as usize / h + j % w * max as usize / w + c * 31)
+                            & max as usize) as i32
+                    }
+                    3 => (next(&mut seed) & u64::from(max)) as i32,
+                    4 => {
+                        if j % w > 1 && j / w > 1 {
+                            max as i32
+                        } else {
+                            0
+                        }
+                    }
+                    _ => ((j * 17 + c * 37) & max as usize) as i32,
+                };
+            }
+        }
+        let colors = [0, 1, 2, 4, 16, 64][i % 6];
+        cases.push(format!(
+            "pal-forward 0 {} {colors} 11 {} 1 {} {} 1 {}",
+            nb - 1,
+            i % 2,
+            [0, 3, 5, 6, 13][i % 5],
+            i % 5,
+            image_request(w, h, depth, 0, &channels)
+        ));
+    }
+    // Larger repeated gradients populate the source's learned delta palette.
+    for (i, depth) in [8, 10, 16].into_iter().enumerate() {
+        let (w, h) = (65, 33);
+        let max = (1usize << depth) - 1;
+        let mut channels: Vec<_> = (0..3).map(|c| fixture(w, h, c, &mut seed)).collect();
+        for (c, ch) in channels.iter_mut().enumerate() {
+            for (j, pixel) in ch.pixels.iter_mut().enumerate() {
+                *pixel = ((j % w * max / w + j / w * max / h + c * max / 3) & max) as i32;
+            }
+        }
+        cases.push(format!(
+            "pal-forward 0 2 4 0 1 1 13 {i} 1 {}",
+            image_request(w, h, depth, 0, &channels)
+        ));
+    }
+    compare(cases);
+}
+
+#[test]
+fn forward_transform_dispatch_and_optional_minmax_outputs_match_source() {
+    let mut cases = Vec::new();
+    let mut seed = 773515;
+    for i in 0..240 {
+        let (w, h) = [(0, 0), (0, 1), (1, 1), (3, 2), (9, 5), (17, 9)][i % 6];
+        let channels: Vec<_> = (0..3).map(|c| fixture(w, h, c + 1, &mut seed)).collect();
+        let image = image_request(w, h, 16, i % 3, &channels);
+        let t = match i % 5 {
+            0 => format!("0 0 3 {} 0 0 0 0", i % 42),
+            1 => "1 0 3 0 256 7 5 0".into(),
+            2 => "2 0 3 0 0 0 0 0".into(),
+            3 => "2 0 3 0 0 0 0 1 1 1 0 3".into(),
+            _ => "4 0 3 0 0 0 0 0".into(),
+        };
+        cases.push(format!("tr-forward {} {} 0 {t} {image}", i % 5, i % 2));
+        cases.push(format!("tr-minmax {} {} {image}", i % 2, i / 2 % 2));
     }
     compare(cases);
 }

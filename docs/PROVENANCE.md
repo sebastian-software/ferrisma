@@ -193,6 +193,28 @@ The adapter calls the original APIs and observes exact float bits, sample
 state, trees, accounting, encoded bytes, and decoded rasters. Generated corpora
 and native integration cases in `tests/modular_encode.rs` are local test
 infrastructure, not a translated upstream image-test inventory. The native gray
-encoder test reuses the independently captured C++ decoder fixture. Forward
-palette selection and complete JPEG XL image/frame orchestration remain
-separate boundaries.
+encoder test reuses the independently captured C++ decoder fixture. Complete
+JPEG XL image/frame orchestration remains a separate boundary.
+
+`modular/transform/enc_palette.{h,cc}` and `enc_transform.{h,cc}` supply the
+original forward palette algorithm, scalar color distance, quantization,
+single-channel lookup/set paths, luma ordering, lossy delta learning/error
+diffusion, forward dispatch, and min/max scan. The oracle includes the
+unmodified `enc_palette.cc` in its adapter translation unit to call private
+helpers; it is not separately compiled a second time. Its generated tests
+observe defined pixels and mutations. >=8-bit lossy delta cases use the
+source frame encoder's RGB configuration because a fourth source delta row
+contains indeterminate entries. The native full modular encoder test reuses
+the independent C++ Palette/Squeeze RGB fixture without changing its bytes.
+
+Ordered palette comparisons can tie for distinct colors. To preserve the
+reference's concrete order, `base/libcpp_sort.rs` translates its non-arithmetic
+libc++ sort specialization and heap dependencies. The original SDK headers,
+version 220106, and SHA-256 hashes are retained in
+[tools/reference/libcxx](../tools/reference/libcxx/README.md). They retain their
+LLVM notices; the translation uses
+[Apache-2.0](../licenses/LLVM-Apache-2.0.txt) with the
+[LLVM exception](../licenses/LLVM-exception.txt). This explicitly tracked
+dependency boundary is not a claim to translate the full standard library.
+The oracle calls its actual C++ standard-library algorithms; the snapshots
+are reference material and are never a Rust runtime fallback.
