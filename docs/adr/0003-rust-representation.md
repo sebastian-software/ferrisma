@@ -660,10 +660,15 @@ product. Express that emitted operand order explicitly so a quiet-NaN channel
 retains its payload. This does not change finite arithmetic or fuse operations;
 exact differential and captured-word regressions cover it. The original x86_64
 configuration selects the red/green NaN payload in all three channels for the
-native regression's input. Capture that target's exact original result without
-changing the AArch64 words; include the same input in the real differential
-corpus. Cross-target NaN payload equality is not assumed. Review this mapping
-with compiler/target changes. ToneMappingStage retains the original unneeded
+native regression's input. Its optimized scalar luminance object adds the blue
+product to the green product, then adds the red product. Local out-of-line
+x86 Add calls preserve those ADDSS destination/source operands through native
+release optimization while keeping the original right-nested association and
+separate rounding. The selected original O3 object emits scalar MULSS products;
+its Highway double promotions are optimized away at that boundary. Keep the
+AArch64 path and captured words unchanged and retain the same input in the real
+differential corpus. Cross-target NaN payload equality is not assumed. Review
+this mapping with compiler/target changes. ToneMappingStage retains the original unneeded
 return before argument guards, then RGB load/scale/map/gamut/scale/store order.
 
 PassesDecoderState owns its complete shared storage and coefficient/reference
