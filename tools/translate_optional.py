@@ -48,4 +48,6 @@ result = subprocess.run([args.c2rust, str(database), "--emit-build-files", "--fa
 (ROOT / "build/transpile-optional.log").write_text(result.stdout)
 if result.returncode or "error:" in result.stdout or "error generated" in result.stdout:
     raise SystemExit("Optional translation failed; inspect build/transpile-optional.log")
+subprocess.run(["python3", str(ROOT / "tools/translate_registry.py"), "--build", str(args.build),
+                "--clang-include", str(args.clang_include), "--c2rust", args.c2rust], cwd=ROOT, check=True)
 subprocess.run(["python3", str(ROOT / "tools/import_optional.py")], cwd=ROOT, check=True)

@@ -10,7 +10,9 @@ from import_translation import ROOT, translate
 raw_root = ROOT / "build/generated-optional/src"
 source_root = ROOT / "upstream/libavif/src"
 avm_registry = ROOT / "build/generated-avm-registry/src/avif.rs"
-avif_raw = avm_registry.read_text() if avm_registry.exists() else (raw_root / "avif.rs").read_text()
+if not avm_registry.exists():
+    raise SystemExit("Generate the full registry with tools/translate_registry.py before importing optional adapters")
+avif_raw = avm_registry.read_text()
 avif, _ = translate(source_root / "avif.c", avif_raw, codec_registry=False)
 start = avif.index("static mut availableCodecs:")
 end = avif.index("\nstatic mut availableCodecsCount:", start)

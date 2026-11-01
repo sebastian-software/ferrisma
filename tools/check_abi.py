@@ -34,10 +34,19 @@ def compiler_flags(entry):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", type=Path, default=ROOT / "build/baseline")
+    parser.add_argument("--features", default="", help="Comma-separated Cargo features matching the C reference configuration")
     args = parser.parse_args()
     entries = [entry for entry in json.loads((args.build / "compile_commands.json").read_text())
                if "avif_obj.dir" in entry["command"]]
     manifest = {unit["source"]: unit for unit in json.loads((ROOT / "TRANSLATION.json").read_text())["units"]}
+    features = [feature for feature in args.features.split(",") if feature]
+    profile = "-".join(feature for feature in ["mini", "extended-pixi", "avm"] if feature in features)
+    if profile:
+        manifest.update({unit["source"]: unit for unit in json.loads((ROOT / "translations" / f"{profile}.json").read_text())["units"]})
+    if any(feature in features for feature in ["libgav1", "rav1e", "svt", "libyuv"]):
+        for unit in json.loads((ROOT / "translations/optional-av1.json").read_text())["units"]:
+            if Path(unit["source"]).stem.startswith("codec_") or "libyuv" in features:
+                manifest[unit["source"]] = unit
     work = ROOT / "build/abi"
     work.mkdir(parents=True, exist_ok=True)
     expected, rust = [], ["fn main() {"]
@@ -83,7 +92,7 @@ def main():
             if len(c_fields) != len(rust_fields) or any(field.get("isBitfield") or not field.get("name") for field in c_fields):
                 skipped.append(f"{unit['rust']}::{name}: anonymous fields or bitfields")
                 continue
-            module = "avif::" + unit["rust"][4:-3].replace("/", "::")
+            module = "avif::" + ("libyuv::" if unit["rust"].startswith("src/libyuv/") else "") + Path(unit["rust"]).stem
             pairs = [(f"sizeof({c_type})", f"core::mem::size_of::<{module}::{name}>()", "size"),
                      (f"_Alignof({c_type})", f"core::mem::align_of::<{module}::{name}>()", "alignment")]
             pairs += [(f"__builtin_offsetof({c_type}, {c_field['name']})",
@@ -116,8 +125,15 @@ def main():
     (work / "Cargo.toml").write_text(
         '[package]\nname = "libawfrs-abi-probe"\nversion = "0.0.0"\nedition = "2021"\n'
         '[workspace]\n[[bin]]\nname = "probe"\npath = "probe.rs"\n'
-        f'[dependencies]\navif = {{ package = "libawfrs", path = {json.dumps(str(ROOT))} }}\n'
+        f'[dependencies]\navif = {{ package = "libawfrs", path = {json.dumps(str(ROOT))}, features = {json.dumps(features)} }}\n'
         '[profile.release]\npanic = "abort"\noverflow-checks = false\n'
+    )
+    # The probe is a Rust consumer of an rlib, so it owns the runtime search
+    # path for the same locally built AVM dylib that CMake consumers link.
+    local_avm = ROOT / "build/deps/avm-build"
+    link = f"cargo:rustc-link-arg=-Wl,-rpath,{local_avm}" if "avm" in features and local_avm.exists() else None
+    (work / "build.rs").write_text(
+        "fn main() {" + (f" println!({json.dumps(link)});" if link else "") + " }\n"
     )
     command = ["cargo", "run", "--release", "--offline", "--quiet", "--manifest-path", str(work / "Cargo.toml"),
                "--target-dir", str(ROOT / "target")]

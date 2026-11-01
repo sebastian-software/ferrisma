@@ -30,16 +30,32 @@ fn main() {
                 println!("cargo:rustc-link-lib=static={library}");
                 println!("cargo:rustc-link-lib=c++");
             } else {
-                packages.push(if feature == "LIBGAV1" { "libgav1" } else { "libyuv" });
+                packages.push(if feature == "LIBGAV1" {
+                    "libgav1"
+                } else {
+                    "libyuv"
+                });
             }
         }
     }
     for package in packages {
-        let output = Command::new("pkg-config")
-            .args(["--libs", package])
+        let mut command = Command::new("pkg-config");
+        command.args(["--libs", package]);
+        let local = root.join("build/deps/pkgconfig");
+        if local.is_dir() {
+            let mut paths: Vec<_> = std::env::var_os("PKG_CONFIG_PATH")
+                .map(|value| std::env::split_paths(&value).collect())
+                .unwrap_or_default();
+            paths.push(local);
+            command.env("PKG_CONFIG_PATH", std::env::join_paths(paths).unwrap());
+        }
+        let output = command
             .output()
             .expect("pkg-config is required for the upstream codec dependencies");
-        assert!(output.status.success(), "pkg-config could not find {package}");
+        assert!(
+            output.status.success(),
+            "pkg-config could not find {package}"
+        );
         for flag in String::from_utf8(output.stdout).unwrap().split_whitespace() {
             if let Some(path) = flag.strip_prefix("-L") {
                 println!("cargo:rustc-link-search=native={path}");

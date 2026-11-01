@@ -15,6 +15,11 @@ DEPENDENCIES = {
 
 
 def run(command, **kwargs):
+    environment = kwargs.setdefault("env", os.environ.copy())
+    local = ROOT / "build/deps/pkgconfig"
+    if local.is_dir():
+        existing = environment.get("PKG_CONFIG_PATH", "")
+        environment["PKG_CONFIG_PATH"] = existing + (":" if existing else "") + str(local)
     subprocess.run([str(arg) for arg in command], cwd=ROOT, check=True, **kwargs)
 
 
