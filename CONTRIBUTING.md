@@ -13,12 +13,13 @@ Create commits without signatures, using `git commit --no-gpg-sign`.
 - Python 3, Git, CMake 3.16 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
 
-Initialize the reference source, Highway, and Brotli. The frame oracle needs
-the pinned Brotli headers; other upstream submodules are not needed yet:
+Initialize the reference source and its pinned Highway, Brotli, and skcms
+dependencies. The oracle builds the complete original static codec library
+through upstream CMake, including its default color management implementation:
 
 ```sh
 git submodule update --init --depth 1 upstream/libjxl
-git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli
+git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
 ```
 
 After those downloads, the checks do not require network access. Keep the
@@ -42,8 +43,9 @@ python3 tools/check.py --sanitizers --msrv
 ```
 
 `--msrv` requires the Rust `1.85` toolchain to be installed already. Sanitizers
-currently cover the C++ oracle; they do not instrument Rust or prove Rust memory
-safety. The current platform evidence is listed in
+cover the oracle adapters, original codec library, and its built dependencies;
+they do not instrument Rust or prove Rust memory safety. The current platform
+evidence is listed in
 [PORT_STATUS.md](docs/PORT_STATUS.md).
 
 Focused checks:

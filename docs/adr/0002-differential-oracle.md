@@ -19,7 +19,17 @@ consumed-bit counters, padding, truncation, and finalization behavior. Include
 boundary values and deterministic generated inputs. Image-level conformance,
 cross-platform behavior, and performance remain separate, future gates.
 
-This requires a C++ toolchain and the reference's pinned Highway dependency for
+Build the complete original static codec library through its own CMake project,
+with scalar Highway, Brotli, and skcms at upstream's submodule pins. This keeps
+the reference's image entry points available without copying build definitions
+or supplying replacement implementations. Disable upstream tools, tests, and
+optional integrations; do not change codec routines. Generate export and version
+headers through the original build. These dependencies belong exclusively to
+the C++ oracle; normal Rust builds remain independent of them. Sanitizer flags
+apply before adding the upstream project, covering the adapters, codec, and
+built dependencies.
+
+This requires a C++ toolchain and the reference's pinned dependencies for
 the checks. Review the oracle whenever a source revision, compile configuration,
 protocol, or ported boundary changes. Never turn missing oracle evidence into a
 passing test.

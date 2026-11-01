@@ -45,6 +45,12 @@ def check_source():
         raise SystemExit("Initialize upstream's third_party/brotli submodule; see CONTRIBUTING.md")
     if git("-C", brotli, "rev-parse", "HEAD") != expected:
         raise SystemExit("Brotli revision does not match upstream's submodule pin")
+    skcms = source / "third_party/skcms"
+    expected = git("-C", source, "ls-tree", "HEAD", "third_party/skcms").split()[2]
+    if not (skcms / "skcms.h").is_file():
+        raise SystemExit("Initialize upstream's third_party/skcms submodule; see CONTRIBUTING.md")
+    if git("-C", skcms, "rev-parse", "HEAD") != expected:
+        raise SystemExit("skcms revision does not match upstream's submodule pin")
     for name in ("LICENSE", "PATENTS"):
         if (ROOT / name).read_bytes() != (source / name).read_bytes():
             raise SystemExit(f"{name} differs from the pinned upstream notice")

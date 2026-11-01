@@ -94,12 +94,18 @@ translated boundaries, not whole-file or whole-library completion.
 Validated on 2026-11-01 on macOS arm64 with Rust 1.99.0 (stable), Rust 1.85.1
 (minimum-version series), and Apple Clang 21.0.0. The C++ oracle is built from
 the unmodified pinned source with scalar Highway and release status behavior.
+Upstream CMake builds the complete original static codec library with its pinned
+Highway, Brotli, and skcms dependencies. ASan/UBSan cover those built targets as
+well as the fixture adapters. Existing private-boundary adapters still include
+pristine source files; the original archive supplies the remaining objects.
+This reference build adds no C/C++ dependency to ordinary Rust builds and does
+not establish completion of the Rust image path.
 
 Command: `python3 tools/check.py --sanitizers --msrv`.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Source revision, Highway/Brotli pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
+| Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
 | Rust debug | PASSED | 224 tests, including 128 differential groups; zero ignored cases |
 | Rust release | PASSED | Same 224 tests and corpus |

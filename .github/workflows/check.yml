@@ -19,10 +19,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Initialize the pinned reference, Highway, and Brotli
+      - name: Initialize the pinned reference and codec dependencies
         run: |
           git submodule update --init --depth 1 upstream/libjxl
-          git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli
+          git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
       - name: Install Rust toolchains
         run: rustup toolchain install stable 1.85 --profile minimal --component rustfmt --component clippy
       - name: Check the mechanical port

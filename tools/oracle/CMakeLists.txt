@@ -9,83 +9,37 @@ endif()
 if(NOT EXISTS "${UPSTREAM}/third_party/brotli/c/include/brotli/encode.h")
   message(FATAL_ERROR "Initialize upstream/libjxl/third_party/brotli for frame reference headers")
 endif()
+if(NOT EXISTS "${UPSTREAM}/third_party/skcms/skcms.h")
+  message(FATAL_ERROR "Initialize upstream/libjxl/third_party/skcms for the full image reference")
+endif()
+
+option(ORACLE_SANITIZERS "Instrument the complete C++ reference with ASan and UBSan" OFF)
+add_compile_definitions(HWY_COMPILE_ONLY_SCALAR=1)
+if(ORACLE_SANITIZERS)
+  add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address,undefined)
+endif()
 
 set(HWY_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(HWY_ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(HWY_ENABLE_CONTRIB OFF CACHE BOOL "" FORCE)
-add_subdirectory("${UPSTREAM}/third_party/highway" highway EXCLUDE_FROM_ALL)
-
-# Follow upstream lib/jxl.cmake and jxl_cms.cmake export/version generation. The
-# upstream empty object source only supplies CMake target metadata; it is not
-# linked and does not replace any codec implementation.
-include(GenerateExportHeader)
-add_library(jxl_oracle_export OBJECT EXCLUDE_FROM_ALL "${UPSTREAM}/lib/nothing.cc")
-set_target_properties(jxl_oracle_export PROPERTIES CXX_VISIBILITY_PRESET hidden
-  VISIBILITY_INLINES_HIDDEN 1 DEFINE_SYMBOL JXL_INTERNAL_LIBRARY_BUILD)
-generate_export_header(jxl_oracle_export BASE_NAME JXL
-  EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/jxl/jxl_export.h")
-add_library(jxl_oracle_cms_export OBJECT EXCLUDE_FROM_ALL "${UPSTREAM}/lib/nothing.cc")
-set_target_properties(jxl_oracle_cms_export PROPERTIES CXX_VISIBILITY_PRESET hidden
-  VISIBILITY_INLINES_HIDDEN 1)
-generate_export_header(jxl_oracle_cms_export BASE_NAME JXL_CMS
-  EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/jxl/jxl_cms_export.h")
-file(STRINGS "${UPSTREAM}/lib/CMakeLists.txt" JXL_VERSION_SETTINGS
-  REGEX "^set\\(JPEGXL_(MAJOR|MINOR|PATCH)_VERSION [0-9]+\\)$")
-foreach(setting IN LISTS JXL_VERSION_SETTINGS)
-  string(REGEX MATCH "set\\((JPEGXL_[A-Z]+_VERSION) ([0-9]+)\\)" parsed "${setting}")
-  set(${CMAKE_MATCH_1} ${CMAKE_MATCH_2})
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+foreach(feature TOOLS DEVTOOLS DOXYGEN MANPAGES BENCHMARK EXAMPLES JNI SJPEG
+                OPENEXR VIEWERS TCMALLOC PLUGINS COVERAGE FUZZERS LTO)
+  set(JPEGXL_ENABLE_${feature} OFF CACHE BOOL "" FORCE)
 endforeach()
-configure_file("${UPSTREAM}/lib/jxl/version.h.in" "include/jxl/version.h")
+set(JPEGXL_BUNDLE_LIBPNG OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_SKCMS ON CACHE BOOL "" FORCE)
+foreach(dependency BROTLI HWY LCMS2 GTEST)
+  set(JPEGXL_FORCE_SYSTEM_${dependency} OFF CACHE BOOL "" FORCE)
+endforeach()
 
-# Compile the original source, including its writer and memory implementation.
-# Unused image/frame entry points in enc_fields.cc are discarded by the linker;
-# they are not replaced with stubs or altered copies of upstream functions.
-add_executable(jxl_oracle
-  main.cc
-  sample_conversion.cc
-  "${UPSTREAM}/lib/jxl/enc_modular_simd.cc"
-  "${UPSTREAM}/lib/jxl/ans_common.cc"
-  "${UPSTREAM}/lib/jxl/dec_bit_reader.cc"
-  "${UPSTREAM}/lib/jxl/dec_ans.cc"
-  "${UPSTREAM}/lib/jxl/dec_context_map.cc"
-  "${UPSTREAM}/lib/jxl/dec_huffman.cc"
-  "${UPSTREAM}/lib/jxl/enc_bit_writer.cc"
-  "${UPSTREAM}/lib/jxl/enc_ans.cc"
-  "${UPSTREAM}/lib/jxl/enc_ans_simd.cc"
-  "${UPSTREAM}/lib/jxl/enc_cluster.cc"
-  "${UPSTREAM}/lib/jxl/enc_context_map.cc"
-  "${UPSTREAM}/lib/jxl/color_encoding_internal.cc"
-  "${UPSTREAM}/lib/jxl/image_metadata.cc"
-  "${UPSTREAM}/lib/jxl/frame_header.cc"
-  "${UPSTREAM}/lib/jxl/jpeg/enc_jpeg_data.cc"
-  "${UPSTREAM}/lib/jxl/jpeg/jpeg_data.cc"
-  "${UPSTREAM}/lib/jxl/loop_filter.cc"
-  "${UPSTREAM}/lib/jxl/toc.cc"
-  "${UPSTREAM}/lib/jxl/enc_toc.cc"
-  "${UPSTREAM}/lib/jxl/coeff_order.cc"
-  "${UPSTREAM}/lib/jxl/enc_coeff_order.cc"
-  "${UPSTREAM}/lib/jxl/image.cc"
-  "${UPSTREAM}/lib/jxl/modular/modular_image.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/transform.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/squeeze_params.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/rct.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/enc_rct.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/palette.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/squeeze.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/enc_squeeze.cc"
-  "${UPSTREAM}/lib/jxl/modular/transform/enc_transform.cc"
-  "${UPSTREAM}/lib/jxl/modular/encoding/dec_ma.cc"
-  "${UPSTREAM}/lib/jxl/modular/encoding/enc_ma.cc"
-  "${UPSTREAM}/lib/jxl/modular/encoding/encoding.cc"
-  "${UPSTREAM}/lib/jxl/modular/encoding/enc_encoding.cc"
-  "${UPSTREAM}/lib/jxl/fields.cc"
-  "${UPSTREAM}/lib/jxl/enc_fields.cc"
-  "${UPSTREAM}/lib/jxl/enc_huffman.cc"
-  "${UPSTREAM}/lib/jxl/enc_huffman_tree.cc"
-  "${UPSTREAM}/lib/jxl/headers.cc"
-  "${UPSTREAM}/lib/jxl/huffman_table.cc"
-  "${UPSTREAM}/lib/jxl/memory_manager_internal.cc"
-  "${UPSTREAM}/lib/jxl/simd_util.cc")
+# Build the complete original static library through its own CMake project.
+# Adapter TUs include selected pristine .cc files to reach private functions;
+# the archive supplies the remaining original objects, without replacement code.
+add_subdirectory("${UPSTREAM}" upstream EXCLUDE_FROM_ALL)
+add_executable(jxl_oracle main.cc sample_conversion.cc)
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -95,10 +49,9 @@ else()
 endif()
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/include"
-  "${UPSTREAM}/third_party/brotli/c/include"
-  "${CMAKE_CURRENT_BINARY_DIR}/include")
+  "${UPSTREAM}/third_party/brotli/c/include")
 target_compile_definitions(jxl_oracle PRIVATE HWY_COMPILE_ONLY_SCALAR=1 JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE)
-target_link_libraries(jxl_oracle PRIVATE hwy)
+target_link_libraries(jxl_oracle PRIVATE jxl-internal)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
   # Preserve upstream lib/CMakeLists.txt's numeric code-generation flags.
   # Auto-vectorizing scalar cost reductions changes their FMA rounding, and
@@ -112,10 +65,4 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   else()
     target_link_options(jxl_oracle PRIVATE -Wl,--gc-sections)
   endif()
-endif()
-
-option(ORACLE_SANITIZERS "Instrument the C++ oracle with ASan and UBSan" OFF)
-if(ORACLE_SANITIZERS)
-  target_compile_options(jxl_oracle PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  target_link_options(jxl_oracle PRIVATE -fsanitize=address,undefined)
 endif()
