@@ -50,8 +50,20 @@ sanitizers, and Linux validation are still pending acceptance gates.
 The original checkasm bodies now pass in both profiles: seventeen source
 instantiations, 3,155 nonnull C/Rust function selections each, and 1,923 matching
 unsupported null combinations. ADR 0029 records the test-only binding bridge
-and native helpers. Public API edge cases, sanitizers, and Linux validation
-remain pending.
+and native helpers.
+
+Supplemental public API probes compare 83 Release and 82 Debug scenarios:
+8/10/12-bit pictures, film grain, four thread/delay combinations, custom packet
+and user-data ownership, custom picture allocators, their first-allocation failure,
+automatic thread selection, flush/drain, variadic logging, cached decode-error properties, and defined Release
+argument rejection. Compared results include exact plane hashes and frame
+metadata. All tracked callback resources are released after close.
+
+All 83 Release API scenarios also pass with the complete original C decoder,
+Rust decoder, and C caller instrumented by AddressSanitizer. The native compiler
+is LLVM 16 and both consumers link the matching Rust nightly ASan v8 runtime.
+This does not claim complete leak, race, or undefined-behavior-sanitizer coverage.
+Linux validation and downstream libavif replacement remain pending.
 
 The existing libavif implementation continues to use native dav1d while this
 standalone crate is validated.
@@ -76,6 +88,9 @@ python3 tools/check_dav1d_dsp.py
 python3 tools/check_dav1d_dsp.py --debug
 python3 tools/check_dav1d_linkage.py
 python3 tools/check_dav1d_linkage.py --debug
+python3 tools/check_dav1d_api.py
+python3 tools/check_dav1d_api.py --debug
+python3 tools/check_dav1d_api.py --asan
 ```
 
 The C baseline uses `meson test -C build/dav1d-reference-debug --no-rebuild`

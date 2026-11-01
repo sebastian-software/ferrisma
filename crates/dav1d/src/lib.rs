@@ -6,6 +6,7 @@
 //! Exported entry points retain those unsafe caller contracts. No safe wrapper
 //! or alternative decoder algorithm is introduced by this crate.
 #![feature(core_intrinsics, extern_types)]
+#![cfg_attr(libavif_rs_asan, feature(sanitize))]
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #![allow(dead_code, unused_assignments, unused_mut)]
 
