@@ -4,11 +4,13 @@ A mechanical Rust port of the JPEG XL reference implementation, starting from
 the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserves
 source algorithms and behavior before any redesign or additional optimization.
 
-**A fixed lossless encoder now produces complete raw JPEG XL codestreams;
-complete image decoding remains unported.** The private Thunder configuration
-accepts 8-/16-bit grayscale or RGB pixel buffers. Its output is compared byte
-for byte with libjxl and decoded by the original C++ decoder. This does not yet
-complete the [first-image milestone](docs/FIRST_IMAGE.md).
+**The first complete lossless image path is implemented in Rust.** The fixed
+Thunder configuration encodes 8-/16-bit grayscale or RGB buffers into complete
+raw JPEG XL codestreams. Rust parses their global metadata and frames and
+recovers the original integer pixels. Encoded bytes, metadata, samples, and
+error paths are compared with pinned libjxl, including cross-decoding in both
+directions. See the [first-image evidence](docs/FIRST_IMAGE.md). General codec
+configurations and the public C API remain unported.
 
 The port implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
 field visitors, size/preview/animation headers, ANS alias tables, and Huffman
@@ -41,8 +43,8 @@ frame/group output, image metadata, and byte ownership. General encoder and
 decoder orchestration remain unported. Rendering includes the original simple
 pipeline and float image/bundle write stages. Modular group decoding now feeds
 that pipeline through the original conversion and full-image finalization
-operations. This section-level integration still requires caller-supplied
-metadata; complete Rust codestream decoding remains separate work.
+operations. The complete fixed path connects those components to global
+codestream parsing, original frame scheduling, and integer buffer export.
 Frame transform selection includes original costs, palette/compaction decisions,
 rollback, and tree merging. The [first-image milestone](docs/FIRST_IMAGE.md)
 defines their integration gate. The Rust library has no external crate
@@ -65,6 +67,31 @@ an error. All binary16 input patterns are compared against the original code.
 
 The provisional Rust API follows upstream's low-level module structure under
 `jxl::jxl`. It is not a stable public API, and the crate is not publishable yet.
+
+## First image path
+
+```rust
+use jxl::jxl::dec_frame::decode_lossless_thunder;
+use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
+
+fn round_trip() -> Result<(), jxl::jxl::base::status::StatusCode> {
+    let pixels = [255, 0, 0, 0, 255, 0]; // Two RGB pixels.
+    let mut config = LosslessThunderConfig::new(
+        2, 1, false, LosslessSampleDepth::Uint8,
+    )?;
+    let encoded = config.encode_pixels(&pixels, None)?;
+    let decoded = decode_lossless_thunder(encoded.as_slice());
+    decoded.status?;
+    assert_eq!(decoded.pixels.as_slice(), &pixels);
+    Ok(())
+}
+```
+
+The decoder obtains dimensions, channel layout, and bit depth from the file.
+Output is interleaved bytes, with native-endian words for 16-bit samples.
+The first profile uses sRGB, one final frame, no extra channels or animation,
+and the original simple rendering option. Input outside that profile has an
+explicit admission boundary; this is not the general decoder API.
 
 ## Project records
 

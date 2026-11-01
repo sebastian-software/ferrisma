@@ -67,6 +67,37 @@ pub struct LosslessThunderConfig {
     metadata: CodecMetadata,
 }
 impl LosslessThunderConfig {
+    /// Transfer parsed metadata only after admission to the initial source
+    /// profile. Failure retains the caller's owner and reports no codec status.
+    pub(crate) fn admit_decoded_metadata(owner: &mut Option<CodecMetadata>) -> Option<Self> {
+        let metadata = owner.as_ref().expect("live parsed metadata owner");
+        let m = &metadata.m;
+        if m.bit_depth.floating_point_sample
+            || ![8, 16].contains(&m.bit_depth.bits_per_sample)
+            || m.xyb_encoded
+            || m.num_extra_channels != 0
+            || !m.extra_channel_info.is_empty()
+            || m.have_animation
+            || m.have_preview
+            || m.have_intrinsic_size
+            || m.orientation != 1
+            || m.color_encoding.want_icc()
+            || !m.color_encoding.is_srgb()
+            || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
+            || m.tone_mapping.intensity_target != 255.0
+            || m.tone_mapping.min_nits != 0.0
+            || m.tone_mapping.relative_to_max_display
+            || m.tone_mapping.linear_below != 0.0
+        {
+            return None;
+        }
+        Some(Self {
+            metadata: owner.take().unwrap(),
+        })
+    }
+    pub(crate) fn into_metadata(self) -> CodecMetadata {
+        self.metadata
+    }
     pub fn new(
         xsize: usize,
         ysize: usize,

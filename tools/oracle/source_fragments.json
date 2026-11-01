@@ -1,0 +1,16 @@
+[
+  {
+    "path": "lib/jxl/render_pipeline/render_pipeline_test.cc",
+    "start": "Status DecodeFile(",
+    "end": "\n\nTEST(RenderPipelineTest, Build)",
+    "sha256": "a835c2a037aa67561d51e96d6db8b67539af4f22e2c83094f727bccba62a3a7f",
+    "output": "original_decode_file.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "Status ReadICC(",
+    "end": "\n\nnamespace {  // For EncodeFile",
+    "sha256": "420d570600a751642f9ca1b58d9a9e401fc60a894f2bbdbef3e566163a9e52d9",
+    "output": "original_read_icc.inc"
+  }
+]

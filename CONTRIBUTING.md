@@ -29,6 +29,15 @@ hierarchy when deriving fixture stages. The original archive does not provide
 base RTTI. The setting is limited to that adapter; reference algorithms remain
 unmodified.
 
+The complete-file oracle compiles the original DecodeFile and ReadICC helper
+bodies without their unrelated test framework. At CMake configure time,
+`tools/oracle/extract_source.py` copies their exact pinned source ranges and
+checks SHA-256 values in `source_fragments.json`. Generated fragments preserve
+copyright notices and source line locations. A mismatch fails configuration;
+review and renew this evidence with a source migration. The original test memory
+manager and codec routines are compiled directly. No framing or ICC algorithm
+is reimplemented in the adapter.
+
 ## Prerequisites
 
 - Rust 1.85 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.

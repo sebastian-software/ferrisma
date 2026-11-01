@@ -46,7 +46,20 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   set_property(SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc"
     DIRECTORY "${UPSTREAM}/lib" APPEND PROPERTY COMPILE_OPTIONS -fno-inline-functions)
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/extract_source.py"
+  "${CMAKE_CURRENT_SOURCE_DIR}/source_fragments.json"
+  "${UPSTREAM}/lib/jxl/render_pipeline/render_pipeline_test.cc"
+  "${UPSTREAM}/lib/jxl/test_utils.cc")
+execute_process(COMMAND "${Python3_EXECUTABLE}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/extract_source.py" "${CMAKE_CURRENT_BINARY_DIR}/generated"
+  RESULT_VARIABLE extraction_status)
+if(NOT extraction_status STREQUAL "0")
+  message(FATAL_ERROR "Pinned source helper extraction failed")
+endif()
+add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc
+  "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -60,7 +73,7 @@ else()
 endif()
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/include"
-  "${UPSTREAM}/third_party/brotli/c/include")
+  "${UPSTREAM}/third_party/brotli/c/include" "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(jxl_oracle PRIVATE HWY_COMPILE_ONLY_SCALAR=1 JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE)
 target_link_libraries(jxl_oracle PRIVATE jxl-internal)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)

@@ -741,3 +741,24 @@ its nonempty tree builder remains a separate boundary.
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.
+
+The complete fixed decoder parses metadata before transferring its owner into
+an admitted configuration. Failed admission retains the parsed owner and is
+outside the general codec status contract. Its frame bundle and decoder state
+borrow that immutable owner; no self-referential bundle is returned. The result
+owns parsed metadata and integer bytes after all image borrows have ended.
+SetFromMetadata still occurs once at the original pre-padding checkpoint.
+The decoder state and global reader close before external conversion, and a
+prior body error takes precedence over cleanup-close status.
+
+Integer buffer conversion uses slice-backed non-null output and no callback,
+with float_out=false encoded in its function names/types. Preserve the original
+1..16-bit guards, checked scanline/total-size arithmetic, four temporary channel
+owners, per-thread u32 cache, nullable-channel ones, scalar NearestInt, store
+order, endianness, orientation mapping, and conditional alpha unpremultiplication.
+Disjoint temporary-plane borrows replace original channel-pointer rebinding.
+Output allocation size and row-span validity remain caller preconditions where
+the source uses restrict pointers. Callback/float-output entry points remain
+absent. JxlEndianness value 3 is representable but unnamed and exercises the
+source fall-through; value 9 produces an undefined C++ enum load and has no
+assigned source codec meaning.

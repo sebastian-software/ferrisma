@@ -7,6 +7,33 @@ XL Project Authors' copyright notice and name the source files they translate.
 
 ## Source and test inputs
 
+The complete fixed image path connects the original EncodeFrameOneShot/global
+header block to DecodeFrame and the DecodeFile helper in
+`lib/jxl/render_pipeline/render_pipeline_test.cc`, followed by the original
+integer buffer branch of `dec_external_image.cc`. CodecInOut::CheckMetadata in
+`lib/extras/codec_in_out.h` and ImageBundle::VerifyMetadata supply the final
+metadata checks. Parsed metadata moves into private admitted ownership; integer
+samples and metadata leave without a self-referential image bundle.
+
+`tools/oracle/extract_source.py` extracts exact original DecodeFile and ReadICC
+function bodies with SHA-256 checks from `source_fragments.json`. The generated
+fragments preserve upstream notices and line locations; their algorithms are
+not rewritten. The actual original test memory manager is compiled directly.
+This avoids linking unrelated test-framework registration while retaining the
+real source routines and the default original ICC/CMS branch. The source/native
+whole-file corpus also invokes the public C++ decoder on both encoder outputs.
+Generated complete images, prefix/corruption cases, and the exhaustive native
+16-bit image are local test infrastructure. They satisfy the fixed
+[first-image gate](FIRST_IMAGE.md), not the full upstream image-test inventory.
+
+`dec_external_image.cc`, its used scalar Highway NearestInt, and the
+UnpremultiplyAlpha loop in `alpha.cc` supply integer buffer export, orientation,
+clamping, rounding, interleaving, alpha behavior, and output-span checks.
+Float output, callback output, and custom runners remain separate. Source
+JxlEndianness value 9 produces an undefined C++ enum load; the representable but
+unnamed value 3 tests its defined fall-through instead, with identical expected
+bytes and no dropped case. No sanitizer or exact-comparison suppression is used.
+
 Modular group decoding, image-to-pipeline conversion, and finalization translate
 the complete corresponding methods in `lib/jxl/dec_modular.cc` under a null pool
 and the original simple render implementation. `modular/modular_image.cc` move
@@ -42,7 +69,9 @@ observes their allocation metadata, bindings, partial state, and defined vector
 entries. Lossless run-length notation compresses complete coefficient-vector
 observations. Callback functions are local caller probes, not codec replacements.
 Native ownership/retention regressions and generated action sequences are local
-infrastructure. General pipeline preparation and GroupDecCache remain unported.
+infrastructure. General pipeline preparation and VarDCT GroupDecCache
+initialization remain unported; fixed preparation/cache construction are
+connected by the complete path above.
 
 `ColorEncoding::SetICC` and `ColorSpaceTransform` in
 `color_encoding_internal.h`, `cms::ColorEncoding::SetFieldsFromICC` in

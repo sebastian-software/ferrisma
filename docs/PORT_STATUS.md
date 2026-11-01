@@ -3,8 +3,10 @@
 This repository contains codestream/frame-header, metadata, geometry, entropy,
 and color-profile dependencies, standalone modular image encoding/decoding,
 and a fixed lossless Thunder encoder from pixel buffers to complete raw JPEG XL
-codestreams. Complete Rust image decoding remains unported. The original C++
-decoder recovers the exact samples from both native and reference codestreams.
+codestreams, plus complete Rust parsing and integer decoding for that same fixed
+profile. Rust and the original C++ decoder recover the exact samples from both
+native and reference codestreams. The first-image milestone is verified; general
+image/frame decoding and the complete library remain unported.
 There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
 [upstream.json](../upstream.json).
 
@@ -20,6 +22,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
 | `base/float.h` | `base/float.rs` | Complete LoadFloat16 and callback-based LoadFloatRow, including unsupported-format failure before access |
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
+| `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer/buffer/null-pool specialization of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; float output, callbacks, and custom runners unported |
 | `encode_internal.h` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, and the buffer-backed adapter/channel construction, binding, copying, views, and format accessors; callback/JPEG input, CopyFromBuffer, queued frames, and output processors unported |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
@@ -55,9 +58,10 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, general preparation, VarDCT cache initialization, output lifecycle, and custom runners unported |
-| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; caller-supplied private metadata, Float32 output, and explicit profile admission; global codestream framing, integer export, general/progressive frame APIs, JPEG, and VarDCT orchestration unported |
+| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; general/progressive frame APIs, JPEG, and VarDCT orchestration unported |
+| DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; pixel conversion and fast XYB output unported |
-| `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes, and decoded-byte accessors; general import/export/copy and metadata verification unported |
+| `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, and decoded-byte accessors; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
@@ -138,14 +142,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 316 tests, including 178 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 316 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 316 tests and corpus |
+| Rust debug | PASSED | 323 tests, including 183 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 323 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 323 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 316 tests and 691,170 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 323 tests and 703,419 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **691,170 requests** against C++. These include
+Each differential run compares **703,419 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -428,7 +432,7 @@ cleanup, retained error prefixes/widths, and independently captured C++ modular
 section bytes. Those 42-bit zero-gray sections do not include codestream/frame
 headers or a section table. These component cases do not establish general
 ComputeEncodingData or frame decoding. The fixed-profile caller is connected
-below; the complete first-image acceptance gate remains unfinished.
+below; those component requests alone do not establish complete image decoding.
 
 The fixed lossless Thunder path adds 356 differential requests at the original
 ComputeEncodingData boundary. Cases compare converted samples, default global
@@ -519,7 +523,7 @@ mapping passes that regression; see
 The pinned Highway CMake file emits a CMP0111 deprecation warning. It does not
 fail the build; the reference source has not been edited to suppress it.
 
-Not yet established: complete Rust image decoding, general image encoding,
+Not yet established: general Rust image decoding and encoding,
 public C ABI compatibility,
 thread runners, SIMD parity, full upstream test inventory, external conformance
 corpus, cross-platform CI results, fuzzing, Rust sanitizer/Miri results, or
@@ -528,18 +532,13 @@ The Linux/macOS workflow is configured but has not run on a hosted service.
 
 ## Next dependency boundaries
 
-The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
-image encode/decode path and cross-decoding with the original implementation.
-The entropy slices above do not complete it.
-
-1. Connect global codestream metadata parsing to the fixed raw-frame decoder,
-   then translate the original integer output conversion. Decode complete
-   native/reference codestreams in Rust and add integrated malformed/truncated
-   input evidence. The raw-frame path now includes real pipeline preparation,
-   complete frame parsing/scheduling, and Float32 cross-decoding; the complete
-   first-image acceptance gate still requires integer samples from whole files.
-2. Expand through remaining modular and VarDCT decoding and encoding before
-   introducing the C ABI and optimized target-specific kernels.
+The [first-image milestone](FIRST_IMAGE.md) is verified for its fixed original
+configuration. The component slices alone are distinct from that whole-file
+evidence. Subsequent full-port boundaries include the default low-memory
+pipeline, remaining modular and VarDCT paths, other image/frame configurations,
+ICC/default CMS integration, progressive/streaming APIs, the public C ABI,
+threading, and target-specific kernels. Full-library and release gates remain
+in [PORTING.md](PORTING.md).
 
 Preserve the upstream test inventory as that scope grows. Adapted tests in this
 first slice do not replace the unported image, threading, allocation-failure,
@@ -614,7 +613,7 @@ borrowed/copied input. Four null-buffer cases retain the original generic error
 and allocated field state. Uninitialized source plane contents and the fourth
 uncleared quantizer lanes are excluded from observations. This verifies the
 fixed native one-shot frame against the actual original caller. Complete
-Rust frame/image decoding remains required for the first-image milestone.
+Those frame-output requests are separate from the complete-image evidence below.
 
 A release regression verifies that default Quantizer construction quiets a
 signaling NaN through the original multiplier arithmetic while retaining the
@@ -671,9 +670,8 @@ nonfatal truncation follows the original transfer behavior. Constructor-undefine
 source flags/code scalars receive explicit fixture seeds before observation.
 Unread image channels and source-indeterminate transform members are omitted.
 MaybeDropFullImage preserves channel metadata while releasing plane owners.
-Complete Rust codestream decoding remains unported; these global component
-requests do not satisfy the first-image gate. Group/render integration evidence
-is recorded below.
+These global component requests alone do not satisfy the first-image gate.
+Group/render and complete-image integration evidence is recorded below.
 
 The original simple render pipeline adds 724 differential requests across four
 test groups. They exercise original pipeline/base operations and both original
@@ -693,9 +691,9 @@ after that mutable callback, matching the source checkpoint. ImageBundle setter
 cases distinguish failed guards before ownership transfer from VerifySizes
 errors after the color/profile assignments. The native input binding becomes
 None only at the original move; no additional pixel allocation/copy is used.
-The first-image decoder has not selected a render implementation yet. Outer
-frame/image decoding remains unported; the independently tested pipeline and
-modular integration below do not complete that milestone.
+The complete first-image path explicitly selects this original simple
+implementation. These independent pipeline requests remain separate from the
+whole-frame/file evidence below.
 
 Modular DecodeGroup, ModularImageToDecodedRect, and FinalizeDecoding add 5,888
 differential requests. The original encoder supplies complete section vectors
@@ -720,7 +718,7 @@ metadata directly and does not parse complete JPEG XL codestreams.
 The translated callees borrow real shared-state and pipeline fields separately;
 they do not substitute a partial PassesDecoderState constructor. Pipeline
 preparation, outer frame parsing/scheduling, and final external pixel-buffer
-conversion remain required for the first-image acceptance gate.
+conversion are connected by the complete-image entry point recorded below.
 
 The original scalar UpsamplingStage adds 1,360 differential requests. The
 actual original factory/stage runs inside the original simple pipeline, with
@@ -783,8 +781,8 @@ opaque data, and complete forwarding of pointer-width argument values.
 Native regressions verify a DC binding after failure and owner moves, and that
 Init sizes sigma from the selected shared state while InitForAC mutates the
 owning shared_storage fields. Uninitialized source pixels and source-indeterminate
-members are omitted or explicitly seeded before observation. The pipeline and
-outer frame/image entry points remain required for the first-image gate.
+members are omitted or explicitly seeded before observation. The connected
+pipeline and outer frame/image entry points are recorded below.
 
 Callback-backed ICC assignment, ColorSpaceTransform, and CmsStage add 2,962
 differential requests. The actual original methods run with a caller CMS that
@@ -810,7 +808,7 @@ destruction, remain live during the single destroy callback, and that the fixed
 lossless configuration needs no CMS callbacks. Native precondition checks cover
 initialized size/context and successful CMS thread/pixel bounds; undefined
 source call order is not treated as a valid decoding result. Default CMS backend,
-C ABI reentrancy, custom thread runners, and complete frame/image decoding remain
+C ABI reentrancy, custom runners, and general frame/image decoding remain
 unported.
 
 The one-lane tone-mapping stage and numeric dependencies add 17,136 differential
@@ -850,6 +848,43 @@ contract and is not compared as a C++ codec status.
 The stage and decoder borrow one stack RefCell output owner for individual
 sequential calls. This preserves the source origin assignment after pipeline
 preparation without overlapping Rust mutable references or adding an output
-clone. Metadata remains supplied by the private configuration. Whole-codestream
-metadata input and original integer export are still required for the active
-first-image milestone.
+clone. This component entry point still accepts private configuration metadata;
+the complete whole-codestream entry point below obtains it from the file.
+
+Integer buffer export adds 11,168 differential requests: 160 scalar rounding
+corpora, 5,248 channel/orientation/endian/span cases, and 5,760 image-bundle/
+alpha/layout cases. Comparisons preserve halfway neighbors across 1..16 bits,
+NaN/infinity clamps, untouched row and allocation suffixes, all seven actual
+orientation transforms, nullable channels, source guard order, alpha
+unpremultiplication, metadata verification, and both byte orders. The C++
+adapter includes pristine dec_external_image.cc; no integer algorithm is
+provided by the fixture. An early fixture value 9 exposed an undefined
+JxlEndianness enum load. Its unknown-value case now uses representable value 3,
+which retains the same source fall-through/output while preserving the case
+count; undefined value 9 receives no invented C++ codec meaning.
+
+Complete first-image integration adds 1,081 differential requests. The C++
+oracle executes the exact original DecodeFile and ReadICC helper bodies,
+extracted without rewriting and checked against pinned SHA-256 hashes.
+Original source line directives and copyright notices remain in generated
+fragments; the real original test allocator, metadata checks, decoder state,
+frame decoder, and integer exporter execute normally. The public C++ decoder
+independently reads both encoder outputs as well.
+
+The corpus has 140 source/native complete-file byte comparisons and paired
+public C++ decodes, 280 original/Rust complete-file decode comparisons, and 661
+malformed/truncated whole-file cases. Seven dimensions include tiny images,
+odd sizes, edge groups, and multiple DC groups; gray/RGB and 8/16-bit samples
+include constants, ramps, limited palettes, and deterministic noise. Observations
+retain exact parsed metadata, source status, defined partial frame dimensions/
+decoded-byte accounting, and integer bytes. Prefixes, damaged signatures,
+trailing bytes, and payload corruption exercise integrated cleanup and failure
+checkpoints. Profile admission is explicitly separate from the general decoder
+contract and never supplies an unported codec implementation.
+
+Ordinary Rust tests execute sixteen complete pixel/file/pixel round trips and
+one 256x256 image containing all 65,536 unsigned 16-bit samples. No C++ feature,
+runtime link, external crate, manually assembled codestream, or image-specific
+expected output is used by that native path. The [first-image acceptance
+boundary](FIRST_IMAGE.md) is satisfied for the fixed profile; this result does
+not establish the full library port or any unclaimed platform/release gate.

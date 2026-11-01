@@ -83,7 +83,7 @@ fn tone(out: &mut String, t: &ToneMapping) {
     )
     .unwrap();
 }
-fn transform(out: &mut String, t: &CustomTransformData) {
+pub(super) fn transform(out: &mut String, t: &CustomTransformData) {
     write!(
         out,
         " {},{},{},{}",
@@ -113,7 +113,7 @@ fn transform(out: &mut String, t: &CustomTransformData) {
         write!(out, " {}", v.to_bits()).unwrap();
     }
 }
-fn metadata(out: &mut String, m: &ImageMetadata) {
+pub(super) fn metadata(out: &mut String, m: &ImageMetadata) {
     write!(
         out,
         " {},{},{},{},{},{},{},{},{},{}",

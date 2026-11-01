@@ -1,8 +1,9 @@
 # First complete image path
 
-The active milestone is a complete image encode/decode path through the Rust
-translation of the pinned source. Completing an entropy or header slice does
-not complete this milestone.
+The first complete image path is implemented and verified for the fixed source
+configuration below. It connects pixel buffers, complete raw JPEG XL
+codestreams, parsed metadata/frames, and exact integer samples. This milestone
+does not establish completion of the library port.
 
 ## Acceptance evidence
 
@@ -43,10 +44,10 @@ existing differential oracle.
 For the initial decoder, explicitly select the original
 `use_slow_rendering_pipeline=true` option, which uses its simple render
 implementation. The default low-memory pipeline remains a separate boundary.
-The current fixed frame entry point consumes a complete frame header, TOC, and
-sections with caller-supplied private configuration metadata. Connecting global
-codestream metadata parsing and integer pixel export is still required by the
-acceptance evidence above.
+The complete decoder reads global metadata directly from the supplied
+codestream, admits it to private configuration ownership, and executes the
+frame/TOC/section path before the original integer buffer conversion. The
+component frame entry point also remains available with caller-supplied metadata.
 
 Represent this fixed configuration with private metadata/parameter ownership so
 callers cannot select unported branches through these entry points. The general
@@ -54,16 +55,22 @@ image API remains absent until its additional paths are translated. Partial
 pixel preparation or section output still does not satisfy the acceptance
 evidence above.
 
-## Dependency queue
+## Completion evidence
 
-1. Entropy streams: hybrid integers, ANS histogram parsing and encoding,
-   context maps, symbol state, and LZ77.
-2. Image metadata, frame headers, section tables, and the backing image/channel
-   storage used by the source path.
-3. Modular prediction trees, residual encoding/decoding, and the transforms
-   reached by that configuration.
-4. Connect the original image/frame entry points and run the cross-language
-   image corpus above.
+Verified on 2026-11-01; the original acceptance boundary above is unchanged.
 
-[PORT_STATUS.md](PORT_STATUS.md) records verified completed boundaries and
-remaining work. Keep this acceptance boundary intact as dependencies land.
+| Requirement | Evidence |
+| --- | --- |
+| Pixel buffers to complete codestream | `LosslessThunderConfig::encode_pixels` in [enc_frame.rs](../src/jxl/enc_frame.rs); 140 additional source/native encoder comparisons |
+| Whole-file parsing to integer samples | `decode_lossless_thunder` in [dec_frame.rs](../src/jxl/dec_frame.rs), connected to [dec_external_image.rs](../src/jxl/dec_external_image.rs) |
+| Exact C++ bytes, metadata, and cross-decoding | [Whole-image parity tests](../tests/parity/whole_image.rs): 140 original/public-decoder checks and 280 original/Rust complete-file decode comparisons across seven dimensions, gray/RGB, 8/16 bits, constants, ramps, palettes, and deterministic noise |
+| Malformed/truncated integrated input | The same suite compares 661 marker, prefix, trailing-byte, and payload-corruption cases, including defined partial metadata and frame state |
+| Ordinary Rust path without C++ | [first_image.rs](../tests/first_image.rs) runs without `cpp-oracle`; it checks 16 complete round trips and a 256x256 image containing every 16-bit sample |
+| Original reference implementation | The oracle compiles the exact original DecodeFile/ReadICC bodies using [hash-checked source extraction](../tools/oracle/source_fragments.json), the real original frame decoder, and the public C++ decoder |
+| Required checks | Both `python3 tools/check.py --sanitizers --msrv` and `python3 tools/check.py --msrv`: 323 tests, 183 differential groups, and 703,419 requests per configuration; zero failed or ignored cases |
+| Delivery conventions | Repository artifacts use US English, living ADRs, and unsigned Conventional Commits; no publication or runtime fallback |
+
+[PORT_STATUS.md](PORT_STATUS.md) records the remaining general codec, platform,
+and release boundaries. The default low-memory pipeline, other configurations,
+public C ABI, threading, SIMD targets, and full-library acceptance remain future
+work.

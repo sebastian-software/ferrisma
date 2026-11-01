@@ -43,9 +43,13 @@ admitted-header type excludes unported frame branches before decoder output
 initialization; the configuration continues to own immutable metadata. A native
 Unsupported result at that admission boundary identifies input outside this
 fixed profile and is not a claim about the general C++ decoder's status.
-General decoding remains absent. The first-image gate still requires global
-codestream metadata parsing and integer sample output, beyond raw-frame and
-Float32 component integration.
+General decoding remains absent. The complete fixed entry point parses global
+metadata into a private admitted owner, then follows the original frame and
+integer-export path. Out-of-profile metadata and frame headers are admission
+results, rather than substitutes for unported generic decoder branches. The
+first-image gate includes whole-codestream parsing and integer samples beyond
+raw-frame and Float32 component integration; its verified evidence belongs in
+the milestone and port-status records.
 
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a

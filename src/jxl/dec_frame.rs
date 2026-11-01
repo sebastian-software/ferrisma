@@ -3,6 +3,8 @@
 //! DecodeFrame/FrameDecoder from dec_frame.{h,cc}, restricted to the closed
 //! lossless Thunder frame profile. The original slow/simple pipeline is
 //! explicitly selected. General frame decoding/progressive output is absent.
+//! The complete fixed DecodeFile path parses global metadata and connects
+//! original integer buffer export without a caller-supplied configuration.
 //! A profile-admission check precedes unported branches; it is not a general
 //! decoder status claim. Within the admitted profile, all reached source
 //! checkpoints, section scheduling, owners, and error cleanup are retained.
@@ -424,11 +426,26 @@ impl LosslessThunderConfig {
     pub fn decode_frame<'m>(&'m self, bytes: &[u8]) -> LosslessThunderFrameDecode<'m> {
         let output = RefCell::new(ImageBundle::new(Some(&self.metadata().m)));
         let mut copied_header = None;
-        let status = (|| {
-            let mut state = PassesDecoderState::new();
-            state
-                .output_encoding_info
-                .set_from_metadata(self.metadata())?;
+        let mut state = PassesDecoderState::new();
+        let status = state
+            .output_encoding_info
+            .set_from_metadata(self.metadata())
+            .and_then(|()| self.decode_frame_into(bytes, &mut state, &output, &mut copied_header));
+        drop(state);
+        LosslessThunderFrameDecode {
+            status,
+            image: output.into_inner(),
+            header: copied_header,
+        }
+    }
+    fn decode_frame_into<'m, 'p>(
+        &'m self,
+        bytes: &[u8],
+        state: &mut PassesDecoderState<'m, 'p>,
+        output: &'p RefCell<ImageBundle<'m>>,
+        copied_header: &mut Option<FrameHeader<'m>>,
+    ) -> Status {
+        (|| {
             let mut header = FrameHeader::new(Some(self.metadata()));
             let modular = ModularFrameDecoder::new();
             let mut reader = BitReader::new(bytes);
@@ -502,8 +519,8 @@ impl LosslessThunderConfig {
                 }
             };
             let mut decoder = FrameDecoder {
-                state: &mut state,
-                output: &output,
+                state,
+                output,
                 header: admitted,
                 dim,
                 modular,
@@ -524,7 +541,7 @@ impl LosslessThunderConfig {
                 let _ = reader.close();
                 return Err(e);
             }
-            copied_header = Some(decoder.header.0.clone());
+            *copied_header = Some(decoder.header.0.clone());
             if let Err(e) = reader.all_reads_within_bounds() {
                 let _ = reader.close();
                 return Err(e);
@@ -570,11 +587,150 @@ impl LosslessThunderConfig {
             decoder.finalize_frame()?;
             output.borrow_mut().set_decoded_bytes(processed_bytes);
             Ok(())
-        })();
-        LosslessThunderFrameDecode {
-            status,
-            image: output.into_inner(),
-            header: copied_header,
+        })()
+    }
+}
+
+/// Complete first-profile codestream result with owned metadata and integer
+/// samples. Error reports retain parsed metadata, consumed bits, and defined
+/// frame dimensions/byte accounting; no self-referential bundle escapes.
+pub struct LosslessThunderImageDecode {
+    pub status: Status,
+    pub metadata: super::image_metadata::CodecMetadata,
+    pub pixels: Vec<u8>,
+    pub reader_bits: usize,
+    pub frame_size: (usize, usize),
+    pub frame_decoded_bytes: usize,
+}
+
+/// The fixed-profile path from render_pipeline_test.cc DecodeFile, followed by
+/// the integer buffer branch of dec_external_image.cc ConvertToExternal.
+/// Global fields are actually parsed from input; dimensions and samples are
+/// not supplied by the caller. ICC/preview/animation and other configurations
+/// remain outside this entry point's explicit admission boundary.
+pub fn decode_lossless_thunder(bytes: &[u8]) -> LosslessThunderImageDecode {
+    use super::dec_external_image::convert_uint_to_buffer;
+    use super::fields::bundle;
+    use super::headers::read_size_header;
+    use super::image_metadata::{CodecMetadata, Orientation, read_image_metadata};
+    use super::types::JxlEndianness;
+    let mut metadata = Some(CodecMetadata::default());
+    let mut pixels = Vec::new();
+    let mut frame_size = (0, 0);
+    let mut frame_decoded_bytes = 0;
+    let mut reader = BitReader::new(bytes);
+    let parsed = (|| {
+        if reader.read_fixed_bits::<16>() != 0x0aff {
+            return Err(StatusCode::GenericError);
         }
+        {
+            let m = metadata.as_mut().unwrap();
+            read_size_header(&mut reader, &mut m.size)?;
+            read_image_metadata(&mut reader, &mut m.m)?;
+            m.transform_data.nonserialized_xyb_encoded = m.m.xyb_encoded;
+            bundle::read(&mut reader, &mut m.transform_data)?;
+        }
+        Ok(())
+    })();
+    let config = if parsed.is_ok() {
+        LosslessThunderConfig::admit_decoded_metadata(&mut metadata)
+    } else {
+        None
+    };
+    let output = config
+        .as_ref()
+        .map(|cfg| RefCell::new(ImageBundle::new(Some(&cfg.metadata().m))));
+    let body = (|| {
+        parsed?;
+        let cfg = config.as_ref().ok_or(StatusCode::Unsupported)?;
+        // These external owners keep the source decoder's pointer bindings
+        // live. Empty/default bundle construction allocates no pixel storage.
+        let preview = ImageBundle::new(Some(&cfg.metadata().m));
+        let output = output.as_ref().unwrap();
+        let mut state = PassesDecoderState::new();
+        state
+            .output_encoding_info
+            .set_from_metadata(cfg.metadata())?;
+        reader.jump_to_byte_boundary()?;
+        let mut header = None;
+        // The admitted final regular frame makes both original do/while
+        // continuation conditions false. No additional frame is skipped.
+        let start = reader.total_bits_consumed() / 8;
+        let frame_status = cfg.decode_frame_into(&bytes[start..], &mut state, output, &mut header);
+        {
+            let image = output.borrow();
+            frame_size = (image.color().xsize(), image.color().ysize());
+            frame_decoded_bytes = image.decoded_bytes();
+        }
+        frame_status?;
+        reader.skip_bits(frame_decoded_bytes.wrapping_mul(8));
+        if reader.total_bits_consumed() != bytes.len().wrapping_mul(8) {
+            return Err(StatusCode::GenericError);
+        }
+        if reader.all_reads_within_bounds().is_err() {
+            return Err(StatusCode::GenericError);
+        }
+        // CodecInOut::CheckMetadata's actual no-preview/one-frame path.
+        let m = cfg.metadata();
+        if m.m.bit_depth.bits_per_sample == 0 || m.m.color_encoding.icc().is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        if preview.xsize() != 0 {
+            preview.verify_metadata()?;
+        }
+        if !std::ptr::eq(preview.metadata().unwrap(), &m.m) {
+            return Err(StatusCode::GenericError);
+        }
+        let image = output.borrow();
+        image.verify_metadata()?;
+        if !std::ptr::eq(image.metadata().unwrap(), &m.m) {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(())
+    })();
+    let reader_bits = reader.total_bits_consumed();
+    let closed = reader.close();
+    let mut status = body.and(closed);
+    if status.is_ok() {
+        // The source decoder state and scoped reader close have completed
+        // before the caller invokes the original external conversion.
+        let cfg = config.as_ref().unwrap();
+        let m = cfg.metadata();
+        let n = m.m.color_encoding.channels();
+        let bits = m.m.bit_depth.bits_per_sample as usize;
+        status = (|| {
+            let stride = m
+                .xsize()
+                .checked_mul(n)
+                .and_then(|v| v.checked_mul(bits / 8))
+                .ok_or(StatusCode::GenericError)?;
+            let size = stride
+                .checked_mul(m.ysize())
+                .ok_or(StatusCode::GenericError)?;
+            pixels.resize(size, 0);
+            convert_uint_to_buffer(
+                &output.as_ref().unwrap().borrow(),
+                bits,
+                n,
+                JxlEndianness::NATIVE,
+                stride,
+                &mut pixels,
+                size,
+                Orientation::IDENTITY,
+                false,
+            )
+        })();
+    }
+    drop(output);
+    if let Some(cfg) = config {
+        metadata = Some(cfg.into_metadata());
+    }
+    LosslessThunderImageDecode {
+        status,
+        metadata: metadata.unwrap(),
+        pixels,
+        reader_bits,
+        frame_size,
+        frame_decoded_bytes,
     }
 }

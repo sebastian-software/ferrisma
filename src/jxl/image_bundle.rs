@@ -4,12 +4,13 @@
 //! ImageBundle storage and constructors from lib/jxl/image_bundle.h. Native
 //! allocator context replaces the source manager pointer. Size/color/extra
 //! access, SetFromImage, and VerifySizes retain source checkpoints. General
-//! import/export, copy, metadata validation, and remaining methods are absent.
+//! alpha access and VerifyMetadata are included. General import/export, copy,
+//! and remaining methods are absent.
 use super::base::status::{Status, StatusCode};
 use super::color_encoding_internal::ColorEncoding;
 use super::frame_header::{BlendMode, ColorTransform, FrameOrigin, YCbCrChromaSubsampling};
 use super::image::{Image3, Plane};
-use super::image_metadata::ImageMetadata;
+use super::image_metadata::{ExtraChannel, ImageMetadata};
 use super::jpeg::jpeg_data::JpegData;
 
 pub struct ImageBundle<'a> {
@@ -136,6 +137,47 @@ impl<'a> ImageBundle<'a> {
     }
     pub fn c_current(&self) -> &ColorEncoding {
         &self.c_current
+    }
+    pub fn has_alpha(&self) -> bool {
+        self.metadata
+            .expect("source requires metadata")
+            .find(ExtraChannel::ALPHA)
+            .is_some()
+    }
+    pub fn alpha_is_premultiplied(&self) -> bool {
+        self.metadata
+            .expect("source requires metadata")
+            .find(ExtraChannel::ALPHA)
+            .is_some_and(|a| a.alpha_associated)
+    }
+    pub fn alpha(&self) -> Option<&Plane<f32>> {
+        if !self.has_alpha() {
+            return None;
+        }
+        let index = self
+            .metadata
+            .unwrap()
+            .extra_channel_info
+            .iter()
+            .position(|a| a.channel_type == ExtraChannel::ALPHA)
+            .unwrap();
+        Some(&self.extra_channels[index])
+    }
+    pub fn verify_metadata(&self) -> Status {
+        if self.c_current.icc().is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        let metadata = self.metadata.expect("source requires metadata");
+        if metadata.color_encoding.is_gray() != self.c_current.is_gray() {
+            return Err(StatusCode::GenericError);
+        }
+        if metadata.has_alpha() && self.alpha().expect("source requires alpha plane").xsize() == 0 {
+            return Err(StatusCode::GenericError);
+        }
+        if metadata.get_alpha_bits() > 32 {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(())
     }
     pub fn extra_channels(&self) -> &[Plane<f32>] {
         &self.extra_channels

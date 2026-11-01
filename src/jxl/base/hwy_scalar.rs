@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Use of this source code is governed by Highway's offered BSD alternative in
 // licenses/HIGHWAY-BSD-3-Clause.txt. Modified: translated the used one-lane
-// Min/Max/MulAdd/Floor/ConvertTo/sign operations from hwy/ops/scalar-inl.h and
+// Min/Max/MulAdd/Floor/ConvertTo/NearestInt/sign operations from hwy/ops/scalar-inl.h and
 // generic_ops-inl.h. Other operations and SIMD targets remain separate work.
 pub(crate) fn mul_add(a: f32, b: f32, c: f32) -> f32 {
     a * b + c
@@ -60,4 +60,28 @@ pub(crate) fn to_i32(x: f32) -> i32 {
     } else {
         i32::MAX
     }
+}
+// scalar-inl.h NearestInt. The integer export's clamped values times its
+// <=16-bit scale stay in the source's defined conversion range.
+pub(crate) fn nearest_int(x: f32) -> i32 {
+    let abs = x.abs();
+    let sign = x.to_bits() >> 31 != 0;
+    let in_mantissa_range = abs < 8388608.0;
+    if !in_mantissa_range {
+        let within_int_range = abs <= i32::MAX as f32;
+        if !within_int_range {
+            return if sign { i32::MIN } else { i32::MAX };
+        }
+        return x as i32;
+    }
+    let bias = if x < 0.0 { -0.5 } else { 0.5 };
+    let rounded = (x + bias) as i32;
+    if rounded == 0 {
+        return 0;
+    }
+    let mut offset = 0;
+    if rounded & 1 != 0 && ((rounded as f32) - x).abs() == 0.5 {
+        offset = if sign { -1 } else { 1 };
+    }
+    rounded - offset
 }
