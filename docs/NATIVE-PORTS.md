@@ -40,6 +40,10 @@ Application input/output libraries, including PNG, JPEG, and libxml2, and the
 original C/C++ test infrastructure are separate from this core runtime boundary.
 Whether they belong in a later expansion is an open scope decision.
 
+Complete-library scope can introduce additional runtime dependencies that the
+current configuration disables. For example, libyuv's public MJPEG decoder is
+conditional on JPEG support, which the prepared reference currently disables.
+
 Transitive dependencies require configuration-specific review. The installed
 Homebrew libaom package links VMAF, which is not a direct libavif API dependency.
 The prepared AVM encoder enables ML experiments that pull TensorFlow Lite and
@@ -48,6 +52,12 @@ configuration and require new parity evidence; neither blindly porting every
 host package nor silently disabling functionality is an established plan.
 
 ## Existing Rust implementations
+
+The selected policy is to prefer new mechanical translations of the original
+libraries, because source correspondence and a 1:1 match matter more than
+reusing an independently evolved Rust port. The projects below remain useful
+comparators; they are not the selected replacement strategy. See
+[ADR 0010](adr/0010-port-native-libraries-from-their-original-sources.md).
 
 [rav1e](https://github.com/xiph/rav1e/tree/v0.8.1) is already a Rust AV1 encoder.
 Using it instead of libaom would change the codec implementation and would not
@@ -61,23 +71,56 @@ current baseline uses dav1d 1.5.4, while the
 records synchronization with dav1d 1.5.1. An exact candidate revision needs API,
 ABI, feature, and behavioral comparison before adoption.
 
-## Decision tree
+## Resolved first-round decisions
 
-The first interview round addresses these independent roots:
+- Replace the delivered C/C++ codec and pixel conversion implementations;
+  normal system facilities and original reference/test tooling remain allowed.
+- Prefer new mechanical ports of the original libraries for a verifiable 1:1
+  match; do not assume an existing Rust implementation is equivalent.
+- Aim for complete libraries where functionality is cleanly covered by tests,
+  rather than an intentionally limited libavif-only subset.
+- Keep separate crates in one Cargo workspace in the existing repository.
 
-1. Define the delivered runtime boundary, including the distinction between
-   codec implementations, system facilities, and reference/test tooling.
-2. Decide whether an existing Rust port can satisfy a dependency milestone
-   after the same compatibility gates as a new port.
-3. Choose complete-library ports or a deliberately smaller libavif-specific
-   scope.
-4. Choose a shared workspace or separate repositories for the independent
-   crates.
+These decisions are recorded in
+[ADR 0010](adr/0010-port-native-libraries-from-their-original-sources.md) and
+[ADR 0011](adr/0011-keep-library-ports-in-one-cargo-workspace.md).
 
-Those answers determine later questions about assembly and SIMD, transitive
-libraries, the first milestone and port order, supported platforms, ABI and
-output parity, performance gates, maintenance, and publication. None of those
-choices is implied by the inventory above.
+## Open decision tree
+
+- License policy: the primary upstream licenses differ; see the
+  [versioned license inventory](NATIVE-LICENSES.md). File-level and transitive
+  terms need to be preserved according to the selected scope.
+- Equivalence: define exactly what a 1:1 match preserves and under which source
+  revision, build configuration, compiler rules, and target.
+- Assembly and SIMD: decide the end state and the role of the original scalar
+  implementations during migration.
+- Supported platforms: distinguish pilot evidence from release support.
+- API and ABI: define the treatment of public C and C++ interfaces.
+
+Those answers determine the first milestone and port order, transitive library
+scope, concrete parity and performance gates, maintenance, package identities,
+and publication. No implementation work is authorized by completing a single
+interview round; the complete plan is still being developed.
+
+### Public C++ interfaces need a separate compatibility decision
+
+libgav1 exposes a public C++ `Decoder` class in addition to its C functions.
+Its `GetFramesMeanQpInTemporalUnit()` method returns `std::vector<int>` and has
+no C API counterpart. The public class also contains C++ standard-library
+members. Original decoder tests construct this class directly. See the pinned
+[decoder header](https://chromium.googlesource.com/codecs/libgav1/+/c05bf9be660cf170d7c26bd06bb42b3322180e58/src/gav1/decoder.h).
+
+libyuv similarly exposes a public `MJpegDecoder` C++ class when JPEG support is
+enabled; original conversion tests use it. See the pinned
+[MJPEG header](https://chromium.googlesource.com/libyuv/libyuv/+/26e56be0f984af3dae4d0c0ab7a0bac8ac20e1b0/include/libyuv/mjpeg_decoder.h).
+
+Preserving functionality, preserving the C ABI, retaining the original C++
+tests, and shipping a binary-compatible C++ library are distinct requirements.
+Any compatibility layer must have an explicit scope; it must not quietly
+reintroduce the original algorithms or count original C++ execution as Rust
+coverage. Internal C++ unit tests may require additional bridging beyond the
+public API. The feasibility of unchanged linkage needs a pilot rather than an
+assumption.
 
 ## Proposed evidence for each milestone
 
