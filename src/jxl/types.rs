@@ -1,15 +1,33 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Endianness and bit-depth descriptors from `lib/include/jxl/types.h`.
+//! Pixel, endianness, and bit-depth descriptors from `lib/include/jxl/types.h`.
 //! Other public C API types remain unported.
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum JxlEndianness {
-    Native = 0,
-    Little = 1,
-    Big = 2,
+#[repr(transparent)]
+pub struct JxlEndianness(pub u32);
+impl JxlEndianness {
+    pub const NATIVE: Self = Self(0);
+    pub const LITTLE: Self = Self(1);
+    pub const BIG: Self = Self(2);
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct JxlDataType(pub u32);
+impl JxlDataType {
+    pub const FLOAT: Self = Self(0);
+    pub const UINT8: Self = Self(2);
+    pub const UINT16: Self = Self(3);
+    pub const FLOAT16: Self = Self(5);
+}
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct JxlPixelFormat {
+    pub num_channels: u32,
+    pub data_type: JxlDataType,
+    pub endianness: JxlEndianness,
+    pub align: usize,
 }
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(transparent)]

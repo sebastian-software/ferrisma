@@ -16,7 +16,9 @@ and no placeholder codec APIs. The source revision is pinned in
 | `fields.h`, `.cc` | `fields.rs` | Bits/U32/U64/F16 coders, bundle visitors, and enum visitor helper |
 | `base/bits.h` | `base/bits.rs` | Unsigned 32/64-bit and pointer-width zero counts and logarithms |
 | `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
-| `../include/jxl/types.h` | `types.rs` | Endianness and bit-depth descriptor storage; other public API types unported |
+| `base/float.h` | `base/float.rs` | Complete LoadFloat16 and callback-based LoadFloatRow, including unsupported-format failure before access |
+| `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
+| `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
 | `ans_params.h` | `ans_params.rs` | ANS and prefix coding constants |
 | `ans_common.h`, `.cc` | `ans_common.rs` | Alias table construction/lookup/prefetch, flat histograms, count precision |
@@ -112,13 +114,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 252 tests, including 140 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 252 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 252 tests and corpus |
+| Rust debug | PASSED | 257 tests, including 142 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 257 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 257 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **628,817 requests** against C++. These include
+Each differential run compares **642,444 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -525,3 +527,18 @@ also crosses all three TOC size distribution transitions with real payloads.
 The private profile retains centerfirst=false, which returns at PermuteGroups'
 first guard. The returned writer precedes TakeBytes and AppendData; this is
 frame finalization evidence, not the missing pixel-buffer/image entry point.
+
+External input conversion adds 13,627 differential requests: 1,303 row/layout
+cases and 12,324 plane cases. Both endian orders cover every binary16 pattern
+and every uint16 sample in row fixtures. Additional cases retain signaling-NaN
+payloads in direct binary32 copies, signed zero, integer scaling with exceptional
+scale bits, zero stride, unsupported formats, callback counts, and output tails.
+Plane fixtures compare every physical row sample after conversion, including
+untouched padding. They cover interleaved channel offsets, all three named
+endian values and the unnamed source enum value 3, arbitrary row alignment,
+minimum/full last-row sizes, size=0, invalid bit depths, dimension/stride errors,
+and checked arithmetic overflow. Native regressions retain original half-float
+bit patterns, RGB16 channel selection with padded rows, last-row padding limits,
+and unclamped custom integer-depth scaling. These functions provide external
+planes; the outer frame pixel adapter and complete image entry point remain
+unported.

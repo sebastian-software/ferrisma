@@ -23,6 +23,7 @@ pub mod enc_cluster;
 pub mod enc_coeff_order;
 pub mod enc_context_map;
 mod enc_entropy;
+pub mod enc_external_image;
 pub mod enc_fields;
 pub mod enc_frame;
 pub mod enc_huffman;

@@ -71,9 +71,9 @@ fn byte_order_observation(args: &mut std::str::SplitWhitespace<'_>) -> String {
         u32::from(order::is_little_endian())
     );
     for endianness in [
-        JxlEndianness::Native,
-        JxlEndianness::Little,
-        JxlEndianness::Big,
+        JxlEndianness::NATIVE,
+        JxlEndianness::LITTLE,
+        JxlEndianness::BIG,
     ] {
         write!(result, " {}", u32::from(order::swap_endianness(endianness))).unwrap();
     }

@@ -457,6 +457,19 @@ Rust. Layer and object assimilation preserve field order and double addition,
 including signed zero and NaN bits in the reference configuration. Diagnostic
 printing remains separate from this storage/accounting boundary.
 
+External plane conversion borrows the actual input byte storage separately
+from the source size argument: size=0 skips only the original size check and
+does not imply an empty allocation. Slice bounds enforce the source pointer
+validity precondition without unsafe loads. Keep row/channel offset arithmetic,
+null-pool u32 task narrowing, float scale construction, and ordered callbacks.
+The source scale shift must be below 64 even for floating input; undefined larger
+shifts remain a checked programmer precondition. SafeMul/SafeAdd/SafeRoundUpTo
+local checks map to checked usize arithmetic, preserving validation order and
+the final source wrapping product. Pixel-format data type and endianness use raw
+u32 wrappers, so unnamed enum values can follow the original guards without
+invalid Rust enum discriminants. This extends the earlier endianness descriptor
+to raw storage; the three named values keep their numeric representations.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

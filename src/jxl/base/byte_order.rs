@@ -13,8 +13,8 @@ pub const fn is_little_endian() -> bool {
 }
 
 pub const fn swap_endianness(endianness: JxlEndianness) -> bool {
-    matches!(endianness, JxlEndianness::Big) && is_little_endian()
-        || matches!(endianness, JxlEndianness::Little) && !is_little_endian()
+    matches!(endianness, JxlEndianness::BIG) && is_little_endian()
+        || matches!(endianness, JxlEndianness::LITTLE) && !is_little_endian()
 }
 
 pub fn load_be16(p: &[u8]) -> u32 {
