@@ -3150,7 +3150,7 @@ unsafe extern "C" fn get_dc_sign_ctx(
     let mut mul: uint64_t = 0x101010101010101 as uint64_t;
     let mut s: core::ffi::c_int = 0;
     asm!(
-        "\n", inlateout(reg) mask, inlateout(reg) mul, options(preserves_flags, pure,
+        "/* {0} {1} */", inlateout(reg) mask, inlateout(reg) mul, options(preserves_flags, pure,
         readonly, att_syntax)
     );
     let mut current_block_63: u64;

@@ -454,10 +454,11 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 152,
         "raw-c-assignment-temporary": 4,
-        "original-c-record-field-alignment": 144
+        "original-c-record-field-alignment": 144,
+        "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "bba376c285e2ce2d5148b72442829e1edb30212056d600e1d4f316e32722bf34",
-      "rust_sha256": "af03d01dd79a238a494dd9119c38ed332068a866774581b4eebc0c8b2ff1b8f1"
+      "rust_sha256": "c6ed45cc2f53776234a6dac0c66f20f847aed0416cb3e9488195c6f0cbb771a5"
     },
     {
       "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
@@ -607,10 +608,11 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 152,
         "raw-c-assignment-temporary": 4,
-        "original-c-record-field-alignment": 144
+        "original-c-record-field-alignment": 144,
+        "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "f645e20a1ac57d991607f6dd632f40e09cf71272f34f7acfca50cfdbe52d3043",
-      "rust_sha256": "ac17df7c81d43770cae88891131119e75fee506f04abc889818fd9334628f657"
+      "rust_sha256": "bb1ac76186cf7a15139e506b433350eee60d1b55b6237215b80578b611952a6a"
     }
   ]
 }

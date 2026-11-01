@@ -33,7 +33,7 @@ def main():
         tokens[tokens.index('-o') + 1] = str(target)
         count = 0
         for index, token in enumerate(tokens):
-            if re.fullmatch(r'src/libdav1d\.(?:dylib|a|so(?:\.\d+)*)', token):
+            if re.fullmatch(r'src/libdav1d\.(?:(?:\d+\.)*dylib|a|so(?:\.\d+)*)', token):
                 tokens[index] = str(archive)
                 count += 1
         if relative.parts[0] in ['tools'] or 'libfuzzer' in relative.parts or relative.name == 'seek_stress':

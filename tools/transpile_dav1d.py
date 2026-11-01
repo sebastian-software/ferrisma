@@ -23,6 +23,13 @@ def current_variadic(text):
     return text, count + converted
 
 
+def empty_register_barrier(text):
+    # The original x86 GNU asm has two read/write registers and no instructions.
+    # Rust requires template references; an assembler comment emits no code.
+    return re.subn(r'(asm!\(\n\s*)"\\n", inlateout\(reg\) mask, inlateout\(reg\) mul,',
+                   r'\1"/* {0} {1} */", inlateout(reg) mask, inlateout(reg) mul,', text)
+
+
 def corrected(source, raw, entry):
     if sys.platform == 'linux' and re.search(r'\bf128\b', raw):
         raise SystemExit('Linux long-double translation needs its own mapping')
@@ -112,6 +119,9 @@ def corrected(source, raw, entry):
     text, count = current_variadic(text)
     if count:
         changes['current-rust-variadic-list'] = count
+    text, count = empty_register_barrier(text)
+    if count:
+        changes['empty-readwrite-register-barrier'] = count
     return text, changes
 
 
