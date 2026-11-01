@@ -457,6 +457,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "modular_decode.inc"
 #include "learn.inc"
 #include "enc_frame.inc"
+#include "quant_dc.inc"
 
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
@@ -499,6 +500,7 @@ int main() {
       else if (ModularDecodeCommand(command, in, &mm)) {}
       else if (LearnCommand(command, in, &mm)) {}
       else if (EncFrameCommand(command, in, &mm)) {}
+      else if (QuantDcCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

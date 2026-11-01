@@ -47,7 +47,8 @@ and no placeholder codec APIs. The source revision is pinned in
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
-| `quant_weights.h` | `quant_weights.rs` | QuantTable indices and count; weights/matrix APIs unported |
+| `quant_weights.h`, DC methods in `.cc` | `quant_weights.rs` | QuantTable indices/count, DC member initialization/accessors/setter, and DecodeDC with retained partial state; AC owners/full constructor, weights, and matrix/table APIs unported |
+| DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
 | `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
@@ -94,6 +95,9 @@ translated boundaries, not whole-file or whole-library completion.
 Validated on 2026-11-01 on macOS arm64 with Rust 1.99.0 (stable), Rust 1.85.1
 (minimum-version series), and Apple Clang 21.0.0. The C++ oracle is built from
 the unmodified pinned source with scalar Highway and release status behavior.
+Repository Rust builds disable loop/SLP vectorization to match the upstream
+Clang settings; exact float-bit comparisons include unchanged signaling-NaN
+copies in release builds.
 Upstream CMake builds the complete original static codec library with its pinned
 Highway, Brotli, and skcms dependencies. ASan/UBSan cover those built targets as
 well as the fixture adapters. Existing private-boundary adapters still include
@@ -107,13 +111,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 234 tests, including 133 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 234 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 234 tests and corpus |
+| Rust debug | PASSED | 239 tests, including 135 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 239 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 239 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **625,067 requests** against C++. These include
+Each differential run compares **627,615 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -426,6 +430,19 @@ boundary. Native tests check repeated edge pixels, unchanged allocation addresse
 and row padding, known edge averages, and the empty-owner allocation regression.
 Connecting these helpers to the outer frame path remains separate work.
 
+DC quantization adds 2,548 differential requests through the original setters,
+DC encoder/decoder, custom round trip, and scaling. Action chains compare exact
+DC/inverse float bits, reused default-flag behavior, unaligned bytes and bit
+counts, layer accounting, consumed bits, close status, and changes retained
+after errors. They include special float factors, binary16 validation thresholds,
+invalid coefficients in each component, truncated/corrupt input, failed custom
+round trips, and recovery on reused state. Native tests independently check the
+one-bit default encoding and the per-component mutation/inverse checkpoint.
+The signaling-NaN copy regression runs in debug and release with the repository's
+source-matched scalar compiler configuration.
+Only DC storage is represented; this evidence does not establish the full
+DequantMatrices constructor, AC owners, or VarDCT matrix computation.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -457,8 +474,10 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the fixed source path's remaining outer pixel preparation, frame
-   decoding, and image/frame/section entry points, then run the cross-language image
+1. Complete the source ownership/constructor dependencies reached by the fixed
+   path, including DequantMatrices AC-owner initialization. Connect the remaining
+   outer pixel preparation, frame decoding, and image/frame/section entry points,
+   then run the cross-language image
    corpus in the first-image acceptance gate.
 2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.

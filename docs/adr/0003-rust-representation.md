@@ -403,6 +403,18 @@ zero still has one. These equal logical dimensions can therefore yield different
 allocation statuses. Propagate the existing native-owner/null distinction to
 Image3 creation; custom C allocator callbacks remain unported.
 
+DC quantization owns the source's three DC and inverse-DC values. This is a
+partial DequantMatrices representation: the AC owners, constructor bookkeeping,
+and matrix/table APIs remain absent until translated. Preserve each coefficient
+assignment before its validation and update the inverse only after validation.
+The serialized all-default flag keeps reused values rather than restoring the
+initial constants. Custom-DC round trips close their private Rust reader even
+on failure, retaining the primary decode status and all earlier matrix changes;
+the extra close has no externally observed reader state.
+Setter inputs borrow a disjoint three-value array, matching the pinned callers'
+local arrays or separate parameter storage. Aliasing matrix members through the
+source's raw input pointer is not represented by this safe internal boundary.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

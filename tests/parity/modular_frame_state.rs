@@ -171,7 +171,7 @@ fn read_id(args: &mut std::str::SplitWhitespace<'_>) -> ModularStreamId {
         _ => panic!("frame fixture stream ID"),
     }
 }
-fn layer(raw: usize) -> LayerType {
+pub(super) fn layer(raw: usize) -> LayerType {
     [
         LayerType::Header,
         LayerType::Toc,
@@ -190,7 +190,7 @@ fn layer(raw: usize) -> LayerType {
         LayerType::ModularAcGroup,
     ][raw]
 }
-fn writer_output(out: &mut String, writer: &BitWriter, aux: &AuxOut) {
+pub(super) fn writer_output(out: &mut String, writer: &BitWriter, aux: &AuxOut) {
     let mut copy = BitWriter::new();
     copy.append_unaligned(writer).unwrap();
     pad(&mut copy);

@@ -1,0 +1,4 @@
+# Mirror the pinned scalar Clang build's -fno-slp-vectorize -fno-vectorize.
+# Vectorizing a float copy as an identity arithmetic lane changes signaling NaNs.
+[build]
+rustflags = ["-C", "no-vectorize-slp", "-C", "no-vectorize-loops"]

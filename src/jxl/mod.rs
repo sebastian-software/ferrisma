@@ -32,6 +32,7 @@ pub mod enc_modular;
 pub mod enc_modular_simd;
 pub mod enc_params;
 pub mod enc_progressive_split;
+pub mod enc_quant_weights;
 pub mod enc_toc;
 pub mod field_encodings;
 pub mod fields;

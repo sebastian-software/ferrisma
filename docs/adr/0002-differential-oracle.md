@@ -35,10 +35,17 @@ protocol, or ported boundary changes. Never turn missing oracle evidence into a
 passing test.
 
 The scalar Clang build retains upstream `lib/CMakeLists.txt`'s
-`-fno-slp-vectorize -fno-vectorize` settings. They affect floating-point
+`-fno-slp-vectorize -fno-vectorize` settings. Repository Rust builds mirror them
+with `-C no-vectorize-slp -C no-vectorize-loops` in
+[Cargo configuration](../../.cargo/config.toml). They affect floating-point
 reductions: allowing auto-vectorization changed LZ77 cost rounding, and ASan
 then selected a different reduction loop. Both ordinary and instrumented
-oracles must use the upstream settings. Keep exact float-bit comparisons;
+oracles must use the upstream settings. Rust SLP also combined three DC
+reciprocals and an unchanged copy into a four-lane division, computing the copy
+as `value / 1`. That quieted a signaling NaN in release while C++ retained its
+original stored bits. Preserve the original compile configuration in both
+languages so raw copies remain bit-exact.
+Keep exact float-bit comparisons;
 do not compensate with relaxed tolerances or changed reference algorithms.
 
 The frame fixture translation unit uses Clang/GCC `-fno-access-control` to

@@ -51,6 +51,9 @@ mod frame;
 #[path = "parity/enc_frame.rs"]
 mod enc_frame;
 
+#[path = "parity/quant_dc.rs"]
+mod quant_dc;
+
 #[path = "parity/sample_conversion.rs"]
 mod sample_conversion;
 
@@ -656,6 +659,7 @@ fn observe(request: &str) -> String {
         kind if metadata::handles(kind) => metadata::observe(kind, &mut args),
         kind if frame::handles(kind) => frame::observe(kind, &mut args),
         kind if enc_frame::handles(kind) => enc_frame::observe(kind, &mut args),
+        kind if quant_dc::handles(kind) => quant_dc::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if modular_frame_state::handles(kind) => modular_frame_state::observe(kind, &mut args),

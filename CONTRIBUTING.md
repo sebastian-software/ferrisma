@@ -7,6 +7,10 @@ separate from the mechanical port. Read [PORTING.md](docs/PORTING.md) and the
 [living ADRs](docs/adr/README.md) before changing a translated boundary.
 Create commits without signatures, using `git commit --no-gpg-sign`.
 
+Repository Cargo configuration disables LLVM loop and SLP vectorization to
+match the pinned scalar reference's Clang settings. Retain those flags when
+overriding `RUSTFLAGS`; changing them requires renewed numeric parity evidence.
+
 ## Prerequisites
 
 - Rust 1.85 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.
