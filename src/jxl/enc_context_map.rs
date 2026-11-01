@@ -1,17 +1,60 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Context-map output from `lib/jxl/enc_context_map.{h,cc}`. The VarDCT
-//! BlockCtxMap entry point remains unported. Preserve cost ties and MTF order.
+//! Context-map output from `lib/jxl/enc_context_map.{h,cc}`.
+//! Preserve cost ties and MTF order.
 
+use super::ac_context::{BlockCtxMap, DEFAULT_CTX_MAP};
 use super::base::bits::ceil_log2_nonzero;
 use super::base::status::Status;
 use super::enc_ans::{EntropyEncodingData, Token, build_and_encode_histograms, write_tokens};
 use super::enc_ans_params::{HistogramParams, HybridUintMethod};
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+use super::entropy_coder::{DC_THRESHOLD_DIST, QF_THRESHOLD_DIST};
+use super::fields::u32_coder;
+use super::pack_signed::pack_signed;
 
 pub const CLUSTERS_LIMIT: usize = 128;
+
+pub fn encode_block_ctx_map(
+    block_ctx_map: &BlockCtxMap,
+    writer: &mut BitWriter,
+    aux: Option<&mut AuxOut>,
+) -> Status {
+    let dct = &block_ctx_map.dc_thresholds;
+    let qft = &block_ctx_map.qf_thresholds;
+    let ctx_map = &block_ctx_map.ctx_map;
+    writer.with_max_bits(
+        (dct[0].len() + dct[1].len() + dct[2].len() + qft.len()) * 34
+            + 1
+            + 4
+            + 4
+            + ctx_map.len() * 10
+            + 1024,
+        LayerType::Ac,
+        aux,
+        |writer, aux| {
+            if dct.iter().all(Vec::is_empty) && qft.is_empty() && ctx_map == &DEFAULT_CTX_MAP {
+                writer.write(1, 1);
+                return Ok(());
+            }
+            writer.write(1, 0);
+            for thresholds in dct {
+                writer.write(4, thresholds.len() as u64);
+                for &i in thresholds {
+                    u32_coder::write(DC_THRESHOLD_DIST, pack_signed(i), writer)?;
+                }
+            }
+            writer.write(4, qft.len() as u64);
+            for &i in qft {
+                u32_coder::write(QF_THRESHOLD_DIST, i.wrapping_sub(1), writer)?;
+            }
+            encode_context_map(ctx_map, block_ctx_map.num_ctxs, writer, LayerType::Ac, aux)
+        },
+        false,
+    )
+}
 
 fn move_to_front_transform(values: &[u8]) -> Vec<u8> {
     if values.is_empty() {
