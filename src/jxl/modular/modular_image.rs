@@ -78,6 +78,20 @@ impl Default for Image {
     }
 }
 impl Image {
+    /// Image's original move assignment transfers its vectors while retaining
+    /// the source's scalar metadata. FinalizeDecoding reads that old bitdepth.
+    /// Native allocation context is already the same valid caller context.
+    pub fn move_from(other: &mut Self) -> Self {
+        Self {
+            w: other.w,
+            h: other.h,
+            bitdepth: other.bitdepth,
+            nb_meta_channels: other.nb_meta_channels,
+            error: other.error,
+            channel: std::mem::take(&mut other.channel),
+            transform: std::mem::take(&mut other.transform),
+        }
+    }
     pub fn undo_transforms(&mut self, wp_header: &weighted::Header) {
         while let Some(t) = self.transform.last().cloned() {
             if t.inverse(self, wp_header).is_err() {

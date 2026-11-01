@@ -199,7 +199,7 @@ fn value(c: usize, x: usize, y: usize, pass: usize, mode: u32) -> f32 {
     }
     (((c * 31 + x * 17 + y * 9 + pass * 11) % 257) as i32 - 128) as f32 / 16.0
 }
-fn pipeline(out: &mut String, p: &SimpleRenderPipeline<'_>) {
+pub(super) fn pipeline(out: &mut String, p: &SimpleRenderPipeline<'_>) {
     write!(
         out,
         " P {} {}",

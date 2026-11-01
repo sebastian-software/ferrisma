@@ -10,7 +10,7 @@ use jxl::jxl::modular::modular_image::Image;
 pub(super) fn handles(kind: &str) -> bool {
     kind == "mfd-global"
 }
-fn decoder(out: &mut String, d: &ModularFrameDecoder, pixels: bool) {
+pub(super) fn decoder(out: &mut String, d: &ModularFrameDecoder, pixels: bool) {
     write!(
         out,
         " D {} {} {} {} {}",

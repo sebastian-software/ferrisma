@@ -502,4 +502,17 @@ impl RenderPipelineInput<'_, '_> {
     pub fn buffer_count(&self) -> usize {
         self.buffers.len()
     }
+    /// Disjoint mutable channel views for source kernels that fill RGB together.
+    /// PrepareBuffers creates indices 0..channel_data.len() in this same order;
+    /// the token keeps their pipeline/storage alive throughout the iterator.
+    pub fn get_buffers_mut(&mut self) -> impl Iterator<Item = (&mut Plane<f32>, Rect)> {
+        let buffers = &self.buffers;
+        self.pipeline
+            .as_deref_mut()
+            .expect("source requires a bound input")
+            .channel_data
+            .iter_mut()
+            .zip(buffers)
+            .map(|(plane, &(_, rect))| (plane, rect))
+    }
 }

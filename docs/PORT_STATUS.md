@@ -58,7 +58,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
-| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage and state accessors; group decoding, final rendering, quantization-table decoding, and debug descriptions unported |
+| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, constructor and DC methods in `.cc` | `quant_weights.rs` | Distance-band and owning quantization-encoding constructors, active union storage, deep copies/assignment/moves, strategy table mapping, complete initialized DequantMatrices constructor state, SetEncodings, and DC APIs; non-owning raw base copies, coefficient libraries, matrix computation/accessors, and AC table algorithms unported |
@@ -130,14 +130,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 286 tests, including 159 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 286 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 286 tests and corpus |
+| Rust debug | PASSED | 290 tests, including 162 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 290 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 290 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 286 tests and 662,190 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 290 tests and 668,078 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **662,190 requests** against C++. These include
+Each differential run compares **668,078 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -524,9 +524,7 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the original group decoding and pixel conversion to the translated
-   simple render pipeline/write stages, then connect the
-   frame/image decoder to the translated global modular decoder, metadata,
+1. Connect the frame/image decoder to the translated modular decoder, metadata,
    sections, entropy, prediction, and transforms. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
    input evidence. The fixed encoder and C++ cross-decoding cover only the
@@ -664,8 +662,9 @@ nonfatal truncation follows the original transfer behavior. Constructor-undefine
 source flags/code scalars receive explicit fixture seeds before observation.
 Unread image channels and source-indeterminate transform members are omitted.
 MaybeDropFullImage preserves channel metadata while releasing plane owners.
-Group decoding, final rendering, and complete Rust codestream decoding remain
-unported; these component requests do not satisfy the first-image gate.
+Complete Rust codestream decoding remains unported; these global component
+requests do not satisfy the first-image gate. Group/render integration evidence
+is recorded below.
 
 The original simple render pipeline adds 724 differential requests across four
 test groups. They exercise original pipeline/base operations and both original
@@ -685,6 +684,31 @@ after that mutable callback, matching the source checkpoint. ImageBundle setter
 cases distinguish failed guards before ownership transfer from VerifySizes
 errors after the color/profile assignments. The native input binding becomes
 None only at the original move; no additional pixel allocation/copy is used.
-The first-image decoder has not selected a render implementation yet. Modular
-group decoding, color-to-pipeline conversion, and outer frame/image decoding
-remain unported; this independent pipeline does not complete that milestone.
+The first-image decoder has not selected a render implementation yet. Outer
+frame/image decoding remains unported; the independently tested pipeline and
+modular integration below do not complete that milestone.
+
+Modular DecodeGroup, ModularImageToDecodedRect, and FinalizeDecoding add 5,888
+differential requests. The original encoder supplies complete section vectors
+for eight dimensions, gray/RGB, both integer depths, constants, ramps, and
+noise. Comparisons retain full-image versus dropped-plane behavior, deferred
+global RCT, clone versus move finalization, repeated finalization, empty-group
+readiness, nullable state/output pointers, zero-fill without a reader, wrong
+stream-kind rejection, and individual truncated sections. Observations include
+output float bits, pipeline counters/layout, remaining decoder metadata,
+status, and each section reader's consumed bits and close status.
+
+Separate initialized local streams exercise XYB factors/channel ordering,
+gray replication, accurate high-depth conversion, custom-float input, VarDCT's
+no-color branch, extra-channel integer/float depths, subsampling, cropping,
+remaining transforms, absent/empty channels, and partial output before errors.
+Pipeline interiors are seeded before these error comparisons; undefined C++
+padding and unread pixels are not observed. Native section integration checks
+expected sample normalization for gray/RGB, 8/16 bits, single/multiple groups,
+and retained bit-depth metadata after in-place finalization. It still supplies
+metadata directly and does not parse complete JPEG XL codestreams.
+
+The translated callees borrow real shared-state and pipeline fields separately;
+they do not substitute a partial PassesDecoderState constructor. Full state
+construction, outer frame parsing/scheduling, and final external pixel-buffer
+conversion remain required for the first-image acceptance gate.

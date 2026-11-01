@@ -563,6 +563,24 @@ Initial source-indeterminate flags/dimensions receive safe native storage. The
 oracle explicitly seeds those flags before partial-state comparisons, and only
 observes pixels that the original global decoder has initialized.
 
+Group decoding and modular-to-pipeline conversion borrow the original decoder
+state's actual shared owner and pipeline field separately. Conversion reads
+only shared.matrices; finalization additionally reads shared.frame_dim and
+mutates the pipeline. Optional shared-state presence retains DecodeGroup's
+nullable-state checkpoint. These are field dependencies of the translated
+callee, not a replacement PassesDecoderState constructor. The complete decoder
+owner and its initialization remain separate work. Null-pool task loops retain
+uint32 bounds and the source wrapper's generic-error mapping.
+
+Modular Image::move_from copies scalar metadata and transfers channel/transform
+vectors, matching the source move assignment. It leaves the source bit depth,
+dimensions, meta-channel count, and error flag intact. FinalizeDecoding reads
+that retained bit depth while converting the moved image: resetting the source
+to a default Image would incorrectly normalize 16-bit pixels as 8-bit pixels.
+The RGB-from-gray kernel receives three disjoint mutable pipeline plane borrows
+from one ordered iterator, preserving its single computation per sample without
+cloning pixel storage or duplicating the kernel.
+
 The simple render builder represents the original Builder followed by
 UseSimpleImplementation; the default low-memory branch remains absent. Stage
 trait defaults translate the original base bodies, including its actual empty

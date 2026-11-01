@@ -7,6 +7,15 @@ XL Project Authors' copyright notice and name the source files they translate.
 
 ## Source and test inputs
 
+Modular group decoding, image-to-pipeline conversion, and finalization translate
+the complete corresponding methods in `lib/jxl/dec_modular.cc` under a null pool
+and the original simple render implementation. `modular/modular_image.cc` move
+assignment supplies the scalar-retention/vector-transfer mapping. The local
+group and pixel fixtures call actual original methods, using original encoder
+sections or standalone modular streams and initialized output sentinels.
+Native expected-sample integration is local infrastructure; neither fixture
+replaces complete codestream decoder or upstream image-test coverage.
+
 - `libjxl/libjxl` at `a16d32d0ac113f5e54125e49bb571281c5d0b704`:
   `dec_bit_reader`, `enc_bit_writer`, `field_encodings`, `fields`, `enc_fields`,
   `headers`, the relevant `base/status` semantics, writer storage, alignment,

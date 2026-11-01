@@ -4,26 +4,45 @@
 //! ModularStreamId storage, constructors, and index mapping from
 //! lib/jxl/dec_modular.h, and sample conversion from lib/jxl/dec_modular.cc.
 //! ModularFrameDecoder storage, Init, DecodeGlobalInfo, and MaybeDropFullImage
-//! retain their complete source control flow. Group decoding, final rendering,
-//! and debug descriptions remain unported. The three Highway
+//! retain their complete source control flow. DecodeGroup, image-to-pipeline
+//! conversion, and FinalizeDecoding use the original null-pool/simple-pipeline
+//! configuration. Full decoder state orchestration and debug descriptions remain
+//! unported. The three Highway
 //! kernels retain the one-lane scalar configuration; disjoint row slices replace
 //! restrict pointers. Custom-float shifts retain source caller preconditions.
 //! Kind retains raw fixed-underlying-type enum values: the source switch leaves
 //! an unknown kind's initialized index at zero. All size_t arithmetic wraps.
 
 use super::base::bits::ceil_log2_nonzero;
+use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::dec_ans::{ANSCode, decode_histograms};
 use super::dec_bit_reader::BitReader;
 use super::frame_dimensions::FrameDimensions;
-use super::frame_header::{ColorTransform, FrameEncoding, FrameHeader};
+use super::frame_header::{ColorTransform, FLAG_NOISE, FrameEncoding, FrameHeader};
 use super::image::Plane;
+use super::image_ops::{copy_rect_to, zero_fill_image};
 use super::modular::encoding::dec_ma::{Tree, decode_tree};
 use super::modular::encoding::encoding::{GroupHeader, modular_generic_decompress};
-use super::modular::modular_image::Image;
+use super::modular::modular_image::{Channel, Image};
 use super::modular::options::ModularOptions;
 use super::modular::transform::transform::{Transform, TransformId};
+use super::passes_state::PassesSharedState;
 use super::quant_weights::NUM_QUANT_TABLES;
+use super::render_pipeline::simple_render_pipeline::{RenderPipelineInput, SimpleRenderPipeline};
+
+fn shift_right(n: usize, shift: i32) -> usize {
+    assert!(
+        (0..usize::BITS as i32).contains(&shift),
+        "source shift precondition"
+    );
+    n >> shift
+}
+fn div_ceil_shift(n: usize, shift: i32) -> usize {
+    assert!((0..31).contains(&shift), "source int shift precondition");
+    let d = 1usize << shift;
+    n.wrapping_add(d - 1) / d
+}
 
 pub fn multiply_sum(
     xsize: usize,
@@ -439,6 +458,417 @@ impl ModularFrameDecoder {
                 ch.plane = Plane::default();
             }
         }
+    }
+    /// Complete original DecodeGroup. The optional decoder-state pointer is
+    /// reified as its actual const shared-state dependency; pipeline storage
+    /// is borrowed separately. No PassesDecoderState constructor is substituted.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep original group, shift, reader, state, and output checkpoint parameters."
+    )]
+    pub fn decode_group(
+        &mut self,
+        header: &FrameHeader<'_>,
+        rect: Rect,
+        reader: Option<&mut BitReader<'_>>,
+        min_shift: i32,
+        max_shift: i32,
+        stream: &ModularStreamId,
+        zerofill: bool,
+        shared: Option<&PassesSharedState<'_>>,
+        input: Option<&mut RenderPipelineInput<'_, '_>>,
+        allow_truncated: bool,
+        should_run_pipeline: Option<&mut bool>,
+    ) -> Status {
+        if stream.kind != ModularStreamKind::MODULAR_DC
+            && stream.kind != ModularStreamKind::MODULAR_AC
+        {
+            return Err(StatusCode::GenericError);
+        }
+        let mut gi = Image::create(rect.xsize(), rect.ysize(), self.full_image.bitdepth, 0)?;
+        let mut c = self.full_image.nb_meta_channels;
+        while c < self.full_image.channel.len() {
+            let fc = &self.full_image.channel[c];
+            if fc.w > self.frame_dim.group_dim || fc.h > self.frame_dim.group_dim {
+                break;
+            }
+            c += 1;
+        }
+        let beginc = c;
+        for fc in self.full_image.channel.iter_mut().skip(c) {
+            let shift = fc.hshift.min(fc.vshift);
+            if shift > max_shift {
+                continue;
+            }
+            if shift < min_shift {
+                continue;
+            }
+            let r = Rect::new_clamped(
+                shift_right(rect.x0(), fc.hshift),
+                shift_right(rect.y0(), fc.vshift),
+                shift_right(rect.xsize(), fc.hshift),
+                shift_right(rect.ysize(), fc.vshift),
+                fc.w,
+                fc.h,
+            );
+            if r.xsize() == 0 || r.ysize() == 0 {
+                continue;
+            }
+            if zerofill && self.use_full_image {
+                for y in 0..r.ysize() {
+                    fc.plane.row_mut(r.y0() + y)[r.x0()..r.x1()].fill(0);
+                }
+            } else {
+                let mut gc = Channel::create(r.xsize(), r.ysize())?;
+                if zerofill {
+                    zero_fill_image(&mut gc.plane);
+                }
+                gc.hshift = fc.hshift;
+                gc.vshift = fc.vshift;
+                gi.channel.push(gc);
+            }
+        }
+        if zerofill && self.use_full_image {
+            return Ok(());
+        }
+        if gi.channel.is_empty() {
+            if let (Some(_), Some(should)) = (shared, should_run_pipeline) {
+                if self.do_color
+                    || header
+                        .nonserialized_metadata
+                        .expect("source requires metadata")
+                        .m
+                        .num_extra_channels
+                        > 0
+                {
+                    *should = false;
+                }
+            }
+            return Ok(());
+        }
+        let mut options = ModularOptions::default();
+        if !zerofill {
+            let status = modular_generic_decompress(
+                reader.expect("source requires a reader for nonempty encoded groups"),
+                &mut gi,
+                None,
+                stream.id(&self.frame_dim),
+                &mut options,
+                true,
+                Some(&self.tree),
+                Some(&self.code),
+                Some(&self.context_map),
+                allow_truncated,
+            );
+            if !allow_truncated {
+                status?;
+            }
+            if status.is_err_and(StatusCode::is_fatal_error) {
+                return status;
+            }
+        }
+        if !self.use_full_image {
+            let input = input.ok_or(StatusCode::GenericError)?;
+            for t in &self.global_transform {
+                t.inverse(&mut gi, &self.global_header.wp_header)?;
+            }
+            let r = Rect::new(0, 0, gi.w, gi.h);
+            self.modular_image_to_decoded_rect(header, &gi, shared, input, r)?;
+            return Ok(());
+        }
+        let mut gic = 0usize;
+        for fc in self.full_image.channel.iter_mut().skip(beginc) {
+            let shift = fc.hshift.min(fc.vshift);
+            if shift > max_shift {
+                continue;
+            }
+            if shift < min_shift {
+                continue;
+            }
+            let r = Rect::new_clamped(
+                shift_right(rect.x0(), fc.hshift),
+                shift_right(rect.y0(), fc.vshift),
+                shift_right(rect.xsize(), fc.hshift),
+                shift_right(rect.ysize(), fc.vshift),
+                fc.w,
+                fc.h,
+            );
+            if r.xsize() == 0 || r.ysize() == 0 {
+                continue;
+            }
+            if !self.use_full_image {
+                return Err(StatusCode::GenericError);
+            }
+            copy_rect_to(
+                Rect::new(0, 0, r.xsize(), r.ysize()),
+                &gi.channel[gic].plane,
+                r,
+                &mut fc.plane,
+            )?;
+            gic += 1;
+        }
+        Ok(())
+    }
+    /// Original ModularImageToDecodedRect with a null pool. Its only decoder
+    /// state read is shared->matrices; the actual shared owner is borrowed.
+    /// Source input image rows are only read, so gi has an immutable borrow.
+    pub fn modular_image_to_decoded_rect(
+        &self,
+        header: &FrameHeader<'_>,
+        gi: &Image,
+        shared: Option<&PassesSharedState<'_>>,
+        input: &mut RenderPipelineInput<'_, '_>,
+        modular_rect: Rect,
+    ) -> Status {
+        let metadata = header
+            .nonserialized_metadata
+            .expect("source requires metadata");
+        if !gi.transform.is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        let mut c = 0usize;
+        if self.do_color {
+            let rgb_from_gray = metadata.m.color_encoding.is_gray()
+                && header.color_transform == ColorTransform::NONE;
+            let fp = metadata.m.bit_depth.floating_point_sample
+                && header.color_transform != ColorTransform::XYB;
+            while c < 3 {
+                let mut factor = if self.full_image.bitdepth < 32 {
+                    assert!(self.full_image.bitdepth >= 0, "source shift precondition");
+                    1.0 / f64::from((1u32 << self.full_image.bitdepth) - 1)
+                } else {
+                    0.0
+                };
+                let mut c_in = c;
+                if header.color_transform == ColorTransform::XYB {
+                    factor = f64::from(
+                        shared
+                            .expect("source XYB conversion requires decoder shared state")
+                            .matrices
+                            .dc_quants()[c],
+                    );
+                    if c < 2 {
+                        c_in = 1 - c;
+                    }
+                } else if rgb_from_gray {
+                    c_in = 0;
+                }
+                if c_in >= gi.channel.len() {
+                    return Err(StatusCode::GenericError);
+                }
+                let ch = &gi.channel[c_in];
+                if ch.w == 0 || ch.h == 0 {
+                    return Err(StatusCode::GenericError);
+                }
+                if ch.hshift > 3 || ch.vshift > 3 {
+                    return Err(StatusCode::GenericError);
+                }
+                let r = input.get_buffer(c).1;
+                let mr = Rect::new(
+                    shift_right(modular_rect.x0(), ch.hshift),
+                    shift_right(modular_rect.y0(), ch.vshift),
+                    div_ceil_shift(modular_rect.xsize(), ch.hshift),
+                    div_ceil_shift(modular_rect.ysize(), ch.vshift),
+                )
+                .crop(ch.plane.xsize(), ch.plane.ysize());
+                let width = r.xsize();
+                let height = r.ysize();
+                if r.ysize() != mr.ysize() || r.xsize() != mr.xsize() {
+                    return Err(StatusCode::GenericError);
+                }
+                if header.color_transform == ColorTransform::XYB && c == 2 {
+                    if fp {
+                        return Err(StatusCode::GenericError);
+                    }
+                    for task in 0..height as u32 {
+                        let y = task as usize;
+                        let row_in = &ch.row(mr.y0() + y)[mr.x0()..];
+                        let row_y = &gi.channel[0].row(mr.y0() + y)[mr.x0()..];
+                        let (out, rect) = input.get_buffer_mut(c);
+                        let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
+                        multiply_sum(width, row_in, row_y, factor as f32, row_out);
+                    }
+                } else if fp {
+                    let bits = metadata.m.bit_depth.bits_per_sample as i32;
+                    let exp = metadata.m.bit_depth.exponent_bits_per_sample as i32;
+                    for task in 0..height as u32 {
+                        let y = task as usize;
+                        let row_in = &ch.row(mr.y0() + y)[mr.x0()..];
+                        if rgb_from_gray {
+                            for cc in 0..3 {
+                                let (out, rect) = input.get_buffer_mut(cc);
+                                int_to_float(
+                                    row_in,
+                                    &mut out.row_mut(rect.y0() + y)[rect.x0()..],
+                                    width,
+                                    bits,
+                                    exp,
+                                )
+                                .map_err(|_| StatusCode::GenericError)?;
+                            }
+                        } else {
+                            let (out, rect) = input.get_buffer_mut(c);
+                            int_to_float(
+                                row_in,
+                                &mut out.row_mut(rect.y0() + y)[rect.x0()..],
+                                width,
+                                bits,
+                                exp,
+                            )
+                            .map_err(|_| StatusCode::GenericError)?;
+                        }
+                    }
+                } else {
+                    for task in 0..height as u32 {
+                        let y = task as usize;
+                        let row_in = &ch.row(mr.y0() + y)[mr.x0()..];
+                        if rgb_from_gray {
+                            if self.full_image.bitdepth < 23 {
+                                let mut buffers = input.get_buffers_mut();
+                                let (r, rr) = buffers.next().expect("source RGB buffer");
+                                let (g, gr) = buffers.next().expect("source RGB buffer");
+                                let (b, br) = buffers.next().expect("source RGB buffer");
+                                rgb_from_single(
+                                    width,
+                                    row_in,
+                                    factor as f32,
+                                    &mut r.row_mut(rr.y0() + y)[rr.x0()..],
+                                    &mut g.row_mut(gr.y0() + y)[gr.x0()..],
+                                    &mut b.row_mut(br.y0() + y)[br.x0()..],
+                                );
+                            } else {
+                                for cc in 0..3 {
+                                    let (out, rect) = input.get_buffer_mut(cc);
+                                    single_from_single_accurate(
+                                        width,
+                                        row_in,
+                                        factor,
+                                        &mut out.row_mut(rect.y0() + y)[rect.x0()..],
+                                    );
+                                }
+                            }
+                        } else {
+                            let (out, rect) = input.get_buffer_mut(c);
+                            let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
+                            if self.full_image.bitdepth < 23 {
+                                single_from_single(width, row_in, factor as f32, row_out);
+                            } else {
+                                single_from_single_accurate(width, row_in, factor, row_out);
+                            }
+                        }
+                    }
+                }
+                if rgb_from_gray {
+                    break;
+                }
+                c += 1;
+            }
+            if rgb_from_gray {
+                c = 1;
+            }
+        }
+        for ec in 0..metadata.m.num_extra_channels as usize {
+            let eci = &metadata.m.extra_channel_info[ec];
+            let bits = eci.bit_depth.bits_per_sample as i32;
+            let exp = eci.bit_depth.exponent_bits_per_sample as i32;
+            let fp = eci.bit_depth.floating_point_sample;
+            if !fp && bits >= 32 {
+                return Err(StatusCode::GenericError);
+            }
+            let factor = if fp {
+                0.0
+            } else {
+                assert!((0..32).contains(&bits), "source shift precondition");
+                1.0 / f64::from((1u32 << bits) - 1)
+            };
+            if c >= gi.channel.len() {
+                return Err(StatusCode::GenericError);
+            }
+            let ch = &gi.channel[c];
+            let r = input.get_buffer(3 + ec).1;
+            let mr = Rect::new(
+                shift_right(modular_rect.x0(), ch.hshift),
+                shift_right(modular_rect.y0(), ch.vshift),
+                div_ceil_shift(modular_rect.xsize(), ch.hshift),
+                div_ceil_shift(modular_rect.ysize(), ch.vshift),
+            )
+            .crop(ch.plane.xsize(), ch.plane.ysize());
+            if r.ysize() != mr.ysize() || r.xsize() != mr.xsize() {
+                return Err(StatusCode::GenericError);
+            }
+            let (out, rect) = input.get_buffer_mut(3 + ec);
+            for y in 0..r.ysize() {
+                let row_in = &ch.row(mr.y0() + y)[mr.x0()..];
+                let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
+                if fp {
+                    int_to_float(row_in, row_out, r.xsize(), bits, exp)?;
+                } else if self.full_image.bitdepth < 23 {
+                    single_from_single(r.xsize(), row_in, factor as f32, row_out);
+                } else {
+                    single_from_single_accurate(r.xsize(), row_in, factor, row_out);
+                }
+            }
+            c += 1;
+        }
+        Ok(())
+    }
+    /// FinalizeDecoding's original full-image move/clone, transforms, and group
+    /// rendering with a null pool and the original simple implementation.
+    /// The shared/pipeline field borrows replace the containing decoder pointer.
+    pub fn finalize_decoding(
+        &mut self,
+        header: &FrameHeader<'_>,
+        shared: &PassesSharedState<'_>,
+        pipeline: &mut SimpleRenderPipeline<'_>,
+        inplace: bool,
+    ) -> Status {
+        if !self.use_full_image {
+            return Ok(());
+        }
+        let mut gi = if inplace {
+            Image::move_from(&mut self.full_image)
+        } else {
+            Image::clone_image(&self.full_image)?
+        };
+        let _xsize = gi.w;
+        let _ysize = gi.h;
+        // The source's small-image guard sets an already-null pool to null.
+        let _force_null_pool = _xsize.wrapping_mul(_ysize)
+            < self
+                .frame_dim
+                .group_dim
+                .wrapping_mul(self.frame_dim.group_dim);
+        gi.undo_transforms(&self.global_header.wp_header);
+        if !self.global_transform.is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        if gi.error {
+            return Err(StatusCode::GenericError);
+        }
+        for i in 0..shared.frame_dim.num_groups {
+            pipeline.clear_done(i);
+        }
+        let end = shared.frame_dim.num_groups as u32;
+        if end != 0 {
+            let use_group_ids =
+                header.encoding == FrameEncoding::VAR_DCT || (header.flags & FLAG_NOISE) != 0;
+            pipeline
+                .prepare_for_threads(1, use_group_ids)
+                .map_err(|_| StatusCode::GenericError)?;
+            for group in 0..end {
+                let mut input = pipeline.get_input_buffers(group as usize, 0);
+                self.modular_image_to_decoded_rect(
+                    header,
+                    &gi,
+                    Some(shared),
+                    &mut input,
+                    shared.frame_dim.group_rect(group as usize),
+                )
+                .map_err(|_| StatusCode::GenericError)?;
+                input.done().map_err(|_| StatusCode::GenericError)?;
+            }
+        }
+        Ok(())
     }
     pub fn have_dc(&self) -> bool {
         self.have_something

@@ -30,7 +30,7 @@ void MFDObservation(jxl::ModularFrameDecoder& d,bool pixels,JxlMemoryManager* mm
   ANSCodeObservation(d.code,false);auto header=d.global_header;for(auto& t:header.transforms)t.max_delta_error=77;MaHeader(header);
 }
 bool ModularFrameDecoderCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
-  if(command=="mfd-source"){
+  if(command=="mfd-source" || command=="mfd-source-groups"){
     size_t w,h;unsigned depth,mode;bool gray;in>>w>>h>>gray>>depth>>mode;
     jxl::CodecMetadata metadata;if(!metadata.size.Set(w,h))throw std::runtime_error("decoder source dimensions");metadata.m.SetUintSamples(depth);metadata.m.xyb_encoded=false;
     if(!metadata.m.color_encoding.SetSRGB(gray?jxl::ColorSpace::kGray:jxl::ColorSpace::kRGB,jxl::RenderingIntent::kRelative))throw std::runtime_error("decoder source color");
@@ -43,7 +43,9 @@ bool ModularFrameDecoderCommand(const std::string& command,std::istringstream& i
     std::vector<std::unique_ptr<jxl::BitWriter>> codes;auto status=EFComputeThunderFrame(p,metadata,input,header,*modular,state,codes,nullptr);
     if(!status)throw std::runtime_error("decoder source frame");
     // The first group begins with the original all-default DC matrix bit.
-    std::cout<<header.group_size_shift<<' '<<Hex(codes[0]->GetSpan());return true;
+    std::cout<<header.group_size_shift;
+    if(command=="mfd-source-groups"){std::cout<<' '<<codes.size();for(const auto& code:codes)std::cout<<' '<<Hex(code->GetSpan());}
+    else std::cout<<' '<<Hex(codes[0]->GetSpan());return true;
   }
   if(command=="mfd-local-source"){
     jxl::CodecMetadata metadata;jxl::FrameHeader header(&metadata);MFDHeader(in,metadata,header);unsigned mode;in>>mode;
