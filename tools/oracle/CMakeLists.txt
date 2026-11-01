@@ -68,11 +68,13 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc
+add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Observe quantization cache masks and offsets without changing declarations.
+  set_source_files_properties(quant_ac.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control")
   # Match upstream's no-RTTI build when deriving fixture pipeline stages.
   set_source_files_properties(sample_conversion.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Clang's unrolled max-number reduction changes the early-return result when

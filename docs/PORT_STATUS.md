@@ -72,10 +72,10 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
-| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
+| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, remaining VarDCT methods, and debug descriptions unported; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
-| `quant_weights.h`, constructor and DC methods in `.cc` | `quant_weights.rs` | Distance-band and owning quantization-encoding constructors, active union storage, deep copies/assignment/moves, strategy table mapping, complete initialized DequantMatrices constructor state, SetEncodings, and DC APIs; non-owning raw base copies, coefficient libraries, matrix computation/accessors, and AC table algorithms unported |
+| `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
 | `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
@@ -145,15 +145,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 351 tests, including 199 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 351 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 351 tests and corpus |
+| Rust debug | PASSED | 356 tests, including 204 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 356 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 356 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 351 tests and 745,762 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 356 tests and 747,248 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **745,762 requests** against C++. These include
+Each differential run compares **747,248 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -488,8 +488,33 @@ shift 31. Matrix setters invalidate seeded masks
 without reading coefficient storage. Indeterminate coefficient pointers and
 inactive union bytes are omitted. Native tests check known block offsets, copied
 table independence, null-versus-empty ownership, and zeroed band suffixes.
-Coefficient libraries, EnsureComputed, AC table algorithms, and actual matrix
-accessors remain unported.
+The scalar coefficient libraries, EnsureComputed, AC table decoding, and actual
+matrix accessors now have separate evidence below.
+
+AC quantization adds 1,486 differential requests across five parity tests:
+36 compare all 17 original library entries, every one of the 27 strategy layouts,
+zero masks, repeated computation, and shared-kind masks; 80 cover custom scalar
+modes, representative band counts up to seventeen, rectangular dimensions, RAW table
+lengths/values, reciprocal limits, and failures after earlier table work; 784
+compare unaligned/truncated table parsing, invalid mode dimensions, binary16
+errors, consumed bits, close status, and retained partial encoding/mask state;
+576 decode RAW table streams generated by the original encoder, including its
+actual shared-tree frame context, rectangular tables, nonpositive samples,
+truncation, and partial table copies. Another 96 original-encoder source
+requests generate those fixtures and are counted separately from comparisons.
+Every matrix/inverse coefficient is compared as an exact float word; DC inverse
+slots retain the original layout-dependent zeroing. Ten additional requests
+compare distinct signed quiet/signaling NaN seeds and multipliers in single-band
+DCT4/DCT4X8 divisions and direct AFV slots. Their geometry stays finite and AFV
+interpolation bands stay finite; no NaN enters FastLog2f.
+
+Standalone AC validation on the prior 344-test baseline runs 349 tests, including
+200 parity test groups with 745,610 exact C++/Rust comparisons per configuration.
+Native macOS ordinary Debug/Release and complete ASan/UBSan Debug/Release/Rust
+1.85 graphs pass. This standalone evidence covers the AC matrix slice on that
+baseline. It does not establish native Linux execution or complete VarDCT
+decoding. AC quantization encoding remains unported in Rust; original C++
+encoding is fixture infrastructure only.
 
 Fixed-profile group output adds 223 differential requests through the original
 EncodeGroups. Cases join pixel preparation, shared trees/tokens, DC quantization,
@@ -1093,3 +1118,22 @@ Both local native macOS arm64 commands, `python3 tools/check.py --msrv` and
 release, and Rust 1.85 configuration; zero failed or ignored cases. The earlier
 hosted Linux/macOS results above belong to the baseline tree. Current-head
 hosted validation for this alpha extension remains a separate integration gate.
+
+
+## Integrated alpha and AC matrix checkpoint
+
+The combined lossless alpha and scalar AC matrix tree passes both complete
+local native ARM macOS commands, `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`. Each debug, release, and Rust 1.85
+configuration runs 356 tests, including 204 differential groups and 747,248
+exact C++/Rust requests, with zero failed or ignored cases. All earlier corpora
+remain enabled. The source maps and representation records above include both
+slices; AC encoding and general VarDCT frame decoding remain unported. Native
+Linux/macOS checks are required for this combined PR tree before integration.
+
+The separate alpha commit also passed the [native hosted matrix](https://github.com/sebastian-software/libjxl-rs/actions/runs/41343768003):
+Linux ordinary and ASan/UBSan reference graphs each ran debug, release, and
+Rust 1.85; macOS ran the instrumented graph in those three configurations.
+Every block passed 351 tests and 745,762 requests with zero failed or ignored
+cases. That hosted evidence belongs to the alpha tree, independently of this
+combined checkpoint.
