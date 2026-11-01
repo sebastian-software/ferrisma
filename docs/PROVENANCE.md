@@ -107,6 +107,16 @@ XL Project Authors' copyright notice and name the source files they translate.
   are local infrastructure. The oracle uses non-null empty input spans to match
   Rust slices and the shared Input fixture's bit-reader close lifecycle.
 
+- `image.{h,cc}`, the copy/fill/mirror portions of `image_ops.h`, row sizing
+  from `memory_manager_internal.cc`, `modular/options.h`,
+  `modular/modular_image.{h,cc}`, and transform/squeeze parameter fields in
+  `modular/transform`: original storage, copies, channel validation, defaults,
+  and field serialization. Storage/resize/clone/field corpora and native
+  ownership tests are local infrastructure. The oracle explicitly paints
+  caller-owned physical storage before observing it, and observes only valid
+  samples after a source clone. These tests do not read uninitialized padding
+  or claim to translate the upstream image and transform pixel test inventory.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises

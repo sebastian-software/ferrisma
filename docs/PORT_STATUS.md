@@ -47,6 +47,11 @@ and no placeholder codec APIs. The source revision is pinned in
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; AC-strategy coefficient orders unported |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
+| `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, and native moves; C allocators and MSan-only padding instrumentation unported |
+| `image_ops.h` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular copies, plane copies with padding, and Mirror; arithmetic, conversion, min/max, and image_ops.cc unported |
+| `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
+| `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, and resize failure state; transform execution and diagnostics unported |
+| `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, and channel-range validation; MetaApply and Inverse pixel kernels unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
@@ -56,7 +61,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer storage subset; other container operations unported |
-| `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation subset using Rust allocator; custom callbacks and image-row sizing unported |
+| `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation using Rust allocator and source scalar row sizing; custom C callbacks unported |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Layer totals and writer charging; image statistics and diagnostic output unported |
 
 Internal storage mappings are specified in the
@@ -75,13 +80,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 106 tests, including 56 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 106 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 106 tests and corpus |
+| Rust debug | PASSED | 115 tests, including 61 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 115 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 115 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **514,467 requests** against C++. These include
+Each differential run compares **531,551 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -172,6 +177,19 @@ permutation bit. Native tests adapt the upstream Lehmer size ranges, including
 values above 16 bits, and locate distinct section payloads through the decoded
 offsets. These payloads are test sections, not an encoded image.
 
+Image-storage comparisons cover row sizing/overflow, 128-byte alignment, scalar
+vector padding, avoidance of 2-KiB row aliases, shrink/restore, swaps/moves,
+copy/fill boundaries, preserved destination padding, border mirroring, channel
+resize errors, explicit image clones, option defaults, and transform fields.
+Image3 keeps the first plane's row stride and preserves partial shrink/copy
+state when a later plane fails. The scalar source rejects positive widths with
+eight-byte samples, even at zero height; this restriction is retained. Empty
+planes carry no source allocation context, so reallocating an empty channel to
+positive dimensions fails without replacing its old plane. The fixture paints
+every observed source byte first; cloned images expose valid samples only,
+because C++ leaves their padding uninitialized. Native tests check ownership,
+clone independence, float sample bits, padding preservation, and resize state.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -203,10 +221,10 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port backing image/channel storage, then
-   the first actual frame path.
-2. Connect modular prediction/residual coding and the transforms reached by the
+1. Port modular prediction/residual coding and the transforms reached by the
    first-image configuration.
+2. Connect the original image/frame path and run the complete cross-language
+   image corpus in the first-image acceptance gate.
 3. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.
 

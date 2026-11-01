@@ -174,6 +174,27 @@ permutation output when the flag is absent and unchanged offsets after failed
 table reading. Rust slices correspond to non-null empty source spans; test
 fixtures must not accidentally select a null reader's separate close behavior.
 
+Plane/Image3 own the existing aligned allocation through an optional owner.
+Sealed primitive numeric sample types guarantee valid byte representations,
+no destructors, and alignment at most eight; locally proved typed slices borrow
+initialized in-bounds storage. Mutable row/byte views require an exclusive
+owner borrow. Physical row slices include padding, while copy/fill operations
+use the valid width. Image3 preserves the source's first-plane stride and
+per-plane failure order. Native moves transfer ownership; explicit image
+cloning copies samples and transform vectors without implicit plane cloning.
+Source overloads receive explicit Rust names where necessary.
+
+Row sizing keeps the scalar source's four-byte MaxVectorSize, including rejection
+of positive widths with eight-byte samples. Zero-sized planes have no allocation
+context; channel reallocation inherits that null context and retains the source
+failure rather than silently using a fresh allocator. Failed channel resize
+keeps newly assigned logical dimensions and the old plane. C allocator callbacks
+remain unported. Transform execution stays absent until its pixel kernels are
+translated; initialized Rust storage for max_delta_error is an internal
+difference from the source's indeterminate nonserialized member. Oracle callers
+seed that member and observed pixel storage explicitly. No Rust sanitizer or
+memory/performance parity is inferred from C++ instrumentation or these borrows.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

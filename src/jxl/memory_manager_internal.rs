@@ -1,9 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Ported from the `AlignedMemory` portion of `memory_manager_internal.{h,cc}`.
-//! Uses Rust's allocator and zero-initializes storage. C allocator callbacks and
-//! image-row sizing are not part of this slice. See ADR 0003.
+//! AlignedMemory and BytesPerRow from memory_manager_internal.{h,cc}.
+//! Uses Rust's allocator and zero-initializes storage. C allocator callbacks
+//! remain unported. Row sizing retains the scalar reference's four
+//! byte maximum vector size. See ADR 0003.
 
 use super::base::status::{StatusCode, StatusOr};
 use std::alloc::{Layout, alloc_zeroed, dealloc};
@@ -13,6 +14,37 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub(crate) const ALIGNMENT: usize = 128;
 pub(crate) const NUM_ALIGNMENT_GROUPS: usize = 16;
 pub(crate) const ALIAS: usize = NUM_ALIGNMENT_GROUPS * ALIGNMENT;
+
+pub fn bytes_per_row(xsize: usize, sizeof_t: usize) -> StatusOr<usize> {
+    if xsize == 0 {
+        return Ok(0);
+    }
+    let vec_size = 4usize;
+    let mut valid = xsize
+        .checked_mul(sizeof_t)
+        .ok_or(StatusCode::GenericError)?;
+    if vec_size != 0 {
+        if vec_size < sizeof_t {
+            return Err(StatusCode::GenericError);
+        }
+        valid = valid
+            .checked_add(vec_size - sizeof_t)
+            .ok_or(StatusCode::GenericError)?;
+    }
+    let align = vec_size.max(ALIGNMENT);
+    if align & (align - 1) != 0 {
+        return Err(StatusCode::GenericError);
+    }
+    let mut stride = valid
+        .checked_add(align - 1)
+        .ok_or(StatusCode::GenericError)?
+        / align
+        * align;
+    if stride % ALIAS == 0 {
+        stride = stride.checked_add(align).ok_or(StatusCode::GenericError)?;
+    }
+    Ok(stride)
+}
 
 pub(crate) struct AlignedMemory {
     allocation: NonNull<u8>,

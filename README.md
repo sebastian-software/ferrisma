@@ -13,7 +13,8 @@ strategy selection, context-map output, complete entropy-stream encoding, and
 ICC profile generation with its scalar color-math dependencies, color bundles,
 image metadata, custom transform data, complete codestream-header output,
 frame headers, frame geometry, filter parameter bundles, permutation streams,
-and section tables with group offsets.
+section tables with group offsets, aligned image/channel storage, and modular
+transform parameter bundles.
 The image path is still being translated; the
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate
