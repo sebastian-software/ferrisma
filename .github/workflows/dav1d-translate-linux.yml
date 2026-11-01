@@ -2,6 +2,12 @@ name: Generate native Linux dav1d profiles
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Verify committed profiles or generate replacements
+        type: choice
+        options: [verify, generate]
+        default: verify
 
 permissions:
   contents: read
@@ -41,8 +47,10 @@ jobs:
         env:
           RUST_BACKTRACE: "1"
         run: |
-          python3 tools/transpile_dav1d.py
-          python3 tools/transpile_dav1d.py --release
+          if [ "${{ inputs.mode }}" = generate ]; then
+            python3 tools/transpile_dav1d.py
+            python3 tools/transpile_dav1d.py --release
+          fi
           python3 tools/transpile_dav1d.py --check
           python3 tools/transpile_dav1d.py --release --check
       - name: Preserve generated source and reference configuration
