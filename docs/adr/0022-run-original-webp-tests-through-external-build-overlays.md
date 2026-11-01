@@ -15,6 +15,11 @@ A local sed wrapper translates GNU in-place argument spelling to BSD sed for
 the unchanged original dependency patch. These are test-build compatibility
 adjustments applied equally to both consumers, not changes to test assertions.
 
+Linux test consumers use Clang: the pinned FuzzTest adds
+`-fsanitize-coverage=0` to an internal logging target even in unit-test mode,
+which GCC rejects. The standalone native API reference keeps the system C
+compiler default and is independent of this C++ test-framework requirement.
+
 The original EncDec fuzzer also dereferences its default CPU-query callback on
 macOS ARM64 when `WEBP_ENABLE_SIMD=OFF` initializes that callback to NULL. LLDB
 locates the native-reference crash in `GetCPUInfoForceSlowSSSE3`, called from

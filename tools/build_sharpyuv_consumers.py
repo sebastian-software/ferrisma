@@ -79,6 +79,10 @@ def main():
                '-DANTLR_BUILD_CPP_TESTS=OFF',
                '-DCMAKE_PROJECT_WebP_INCLUDE=' + str(ROOT / 'tools/webp-consumers.cmake'),
                '-DFETCHCONTENT_SOURCE_DIR_FUZZTEST=' + str(exported)]
+    if sys.platform.startswith('linux'):
+        # This pinned FuzzTest uses Clang's -fsanitize-coverage=0 in a logging
+        # target even in unit-test mode. GCC rejects that original option.
+        command += ['-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++']
     for name in ['ANIM_UTILS', 'CWEBP', 'DWEBP', 'GIF2WEBP', 'IMG2WEBP', 'VWEBP', 'WEBPMUX', 'EXTRAS']:
         command.append('-DWEBP_BUILD_' + name + '=OFF')
     if not args.fetch_deps:
