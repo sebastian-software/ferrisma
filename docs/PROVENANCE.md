@@ -98,6 +98,15 @@ XL Project Authors' copyright notice and name the source files they translate.
   seeds inactive pass-array entries before observations to avoid reading
   undefined initial C++ storage. Pixel filter kernels remain separate work.
 
+- `lehmer_code.h`, `coeff_order_fwd.h`, permutation portions of
+  `coeff_order.{h,cc}` and `enc_coeff_order.{h,cc}`, `toc.{h,cc}`, and
+  `enc_toc.{h,cc}`: original Fenwick trees, permutation entropy streams, section
+  sizes, budget checks, and group offsets. Native round-trip size ranges adapt
+  `lehmer_code_test.cc` using a local deterministic shuffle. Differential
+  workspaces, byte corpora, truncation/corruption, and section payload integration
+  are local infrastructure. The oracle uses non-null empty input spans to match
+  Rust slices and the shared Input fixture's bit-reader close lifecycle.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises

@@ -163,6 +163,17 @@ and release both follow this release-state contract, with source crash-on-error
 instrumentation still outside the translated boundary. The sigma regression
 also checks this error path rather than converting it to a Rust panic.
 
+Permutation coding retains the original Fenwick workspaces and their partial
+mutations. Typed u16/u32 slices replace the source's permutation templates;
+optional output borrows preserve validation without storing an order. A C++
+integer loop can be empty when its starting index exceeds the end: retain that
+with iterator take/skip rather than an invalid Rust subslice. Permutation token
+counts still use unsigned subtraction and narrowing in that case. TOC vectors
+clear, resize, and swap at the source's original checkpoints, including stale
+permutation output when the flag is absent and unchanged offsets after failed
+table reading. Rust slices correspond to non-null empty source spans; test
+fixtures must not accidentally select a null reader's separate close behavior.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

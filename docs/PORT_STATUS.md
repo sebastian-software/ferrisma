@@ -43,6 +43,10 @@ and no placeholder codec APIs. The source revision is pinned in
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
 | `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; pixel filter kernels unported |
+| `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
+| `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
+| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; AC-strategy coefficient orders unported |
+| `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
@@ -71,13 +75,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 100 tests, including 52 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 100 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 100 tests and corpus |
+| Rust debug | PASSED | 106 tests, including 56 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 106 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 106 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **510,074 requests** against C++. These include
+Each differential run compares **514,467 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -159,6 +163,15 @@ An exact float-threshold regression rejects the nearest f32 below the source's
 double `1e-8` sigma bound. Lowering that comparison to f32 first produced an
 incorrectly accepted header, which the independent oracle caught.
 
+Section-table comparisons include original entropy-coded permutations, 16/32-bit
+Lehmer workspaces, partial failures, skipped prefixes, structured/random orders,
+size-distribution boundaries, the 65,536-entry cap, group offsets/reordering,
+unaligned input/output, padding, nested layer charges, and damaged/truncated
+tables. Reused outputs retain stale permutations when the source reads no
+permutation bit. Native tests adapt the upstream Lehmer size ranges, including
+values above 16 bits, and locate distinct section payloads through the decoded
+offsets. These payloads are test sections, not an encoded image.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -190,7 +203,7 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port section tables and backing image/channel storage, then
+1. Port backing image/channel storage, then
    the first actual frame path.
 2. Connect modular prediction/residual coding and the transforms reached by the
    first-image configuration.
