@@ -233,6 +233,10 @@ establish this boundary.
 7. Record remaining configurations and unavailable cases explicitly. Passing
    indirect fuzzers alone does not establish coverage of the complete API, and
    this milestone does not claim SIMD or complete WebP codec coverage.
+8. Run applicable instrumented memory/cleanup checks and both development and
+   release comparisons. Record sanitizer runtime/toolchain compatibility and
+   allocation-failure evidence instead of inferring them from normal output
+   equality.
 
 ## Proposed program sequence
 
