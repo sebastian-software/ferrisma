@@ -402,3 +402,20 @@ writer unchanged. The native zero-gray test uses independently captured original
 42-bit modular sections (`258cc50ac100`, padded), not a JPEG XL codestream.
 Generated state/action corpora remain local infrastructure; complete frame
 entry points, decoding, and the first-image corpus are separate requirements.
+
+The Linux reference explicitly uses Clang with libc++ for the translated
+palette sort boundary. The same tied-element and heap-fallback differential
+corpus compares the actual selected standard library; no sort implementation
+is substituted in the adapter. Empty frame-group fixtures allocate a real
+zero-length span using the original writer before its original vector append.
+`tests/linux_scalar.rs` records the original x86_64/AArch64 downsampling and
+failed DC-scaling observations. Local x86 scalar calls retain the original
+ADDSS/MULSS operand order for competing NaN payloads; the source algorithms,
+existing AArch64 words, and differential comparison semantics remain unchanged.
+
+The original x86_64 GamutMap result for the existing native regression was
+captured independently with the ordinary Clang 21 reference. Its
+three output words are `0x7fe12345`; AArch64 retains the existing distinct blue
+word `0x7fc98765`. The native test now checks its target's exact source words,
+and the same input is added to the differential corpus. No production gamut
+algorithm or existing AArch64 expectation changes.

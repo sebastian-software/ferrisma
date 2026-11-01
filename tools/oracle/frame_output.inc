@@ -19,6 +19,11 @@ bool FrameOutputCommand(const std::string& command,std::istringstream& in,JxlMem
   for(size_t i=0;i<n;++i) {
     std::string data;size_t prefix;in>>data>>prefix;
     auto writer=std::make_unique<jxl::BitWriter>(mm);auto bytes=Unhex(data);
+    // A zero-length group still needs real backing storage when the original
+    // vector append passes its span to memcpy. Linux's nonnull declaration
+    // rejects a null source even for zero bytes. Allocate through the original
+    // writer without emitting any bits, retaining every empty-group case.
+    if(bytes.empty() && !writer->WithMaxBits(1,jxl::LayerType::Header,nullptr,[]{return jxl::Status(true);}))throw std::runtime_error("empty frame group allocation");
     if(!writer->AppendByteAligned(jxl::Bytes(bytes.data(),bytes.size())) || !Prefix(*writer,prefix))throw std::runtime_error("frame output group");
     groups.push_back(std::move(writer));
   }
