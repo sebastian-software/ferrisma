@@ -22,7 +22,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
 | `base/float.h` | `base/float.rs` | Complete LoadFloat16 and callback-based LoadFloatRow, including unsupported-format failure before access |
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
-| `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer/buffer/null-pool specialization of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; float output, callbacks, and custom runners unported |
+| `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer and Float16/Float32 buffer/null-pool specializations of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32/FloatToF16 with selected native-half-cast mapping, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; callbacks, custom runners, and alternate Highway half-conversion compile branches unported |
 | `encode_internal.h` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, and the buffer-backed adapter/channel construction, binding, copying, views, and format accessors; callback/JPEG input, CopyFromBuffer, queued frames, and output processors unported |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
@@ -136,20 +136,22 @@ This reference build adds no C/C++ dependency to ordinary Rust builds and does
 not establish completion of the Rust image path.
 
 Commands: `python3 tools/check.py --sanitizers --msrv` and
-`python3 tools/check.py --msrv` (ordinary C++ reference).
+`python3 tools/check.py` (ordinary C++ reference), followed by
+`cargo +1.85 test --locked --offline --all-features -- --nocapture` with
+`JXL_CPP_ORACLE` set to the absolute ordinary oracle path.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 323 tests, including 183 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 323 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 323 tests and corpus |
+| Rust debug | PASSED | 331 tests, including 188 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 331 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 331 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 323 tests and 703,419 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 331 tests and 731,006 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **703,419 requests** against C++. These include
+Each differential run compares **731,006 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -862,6 +864,22 @@ provided by the fixture. An early fixture value 9 exposed an undefined
 JxlEndianness enum load. Its unknown-value case now uses representable value 3,
 which retains the same source fall-through/output while preserving the case
 count; undefined value 9 receives no invented C++ codec meaning.
+
+Floating buffer export adds 27,587 differential requests in five groups and
+three ordinary native tests. The half-kernel groups compare 2,641 rows covering
+all 65,536 half words and both signs at every finite half midpoint's immediate
+binary32 neighbors, plus 1,434 rows of NaN payloads, exponent boundaries, and
+generated binary32 words. Another 2,232 raw-bit buffer cases compare native
+half casts and binary32 copies through both byte orders and 1..4 channels.
+The 2,848 channel cases retain orientation, missing channels, span/format guards,
+zero-row lifecycle, and unchanged padding/suffixes; 18,432 bundle cases preserve
+gray/RGB layouts, alpha presence/association/unpremultiplication, metadata state,
+and guard order. Native coverage independently checks every half word with
+native-cast NaN quieting, exact signaling-NaN Float32 copies, nullable-channel
+ones, endian/orientation stores, and error-time untouched buffers.
+The oracle enforces Highway's selected native-half-operator compile branch;
+alternate compiler/floating-environment behavior remains outside this slice.
+Floating file-level decoding is not inferred from this output component.
 
 Complete first-image integration adds 1,081 differential requests. The C++
 oracle executes the exact original DecodeFile and ReadICC helper bodies,

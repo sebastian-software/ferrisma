@@ -26,13 +26,38 @@ Generated complete images, prefix/corruption cases, and the exhaustive native
 16-bit image are local test infrastructure. They satisfy the fixed
 [first-image gate](FIRST_IMAGE.md), not the full upstream image-test inventory.
 
-`dec_external_image.cc`, its used scalar Highway NearestInt, and the
-UnpremultiplyAlpha loop in `alpha.cc` supply integer buffer export, orientation,
-clamping, rounding, interleaving, alpha behavior, and output-span checks.
-Float output, callback output, and custom runners remain separate. Source
+`dec_external_image.cc`, its used scalar Highway NearestInt/DemoteTo, and the
+UnpremultiplyAlpha loop in `alpha.cc` supply integer and floating buffer export,
+orientation, clamping, rounding, interleaving, alpha behavior, and output-span
+checks. The float functions explicitly select float_out=true with 16/32 bits;
+the existing integer functions retain their original types and implementation.
+Callback output and custom runners remain separate. Source
 JxlEndianness value 9 produces an undefined C++ enum load; the representable but
 unnamed value 3 tests its defined fall-through instead, with identical expected
 bytes and no dropped case. No sanitizer or exact-comparison suppression is used.
+
+Highway `hwy/ops/scalar-inl.h` delegates FloatToF16's DemoteTo to F16FromF32 in
+`hwy/base.h`. The reference's current Clang/GCC configurations select
+HWY_HAVE_SCALAR_F16_OPERATORS=1 and a native half cast. Stable Rust represents
+the resulting binary16 words with u16. Its finite nearest-even rounding follows
+Highway's explicit exponent/mantissa/carry algorithm; the selected native cast's
+NaN branch preserves sign and the top ten payload bits and sets the quiet bit.
+The fallback source branch instead canonicalizes NaNs, so it is not silently
+used as native-cast behavior. The float oracle rejects a non-native-operator
+configuration at compile time and invokes the unchanged original FloatToF16 and
+conversion functions. Float32 stores copy raw binary32 words, retaining signaling
+NaNs. Both branches retain original x-major interleaving and the half branch's
+native stores followed by a separate byte-swap pass. The original default IEEE
+rounding environment remains a precondition. Alternate floating environments,
+old compiler branches, SIMD, and performance parity are separate work.
+
+Generated floating-output cases cover every half word, both signs around every
+finite half midpoint, overflow boundaries, NaN payloads, generated binary32
+words, nullable channels, orientations, endian stores, alpha unpremultiplication,
+unchanged allocation suffixes, and failure/lifecycle guards. Native tests also
+round-trip all half words with the selected cast's NaN quieting. These are local
+component fixtures, not complete floating-image decoding or the full upstream
+test inventory.
 
 Modular group decoding, image-to-pipeline conversion, and finalization translate
 the complete corresponding methods in `lib/jxl/dec_modular.cc` under a null pool
