@@ -42,5 +42,12 @@ Applications and C/C++ test harnesses remain original consumers of the port.
 
 ## Status
 
-Source import is complete. Baseline setup and translation are in progress.
-No full-port or cross-platform parity claim has been established yet.
+The selected macOS AArch64 configuration is translated: 23 libavif modules and
+five bundled scalar libyuv modules. Both the C baseline and Rust implementation
+pass the same 64 CTest registrations containing 9,473 GoogleTest cases, plus the
+original C and shell tests. The port test build compiles no C library
+implementation; upstream C/C++ consumers remain unchanged.
+
+Optional adapters and preprocessor branches outside this configuration remain
+an explicit completion queue. Full feature and cross-platform parity have not
+been established. See `VALIDATION.md` for exact evidence and residual gaps.

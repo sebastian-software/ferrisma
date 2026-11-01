@@ -1,0 +1,22 @@
+[package]
+name = "libawfrs"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "Mechanical Rust port of the pinned libavif implementation"
+publish = false
+
+[lib]
+name = "avif"
+crate-type = ["staticlib", "rlib", "cdylib"]
+
+[dependencies]
+libc = "=0.2.191"
+
+[profile.dev]
+overflow-checks = false
+panic = "abort"
+
+[profile.release]
+overflow-checks = false
+panic = "abort"
