@@ -94,6 +94,7 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "render_pipeline.inc"
 #include "modular_groups.inc"
 #include "upsampling.inc"
+#include "gaborish_stage.inc"
 #include "output_encoding.inc"
 #include "decoder_state.inc"
 #include "cms_stage.inc"

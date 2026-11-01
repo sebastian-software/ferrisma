@@ -609,6 +609,18 @@ MulAdd in this stage retains separate multiplication/addition in the original
 compiled object, including on AArch64; it must not inherit another algorithm's
 explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
 
+Gaborish uses the same row descriptors and stores its nine normalized weights
+in source channel order. Its constructor keeps the ordinary reference Clang
+normalization contraction. The scalar reference ProcessRow object emits
+weight-first multiplications and accumulation-first additions for the nested
+Highway MulAdd expression. Preserve that local operand order for exact NaN
+payloads, together with each separate multiplication/addition rounding, rather
+than inheriting fused ordinary-expression helpers. This mapping changes neither
+the kernel, operation grouping, nor rounding checkpoints. Debug/release
+exceptional-value comparisons and independently captured ordinary Rust output
+words guard it. Reinspect the emitted operand order after compiler, source,
+target, or instrumentation changes; other targets need their own oracle runs.
+
 OutputEncodingInfo initializes source-indeterminate scalar/array storage safely;
 the oracle value-initializes those aggregate members explicitly. SetFromMetadata
 and MaybeSetColorEncoding perform SetColorEncoding's first profile copy at the

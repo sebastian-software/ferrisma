@@ -3,5 +3,6 @@
 pub mod render_pipeline_stage;
 pub mod simple_render_pipeline;
 pub mod stage_cms;
+pub mod stage_gaborish;
 pub mod stage_tone_mapping;
 pub mod stage_upsampling;

@@ -43,6 +43,16 @@ sections or standalone modular streams and initialized output sentinels.
 Native expected-sample integration is local infrastructure; neither fixture
 replaces complete codestream decoder or upstream image-test coverage.
 
+`render_pipeline/stage_gaborish.{h,cc}` supplies the complete scalar decoder
+Gaborish stage and factory. The oracle calls the actual original stage directly
+and inside the unchanged simple pipeline. Padded-row/random-weight/exceptional
+float corpora and the 3x2 ordinary Rust regression are local test infrastructure;
+the latter's exact words were captured independently from the original stage.
+The compiled scalar object's multiplication/addition operand order is retained
+for NaN payloads while preserving original separate Highway rounding. No filter
+algorithm is supplied by the C++ adapter. Full lossy frame integration and SIMD
+specializations remain separate work.
+
 `render_pipeline/stage_upsampling.{h,cc}` and Highway's scalar Min/Max/MulAdd
 operations supply the complete scalar upsampling stage. Differential requests
 execute the original stage with the original simple pipeline; the 3x2 native
