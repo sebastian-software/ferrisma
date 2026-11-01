@@ -465,6 +465,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
+bool QuantAcCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool QuantStorageCommand(const std::string& command,std::istringstream& in);
 bool FrameBuffersCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool SharedPrimitivesCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
@@ -525,6 +526,7 @@ int main() {
       else if (ExternalImageCommand(command, in, &mm)) {}
       else if (QuantDcCommand(command, in, &mm)) {}
       else if (QuantStorageCommand(command, in)) {}
+      else if (QuantAcCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

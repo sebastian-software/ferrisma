@@ -861,3 +861,28 @@ the fixed reference compiler's scalar instructions, not changes to the sums,
 scales, rounding, or error checkpoints. Review them after compiler/target
 changes. Captured-word native regressions and the unchanged differential
 corpora cover the observed failures.
+
+AC matrix computation retains the original single aligned owner: the first
+TOTAL_TABLE_SIZE f32 slots hold the table and the next slots hold its inverse.
+Two local views rely on the existing 128-byte alignment, initialized storage,
+exact byte count, and all-valid f32 bit patterns. Immutable access borrows the
+owner; computation splits its exclusive view into disjoint arrays. Matrix
+accessors check the source strategy/channel/computed-mask preconditions and
+return bounded aligned slices instead of pointers. Uncomputed slots have no
+source observation contract. Library entries preserve each original V(float)
+constant as an exact f32 word with its source expression beside it; OnceLock
+owns the immutable static library.
+
+DequantMatrices::Decode recreates Library<0> owners before parsing. Retain its
+initialized 27-float AFV payload as overlapping backing for partial non-RAW
+writes until the original successful final mode assignment. A failure keeps
+the old mode, already written/scaled payload words, and distance-band fields.
+Successful decoding selects the corresponding typed payload. RAW commits its
+mode and optional vector owner before reading its denominator or modular image,
+then retains each copied sample before a nonpositive-sample error. Decode clears
+the computed mask only after every table succeeds, preserving an existing mask
+and allocation on failure. DecodeQuantTable lives beside the QuantEncoding owner;
+its optional frame decoder is an immutable borrow of the same original frame
+dimensions/tree/code/context owners because that source routine mutates none of
+them. Native allocators and the null-pool scalar path retain their established
+scope; general AC encoding and VarDCT frame orchestration remain separate work.
