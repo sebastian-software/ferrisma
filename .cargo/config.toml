@@ -1,0 +1,4 @@
+# Match contraction in the pinned AppleClang portable C reference without
+# rewriting the original floating-point expressions. See ADR 0021.
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "llvm-args=-fp-contract=fast"]

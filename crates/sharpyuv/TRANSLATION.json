@@ -1,0 +1,75 @@
+{
+  "translator": "c2rust 0.21.0",
+  "llvm": "16.0.6",
+  "reference": "Debug, WEBP_ENABLE_SIMD=OFF, WEBP_USE_THREAD=ON",
+  "generation_target": "aarch64-apple-darwin",
+  "units": [
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_sse2.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_sse2.rs",
+      "raw_sha256": "eb15aa8f4718ef873b2ba685785052c13dcf8d760fc471a205828ce1713d8402",
+      "rust_sha256": "a38520b8edd7af31c057b8f114d6074769ff1af6ead1df83a202a89144abb0e8",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_neon.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_neon.rs",
+      "raw_sha256": "0797c82edea45c0110795cfc215b41fe7b4c118dfc2258ed489a35b1dae38400",
+      "rust_sha256": "2561f45575b8cf2e5ba085ed92851756da094c65f15305f2d1ee177b888e3e4f",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_cpu.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_cpu.rs",
+      "raw_sha256": "72119358e0cb8c4bf0b4b155865756f36a61d6726e74e6387ec764a6b643a183",
+      "rust_sha256": "ccf793745bdd1a212538bd5dbb0eed9cbcd82a4aeedc0de500ac3688f3a173ec",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_csp.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_csp.rs",
+      "raw_sha256": "a8cbc3de7c7871fd8d57bf6a214052879a1ed44b3315f20ca6d6c02e480dc9cf",
+      "rust_sha256": "d05f60c712b59f9cc3ea9785eb41d6e211b25ee1dd7a6a2c0cd578b9933613a4",
+      "corrections": {
+        "target-runtime-assertion": 1,
+        "shared-header-type": 1,
+        "raw-static-address": 5
+      }
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_dsp.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_dsp.rs",
+      "raw_sha256": "6057222ba7fe9979bb8fc80f4f85ef6758b6ca90bb62f473721f5013828c45dc",
+      "rust_sha256": "3143684282324867c98d7dc80afc850d682dba517e9c38c56d1ebf92d6398fb1",
+      "corrections": {
+        "target-runtime-assertion": 3,
+        "raw-static-address": 4,
+        "discard-empty-conditional-result": 1
+      }
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_gamma.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_gamma.rs",
+      "raw_sha256": "5cb0ad3c1029e279d94ba994f22dd36027c72ea791a73ffc01242f0054063f9c",
+      "rust_sha256": "7eeaea02f180d3e9ce3c54c707e0570409bddae4b4966217eef901a726d746f9",
+      "corrections": {
+        "static-raw-address": 2,
+        "target-runtime-assertion": 3,
+        "raw-static-address": 1
+      }
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv.c",
+      "rust": "crates/sharpyuv/src/sharpyuv.rs",
+      "raw_sha256": "49b00b7aee3e756fdcd40761c7fa973d8d52f233bee2caa4fecdc73adfa6d04d",
+      "rust_sha256": "e3aeac3080f5c4f21d36980c583474e1e7de3f3f977382c2d67ba4d5c1ab02f7",
+      "corrections": {
+        "target-runtime-assertion": 3,
+        "test-allocator-symbols": 2,
+        "opaque-callback-sentinel": 1,
+        "target-libc-mutex": 1,
+        "raw-static-address": 7
+      }
+    }
+  ]
+}
