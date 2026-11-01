@@ -216,6 +216,24 @@ fn scalar_fast_power_and_pq_rational_signs_thresholds_and_exceptional_values_mat
 #[test]
 fn scalar_tone_mapping_ootf_and_gamut_operations_match_original() {
     let mut cases = Vec::new();
+    // The ordinary native regression's independently captured source input.
+    // Keep exact per-target NaN payload evidence in the real oracle as well.
+    cases.push(format!(
+        "tm-color 4 {}",
+        words(&[
+            0.0,
+            1000.0,
+            0.0,
+            255.0,
+            0.2126,
+            0.7152,
+            0.0722,
+            -0.0,
+            f32::from_bits(0x7fa12345),
+            f32::from_bits(0x7fc98765),
+            0.0,
+        ])
+    ));
     for which in 0..5 {
         for (source, target) in [
             (1000.0, 255.0),

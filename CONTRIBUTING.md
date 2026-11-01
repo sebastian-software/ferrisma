@@ -53,6 +53,13 @@ is reimplemented in the adapter.
 - Python 3, Git, CMake 3.18 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
 
+The Linux oracle requires Clang and the libc++/libc++abi development packages
+(`libc++-dev` and `libc++abi-dev` on Ubuntu). CMake explicitly selects libc++:
+the Rust palette sorting boundary translates that library's recorded algorithm.
+Using libstdc++ changes the order of equivalent palette entries. This choice
+affects only the C++ test reference; ordinary Rust builds remain independent
+of a C++ standard library.
+
 Initialize the reference source and its pinned Highway, Brotli, and skcms
 dependencies. The oracle builds the complete original static codec library
 through upstream CMake, including its default color management implementation:

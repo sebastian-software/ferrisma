@@ -140,3 +140,18 @@ comparison or a change to an existing source algorithm/optimization. Review it
 with compiler/target/source changes; do not replace it with NaN rewriting or
 relaxed comparisons. Ordinary and instrumented complete-image parity remain
 separate required regression gates.
+
+Select libc++ explicitly for the Linux Clang reference and install its
+development packages in CI. The translated palette sort preserves the recorded
+libc++ non-arithmetic specialization; silently selecting libstdc++ compares a
+different algorithm with a different equivalent-element order. The complete
+existing sort and codec corpus remains enabled for the selected library.
+Other standard-library algorithms/configurations require separate translation
+and evidence. This does not add a C++ dependency to the Rust library.
+
+The frame-finalization fixture allocates backing storage for an empty group
+through the original BitWriter::WithMaxBits without writing bits. Its vector
+append calls memcpy even for a zero-byte span when other groups are nonempty;
+Linux's nonnull declaration rejects a null source. Supply a real zero-length
+span rather than suppress that sanitizer check or remove empty-group cases.
+The original writer and codec source stay unchanged.
