@@ -4,6 +4,12 @@
 // Mechanically translated from upstream/libavif/src/avif.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
+    fn avifCodecVersionSvt() -> *const core::ffi::c_char;
+    fn avifCodecCreateSvt() -> *mut avifCodec;
+    fn avifCodecVersionRav1e() -> *const core::ffi::c_char;
+    fn avifCodecCreateRav1e() -> *mut avifCodec;
+    fn avifCodecVersionGav1() -> *const core::ffi::c_char;
+    fn avifCodecCreateGav1() -> *mut avifCodec;
     pub type avifEncoderData;
     pub type avifCodecInternal;
     fn avifAlloc(size: size_t) -> *mut core::ffi::c_void;
@@ -2220,7 +2226,7 @@ pub unsafe extern "C" fn avifCodecSpecificOptionsSet(
     }
     return AVIF_RESULT_OK;
 }
-static mut availableCodecs: [AvailableCodec; 3] = unsafe {
+static mut availableCodecs: [AvailableCodec; 3 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize] = unsafe {
     [
         {
             let mut init = AvailableCodec {
@@ -2233,6 +2239,23 @@ static mut availableCodecs: [AvailableCodec; 3] = unsafe {
                 ),
                 create: Some(
                     avifCodecCreateDav1d as unsafe extern "C" fn() -> *mut avifCodec,
+                ),
+                flags: AVIF_CODEC_FLAG_CAN_DECODE as core::ffi::c_int as uint32_t,
+            };
+            init
+        },
+        #[cfg(feature = "libgav1")]
+        {
+            let mut init = AvailableCodec {
+                choice: AVIF_CODEC_CHOICE_LIBGAV1,
+                type_0: AVIF_CODEC_TYPE_AV1,
+                name: b"libgav1\0" as *const u8 as *const core::ffi::c_char,
+                version: Some(
+                    avifCodecVersionGav1
+                        as unsafe extern "C" fn() -> *const core::ffi::c_char,
+                ),
+                create: Some(
+                    avifCodecCreateGav1 as unsafe extern "C" fn() -> *mut avifCodec,
                 ),
                 flags: AVIF_CODEC_FLAG_CAN_DECODE as core::ffi::c_int as uint32_t,
             };
@@ -2252,6 +2275,40 @@ static mut availableCodecs: [AvailableCodec; 3] = unsafe {
                 ),
                 flags: (AVIF_CODEC_FLAG_CAN_DECODE as core::ffi::c_int
                     | AVIF_CODEC_FLAG_CAN_ENCODE as core::ffi::c_int) as uint32_t,
+            };
+            init
+        },
+        #[cfg(feature = "rav1e")]
+        {
+            let mut init = AvailableCodec {
+                choice: AVIF_CODEC_CHOICE_RAV1E,
+                type_0: AVIF_CODEC_TYPE_AV1,
+                name: b"rav1e\0" as *const u8 as *const core::ffi::c_char,
+                version: Some(
+                    avifCodecVersionRav1e
+                        as unsafe extern "C" fn() -> *const core::ffi::c_char,
+                ),
+                create: Some(
+                    avifCodecCreateRav1e as unsafe extern "C" fn() -> *mut avifCodec,
+                ),
+                flags: AVIF_CODEC_FLAG_CAN_ENCODE as core::ffi::c_int as uint32_t,
+            };
+            init
+        },
+        #[cfg(feature = "svt")]
+        {
+            let mut init = AvailableCodec {
+                choice: AVIF_CODEC_CHOICE_SVT,
+                type_0: AVIF_CODEC_TYPE_AV1,
+                name: b"svt\0" as *const u8 as *const core::ffi::c_char,
+                version: Some(
+                    avifCodecVersionSvt
+                        as unsafe extern "C" fn() -> *const core::ffi::c_char,
+                ),
+                create: Some(
+                    avifCodecCreateSvt as unsafe extern "C" fn() -> *mut avifCodec,
+                ),
+                flags: AVIF_CODEC_FLAG_CAN_ENCODE as core::ffi::c_int as uint32_t,
             };
             init
         },
@@ -2482,7 +2539,7 @@ pub unsafe extern "C" fn avifGainMapDestroy(mut gainMap: *mut avifGainMap) {
     avifFree(gainMap as *mut core::ffi::c_void);
 }
 unsafe extern "C" fn run_static_initializers() {
-    availableCodecsCount = (::core::mem::size_of::<[AvailableCodec; 3]>() as usize)
+    availableCodecsCount = (::core::mem::size_of::<[AvailableCodec; 3 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize]>() as usize)
         .wrapping_div(::core::mem::size_of::<AvailableCodec>() as usize)
         .wrapping_sub(1 as usize) as core::ffi::c_int;
 }

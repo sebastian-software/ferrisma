@@ -17,6 +17,10 @@ libc = "=0.2.191"
 default = []
 mini = []
 extended-pixi = []
+libgav1 = []
+rav1e = []
+svt = []
+libyuv = []
 
 [profile.dev]
 overflow-checks = false

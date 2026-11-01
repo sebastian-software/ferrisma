@@ -7343,18 +7343,18 @@ unsafe extern "C" fn avifRWStreamWriteProperties(
                         }
                     }
                     if foundPreviousCell != 0 {
-                        current_block_392 = 792017965103506125;
+                        current_block_392 = 0;
                     } else {
-                        current_block_392 = 4775909272756257391;
+                        current_block_392 = 1;
                     }
                 } else {
-                    current_block_392 = 4775909272756257391;
+                    current_block_392 = 1;
                 }
             } else {
-                current_block_392 = 4775909272756257391;
+                current_block_392 = 1;
             }
             match current_block_392 {
-                792017965103506125 => {}
+                0 => {}
                 _ => {
                     let mut itemMetadata: *const avifImage = imageMetadata;
                     if isToneMappedImage != 0 {
@@ -10303,15 +10303,15 @@ pub unsafe extern "C" fn avifEncoderFinish(
                         if (*frame_0).durationInTimescales
                             == (*nextFrame).durationInTimescales
                         {
-                            current_block_1350 = 7310113571530755427;
+                            current_block_1350 = 2;
                         } else {
-                            current_block_1350 = 3758930826802190082;
+                            current_block_1350 = 3;
                         }
                     } else {
-                        current_block_1350 = 3758930826802190082;
+                        current_block_1350 = 3;
                     }
                     match current_block_1350 {
-                        3758930826802190082 => {
+                        3 => {
                             let result___188: avifResult = avifRWStreamWriteU32(
                                 &mut s,
                                 sampleCount,

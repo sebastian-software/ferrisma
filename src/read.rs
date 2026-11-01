@@ -2489,7 +2489,7 @@ unsafe extern "C" fn avifDecoderItemMaxExtent(
         if remainingOffset != 0 {
             if remainingOffset >= extentSize as uint64_t {
                 remainingOffset = remainingOffset.wrapping_sub(extentSize as uint64_t);
-                current_block_36 = 9606288038608642794;
+                current_block_36 = 0;
             } else {
                 if remainingOffset > (UINT64_MAX as uint64_t).wrapping_sub(startOffset) {
                     return AVIF_RESULT_BMFF_PARSE_FAILED;
@@ -2497,13 +2497,13 @@ unsafe extern "C" fn avifDecoderItemMaxExtent(
                 startOffset = startOffset.wrapping_add(remainingOffset);
                 extentSize = extentSize.wrapping_sub(remainingOffset as size_t);
                 remainingOffset = 0 as uint64_t;
-                current_block_36 = 7172762164747879670;
+                current_block_36 = 1;
             }
         } else {
-            current_block_36 = 7172762164747879670;
+            current_block_36 = 1;
         }
         match current_block_36 {
-            7172762164747879670 => {
+            1 => {
                 let usedExtentSize: size_t = if extentSize < remainingBytes {
                     extentSize
                 } else {
@@ -11426,18 +11426,18 @@ pub unsafe extern "C" fn avifDecoderReset(mut decoder: *mut avifDecoder) -> avif
                         & AVIF_IMAGE_CONTENT_COLOR as core::ffi::c_int
                             as avifImageContentTypeFlags == 0
                     {
-                        current_block_380 = 4009691900104957566;
+                        current_block_380 = 2;
                     } else {
-                        current_block_380 = 6762054512782224738;
+                        current_block_380 = 3;
                     }
                 } else if c_2 == AVIF_ITEM_ALPHA as core::ffi::c_int {
                     if (*decoder).imageContentToDecode
                         & AVIF_IMAGE_CONTENT_ALPHA as core::ffi::c_int
                             as avifImageContentTypeFlags == 0
                     {
-                        current_block_380 = 4009691900104957566;
+                        current_block_380 = 2;
                     } else {
-                        current_block_380 = 6762054512782224738;
+                        current_block_380 = 3;
                     }
                 } else if c_2
                     == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR as core::ffi::c_int
@@ -11453,7 +11453,7 @@ pub unsafe extern "C" fn avifDecoderReset(mut decoder: *mut avifDecoder) -> avif
                     {
                         return AVIF_RESULT_INTERNAL_ERROR;
                     }
-                    current_block_380 = 6762054512782224738;
+                    current_block_380 = 3;
                 } else if c_2
                     == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA as core::ffi::c_int
                     || c_2
@@ -11468,7 +11468,7 @@ pub unsafe extern "C" fn avifDecoderReset(mut decoder: *mut avifDecoder) -> avif
                     {
                         return AVIF_RESULT_INTERNAL_ERROR;
                     }
-                    current_block_380 = 6762054512782224738;
+                    current_block_380 = 3;
                 } else {
                     if !(c_2 == AVIF_ITEM_GAIN_MAP as core::ffi::c_int) {
                         return AVIF_RESULT_INTERNAL_ERROR;
@@ -11477,13 +11477,13 @@ pub unsafe extern "C" fn avifDecoderReset(mut decoder: *mut avifDecoder) -> avif
                         & AVIF_IMAGE_CONTENT_GAIN_MAP as core::ffi::c_int
                             as avifImageContentTypeFlags == 0
                     {
-                        current_block_380 = 4009691900104957566;
+                        current_block_380 = 2;
                     } else {
-                        current_block_380 = 6762054512782224738;
+                        current_block_380 = 3;
                     }
                 }
                 match current_block_380 {
-                    4009691900104957566 => {}
+                    2 => {}
                     _ => {
                         let result___13: avifResult = avifDecoderGenerateImageTiles(
                             decoder,

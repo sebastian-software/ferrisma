@@ -801,7 +801,7 @@ pub unsafe extern "C" fn avifRGBImageApplyGainMap(
                         rescaledGainMap = avifImageCreateEmpty();
                         if rescaledGainMap.is_null() {
                             res = AVIF_RESULT_OUT_OF_MEMORY;
-                            current_block = 7877618004816549516;
+                            current_block = 0;
                         } else {
                             let rect: avifCropRect = {
                                 let mut init = avifCropRect {
@@ -820,23 +820,23 @@ pub unsafe extern "C" fn avifRGBImageApplyGainMap(
                             if res as core::ffi::c_uint
                                 != AVIF_RESULT_OK as core::ffi::c_int as core::ffi::c_uint
                             {
-                                current_block = 7877618004816549516;
+                                current_block = 0;
                             } else {
                                 res = avifImageScale(rescaledGainMap, width, height, diag);
                                 if res as core::ffi::c_uint
                                     != AVIF_RESULT_OK as core::ffi::c_int as core::ffi::c_uint
                                 {
-                                    current_block = 7877618004816549516;
+                                    current_block = 0;
                                 } else {
-                                    current_block = 10067844863897285902;
+                                    current_block = 1;
                                 }
                             }
                         }
                     } else {
-                        current_block = 10067844863897285902;
+                        current_block = 1;
                     }
                     match current_block {
-                        7877618004816549516 => {}
+                        0 => {}
                         _ => {
                             gainMapImage = if !rescaledGainMap.is_null() {
                                 rescaledGainMap as *mut avifImage
@@ -938,7 +938,7 @@ pub unsafe extern "C" fn avifRGBImageApplyGainMap(
                                         let mut j_0: uint32_t = 0 as uint32_t;
                                         's_398: loop {
                                             if !(j_0 < height) {
-                                                current_block = 10109057886293123569;
+                                                current_block = 2;
                                                 break;
                                             }
                                             let mut i_0: uint32_t = 0 as uint32_t;
@@ -1032,7 +1032,7 @@ pub unsafe extern "C" fn avifRGBImageApplyGainMap(
                                                             j_0,
                                                         );
                                                         res = AVIF_RESULT_INVALID_TONE_MAPPED_IMAGE;
-                                                        current_block = 7877618004816549516;
+                                                        current_block = 0;
                                                         break 's_398;
                                                     } else {
                                                         toneMappedPixelRGBA[c_3 as usize] = avifNanSafeClamp(
@@ -1060,7 +1060,7 @@ pub unsafe extern "C" fn avifRGBImageApplyGainMap(
                                             j_0 = j_0.wrapping_add(1);
                                         }
                                         match current_block {
-                                            7877618004816549516 => {}
+                                            0 => {}
                                             _ => {
                                                 if !clli.is_null() {
                                                     (*clli).maxCLL = (if avifRoundf(rgbMaxLinear * 203.0f32)
@@ -1667,21 +1667,21 @@ pub unsafe extern "C" fn avifRGBImageComputeGainMap(
         let mut c: core::ffi::c_int = 0 as core::ffi::c_int;
         loop {
             if !(c < numGainMapChannels) {
-                current_block = 11636175345244025579;
+                current_block = 3;
                 break;
             }
             gainMapF[c as usize] = avifAlloc(gainMapChannelSize)
                 as *mut core::ffi::c_float;
             if (gainMapF[c as usize]).is_null() {
                 res = AVIF_RESULT_OUT_OF_MEMORY;
-                current_block = 1959694534766606725;
+                current_block = 4;
                 break;
             } else {
                 c += 1;
             }
         }
         match current_block {
-            1959694534766606725 => {}
+            4 => {}
             _ => {
                 avifGainMapSetEncodingDefaults(gainMap);
                 (*gainMap).useBaseColorSpace = (gainMapMathPrimaries as core::ffi::c_int
@@ -1719,9 +1719,9 @@ pub unsafe extern "C" fn avifRGBImageComputeGainMap(
                                     as *const core::ffi::c_char,
                             );
                             res = AVIF_RESULT_NOT_IMPLEMENTED;
-                            current_block = 1959694534766606725;
+                            current_block = 4;
                         } else {
-                            current_block = 2543120759711851213;
+                            current_block = 5;
                         }
                     } else if avifColorPrimariesComputeRGBToRGBMatrix(
                         baseColorPrimaries,
@@ -1735,15 +1735,15 @@ pub unsafe extern "C" fn avifRGBImageComputeGainMap(
                                 as *const core::ffi::c_char,
                         );
                         res = AVIF_RESULT_NOT_IMPLEMENTED;
-                        current_block = 1959694534766606725;
+                        current_block = 4;
                     } else {
-                        current_block = 2543120759711851213;
+                        current_block = 5;
                     }
                 } else {
-                    current_block = 2543120759711851213;
+                    current_block = 5;
                 }
                 match current_block {
-                    1959694534766606725 => {}
+                    4 => {}
                     _ => {
                         baseOffset = [
                             avifSignedFractionToFloat(
@@ -1977,7 +1977,7 @@ pub unsafe extern "C" fn avifRGBImageComputeGainMap(
                             let mut c_6: core::ffi::c_int = 0 as core::ffi::c_int;
                             loop {
                                 if !(c_6 < numGainMapChannels) {
-                                    current_block = 1604201581803946138;
+                                    current_block = 6;
                                     break;
                                 }
                                 res = avifFindMinMaxWithoutOutliers(
@@ -1989,18 +1989,18 @@ pub unsafe extern "C" fn avifRGBImageComputeGainMap(
                                 if res as core::ffi::c_uint
                                     != AVIF_RESULT_OK as core::ffi::c_int as core::ffi::c_uint
                                 {
-                                    current_block = 1959694534766606725;
+                                    current_block = 4;
                                     break;
                                 }
                                 c_6 += 1;
                             }
                             match current_block {
-                                1959694534766606725 => {}
+                                4 => {}
                                 _ => {
                                     let mut c_7: core::ffi::c_int = 0 as core::ffi::c_int;
                                     loop {
                                         if !(c_7 < 3 as core::ffi::c_int) {
-                                            current_block = 6712573431332408062;
+                                            current_block = 7;
                                             break;
                                         }
                                         if avifDoubleToSignedFraction(
@@ -2037,14 +2037,14 @@ pub unsafe extern "C" fn avifRGBImageComputeGainMap(
                                             ) == 0
                                         {
                                             res = AVIF_RESULT_INVALID_ARGUMENT;
-                                            current_block = 1959694534766606725;
+                                            current_block = 4;
                                             break;
                                         } else {
                                             c_7 += 1;
                                         }
                                     }
                                     match current_block {
-                                        1959694534766606725 => {}
+                                        4 => {}
                                         _ => {
                                             let mut c_8: core::ffi::c_int = 0 as core::ffi::c_int;
                                             while c_8 < numGainMapChannels {

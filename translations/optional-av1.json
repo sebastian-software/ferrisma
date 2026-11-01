@@ -1,0 +1,51 @@
+{
+  "translator": "c2rust 0.21.0",
+  "units": [
+    {
+      "source": "upstream/libavif/src/codec_libgav1.c",
+      "rust": "src/codec_libgav1.rs",
+      "raw_sha256": "1cefdf37a10bf3affbcd9abf3a25b255ff40d12c13cff3a9e07810ae1ac615fb",
+      "rust_sha256": "464ca28244230f763f4d9b3c2d8ee1d0689f53e55658e40f72a5b4bc8205fdd7",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/codec_rav1e.c",
+      "rust": "src/codec_rav1e.rs",
+      "raw_sha256": "315d4acabf033ea61c27db03a0571bc67af2a715e1b84755526b2b0972237e97",
+      "rust_sha256": "ba4355bc514a72f71bb20782210d6dd8894e1b2471c690e5c52ee84b5cf393cf",
+      "corrections": {
+        "canonical-cfg-labels": 9
+      }
+    },
+    {
+      "source": "upstream/libavif/src/codec_svt.c",
+      "rust": "src/codec_svt.rs",
+      "raw_sha256": "038853d2b6ce1767c696b18265ee159170c3a63d56a515376eb3d7545c29b878",
+      "rust_sha256": "e7141a15eadb2fe7b2d7dc4c615e098d46e40f2fb05cffbbf207970fd25d91ac",
+      "corrections": {
+        "canonical-cfg-labels": 4
+      }
+    },
+    {
+      "source": "upstream/libavif/src/reformat_libyuv.c",
+      "rust": "src/variants/libyuv/reformat_libyuv.rs",
+      "raw_sha256": "10dc03bb60cee751e71564b11811473485b4139ccb5879b463e78382e93e75c6",
+      "rust_sha256": "32c840f8b7f188540be17bcab11532d5d016d8cc8da5863a4f9dd64d8d4e008b",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/scale.c",
+      "rust": "src/variants/libyuv/scale.rs",
+      "raw_sha256": "f5d6b859dc062f615edec8598da6c5bea8e04615ee07d4e557cff743c967eb70",
+      "rust_sha256": "bf7530d7d2679dfa0b16d42f062b970f83c8eb28420bc5ce0311ce0e542e8e05",
+      "corrections": {
+        "canonical-cfg-labels": 3
+      }
+    }
+  ],
+  "libgav1_revision": "c05bf9be660cf170d7c26bd06bb42b3322180e58",
+  "rav1e_version": "0.8.1",
+  "svt_version": "4.2.0",
+  "libyuv_revision": "26e56be0f984af3dae4d0c0ab7a0bac8ac20e1b0",
+  "header_overlay": "Only libyuv's external pointer-only vector records are opaque during translation"
+}

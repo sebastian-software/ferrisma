@@ -13,9 +13,6 @@ pub mod diag;
 #[cfg_attr(all(feature = "mini", feature = "extended-pixi"), path = "variants/mini-extended-pixi/exif.rs")]
 pub mod exif;
 
-#[cfg_attr(all(feature = "mini", not(feature = "extended-pixi")), path = "variants/mini/gainmap.rs")]
-#[cfg_attr(all(not(feature = "mini"), feature = "extended-pixi"), path = "variants/extended-pixi/gainmap.rs")]
-#[cfg_attr(all(feature = "mini", feature = "extended-pixi"), path = "variants/mini-extended-pixi/gainmap.rs")]
 pub mod gainmap;
 
 pub mod io;
@@ -37,13 +34,12 @@ pub mod reformat;
 
 pub mod reformat_libsharpyuv;
 
+#[cfg_attr(feature = "libyuv", path = "variants/libyuv/reformat_libyuv.rs")]
 pub mod reformat_libyuv;
 
 pub mod sampletransform;
 
-#[cfg_attr(all(feature = "mini", not(feature = "extended-pixi")), path = "variants/mini/scale.rs")]
-#[cfg_attr(all(not(feature = "mini"), feature = "extended-pixi"), path = "variants/extended-pixi/scale.rs")]
-#[cfg_attr(all(feature = "mini", feature = "extended-pixi"), path = "variants/mini-extended-pixi/scale.rs")]
+#[cfg_attr(feature = "libyuv", path = "variants/libyuv/scale.rs")]
 pub mod scale;
 
 pub mod stream;
@@ -59,6 +55,7 @@ pub mod codec_dav1d;
 
 pub mod codec_aom;
 
+#[cfg(not(feature = "libyuv"))]
 pub mod libyuv {
     pub mod scale;
     pub mod scale_common;
@@ -66,3 +63,9 @@ pub mod libyuv {
     pub mod row_common;
     pub mod planar_functions;
 }
+#[cfg(feature = "libgav1")]
+pub mod codec_libgav1;
+#[cfg(feature = "rav1e")]
+pub mod codec_rav1e;
+#[cfg(feature = "svt")]
+pub mod codec_svt;

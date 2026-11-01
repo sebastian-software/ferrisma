@@ -25,11 +25,15 @@ for unit in base:
         alternative = variants[name][unit["source"]]["rust"]
         if alternative != unit["rust"]:
             lines.append(f'#[cfg_attr({condition}, path = "{alternative[4:]}")]')
+    if Path(unit["rust"]).stem in ("scale", "reformat_libyuv") and (ROOT / "src/variants/libyuv" / Path(unit["rust"]).name).exists():
+        lines.append(f'#[cfg_attr(feature = "libyuv", path = "variants/libyuv/{Path(unit["rust"]).name}")]')
     lines.append(f"pub mod {Path(unit['rust']).stem};")
     lines.append("")
-lines += ["pub mod libyuv {"]
+lines += ['#[cfg(not(feature = "libyuv"))]', "pub mod libyuv {"]
 for unit in base:
     if unit["rust"].startswith("src/libyuv/"):
         lines.append(f"    pub mod {Path(unit['rust']).stem};")
 lines.append("}")
+for feature in ["libgav1", "rav1e", "svt"]:
+    lines += [f'#[cfg(feature = "{feature}")]', f'pub mod codec_{feature};']
 (ROOT / "src/modules.rs").write_text("\n".join(lines) + "\n")

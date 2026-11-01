@@ -14,9 +14,10 @@
       "source": "upstream/libavif/src/avif.c",
       "rust": "src/avif.rs",
       "raw_sha256": "afbfc6d777297e705aef6374f85c38b1042f1652f9d07cd4edae0b853097a02a",
-      "rust_sha256": "f1b47320e29da39c00f3273bebc4f673f30b63cb3ce1f7ce7a43218de47a9fd3",
+      "rust_sha256": "0791e05dd50477250004402d38c9c65830d3fc098df2aead5265c21f6b2e3758",
       "corrections": {
-        "static-raw-address": 1
+        "static-raw-address": 1,
+        "codec-feature-guards": 3
       }
     },
     {
@@ -55,10 +56,11 @@
     },
     {
       "source": "upstream/libavif/src/gainmap.c",
-      "rust": "src/variants/extended-pixi/gainmap.rs",
+      "rust": "src/gainmap.rs",
       "raw_sha256": "9bac72ab3b2e9ad6239b6ec8373892eca3f886071e9084b70840c6df191108c2",
-      "rust_sha256": "645d29534c5456bbf5d6da49abc81243ea47550c472db96b76ccf3e89cfffde8",
+      "rust_sha256": "d81b034b8ca13436bc66c6509a26841e1d3a15a8fb2dd5974aeec74ba1dd2401",
       "corrections": {
+        "canonical-cfg-labels": 8,
         "darwin-long-double": 3
       }
     },
@@ -103,8 +105,9 @@
       "source": "upstream/libavif/src/read.c",
       "rust": "src/variants/extended-pixi/read.rs",
       "raw_sha256": "5967fcea6731704a4eff3682de62bdcc7849c0da99678389b59b79ad52864603",
-      "rust_sha256": "baa46a3e9e01267ecf54538f351ac36411e2244f0358f4127f7bee41ac1fdae5",
+      "rust_sha256": "caed6a38aa9121d57696cc75cb6621c47ce5e280afca148c1f55087a92b5f17b",
       "corrections": {
+        "canonical-cfg-labels": 4,
         "static-raw-address": 1,
         "local-sdk-inline": 1
       }
@@ -139,10 +142,12 @@
     },
     {
       "source": "upstream/libavif/src/scale.c",
-      "rust": "src/variants/extended-pixi/scale.rs",
+      "rust": "src/scale.rs",
       "raw_sha256": "4b8c89a546427ea35a6e1fb55745c4784ef2f88cbd40438e3253a38e0834988f",
-      "rust_sha256": "8e404f6294669ad891ed8595f7f975d02fb0d2f708dee10ce561f5792bd24a68",
-      "corrections": {}
+      "rust_sha256": "bf7530d7d2679dfa0b16d42f062b970f83c8eb28420bc5ce0311ce0e542e8e05",
+      "corrections": {
+        "canonical-cfg-labels": 3
+      }
     },
     {
       "source": "upstream/libavif/src/stream.c",
@@ -164,8 +169,9 @@
       "source": "upstream/libavif/src/write.c",
       "rust": "src/variants/extended-pixi/write.rs",
       "raw_sha256": "2729d42a870fbb647b5bdeaf686aa09ca1556a1e5f7188d4469b0fa68072e35e",
-      "rust_sha256": "a9741d14b9ea3a503d083e7443c0e7c98a7c6d42efd834d2567423a2b3e678c2",
+      "rust_sha256": "12ef81b1ace8b213ff32b74c38efaaed2e0916914a4fe1ef9d82f81cf395bf0d",
       "corrections": {
+        "canonical-cfg-labels": 4,
         "static-raw-address": 13
       }
     },

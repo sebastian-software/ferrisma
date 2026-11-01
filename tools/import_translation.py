@@ -9,9 +9,23 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def translate(source: Path, raw: str) -> tuple[str, dict]:
+def translate(source: Path, raw: str, codec_registry: bool = True) -> tuple[str, dict]:
     text = raw
     changes = {}
+
+    # C2Rust hashes CFG labels using translation-unit identities. Canonicalize
+    # only dispatcher assignments and matching arms, not source data constants.
+    labels = {}
+    for label in re.findall(r"\bcurrent_block(?:_\d+)? = (\d+);", text):
+        if label not in labels:
+            labels[label] = str(len(labels))
+    pattern = r"(\bcurrent_block(?:_\d+)? = )(\d+)(?=;)|(^\s*)(\d+)(?= =>)"
+    def relabel(match):
+        prefix, value = (match[1], match[2]) if match[1] is not None else (match[3], match[4])
+        return prefix + labels.get(value, value)
+    text, count = re.subn(pattern, relabel, text, flags=re.M)
+    if labels:
+        changes["canonical-cfg-labels"] = len(labels)
 
     def replace(old, new, label):
         nonlocal text
@@ -62,6 +76,19 @@ def translate(source: Path, raw: str) -> tuple[str, dict]:
             "variadic-abi",
         )
 
+    registry_path = ROOT / "translations/codec-registry.json"
+    if codec_registry and source.stem == "avif" and registry_path.exists():
+        registry = json.loads(registry_path.read_text())
+        start = text.index("static mut availableCodecs:")
+        end = text.index("\nstatic mut availableCodecsCount:", start)
+        text = text[:start] + registry["table"] + text[end:]
+        text = re.sub(r"\[AvailableCodec; \d+\]", registry["array_type"], text)
+        for declaration in registry["declarations"]:
+            name = re.search(r"fn (\w+)", declaration).group(1)
+            if not re.search(r"\bfn " + name + r"\(", text):
+                text = text.replace('extern "C" {', 'extern "C" {\n' + declaration, 1)
+        changes["codec-feature-guards"] = len(registry["declarations"]) // 2
+
     # Retain the original leading copyright/license notice verbatim.
     original = source.read_text()
     notice = re.match(r"(?:(?:\s*//[^\n]*\n)|(?:\s*/\*.*?\*/\s*))*", original, re.S).group().rstrip()
@@ -109,6 +136,12 @@ def main():
     if not args.check:
         destination = ROOT / "TRANSLATION.json" if args.variant == "default" else ROOT / "translations" / f"{args.variant}.json"
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists() and args.variant != "default":
+            previous = json.loads(destination.read_text())["units"]
+            current = {unit["rust"] for unit in manifest}
+            for unit in previous:
+                if unit["rust"].startswith(f"src/variants/{args.variant}/") and unit["rust"] not in current:
+                    (ROOT / unit["rust"]).unlink(missing_ok=True)
         destination.write_text(json.dumps(record, indent=2) + "\n")
     print(f"{'Verified' if args.check else 'Imported'} {len(manifest)} mechanical Rust translation units")
 

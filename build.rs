@@ -1,7 +1,29 @@
 use std::process::Command;
 
 fn main() {
-    for package in ["aom", "dav1d", "libsharpyuv"] {
+    let mut packages = vec!["aom", "dav1d", "libsharpyuv"];
+    for (feature, package) in [("RAV1E", "rav1e"), ("SVT", "SvtAv1Enc")] {
+        if std::env::var_os(format!("CARGO_FEATURE_{feature}")).is_some() {
+            packages.push(package);
+        }
+    }
+    let root = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    for (feature, library, local) in [
+        ("LIBGAV1", "gav1", "libgav1-build"),
+        ("LIBYUV", "yuv", "libyuv-build"),
+    ] {
+        if std::env::var_os(format!("CARGO_FEATURE_{feature}")).is_some() {
+            let path = root.join("build/deps").join(local);
+            if path.join(format!("lib{library}.a")).exists() {
+                println!("cargo:rustc-link-search=native={}", path.display());
+                println!("cargo:rustc-link-lib=static={library}");
+                println!("cargo:rustc-link-lib=c++");
+            } else {
+                packages.push(if feature == "LIBGAV1" { "libgav1" } else { "libyuv" });
+            }
+        }
+    }
+    for package in packages {
         let output = Command::new("pkg-config")
             .args(["--libs", package])
             .output()

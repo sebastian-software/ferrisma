@@ -332,7 +332,7 @@ pub unsafe extern "C" fn avifImageScaleWithLimit(
                 dstWidth,
             );
             result = AVIF_RESULT_NOT_IMPLEMENTED;
-            current_block = 11095618173979584102;
+            current_block = 0;
         } else if srcHeight > 16384 as uint32_t {
             avifDiagnosticsPrintf(
                 diag,
@@ -342,15 +342,15 @@ pub unsafe extern "C" fn avifImageScaleWithLimit(
                 dstHeight,
             );
             result = AVIF_RESULT_NOT_IMPLEMENTED;
-            current_block = 11095618173979584102;
+            current_block = 0;
         } else {
-            current_block = 11057878835866523405;
+            current_block = 1;
         }
     } else {
-        current_block = 11057878835866523405;
+        current_block = 1;
     }
     match current_block {
-        11057878835866523405 => {
+        1 => {
             if !(srcYUVPlanes[0 as core::ffi::c_int as usize]).is_null() {
                 let allocationResult: avifResult = avifImageAllocatePlanes(
                     image,
@@ -366,12 +366,12 @@ pub unsafe extern "C" fn avifImageScaleWithLimit(
                         avifResultToString(allocationResult),
                     );
                     result = AVIF_RESULT_OUT_OF_MEMORY;
-                    current_block = 11095618173979584102;
+                    current_block = 0;
                 } else {
                     let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
                     loop {
                         if !(i_0 < AVIF_PLANE_COUNT_YUV) {
-                            current_block = 12497913735442871383;
+                            current_block = 2;
                             break;
                         }
                         if !(srcYUVPlanes[i_0 as usize]).is_null() {
@@ -426,7 +426,7 @@ pub unsafe extern "C" fn avifImageScaleWithLimit(
                                     } else {
                                         AVIF_RESULT_UNKNOWN_ERROR as core::ffi::c_int
                                     }) as avifResult;
-                                    current_block = 11095618173979584102;
+                                    current_block = 0;
                                     break;
                                 }
                             } else {
@@ -459,7 +459,7 @@ pub unsafe extern "C" fn avifImageScaleWithLimit(
                                     } else {
                                         AVIF_RESULT_UNKNOWN_ERROR as core::ffi::c_int
                                     }) as avifResult;
-                                    current_block = 11095618173979584102;
+                                    current_block = 0;
                                     break;
                                 }
                             }
@@ -468,10 +468,10 @@ pub unsafe extern "C" fn avifImageScaleWithLimit(
                     }
                 }
             } else {
-                current_block = 12497913735442871383;
+                current_block = 2;
             }
             match current_block {
-                11095618173979584102 => {}
+                0 => {}
                 _ => {
                     if !srcAlphaPlane.is_null() {
                         let allocationResult_0: avifResult = avifImageAllocatePlanes(

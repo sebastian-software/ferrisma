@@ -42,8 +42,11 @@ Rust used: `rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`.
 | Mini | 65 | 65 | 9,526 |
 | Extended PIXI | 64 | 64 | 9,474 |
 | Mini + Extended PIXI | 65 | 65 | 9,527 |
+| libgav1 + rav1e + SVT-AV1 + external libyuv | 65 | 65 | 9,481 |
 
 Every registration above passes, and case/skip inventories match its C baseline.
+The additional AV1 configuration uses libgav1 v0.20.0, rav1e 0.8.1, SVT-AV1
+4.2.0, and libyuv revision `26e56be0f984af3dae4d0c0ab7a0bac8ac20e1b0`.
 Use `tools/run_tests.py` to isolate temporary directories: upstream metadata
 tests use fixed temporary file names, so separate CTest suites otherwise collide
 when run concurrently. Initial concurrent reference runs exposed this harness
