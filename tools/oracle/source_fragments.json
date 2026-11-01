@@ -12,5 +12,12 @@
     "end": "\n\nnamespace {  // For EncodeFile",
     "sha256": "420d570600a751642f9ca1b58d9a9e401fc60a894f2bbdbef3e566163a9e52d9",
     "output": "original_read_icc.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "template <ACType ac_type, bool uses_lz77>\nStatus DecodeACVarBlock(",
+    "end": "\n\n// Structs used by DecodeGroupImpl",
+    "sha256": "bc0f7688d79f9e9c587f8177cd5270c6c3248ce8ad4c739eac23dbea9ec821e3",
+    "output": "original_decode_ac_var_block.inc"
   }
 ]
