@@ -8,13 +8,22 @@ use super::base::status::{Status, StatusCode};
 use super::memory_manager_internal::AlignedMemory;
 
 #[derive(Default)]
-pub(crate) struct PaddedBytes {
+pub struct PaddedBytes {
     size: usize,
     capacity: usize,
     data: Option<AlignedMemory>,
 }
 
 impl PaddedBytes {
+    pub fn as_slice(&self) -> &[u8] {
+        &self.bytes()[..self.size]
+    }
+    pub fn len(&self) -> usize {
+        self.size
+    }
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
     pub(crate) fn reserve(&mut self, capacity: usize) -> Status {
         if capacity <= self.capacity {
             return Ok(());

@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! FrameInfo and complete parameter/header preparation from lib/jxl/
-//! enc_frame.{h,cc}, plus fixed lossless Thunder ownership, color copying,
-//! modular pixel preparation, group encoding, and frame section finalization.
-//! Complete image encoding, streaming, and remaining EncodeFrame entry points
-//! are absent until translated. Byte names, narrowing, reused header state, and
-//! changes before errors retain source order.
+//! enc_frame.{h,cc}, plus the fixed lossless Thunder ComputeEncodingData and
+//! EncodeFrameOneShot paths. The reached encode.cc global-header block connects
+//! pixel buffers to a complete raw codestream with native byte ownership.
+//! General image/frame encoding, streaming, and C output processors remain
+//! absent. Byte names, narrowing, reused header state, and changes before errors
+//! retain source order.
 
 use super::ac_strategy::AcStrategyImage;
 use super::base::float::{max_f32, mul_add_f64};
@@ -20,8 +21,9 @@ use super::common::SpeedTier;
 use super::dec_modular::ModularStreamId;
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+use super::enc_cache::PassesEncoderState;
 use super::enc_external_image::convert_from_external_plane_no_size_check;
-use super::enc_fields::write_frame_header;
+use super::enc_fields::{write_codestream_headers, write_frame_header};
 use super::enc_modular::ModularFrameEncoder;
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_NOISE};
 use super::enc_progressive_split::{PassDefinition, ProgressiveMode, ProgressiveSplitter};
@@ -35,15 +37,17 @@ use super::frame_header::{
 };
 use super::image::{Image3, Plane};
 use super::image_metadata::{CodecMetadata, ExtraChannel};
-use super::image_ops::copy_image_to;
+use super::image_ops::{copy_image_to, pad_image_to_block_multiple_in_place};
 use super::jpeg::enc_jpeg_data::{
     set_chroma_subsampling_from_jpeg_data, set_color_transform_from_jpeg_data,
 };
 use super::jpeg::jpeg_data::JpegData;
+use super::padded_bytes::PaddedBytes;
+use super::passes_state::{DcSource, PassesSharedState};
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
 use super::toc::ac_group_index;
-use super::types::JxlBitDepth;
+use super::types::{JxlBitDepth, JxlDataType, JxlEndianness, JxlPixelFormat};
 
 // lib/jxl/noise.h: NoiseParams::kNumNoisePoints.
 const NUM_NOISE_POINTS: usize = 8;
@@ -88,6 +92,50 @@ impl LosslessThunderConfig {
     }
     pub fn metadata(&self) -> &CodecMetadata {
         &self.metadata
+    }
+    /// Fixed-profile raw codestream output. The metadata/ICC padding block is
+    /// from encode.cc; the frame is the original one-shot path below. The
+    /// native return transfers its padded byte owner instead of a C callback.
+    pub fn encode_pixels(
+        &mut self,
+        data: &[u8],
+        mut aux: Option<&mut AuxOut>,
+    ) -> StatusOr<PaddedBytes> {
+        let mut input =
+            JxlEncoderChunkedFrameAdapter::new(self.metadata.xsize(), self.metadata.ysize(), 0);
+        let format = JxlPixelFormat {
+            num_channels: self.metadata.m.color_encoding.channels() as u32,
+            data_type: if self.metadata.m.bit_depth.bits_per_sample == 8 {
+                JxlDataType::UINT8
+            } else {
+                JxlDataType::UINT16
+            },
+            endianness: JxlEndianness::NATIVE,
+            align: 0,
+        };
+        if !input.set_from_buffer(0, Some(data), data.len(), format) {
+            return Err(StatusCode::GenericError);
+        }
+        let mut writer = BitWriter::new();
+        write_codestream_headers(&mut self.metadata, &mut writer, aux.as_deref_mut())?;
+        // This private sRGB metadata has fields, so WantICC is false; no preview.
+        debug_assert!(!self.metadata.m.color_encoding.want_icc());
+        writer.with_max_bits(
+            8,
+            LayerType::Header,
+            aux.as_deref_mut(),
+            |w, _| {
+                w.zero_pad_to_byte();
+                Ok(())
+            },
+            false,
+        )?;
+        let frame_bytes = {
+            let mut frame = self.create_frame()?;
+            frame.encode_one_shot(&input, aux)?
+        };
+        writer.append_byte_aligned(frame_bytes.as_slice())?;
+        Ok(writer.take_bytes())
     }
     /// CopyColorChannels with the fixed FrameInfo and no extra/alpha planes.
     /// The adapter is the original buffer-backed input branch; its release
@@ -146,60 +194,44 @@ impl LosslessThunderConfig {
         };
         cparams.set_lossless();
         params_post_init(&mut cparams)?;
-        let matrices = DequantMatrices::default();
-        let quantizer = Quantizer::new(&matrices);
-        let fields = LosslessThunderFrameFields::default();
-        let mut splitter = ProgressiveSplitter::default();
-        set_progressive_mode(&cparams, &mut splitter);
+        let mut state = Box::new(PassesEncoderState::new());
+        set_progressive_mode(&cparams, &mut state.progressive_splitter);
         let mut header = FrameHeader::new(Some(&self.metadata));
         make_frame_header(
             self.metadata.xsize(),
             self.metadata.ysize(),
             &cparams,
-            &splitter,
+            &state.progressive_splitter,
             &FrameInfo::default(),
             None,
             false,
             &mut header,
         )?;
+        // Component callers supply these header-derived dimensions. The outer
+        // computation assigns them again at its original checkpoint.
+        state.shared.frame_dim = header.to_frame_dimensions();
         let modular = ModularFrameEncoder::create(&header, &cparams, false)?;
         Ok(LosslessThunderFrame {
             config: self,
             header,
-            splitter,
             modular,
-            matrices,
-            quantizer,
-            fields,
+            state,
+            cparams,
         })
     }
 }
 
 /// Source frame owners for the fixed configuration. Metadata is borrowed from
 /// the configuration; header/parameters cannot be mutated into unported paths.
-/// Full frame/image orchestration remains separate from this preparation API.
+/// This owner exposes the reached one-shot and component boundaries; general
+/// frame/image orchestration remains unported.
 pub struct LosslessThunderFrame<'a> {
     // The modular owner releases before its borrowed setup, as in the source.
     modular: ModularFrameEncoder<'static>,
     header: FrameHeader<'a>,
-    splitter: ProgressiveSplitter,
-    fields: LosslessThunderFrameFields,
-    quantizer: Quantizer,
-    matrices: DequantMatrices,
+    state: Box<PassesEncoderState<'a>>,
+    cparams: CompressParams<'static>,
     config: &'a LosslessThunderConfig,
-}
-/// The reached field-allocation block in ComputeEncodingData. This is a
-/// projection of shared storage, not the complete PassesSharedState constructor.
-/// Indeterminate source image samples are not observable initialization data.
-#[derive(Default)]
-pub struct LosslessThunderFrameFields {
-    pub dc_storage: Image3<f32>,
-    pub quant_dc: Plane<u8>,
-    pub coeff_order_size: usize,
-    pub cmap: ColorCorrelationMap,
-    pub epf_sharpness: Plane<u8>,
-    pub raw_quant_field: Plane<i32>,
-    pub ac_strategy: AcStrategyImage,
 }
 impl LosslessThunderFrame<'_> {
     pub fn header(&self) -> &FrameHeader<'_> {
@@ -209,37 +241,125 @@ impl LosslessThunderFrame<'_> {
         &self.modular
     }
     pub fn matrices(&self) -> &DequantMatrices {
-        &self.matrices
+        &self.state.shared.matrices
     }
     pub fn quantizer(&self) -> &Quantizer {
-        &self.quantizer
+        &self.state.shared.quantizer
     }
-    pub fn fields(&self) -> &LosslessThunderFrameFields {
-        &self.fields
+    pub fn fields(&self) -> &PassesSharedState<'_> {
+        &self.state.shared
     }
-    /// The shared-field allocation block after the original metadata,
-    /// dimensions, and patch-reference binding. Those surrounding shared-state
-    /// operations and its complete constructor remain outside this boundary.
+    pub fn state(&self) -> &PassesEncoderState<'_> {
+        &self.state
+    }
+    /// ComputeEncodingData's metadata/dimensions/patch binding and reached
+    /// allocation block for the fixed non-streaming modular configuration.
     pub fn allocate_frame_fields(&mut self) -> Status {
-        let dim = self.header.to_frame_dimensions();
-        self.fields.ac_strategy = AcStrategyImage::create(dim.xsize_blocks, dim.ysize_blocks)?;
-        self.fields.raw_quant_field = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
-        self.fields.epf_sharpness = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.state.shared.metadata = Some(&self.config.metadata);
+        self.state.shared.frame_dim = self.header.to_frame_dimensions();
+        self.state.shared.bind_own_reference_frames();
+        let dim = &self.state.shared.frame_dim;
+        self.state.shared.ac_strategy =
+            AcStrategyImage::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.state.shared.raw_quant_field = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.state.shared.epf_sharpness = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
         // The original call retains Create's default XYB=true, even here.
-        self.fields.cmap = ColorCorrelationMap::create(dim.xsize, dim.ysize, true)?;
-        self.fields.coeff_order_size = COEFF_ORDER_MAX_SIZE;
-        self.fields.quant_dc = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
-        self.fields.dc_storage = Image3::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.state.shared.cmap = ColorCorrelationMap::create(dim.xsize, dim.ysize, true)?;
+        self.state.shared.coeff_order_size = COEFF_ORDER_MAX_SIZE;
+        self.state.shared.quant_dc = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.state.shared.dc_storage = Image3::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.state.shared.dc_source = DcSource::Storage;
         Ok(())
+    }
+    /// Complete reached ComputeEncodingData branches for this private profile.
+    /// The buffer adapter cannot select JPEG/callback input; metadata/parameters
+    /// cannot enable VarDCT, XYB, extra channels, effects, or streaming branches.
+    pub fn compute_encoding_data(
+        &mut self,
+        input: &JxlEncoderChunkedFrameAdapter<'_>,
+        codes: &mut Vec<BitWriter>,
+        aux: Option<&mut AuxOut>,
+    ) -> Status {
+        let xsize = self.config.metadata.xsize();
+        let ysize = self.config.metadata.ysize();
+        if xsize > input.xsize() {
+            return Err(StatusCode::GenericError);
+        }
+        if ysize > input.ysize() {
+            return Err(StatusCode::GenericError);
+        }
+        self.allocate_frame_fields()?;
+        // Find(alpha/black) yields no entries; optional indices replace unused
+        // source null-pointer differences. Retain the reached color copy owner.
+        let _c_enc = self.config.metadata.m.color_encoding.clone();
+        let frame_rect = Rect::new(0, 0, input.xsize(), input.ysize());
+        let frame_area_rect = Rect::new(0, 0, xsize, ysize);
+        let patch_rect = frame_area_rect.extend(0, frame_rect);
+        if !patch_rect.is_inside(frame_rect) {
+            return Err(StatusCode::GenericError);
+        }
+        let round_block = |n: usize| n.wrapping_add(7) & !7;
+        let mut color = Image3::<f32>::create(
+            round_block(patch_rect.xsize()),
+            round_block(patch_rect.ysize()),
+        )?;
+        color.shrink_to(patch_rect.xsize(), patch_rect.ysize())?;
+        let _extra_channels: Vec<Plane<f32>> = Vec::new();
+        let mut has_interleaved_alpha = false;
+        self.config.copy_color_channels(
+            input,
+            patch_rect,
+            &mut color,
+            &mut has_interleaved_alpha,
+        )?;
+        // CopyExtraChannels iterates the private metadata's empty vector.
+        self.state.cparams = self.cparams.clone();
+        let _linear_storage = Image3::<f32>::default();
+        // ToXYB and invisible-alpha branches are not reached: NONE and no alpha.
+        pad_image_to_block_multiple_in_place(&mut color, 8)?;
+        let _group_rect = Rect::new(
+            0usize.wrapping_sub(patch_rect.x0()),
+            0usize.wrapping_sub(patch_rect.y0()),
+            round_block(xsize),
+            round_block(ysize),
+        );
+        // ComputeChromacityAdjustments returns at its non-VarDCT guard. All
+        // ComputeNoiseParams branches are false (regular frame, ISO 0, empty
+        // manual noise, modular encoding). DownsampleColorChannels returns at
+        // upsampling==1; ec_resampling==1 skips the extra-channel loop.
+        // Non-streaming group_rect becomes Rect(color) in prepare_modular.
+        self.prepare_modular(&color)?;
+        self.compute_modular_tokens()?;
+        self.header.update_flag(
+            self.state.shared.image_features.patches.has_any(),
+            super::frame_header::FLAG_PATCHES,
+        );
+        self.header.update_flag(
+            self.state.shared.image_features.splines.has_any(),
+            super::frame_header::FLAG_SPLINES,
+        );
+        self.encode_groups(codes, aux)
+    }
+    /// EncodeFrameOneShot through TakeBytes. The native core returns the owner
+    /// at AppendData's input boundary; the C output-processor API is separate.
+    pub fn encode_one_shot(
+        &mut self,
+        input: &JxlEncoderChunkedFrameAdapter<'_>,
+        mut aux: Option<&mut AuxOut>,
+    ) -> StatusOr<PaddedBytes> {
+        let mut codes = Vec::new();
+        self.compute_encoding_data(input, &mut codes, aux.as_deref_mut())?;
+        let writer = self.finalize_groups(&codes, aux)?;
+        Ok(writer.take_bytes())
     }
     /// Translate ModularFrameEncoder::ComputeEncodingData at the original
     /// full-image, non-streaming call site. Input is already in Image3F form;
-    /// this does not implement CopyColorChannels or complete image encoding.
+    /// callers may also reach it through the complete fixed-profile entry point.
     pub fn prepare_modular(&mut self, color: &Image3<f32>) -> Status {
         self.modular.compute_encoding_data_lossless_thunder(
             self.config,
             &self.header,
-            &self.splitter,
+            &self.state.progressive_splitter,
             color,
         )
     }
@@ -257,9 +377,9 @@ impl LosslessThunderFrame<'_> {
         group_codes: &mut Vec<BitWriter>,
         mut aux: Option<&mut AuxOut>,
     ) -> Status {
-        let frame_dim = self.header.to_frame_dimensions();
+        let frame_dim = &self.state.shared.frame_dim;
         let num_groups = frame_dim.num_groups;
-        let num_passes = self.splitter.get_num_passes();
+        let num_passes = self.state.progressive_splitter.get_num_passes();
         let is_small_image = num_groups == 1 && num_passes == 1;
         let num_toc_entries = if is_small_image {
             1
@@ -276,7 +396,7 @@ impl LosslessThunderFrame<'_> {
         }
         let output_index = |index| if is_small_image { 0 } else { index };
         dequant_matrices_encode_dc(
-            &self.matrices,
+            &self.state.shared.matrices,
             &mut group_codes[0],
             LayerType::Quant,
             aux.as_deref_mut(),
@@ -353,13 +473,22 @@ impl LosslessThunderFrame<'_> {
         mut aux: Option<&mut AuxOut>,
     ) -> StatusOr<BitWriter> {
         let mut writer = BitWriter::new();
-        // The fixed frame has the original default, empty special_frames vector.
-        writer.append_byte_aligned_writers(&[])?;
+        let special: Vec<_> = self
+            .state
+            .special_frames
+            .iter()
+            .map(|frame| {
+                frame
+                    .as_deref()
+                    .expect("source special-frame writer must be non-null")
+            })
+            .collect();
+        writer.append_byte_aligned_writers(&special)?;
         write_frame_header(&mut self.header, &mut writer, aux.as_deref_mut())?;
 
         // PermuteGroups returns at its first !centerfirst guard for this private
         // configuration. No center-first permutation entry point is exposed.
-        debug_assert!(!self.modular.cparams.centerfirst);
+        debug_assert!(!self.cparams.centerfirst);
         let permutation = Vec::new();
         let mut group_sizes = Vec::with_capacity(group_codes.len());
         for bw in group_codes {

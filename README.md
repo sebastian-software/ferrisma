@@ -4,8 +4,13 @@ A mechanical Rust port of the JPEG XL reference implementation, starting from
 the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserves
 source algorithms and behavior before any redesign or additional optimization.
 
-**Complete JPEG XL codestream encoding and decoding are still unported.** It
-implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
+**A fixed lossless encoder now produces complete raw JPEG XL codestreams;
+complete image decoding remains unported.** The private Thunder configuration
+accepts 8-/16-bit grayscale or RGB pixel buffers. Its output is compared byte
+for byte with libjxl and decoded by the original C++ decoder. This does not yet
+complete the [first-image milestone](docs/FIRST_IMAGE.md).
+
+The port implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
 field visitors, size/preview/animation headers, ANS alias tables, and Huffman
 tree encoding and prefix decoding, entropy-stream parsing, hybrid integers,
 LZ77 decoding/token generation, histogram normalization/clustering, hybrid
@@ -30,8 +35,10 @@ entropy output. Standalone streams require caller-supplied dimensions and bit
 depth. Encoder parameter state, original header preparation, progressive setup,
 stream indexing, and modular sample conversion are translated. Modular frame
 stream owners now prepare grouped channels, select local transforms, construct
-shared trees/tokens, and write global or local entropy streams. Pixel
-preparation and image/frame/section orchestration remain separate. Frame
+shared trees/tokens, and write global or local entropy streams. The fixed
+configuration connects input conversion, padding, shared-state construction,
+frame/group output, image metadata, and byte ownership. General encoder and
+decoder orchestration remain unported. Frame
 transform selection includes original costs, palette/compaction decisions,
 rollback, and tree merging. The [first-image milestone](docs/FIRST_IMAGE.md)
 defines their integration gate. The Rust library has no external crate

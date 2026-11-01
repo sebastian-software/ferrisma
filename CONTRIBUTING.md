@@ -18,6 +18,12 @@ signaling-NaN differences from folding multiplication by one into a copy.
 CMake 3.18 supplies the source-property directory scope used for this option.
 See [ADR 0002](docs/adr/0002-differential-oracle.md).
 
+The separate noise observation unit uses `-fno-unroll-loops` to retain the
+original HasAny early-return loop. Clang's unrolled AArch64 max-number reduction
+otherwise changes its result for a signaling NaN after an above-threshold
+value. This setting does not affect other fixtures or the original codec
+library. Keep the exceptional-value cases and exact comparisons.
+
 ## Prerequisites
 
 - Rust 1.85 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.

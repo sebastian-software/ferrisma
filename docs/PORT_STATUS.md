@@ -1,9 +1,11 @@
 # Port status
 
 This repository contains codestream/frame-header, metadata, geometry, entropy,
-and color-profile dependencies, plus standalone modular image encoding/decoding.
-It cannot encode or decode JPEG XL images. There are no C++ runtime fallbacks
-and no placeholder codec APIs. The source revision is pinned in
+and color-profile dependencies, standalone modular image encoding/decoding,
+and a fixed lossless Thunder encoder from pixel buffers to complete raw JPEG XL
+codestreams. Complete Rust image decoding remains unported. The original C++
+decoder recovers the exact samples from both native and reference codestreams.
+There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
 [upstream.json](../upstream.json).
 
 ## Source mapping
@@ -11,7 +13,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | Upstream source under `lib/jxl/` | Rust module under `src/jxl/` | Boundary |
 | --- | --- | --- |
 | `dec_bit_reader.h`, `.cc` | `dec_bit_reader.rs` | Reader, checkpoints, native moves, scoped closer; unused private aligned-word helper omitted |
-| `enc_bit_writer.h`, `.cc` | `enc_bit_writer.rs` | Bit writes, byte/unaligned appends, nested allotments and charging; custom allocator and padded-buffer transfer unported |
+| `enc_bit_writer.h`, `.cc` | `enc_bit_writer.rs` | Bit writes, byte/unaligned appends, nested allotments/charging, and TakeBytes allocation transfer; custom allocator unported |
 | `field_encodings.h` | `field_encodings.rs` | Fields trait, U32 distributions, raw enum enumeration and validation |
 | `fields.h`, `.cc` | `fields.rs` | Bits/U32/U64/F16 coders, bundle visitors, and enum visitor helper |
 | `base/bits.h` | `base/bits.rs` | Unsigned 32/64-bit and pointer-width zero counts and logarithms |
@@ -49,7 +51,11 @@ and no placeholder codec APIs. The source revision is pinned in
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
-| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder ownership/pixel preparation/shared-token/group output and frame section finalization; fixed-profile CopyColorChannels and the reached shared-field allocation block; complete shared-state construction/binding, the enclosing ComputeEncodingData entry point, byte-owner/output-processor handoff, general EncodeGroups, and remaining frame entry points unported |
+| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
+| `passes_state.h`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, four reference owners, same-owner DC/patch binding; decoder initialization and VarDCT methods unported |
+| `image_bundle.h` | `image_bundle.rs` | Storage, constructors, initialized scalar state, metadata borrow, and decoded-byte accessors; image import/export/copy and other methods unported |
+| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
+| `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -88,7 +94,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, and frame header writing; quantizer writes unported |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
-| `padded_bytes.h` | `padded_bytes.rs` | Writer storage subset; other container operations unported |
+| `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
 | `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation using Rust allocator and source scalar row sizing; custom C callbacks unported |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
@@ -106,6 +112,8 @@ Clang settings; exact float-bit comparisons include unchanged signaling-NaN
 copies in release builds. Quantizer recomputation retains its original call
 boundary in Rust and in the C++ quantizer.cc so inlining cannot fold arithmetic
 on signaling NaNs into copies differently between reference builds.
+Noise HasAny observations retain their early-return loop in a separate unit
+with loop unrolling disabled, as documented in ADR 0002.
 Upstream CMake builds the complete original static codec library with its pinned
 Highway, Brotli, and skcms dependencies. ASan/UBSan cover those built targets as
 well as the fixture adapters. Existing private-boundary adapters still include
@@ -120,14 +128,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 274 tests, including 150 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 274 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 274 tests and corpus |
+| Rust debug | PASSED | 280 tests, including 153 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 280 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 280 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 274 tests and 656,765 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 280 tests and 657,218 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **656,765 requests** against C++. These include
+Each differential run compares **657,218 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -408,9 +416,9 @@ access-control support only in its fixture translation unit. Native tests
 check copied owners, progressive policy, cropped/shifted group selection,
 cleanup, retained error prefixes/widths, and independently captured C++ modular
 section bytes. Those 42-bit zero-gray sections do not include codestream/frame
-headers or a section table. General ComputeEncodingData, actual frame entry
-points, frame decoding, and the complete first-image acceptance gate remain
-unported.
+headers or a section table. These component cases do not establish general
+ComputeEncodingData or frame decoding. The fixed-profile caller is connected
+below; the complete first-image acceptance gate remains unfinished.
 
 The fixed lossless Thunder path adds 356 differential requests at the original
 ComputeEncodingData boundary. Cases compare converted samples, default global
@@ -424,9 +432,9 @@ Native tests invert the selected transforms to recover integer samples and
 check retained logical dimensions after releasing copied global planes.
 The configuration owns private metadata and its frame exposes read-only
 observations, preventing selection of unported branches through this path.
-Input is already Image3F; CopyColorChannels, outer frame preparation,
-the outer frame entry point, complete codestream output, and frame decoding remain
-separate dependencies.
+This component accepts Image3F. Its CopyColorChannels, outer preparation, and
+complete raw encoder callers are now connected below. Frame decoding remains
+unported.
 
 Image preparation helpers add 739 differential requests: in-place block padding
 and both original downsampling overloads. Padding compares all caller-seeded
@@ -501,7 +509,8 @@ mapping passes that regression; see
 The pinned Highway CMake file emits a CMP0111 deprecation warning. It does not
 fail the build; the reference source has not been edited to suppress it.
 
-Not yet established: complete image decoding/encoding, public C ABI compatibility,
+Not yet established: complete Rust image decoding, general image encoding,
+public C ABI compatibility,
 thread runners, SIMD parity, full upstream test inventory, external conformance
 corpus, cross-platform CI results, fuzzing, Rust sanitizer/Miri results, or
 performance/memory parity. Test passing here does not establish any of those.
@@ -513,11 +522,11 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Complete the remaining source ownership dependencies reached by the fixed
-   path. Connect the remaining
-   outer pixel preparation, frame decoding, and image/frame/section entry points,
-   then run the cross-language image
-   corpus in the first-image acceptance gate.
+1. Connect the original frame/image decoder to the existing metadata, section,
+   entropy, modular prediction, and transform dependencies. Decode complete
+   native/reference codestreams in Rust and add integrated malformed/truncated
+   input evidence. The fixed encoder and C++ cross-decoding cover only the
+   encoder half of the first-image acceptance gate.
 2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.
 
@@ -533,7 +542,8 @@ Unaligned group writers fail after the header and before TOC output; coverage
 also crosses all three TOC size distribution transitions with real payloads.
 The private profile retains centerfirst=false, which returns at PermuteGroups'
 first guard. The returned writer precedes TakeBytes and AppendData; this is
-frame finalization evidence, not the missing pixel-buffer/image entry point.
+frame finalization evidence. The complete fixed pixel-buffer caller is now
+connected below; its C output processor remains separate.
 
 External input conversion adds 13,627 differential requests: 1,303 row/layout
 cases and 12,324 plane cases. Both endian orders cover every binary16 pattern
@@ -547,8 +557,8 @@ minimum/full last-row sizes, size=0, invalid bit depths, dimension/stride errors
 and checked arithmetic overflow. Native regressions retain original half-float
 bit patterns, RGB16 channel selection with padded rows, last-row padding limits,
 and unclamped custom integer-depth scaling. These functions provide external
-planes; the callback pixel adapter and complete image entry point remain
-unported.
+planes. The buffer-backed fixed image caller is connected below; the callback
+pixel adapter and general image entry point remain unported.
 
 Frame buffer integration adds 11,762 differential requests: 4,032 binding/helper
 cases, 384 rebinding/copy sequences with twelve operations each, and 7,346
@@ -564,8 +574,9 @@ sample is compared, including seeded padding and rows retained after shrinking.
 Native regressions cover wrapped stride assignment, stale copies, gray-copy
 partial failure, and composition from a zero-gray pixel buffer through padding,
 modular coding, and the original 13 finalized frame bytes. That composition
-is not evidence for the missing enclosing shared-state initialization, complete
-codestream entry point, or decoder.
+does not independently establish enclosing initialization or image decoding.
+The fixed encoder now connects its complete shared-state constructor and raw
+codestream output below.
 
 Shared scalar/field integration adds 2,559 differential requests: 392 Quantizer
 sequences, 1,458 ColorCorrelation setter/ratio/decode cases, 148 map cases,
@@ -582,17 +593,17 @@ fills, validity, and unnamed raw types with the original byte/int promotions.
 
 The frame fixture calls the complete original ComputeEncodingData and, in a
 separate run, EncodeFrameOneShot with the original output processor. The native
-fixture composes the translated field allocation, buffer input, padding, modular
-preparation, shared tokens, groups, and section finalization. All 336 regular
+fixture calls the translated fixed-profile ComputeEncodingData and independently
+EncodeFrameOneShot, including the complete shared-state constructor, reference
+binding, buffer input, padding, modular preparation, shared tokens, groups,
+section finalization, and byte-owner transfer. All 336 regular
 frame cases compare complete frame bytes and auxiliary statistics: 8/16-bit
 gray/RGB constants, ramps, and deterministic noise across seven dimensions and
 borrowed/copied input. Four null-buffer cases retain the original generic error
 and allocated field state. Uninitialized source plane contents and the fourth
-uncleared quantizer lanes are excluded from observations. This verifies composed
-frame output against the actual caller, not a complete native EncodeFrameOneShot
-entry point: full shared-state constructor/binding, codestream headers at the
-image boundary, byte/output ownership handoff, and frame/image decoding remain
-required for the first-image milestone.
+uncleared quantizer lanes are excluded from observations. This verifies the
+fixed native one-shot frame against the actual original caller. Complete
+Rust frame/image decoding remains required for the first-image milestone.
 
 A release regression verifies that default Quantizer construction quiets a
 signaling NaN through the original multiplier arithmetic while retaining the
@@ -600,3 +611,34 @@ unmodified signaling bits in its matrix owner. Both C++ reference variants pin
 the quantizer.cc recomputation boundary; Rust uses the corresponding no-inline
 method. The earlier DC matrix-copy regression and all exact float-bit checks
 remain intact.
+
+
+Complete fixed-profile encoding connects the reached encode.cc global metadata
+and padding block with the original one-shot frame path. Input is an integer
+8-/16-bit native-endian grayscale/RGB byte buffer; output transfers a PaddedBytes
+owner containing the complete raw codestream. Metadata and compression settings
+remain private. C output processors, container wrapping, callbacks, custom
+allocators, and general encoder settings remain unported.
+
+The new image fixture compares 192 successful complete codestream encodes over
+eight dimensions, both sample depths/layouts, constants, ramps, deterministic
+noise, and optional statistics. The public C++ decoder reads both the original
+and supplied native output and must recover exact dimensions, channels, bit
+depth, and integer samples. Another 32 short-buffer cases retain the generic
+error before metadata output or accounting changes. This is encoder-to-C++
+decode evidence; it does not claim a Rust image decoder or complete milestone.
+
+Owner fixtures compare 181 initialized-state observations for ImageBundle,
+PassesEncoderState/PassesSharedState, all four reference bundles, BlockCtxMap,
+patch binding, spline construction/repeated clearing, native moves, and noise
+threshold/exceptional-value behavior. Source-indeterminate fields are omitted.
+Another 48 ACImage cases cover both admitted integer types, allocation failures,
+empty owners, virtual mutable/const row offsets, stride, moves, whole/plane
+zero-fill, and unchanged physical row padding. Native regressions verify
+same-owner bindings after moves, byte transfer without copying, repeated image
+encoding, and pre-output short-buffer rejection.
+
+Noise HasAny observations retain the original early-return loop with the
+reference compile setting documented in ADR 0002. The ordinary AArch64 O3
+unrolled FMAXNM reduction changed its signaling-NaN result; no case or exact
+comparison was removed.

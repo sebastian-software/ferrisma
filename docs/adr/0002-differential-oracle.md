@@ -64,9 +64,14 @@ Rust behavior by suppressing sanitizer failures or changing reference routines.
 
 The shared-state frame fixture calls the complete original ComputeEncodingData
 for state/group observations, then independently calls EncodeFrameOneShot and
-its real output processor for complete frame bytes. The native side composes
-ported components without claiming that the enclosing constructor/entry point
-is translated. Small DC-reader fixture spans use real backing storage with
+its real output processor for complete frame bytes. The native side calls its
+translated fixed-profile ComputeEncodingData and independently its complete
+one-shot frame boundary. The image fixture calls the original codestream-header
+block and one-shot encoder, then the public C++ decoder on both source and
+supplied native streams. It compares exact raw codestream bytes, original
+integer samples, metadata, and auxiliary statistics. Complete Rust image
+decoding remains a separate acceptance gate. Small DC-reader fixture spans use
+real backing storage with
 eight leading and trailing bytes while preserving their original span length
 and contents. This keeps the source end-minus-eight pointer inside its backing
 allocation and represents a non-null empty stream rather than the null-reader
@@ -84,3 +89,12 @@ This pins one reproducible numeric configuration while keeping all original
 source routines, scalar algorithms, and exact comparisons. It does not establish
 performance parity. Review this boundary after compiler/source changes; do not
 replace it with NaN-bit rewriting or relaxed comparisons.
+
+Observe NoiseParams::HasAny through a separate reference translation unit with
+-fno-unroll-loops. On AArch64, Clang O3 otherwise replaces the early-return loop
+with a chain of FMAXNM instructions. A signaling NaN in the final lane makes the
+reduction return false even when an earlier value exceeds the threshold; the
+source loop returns true at that earlier value. Keep the original header and
+method unchanged and retain all exceptional-value cases. This compile setting
+is limited to the noise observation unit; it does not alter the codec library
+or other fixtures. Review it with compiler/target changes.

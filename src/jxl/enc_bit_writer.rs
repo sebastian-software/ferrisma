@@ -38,6 +38,15 @@ impl BitWriter {
         assert_eq!(self.bits_written % 8, 0);
         &self.storage.bytes()[..self.bits_written / 8]
     }
+    /// The original rvalue TakeBytes: truncate logical storage to the byte-
+    /// aligned result and transfer its existing padded allocation to the caller.
+    pub fn take_bytes(mut self) -> PaddedBytes {
+        assert_eq!(self.bits_written % 8, 0);
+        self.storage
+            .resize(self.bits_written.wrapping_add(7) / 8)
+            .expect("source TakeBytes only shrinks already allocated storage");
+        self.storage
+    }
 
     pub fn shrink(&mut self) -> Status {
         self.storage.shrink_to_fit()

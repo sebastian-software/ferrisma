@@ -449,7 +449,13 @@ centerfirst=false setting exits PermuteGroups at its first guard. Header
 visitation mutates the real header before group-alignment validation; an error
 drops the local writer while retaining header/statistics changes. Successful
 TOC output precedes the byte-aligned group append. No generic permutation or
-output-processor API is inferred from this boundary.
+output-processor API is inferred from this boundary. The complete native
+one-shot method now takes that writer's padded byte owner at AppendData's input
+boundary. BitWriter::TakeBytes shrinks the existing allocation and moves it
+without copying. The fixed image entry point writes the original global
+metadata/padding block and appends the complete one-shot frame. Its raw byte
+return replaces only native output plumbing; C output processors, callbacks,
+containers, and the general image API remain unported.
 
 AuxOut includes all source block counters and the signed iteration counter.
 Unsigned sums wrap; signed overflow remains a source precondition, checked in
@@ -489,8 +495,8 @@ It sets the interleaved-alpha flag before requesting data and validates channel
 count afterward. A disjoint borrow of the three owned planes supports gray
 replication in source order without cloning storage. Failure retains completed
 plane writes and the alpha flag; later planes remain untouched. This boundary
-does not imply that the enclosing shared-state allocation or image entry point
-is translated.
+remains independently testable at the color-copy boundary. The fixed image
+entry point now calls it through the original outer computation order.
 
 Quantizer stores the source scalar state and reifies its enclosing matrix
 pointer as an explicit same-owner borrow for construction, recomputation, and
@@ -512,15 +518,35 @@ CountBlocks first truncates the type to u8, then promotes to int for the shift:
 unnamed type 127 counts the 255 sentinel, 256 aliases DCT, and 128/255 compare
 against values above 255. Do not wrap the shifted byte before comparing it.
 
-The fixed frame owns a projection of ComputeEncodingData's reached allocation
-block. Preserve each assignment checkpoint, the coefficient-order size, and the
-original default XYB=true map construction even for this RGB configuration.
-The projection does not replace the complete PassesSharedState constructor,
-metadata/patch-reference binding, or the enclosing image entry point. Source
-image samples not initialized by the algorithm remain omitted from observations.
+The fixed frame owns the complete PassesEncoderState/PassesSharedState storage
+and constructors, including four allocated reference ImageBundles and the
+default BlockCtxMap. ImageFeatures owns the original patch/spline/noise storage.
+The fixed-profile ComputeEncodingData retains each allocation/assignment
+checkpoint, the coefficient-order size, and the original default XYB=true map
+construction even for this RGB configuration. Its parameter copy occurs only
+after successful pixel copying. Source image samples not initialized by the
+algorithm remain omitted from observations.
 ColorCorrelation default construction leaves all DC factors zero; only explicit
 recomputation, setters, successful DC parsing, or map creation assign them. Its
 ratio expressions retain the reference's scalar contraction.
+
+Shared DC and patch-reference pointers become owner-relative member selectors.
+The shared owner resolves its DC selector to dc_storage; the reached SetShared
+records the containing reference_frames array. Matrix calls retain explicit
+same-owner borrows. These bindings survive native moves without self-references.
+ImageBundle borrows optional metadata and owns color, profile, extra planes,
+names, and optional JPEG data. Source-indeterminate metadata, dimensions, LUTs,
+and patch fields receive safe initial Rust storage without extra source meaning;
+observations begin only after the original assignment. Native constructors use
+the existing valid allocator context; custom C callbacks remain separate.
+
+ACImage's two admitted template instantiations become a closed i16/i32 image
+enum. Typed row-view variants replace its pointer unions and virtual dispatch;
+all original allocation, stride, row, empty, and zero-fill operations are
+preserved. Source unique owners become optional boxed values where null is
+allowed. Splines keeps its borrowed data view and owning storage separately;
+the translated constructor/Clear establishes empty views and releases both
+aligned cache owners in source order. Data import/rendering remain absent.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current

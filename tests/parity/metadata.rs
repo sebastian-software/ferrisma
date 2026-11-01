@@ -32,7 +32,7 @@ fn color_storage(out: &mut String, s: &storage::ColorEncoding) {
     }
     write!(out, " {}", hex(&s.icc)).unwrap();
 }
-fn color_bundle(out: &mut String, c: &ColorEncoding) {
+pub(super) fn color_bundle(out: &mut String, c: &ColorEncoding) {
     write!(
         out,
         " {},{},{},{}",

@@ -46,11 +46,14 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   set_property(SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc"
     DIRECTORY "${UPSTREAM}/lib" APPEND PROPERTY COMPILE_OPTIONS -fno-inline-functions)
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc)
+add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc)
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   set_source_files_properties(sample_conversion.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
+  # Clang's unrolled max-number reduction changes the early-return result when
+  # a signaling NaN follows a value above the threshold. Retain the source loop.
+  set_source_files_properties(noise.cc PROPERTIES COMPILE_OPTIONS -fno-unroll-loops)
 else()
   message(FATAL_ERROR "Frame state fixtures require Clang or GCC access-control support")
 endif()

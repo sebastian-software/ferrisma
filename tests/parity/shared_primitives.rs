@@ -6,7 +6,7 @@ use jxl::jxl::base::rect::Rect;
 use jxl::jxl::chroma_from_luma::{COLOR_FACTOR_DIST, ColorCorrelation, ColorCorrelationMap};
 use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 use jxl::jxl::encode_internal::JxlEncoderChunkedFrameAdapter;
-use jxl::jxl::image::{Image3, Plane, Sample};
+use jxl::jxl::image::{Plane, Sample};
 use jxl::jxl::quant_weights::DequantMatrices;
 use jxl::jxl::quantizer::Quantizer;
 use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
@@ -97,6 +97,15 @@ fn code_output(out: &mut String, codes: &[BitWriter]) {
     }
 }
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
+    if kind == "ss-image" {
+        return observe_image(args);
+    }
+    if kind == "ss-owners" {
+        return observe_owners(args);
+    }
+    if kind == "ss-acimage" {
+        return observe_acimage(args);
+    }
     if kind == "ss-quant" {
         let def = number::<u32>(args) != 0;
         let dc = number(args);
@@ -288,17 +297,11 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     }
     let mut aux = aux_stats::seed(7);
     let mut codes = Vec::new();
-    let status = (|| -> Status {
-        frame.allocate_frame_fields()?;
-        let mut color = Image3::<f32>::create(w.div_ceil(8) * 8, h.div_ceil(8) * 8)?;
-        color.shrink_to(w, h)?;
-        let mut alpha = false;
-        config.copy_color_channels(&input, Rect::new(0, 0, w, h), &mut color, &mut alpha)?;
-        jxl::jxl::image_ops::pad_image_to_block_multiple_in_place(&mut color, 8)?;
-        frame.prepare_modular(&color)?;
-        frame.compute_modular_tokens()?;
-        frame.encode_groups(&mut codes, if has_aux { Some(&mut aux) } else { None })
-    })();
+    let status = frame.compute_encoding_data(
+        &input,
+        &mut codes,
+        if has_aux { Some(&mut aux) } else { None },
+    );
     let fields = frame.fields();
     let mut out = format!(
         "{} {} {}",
@@ -319,19 +322,298 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     quant(&mut out, frame.quantizer(), frame.matrices(), 3);
     code_output(&mut out, &codes);
     aux_stats::output(&mut out, &aux);
-    let full = match status {
-        Ok(()) => frame.finalize_groups(&codes, if has_aux { Some(&mut aux) } else { None }),
-        Err(s) => Err(s),
-    };
+    let mut full_aux = aux_stats::seed(7);
+    let full = config
+        .create_frame()
+        .unwrap()
+        .encode_one_shot(&input, if has_aux { Some(&mut full_aux) } else { None });
     write!(
         out,
         " F {} {}",
         full.as_ref().err().map_or(0, |s| *s as i32),
         full.as_ref()
-            .map_or_else(|_| "-".to_owned(), |w| hex(w.get_span()))
+            .map_or_else(|_| "-".to_owned(), |w| hex(w.as_slice()))
     )
     .unwrap();
+    aux_stats::output(&mut out, &full_aux);
+    out
+}
+
+fn observe_image(args: &mut std::str::SplitWhitespace<'_>) -> String {
+    let w = number(args);
+    let h = number(args);
+    let gray = number::<u32>(args) != 0;
+    let depth = number::<u32>(args);
+    let has_aux = number::<u32>(args) != 0;
+    let data = unhex(args.next().unwrap());
+    let supplied = unhex(args.next().unwrap());
+    let mut config = LosslessThunderConfig::new(
+        w,
+        h,
+        gray,
+        if depth == 8 {
+            LosslessSampleDepth::Uint8
+        } else {
+            LosslessSampleDepth::Uint16
+        },
+    )
+    .unwrap();
+    let mut aux = aux_stats::seed(7);
+    let result = config.encode_pixels(&data, if has_aux { Some(&mut aux) } else { None });
+    let mut out = format!(
+        "{} {}",
+        result.as_ref().err().map_or(0, |s| *s as i32),
+        result
+            .as_ref()
+            .map_or_else(|_| "-".to_owned(), |bytes| hex(bytes.as_slice()))
+    );
     aux_stats::output(&mut out, &aux);
+    if let Ok(bytes) = result {
+        assert_eq!(bytes.as_slice(), supplied);
+        // Independent C++ decoders must recover the original lossless pixels
+        // from both the source stream and the supplied native stream. Rust
+        // complete-image decoding remains a separate, unfinished boundary.
+        for _ in 0..2 {
+            write!(
+                out,
+                " D 0 {w} {h} {depth} {} {}",
+                if gray { 1 } else { 3 },
+                hex(&data)
+            )
+            .unwrap();
+        }
+    }
+    out
+}
+
+fn observe_bundle(out: &mut String, b: &jxl::jxl::image_bundle::ImageBundle<'_>) {
+    write!(
+        out,
+        " B {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+        u32::from(b.have_memory_manager()),
+        u32::from(b.jpeg_data.is_some()),
+        b.color_transform.0,
+        b.origin.x0,
+        b.origin.y0,
+        b.duration,
+        b.timecode,
+        u32::from(b.use_for_next_frame),
+        u32::from(b.blend),
+        b.blendmode.0,
+        hex(&b.name),
+        u32::from(b.metadata().is_some()),
+        b.extra_channels().len(),
+        b.decoded_bytes(),
+        b.color().xsize()
+    )
+    .unwrap();
+    for c in 0..3 {
+        plane(out, b.color().plane(c));
+    }
+    frame::subsampling(out, &b.chroma_subsampling);
+    metadata::color_bundle(out, b.c_current());
+}
+
+fn observe_owners(args: &mut std::str::SplitWhitespace<'_>) -> String {
+    use jxl::jxl::{
+        enc_cache::PassesEncoderState, image_bundle::ImageBundle, image_metadata::ImageMetadata,
+        noise::NoiseParams,
+    };
+    let with_metadata = number::<u32>(args) != 0;
+    let moves = number::<usize>(args);
+    let decoded = number(args);
+    let mut noise = NoiseParams {
+        lut: std::array::from_fn(|_| f32::from_bits(number(args))),
+    };
+    let mut out = format!("N {}", u32::from(noise.has_any()));
+    noise.clear();
+    write!(out, " {}", u32::from(noise.has_any())).unwrap();
+    for v in noise.lut {
+        write!(out, " {}", v.to_bits()).unwrap();
+    }
+    let metadata = ImageMetadata::default();
+    let mut bundle = ImageBundle::new(with_metadata.then_some(&metadata));
+    bundle.set_decoded_bytes(decoded);
+    for _ in 0..moves {
+        bundle = std::convert::identity(bundle);
+    }
+    observe_bundle(&mut out, &bundle);
+    let mut state = PassesEncoderState::new();
+    for _ in 0..moves {
+        state = std::convert::identity(state);
+    }
+    write!(
+        out,
+        " E {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+        u32::from(state.have_memory_manager()),
+        u32::from(state.streaming_mode),
+        u32::from(state.initialize_global_state),
+        state.dc_group_index,
+        state.coeffs.len(),
+        state.special_frames.len(),
+        state.progressive_splitter.get_num_passes(),
+        state.passes.len(),
+        state.histogram_idx.len(),
+        state.used_acs,
+        state.used_orders.len(),
+        state.x_qm_multiplier.to_bits(),
+        state.b_qm_multiplier.to_bits(),
+        state.shared.num_histograms
+    )
+    .unwrap();
+    enc_frame::params(&mut out, &state.cparams);
+    plane(&mut out, &state.initial_quant_masking1x1);
+    let shared = &mut state.shared;
+    write!(
+        out,
+        " S {} {} {} {}",
+        shared.coeff_order_size,
+        shared.coeff_orders.len(),
+        u32::from(std::ptr::eq(shared.dc(), &shared.dc_storage)),
+        shared.block_ctx_map.num_ctxs
+    )
+    .unwrap();
+    write!(
+        out,
+        " {} {}",
+        shared.block_ctx_map.num_dc_ctxs,
+        hex(&shared.block_ctx_map.ctx_map)
+    )
+    .unwrap();
+    for threshold in &shared.block_ctx_map.dc_thresholds {
+        write!(out, " {}", threshold.len()).unwrap();
+    }
+    write!(out, " {}", shared.block_ctx_map.qf_thresholds.len()).unwrap();
+    for reference in &shared.reference_frames {
+        write!(
+            out,
+            " R {} {}",
+            u32::from(reference.frame.is_some()),
+            u32::from(reference.ib_is_in_xyb)
+        )
+        .unwrap();
+        observe_bundle(&mut out, reference.frame.as_deref().unwrap());
+    }
+    for dc in &shared.dc_frames {
+        for c in 0..3 {
+            plane(&mut out, dc.plane(c));
+        }
+    }
+    let features = &mut shared.image_features;
+    write!(
+        out,
+        " H {} {}",
+        u32::from(features.patches.have_memory_manager()),
+        u32::from(features.patches.has_any())
+    )
+    .unwrap();
+    for n in features.patches.storage_sizes() {
+        write!(out, " {n}").unwrap();
+    }
+    shared.bind_own_reference_frames();
+    write!(
+        out,
+        " {}",
+        u32::from(
+            shared
+                .image_features
+                .patches
+                .reference_frame_binding()
+                .is_some()
+        )
+    )
+    .unwrap();
+    let splines = &mut shared.image_features.splines;
+    for _ in 0..=moves {
+        write!(
+            out,
+            " L {} {} {} {} {}",
+            u32::from(splines.have_memory_manager()),
+            u32::from(splines.has_any()),
+            splines.quantization_adjustment(),
+            splines.quantized_splines().len(),
+            splines.starting_points().len()
+        )
+        .unwrap();
+        for n in splines.storage_sizes() {
+            write!(out, " {n}").unwrap();
+        }
+        write!(
+            out,
+            " {} {}",
+            u32::from(splines.have_segment_indices()),
+            u32::from(splines.have_segment_y_start())
+        )
+        .unwrap();
+        splines.clear();
+    }
+    out
+}
+
+fn observe_acimage(args: &mut std::str::SplitWhitespace<'_>) -> String {
+    use jxl::jxl::dct_util::{AcImage, AcPtrMut, AcType, ConstAcPtr};
+    let kind = if number::<u32>(args) == 0 {
+        AcType::I16
+    } else {
+        AcType::I32
+    };
+    let empty = number::<u32>(args) != 0;
+    let w = number::<usize>(args);
+    let h = number::<usize>(args);
+    let mode = number::<usize>(args);
+    let result = if empty {
+        Ok(Box::new(AcImage::empty(kind)))
+    } else {
+        AcImage::make(kind, w, h)
+    };
+    let mut out = result.as_ref().err().map_or(0, |s| *s as i32).to_string();
+    let mut img = match result {
+        Ok(v) => v,
+        Err(_) => return out,
+    };
+    if !empty {
+        for c in 0..3 {
+            for y in 0..h {
+                // Seed physical padding as well; zero-fill must leave it unchanged.
+                let count = img.pixels_per_row();
+                for x in 0..count {
+                    let value = (c * 1931 + y * 997 + x * 31337) as i32;
+                    match img.plane_row_mut(c, y, x) {
+                        AcPtrMut::I16(row) => row[0] = value as i16,
+                        AcPtrMut::I32(row) => row[0] = value,
+                    }
+                }
+            }
+        }
+    }
+    if mode == 1 {
+        img.zero_fill_plane(1);
+    }
+    if mode == 2 {
+        img.zero_fill();
+    }
+    let img = std::convert::identity(img);
+    write!(
+        out,
+        " {} {} {}",
+        img.image_type() as i32,
+        img.pixels_per_row(),
+        u32::from(img.is_empty())
+    )
+    .unwrap();
+    if !empty {
+        for c in 0..3 {
+            for y in 0..h {
+                for x in 0..img.pixels_per_row() {
+                    let value = match img.plane_row(c, y, x) {
+                        ConstAcPtr::I16(row) => i32::from(row[0]),
+                        ConstAcPtr::I32(row) => row[0],
+                    };
+                    write!(out, " {value}").unwrap();
+                }
+            }
+        }
+    }
     out
 }
 
@@ -541,6 +823,124 @@ fn pixel_components_and_allocated_fields_match_original_compute_encoding_data_an
                         * if depth == 8 { 1 } else { 2 }
                 ])
             ));
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn complete_raw_codestreams_match_original_and_cpp_decodes_both_streams_to_exact_integer_samples() {
+    let mut cases = Vec::new();
+    let mut random = 0x7851_92fa_71c3_690bu64;
+    for (w, h) in [
+        (1, 1),
+        (17, 9),
+        (129, 3),
+        (257, 3),
+        (401, 3),
+        (513, 3),
+        (2049, 3),
+        (65, 67),
+    ] {
+        for gray in [false, true] {
+            for depth in [8, 16] {
+                for mode in 0..3 {
+                    let mut data = Vec::new();
+                    for i in 0..w * h * if gray { 1 } else { 3 } {
+                        let value = match mode {
+                            0 => 137,
+                            1 => i * 173 + 61,
+                            _ => next(&mut random) as usize,
+                        };
+                        if depth == 8 {
+                            data.push(value as u8);
+                        } else {
+                            data.extend_from_slice(&(value as u16).to_ne_bytes());
+                        }
+                    }
+                    let mut config = LosslessThunderConfig::new(
+                        w,
+                        h,
+                        gray,
+                        if depth == 8 {
+                            LosslessSampleDepth::Uint8
+                        } else {
+                            LosslessSampleDepth::Uint16
+                        },
+                    )
+                    .unwrap();
+                    let native = config.encode_pixels(&data, None).unwrap();
+                    for has_aux in [0, 1] {
+                        cases.push(format!(
+                            "ss-image {w} {h} {} {depth} {has_aux} {} {}",
+                            u32::from(gray),
+                            hex(&data),
+                            hex(native.as_slice())
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    for gray in [0, 1] {
+        for depth in [8, 16] {
+            let size = 17 * 9 * if gray == 1 { 1 } else { 3 } * if depth == 8 { 1 } else { 2 };
+            for len in [0, 1, size / 2, size - 1] {
+                for has_aux in [0, 1] {
+                    cases.push(format!(
+                        "ss-image 17 9 {gray} {depth} {has_aux} {} -",
+                        hex(&vec![0; len])
+                    ));
+                }
+            }
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn shared_encoder_reference_feature_and_bundle_owners_match_original_initialized_state() {
+    let mut cases = Vec::new();
+    let words = [
+        0u32, 0x80000000, 1, 0x3a83126f, 0x3a831270, 0xba831270, 0x7f800000, 0xff800000,
+        0x7fa12345, 0xffc98765,
+    ];
+    for metadata in [0, 1] {
+        for moves in [0, 1, 3] {
+            for decoded in [0, 1, usize::MAX] {
+                for offset in 0..words.len() {
+                    let mut request = format!("ss-owners {metadata} {moves} {decoded}");
+                    for i in 0..8 {
+                        write!(request, " {}", words[(offset + i) % words.len()]).unwrap();
+                    }
+                    cases.push(request);
+                }
+            }
+        }
+    }
+    cases.push(
+        "ss-owners 0 0 0 0 2147483648 1 981668463 981668463 0 2147483648 2141266757".to_owned(),
+    );
+    compare(cases);
+}
+
+#[test]
+fn ac_image_both_types_keep_virtual_rows_stride_moves_zero_fill_and_physical_padding() {
+    let mut cases = Vec::new();
+    for kind in [0, 1] {
+        for mode in 0..3 {
+            cases.push(format!("ss-acimage {kind} 1 0 0 {mode}"));
+            for (w, h) in [
+                (0, 0),
+                (1, 1),
+                (17, 3),
+                (64, 2),
+                (129, 5),
+                (u32::MAX as usize + 1, 1),
+                (1, u32::MAX as usize + 1),
+            ] {
+                cases.push(format!("ss-acimage {kind} 0 {w} {h} {mode}"));
+            }
         }
     }
     compare(cases);
