@@ -11,3 +11,8 @@ mechanical corrections. Keep source correspondence and native ABI/original-test
 checks for every profile. Repeated generated declarations may be consolidated
 only in separate work after parity; a macOS-generated configuration is not
 accepted as Linux evidence.
+
+Build the unchanged legacy translator with Rust 1.80.1. Newer standard-library
+sorting rejects one of its comparison functions on the Linux declarations;
+the decoder itself still uses the pinned nightly-2026-09-07 compiler. Require
+fresh repeat generation rather than accepting a partial translator run.

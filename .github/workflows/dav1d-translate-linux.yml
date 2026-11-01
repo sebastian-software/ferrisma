@@ -24,8 +24,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake
           rustup toolchain install nightly-2026-09-07 --profile minimal
-          rustup toolchain install 1.85.1 --profile minimal
-          cargo +1.85.1 install c2rust --version 0.21.0 --locked
+          rustup toolchain install 1.80.1 --profile minimal
+          cargo +1.80.1 install c2rust --version 0.21.0 --locked
           python3 -m venv build/dav1d-tools
           build/dav1d-tools/bin/python -m pip install meson==1.7.2
       - name: Verify original source and test inputs
@@ -38,6 +38,8 @@ jobs:
           python3 tools/build_dav1d.py --debug
           python3 tools/build_dav1d.py
       - name: Reproduce both complete native Linux source profiles
+        env:
+          RUST_BACKTRACE: "1"
         run: |
           python3 tools/transpile_dav1d.py
           python3 tools/transpile_dav1d.py --release
