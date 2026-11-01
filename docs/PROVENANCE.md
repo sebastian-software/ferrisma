@@ -117,6 +117,13 @@ XL Project Authors' copyright notice and name the source files they translate.
   samples after a source clone. These tests do not read uninitialized padding
   or claim to translate the upstream image and transform pixel test inventory.
 
+- `modular/transform/rct.{h,cc}` and `enc_rct.{h,cc}`: original Highway scalar
+  inverse/forward RCT, channel permutation, and null-pool row traversal. Native
+  known answers/round trips and differential image/channel corpora are local
+  infrastructure. Forward inputs avoid the source scalar path's undefined
+  signed overflow; inverse cases include the source's defined Highway wrapping.
+  No upstream color-transform test inventory or custom runner is claimed here.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises

@@ -195,6 +195,18 @@ difference from the source's indeterminate nonserialized member. Oracle callers
 seed that member and observed pixel storage explicitly. No Rust sanitizer or
 memory/performance parity is inferred from C++ instrumentation or these borrows.
 
+Scalar RCT row pointers use disjoint mutable row borrows plus index maps for
+input/output permutations. A private row-access trait expresses the source's
+in-place and separate-buffer calls without aliased shared/mutable references:
+load all three samples before storing any output. Whole-channel inverse moves
+use swaps over the same three owners, preserving component tags without plane
+copies or replacement allocations. Custom thread runners and arbitrary C
+pointer alias contracts remain unported. The null-pool row order and the source
+uint32 task-end narrowing stay explicit. Forward scalar i32 expressions retain
+the source's nonoverflowing input requirement; inverse Highway Add/Sub use
+explicit wrapping. Keep the in-place forward no-op's false Status distinct from
+the separate-buffer and inverse no-ops' successful Status.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

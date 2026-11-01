@@ -51,7 +51,8 @@ and no placeholder codec APIs. The source revision is pinned in
 | `image_ops.h` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular copies, plane copies with padding, and Mirror; arithmetic, conversion, min/max, and image_ops.cc unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, and resize failure state; transform execution and diagnostics unported |
-| `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, and channel-range validation; MetaApply and Inverse pixel kernels unported |
+| `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, and channel-range validation; MetaApply/Inverse dispatch and palette/squeeze kernels unported |
+| `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
@@ -80,13 +81,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 115 tests, including 61 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 115 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 115 tests and corpus |
+| Rust debug | PASSED | 121 tests, including 64 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 121 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 121 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **531,551 requests** against C++. These include
+Each differential run compares **533,528 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -189,6 +190,17 @@ positive dimensions fails without replacing its old plane. The fixture paints
 every observed source byte first; cloned images expose valid samples only,
 because C++ leaves their padding uninitialized. Native tests check ownership,
 clone independence, float sample bits, padding preservation, and resize state.
+
+RCT comparisons cover all 42 serialized color-transform types, in-place and
+separate-buffer forward calls, inverse full-width Highway wrapping, pure channel
+moves and component tags, channel/meta-channel validation, zero forward status
+versus successful inverse no-op, and uint32 task-range narrowing. Forward
+samples stay within the scalar source's defined signed-arithmetic domain;
+inverse inputs also exercise int32 extremes. The separate forward overload
+retains its different validation behavior. Native known answers, sample round
+trips, and padding checks complement the source comparisons. This evidence is
+for the original scalar/null-pool path; it does not establish thread-runner or
+SIMD behavior.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through

@@ -56,6 +56,8 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/modular/modular_image.cc"
   "${UPSTREAM}/lib/jxl/modular/transform/transform.cc"
   "${UPSTREAM}/lib/jxl/modular/transform/squeeze_params.cc"
+  "${UPSTREAM}/lib/jxl/modular/transform/rct.cc"
+  "${UPSTREAM}/lib/jxl/modular/transform/enc_rct.cc"
   "${UPSTREAM}/lib/jxl/fields.cc"
   "${UPSTREAM}/lib/jxl/enc_fields.cc"
   "${UPSTREAM}/lib/jxl/enc_huffman.cc"

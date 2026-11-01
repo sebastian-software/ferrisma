@@ -31,7 +31,7 @@ macro_rules! samples {
     )*};
 }
 samples!(u8, i16, i32, f32, u64, u16, f64);
-fn paint<T: Sample>(p: &mut Plane<T>, seed: u64) {
+pub(super) fn paint<T: Sample>(p: &mut Plane<T>, seed: u64) {
     if let Some(bytes) = p.bytes_mut() {
         for (i, v) in bytes.iter_mut().enumerate() {
             let i = i as u64;
@@ -203,7 +203,7 @@ fn channel(out: &mut String, c: &Channel, rows: usize, full: bool) {
     .unwrap();
     plane(out, &c.plane, rows, full);
 }
-fn modular(out: &mut String, image: &Image) {
+pub(super) fn modular(out: &mut String, image: &Image) {
     write!(
         out,
         " {},{},{},{},{},{}",

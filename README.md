@@ -14,7 +14,7 @@ ICC profile generation with its scalar color-math dependencies, color bundles,
 image metadata, custom transform data, complete codestream-header output,
 frame headers, frame geometry, filter parameter bundles, permutation streams,
 section tables with group offsets, aligned image/channel storage, and modular
-transform parameter bundles.
+transform parameter bundles, and the existing scalar reversible color transforms.
 The image path is still being translated; the
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate

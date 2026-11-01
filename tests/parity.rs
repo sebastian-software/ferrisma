@@ -54,6 +54,9 @@ mod toc;
 #[path = "parity/image.rs"]
 mod image;
 
+#[path = "parity/rct.rs"]
+mod rct;
+
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -631,6 +634,7 @@ fn observe(request: &str) -> String {
         kind if frame::handles(kind) => frame::observe(kind, &mut args),
         kind if toc::handles(kind) => toc::observe(kind, &mut args),
         kind if image::handles(kind) => image::observe(kind, &mut args),
+        kind if rct::handles(kind) => rct::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

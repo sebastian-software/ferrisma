@@ -1,3 +1,5 @@
+pub mod enc_rct;
+pub mod rct;
 pub mod squeeze_params;
 #[expect(
     clippy::module_inception,

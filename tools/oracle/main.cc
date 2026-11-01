@@ -450,6 +450,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "frame.inc"
 #include "toc.inc"
 #include "image.inc"
+#include "rct.inc"
 
 int main() {
   try {
@@ -481,6 +482,7 @@ int main() {
       else if (FrameCommand(command, in, &mm)) {}
       else if (TocCommand(command, in, &mm)) {}
       else if (ImageCommand(command, in, &mm)) {}
+      else if (RctCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
