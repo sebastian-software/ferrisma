@@ -6,11 +6,13 @@ function(libavif_rs_replace_sharpyuv)
     file(WRITE "${CMAKE_BINARY_DIR}/sharpyuv_rust_anchor.c"
          "/* Linkage anchor only; all SharpYUV implementation is in Rust. */\n")
     set_property(TARGET sharpyuv PROPERTY SOURCES "${CMAKE_BINARY_DIR}/sharpyuv_rust_anchor.c")
-    target_link_libraries(sharpyuv PUBLIC "${SHARPYUV_RS_ARCHIVE}" ${CMAKE_DL_LIBS})
+    # Match the original target's plain signature (its Linux math dependency
+    # already establishes that signature before this deferred replacement).
+    target_link_libraries(sharpyuv "${SHARPYUV_RS_ARCHIVE}" ${CMAKE_DL_LIBS})
     if(APPLE)
-        target_link_libraries(sharpyuv PUBLIC resolv iconv)
+        target_link_libraries(sharpyuv resolv iconv)
     else()
-        target_link_libraries(sharpyuv PUBLIC m pthread)
+        target_link_libraries(sharpyuv m pthread)
     endif()
 endfunction()
 cmake_language(DEFER CALL libavif_rs_replace_sharpyuv)
