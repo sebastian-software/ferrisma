@@ -33,6 +33,38 @@ globally suppressed.
 
 Rust used: `rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`.
 
+## Additional configurations
+
+| Configuration | C registrations | Rust registrations | GoogleTest cases in each |
+| --- | ---: | ---: | ---: |
+| Default Release | 64 | 64 | 9,473 |
+| Rust debug, same C Release preprocessing | 64 | 64 | 9,473 |
+| Mini | 65 | 65 | 9,526 |
+| Extended PIXI | 64 | 64 | 9,474 |
+| Mini + Extended PIXI | 65 | 65 | 9,527 |
+
+Every registration above passes, and case/skip inventories match its C baseline.
+Use `tools/run_tests.py` to isolate temporary directories: upstream metadata
+tests use fixed temporary file names, so separate CTest suites otherwise collide
+when run concurrently. Initial concurrent reference runs exposed this harness
+collision; reruns in isolated directories passed without changing the tests.
+
+## ABI and differential evidence
+
+`tools/check_abi.py` passes 3,136 size, alignment, and field-offset comparisons
+across 389 named record instances in the default configuration. Seventeen
+anonymous/bitfield record instances are explicitly excluded from this automated
+layout probe; the original end-to-end tests still exercise their consumers.
+
+Ten additional deterministic encoding scenarios produce byte-identical AVIF
+files across C and Rust (8/10/12-bit, chroma sampling, lossless, alpha, SharpYUV,
+progressive output, transforms, color profiles, and metadata). Nine decoded PNGs
+are byte-identical. The large JPEG-derived case differs due to floating-point
+contraction in the original Clang RGB conversion; its PNG is byte-identical to a
+separate C decoder with only `reformat.c` compiled using `-ffp-contract=off`.
+`tools/differential.py` fails strict PNG parity; `--diagnose-float` verifies and
+reports the cause without certifying full PNG byte parity. See ADR 0005.
+
 Optional upstream configurations (other codec adapters, experimental syntax,
 golden tests requiring MP4Box, FuzzTest, ComplianceWarden, other platforms) remain
 in the untouched source snapshot and require separate validation.

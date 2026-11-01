@@ -13,6 +13,11 @@ crate-type = ["staticlib", "rlib", "cdylib"]
 [dependencies]
 libc = "=0.2.191"
 
+[features]
+default = []
+mini = []
+extended-pixi = []
+
 [profile.dev]
 overflow-checks = false
 panic = "abort"

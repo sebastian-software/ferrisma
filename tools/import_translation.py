@@ -78,6 +78,7 @@ def main():
     parser.add_argument("--raw", type=Path, default=ROOT / "build/generated")
     parser.add_argument("--database", type=Path, default=ROOT / "build/translate/compile_commands.json")
     parser.add_argument("--check", action="store_true", help="Compare without writing translated files")
+    parser.add_argument("--variant", choices=["default", "mini", "extended-pixi", "mini-extended-pixi"], default="default")
     args = parser.parse_args()
     entries = json.loads(args.database.read_text())
     manifest = []
@@ -89,6 +90,8 @@ def main():
         target = target.with_suffix(".rs")
         raw = generated.read_text()
         text, changes = translate(source, raw)
+        if args.variant != "default" and target.read_text() != text:
+            target = ROOT / "src/variants" / args.variant / target.relative_to(ROOT / "src")
         if args.check:
             if target.read_text() != text:
                 raise SystemExit(f"Translation is not reproducible: {target}")
@@ -102,9 +105,11 @@ def main():
             "rust_sha256": hashlib.sha256(text.encode()).hexdigest(),
             "corrections": changes,
         })
-    record = {"translator": "c2rust 0.21.0", "llvm": "16.0.6", "units": manifest}
+    record = {"translator": "c2rust 0.21.0", "llvm": "16.0.6", "variant": args.variant, "units": manifest}
     if not args.check:
-        (ROOT / "TRANSLATION.json").write_text(json.dumps(record, indent=2) + "\n")
+        destination = ROOT / "TRANSLATION.json" if args.variant == "default" else ROOT / "translations" / f"{args.variant}.json"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(json.dumps(record, indent=2) + "\n")
     print(f"{'Verified' if args.check else 'Imported'} {len(manifest)} mechanical Rust translation units")
 
 

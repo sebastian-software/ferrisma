@@ -36,27 +36,41 @@ def main():
     parser.add_argument("--fetch-deps", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--debug", action="store_true", help="Test unoptimized Rust with the same upstream Release configuration")
+    parser.add_argument("--mini", action="store_true", help="Enable upstream experimental reduced headers")
+    parser.add_argument("--extended-pixi", action="store_true", help="Enable upstream experimental extended pixel information")
+    for feature in ["libgav1", "rav1e", "svt", "libyuv"]:
+        parser.add_argument("--" + feature, action="store_true")
     args = parser.parse_args()
     run(["python3", ROOT / "tools/verify_upstream.py"])
     dependencies(args.fetch_deps)
-    build = ROOT / "build" / (args.implementation + ("-debug" if args.debug else ""))
+    features = [name for name, enabled in [("mini", args.mini), ("extended-pixi", args.extended_pixi),
+                ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv)] if enabled]
+    suffix = ("-" + "-".join(features) if features else "") + ("-debug" if args.debug else "")
+    build = ROOT / "build" / (args.implementation + suffix)
     command = [
         "cmake", "-S", ROOT / "upstream/libavif", "-B", build, "-G", "Ninja",
         "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DBUILD_SHARED_LIBS=OFF", "-DAVIF_BUILD_TESTS=ON", "-DAVIF_BUILD_APPS=ON",
-        "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=SYSTEM", "-DAVIF_LIBYUV=OFF",
+        "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=SYSTEM", f"-DAVIF_LIBYUV={'SYSTEM' if args.libyuv else 'OFF'}",
         "-DAVIF_LIBSHARPYUV=SYSTEM", "-DAVIF_LIBXML2=SYSTEM", "-DAVIF_GTEST=LOCAL",
         f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={ROOT}/build/deps/googletest",
         f"-DFETCHCONTENT_SOURCE_DIR_LIBARGPARSE={ROOT}/build/deps/libargparse",
+        f"-DAVIF_ENABLE_EXPERIMENTAL_MINI={'ON' if args.mini else 'OFF'}",
+        f"-DAVIF_ENABLE_EXPERIMENTAL_EXTENDED_PIXI={'ON' if args.extended_pixi else 'OFF'}",
+        f"-DAVIF_CODEC_LIBGAV1={'SYSTEM' if args.libgav1 else 'OFF'}",
+        f"-DAVIF_CODEC_RAV1E={'SYSTEM' if args.rav1e else 'OFF'}",
+        f"-DAVIF_CODEC_SVT={'SYSTEM' if args.svt else 'OFF'}",
+        f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
     if args.implementation == "port":
         cargo = ["cargo", "build", "--locked"]
         if not args.debug:
             cargo.append("--release")
+        if features:
+            cargo += ["--features", ",".join(features)]
         run(cargo)
         archive = ROOT / "target" / ("debug" if args.debug else "release") / "libavif.a"
-        command += [f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/rust-library.cmake",
-                    f"-DLIBAWFRS_ARCHIVE={archive}"]
+        command += [f"-DLIBAWFRS_ARCHIVE={archive}"]
     run(command)
     run(["cmake", "--build", build, "-j", args.jobs])
     if args.implementation == "port":

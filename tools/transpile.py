@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--clang-include", type=Path, required=True,
                         help="LLVM 16's lib/clang/16/include directory")
     parser.add_argument("--check", action="store_true", help="Regenerate and compare without importing")
+    parser.add_argument("--variant", choices=["default", "mini", "extended-pixi", "mini-extended-pixi"], default="default")
     args = parser.parse_args()
     if not (args.clang_include / "stdarg.h").exists():
         raise SystemExit("--clang-include must contain LLVM 16's standard headers")
@@ -26,25 +27,31 @@ def main():
                if "avif_obj.dir" in entry.get("command", "")]
     if not entries or any("rust_archive_anchor" in entry["file"] for entry in entries):
         raise SystemExit("Use the C reference compilation database, not the Rust test build")
-    database = ROOT / "build/translate/compile_commands.json"
+    suffix = "" if args.variant == "default" else "-" + args.variant
+    database = ROOT / f"build/translate{suffix}/compile_commands.json"
     database.parent.mkdir(parents=True, exist_ok=True)
     for entry in entries:
         entry["command"] += " -isystem " + shlex.quote(str(args.clang_include.resolve()))
     database.write_text(json.dumps(entries, indent=2) + "\n")
-    raw = ROOT / "build/generated"
+    raw = ROOT / f"build/generated{suffix}"
     if raw.exists():
         shutil.rmtree(raw)
     command = [args.c2rust, str(database), "--emit-build-files", "--fail-on-error",
                "--output-dir", str(raw)]
+    environment = os.environ.copy()
+    # macOS strips DYLD_* when starting the system Python interpreter. Carry
+    # the local translator runtime through a non-reserved variable instead.
+    if environment.get("C2RUST_LIBRARY_PATH"):
+        environment["DYLD_LIBRARY_PATH"] = environment["C2RUST_LIBRARY_PATH"]
     result = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT)
-    log = ROOT / "build/transpile.log"
+                            stderr=subprocess.STDOUT, env=environment)
+    log = ROOT / f"build/transpile{suffix}.log"
     log.write_text(result.stdout)
     # Some C2Rust/Clang parse failures can leave output and return success.
     if result.returncode or "error:" in result.stdout or "error generated" in result.stdout:
         raise SystemExit(f"Translation failed; inspect {log}")
     importer = ["python3", str(ROOT / "tools/import_translation.py"),
-                "--raw", str(raw), "--database", str(database)]
+                "--raw", str(raw), "--database", str(database), "--variant", args.variant]
     if args.check:
         importer.append("--check")
     subprocess.run(importer, cwd=ROOT, check=True)
