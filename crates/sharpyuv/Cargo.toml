@@ -1,0 +1,14 @@
+[package]
+name = "libavif-sharpyuv"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-3-Clause"
+description = "Mechanical portable SharpYUV 0.4.2 translation from libwebp 1.6.0"
+publish = false
+
+[lib]
+name = "sharpyuv"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+libc = "=0.2.191"

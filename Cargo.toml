@@ -1,3 +1,7 @@
+[workspace]
+members = ["crates/sharpyuv"]
+resolver = "2"
+
 [package]
 name = "libavif-rs"
 version = "0.1.0"
