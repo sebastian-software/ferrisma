@@ -633,13 +633,29 @@ FastPow2f retains Highway Floor's positive-zero result for negative zero and
 its sign-based saturating NaN/infinity conversion before wrapped exponent math.
 ZeroIfNegative tests the sign bit, including negative NaNs.
 
-In the scalar GamutMap blend, the reference Clang object emits the original
+In the scalar GamutMap blend, the AArch64 reference Clang object emits the original
 channel value as the first add operand, followed by the separately computed
 product. Express that emitted operand order explicitly so a quiet-NaN channel
 retains its payload. This does not change finite arithmetic or fuse operations;
-exact differential and captured-word regressions cover it. Review this mapping
-with compiler/target changes. ToneMappingStage retains the original unneeded
-return before argument guards, then RGB load/scale/map/gamut/scale/store order.
+exact differential and captured-word regressions cover it. The original x86_64
+configuration selects the green channel's quieted NaN payload in all three
+channels for the native regression's input. The actual oracle's optimized
+scalar GamutMap object
+uses the green product as the inner ADDSS destination and the red product as
+the outer destination. Its final blend uses the separately computed product as
+the ADDSS destination in every channel. Local out-of-line x86 Add calls preserve
+those operand choices while keeping the original right-nested association and
+separate rounding. An independent tiny source wrapper can allocate different
+operands and is not a substitute for the actual oracle's object. The observed
+emulated x86 runtime selects the same larger quiet-NaN payload in both operand
+orders; native execution and actual-object disassembly are required to verify
+these choices. The selected original O3 object emits scalar MULSS products;
+its Highway double promotions are optimized away at that boundary. Keep the
+AArch64 path and captured words unchanged and retain the same input in the real
+differential corpus. Cross-target NaN payload equality is not assumed. Review
+this mapping with compiler/target changes. ToneMappingStage retains the original
+unneeded return before argument guards, then RGB load/scale/map/gamut/scale/store
+order.
 
 PassesDecoderState owns its complete shared storage and coefficient/reference
 owners. Its shared pointer selects either its own storage or an actual immutable
@@ -762,3 +778,15 @@ the source uses restrict pointers. Callback/float-output entry points remain
 absent. JxlEndianness value 3 is representable but unnamed and exercises the
 source fall-through; value 9 produces an undefined C++ enum load and has no
 assigned source codec meaning.
+
+The x86_64 reference downsampling loop keeps its accumulator as the destination
+of ADDSS. A local out-of-line scalar addition retains that operand order in
+Rust Debug and Release, including competing NaN payloads. The original x86_64
+DC-scaling object uses the matrix as the multiplication destination for its
+first two lanes and the reciprocal scale for the third; a local out-of-line
+multiplication and the same per-lane argument order retain that behavior.
+AArch64 keeps its existing source expressions. These are explicit mappings of
+the fixed reference compiler's scalar instructions, not changes to the sums,
+scales, rounding, or error checkpoints. Review them after compiler/target
+changes. Captured-word native regressions and the unchanged differential
+corpora cover the observed failures.

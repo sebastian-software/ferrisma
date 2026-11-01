@@ -888,3 +888,51 @@ runtime link, external crate, manually assembled codestream, or image-specific
 expected output is used by that native path. The [first-image acceptance
 boundary](FIRST_IMAGE.md) is satisfied for the fixed profile; this result does
 not establish the full library port or any unclaimed platform/release gate.
+
+## Linux reference configuration and scalar operand order
+
+The first hosted Linux run identified four reference-platform gaps. The Linux
+oracle now explicitly selects libc++ for the recorded palette-sort algorithm;
+libstdc++ uses a different equivalent-element order. The frame-finalization
+adapter gives empty groups real backing storage without adding bits, retaining
+all empty-group cases and the original writer under Linux's nonnull memcpy
+checks. Local out-of-line x86 scalar additions/multiplications preserve the
+original downsampling/DC-scaling instruction operand order and NaN payloads.
+Existing AArch64 expressions and all prior differential cases are unchanged.
+Two ordinary Rust regressions retain independently observed source words and
+failed-roundtrip partial state. Compiler and standard-library changes require
+renewed evidence; these fixes do not establish any new codec configuration.
+
+The ordinary and ASan/UBSan macOS checks with `--msrv` each pass all 325 tests
+and 703,420 differential requests in Debug, Release, and Rust 1.85 configurations.
+The captured regressions also pass in the isolated x86_64 Linux runtime;
+the full hosted Linux matrix remains a separate integration gate. CI runs
+the unchanged full Linux/macOS matrix on each PR update and on pushes to main,
+avoiding duplicate full runs for a feature-branch push followed by its PR.
+
+After those four fixes, native Linux CI passed every existing differential
+group and exposed an AArch64-only captured GamutMap word in an ordinary test.
+The test now retains independently captured exact words for both reference
+targets, with its input also added to the differential corpus. The existing
+AArch64 arithmetic and captured words remain unchanged. The x86 production
+helper now additionally preserves the actual original object's optimized
+luminance and product-first blend ADDSS operands through local out-of-line Add
+calls. The same old scalar and stage/pipeline cases retain exact comparisons
+in both build modes; no expected word or existing request is changed by that
+mapping.
+
+Focused emulated x86_64 ordinary and UBSan-reference runs both pass four filtered
+groups and 56,085 requests in Debug and Release, including the original scalar
+gamut and stage/pipeline corpora. Both ordinary Rust tone-mapping tests also pass
+in each mode. The emulated runtime selects the same larger quiet-NaN payload
+for both ADDSS operand orders; these passes do not prove native operand fidelity.
+Native hosted execution exposed the earlier tiny source probe's different register
+allocation and the need to inspect the actual oracle's GamutMap object. The
+focused UBSan variant instruments the unchanged original-source adapter
+containing the actual scalar functions/stage and links the cached
+ordinary codec archive; this is not a fully instrumented Linux codec run.
+Complete ordinary macOS Debug, Release, and Rust 1.85 checks retain the same 325
+tests, 183 differential groups, and 703,420 requests. The preceding mapping also
+passed all three macOS ASan/UBSan configurations; this correction only compiles
+on x86_64 and leaves the AArch64 arithmetic unchanged. Existing cases and
+expected words remain unchanged; no emulated ASan gate is claimed.

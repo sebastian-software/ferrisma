@@ -107,7 +107,18 @@ impl HlgOotf {
         self.base.apply_ootf && self.base.exponent < 0.0
     }
 }
+// Match the selected x86 scalar object's ADDSS destination operand without
+// allowing the surrounding function to commute competing NaN payloads.
+#[cfg(target_arch = "x86_64")]
+#[inline(never)]
+fn add_gamut(first: f32, second: f32) -> f32 {
+    first + second
+}
+
 pub fn gamut_map(rgb: &mut Color, p: Vector3, preserve: f32) {
+    #[cfg(target_arch = "x86_64")]
+    let luminance = add_gamut(p[0] * rgb[0], add_gamut(p[1] * rgb[1], p[2] * rgb[2]));
+    #[cfg(not(target_arch = "x86_64"))]
     let luminance = mul_add(p[0], rgb[0], mul_add(p[1], rgb[1], p[2] * rgb[2]));
     let mut saturation = 0.0;
     let mut lum = 0.0;
@@ -131,9 +142,17 @@ pub fn gamut_map(rgb: &mut Color, p: Vector3, preserve: f32) {
     }
     let mix = clamp(mul_add(preserve, saturation - lum, lum), 0.0, 1.0);
     for value in &mut *rgb {
-        // Clang's scalar GamutMap emits FADD(original, product) here. Retain
-        // that operand order for NaN payloads; multiplication remains separate.
-        *value += mix * (luminance - *value);
+        #[cfg(target_arch = "x86_64")]
+        {
+            // The actual original x86 GamutMap object keeps the separately
+            // computed product as ADDSS's destination in every channel.
+            *value = add_gamut(mix * (luminance - *value), *value);
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            // The AArch64 object emits FADD(original, product).
+            *value += mix * (luminance - *value);
+        }
     }
     let max_clr = max(max(1.0, rgb[0]), max(rgb[1], rgb[2]));
     let normalizer = 1.0 / max_clr;

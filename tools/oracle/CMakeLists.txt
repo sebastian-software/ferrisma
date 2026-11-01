@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.18)
 project(libjxl_rust_oracle LANGUAGES C CXX)
 
+# The Rust palette sort follows the recorded libc++ specialization. Select
+# that same standard library explicitly on Linux instead of silently using
+# libstdc++, whose equivalent-element order differs. This is oracle-only.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "The Linux differential oracle requires Clang with libc++")
+  endif()
+  string(APPEND CMAKE_CXX_FLAGS " -stdlib=libc++")
+endif()
+
 get_filename_component(PORT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 set(UPSTREAM "${PORT_ROOT}/upstream/libjxl")
 if(NOT EXISTS "${UPSTREAM}/third_party/highway/hwy/base.h")

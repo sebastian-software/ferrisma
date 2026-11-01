@@ -377,3 +377,34 @@ writer unchanged. The native zero-gray test uses independently captured original
 42-bit modular sections (`258cc50ac100`, padded), not a JPEG XL codestream.
 Generated state/action corpora remain local infrastructure; complete frame
 entry points, decoding, and the first-image corpus are separate requirements.
+
+The Linux reference explicitly uses Clang with libc++ for the translated
+palette sort boundary. The same tied-element and heap-fallback differential
+corpus compares the actual selected standard library; no sort implementation
+is substituted in the adapter. Empty frame-group fixtures allocate a real
+zero-length span using the original writer before its original vector append.
+`tests/linux_scalar.rs` records the original x86_64/AArch64 downsampling and
+failed DC-scaling observations. Local x86 scalar calls retain the original
+ADDSS/MULSS operand order for competing NaN payloads; the source algorithms,
+existing AArch64 words, and differential comparison semantics remain unchanged.
+
+The original x86_64 GamutMap result for the existing native regression was
+captured independently with the ordinary Clang 21 reference. Its
+three output words are `0x7fe12345`; AArch64 retains the existing distinct blue
+word `0x7fc98765`. The native test now checks its target's exact source words,
+and the same input is added to the differential corpus. No production gamut
+algorithm or existing AArch64 expectation changes.
+
+The actual x86_64 oracle's optimized GamutMap object retains the original
+right-nested luminance tree with the green product as the inner ADDSS
+destination and red product as the outer destination. Each final blend also
+uses the separately computed product as the ADDSS destination. Local native x86
+Add call boundaries preserve those operand choices in both build modes. The
+earlier standalone source probe allocated different operands, while the
+emulated runtime selected the same larger quiet-NaN payload in either order.
+Its ordinary/UBSan agreement therefore did not prove native NaN parity. Native
+execution and disassembly of the actual source and Rust objects are the
+required evidence for this mapping. MULSS products preserve separate rounding
+without executing the source's folded double promotions.
+The original source, oracle settings, global Highway helpers, existing cases,
+expected words, and AArch64 arithmetic remain unchanged.
