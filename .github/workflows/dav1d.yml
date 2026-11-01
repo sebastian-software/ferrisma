@@ -31,7 +31,7 @@ jobs:
           test "$(uname -m)" = "${{ matrix.architecture }}"
           if [ "${{ runner.os }}" = Linux ]; then
             sudo apt-get update
-            sudo apt-get install -y clang-16 ninja-build pkg-config python3-venv
+            sudo apt-get install -y clang-16 nasm ninja-build pkg-config python3-venv
             echo CC=clang-16 >> "$GITHUB_ENV"
           else
             brew install ninja pkg-config

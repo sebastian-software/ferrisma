@@ -932,19 +932,19 @@ pub unsafe extern "C" fn dav1d_apply_grain_8bpc(
     out: *mut Dav1dPicture,
     in_0: *const Dav1dPicture,
 ) {
-    let mut grain_lut: [[[entry; 82]; 74]; 3] = [[[0; 82]; 74]; 3];
-    let mut scaling: [[uint8_t; 256]; 3] = [[0; 256]; 3];
+    let mut grain_lut: crate::platform::Aligned16<[[[entry; 82]; 74]; 3]> = crate::platform::Aligned16([[[0; 82]; 74]; 3]);
+    let mut scaling: crate::platform::Aligned64<[[uint8_t; 256]; 3]> = crate::platform::Aligned64([[0; 256]; 3]);
     let rows: core::ffi::c_int = ((*out).p.h + FG_BLOCK_SIZE - 1 as core::ffi::c_int)
         / FG_BLOCK_SIZE;
-    dav1d_prep_grain_8bpc(dsp, out, in_0, scaling.as_mut_ptr(), grain_lut.as_mut_ptr());
+    dav1d_prep_grain_8bpc(dsp, out, in_0, scaling.0.as_mut_ptr(), grain_lut.0.as_mut_ptr());
     let mut row: core::ffi::c_int = 0 as core::ffi::c_int;
     while row < rows {
         dav1d_apply_grain_row_8bpc(
             dsp,
             out,
             in_0,
-            scaling.as_mut_ptr() as *const [uint8_t; 256],
-            grain_lut.as_mut_ptr() as *const [[entry; 82]; 74],
+            scaling.0.as_mut_ptr() as *const [uint8_t; 256],
+            grain_lut.0.as_mut_ptr() as *const [[entry; 82]; 74],
             row,
         );
         row += 1;

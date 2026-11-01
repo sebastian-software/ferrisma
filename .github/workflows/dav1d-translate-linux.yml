@@ -28,7 +28,7 @@ jobs:
       - name: Install the pinned translation toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake
+          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev nasm ninja-build pkg-config python3-venv cmake
           rustup toolchain install nightly-2026-09-07 --profile minimal
           rustup toolchain install 1.80.1 --profile minimal
           cargo +1.80.1 install c2rust --version 0.21.0 --locked
@@ -59,8 +59,6 @@ jobs:
           python3 tools/build_dav1d_consumers.py --debug
           python3 tools/check_dav1d_api.py
           python3 tools/check_dav1d_api.py --debug
-          python3 tools/check_dav1d_dsp.py
-          python3 tools/check_dav1d_dsp.py --debug
           python3 - <<'PY'
           import json, os, subprocess
           from pathlib import Path
@@ -72,6 +70,8 @@ jobs:
               subprocess.run(test['cmd'], cwd=test['workdir'], env=environment,
                              check=True, timeout=test['timeout'] * 4)
           PY
+          python3 tools/check_dav1d_dsp.py
+          python3 tools/check_dav1d_dsp.py --debug
       - name: Preserve generated source and reference configuration
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

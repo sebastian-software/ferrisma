@@ -1448,7 +1448,7 @@ pub static mut dav1d_cdef_directions: [[int8_t; 2]; 12] = [
     ],
 ];
 #[no_mangle]
-pub static mut dav1d_sgr_params: [[uint16_t; 2]; 16] = [
+pub static mut dav1d_sgr_params: crate::platform::Aligned4<[[uint16_t; 2]; 16]> = crate::platform::Aligned4([
     [140 as core::ffi::c_int as uint16_t, 3236 as core::ffi::c_int as uint16_t],
     [112 as core::ffi::c_int as uint16_t, 2158 as core::ffi::c_int as uint16_t],
     [93 as core::ffi::c_int as uint16_t, 1618 as core::ffi::c_int as uint16_t],
@@ -1465,9 +1465,9 @@ pub static mut dav1d_sgr_params: [[uint16_t; 2]; 16] = [
     [0 as core::ffi::c_int as uint16_t, 925 as core::ffi::c_int as uint16_t],
     [56 as core::ffi::c_int as uint16_t, 0 as core::ffi::c_int as uint16_t],
     [22 as core::ffi::c_int as uint16_t, 0 as core::ffi::c_int as uint16_t],
-];
+]);
 #[no_mangle]
-pub static mut dav1d_sgr_x_by_x: [uint8_t; 256] = [
+pub static mut dav1d_sgr_x_by_x: crate::platform::Aligned64<[uint8_t; 256]> = crate::platform::Aligned64([
     255 as core::ffi::c_int as uint8_t,
     128 as core::ffi::c_int as uint8_t,
     85 as core::ffi::c_int as uint8_t,
@@ -1724,9 +1724,9 @@ pub static mut dav1d_sgr_x_by_x: [uint8_t; 256] = [
     1 as core::ffi::c_int as uint8_t,
     1 as core::ffi::c_int as uint8_t,
     0 as core::ffi::c_int as uint8_t,
-];
+]);
 #[no_mangle]
-pub static mut dav1d_mc_subpel_filters: [[[int8_t; 8]; 15]; 6] = [
+pub static mut dav1d_mc_subpel_filters: crate::platform::Aligned8<[[[int8_t; 8]; 15]; 6]> = crate::platform::Aligned8([
     [
         [
             0 as core::ffi::c_int as int8_t,
@@ -2639,9 +2639,9 @@ pub static mut dav1d_mc_subpel_filters: [[[int8_t; 8]; 15]; 6] = [
             0 as core::ffi::c_int as int8_t,
         ],
     ],
-];
+]);
 #[no_mangle]
-pub static mut dav1d_mc_warp_filter: [[int8_t; 8]; 193] = [
+pub static mut dav1d_mc_warp_filter: crate::platform::Aligned8<[[int8_t; 8]; 193]> = crate::platform::Aligned8([
     [
         0 as core::ffi::c_int as int8_t,
         0 as core::ffi::c_int as int8_t,
@@ -4572,9 +4572,9 @@ pub static mut dav1d_mc_warp_filter: [[int8_t; 8]; 193] = [
         -(1 as core::ffi::c_int) as int8_t,
         0 as core::ffi::c_int as int8_t,
     ],
-];
+]);
 #[no_mangle]
-pub static mut dav1d_resize_filter: [[int8_t; 8]; 64] = [
+pub static mut dav1d_resize_filter: crate::platform::Aligned8<[[int8_t; 8]; 64]> = crate::platform::Aligned8([
     [
         0 as core::ffi::c_int as int8_t,
         0 as core::ffi::c_int as int8_t,
@@ -5215,9 +5215,9 @@ pub static mut dav1d_resize_filter: [[int8_t; 8]; 64] = [
         0 as core::ffi::c_int as int8_t,
         0 as core::ffi::c_int as int8_t,
     ],
-];
+]);
 #[no_mangle]
-pub static mut dav1d_sm_weights: [uint8_t; 128] = [
+pub static mut dav1d_sm_weights: crate::platform::Aligned16<[uint8_t; 128]> = crate::platform::Aligned16([
     0 as core::ffi::c_int as uint8_t,
     0 as core::ffi::c_int as uint8_t,
     255 as core::ffi::c_int as uint8_t,
@@ -5346,7 +5346,7 @@ pub static mut dav1d_sm_weights: [uint8_t; 128] = [
     4 as core::ffi::c_int as uint8_t,
     4 as core::ffi::c_int as uint8_t,
     4 as core::ffi::c_int as uint8_t,
-];
+]);
 #[no_mangle]
 pub static mut dav1d_dr_intra_derivative: [uint16_t; 44] = [
     0 as core::ffi::c_int as uint16_t,
@@ -5395,7 +5395,7 @@ pub static mut dav1d_dr_intra_derivative: [uint16_t; 44] = [
     3 as core::ffi::c_int as uint16_t,
 ];
 #[no_mangle]
-pub static mut dav1d_filter_intra_taps: [[int8_t; 64]; 5] = [
+pub static mut dav1d_filter_intra_taps: crate::platform::Aligned64<[[int8_t; 64]; 5]> = crate::platform::Aligned64([
     [
         -(6 as core::ffi::c_int) as int8_t,
         10 as core::ffi::c_int as int8_t,
@@ -5726,9 +5726,9 @@ pub static mut dav1d_filter_intra_taps: [[int8_t; 64]; 5] = [
         9 as core::ffi::c_int as int8_t,
         0,
     ],
-];
+]);
 #[no_mangle]
-pub static mut dav1d_obmc_masks: [uint8_t; 64] = [
+pub static mut dav1d_obmc_masks: crate::platform::Aligned16<[uint8_t; 64]> = crate::platform::Aligned16([
     0 as core::ffi::c_int as uint8_t,
     0 as core::ffi::c_int as uint8_t,
     19 as core::ffi::c_int as uint8_t,
@@ -5793,7 +5793,7 @@ pub static mut dav1d_obmc_masks: [uint8_t; 64] = [
     0 as core::ffi::c_int as uint8_t,
     0 as core::ffi::c_int as uint8_t,
     0 as core::ffi::c_int as uint8_t,
-];
+]);
 #[no_mangle]
 pub static mut dav1d_gaussian_sequence: [int16_t; 2048] = [
     56 as core::ffi::c_int as int16_t,

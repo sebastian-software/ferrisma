@@ -4456,7 +4456,7 @@ unsafe extern "C" fn splat_oneref_mv(
 ) {
     let mode: InterPredMode = (*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode
         as InterPredMode;
-    let tmpl: refmvs_block = {
+    let tmpl: crate::platform::Aligned16<refmvs_block> = crate::platform::Aligned16({
         let mut init = refmvs_block {
             mv: refmvs_mvpair {
                 mv: [
@@ -4496,7 +4496,7 @@ unsafe extern "C" fn splat_oneref_mv(
                     as core::ffi::c_int * 2 as core::ffi::c_int) as uint8_t,
         };
         init
-    };
+    });
     ((*c).refmvs_dsp.splat_mv)
         .expect(
             "non-null function pointer",
@@ -4506,7 +4506,7 @@ unsafe extern "C" fn splat_oneref_mv(
             .offset(
                 (((*t).by & 31 as core::ffi::c_int) + 5 as core::ffi::c_int) as isize,
             ),
-        &tmpl,
+        &tmpl.0,
         (*t).bx,
         bw4,
         bh4,
@@ -4521,7 +4521,7 @@ unsafe extern "C" fn splat_intrabc_mv(
     bw4: core::ffi::c_int,
     bh4: core::ffi::c_int,
 ) {
-    let tmpl: refmvs_block = {
+    let tmpl: crate::platform::Aligned16<refmvs_block> = crate::platform::Aligned16({
         let mut init = refmvs_block {
             mv: refmvs_mvpair {
                 mv: [
@@ -4546,7 +4546,7 @@ unsafe extern "C" fn splat_intrabc_mv(
             mf: 0 as uint8_t,
         };
         init
-    };
+    });
     ((*c).refmvs_dsp.splat_mv)
         .expect(
             "non-null function pointer",
@@ -4556,7 +4556,7 @@ unsafe extern "C" fn splat_intrabc_mv(
             .offset(
                 (((*t).by & 31 as core::ffi::c_int) + 5 as core::ffi::c_int) as isize,
             ),
-        &tmpl,
+        &tmpl.0,
         (*t).bx,
         bw4,
         bh4,
@@ -4588,7 +4588,7 @@ unsafe extern "C" fn splat_tworef_mv(
     };
     let mode: CompInterPredMode = (*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode
         as CompInterPredMode;
-    let tmpl: refmvs_block = {
+    let tmpl: crate::platform::Aligned16<refmvs_block> = crate::platform::Aligned16({
         let mut init = refmvs_block {
             mv: refmvs_mvpair {
                 mv: [
@@ -4629,7 +4629,7 @@ unsafe extern "C" fn splat_tworef_mv(
                     * 2 as core::ffi::c_int) as uint8_t,
         };
         init
-    };
+    });
     ((*c).refmvs_dsp.splat_mv)
         .expect(
             "non-null function pointer",
@@ -4639,7 +4639,7 @@ unsafe extern "C" fn splat_tworef_mv(
             .offset(
                 (((*t).by & 31 as core::ffi::c_int) + 5 as core::ffi::c_int) as isize,
             ),
-        &tmpl,
+        &tmpl.0,
         (*t).bx,
         bw4,
         bh4,
@@ -4653,7 +4653,7 @@ unsafe extern "C" fn splat_intraref(
     bw4: core::ffi::c_int,
     bh4: core::ffi::c_int,
 ) {
-    let tmpl: refmvs_block = {
+    let tmpl: crate::platform::Aligned16<refmvs_block> = crate::platform::Aligned16({
         let mut init = refmvs_block {
             mv: refmvs_mvpair {
                 mv: [
@@ -4673,7 +4673,7 @@ unsafe extern "C" fn splat_intraref(
             mf: 0 as uint8_t,
         };
         init
-    };
+    });
     ((*c).refmvs_dsp.splat_mv)
         .expect(
             "non-null function pointer",
@@ -4683,7 +4683,7 @@ unsafe extern "C" fn splat_intraref(
             .offset(
                 (((*t).by & 31 as core::ffi::c_int) + 5 as core::ffi::c_int) as isize,
             ),
-        &tmpl,
+        &tmpl.0,
         (*t).bx,
         bw4,
         bh4,

@@ -2432,7 +2432,7 @@ pub unsafe extern "C" fn dav1d_cdef_brow_8bpc(
                 layout,
             );
         }
-        let mut lr_bak: [[[[pixel; 2]; 8]; 3]; 2] = [[[[0; 2]; 8]; 3]; 2];
+        let mut lr_bak: crate::platform::Aligned16<[[[[pixel; 2]; 8]; 3]; 2]> = crate::platform::Aligned16([[[[0; 2]; 8]; 3]; 2]);
         let mut iptrs: [*mut pixel; 3] = [
             ptrs[0 as core::ffi::c_int as usize],
             ptrs[1 as core::ffi::c_int as usize],
@@ -2543,7 +2543,7 @@ pub unsafe extern "C" fn dav1d_cdef_brow_8bpc(
                                 != 0
                         {
                             backup2x8(
-                                (lr_bak[bit as usize]).as_mut_ptr(),
+                                (lr_bak.0[bit as usize]).as_mut_ptr(),
                                 bptrs.as_mut_ptr() as *const *mut pixel,
                                 ((*f).cur.stride).as_mut_ptr() as *const ptrdiff_t,
                                 0 as core::ffi::c_int,
@@ -2556,7 +2556,7 @@ pub unsafe extern "C" fn dav1d_cdef_brow_8bpc(
                             != 0
                         {
                             backup2x8(
-                                (lr_bak[(bit == 0) as core::ffi::c_int as usize])
+                                (lr_bak.0[(bit == 0) as core::ffi::c_int as usize])
                                     .as_mut_ptr(),
                                 bptrs.as_mut_ptr() as *const *mut pixel,
                                 ((*f).cur.stride).as_mut_ptr() as *const ptrdiff_t,
@@ -2668,7 +2668,7 @@ pub unsafe extern "C" fn dav1d_cdef_brow_8bpc(
                                     )(
                                     bptrs[0 as core::ffi::c_int as usize],
                                     (*f).cur.stride[0 as core::ffi::c_int as usize],
-                                    (lr_bak[bit as usize][0 as core::ffi::c_int as usize])
+                                    (lr_bak.0[bit as usize][0 as core::ffi::c_int as usize])
                                         .as_mut_ptr() as const_left_pixel_row_2px,
                                     top,
                                     bot,
@@ -2686,7 +2686,7 @@ pub unsafe extern "C" fn dav1d_cdef_brow_8bpc(
                                 )(
                                 bptrs[0 as core::ffi::c_int as usize],
                                 (*f).cur.stride[0 as core::ffi::c_int as usize],
-                                (lr_bak[bit as usize][0 as core::ffi::c_int as usize])
+                                (lr_bak.0[bit as usize][0 as core::ffi::c_int as usize])
                                     .as_mut_ptr() as const_left_pixel_row_2px,
                                 top,
                                 bot,
@@ -2816,7 +2816,7 @@ pub unsafe extern "C" fn dav1d_cdef_brow_8bpc(
                                     )(
                                     bptrs[pl as usize],
                                     (*f).cur.stride[1 as core::ffi::c_int as usize],
-                                    (lr_bak[bit as usize][pl as usize]).as_mut_ptr()
+                                    (lr_bak.0[bit as usize][pl as usize]).as_mut_ptr()
                                         as const_left_pixel_row_2px,
                                     top,
                                     bot,

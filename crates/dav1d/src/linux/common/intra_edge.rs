@@ -99,7 +99,7 @@ pub const __ASSERT_FUNCTION: [core::ffi::c_char; 38] = unsafe {
         [core::ffi::c_char; 38],
     >(*b"void dav1d_init_intra_edge_tree(void)\0")
 };
-static mut nodes: C2RustUnnamed = C2RustUnnamed {
+static mut nodes: crate::platform::Aligned16<C2RustUnnamed> = crate::platform::Aligned16(C2RustUnnamed {
     branch_sb128: [EdgeBranch {
         node: EdgeNode {
             o: 0,
@@ -136,7 +136,7 @@ static mut nodes: C2RustUnnamed = C2RustUnnamed {
         },
         split: [0; 3],
     }; 64],
-};
+});
 #[no_mangle]
 pub static mut dav1d_intra_edge_tree: [*const EdgeNode; 2] = [0 as *const EdgeNode; 2];
 #[cold]
@@ -278,26 +278,26 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         nwc: [0 as *mut EdgeBranch; 3],
         nt: 0 as *mut EdgeTip,
     };
-    mem.nwc[BL_128X128 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>()
+    mem.nwc[BL_128X128 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>()
         .offset(1 as core::ffi::c_int as isize) as *mut EdgeBranch;
-    mem.nwc[BL_64X64 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>()
+    mem.nwc[BL_64X64 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>()
         .offset((1 as core::ffi::c_int + 4 as core::ffi::c_int) as isize)
         as *mut EdgeBranch;
-    mem.nwc[BL_32X32 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>()
+    mem.nwc[BL_32X32 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>()
         .offset(
             (1 as core::ffi::c_int + 4 as core::ffi::c_int + 16 as core::ffi::c_int)
                 as isize,
         ) as *mut EdgeBranch;
-    mem.nt = core::ptr::addr_of_mut!(nodes.tip_sb128).cast::<EdgeTip>();
+    mem.nt = core::ptr::addr_of_mut!(nodes.0.tip_sb128).cast::<EdgeTip>();
     init_mode_node(
-        core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>(),
+        core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>(),
         BL_128X128,
         &raw mut mem,
         1 as core::ffi::c_int,
         0 as core::ffi::c_int,
     );
     if mem.nwc[BL_128X128 as core::ffi::c_int as usize]
-        == &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>()
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>()
             .offset((1 as core::ffi::c_int + 4 as core::ffi::c_int) as isize)
             as *mut EdgeBranch
     {} else {
@@ -311,7 +311,7 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         );
     };
     if mem.nwc[BL_64X64 as core::ffi::c_int as usize]
-        == &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>()
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>()
             .offset(
                 (1 as core::ffi::c_int + 4 as core::ffi::c_int + 16 as core::ffi::c_int)
                     as isize,
@@ -327,7 +327,7 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         );
     };
     if mem.nwc[BL_32X32 as core::ffi::c_int as usize]
-        == &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>()
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>()
             .offset(
                 (1 as core::ffi::c_int + 4 as core::ffi::c_int + 16 as core::ffi::c_int
                     + 64 as core::ffi::c_int) as isize,
@@ -343,7 +343,7 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         );
     };
     if mem.nt
-        == &raw mut *core::ptr::addr_of_mut!(nodes.tip_sb128).cast::<EdgeTip>().offset(256 as core::ffi::c_int as isize)
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.tip_sb128).cast::<EdgeTip>().offset(256 as core::ffi::c_int as isize)
             as *mut EdgeTip
     {} else {
         __assert_fail(
@@ -356,21 +356,21 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         );
     };
     mem.nwc[BL_128X128 as core::ffi::c_int as usize] = 0 as *mut EdgeBranch;
-    mem.nwc[BL_64X64 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb64).cast::<EdgeBranch>()
+    mem.nwc[BL_64X64 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb64).cast::<EdgeBranch>()
         .offset(1 as core::ffi::c_int as isize) as *mut EdgeBranch;
-    mem.nwc[BL_32X32 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb64).cast::<EdgeBranch>()
+    mem.nwc[BL_32X32 as core::ffi::c_int as usize] = &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb64).cast::<EdgeBranch>()
         .offset((1 as core::ffi::c_int + 4 as core::ffi::c_int) as isize)
         as *mut EdgeBranch;
-    mem.nt = core::ptr::addr_of_mut!(nodes.tip_sb64).cast::<EdgeTip>();
+    mem.nt = core::ptr::addr_of_mut!(nodes.0.tip_sb64).cast::<EdgeTip>();
     init_mode_node(
-        core::ptr::addr_of_mut!(nodes.branch_sb64).cast::<EdgeBranch>(),
+        core::ptr::addr_of_mut!(nodes.0.branch_sb64).cast::<EdgeBranch>(),
         BL_64X64,
         &raw mut mem,
         1 as core::ffi::c_int,
         0 as core::ffi::c_int,
     );
     if mem.nwc[BL_64X64 as core::ffi::c_int as usize]
-        == &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb64).cast::<EdgeBranch>()
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb64).cast::<EdgeBranch>()
             .offset((1 as core::ffi::c_int + 4 as core::ffi::c_int) as isize)
             as *mut EdgeBranch
     {} else {
@@ -384,7 +384,7 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         );
     };
     if mem.nwc[BL_32X32 as core::ffi::c_int as usize]
-        == &raw mut *core::ptr::addr_of_mut!(nodes.branch_sb64).cast::<EdgeBranch>()
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.branch_sb64).cast::<EdgeBranch>()
             .offset(
                 (1 as core::ffi::c_int + 4 as core::ffi::c_int + 16 as core::ffi::c_int)
                     as isize,
@@ -400,7 +400,7 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
         );
     };
     if mem.nt
-        == &raw mut *core::ptr::addr_of_mut!(nodes.tip_sb64).cast::<EdgeTip>().offset(64 as core::ffi::c_int as isize)
+        == &raw mut *core::ptr::addr_of_mut!(nodes.0.tip_sb64).cast::<EdgeTip>().offset(64 as core::ffi::c_int as isize)
             as *mut EdgeTip
     {} else {
         __assert_fail(
@@ -414,8 +414,8 @@ pub unsafe extern "C" fn dav1d_init_intra_edge_tree() {
 }
 unsafe extern "C" fn run_static_initializers() {
     dav1d_intra_edge_tree = [
-        core::ptr::addr_of_mut!(nodes.branch_sb128).cast::<EdgeBranch>() as *mut EdgeNode as *const EdgeNode,
-        core::ptr::addr_of_mut!(nodes.branch_sb64).cast::<EdgeBranch>() as *mut EdgeNode as *const EdgeNode,
+        core::ptr::addr_of_mut!(nodes.0.branch_sb128).cast::<EdgeBranch>() as *mut EdgeNode as *const EdgeNode,
+        core::ptr::addr_of_mut!(nodes.0.branch_sb64).cast::<EdgeBranch>() as *mut EdgeNode as *const EdgeNode,
     ];
 }
 #[used]
