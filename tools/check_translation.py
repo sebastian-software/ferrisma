@@ -36,9 +36,12 @@ if dav1d.exists():
     templates = re.search(r'libdav1d_tmpl_sources = files\((.*?)\n\)', meson, re.S)[1]
     expected = {('common', name) for name in re.findall(r"'([^']+\.c)'", common)}
     expected |= {(group, name) for group in ['b8', 'b16'] for name in re.findall(r"'([^']+\.c)'", templates)}
-    for name in ['TRANSLATION.json', 'TRANSLATION-release.json']:
+    names = ['TRANSLATION.json', 'TRANSLATION-release.json']
+    if (dav1d.parent / 'TRANSLATION-linux.json').exists():
+        names += ['TRANSLATION-linux.json', 'TRANSLATION-linux-release.json']
+    for name in names:
         units = json.loads((dav1d.parent / name).read_text())['units']
         actual = {(unit['instantiation'], Path(unit['source']).name) for unit in units}
         if actual != expected or len(units) != len(expected):
             raise SystemExit(f'Incomplete portable dav1d source instantiations: {name}')
-    print(f'All {len(expected)} portable dav1d source instantiations are represented in both profiles')
+    print(f'All {len(expected)} portable dav1d source instantiations are represented in {len(names)} platform/build profiles')

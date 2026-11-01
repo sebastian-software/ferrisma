@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,15 +43,20 @@ def main():
         raise SystemExit('Missing original public API implementations')
     consumer = ROOT / f'build/dav1d-rust-{profile}'
     dependencies = {}
-    for path in [ROOT / 'target' / profile / 'libdav1d.dylib', consumer / 'tools/dav1d']:
-        output = subprocess.check_output(['otool', '-L', path], text=True)
-        linked = [line.strip().split(' (')[0] for line in output.splitlines()[1:]]
+    darwin = sys.platform == 'darwin'
+    for path in [ROOT / 'target' / profile / ('libdav1d.dylib' if darwin else 'libdav1d.so'), consumer / 'tools/dav1d']:
+        output = subprocess.check_output(['otool', '-L', path] if darwin else ['ldd', path], text=True)
+        linked = [line.strip().split(' (')[0] for line in output.splitlines()[1:]] if darwin else output.splitlines()
         # The dylib's own install name is the first entry in its header and may
         # contain Cargo's internal build path rather than the copied file path.
         external = linked[1:] if path.suffix == '.dylib' else linked
         if any('dav1d' in name for name in external):
             raise SystemExit(f'Native decoder dependency in {path}: {external}')
         dependencies[str(path.relative_to(ROOT))] = external
+    if not darwin:
+        dynamic = subprocess.check_output(['readelf', '-d', ROOT / 'target' / profile / 'libdav1d.so'], text=True)
+        if 'SYMBOLIC' not in dynamic:
+            raise SystemExit('Rust internal symbols are not bound within its own shared implementation')
     report = {'profile': profile, 'rust_codegen_objects': len(rust_members),
               'defined_decoder_symbols': len(defined), 'unresolved_decoder_symbols': [],
               'native_decoder_objects': [], 'dynamic_dependencies': dependencies}

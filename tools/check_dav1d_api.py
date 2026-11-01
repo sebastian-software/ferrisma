@@ -70,7 +70,8 @@ def main():
     if args.asan and args.debug:
         parser.error('The sanitizer configuration uses original Release preprocessing')
     profile = 'debug' if args.debug else 'release'
-    reference = ROOT / f'build/dav1d-reference-{profile}/src/libdav1d.7.dylib'
+    filename = 'libdav1d.7.dylib' if sys.platform == 'darwin' else 'libdav1d.so.7.0.0'
+    reference = ROOT / f'build/dav1d-reference-{profile}/src' / filename
     candidate = ROOT / 'target' / profile / 'libdav1d.a'
     work = ROOT / (f'build/dav1d-api-{profile}' + ('-asan' if args.asan else ''))
     work.mkdir(exist_ok=True)
@@ -87,6 +88,8 @@ def main():
         command = [compiler, driver, library, *runtime_link, '-o', work / name]
         if name == 'c' and not args.asan:
             command.append(f'-Wl,-rpath,{reference.parent}')
+        if sys.platform == 'linux':
+            command += ['-lm', '-ldl', '-lpthread', '-lrt', '-lutil']
         subprocess.run([str(value) for value in command], env=environment, check=True)
     data = ROOT / 'build/deps/dav1d-test-data'
     fixtures = ['8-bit/data/00000000.ivf', '8-bit/film_grain/clip_0.ivf',

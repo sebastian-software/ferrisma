@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 from check_abi import compiler_flags, walk
 
@@ -23,7 +24,7 @@ def main():
         group = 'b8' if 'bitdepth_8.' in entry['output'] else 'b16' if 'bitdepth_16.' in entry['output'] else 'common'
         source = (Path(entry['directory']) / entry['file']).resolve()
         module = 'dav1d::' + group + '::r#' + ('decoder' if source.stem == 'lib' else source.stem)
-        translated = (ROOT / 'crates/dav1d/src' / group / source.with_suffix('.rs').name).read_text()
+        translated = (ROOT / 'crates/dav1d/src' / ('linux' if sys.platform == 'linux' else '') / group / source.with_suffix('.rs').name).read_text()
         records = re.findall(r'pub (struct|union) (\w+) \{(.*?)\n\}', translated, re.S)
         flags = compiler_flags(entry)
         ast = json.loads(subprocess.check_output(flags + ['-Xclang', '-ast-dump=json', '-fsyntax-only', source],
@@ -47,6 +48,12 @@ def main():
                         if reference in by_id:
                             record = by_id[reference]
                             break
+            if record is None and name == '__va_list_tag':
+                # Clang's builtin record has no ordinary source declaration.
+                # Ask Clang about the actual builtin array element type.
+                c_type = '__typeof__(((__builtin_va_list){0})[0])'
+                record = {'inner': [{'kind': 'FieldDecl', 'name': field} for field in
+                                    re.findall(r'^\s*pub (\w+):', body, re.M)]}
             if record is None:
                 raise SystemExit(f'Cannot resolve C record: {module}::{name}')
             pairs = [(f'sizeof({c_type})', f'core::mem::size_of::<{module}::{name}>()', 'size'),

@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 
 from build_dav1d import copy_inputs
 
@@ -32,10 +33,12 @@ def main():
     subprocess.run(['ninja', '-C', framework], check=True)
     work = ROOT / f'build/dav1d-dsp-{profile}'
     work.mkdir(exist_ok=True)
-    library = reference / 'src/libdav1d.7.dylib'
-    candidate = ROOT / 'target' / ('debug' if args.debug else 'release') / 'libdav1d.dylib'
-    symbols = {line.split()[-1].removeprefix('_') for line in subprocess.check_output(['nm', '-gU', library], text=True).splitlines() if line.strip()}
-    flags = ['cc', '-std=c99', '-O2', '-g', '-ffp-contract=off', '-DCHECKASM_HAVE_GENERIC=1']
+    darwin = sys.platform == 'darwin'
+    library = reference / ('src/libdav1d.7.dylib' if darwin else 'src/libdav1d.so.7.0.0')
+    candidate = ROOT / 'target' / ('debug' if args.debug else 'release') / ('libdav1d.dylib' if darwin else 'libdav1d.so')
+    symbol_command = ['nm', '-gU', library] if darwin else ['nm', '-D', '--defined-only', library]
+    symbols = {line.split()[-1].removeprefix('_') for line in subprocess.check_output(symbol_command, text=True).splitlines() if line.strip()}
+    flags = ['cc', '-std=c99', '-O2', '-g', '-ffp-contract=off', '-DCHECKASM_HAVE_GENERIC=1', '-D_GNU_SOURCE']
     for directory in [reference, source, source / 'include', source / 'include/dav1d',
                       ROOT / 'build/deps/checkasm/include', framework / 'include', ROOT / 'tools']:
         flags += ['-I', str(directory)]
@@ -50,8 +53,11 @@ def main():
     subprocess.run(flags + ['-c', accessor, '-o', accessor_object], check=True)
     units = [entry for entry in json.loads((reference / 'compile_commands.json').read_text())
              if entry['output'].startswith('src/libdav1d')]
-    library = work / 'libdav1d-dsp-reference.dylib'
-    subprocess.run(['cc', '-dynamiclib', '-o', library, accessor_object,
+    library = work / ('libdav1d-dsp-reference.dylib' if darwin else 'libdav1d-dsp-reference.so')
+    if not darwin:
+        # Every original reference object is PIC; match it in the accessor.
+        subprocess.run(flags + ['-fPIC', '-c', accessor, '-o', accessor_object], check=True)
+    subprocess.run(['cc', '-dynamiclib' if darwin else '-shared', '-o', library, accessor_object,
                     *[reference / unit['output'] for unit in units]], check=True)
     symbols.update(tables)
     objects = []
@@ -94,7 +100,7 @@ def main():
         objects.append(output)
     executable = work / 'checkasm'
     subprocess.run(['cc', '-o', executable, *objects, framework / 'src/libcheckasm.a',
-                    library, '-lm'], check=True)
+                    library, '-lm', *([] if darwin else ['-ldl', '-lpthread'])], check=True)
     environment = os.environ.copy()
     environment.update(DAV1D_REFERENCE=str(library), DAV1D_CANDIDATE=str(candidate))
     result = subprocess.run([executable, '42'], env=environment, text=True,

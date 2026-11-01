@@ -2,6 +2,7 @@
 """Relink unchanged original dav1d consumers against the standalone Rust archive."""
 import argparse
 import json
+import re
 from pathlib import Path
 import shlex
 import subprocess
@@ -32,7 +33,7 @@ def main():
         tokens[tokens.index('-o') + 1] = str(target)
         count = 0
         for index, token in enumerate(tokens):
-            if token.startswith('src/libdav1d.') and token.endswith(('.dylib', '.so', '.a')):
+            if re.fullmatch(r'src/libdav1d\.(?:dylib|a|so(?:\.\d+)*)', token):
                 tokens[index] = str(archive)
                 count += 1
         if relative.parts[0] in ['tools'] or 'libfuzzer' in relative.parts or relative.name == 'seek_stress':

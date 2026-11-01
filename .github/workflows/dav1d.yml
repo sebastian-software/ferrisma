@@ -1,0 +1,86 @@
+name: Portable dav1d
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: x86_64
+          - runner: macos-15
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Prepare native reference tools
+        shell: bash
+        run: |
+          test "$(uname -m)" = "${{ matrix.architecture }}"
+          if [ "${{ runner.os }}" = Linux ]; then
+            sudo apt-get update
+            sudo apt-get install -y clang-16 ninja-build pkg-config python3-venv
+            echo CC=clang-16 >> "$GITHUB_ENV"
+          else
+            brew install ninja pkg-config
+          fi
+          rustup toolchain install nightly-2026-09-07 --profile minimal
+          python3 -m venv build/dav1d-tools
+          build/dav1d-tools/bin/python -m pip install meson==1.7.2
+          python3 tools/import_dav1d.py --fetch
+          python3 tools/check_translation.py
+          python3 tools/generate_licenses.py --check
+      - name: Build both original portable references and Rust profiles
+        run: |
+          python3 tools/build_dav1d.py --debug
+          python3 tools/build_dav1d.py
+          python3 tools/build_dav1d_consumers.py
+          python3 tools/build_dav1d_consumers.py --debug
+      - name: Original reference corpus inventories
+        run: |
+          build/dav1d-tools/bin/meson test -C build/dav1d-reference-release --no-rebuild --num-processes 2 --print-errorlogs
+          build/dav1d-tools/bin/meson test -C build/dav1d-reference-debug --no-rebuild --num-processes 2 --print-errorlogs
+      - name: Native layouts and isolated public API comparisons
+        run: |
+          python3 tools/check_dav1d_abi.py
+          python3 tools/check_dav1d_api.py
+          python3 tools/check_dav1d_api.py --debug
+          python3 tools/check_dav1d_linkage.py
+          python3 tools/check_dav1d_linkage.py --debug
+      - name: All original test bodies with Rust decoder
+        run: |
+          python3 tools/run_dav1d_tests.py build/dav1d-rust-release --jobs 2
+          python3 tools/run_dav1d_tests.py build/dav1d-rust-debug --jobs 2 --timeout-multiplier 4
+      - name: Original DSP test bodies with verified C and Rust pointers
+        run: |
+          python3 tools/check_dav1d_dsp.py
+          python3 tools/check_dav1d_dsp.py --debug
+          python3 tools/verify_upstream.py
+      - name: Preserve native comparison evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dav1d-${{ matrix.runner }}-${{ matrix.architecture }}
+          path: |
+            build/dav1d-reference-*/reference-profile.json
+            build/dav1d-reference-*/meson-logs/testlog*
+            build/dav1d-rust-*/original-*.json
+            build/dav1d-rust-*/original-test-logs/
+            build/dav1d-rust-*/linkage*.json
+            build/dav1d-abi/summary.json
+            build/dav1d-api-*/summary.json
+            build/dav1d-api-*/*.log
+            build/dav1d-dsp-*/results.log
+            build/dav1d-dsp-*/inventory.json
