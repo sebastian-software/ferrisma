@@ -71,7 +71,7 @@ current baseline uses dav1d 1.5.4, while the
 records synchronization with dav1d 1.5.1. An exact candidate revision needs API,
 ABI, feature, and behavioral comparison before adoption.
 
-## Resolved first-round decisions
+## Resolved decisions
 
 - Replace the delivered C/C++ codec and pixel conversion implementations;
   normal system facilities and original reference/test tooling remain allowed.
@@ -80,20 +80,28 @@ ABI, feature, and behavioral comparison before adoption.
 - Aim for complete libraries where functionality is cleanly covered by tests,
   rather than an intentionally limited libavif-only subset.
 - Keep separate crates in one Cargo workspace in the existing repository.
+- Accept the inventoried primary upstream licenses while retaining original
+  terms per imported source; simplification remains a separate policy topic.
+- Require bit-exact bitstreams and decoded pixels, with matching return values
+  and errors, against a pinned original and declared reference configuration.
+- Start with the portable upstream paths; keep optimization separate and allow
+  existing crates to be evaluated in that later work.
 
 These decisions are recorded in
 [ADR 0010](adr/0010-port-native-libraries-from-their-original-sources.md) and
-[ADR 0011](adr/0011-keep-library-ports-in-one-cargo-workspace.md).
+[ADR 0011](adr/0011-keep-library-ports-in-one-cargo-workspace.md),
+[ADR 0012](adr/0012-require-bit-exact-results-against-declared-references.md),
+[ADR 0013](adr/0013-separate-optimization-from-the-mechanical-port.md), and
+[ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md).
 
 ## Open decision tree
 
-- License policy: the primary upstream licenses differ; see the
-  [versioned license inventory](NATIVE-LICENSES.md). File-level and transitive
-  terms need to be preserved according to the selected scope.
-- Equivalence: define exactly what a 1:1 match preserves and under which source
-  revision, build configuration, compiler rules, and target.
-- Assembly and SIMD: decide the end state and the role of the original scalar
-  implementations during migration.
+- License simplification: select a consistent presentation and tooling
+  convention; keep any broader relicensing proposal distinct.
+- Concrete references: choose exact source revisions, reproducible build
+  configurations, and execution matrices for each milestone.
+- Optimization: decide its later scope, supported CPU paths, and performance
+  gates separately from the portable mechanical ports.
 - Supported platforms: distinguish pilot evidence from release support.
 - API and ABI: define the treatment of public C and C++ interfaces.
 
@@ -121,6 +129,37 @@ reintroduce the original algorithms or count original C++ execution as Rust
 coverage. Internal C++ unit tests may require additional bridging beyond the
 public API. The feasibility of unchanged linkage needs a pilot rather than an
 assumption.
+
+At the pinned libgav1 revision, 52 of 57 `src/**/*_test.{c,cc}` source files
+directly include at least one implementation header outside the public
+`src/gav1/` directory; the remaining five comprise two C API tests and three
+tests of public C++ headers. These are static source counts, including
+architecture-specific sources, rather than executed test counts. Some internal
+tests instantiate header-only templates, including `Array2DView` and `Vector`.
+Compiling those unchanged implementation headers into the candidate test
+program would still exercise original C++ algorithms, not their Rust ports.
+
+A possible policy is to preserve original C++ tests as the native reference,
+retain unchanged consumer tests through bridges where feasible, and
+mechanically translate internally coupled tests to Rust with an explicit
+case/parameter/assertion mapping. This is a proposal, not an accepted exception
+to the original-test requirement. Neither a public facade nor an exit code of
+zero establishes whole-suite Rust coverage.
+
+### Candidate pilot evidence
+
+SharpYUV's public libwebp 1.6.0 source has five scalar/core C translation units,
+approximately 1,230 physical lines including comments and tables. The source
+closure includes shared CPU support outside its own directory. It is a small
+port candidate, but the release contains no dedicated SharpYUV unit-test suite.
+The available upstream WebP fuzzers exercise it indirectly, and their external
+test-data repository would need a pinned revision.
+
+A SharpYUV pilot would therefore need clearly identified new differential
+tests against the pinned scalar C reference in addition to the available
+original fuzz/integration tests and libavif suite. It must not claim to retain
+a dedicated upstream SharpYUV suite that does not exist. Pilot selection and
+acceptance gates remain open.
 
 ## Proposed evidence for each milestone
 

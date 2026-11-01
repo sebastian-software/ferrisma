@@ -56,11 +56,30 @@ closure extends beyond BSD-family licenses. The exact transitive revisions and
 imported files need their own inventory if this configuration enters a port
 milestone.
 
-## Open policy decision
+## Selected policy and proposed simplification
 
-The proposed approach is to preserve each imported file's attribution and
-applicable terms, together with its license, notice, and patent files. Future
-crate metadata should reflect the files actually distributed rather than
-blindly inheriting the current root package's BSD-2-Clause field. Acceptance of
-the listed primary licenses and any additional transitive scope remains an
-interview decision.
+The listed primary licenses are accepted. Preserve each imported file's
+attribution and applicable terms, together with its license, notice, and patent
+files. Future crate metadata should reflect the files actually distributed
+rather than blindly inheriting the current root package's BSD-2-Clause field.
+See [ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md).
+
+The desired simplification could use a common `LICENSES/` layout, a consistent
+provenance manifest, and generated per-crate attribution summaries. That
+standardizes presentation without claiming all source material has one new
+license. Any selected license for original project-owned additions is a
+separate decision from the retained upstream conditions.
+
+[Apache-2.0 section 4](https://www.apache.org/licenses/LICENSE-2.0) allows
+different terms for modifications or a derivative work as a whole only while
+the original conditions remain satisfied; its license, modification, retained
+notice, and applicable `NOTICE` requirements still matter. A workspace-wide
+replacement license does not follow automatically from combining permissive
+projects.
+
+[SPDX expressions](https://spdx.github.io/spdx-spec/v2.3.1/SPDX-license-expressions/)
+distinguish an actual licensing choice (`OR`) from simultaneously applicable
+terms (`AND`). A mixed tree is not automatically dual-licensed, and a crate's
+own packaged files should be distinguished from separately linked dependencies.
+Additional transitive scope and a broader relicensing proposal remain open
+interview decisions.

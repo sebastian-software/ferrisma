@@ -26,3 +26,8 @@ _Avoid_: Container parser
 A transformation between pixel representations, such as RGB and YUV, rather
 than compression into or decompression from a codec bitstream.
 _Avoid_: Encoding, decoding
+
+**Bit-exact match**:
+Equality of every compared encoded byte or decoded pixel sample, rather than
+similar visual appearance or a result within a numerical tolerance.
+_Avoid_: Visually identical, approximately equivalent
