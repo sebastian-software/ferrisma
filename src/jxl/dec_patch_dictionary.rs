@@ -1,9 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Patch/reference storage, constructor, HasAny, and the same-owner SetShared
+//! Patch/reference storage, constructor, Clear, HasAny, and same-owner SetShared
 //! binding from lib/jxl/dec_patch_dictionary.h. Decoding, tree construction,
-//! clearing, blending, and rendering remain unported. The containing shared
+//! blending, and rendering remain unported. Clear includes ComputePatchTree's
+//! reached empty-position branch. The containing shared
 //! state's array pointer is an owner-relative member binding, not a self-reference.
 use super::image_bundle::ImageBundle;
 
@@ -90,6 +91,17 @@ impl PatchDictionary {
     }
     pub fn has_any(&self) -> bool {
         !self.positions.is_empty()
+    }
+    pub fn clear(&mut self) {
+        self.positions.clear();
+        self.ref_positions.clear();
+        self.blendings.clear();
+        // ComputePatchTree's prefix, followed by its positions_.empty() return:
+        // Clear has just emptied that owner, so its nonempty body is unreachable.
+        self.patch_tree.clear();
+        self.num_patches.clear();
+        self.sorted_patches_y0.clear();
+        self.sorted_patches_y1.clear();
     }
     pub fn have_memory_manager(&self) -> bool {
         self.memory_manager_present

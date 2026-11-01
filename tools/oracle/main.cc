@@ -476,6 +476,7 @@ bool OutputEncodingCommand(const std::string& command,std::istringstream& in);
 bool DecoderStateCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool CmsStageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool ToneMappingCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+bool DecodeFrameCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
 int main() {
   try {
@@ -532,6 +533,7 @@ int main() {
       else if (DecoderStateCommand(command, in, &mm)) {}
       else if (CmsStageCommand(command, in, &mm)) {}
       else if (ToneMappingCommand(command, in, &mm)) {}
+      else if (DecodeFrameCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);

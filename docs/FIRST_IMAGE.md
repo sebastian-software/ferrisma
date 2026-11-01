@@ -40,6 +40,14 @@ parameter defaults, including palette/compaction selection and the default
 color transform policy. Use the scalar, null-pool configuration shared with the
 existing differential oracle.
 
+For the initial decoder, explicitly select the original
+`use_slow_rendering_pipeline=true` option, which uses its simple render
+implementation. The default low-memory pipeline remains a separate boundary.
+The current fixed frame entry point consumes a complete frame header, TOC, and
+sections with caller-supplied private configuration metadata. Connecting global
+codestream metadata parsing and integer pixel export is still required by the
+acceptance evidence above.
+
 Represent this fixed configuration with private metadata/parameter ownership so
 callers cannot select unported branches through these entry points. The general
 image API remains absent until its additional paths are translated. Partial

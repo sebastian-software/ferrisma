@@ -219,8 +219,23 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
 
 /// Complete original WriteToImageBundleStage/factory from stage_write.cc.
 pub struct WriteToImageBundleStage<'b, 'm> {
-    image_bundle: &'b mut crate::jxl::image_bundle::ImageBundle<'m>,
+    image_bundle: ImageBundleTarget<'b, 'm>,
     color_encoding: crate::jxl::color_encoding_internal::ColorEncoding,
+}
+enum ImageBundleTarget<'b, 'm> {
+    Borrowed(&'b mut crate::jxl::image_bundle::ImageBundle<'m>),
+    Shared(&'b std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>),
+}
+impl ImageBundleTarget<'_, '_> {
+    fn with_storage(
+        &mut self,
+        f: impl FnOnce(&mut crate::jxl::image_bundle::ImageBundle<'_>) -> Status,
+    ) -> Status {
+        match self {
+            Self::Borrowed(storage) => f(storage),
+            Self::Shared(owner) => f(&mut owner.borrow_mut()),
+        }
+    }
 }
 impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
     pub fn new(
@@ -228,7 +243,19 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
         color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
     ) -> Self {
         Self {
-            image_bundle,
+            image_bundle: ImageBundleTarget::Borrowed(image_bundle),
+            color_encoding: color_encoding.clone(),
+        }
+    }
+    /// The sequential frame decoder and stage retain the same external owner.
+    /// Each source call borrows it only for that call; no callback runs while
+    /// this write stage holds its dynamic exclusive borrow.
+    pub fn from_shared(
+        owner: &'b std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>,
+        color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
+    ) -> Self {
+        Self {
+            image_bundle: ImageBundleTarget::Shared(owner),
             color_encoding: color_encoding.clone(),
         }
     }
@@ -252,14 +279,15 @@ impl RenderPipelineStage for WriteToImageBundleStage<'_, '_> {
         let mut tmp = Some(crate::jxl::image::Image3::<f32>::create(
             sizes[0].0, sizes[0].1,
         )?);
-        self.image_bundle
-            .set_from_image(&mut tmp, &self.color_encoding)?;
-        self.image_bundle.extra_channels_mut().clear();
-        for &(w, h) in sizes.iter().skip(3) {
-            let ch = Plane::create(w, h)?;
-            self.image_bundle.extra_channels_mut().push(ch);
-        }
-        Ok(())
+        self.image_bundle.with_storage(|storage| {
+            storage.set_from_image(&mut tmp, &self.color_encoding)?;
+            storage.extra_channels_mut().clear();
+            for &(w, h) in sizes.iter().skip(3) {
+                let ch = Plane::create(w, h)?;
+                storage.extra_channels_mut().push(ch);
+            }
+            Ok(())
+        })
     }
     fn process_row(
         &mut self,
@@ -276,21 +304,24 @@ impl RenderPipelineStage for WriteToImageBundleStage<'_, '_> {
         if left != 0 || right != 0 {
             return Err(StatusCode::GenericError);
         }
-        for c in 0..3 {
-            let from = self.get_input_row(input, c, 0);
-            self.image_bundle.color_mut().plane_row_mut(c, y)[x..x + width]
-                .copy_from_slice(&buffers.row(from)[..width]);
-        }
-        for ec in 0..self.image_bundle.extra_channels().len() {
-            if self.image_bundle.extra_channels()[ec].xsize() < x.wrapping_add(width) {
-                return Err(StatusCode::GenericError);
+        // Settings are permanently default and all channels have kInput mode:
+        // this is the base GetInputRow calculation under those source values.
+        let row = |c: usize| input[c][0].offset(RENDER_PIPELINE_X_OFFSET as isize);
+        self.image_bundle.with_storage(|storage| {
+            for c in 0..3 {
+                storage.color_mut().plane_row_mut(c, y)[x..x + width]
+                    .copy_from_slice(&buffers.row(row(c))[..width]);
             }
-            let from = self.get_input_row(input, 3 + ec, 0);
-            self.image_bundle.extra_channels_mut()[ec].row_mut(y)
-                [x.wrapping_sub(left)..x.wrapping_sub(left).wrapping_add(width)]
-                .copy_from_slice(&buffers.row(from)[..width]);
-        }
-        Ok(())
+            for ec in 0..storage.extra_channels().len() {
+                if storage.extra_channels()[ec].xsize() < x.wrapping_add(width) {
+                    return Err(StatusCode::GenericError);
+                }
+                storage.extra_channels_mut()[ec].row_mut(y)
+                    [x.wrapping_sub(left)..x.wrapping_sub(left).wrapping_add(width)]
+                    .copy_from_slice(&buffers.row(row(3 + ec))[..width]);
+            }
+            Ok(())
+        })
     }
     fn get_channel_mode(&self, _c: usize) -> RenderPipelineChannelMode {
         RenderPipelineChannelMode::Input

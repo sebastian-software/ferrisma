@@ -54,7 +54,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
-| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, and complete null-pool InitForAC; simple-pipeline storage admitted, general PreparePipeline, GroupDecCache, output lifecycle, and custom runners unported |
+| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, general preparation, VarDCT cache initialization, output lifecycle, and custom runners unported |
+| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; caller-supplied private metadata, Float32 output, and explicit profile admission; global codestream framing, integer export, general/progressive frame APIs, JPEG, and VarDCT orchestration unported |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; pixel conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes, and decoded-byte accessors; general import/export/copy and metadata verification unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
@@ -62,7 +63,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
-| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
+| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
@@ -137,14 +138,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 312 tests, including 176 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 312 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 312 tests and corpus |
+| Rust debug | PASSED | 316 tests, including 178 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 316 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 316 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 312 tests and 690,355 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 316 tests and 691,170 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **690,355 requests** against C++. These include
+Each differential run compares **691,170 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -531,12 +532,12 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect original pipeline preparation and the frame/image decoder to the
-   translated decoder-state initialization, modular decoder, metadata,
-   sections, entropy, prediction, and transforms. Decode complete
+1. Connect global codestream metadata parsing to the fixed raw-frame decoder,
+   then translate the original integer output conversion. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
-   input evidence. The fixed encoder and C++ cross-decoding cover only the
-   encoder half of the first-image acceptance gate.
+   input evidence. The raw-frame path now includes real pipeline preparation,
+   complete frame parsing/scheduling, and Float32 cross-decoding; the complete
+   first-image acceptance gate still requires integer samples from whole files.
 2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.
 
@@ -826,4 +827,29 @@ stage and gamut kernel. The gamut blend's original-value-first add preserves
 the original quiet-NaN payload; a captured native regression retains that case.
 Another native test establishes the original no-tone-mapping selection for all
 four fixed lossless sample/channel configurations. These component results do
-not complete pipeline preparation or the outer frame/image decoder.
+not by themselves complete the frame/image decoder.
+
+The fixed raw-frame decoder adds 815 differential requests: 80 independent
+source/native encoder-byte comparisons, 160 cross-decoding cases, and 575
+truncation/corruption/cache-initialization cases. The oracle calls complete
+original DecodeFrame with its real simple-pipeline option, decoder state,
+modular decoder, and output bundle. Cases cover 8/16-bit gray/RGB, constants,
+ramps, restricted palettes, deterministic patterns, edge groups, multiple DC
+groups, every prefix of small complete frames, and payload bit flips.
+
+Observations include exact status, the original output-header copy checkpoint,
+dimensions, profile, duration/origin, decoded-byte accounting, and every defined
+successful output float word. Error paths retain defined partial state while
+omitting source pixels that remain uninitialized. The unchanged frame/write/
+modular components perform all decoding and output work; no test adapter
+supplies a replacement algorithm. Native integration also checks recovered
+samples independently, and a profile-admission regression prevents entering
+unported noise parsing. This admission result is outside the general decoder
+contract and is not compared as a C++ codec status.
+
+The stage and decoder borrow one stack RefCell output owner for individual
+sequential calls. This preserves the source origin assignment after pipeline
+preparation without overlapping Rust mutable references or adding an output
+clone. Metadata remains supplied by the private configuration. Whole-codestream
+metadata input and original integer export are still required for the active
+first-image milestone.

@@ -37,6 +37,16 @@ missing dependencies. Record the original configuration in
 source paths are translated. This bounds the first integration dependency graph
 without changing the full encoder/decoder port scope or its acceptance gates.
 
+Explicitly select the original simple decoder pipeline through
+use_slow_rendering_pipeline=true for this first configuration. A private
+admitted-header type excludes unported frame branches before decoder output
+initialization; the configuration continues to own immutable metadata. A native
+Unsupported result at that admission boundary identifies input outside this
+fixed profile and is not a claim about the general C++ decoder's status.
+General decoding remains absent. The first-image gate still requires global
+codestream metadata parsing and integer sample output, beyond raw-frame and
+Float32 component integration.
+
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a
 specific source construct has no sound Rust representation. Compilation alone

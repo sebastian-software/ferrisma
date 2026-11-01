@@ -3,20 +3,23 @@
 //! PixelCallback/ImageOutput and PassesDecoderState storage/constructor/Init
 //! from dec_cache.h, plus complete null-pool InitForAC from dec_cache.cc.
 //! Pipeline storage admits the original simple implementation; general pipeline
-//! preparation, GroupDecCache, and custom thread runners remain unported.
+//! preparation, VarDCT cache initialization, and custom runners remain unported.
 //! Source-indeterminate scalar storage is initialized safely, without source
 //! meaning until assigned. Callback/output pointers remain non-owning carriers.
 use super::ac_strategy::NUM_VALID_STRATEGIES;
 use super::base::status::Status;
 use super::coeff_order::{COEFF_ORDER_OFFSET, STRATEGY_ORDER};
+use super::common::MAX_NUM_PASSES;
 use super::dct_util::{AcImage, AcType};
 use super::dec_ans::ANSCode;
 use super::dec_xyb::OutputEncodingInfo;
 use super::frame_dimensions::DCT_BLOCK_SIZE;
 use super::frame_header::FrameHeader;
+use super::image::Image3;
 use super::image::Plane;
 use super::image_bundle::ImageBundle;
 use super::image_metadata::Orientation;
+use super::memory_manager_internal::AlignedMemory;
 use super::passes_state::PassesSharedState;
 use super::render_pipeline::render_pipeline_stage::RenderPipelineStage;
 use super::render_pipeline::simple_render_pipeline::SimpleRenderPipeline;
@@ -27,6 +30,57 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub const SIGMA_BORDER: usize = 1;
 pub const SIGMA_PADDING: usize = 2;
+/// Complete GroupDecCache constructor storage and InitDCBufferOnce. VarDCT's
+/// InitOnce and interpreted scratch bindings remain absent. Indeterminate
+/// source pointers have no native binding until that method is translated.
+#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), repr(align(64)))]
+#[cfg_attr(not(any(target_arch = "x86", target_arch = "x86_64")), repr(align(16)))]
+pub struct GroupDecCache {
+    pub dec_group_block: Option<usize>,
+    pub dec_group_qblock: Option<usize>,
+    pub dec_group_qblock16: Option<usize>,
+    pub scratch_space: Option<usize>,
+    pub num_nzeroes: [Image3<i32>; MAX_NUM_PASSES],
+    pub dc_buffer: Plane<f32>,
+    float_memory: Option<AlignedMemory>,
+    int32_memory: Option<AlignedMemory>,
+    int16_memory: Option<AlignedMemory>,
+    max_block_area: usize,
+}
+impl Default for GroupDecCache {
+    fn default() -> Self {
+        Self {
+            dec_group_block: None,
+            dec_group_qblock: None,
+            dec_group_qblock16: None,
+            scratch_space: None,
+            num_nzeroes: std::array::from_fn(|_| Image3::default()),
+            dc_buffer: Plane::default(),
+            float_memory: None,
+            int32_memory: None,
+            int16_memory: None,
+            max_block_area: 0,
+        }
+    }
+}
+impl GroupDecCache {
+    pub fn init_dc_buffer_once(&mut self) -> Status {
+        if self.dc_buffer.xsize() == 0 {
+            let dim = super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
+            let offset = super::render_pipeline::render_pipeline_stage::RENDER_PIPELINE_X_OFFSET;
+            self.dc_buffer = Plane::create(dim + offset * 2, dim + 4)?;
+        }
+        Ok(())
+    }
+    pub fn storage_sizes(&self) -> [usize; 4] {
+        [
+            self.float_memory.as_ref().map_or(0, |m| m.bytes().len()),
+            self.int32_memory.as_ref().map_or(0, |m| m.bytes().len()),
+            self.int16_memory.as_ref().map_or(0, |m| m.bytes().len()),
+            self.max_block_area,
+        ]
+    }
+}
 pub type ImageOutInitCallback = unsafe extern "C" fn(*mut c_void, usize, usize) -> *mut c_void;
 pub type ImageOutRunCallback =
     unsafe extern "C" fn(*mut c_void, usize, usize, usize, usize, *const c_void);

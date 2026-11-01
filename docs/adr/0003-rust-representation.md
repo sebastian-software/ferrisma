@@ -707,10 +707,36 @@ and size verification. C++ moved-from planes retain non-owning raw addresses;
 native ownership does not expose those aliases as live image owners. The
 destination retains its moved color/profile on a later VerifySizes error.
 Profiles borrow disjoint storage, matching the real write-stage call site.
-Write stages borrow the destination image/bundle for their lifetime and own the
-source profile copy where required. Extra planes clear/allocate only after a
+Write stages borrow the destination image/bundle directly, or borrow the same
+external RefCell owner used by the sequential frame decoder. Each actual write
+call holds one short exclusive borrow; the decoder can assign origin between
+calls after pipeline preparation, at the original allocation checkpoint. The
+write stage invokes no foreign callback while holding that borrow. This adds
+no Rc, allocation, pixel copy, or competing mutable reference. The pipeline
+releases its owner borrow before the completed bundle moves to the caller.
+Stages own the source profile copy where required. Extra planes clear/allocate only after a
 successful SetFromImage. Size getters retain the pinned JPEG-enabled build's
 JPEG/color/extra-plane precedence and independent X/Y fallbacks.
+
+The fixed raw-frame entry point keeps parsed headers private after admission,
+owns its real decoder state, and follows DecodeFrame's original header/TOC,
+initialization, section-reader, processing, close, and finalization checkpoints.
+The header copy becomes observable only after InitFrameOutput. Section readers
+borrow their physical input spans; logical section IDs retain the original
+permutation assignment. Error cleanup closes every created reader without
+overriding an earlier body error; explicit source close checkpoints still
+propagate their own status. Early source header errors leave only a debug
+close diagnostic in the release reference; native cleanup also discharges its
+reader's ownership obligation without changing the returned codec status.
+Source-indeterminate section/pointer/cache fields receive safe initial storage.
+
+GroupDecCache keeps the original alignment, eleven Image3I owners, DC plane,
+three aligned owners, and maximum block area. Scratch pointer bindings remain
+absent until their VarDCT initializer is translated. The fixed modular path
+constructs the original cache vector but never calls that initializer.
+PatchDictionary::Clear empties positions/references/blendings before executing
+ComputePatchTree's four vector clears and its now-certain empty-position return;
+its nonempty tree builder remains a separate boundary.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
