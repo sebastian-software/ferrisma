@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Frame filter parameter bundle from `lib/jxl/loop_filter.{h,cc}`.
-//! Filter pixel kernels are a separate, unported boundary.
+//! Pixel kernels are translated separately in `render_pipeline`; the scalar
+//! Gaborish stage is available there, while EPF kernels remain unported.
 
 use super::base::float::mul_add_f32;
 use super::base::status::{Status, StatusCode};

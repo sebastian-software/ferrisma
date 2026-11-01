@@ -58,6 +58,47 @@ def main():
                 "tm-color 4 0 1148846080 0 1132396544 1046066128 1060575065 "
                 "1033100696 2147483648 2141266757 2143913829 0\n"
             ), text=True)
+            if (ROOT / "src/jxl/render_pipeline/stage_gaborish.rs").is_file():
+                request = (
+                    "gab-row 1 1038867968 1031462862 1038867968 1031462862 "
+                    "1038867968 1031462862 1 2 0 4 2141266757 4289020705 "
+                    "2143913829 4291047952 2139095040 4286578688 1056964608 "
+                    "1065353216 2147483648\n"
+                )
+                result = run(original, input=request, text=True, capture_output=True)
+                words = result.stdout.split()
+                if len(words) != 821 or words[0] != "0":
+                    raise RuntimeError("Unexpected original Gaborish observation: " + result.stdout)
+                indices = (118, 119, 120, 282, 283, 284, 446, 447, 448)
+                print("original native Gaborish words:",
+                      " ".join(words[index] for index in indices), flush=True)
+                for first, second in (("2141266757", "4289020705"),
+                                      ("2143913829", "4291047952")):
+                    request = (
+                        f"gab-row 1 {first} {second} {second} {first} {first} "
+                        f"{second} 1 2 3 3 " + " ".join(["1065353216"] * 9) + "\n"
+                    )
+                    result = run(original, input=request, text=True, capture_output=True)
+                    words = result.stdout.split()
+                    if len(words) != 861 or words[0] != "0":
+                        raise RuntimeError("Unexpected original normalization observation: " + result.stdout)
+                    indices = (*range(121, 127), *range(293, 299), *range(465, 471))
+                    print("original native normalization words:",
+                          " ".join(words[index] for index in indices), flush=True)
+            if (ROOT / "src/jxl/dec_xyb_scalar.rs").is_file():
+                rows = (
+                    "1132396544 0 0 0",
+                    "1132396544 1014350479 1056964608 1061158912",
+                    "1132396544 3196059648 3212836864 1073741824",
+                    "1132396544 2143363909 4291397477 1061158912",
+                    "1065353216 1545563933 1838757507 4286825518",
+                )
+                for row in rows:
+                    result = run(original, input="xyb-helper 0 " + row + "\n",
+                                 text=True, capture_output=True)
+                    if len(result.stdout.split()) != 3:
+                        raise RuntimeError("Unexpected original XYB observation: " + result.stdout)
+                    print("original native XYB words:", result.stdout.strip(), flush=True)
         instructions(directory / "CMakeFiles/jxl_oracle.dir/sample_conversion.cc.o",
                      ("GamutMap",))
     for profile in ("debug", "release"):

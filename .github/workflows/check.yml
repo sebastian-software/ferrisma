@@ -35,6 +35,9 @@ jobs:
           sudo apt-get install -y libc++-dev libc++abi-dev
       - name: Check the mechanical port
         run: python3 tools/check.py --sanitizers --msrv
+      - name: Check the ordinary Linux reference
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/check.py --msrv
       - name: Record native Linux scalar diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/scalar_diagnostics.py

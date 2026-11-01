@@ -64,6 +64,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, and decoded-byte accessors; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
+| `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and full lossy frame integration unported |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
@@ -80,7 +81,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
-| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; pixel filter kernels unported |
+| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits, permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; AC-strategy coefficient orders unported |
@@ -143,14 +144,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 338 tests, including 191 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 338 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 338 tests and corpus |
+| Rust debug | PASSED | 344 tests, including 195 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 344 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 344 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 338 tests and 742,011 requests in debug, release, and Rust 1.85.1 |
-| Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
+| Ordinary C++ reference | PASSED | The same 344 tests and 744,124 requests in debug, release, and Rust 1.85.1 |
+| Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; component runtime evidence below does not establish the full Linux suite |
 
-Each differential run compares **742,011 requests** against C++. These include
+Each differential run compares **744,124 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -906,6 +907,66 @@ expected output is used by that native path. The [first-image acceptance
 boundary](FIRST_IMAGE.md) is satisfied for the fixed profile; this result does
 not establish the full library port or any unclaimed platform/release gate.
 
+
+The original scalar Gaborish stage adds 1,985 differential requests: ten
+factory/settings/channel-mode/lifecycle observations, 1,734 direct padded-row
+observations, and 241 original simple-pipeline runs. Rows cover zero widths,
+left/right extra spans, nonzero descriptor offsets, untouched output sentinels,
+ignored extra channels, default/distinct/zero/canceling/random weights, finite
+extremes, subnormals, infinities, and signed signaling/quiet NaN payloads.
+Simple-pipeline runs cover tiny/odd dimensions, both sides of group boundaries,
+reversed group arrival, repeated passes, and the original mirrored borders.
+The factory retains its gab guard; this component does not admit a general
+lossy frame path.
+
+Hosted x86 exceptional-value observations exposed different NaN operand
+schedules between the original ordinary and sanitized Clang 21 `-O3` objects.
+The dedicated pristine Gaborish observation TU now uses scoped `-O0`, retaining
+all sanitizer flags and the literal Highway Add/Mul/MulAdd boundaries. The
+original library and existing fixture TU options are unchanged. Link maps bind
+the actual original stage and factory to that dedicated object. Rust retains
+literal product-first nested additions and operator*'s explicit promotions,
+double product, and binary32 narrowing through local non-inlined boundaries.
+The implementation does not rewrite NaN words or change kernel grouping.
+
+All 1,985 original differential cases remain; another 128 requests exercise
+competing signed signaling/quiet weight and pixel payloads during normalization
+and filtering. The original finite 3x2 native regression and its captured words
+are unchanged. A second native regression uses captured competing
+payload words and verifies untouched rows, extra spans, and ignored channels.
+Both complete ordinary and ASan/UBSan x86 original oracles in hosted
+[run 41331075671, job 124921109245](https://github.com/sebastian-software/libjxl-rs/actions/runs/41331075671/job/124921109245)
+produce the unchanged ARM nine-word table. The invalid earlier QEMU-specific
+x86 alternate was removed using those original captures. The input stencil is
+identical despite different row padding.
+Both run without the C++ feature. A temporary fused-pixel replacement failed the
+original finite regression, proving that it detects separate-rounding changes.
+This numeric configuration establishes no SIMD or performance parity.
+
+Focused x86_64 Linux runs under QEMU use Clang 21.1.8/libc++ 21 and Rust 1.99.0.
+Debug and release each compared all 2,113 Gaborish requests in four groups
+against both an ordinary and a fail-fast UBSan observation executable; both
+Rust-only Gaborish regressions passed in both emulated profiles. QEMU selects
+the same larger quiet-NaN payload in either operand order, so these results do
+not prove native x86 payload parity. Actual hosted x86 execution exposed the
+invalid emulated capture in the new native test; the old finite test passed.
+Static inspection also found that Clang 21 plain `-O0` normalizes all three
+weights reciprocal-first, while ASan/UBSan commutes the first two products and
+retains reciprocal-first for the third. Rust release had commuted those
+products too. A local binary32 multiply now retains reciprocal-first on x86,
+with ARM's original compound assignments unchanged. Both complete original
+native oracle captures agree for the existing signaling/quiet normalization
+requests: each channel's six written words retain the first filter payload.
+Complete native ordinary/instrumented Rust differential gates remain required.
+The temporary focused
+executables retain the actual original fixture observation bodies and dedicated
+stage, linked against the complete original ordinary static archives. UBSan
+instruments that focused fixture/stage, not those ordinary archive members.
+Link maps bind the original factory and ProcessRow to the dedicated stage
+object. Emulated ASan is unavailable; it is not counted as a passing gate.
+Native hosted CI must validate the complete Linux ASan/UBSan graph and MSRV
+before merge. The complete ordinary/sanitized macOS runs in the evidence table
+remain separate, fully instrumented reference gates.
 
 ### Scalar XYB render boundary follow-up
 

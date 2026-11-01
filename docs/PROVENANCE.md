@@ -68,6 +68,40 @@ sections or standalone modular streams and initialized output sentinels.
 Native expected-sample integration is local infrastructure; neither fixture
 replaces complete codestream decoder or upstream image-test coverage.
 
+`render_pipeline/stage_gaborish.{h,cc}` supplies the complete scalar decoder
+Gaborish stage and factory. The oracle calls the actual original stage directly
+and inside the unchanged simple pipeline. Padded-row/random-weight/exceptional
+float corpora and the 3x2 ordinary Rust regression are local test infrastructure;
+the latter's exact words were captured independently from the original stage.
+The dedicated `tools/oracle/gaborish.cc` observation unit includes the pristine
+original source at scoped `-O0`; original-library and old-adapter flags are
+unchanged and every sanitizer flag remains active. Clang 21 x86 ordinary and
+instrumented `-O3` objects had selected different competing NaN operands.
+The isolated unit preserves Highway's literal Add/Mul/MulAdd boundaries and
+operator*'s float-to-double/product/float sequence. Local Rust non-inlined
+arithmetic functions preserve those conversions, operand order, and separate
+rounding; promotions quiet signaling NaNs before multiplication. Link maps
+verify that the real source factory and stage bind to the dedicated object.
+The finite 3x2 native observation is unchanged; another captured regression with
+competing payloads and 128 normalization/pixel cases guard the repaired seam.
+The ARM native exceptional words came from the original stage. Native hosted
+x86 [captures from both complete ordinary and ASan/UBSan original oracles](https://github.com/sebastian-software/libjxl-rs/actions/runs/41331075671/job/124921109245)
+agree with the unchanged ARM nine-word table. The earlier x86 table was observed
+under QEMU, whose quiet-NaN selection ignored operand order; those emulated
+values are not evidence of native x86 payload behavior and were removed.
+The original x86 plain `-O0` constructor multiplies reciprocal-first, whereas
+ASan/UBSan commutes the first two normalized products and retains that order for
+the third. A local Rust non-inlined binary32 normalization multiply preserves
+reciprocal-first independently of release inlining; ARM compound assignments
+remain unchanged. The complete original native captures also agree for the
+existing competing signaling/quiet filter-pair normalization observations,
+despite those differing first two products. Complete ordinary and instrumented
+native differential gates remain required. Existing finite
+expected words and every differential case remain unchanged.
+No filter algorithm is supplied by the C++ adapter. Review this numeric
+configuration after source/compiler/target/linker/instrumentation changes.
+Full lossy frame integration, SIMD, and performance parity remain separate work.
+
 `render_pipeline/stage_upsampling.{h,cc}` and Highway's scalar Min/Max/MulAdd
 operations supply the complete scalar upsampling stage. Differential requests
 execute the original stage with the original simple pipeline; the 3x2 native

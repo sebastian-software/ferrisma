@@ -609,6 +609,36 @@ MulAdd in this stage retains separate multiplication/addition in the original
 compiled object, including on AArch64; it must not inherit another algorithm's
 explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
 
+Gaborish uses the same row descriptors and stores its nine normalized weights
+in source channel order. Its constructor keeps the ordinary reference Clang
+normalization contraction. On x86, a local non-inlined binary32 multiply keeps
+the reciprocal as its first operand when normalizing weights, matching the
+plain source object's destination order and the instrumented object's third
+weight product. The other targets retain the source compound assignments.
+The instrumented x86 constructor commutes its first two products; native
+ordinary/instrumented captures of competing signaling/quiet filter pairs agree
+at stage output. Retain complete native parity gates for both references.
+This mapping does not use Highway's widened
+multiply for the constructor's ordinary float arithmetic.
+The dedicated pristine scalar observation unit in ADR 0002 retains Highway's
+literal Add/Mul/MulAdd boundaries. Its original operator* promotes both binary32
+operands to double, multiplies, and narrows to binary32 before the separate add.
+Those promotions quiet signaling NaNs before the product selects its payload.
+Preserve them even when a particular optimized object folds the finite-equivalent
+sequence to a binary32 multiply. Local non-inlined add, promotion, and
+double-product/narrowing functions retain the original operand order and
+checkpoints in Rust debug/release, with no global numeric helper change.
+The kernel keeps the literal nested product-first MulAdd order rather than
+borrowing fused ordinary-expression helpers or an ARM-only optimized register
+schedule. Exact competing-payload row/normalization corpora and independently
+captured native exceptional-value words guard this mapping. QEMU's x86
+quiet-NaN payload selection is insensitive to operand order and cannot prove
+native exceptional-value equivalence. Native x86 captures from both complete
+original builds agree with the original ARM nine-word table. The prior finite
+3x2 observation remains unchanged. Reinspect these boundaries after compiler,
+source, target, linker, or instrumentation changes; other targets need their
+own oracle runs.
+
 OutputEncodingInfo initializes source-indeterminate scalar/array storage safely;
 the oracle value-initializes those aggregate members explicitly. SetFromMetadata
 and MaybeSetColorEncoding perform SetColorEncoding's first profile copy at the
