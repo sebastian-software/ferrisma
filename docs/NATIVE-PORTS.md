@@ -1,10 +1,11 @@
-# Planning Separate Codec and Conversion Crates
+# Separate Codec and Conversion Crates
 
-Status: discovery interview in progress.
+Status: initial portable default-pipeline plan agreed; implementation not started.
 
-This follow-up explores Rust implementations of the external codec and pixel
-conversion libraries currently used by libavif-rs. Each newly ported library is
-intended to be a separate crate. The existing mechanical porting requirements
+This follow-up ports the external codec and pixel conversion libraries used by
+libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
+dav1d, and libaom; later optional libraries have separate milestones. The
+existing mechanical porting requirements
 remain the starting point: preserve source correspondence, original tests,
 behavior, provenance, and separate Conventional Commits. Repository work stays
 in US English.
@@ -94,6 +95,9 @@ ABI, feature, and behavioral comparison before adoption.
   and preserve the original tests as the native reference.
 - Pilot on macOS ARM64 and require Linux x86-64 evidence before releasing a new
   crate. Full-pipeline platform claims need their own integration evidence.
+- Start with standalone portable SharpYUV, followed by dav1d and libaom, to
+  replace the default native codec/conversion implementations before expanding
+  into optional library and transitive dependency closures.
 
 These decisions are recorded in
 [ADR 0010](adr/0010-port-native-libraries-from-their-original-sources.md) and
@@ -103,22 +107,31 @@ These decisions are recorded in
 [ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md),
 [ADR 0015](adr/0015-target-rust-consumers-without-cpp-binary-compatibility.md),
 [ADR 0016](adr/0016-preserve-test-cases-when-translating-coupled-tests.md),
-[ADR 0017](adr/0017-standardize-license-records-and-generated-notices.md), and
-[ADR 0018](adr/0018-validate-new-crates-on-macos-arm64-and-linux-x86-64.md).
+[ADR 0017](adr/0017-standardize-license-records-and-generated-notices.md),
+[ADR 0018](adr/0018-validate-new-crates-on-macos-arm64-and-linux-x86-64.md), and
+[ADR 0019](adr/0019-port-the-default-pipeline-starting-with-sharpyuv.md).
 
-## Open decision tree
+## Planning outcome and execution boundaries
 
-- First milestone: select the first crate and its concrete reference and
-  validation contract.
-- Program scope and sequence: decide whether to eliminate the default native
-  image pipeline before beginning optional library and transitive closures.
-- Source and build pins: resolve immutable source identifiers, toolchain pins,
-  and complete source closures before implementing a selected milestone.
+The first crate, initial program scope, ordering, supported targets, test
+policy, license-record policy, and exact-match requirements are settled.
+The milestones below are the execution plan for this phase.
 
-Those answers determine the first milestone and port order, transitive library
-scope, concrete parity and performance gates, maintenance, package identities,
-and publication. No implementation work is authorized by completing a single
-interview round; the complete plan is still being developed.
+Before translating each library, complete its immutable source manifest,
+reference-build configuration, source closure, and executed test inventory.
+These are mandatory preparation tasks, not assumptions of successful parity.
+The foundation starts with the existing C2Rust 0.21.0 / LLVM 16.0.6 translator
+stack and the installed Rust distribution `nightly-2026-09-07`
+(`rustc 1.100.0-nightly`, commit
+`5a2be9f5f075d31e3ca5526b5b029881ce441253`). Record and verify platform-specific
+native compiler versions and sanitizer compatibility before using their output
+as release evidence.
+
+The first phase excludes optional JPEG/ML closures, optimization work,
+additional platforms, and broader relicensing. Public package names and actual
+crate publication are release tasks; no registry publication is implied by
+completing the source port. Those boundaries can be expanded through separate
+milestone contracts without changing the agreed default-pipeline scope.
 
 ### C++ interfaces matter to test correspondence
 
@@ -160,7 +173,7 @@ case/parameter/assertion mapping. See
 Neither a public facade nor an exit code of zero establishes whole-suite Rust
 coverage.
 
-### Candidate pilot evidence
+### Pilot evidence
 
 SharpYUV's public libwebp 1.6.0 source has five scalar/core C translation units,
 approximately 1,230 physical lines including comments and tables. The source
@@ -169,17 +182,18 @@ port candidate, but the release contains no dedicated SharpYUV unit-test suite.
 The available upstream WebP fuzzers exercise it indirectly, and their external
 test-data repository would need a pinned revision.
 
-A SharpYUV pilot would therefore need clearly identified new differential
+A SharpYUV pilot therefore needs clearly identified new differential
 tests against the pinned scalar C reference in addition to the available
 original fuzz/integration tests and libavif suite. It must not claim to retain
-a dedicated upstream SharpYUV suite that does not exist. Pilot selection and
-acceptance gates remain open.
+a dedicated upstream SharpYUV suite that does not exist. Its selected boundary
+and acceptance gates follow below.
 
-## Proposed first milestone: standalone portable SharpYUV
+## First milestone: standalone portable SharpYUV
 
-The proposed source boundary is the standalone `sharpyuv` target from libwebp
-v1.6.0, whose SharpYUV API version is 0.4.2. Resolve the tag and source archive
-to immutable identifiers and hashes before translation. Preserve the complete
+The selected source boundary is the standalone `sharpyuv` target from libwebp
+v1.6.0, whose SharpYUV API version is 0.4.2. The annotated tag resolves to
+[commit `4fa21912338357f89e4fd51cf2368325b59e9bd9`](https://github.com/webmproject/libwebp/tree/4fa21912338357f89e4fd51cf2368325b59e9bd9).
+Record archive and file hashes before translation. Preserve the complete
 source and notices, including shared CPU-support source outside `sharpyuv/`.
 The `libwebpextras` risk-estimation functions are a different library boundary.
 
@@ -188,7 +202,7 @@ reference and the native test consumers. Record threading and compiler options
 independently. This selects the upstream portable path; it does not require
 disabling ordinary compiler code generation or prove optimized CPU coverage.
 
-### Proposed implementation and API coverage
+### Implementation and API coverage
 
 - Preserve the six declared exported entry points: `SharpYuvGetVersion`,
   `SharpYuvConvert`, `SharpYuvConvertWithOptions`,
@@ -213,7 +227,7 @@ The versioned
 and [native consumer](https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/src/enc/picture_csp_enc.c)
 establish this boundary.
 
-### Proposed acceptance evidence
+### Acceptance evidence
 
 1. Upstream source hashes and generated Rust correspondence are reproducible;
    required license and attribution records are complete for the imported code.
@@ -238,12 +252,35 @@ establish this boundary.
    allocation-failure evidence instead of inferring them from normal output
    equality.
 
-## Proposed program sequence
+### Commit-sized execution steps
+
+1. Introduce the workspace member, immutable upstream manifest, standard license
+   records, and target-specific reference profiles. Verify the existing
+   libavif snapshot and retain its passing integration boundary.
+2. Establish the original scalar C reference and deterministic API corpus,
+   including version/options behavior, pixel layouts, matrix/transfer choices,
+   defined failures, and the full exported-symbol closure.
+3. Import the portable Rust translation with reproducible correction rules and
+   recorded hashes. Preserve source structure and numeric behavior.
+4. Add exact differential evidence in development and release configurations,
+   memory/cleanup checks, and independent macOS ARM64 / Linux x86-64 jobs.
+5. Replace SharpYUV explicitly in original test consumers and libavif
+   integration. Audit sources, symbols, and linkage before interpreting test
+   results as Rust coverage.
+6. Record the actual case inventory, target/compiler configuration, comparison
+   results, source and artifact hashes, and remaining gaps. Keep registry
+   publication separate from implementation and validation.
+
+Commit each coherent verified step separately using Conventional Commits.
+Do not combine optimization or an upstream version update with a mechanical
+porting step.
+
+## Program sequence
 
 | Stage | Deliverable | Required boundary |
 | --- | --- | --- |
 | Foundation | Shared workspace, provenance, native reference isolation, test correspondence records, license generation, and target-specific CI | Keep current libavif behavior and original snapshot intact; independent Linux jobs do not imply root Linux support. |
-| SharpYUV | Complete selected portable SharpYUV implementation and its integration | The proposed milestone above; no dedicated upstream SharpYUV suite is invented. |
+| SharpYUV | Complete selected portable SharpYUV implementation and its integration | The selected milestone above; no dedicated upstream SharpYUV suite is invented. |
 | dav1d | Portable original AV1 decoder as its own crate | Public behavior, bit depths, frame/thread state, film grain, ownership, errors, and internal DSP evidence; assembly-gated checkasm coverage cannot silently disappear. |
 | libaom | Portable original AV1 encoder and decoder as its own crate | Pin enabled features and reference builds; preserve full selected-library behavior rather than only AVIF still-image smoke paths. |
 | Default integration | libavif's default codec/conversion implementations resolve to Rust crates | Audit actual linked implementations and rerun original suites and bit-exact end-to-end comparisons; existing RGB rounding and root Linux gaps remain visible until resolved. |
@@ -262,16 +299,19 @@ porting obligation or removed while claiming complete library parity. Their
 full-library completion claims remain blocked until the selected closure is
 explicitly implemented and tested.
 
-The first milestone and program sequence above are proposals for the next
-interview round. Their implementation has not started.
+Detailed contracts for later optional libraries will be prepared before their
+implementation. The first phase is planned; no new codec/conversion crate has
+been implemented as part of this planning work.
 
-## Proposed evidence for each milestone
+## Evidence for each milestone
 
 The existing libavif suite supplies integration evidence. Each dependency also
 needs its own pinned upstream source, native baseline, original test harness,
 and applicable differential and ABI checks. Compilation or a passing libavif
 subset alone cannot establish complete dependency parity.
 
-The concrete gates will be selected after the target and scope decisions. The
-existing validation limitations, including platform coverage and strict RGB
-byte differences, remain recorded in [VALIDATION.md](VALIDATION.md).
+Apply the concrete SharpYUV gates above to its first milestone. Declare equally
+explicit references and case inventories for dav1d and libaom before expanding
+their translation. Existing validation limitations, including root platform
+coverage and strict RGB byte differences, remain recorded in
+[VALIDATION.md](VALIDATION.md).

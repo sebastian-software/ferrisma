@@ -71,6 +71,13 @@ the original Clang build byte-for-byte. The remaining PNG matches C when floatin
 point contraction is disabled. No upstream test or tolerance was changed; see
 [ADR 0005](docs/adr/0005-floating-point-evaluation.md).
 
+## Planned dependency ports
+
+The [dependency porting plan](docs/NATIVE-PORTS.md) defines separate mechanical
+Rust crates in a shared workspace, starting with portable SharpYUV, then dav1d
+and libaom. It records bit-exact reference checks, original-test correspondence,
+license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
+
 ## License
 
 The upstream BSD-2-Clause license, authorship, and third-party notices are

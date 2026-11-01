@@ -82,5 +82,6 @@ projects.
 distinguish an actual licensing choice (`OR`) from simultaneously applicable
 terms (`AND`). A mixed tree is not automatically dual-licensed, and a crate's
 own packaged files should be distinguished from separately linked dependencies.
-Additional transitive scope and a broader relicensing proposal remain open
-interview decisions.
+Additional transitive scope and any broader relicensing proposal are outside
+the first portable default-pipeline phase. They require separate evaluation
+before that scope is implemented or distributed.
