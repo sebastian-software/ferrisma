@@ -7,7 +7,7 @@ pass and Rust pointers on a labeled second pass. The driver replaces CPU-version
 selection with implementation selection; no optimized CPU path is claimed.
 Verify every nonnull tested function pointer belongs to the selected shared
 library, and require equal nonzero function inventories and equal unsupported
-null selections. The fixed-seed runs select 3,155 functions and 1,923 unsupported
+null selections. The fixed-seed runs make 3,155 nonnull function selections and 1,923 unsupported
 combinations in each implementation.
 
 Build the C test reference from its original 51 objects. Small test-only

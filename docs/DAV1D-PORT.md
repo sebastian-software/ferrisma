@@ -1,8 +1,10 @@
 # Portable dav1d port
 
-Status: all four portable source profiles are translated, and the workspace
-crate supplies the existing libavif dav1d adapter on macOS ARM64. Native
-macOS ARM64 and GNU Linux x86-64 CI acceptance is being verified.
+Status: the selected portable milestone is implemented and integrated. All four
+source profiles pass native macOS ARM64 and Ubuntu 24.04 x86-64 comparisons.
+The workspace crate supplies the existing libavif dav1d adapter on macOS ARM64.
+Source, binary, inventory, and CI hashes are recorded in
+[`dav1d-validation-results.json`](dav1d-validation-results.json).
 
 The selected decoder is dav1d 1.5.4 at
 `54706fc6bc0cdecab7e9593974a4039cc038fca7`. Its complete immutable source,
@@ -35,11 +37,17 @@ The milestone's acceptance boundary covers:
 - Reproducible source translation, complete licenses, symbol/linkage audit,
   and the original libavif integration suite after dependency replacement.
 
-The local independent layout probe matches all 12,157 checks across 1,201
-named record instances. Anonymous records and bitfield offsets excluded from
-the automatic probe are listed explicitly in its report. Both Debug and Release
-retain their own original C preprocessing. Reproducible corrections preserve
-field alignment, C11 atomic
+The native validation results are:
+
+| Target | Original registrations per implementation/profile | Named ABI checks (Debug) | DSP selections per implementation/profile |
+| --- | ---: | ---: | ---: |
+| macOS ARM64 | 1,711 | 12,157 across 1,201 record instances | 3,155 |
+| Ubuntu 24.04 x86-64 | 1,711 | 12,592 across 1,242 record instances | 3,155 |
+
+The ABI probes report zero differences. Anonymous records and bitfield offsets
+excluded from the automatic probes are listed explicitly in their reports.
+Both Debug and Release retain their own original C preprocessing. Reproducible
+corrections preserve field alignment, C11 atomic
 operations and orderings, raw address-taking, and target runtime types.
 ADR 0033 additionally restores explicit local and static object alignment that
 C2Rust omitted. The original Linux Release suite passed before this correction;
@@ -80,7 +88,8 @@ controlling the original input-derived fault seed. Each profile runs 2,048
 paired scenarios and requires observed calls and failures for malloc, aligned
 allocation, thread creation, condition initialization, and mutex initialization
 in both implementations. Local Debug, Release, and fully instrumented Release
-pass. The supplemental native Linux run is recorded separately. ADR 0034
+pass; the native Linux Debug and Release runs also pass. The supplemental
+Linux run is recorded separately from the full corpus CI. ADR 0034
 documents object rewriting, runtime isolation, and recovery of compiler-folded
 malloc/zeroing operations for the original fault hook. These test adapters are
 absent from production builds.
@@ -169,7 +178,13 @@ build/dav1d-tools/bin/meson test -C build/dav1d-reference-release --no-rebuild -
 Translation uses C2Rust 0.21.0 and LLVM 16.0.6; the Linux
 translator is built with Rust 1.80.1 for compatibility with its legacy
 dependencies. The decoder uses `nightly-2026-09-07` on both targets. ADRs
-0025–0033 document the selected configuration and mechanical correction rules.
+0025–0034 document the selected configuration, mechanical corrections, and test
+bridges.
 Compile/link records are saved alongside the candidate
 consumers; they use the Rust archive and retain the exact original Meson test
 definitions with only the executable location replaced.
+
+The complete native corpus, ABI, API, and DSP evidence is in
+[the native validation run](https://github.com/sebastian-software/libavif-rs/actions/runs/41355195932).
+Exact Linux regeneration and the additional original static fault fuzzer are in
+[the verification run](https://github.com/sebastian-software/libavif-rs/actions/runs/41358897035).
