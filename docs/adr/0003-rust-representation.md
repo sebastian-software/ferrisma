@@ -331,6 +331,17 @@ Metadata and parsed JPEG inputs are borrowed; JPEG storage does not implement
 the unported field/parser/reconstruction APIs. Source-indeterminate JPEG/spline
 storage receives safe Rust initialization without extra observable meaning.
 
+Sample conversion uses disjoint input/output slices with explicit row lengths.
+Assert the source's valid-buffer and defined numeric/shift preconditions rather
+than silently treating Rust's saturating float-to-int casts as source behavior.
+Preserve the encoder's single/double precision threshold and original target
+contraction sites. Decoder Highway additions wrap before conversion; its
+explicit multiplication remains separate. Bit casts replace memcpy for custom
+floats and binary32, including signed zeros and NaN payloads. Representability
+errors retain prior writes and leave the remaining output storage untouched.
+Original format checks that fail without accessing rows precede buffer-length
+assertions; an error-only call does not require storage for an unused row.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

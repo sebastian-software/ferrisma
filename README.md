@@ -28,10 +28,9 @@ global entropy tables and applies their transformations. The generic modular
 encoder includes original sample collection, quantization, tree learning, and
 entropy output. Standalone streams require caller-supplied dimensions and bit
 depth. Encoder parameter state, original header preparation, progressive setup,
-and stream indexing are translated; frame/group pixel processing remains
-separate. The
-[first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
-The Rust library has no external crate
+stream indexing, and modular sample conversion are translated; frame/group
+processing remains separate. The [first-image milestone](docs/FIRST_IMAGE.md)
+defines their integration gate. The Rust library has no external crate
 dependencies and does not compile or link C/C++. A separate executable built
 from the original C++ source verifies the translated boundaries.
 

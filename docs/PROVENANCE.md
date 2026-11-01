@@ -247,3 +247,18 @@ CMS export header using upstream's CMake export-header pattern and uses the
 static CMS configuration. Generated parameter/header corpora and native
 ownership/partial-state tests are local infrastructure, not the upstream
 full-image test inventory or first-image acceptance evidence.
+
+The sample functions in `enc_modular.cc` and `dec_modular.cc` supply integer
+normalization/rounding, custom-float packing/unpacking, raw binary32 copies,
+the scalar MultiplySum/RgbFromSingle/SingleFromSingle kernels, and
+SingleFromSingleAccurate. The translation preserves the 22-bit precision
+threshold, original scalar contraction mapping, wrapped Highway addition,
+special-value bit patterns, and output prefixes on representability failure.
+Disjoint slices replace restrict pointers; assertions describe the source's
+buffer, shift, and defined floating-to-integer conversion preconditions.
+Original early format errors precede row-length assertions and any access.
+`tools/oracle/sample_conversion.cc` includes both unchanged source files to
+call the actual private encoder helper and decoder functions. It does not
+compile those source files a second time or provide replacement frame methods.
+The generated sample corpora and native row tests are local infrastructure.
+Frame and group orchestration remain outside this completed sample boundary.

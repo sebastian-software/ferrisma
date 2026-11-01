@@ -42,6 +42,7 @@ configure_file("${UPSTREAM}/lib/jxl/version.h.in" "include/jxl/version.h")
 # they are not replaced with stubs or altered copies of upstream functions.
 add_executable(jxl_oracle
   main.cc
+  sample_conversion.cc
   "${UPSTREAM}/lib/jxl/ans_common.cc"
   "${UPSTREAM}/lib/jxl/dec_bit_reader.cc"
   "${UPSTREAM}/lib/jxl/dec_ans.cc"
