@@ -861,3 +861,50 @@ the fixed reference compiler's scalar instructions, not changes to the sums,
 scales, rounding, or error checkpoints. Review them after compiler/target
 changes. Captured-word native regressions and the unchanged differential
 corpora cover the observed failures.
+
+Scalar DCT templates retain the original radix-2 recursion, normalization,
+transpose order, coefficient mutation, and scratch offsets. Valid power-of-two
+sizes become checked internal parameters rather than C++ template arguments.
+A single exclusive scratch slice and owner-relative offsets express recursive
+in-place calls without aliased Rust borrows or replacement temporary allocations.
+The source's DCTFrom/DCTTo adapters become separate bounded slices and strides;
+callers retain the original disjoint-owner and valid-span preconditions.
+Local arrays are safely initialized, but their source-indeterminate unused
+contents are never claimed as observations. Strategy geometry and natural
+coefficient orders retain the original LUTs and zigzag traversal.
+
+The native AArch64 scalar identity loop contracts the DC residual as
+sum.mul_add(-1/16, dc), matching the fixed original configuration in ADR 0002.
+A local out-of-line pixel addition retains the original coefficient-first
+operand order. The exact contraction matters at subnormal underflow and signed
+zero as well as for NaN signs. With coefficient 0 set to binary32 word 1,
+residual words 1 at positions 2/4/6/16/18/20/22/32, and all other words zero,
+both the default original and selected original builds give word 0 at pixel
+index 14 for stride 13; a separate multiplication/subtraction would give word 1.
+Other targets retain their existing ordinary-expression mapping and require
+native differential evidence.
+
+Before the new fixture's unrolling boundary was fixed, the optimized ordinary
+AppleClang 21 AArch64 object emitted FMSUB, whereas its ASan/UBSan object emitted
+FMADD with a negative scale. For 64 coefficients set to 0.125 except coefficient
+21 set to 0x7fc12345, IDENTITY, and stride 13, the original output words at index
+4 were respectively 0xffc12345 and 0x7fc12345; both gave 0x7fc12345 at index 19.
+Actual complete-adapter objects establish those observations. With the loop
+shape retained, both original graphs emit FMADD and give 0x7fc12345 at both
+indices. The captured native AArch64 regression follows that fixed configuration
+and independently checks its fused finite underflow result. All exception inputs
+and exact comparisons remain enabled; the original archive and existing fixture
+flags remain unchanged. Review this mapping after compiler, source, target,
+or instrumentation changes; SIMD and VarDCT frame decoding remain unported.
+
+Competing-payload tests additionally retain the selected AArch64 IDCT object's
+addend-first FADD, AFV's coefficient-1-first final DC sum, and its
+accumulator-first basis FADD. Local out-of-line additions keep those observed
+operand choices in native debug/release builds without changing association,
+normalization, or finite results. The original length-one scaled DCT folds its
+constant multiply-by-one into raw loads/stores in both selected objects. Retain
+that copy so a signaling coefficient is not quieted before a later competing
+addition. Native captures from both complete original graphs check the distinct
+DCT/AFV winning payloads, the later LLF signaling-NaN winner, and the length-one
+unquieted copy. These are target/configuration mappings, not cross-target NaN
+payload equivalence or a replacement of the original scalar algorithms.

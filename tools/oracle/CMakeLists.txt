@@ -68,11 +68,15 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc
+add_executable(jxl_oracle main.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Unrolling makes the ordinary AArch64 identity object use FMSUB while
+  # ASan keeps FMADD with a negative scale, changing a NaN sign. Retain its
+  # original loop shape in this new TU; contraction, O3 and sanitizers stay on.
+  set_source_files_properties(dct.cc PROPERTIES COMPILE_OPTIONS -fno-unroll-loops)
   # Match upstream's no-RTTI build when deriving fixture pipeline stages.
   set_source_files_properties(sample_conversion.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Clang's unrolled max-number reduction changes the early-return result when

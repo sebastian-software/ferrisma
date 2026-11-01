@@ -48,6 +48,14 @@ operand order and separate MulAdd rounding in release builds. See
 [ADR 0003](docs/adr/0003-rust-representation.md). This reference configuration
 makes no performance parity claim.
 
+The scalar DCT observation unit uses source-scoped `-fno-unroll-loops` with O3,
+default contraction, and all sanitizers retained. The original identity loop
+otherwise becomes FMSUB in an ordinary native AArch64 object and FMADD with a
+negative scale in its instrumented object, changing a NaN sign. Keeping the loop
+shape stabilizes those observations and retains the default original finite
+rounding, including subnormal and signed-zero cases. See ADRs 0002 and 0003.
+The original archive and existing fixture flags remain unchanged.
+
 The complete-file oracle compiles the original DecodeFile and ReadICC helper
 bodies without their unrelated test framework. At CMake configure time,
 `tools/oracle/extract_source.py` copies their exact pinned source ranges and

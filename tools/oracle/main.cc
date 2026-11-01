@@ -462,6 +462,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "external_image.inc"
 #include "quant_dc.inc"
 
+bool DctCommand(const std::string&, std::istringstream&);
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
@@ -525,6 +526,7 @@ int main() {
       else if (ExternalImageCommand(command, in, &mm)) {}
       else if (QuantDcCommand(command, in, &mm)) {}
       else if (QuantStorageCommand(command, in)) {}
+      else if (DctCommand(command, in)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

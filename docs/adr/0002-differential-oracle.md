@@ -181,3 +181,21 @@ append calls memcpy even for a zero-byte span when other groups are nonempty;
 Linux's nonnull declaration rejects a null source. Supply a real zero-length
 span rather than suppress that sanitizer check or remove empty-group cases.
 The original writer and codec source stay unchanged.
+
+
+The dedicated dct.cc observation unit calls pristine scalar DCT/IDCT,
+TransformToPixels, LowestFrequenciesFromDC, and strategy order methods. Compile
+only this new unit with -fno-unroll-loops, retaining O3, default contraction,
+and every sanitizer. Native AppleClang 21 AArch64 otherwise unrolls the ordinary
+identity residual into FMSUB while its instrumented loop uses FMADD with a
+negative finite scale, choosing different NaN signs. Both selected original
+objects retain FMADD and agree on the complete focused corpus. Comparison with
+the saved default ordinary adapter preserves every finite-input observation,
+including 192 subnormal/cancellation/signed-zero requests and all initialized
+coefficient, output, and scratch words. The exact original observations and
+native mapping are recorded in ADR 0003. Disabling contraction was rejected
+because it changed 21 finite identity requests; fast contraction was rejected
+because it changed finite DCT/LLF results and retained instrumented NaN drift.
+The original archive and existing fixtures keep their flags. Complete native
+ordinary and instrumented graphs remain separate required gates; review the
+configuration with compiler/source/target/instrumentation changes.
