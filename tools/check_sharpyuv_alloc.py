@@ -54,12 +54,15 @@ result = subprocess.run(command, cwd=ROOT, env=rust_environment, text=True, stdo
 if result.returncode:
     raise SystemExit(result.stderr)
 outputs = []
+driver = work / 'allocation-driver.o'
+subprocess.run(compiler + common + ['-c', str(ROOT / 'tests/sharpyuv/allocation.c'),
+                                  '-o', str(driver)], check=True, env=environment)
 for name, libraries in [('c', objects),
                         ('rust', [str(work / 'target/release/libsharpyuv.a')])]:
     executable = work / name
     native = ['-lm', '-lpthread']
     native += ['-lresolv', '-liconv'] if sys.platform == 'darwin' else ['-ldl']
-    subprocess.run(compiler + common + [str(ROOT / 'tests/sharpyuv/allocation.c'), *libraries, *native,
+    subprocess.run(compiler + common + [str(driver), *libraries, *native,
                                       *runtime_link, '-o', str(executable)], check=True, env=environment)
     outputs.append(json.loads(subprocess.check_output([executable], text=True, env=environment)))
 if outputs[0] != outputs[1]:
