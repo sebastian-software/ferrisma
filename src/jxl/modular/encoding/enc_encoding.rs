@@ -2,22 +2,33 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Given-tree residual encoding and predefined trees from modular/encoding/
-//! enc_encoding.cc. Learning and ModularGenericCompress remain absent.
+//! enc_encoding.cc, including tree learning and ModularGenericCompress.
 //! Token-pointer positions become indices into the caller's resized storage.
 //! Preserve kWantDebug=true's predictor-image allocation and writes, even though
 //! its commented-out diagnostic output is not exposed by the source.
 
 use super::context_predict::*;
 use super::dec_ma::{PropertyDecisionNode as Node, Tree};
+use super::enc_ma::{TreeSamples, collect_pixel_samples, compute_best_tree, tokenize_tree};
 use super::encoding::{GroupHeader, PROP_RANGE_FAST, TreeLut, filter_tree, tree_to_lookup_table};
+use super::ma_common::NUM_TREE_CONTEXTS;
 use crate::jxl::base::bits::{ceil_log2_nonzero, floor_log2_nonzero};
-use crate::jxl::base::status::{Status, StatusCode};
-use crate::jxl::enc_ans::Token;
+use crate::jxl::base::float::{max_f64, min_f32, mul_add_f64};
+use crate::jxl::base::random::Rng;
+use crate::jxl::base::status::{Status, StatusCode, StatusOr};
+use crate::jxl::enc_ans::{
+    EntropyEncodingData, Token, build_and_encode_histograms, write_tokens_with_allotment,
+};
+use crate::jxl::enc_aux_out::{AuxOut, LayerType};
+use crate::jxl::enc_bit_writer::BitWriter;
 use crate::jxl::fields::bundle;
 use crate::jxl::image::Image3F;
 use crate::jxl::image_ops::fill_image;
 use crate::jxl::modular::modular_image::{Channel, Image};
-use crate::jxl::modular::options::{ModularOptions, Predictor, TreeKind};
+use crate::jxl::modular::options::{
+    ModularMultiplierInfo, ModularOptions, NUM_MODULAR_PREDICTORS, Predictor, StaticPropRange,
+    TreeKind, UNDEFINED_PREDICTOR,
+};
 use crate::jxl::pack_signed::pack_signed;
 use std::collections::VecDeque;
 
@@ -542,5 +553,411 @@ pub fn modular_compress(
         }
     }
     *width = image_width;
+    Ok(())
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve source learning state, sample decision, and pixel inputs"
+)]
+fn gather_sample<const NEC: bool>(
+    properties: &mut Vec<i32>,
+    channel: &Channel,
+    x: usize,
+    y: usize,
+    references: &Channel,
+    wp_state: &mut weighted::State<'_>,
+    samples: &mut TreeSamples,
+    total_pixels: &mut usize,
+    rng: &mut Rng,
+    threshold: u64,
+    multiple_predictors: bool,
+) {
+    let onerow = channel.plane.pixels_per_row();
+    let pp = PixelPosition::new(
+        channel.plane.pixels().unwrap(),
+        y * onerow as usize + x,
+        onerow,
+    );
+    let mut predictions = [0i64; NUM_MODULAR_PREDICTORS];
+    if multiple_predictors {
+        if NEC {
+            predict_learn_all_nec(
+                properties,
+                channel.w,
+                pp,
+                x as i32,
+                y as i32,
+                references,
+                wp_state,
+                &mut predictions,
+            );
+        } else {
+            predict_learn_all(
+                properties,
+                channel.w,
+                pp,
+                x as i32,
+                y as i32,
+                references,
+                wp_state,
+                &mut predictions,
+            );
+        }
+    } else {
+        let pred = samples.predictor_from_index(0);
+        predictions[pred.0 as usize] = if NEC {
+            predict_learn_nec(
+                properties, channel.w, pp, x as i32, y as i32, pred, references, wp_state,
+            )
+            .guess
+        } else {
+            predict_learn(
+                properties, channel.w, pp, x as i32, y as i32, pred, references, wp_state,
+            )
+            .guess
+        };
+    }
+    *total_pixels = total_pixels.wrapping_add(1);
+    if rng.next_u64() >> 32 <= threshold {
+        samples.add_sample(i64::from(channel.row(y)[x]), properties, &predictions);
+    }
+    wp_state.update_errors(i64::from(channel.row(y)[x]), x, y, channel.w);
+}
+fn gather_tree_data(
+    image: &Image,
+    chan: i32,
+    group_id: usize,
+    wp_header: &weighted::Header,
+    options: &ModularOptions,
+    samples: &mut TreeSamples,
+    total_pixels: &mut usize,
+) -> Status {
+    let channel = &image.channel[chan as usize];
+    let static_props = [chan, group_id as i32];
+    let mut properties = vec![
+        0;
+        NUM_NONREF_PROPERTIES.wrapping_add(
+            EXTRA_PROPS_PER_CHANNEL.wrapping_mul(options.max_properties as usize)
+        )
+    ];
+    let mut fraction = f64::from(min_f32(1.0, options.nb_repeats));
+    if fraction > 0.0 {
+        let ratio = 1024.0 / channel.w.wrapping_mul(channel.h) as f64;
+        let bound = if ratio < 1.0 { ratio } else { 1.0 };
+        fraction = max_f64(fraction, bound);
+    }
+    let threshold = ((u64::MAX >> 32) as f64 * fraction) as u64;
+    // The source's local use_sample lambda has precisely Rng(0)'s two words.
+    let mut rng = Rng::new(0);
+    let mut references = Channel::create(
+        properties.len().wrapping_sub(NUM_NONREF_PROPERTIES),
+        channel.w,
+    )?;
+    let mut wp_state = weighted::State::new(wp_header, channel.w, channel.h);
+    let reserve = mul_add_f64(fraction * channel.h as f64, channel.w as f64, 64.0) as usize;
+    samples.prepare_for_samples(reserve);
+    let multiple_predictors = samples.num_predictors() != 1;
+    for y in 0..channel.h {
+        precompute_references(channel, y, image, chan as u32, &mut references);
+        init_props_row(&mut properties, &static_props, y as i32);
+        if y > 1 && channel.w > 8 && references.w == 0 {
+            for x in 0..2 {
+                gather_sample::<false>(
+                    &mut properties,
+                    channel,
+                    x,
+                    y,
+                    &references,
+                    &mut wp_state,
+                    samples,
+                    total_pixels,
+                    &mut rng,
+                    threshold,
+                    multiple_predictors,
+                );
+            }
+            for x in 2..channel.w - 2 {
+                gather_sample::<true>(
+                    &mut properties,
+                    channel,
+                    x,
+                    y,
+                    &references,
+                    &mut wp_state,
+                    samples,
+                    total_pixels,
+                    &mut rng,
+                    threshold,
+                    multiple_predictors,
+                );
+            }
+            for x in channel.w - 2..channel.w {
+                gather_sample::<false>(
+                    &mut properties,
+                    channel,
+                    x,
+                    y,
+                    &references,
+                    &mut wp_state,
+                    samples,
+                    total_pixels,
+                    &mut rng,
+                    threshold,
+                    multiple_predictors,
+                );
+            }
+        } else {
+            for x in 0..channel.w {
+                gather_sample::<false>(
+                    &mut properties,
+                    channel,
+                    x,
+                    y,
+                    &references,
+                    &mut wp_state,
+                    samples,
+                    total_pixels,
+                    &mut rng,
+                    threshold,
+                    multiple_predictors,
+                );
+            }
+        }
+    }
+    Ok(())
+}
+fn learn_tree_from_samples(
+    mut samples: TreeSamples,
+    total_pixels: usize,
+    options: &ModularOptions,
+    multiplier_info: &[ModularMultiplierInfo],
+    mut range: StaticPropRange,
+) -> StatusOr<Tree> {
+    let mut tree = Vec::new();
+    for r in &mut range {
+        if r[1] == 0 {
+            r[1] = u32::MAX;
+        }
+    }
+    if !samples.has_samples() {
+        tree.push(Node::leaf(samples.predictor_from_index(0), 0, 1));
+        return Ok(tree);
+    }
+    let fraction = samples.num_samples() as f32 * 1.0 / total_pixels as f32;
+    let required_cost = mul_add_f64(f64::from(fraction), 0.9, 0.1) as f32;
+    samples.all_samples_done();
+    compute_best_tree(
+        &mut samples,
+        options.splitting_heuristics_node_threshold * required_cost,
+        multiplier_info,
+        range,
+        options.fast_decode_multiplier,
+        &mut tree,
+    )?;
+    Ok(tree)
+}
+pub fn learn_tree(
+    images: &[Image],
+    options: &[ModularOptions],
+    start: u32,
+    stop: u32,
+    multiplier_info: &[ModularMultiplierInfo],
+) -> StatusOr<Tree> {
+    let mut samples = TreeSamples::default();
+    samples.set_predictor(
+        options[start as usize].predictor,
+        options[start as usize].wp_tree_mode,
+    )?;
+    samples.set_properties(
+        &options[start as usize].splitting_heuristics_properties,
+        options[start as usize].wp_tree_mode,
+    )?;
+    let mut max_c = 0u32;
+    let mut pixel_samples = Vec::new();
+    let mut diff_samples = Vec::new();
+    let mut group_pixel_count = Vec::new();
+    let mut channel_pixel_count = Vec::new();
+    for i in start..stop {
+        max_c = max_c.max(images[i as usize].channel.len() as u32);
+        collect_pixel_samples(
+            &images[i as usize],
+            &options[i as usize],
+            i,
+            &mut group_pixel_count,
+            &mut channel_pixel_count,
+            &mut pixel_samples,
+            &mut diff_samples,
+        );
+    }
+    let range = [[0, max_c], [start, stop]];
+    samples.pre_quantize_properties(
+        &range,
+        multiplier_info,
+        &group_pixel_count,
+        &channel_pixel_count,
+        &mut pixel_samples,
+        &mut diff_samples,
+        options[start as usize].max_property_values,
+    );
+    let mut total_pixels = 0usize;
+    for (i, ch) in images[start as usize].channel.iter().enumerate() {
+        if i >= images[start as usize].nb_meta_channels
+            && (ch.w > options[start as usize].max_chan_size
+                || ch.h > options[start as usize].max_chan_size)
+        {
+            break;
+        }
+        total_pixels = total_pixels.wrapping_add(ch.w.wrapping_mul(ch.h));
+    }
+    total_pixels = total_pixels.max(1);
+    let mut wp_header = weighted::Header::default();
+    for i in start as usize..stop as usize {
+        let image = &images[i];
+        let opts = &options[i];
+        let nb_channels = image.channel.len();
+        if image.w == 0 || image.h == 0 || nb_channels < 1 {
+            continue;
+        }
+        if image.error {
+            return Err(StatusCode::GenericError);
+        }
+        if opts.tree_kind != TreeKind::Learn {
+            return Err(StatusCode::GenericError);
+        }
+        bundle::init(&mut wp_header);
+        if predictor_has_weighted(opts.predictor) {
+            weighted::predictor_mode(opts.wp_mode, &mut wp_header);
+        }
+        for (c, ch) in image.channel.iter().enumerate() {
+            if c >= image.nb_meta_channels
+                && (ch.w > opts.max_chan_size || ch.h > opts.max_chan_size)
+            {
+                break;
+            }
+            if ch.w == 0 || ch.h == 0 {
+                continue;
+            }
+            gather_tree_data(
+                image,
+                c as i32,
+                i,
+                &wp_header,
+                opts,
+                &mut samples,
+                &mut total_pixels,
+            )?;
+        }
+    }
+    learn_tree_from_samples(
+        samples,
+        total_pixels,
+        &options[start as usize],
+        multiplier_info,
+        range,
+    )
+}
+pub fn modular_generic_compress(
+    image: &Image,
+    opts: &ModularOptions,
+    writer: &mut BitWriter,
+    mut aux: Option<&mut AuxOut>,
+    layer: LayerType,
+    group_id: usize,
+) -> Status {
+    let nb_channels = image.channel.len();
+    if image.w == 0 || image.h == 0 || nb_channels < 1 {
+        return Ok(());
+    }
+    if image.error {
+        return Err(StatusCode::GenericError);
+    }
+    let mut options = opts.clone();
+    if options.predictor == UNDEFINED_PREDICTOR {
+        options.predictor = Predictor::GRADIENT;
+    }
+    let _bits = writer.bits_written();
+    let mut header = GroupHeader::default();
+    bundle::init(&mut header);
+    if predictor_has_weighted(options.predictor) {
+        weighted::predictor_mode(options.wp_mode, &mut header.wp_header);
+    }
+    header.transforms = image.transform.clone();
+    bundle::write(&mut header, writer, layer, aux.as_deref_mut())?;
+    let mut tree = if options.tree_kind == TreeKind::Learn {
+        learn_tree(
+            std::slice::from_ref(image),
+            std::slice::from_ref(&options),
+            0,
+            1,
+            &[],
+        )?
+    } else {
+        let mut total_pixels = 0usize;
+        for (i, ch) in image.channel.iter().enumerate() {
+            if i >= image.nb_meta_channels
+                && (ch.w > options.max_chan_size || ch.h > options.max_chan_size)
+            {
+                break;
+            }
+            total_pixels = total_pixels.wrapping_add(ch.w.wrapping_mul(ch.h));
+        }
+        total_pixels = total_pixels.max(1);
+        predefined_tree(
+            options.tree_kind,
+            total_pixels,
+            image.bitdepth,
+            options.max_properties,
+        )
+    };
+    let mut decoded_tree = Vec::new();
+    let mut tree_tokens = vec![Vec::new()];
+    tokenize_tree(&tree, &mut tree_tokens[0], &mut decoded_tree)?;
+    if tree.len() != decoded_tree.len() {
+        return Err(StatusCode::GenericError);
+    }
+    tree = decoded_tree;
+    let mut code = EntropyEncodingData::default();
+    build_and_encode_histograms(
+        &options.histogram_params,
+        NUM_TREE_CONTEXTS,
+        &mut tree_tokens,
+        &mut code,
+        Some(writer),
+        LayerType::ModularTree,
+        aux.as_deref_mut(),
+    )?;
+    write_tokens_with_allotment(
+        &tree_tokens[0],
+        &code,
+        0,
+        writer,
+        LayerType::ModularTree,
+        aux.as_deref_mut(),
+    )?;
+    let mut image_width = 0;
+    let mut tokens = vec![Vec::new()];
+    modular_compress(
+        image,
+        &options,
+        group_id,
+        &tree,
+        &mut header,
+        &mut tokens[0],
+        &mut image_width,
+    )?;
+    code = EntropyEncodingData::default();
+    let mut params = options.histogram_params.clone();
+    params.image_widths.push(image_width);
+    build_and_encode_histograms(
+        &params,
+        tree.len().div_ceil(2),
+        &mut tokens,
+        &mut code,
+        Some(writer),
+        layer,
+        aux.as_deref_mut(),
+    )?;
+    write_tokens_with_allotment(&tokens[0], &code, 0, writer, layer, aux)?;
     Ok(())
 }

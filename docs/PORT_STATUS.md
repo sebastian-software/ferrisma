@@ -1,7 +1,7 @@
 # Port status
 
 This repository contains codestream/frame-header, metadata, geometry, entropy,
-and color-profile dependencies, plus standalone modular image decoding.
+and color-profile dependencies, plus standalone modular image encoding/decoding.
 It cannot encode or decode JPEG XL images. There are no C++ runtime fallbacks
 and no placeholder codec APIs. The source revision is pinned in
 [upstream.json](../upstream.json).
@@ -51,9 +51,10 @@ and no placeholder codec APIs. The source revision is pinned in
 | `image_ops.h` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular copies, plane copies with padding, and Mirror; arithmetic, conversion, min/max, and image_ops.cc unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
-| `modular/encoding/ma_common.h`, `dec_ma.h`, `.cc`, `enc_ma.cc` | `modular/encoding/ma_common.rs`, `modular/encoding/dec_ma.rs`, `modular/encoding/enc_ma.rs` | Tree constants/storage, complete entropy-backed tree parsing and validation, and BFS tokenization; sample collection and tree learning unported |
+| `modular/encoding/ma_common.h`, `dec_ma.h`, `.cc`, `enc_ma.h`, `.cc` | `modular/encoding/ma_common.rs`, `modular/encoding/dec_ma.rs`, `modular/encoding/enc_ma.rs` | Tree constants/storage, complete entropy-backed tree parsing and validation, BFS tokenization, sample storage/deduplication/quantization, pixel sampling, and original scalar best-split learning |
 | `modular/encoding/encoding.h`, `.cc` | `modular/encoding/encoding.rs` | Complete header/channel/modular image decoding, static filtering/flattening, LUTs, local/global trees and entropy tables, dimension validation, transform application, and original truncation/cleanup/finalization behavior; frame orchestration remains separate |
-| `modular/encoding/enc_encoding.h`, `.cc` | `modular/encoding/enc_encoding.rs` | All predefined trees, given-tree ModularCompress and channel residual encoding, original fast paths and overflow checks, and predictor-image scratch writes; learning and ModularGenericCompress unported |
+| `modular/encoding/enc_encoding.h`, `.cc` | `modular/encoding/enc_encoding.rs` | Complete standalone generic modular encoder, learned/predefined trees, given-tree ModularCompress and channel residual encoding, original fast paths, overflow checks, and predictor-image scratch writes; frame orchestration remains separate |
+| `base/random.h` | `base/random.rs` | Original xorshift state, integer/float/Bernoulli/geometric distributions, and forward shuffle; source argument preconditions retained |
 | `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, resize failure state, and reverse transform-stack execution with retained failures; diagnostics/custom runners unported |
 | `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, channel-range validation, and complete MetaApply/Inverse dispatch to scalar null-pool kernels |
 | `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
@@ -87,13 +88,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 164 tests, including 90 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 164 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 164 tests and corpus |
+| Rust debug | PASSED | 174 tests, including 97 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 174 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 174 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **583,185 requests** against C++. These include
+Each differential run compares **585,778 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -278,9 +279,22 @@ work, and error-check order. Metadata-only observations omit indeterminate sourc
 storage after allowed truncated transforms. Native tests decode two fixed
 original streams without C++, and verify header/global-reference cleanup.
 Standalone modular streams require caller-supplied dimensions and bit depth;
-they do not include JPEG XL codestream/frame headers. Rust generic encoding,
-tree learning, forward palette selection, and frame orchestration remain
-unported.
+they do not include JPEG XL codestream/frame headers. Forward palette selection
+and frame orchestration remain unported.
+
+Tree learning and generic modular encoding add 2,593 differential requests.
+RNG cases compare every distribution draw and shuffle state. Sample cases
+compare every quantization-map entry, mutated sample arrays, residual tokens,
+hash growth/shrink behavior, and u16 count saturation. Split cases compare exact
+entropy float bits, forced multiplier ranges, resulting trees, and sample
+partition order. Image batches cover sampling fractions, reference properties,
+all tree modes, multiple predictors/groups, empty ranges, and failed setters.
+Generic encoder cases compare complete bytes, bit counts, both accounting
+layers, and decoded rasters across all predefined/learned tree kinds, entropy
+settings, prefixes, RCT/Squeeze, and partial output on errors. Native tests
+reproduce the fixed C++ gray fixture and round-trip learned gray/RGB streams
+with reference properties and odd dimensions. These streams still require
+caller-supplied dimensions and bit depth; they are not complete JPEG XL files.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
@@ -313,8 +327,7 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port modular prediction-tree learning and generic encoding, plus remaining
-   encoder transforms reached by the first-image configuration.
+1. Port remaining encoder transforms reached by the first-image configuration.
 2. Connect the original image/frame path and run the complete cross-language
    image corpus in the first-image acceptance gate.
 3. Expand through remaining modular and VarDCT decoding and encoding before

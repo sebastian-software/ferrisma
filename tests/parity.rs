@@ -57,6 +57,8 @@ mod image;
 #[path = "parity/rct.rs"]
 mod rct;
 
+#[path = "parity/learn.rs"]
+mod learn;
 #[path = "parity/ma.rs"]
 mod ma;
 #[path = "parity/modular_decode.rs"]
@@ -648,6 +650,7 @@ fn observe(request: &str) -> String {
         kind if ma::handles(kind) => ma::observe(kind, &mut args),
         kind if transforms::handles(kind) => transforms::observe(kind, &mut args),
         kind if modular_decode::handles(kind) => modular_decode::observe(kind, &mut args),
+        kind if learn::handles(kind) => learn::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

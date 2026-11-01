@@ -153,8 +153,8 @@ XL Project Authors' copyright notice and name the source files they translate.
   token-state, malformed-stream, and native integration tests are local
   infrastructure. They call the actual original functions, including the
   cross-channel run-state guard, and supply no substitute image/frame codec.
-  Tree learning, generic image encoding, frame orchestration, and the upstream
-  image test inventory remain separate boundaries.
+  Tree learning and generic image encoding have their own evidence below;
+  frame orchestration and the upstream image test inventory remain separate.
 
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
@@ -182,6 +182,17 @@ table fixtures compose the source entropy writers and ModularCompress as test
 infrastructure, not a replacement frame encoder. Full decodes independently
 check source samples and shape; malformed cases compare defined partial state.
 Two native fixed fixtures are captured from the pinned scalar C++ generator
-with their configurations documented in `tests/modular_decode.rs`. No Rust
-generic image encoder, tree-learning algorithm, forward palette algorithm, or
-complete JPEG XL codestream is supplied by these fixtures.
+with their configurations documented in `tests/modular_decode.rs`. These
+fixtures do not substitute for Rust encoding or frame orchestration.
+
+`base/random.h`, the remaining `modular/encoding/enc_ma.{h,cc}`, and the
+learning/generic encoder portions of `enc_encoding.{h,cc}` provide the source
+RNG/distributions, sample collection, quantization, hash deduplication, original
+scalar entropy/split search, and complete standalone generic modular encoding.
+The adapter calls the original APIs and observes exact float bits, sample
+state, trees, accounting, encoded bytes, and decoded rasters. Generated corpora
+and native integration cases in `tests/modular_encode.rs` are local test
+infrastructure, not a translated upstream image-test inventory. The native gray
+encoder test reuses the independently captured C++ decoder fixture. Forward
+palette selection and complete JPEG XL image/frame orchestration remain
+separate boundaries.

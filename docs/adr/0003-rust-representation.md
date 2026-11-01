@@ -222,7 +222,8 @@ inactive-union references and invalid enum discriminants while keeping the
 that C++ leaves indeterminate, including PredictionResult::multiplier without a
 tree; this gives that member no added non-tree meaning. The oracle must omit
 such undefined observations rather than turning extra initialization into a
-parity claim. Prediction-tree learning remains a separate boundary.
+parity claim. Learning predictions likewise initialize inactive entries without
+giving them meaning in source observations.
 
 Tree parsing and tokenization retain breadth-first node/leaf indices, the source
 integer narrowing points, iterative property-range validation, and error-time
@@ -273,6 +274,23 @@ rules. Optional global tree/code/map inputs remain independent borrowed options;
 validate their presence at the original checkpoint. Do not compare indeterminate
 source pixels after allowed truncated transforms. Caller-supplied dimensions and
 bit depth remain outside the standalone modular stream's serialized boundary.
+
+TreeSamples owns the source's residual/property/count vectors and both hash
+slots. Preserve resize-retained hash entries, u16 saturation/removal, strict
+split ties, the source's sample partition order, and mutation of pre-quantized
+pixel/difference arrays. Static properties retain their positional contract;
+do not reorder or repair a caller's configuration. Learning consumes its sample
+owner, while image batches and predictor headers remain borrowed. Inactive
+CostInfo predictors and pre-setter fields receive safe Rust initialization with
+no added source meaning. Preserve integer narrowing/wrapping and the original
+unsigned-long histogram accumulation width. The one-lane Highway estimator
+keeps separate float operations; ordinary Clang expressions retain the existing
+target-specific contraction mapping. In particular, the unsuffixed split
+penalties and required-cost constants evaluate in double before narrowing.
+RNG state and geometric sampling retain logf rounding and source distribution
+preconditions. Generic compression clones options at the source checkpoint,
+writes its header before learning errors, and reborrows accounting for nested
+writers. Caller options and transform ownership remain unchanged.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current

@@ -22,8 +22,10 @@ encoding and channel decoding now connect samples through real entropy streams.
 Palette lookup/inversion and scalar Squeeze encoding/decoding now run through
 the original transform dispatch and reverse stack traversal.
 The original modular image decoder now reads standalone streams with local or
-global entropy tables and applies their transformations. Its caller supplies
-dimensions and bit depth; frame integration is still being translated. The
+global entropy tables and applies their transformations. The generic modular
+encoder includes original sample collection, quantization, tree learning, and
+entropy output. Standalone streams require caller-supplied dimensions and bit
+depth; frame integration is still being translated. The
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate
 dependencies and does not compile or link C/C++. A separate executable built

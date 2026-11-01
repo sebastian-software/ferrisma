@@ -455,6 +455,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "ma.inc"
 #include "transforms.inc"
 #include "modular_decode.inc"
+#include "learn.inc"
 
 int main() {
   try {
@@ -491,6 +492,7 @@ int main() {
       else if (MaCommand(command, in, &mm)) {}
       else if (TransformsCommand(command, in, &mm)) {}
       else if (ModularDecodeCommand(command, in, &mm)) {}
+      else if (LearnCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
