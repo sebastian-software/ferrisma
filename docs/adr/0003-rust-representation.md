@@ -236,6 +236,19 @@ oracle seeds LUT storage before observing every entry and reads only the active
 union members of flattened nodes. Header transforms resize only on reading,
 including when an existing bundle receives defaults.
 
+Residual encoding writes into pre-resized caller-owned token storage, using an
+index for the source's local Token pointer. Commit that index only at the source
+success checkpoint; overflow leaves already written tokens and the unchanged
+width output visible. Preserve builtin signed-subtraction overflow through
+overflowing_sub, later i64-to-i32 narrowing, and the separate fast/slow loops.
+The source's kWantDebug=true predictor-image allocation and scratch writes remain
+present even though its image-output call is commented out. Decoder prediction
+temporarily borrows initialized plane samples and ends that borrow before each
+pixel write; no aliased mutable/shared channel pointers or whole-plane copies
+are needed. Its first-row relative-pointer cases map to the same prior samples.
+Shared Huffman/RLE run/value state outlives individual channel calls, and its
+original global-tree predicate remains part of the fast-path selection.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

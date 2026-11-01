@@ -464,6 +464,9 @@ impl<'a> PixelPosition<'a> {
             .expect("relative sample before storage");
         i64::from(self.samples[index])
     }
+    pub(super) fn read_pixel(self, relative: isize) -> Pixel {
+        self.read(relative) as Pixel
+    }
 }
 pub mod detail {
     use super::*;

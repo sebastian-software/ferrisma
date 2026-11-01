@@ -52,7 +52,8 @@ and no placeholder codec APIs. The source revision is pinned in
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
 | `modular/encoding/ma_common.h`, `dec_ma.h`, `.cc`, `enc_ma.cc` | `modular/encoding/ma_common.rs`, `modular/encoding/dec_ma.rs`, `modular/encoding/enc_ma.rs` | Tree constants/storage, complete entropy-backed tree parsing and validation, and BFS tokenization; sample collection and tree learning unported |
-| `modular/encoding/encoding.h`, `.cc` | `modular/encoding/encoding.rs` | GroupHeader fields, static-branch filtering and two-level flattening, and original lookup-table conversion with optional offsets/multipliers; residual/image decoding unported |
+| `modular/encoding/encoding.h`, `.cc` | `modular/encoding/encoding.rs` | GroupHeader fields, static-branch filtering and two-level flattening, lookup-table conversion, and complete channel residual decoding with original fast/NEC/LZ77/RLE paths; image orchestration and dimension validation unported |
+| `modular/encoding/enc_encoding.h`, `.cc` | `modular/encoding/enc_encoding.rs` | All predefined trees, given-tree ModularCompress and channel residual encoding, original fast paths and overflow checks, and predictor-image scratch writes; learning and ModularGenericCompress unported |
 | `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, and resize failure state; transform execution and diagnostics unported |
 | `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, and channel-range validation; MetaApply/Inverse dispatch and palette/squeeze kernels unported |
 | `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
@@ -84,13 +85,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 136 tests, including 73 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 136 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 136 tests and corpus |
+| Rust debug | PASSED | 142 tests, including 76 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 142 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 142 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **543,692 requests** against C++. These include
+Each differential run compares **550,690 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -231,6 +232,22 @@ and truncation. Native integration tests connect actual tree tokens and entropy
 bytes through parsing and static pruning to prediction-context selection; no
 image residuals or complete image codestream are supplied by these tests.
 
+Residual coverage adds 6,998 differential requests. Predefined trees retain their
+cutoffs, pixel-count height reduction, bit-depth scaling, and reference-property
+selection. Given-tree encoding compares all tokens, reused header state, width
+output, empty/limited channels, and partially written output on overflow. Raster
+tests connect the original residual and entropy entry points, compare bytes,
+cross-decode original streams, and observe every output sample, consumed-bit
+count, RLE state, and finalization status after truncation or corruption. They
+exercise all 14 predictors, static and reference properties, original gradient
+and weighted lookup paths, interior-only loops, ANS single-value handling, and
+the Huffman/RLE shortcut with a run spanning channel boundaries. The original
+global-tree predicate keeps mixed-predictor trees on the general LZ77 reader.
+Native tests recover complete raster samples, preserve row padding, compare
+fast/slow tokens, and check known tokens and overflow state. These streams lack
+codestream/frame framing and transform orchestration; they are not yet a
+complete JPEG XL image path.
+
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
 uninitialized C++ alias entries.
@@ -262,9 +279,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port modular prediction-tree learning, residual coding, and the
-   remaining transforms reached by the
-   first-image configuration.
+1. Port modular prediction-tree learning, image orchestration, and the remaining
+   transforms reached by the first-image configuration.
 2. Connect the original image/frame path and run the complete cross-language
    image corpus in the first-image acceptance gate.
 3. Expand through remaining modular and VarDCT decoding and encoding before

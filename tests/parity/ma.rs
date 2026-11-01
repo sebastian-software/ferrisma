@@ -3,16 +3,20 @@
 // Complete tree streams and source tree/filter/LUT/header state observations.
 
 use super::*;
+use jxl::jxl::dec_ans::{ANSCode, ANSSymbolReader, decode_histograms};
 use jxl::jxl::enc_ans::{
     EntropyEncodingData, Token, build_and_encode_histograms, write_tokens_with_allotment,
 };
-use jxl::jxl::enc_ans_params::{HistogramParams, LZ77Method};
+use jxl::jxl::enc_ans_params::{HistogramParams, HybridUintMethod, LZ77Method};
 use jxl::jxl::modular::encoding::context_predict::{FlatTree, weighted};
 use jxl::jxl::modular::encoding::dec_ma::{PropertyDecisionNode, Tree, decode_tree};
+use jxl::jxl::modular::encoding::enc_encoding::{modular_compress, predefined_tree};
 use jxl::jxl::modular::encoding::enc_ma::tokenize_tree;
 use jxl::jxl::modular::encoding::encoding::*;
 use jxl::jxl::modular::encoding::ma_common::*;
+use jxl::jxl::modular::modular_image::Image;
 use jxl::jxl::modular::options::Predictor;
+use jxl::jxl::modular::options::{ModularOptions, TreeKind};
 use jxl::jxl::modular::transform::transform::{Transform, TransformId};
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("ma-")
@@ -157,8 +161,233 @@ fn header(out: &mut String, h: &mut GroupHeader) {
         image::transform(out, t);
     }
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Keep the original reader/image/tree fixture inputs explicit"
+)]
+fn raster_decode(
+    out: &mut String,
+    br: &mut BitReader<'_>,
+    w: usize,
+    h: usize,
+    n: i32,
+    group: usize,
+    preset: i32,
+    t: &Tree,
+) {
+    let mut image = Image::create(w, h, 16, n).unwrap();
+    for c in &mut image.channel {
+        image::paint(&mut c.plane, 81 + c.component as u64);
+    }
+    let mut code = ANSCode::default();
+    let mut map = Vec::new();
+    let mut header = weighted::Header::default();
+    weighted::predictor_mode(preset, &mut header);
+    let s = decode_histograms(br, t.len().div_ceil(2), &mut code, &mut map, false);
+    write!(out, " {} {}", status_code(&s), br.total_bits_consumed()).unwrap();
+    if s.is_ok() {
+        let mut reader = ANSSymbolReader::create(&code, br, w).unwrap();
+        write!(
+            out,
+            " {} {}",
+            u32::from(reader.uses_lz77()),
+            u32::from(reader.is_huff_rle_only())
+        )
+        .unwrap();
+        let mut lut = TreeLut::<u8, false, false>::default();
+        let mut run = 0;
+        let mut value = 0;
+        for c in 0..n {
+            let s = decode_modular_channel_maans(
+                br,
+                &mut reader,
+                &map,
+                t,
+                &header,
+                c,
+                group,
+                &mut lut,
+                &mut image,
+                &mut run,
+                &mut value,
+            );
+            write!(
+                out,
+                " {} {} {run} {value} {}",
+                status_code(&s),
+                br.total_bits_consumed(),
+                status_code(&br.all_reads_within_bounds())
+            )
+            .unwrap();
+            if s.is_err() {
+                break;
+            }
+        }
+        write!(out, " {}", u32::from(reader.check_ans_final_state())).unwrap();
+    }
+    write!(
+        out,
+        " {} {}",
+        br.total_bits_consumed(),
+        status_code(&br.close())
+    )
+    .unwrap();
+    image::modular(out, &image);
+}
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
     match kind {
+        "ma-raster" | "ma-raster-read" => {
+            let w = number(args);
+            let h = number(args);
+            let n = number(args);
+            let group = number(args);
+            let preset = number(args);
+            if kind == "ma-raster" {
+                let force = number::<u32>(args) != 0;
+                let lz = number::<u32>(args);
+                let skip = number::<u32>(args) != 0;
+                let offset = number(args);
+                let mut image = Image::create(w, h, 16, n).unwrap();
+                rct::fill(&mut image, args);
+                let input = read_tree(args);
+                let mut t = Vec::new();
+                tokenize_tree(&input, &mut Vec::new(), &mut t).unwrap();
+                let options = ModularOptions {
+                    predictor: Predictor::WEIGHTED,
+                    wp_mode: preset,
+                    skip_encoder_fast_path: skip,
+                    ..Default::default()
+                };
+                let mut h = GroupHeader::default();
+                let mut ts = vec![Vec::new()];
+                let mut width = 0;
+                let s =
+                    modular_compress(&image, &options, group, &t, &mut h, &mut ts[0], &mut width);
+                let mut out = status_code(&s).to_string();
+                if s.is_err() {
+                    return out;
+                }
+                let p = HistogramParams {
+                    force_huffman: force,
+                    image_widths: vec![width],
+                    lz77_method: if lz != 0 {
+                        LZ77Method::RLE
+                    } else {
+                        LZ77Method::None
+                    },
+                    uint_method: if lz == 2 {
+                        HybridUintMethod::Uint000
+                    } else {
+                        HybridUintMethod::Best
+                    },
+                    ..Default::default()
+                };
+                let mut writer = BitWriter::new();
+                prefix(&mut writer, offset);
+                let mut code = EntropyEncodingData::default();
+                let mut s = build_and_encode_histograms(
+                    &p,
+                    t.len().div_ceil(2),
+                    &mut ts,
+                    &mut code,
+                    Some(&mut writer),
+                    LayerType::ModularGlobal,
+                    None,
+                )
+                .map(|_| ());
+                if s.is_ok() {
+                    s = write_tokens_with_allotment(
+                        &ts[0],
+                        &code,
+                        0,
+                        &mut writer,
+                        LayerType::ModularGlobal,
+                        None,
+                    );
+                }
+                write!(out, " {} {}", status_code(&s), writer.bits_written()).unwrap();
+                pad(&mut writer);
+                write!(out, " {}", hex(writer.get_span())).unwrap();
+                let mut br = BitReader::new(writer.get_span());
+                br.skip_bits(offset);
+                raster_decode(&mut out, &mut br, w, image.h, n, group, preset, &t);
+                out
+            } else {
+                let offset = number(args);
+                let input = read_tree(args);
+                let mut t = Vec::new();
+                tokenize_tree(&input, &mut Vec::new(), &mut t).unwrap();
+                let data = unhex(args.next().unwrap());
+                let mut br = BitReader::new(&data);
+                br.skip_bits(offset);
+                let mut out = "R".to_owned();
+                raster_decode(&mut out, &mut br, w, h, n, group, preset, &t);
+                out
+            }
+        }
+        "ma-predefined" => {
+            let kind = [
+                TreeKind::TrivialTreeNoPredictor,
+                TreeKind::Learn,
+                TreeKind::JpegTranscodeACMeta,
+                TreeKind::FalconACMeta,
+                TreeKind::ACMeta,
+                TreeKind::WPFixedDC,
+                TreeKind::GradientFixedDC,
+            ][number::<usize>(args)];
+            let t = predefined_tree(kind, number(args), number(args), number(args));
+            let mut out = "T".to_owned();
+            tree(&mut out, &t);
+            out
+        }
+        "ma-compress" => {
+            let w = number(args);
+            let h = number(args);
+            let n = number(args);
+            let depth = number(args);
+            let error = number::<u32>(args) != 0;
+            let group = number(args);
+            let wp_mode = number(args);
+            let predictor = Predictor(number(args));
+            let skip_encoder_fast_path = number::<u32>(args) != 0;
+            let zero_tokens = number::<u32>(args) != 0;
+            let max_chan_size = number(args);
+            let meta = number(args);
+            let variant = number::<u32>(args);
+            let mut image = Image::create(w, h, depth, n).unwrap();
+            rct::fill(&mut image, args);
+            image.error = error;
+            image.nb_meta_channels = meta;
+            if image.channel.len() > 1 {
+                match variant {
+                    1 => image.channel[1].w = 0,
+                    2 => image.channel[1].hshift = 1,
+                    3 => image.channel[1].h = 0,
+                    _ => (),
+                }
+            }
+            image.transform.push(Transform {
+                max_delta_error: 77,
+                ..Transform::new(TransformId::RCT)
+            });
+            let t = read_tree(args);
+            let opts = ModularOptions {
+                wp_mode,
+                predictor,
+                skip_encoder_fast_path,
+                zero_tokens,
+                max_chan_size,
+                ..Default::default()
+            };
+            let mut h = header_seed(3);
+            let mut width = 314159;
+            let mut ts = vec![Token::new(5, 0xdeadbeef)];
+            let s = modular_compress(&image, &opts, group, &t, &mut h, &mut ts, &mut width);
+            let mut out = format!("{} {width}", status_code(&s));
+            header(&mut out, &mut h);
+            tokens(&mut out, &ts);
+            out
+        }
         "ma-token" => {
             let t = read_tree(args);
             let mut ts = vec![Token::new(5, 0xdeadbeef)];
@@ -341,6 +570,267 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         }
         _ => unreachable!(),
     }
+}
+
+#[test]
+fn ma_predefined_trees_keep_source_cutoffs_and_size_reduction() {
+    let mut cases = Vec::new();
+    for kind in 0..7 {
+        for pixels in [
+            1,
+            2,
+            511,
+            512,
+            1023,
+            1024,
+            1025,
+            2048,
+            4096,
+            8192,
+            8193,
+            16383,
+            16384,
+            16385,
+            1 << 20,
+            usize::MAX,
+        ] {
+            for depth in [-1, 1, 8, 11, 12, 14, 15, 16, 32, i32::MAX] {
+                for prev in [-1, 0, 1] {
+                    cases.push(format!("ma-predefined {kind} {pixels} {depth} {prev}"));
+                }
+            }
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn ma_residual_encoder_preserves_fast_slow_and_error_token_state() {
+    let mut cases = Vec::new();
+    let mut seed = 778822;
+    for i in 0..1400 {
+        let w = [1, 2, 3, 7, 8, 9, 17, 33][i % 8];
+        let h = 1 + i % 5;
+        let n = 1 + i % 4;
+        let p = (i / 8) % 14;
+        let skip = (i / 112) % 2;
+        let variant = (i / 224) % 4;
+        let mut t = if i % 3 == 0 {
+            generated_tree(2 + i % 3, &mut seed)
+        } else {
+            vec![PropertyDecisionNode::leaf(
+                Predictor(p as u32),
+                if i % 13 == 0 { 17 } else { 0 },
+                if i % 17 == 0 { 4 } else { 1 },
+            )]
+        };
+        let mut id = 0;
+        let multiple_nodes = t.len() > 1;
+        for v in &mut t {
+            if v.property == -1 {
+                v.lchild = id;
+                id += 1;
+                if multiple_nodes {
+                    v.multiplier = 1;
+                }
+            }
+        }
+        let mut out = format!(
+            "ma-compress {w} {h} {n} 16 0 {} {} {} {skip} {} {} {} {variant}",
+            i % 11,
+            i % 5,
+            if i % 7 == 0 { u32::MAX } else { p as u32 },
+            u32::from(i % 29 == 0),
+            if i % 31 == 0 { w - 1 } else { 1000 },
+            i % n
+        );
+        for c in 0..n {
+            for y in 0..h {
+                for x in 0..w {
+                    let value = if i % 11 == 0 {
+                        (next(&mut seed) as i32) >> 1
+                    } else {
+                        ((x * 3 + y * 13 + c * 17) % 65536) as i32 - 32768
+                    };
+                    write!(out, " {value}").unwrap();
+                }
+            }
+        }
+        write!(out, " {}", request_tree(&t)).unwrap();
+        cases.push(out);
+    }
+    // Every basic predictor, all raster widths, both dispatch modes, and full
+    // signed samples. Optimized overflow failures keep already written tokens.
+    for p in 0..14 {
+        for skip in 0..2 {
+            for w in [1, 2, 9, 17] {
+                let t = vec![PropertyDecisionNode::leaf(Predictor(p), 0, 1)];
+                let mut out = format!("ma-compress {w} 3 2 32 0 0 0 {p} {skip} 0 1000 0 0");
+                for i in 0..w * 6 {
+                    write!(out, " {}", [i32::MIN, i32::MAX, 0, -1, 1][i % 5]).unwrap();
+                }
+                write!(out, " {}", request_tree(&t)).unwrap();
+                cases.push(out);
+            }
+        }
+    }
+    for &(w, h, n) in &[(0, 3, 3), (3, 0, 3), (3, 3, 0), (3, 3, -1), (3, 3, 3)] {
+        for error in 0..2 {
+            for zero in 0..2 {
+                let mut out = format!("ma-compress {w} {h} {n} 8 {error} 0 0 5 0 {zero} 2 1 0");
+                for _ in 0..w * h * n.max(0) {
+                    out.push_str(" 17");
+                }
+                write!(
+                    out,
+                    " {}",
+                    request_tree(&[PropertyDecisionNode::leaf(Predictor::GRADIENT, 0, 1)])
+                )
+                .unwrap();
+                cases.push(out);
+            }
+        }
+    }
+    compare(cases);
+}
+#[test]
+fn ma_channel_rasters_cross_decode_real_entropy_bytes_and_damage() {
+    let mut cases = Vec::new();
+    let mut configs = Vec::new();
+    let mut seed = 732442;
+    let mut trees: Vec<Tree> = (0..14)
+        .map(|p| vec![PropertyDecisionNode::leaf(Predictor(p), 0, 1)])
+        .collect();
+    for prop in [0, 1, 9, 15, 18, 22] {
+        trees.push(vec![
+            PropertyDecisionNode::split(prop, 0, 1, 2),
+            PropertyDecisionNode::leaf(
+                if prop == 15 {
+                    Predictor::WEIGHTED
+                } else {
+                    Predictor::GRADIENT
+                },
+                0,
+                1,
+            ),
+            PropertyDecisionNode::leaf(
+                if prop == 15 {
+                    Predictor::WEIGHTED
+                } else {
+                    Predictor::GRADIENT
+                },
+                0,
+                1,
+            ),
+        ]);
+    }
+    // A static mixture must not enable the global gradient-only Huffman/RLE
+    // specialization. Its shared run state spans successive channel calls.
+    trees.push(vec![
+        PropertyDecisionNode::split(0, 0, 1, 2),
+        PropertyDecisionNode::leaf(Predictor::LEFT, 0, 1),
+        PropertyDecisionNode::leaf(Predictor::GRADIENT, 0, 1),
+    ]);
+    for prop in [9, 15, 18] {
+        trees.push(vec![
+            PropertyDecisionNode::split(prop, 31, 1, 2),
+            PropertyDecisionNode::leaf(Predictor::AVERAGE4, -7, 1),
+            PropertyDecisionNode::leaf(Predictor::WEIGHTED, 13, 1),
+        ]);
+    }
+    for (ti, t) in trees.iter().enumerate() {
+        for w in [1, 2, 9, 17] {
+            for mode in 0..8 {
+                let h = 5;
+                let n = if mode % 3 == 0 { 3 } else { 1 };
+                let group = ti % 7;
+                let preset = mode % 5;
+                let offset = (ti + mode) % 8;
+                let mut request = format!(
+                    "ma-raster {w} {h} {n} {group} {preset} {} {} {} {offset}",
+                    mode % 2,
+                    (mode / 2) % 2,
+                    mode / 4
+                );
+                for c in 0..n {
+                    for y in 0..h {
+                        for x in 0..w {
+                            let v = match mode % 3 {
+                                0 => 0,
+                                1 => c * 17 + y * 3 + x * 2 - 19,
+                                _ => (next(&mut seed) % 65536) as i32 - 32768,
+                            };
+                            write!(request, " {v}").unwrap();
+                        }
+                    }
+                }
+                write!(request, " {}", request_tree(t)).unwrap();
+                cases.push(request);
+                configs.push((w, h, n, group, preset, offset, t));
+            }
+        }
+    }
+    for ti in [5, 14, 20] {
+        for h in [1, 3] {
+            let t = &trees[ti];
+            let w = 256;
+            let n = 3;
+            let mut request = format!("ma-raster {w} {h} {n} 0 0 1 2 0 7");
+            for c in 0..n {
+                for y in 0..h {
+                    let mut value = if c == 0 { 0 } else { ((w - 1) / 8) * 16 };
+                    for x in 0..w {
+                        value += 8192 + (x / 8) * 16;
+                        write!(request, " {}", value + y * 16384 + c * y * 4096).unwrap();
+                    }
+                }
+            }
+            write!(request, " {}", request_tree(t)).unwrap();
+            cases.push(request);
+            configs.push((w, h, n, 0, 0, 7, t));
+        }
+    }
+    compare(cases.clone());
+    let outputs = original_observations(&cases);
+    assert!(
+        outputs
+            .iter()
+            .any(|out| out.split_whitespace().nth(7) == Some("1")),
+        "Exercise the original Huffman/RLE-only specialization"
+    );
+    let mut reads = Vec::new();
+    for (i, output) in outputs.iter().enumerate().step_by(7) {
+        let fields: Vec<_> = output.split_whitespace().collect();
+        assert!(
+            fields.len() >= 4,
+            "Original encoder rejected raster {i}: {output}"
+        );
+        let data = unhex(fields[3]);
+        let (w, h, n, group, preset, offset, t) = configs[i];
+        let start = format!(
+            "ma-raster-read {w} {h} {n} {group} {preset} {offset} {}",
+            request_tree(t)
+        );
+        reads.push(format!("{start} {}", hex(&data)));
+        for len in [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            data.len() / 2,
+            data.len().saturating_sub(1),
+        ] {
+            reads.push(format!("{start} {}", hex(&data[..len.min(data.len())])));
+        }
+        for byte in [0, data.len() / 2, data.len() - 1] {
+            let mut broken = data.clone();
+            broken[byte] ^= 0x80;
+            reads.push(format!("{start} {}", hex(&broken)));
+        }
+    }
+    compare(reads);
 }
 
 fn request_tree(t: &[PropertyDecisionNode]) -> String {

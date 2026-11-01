@@ -61,6 +61,7 @@ add_executable(jxl_oracle
   "${UPSTREAM}/lib/jxl/modular/encoding/dec_ma.cc"
   "${UPSTREAM}/lib/jxl/modular/encoding/enc_ma.cc"
   "${UPSTREAM}/lib/jxl/modular/encoding/encoding.cc"
+  "${UPSTREAM}/lib/jxl/modular/encoding/enc_encoding.cc"
   "${UPSTREAM}/lib/jxl/fields.cc"
   "${UPSTREAM}/lib/jxl/enc_fields.cc"
   "${UPSTREAM}/lib/jxl/enc_huffman.cc"

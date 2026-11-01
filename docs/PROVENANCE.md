@@ -145,6 +145,17 @@ XL Project Authors' copyright notice and name the source files they translate.
   algorithm is replaced by fixtures, and no upstream tree test inventory is
   claimed as translated.
 
+- `modular/encoding/encoding.cc` channel residual decoder and
+  `enc_encoding.{h,cc}` predefined trees, given-tree `ModularCompress`, and its
+  channel encoder: original scalar fast paths, LZ77 dispatch, single-value and
+  Huffman/RLE cases, interior prediction loops, residual arithmetic, overflow
+  checks, and predictor-image scratch allocation/writes. Generated raster,
+  token-state, malformed-stream, and native integration tests are local
+  infrastructure. They call the actual original functions, including the
+  cross-channel run-state guard, and supply no substitute image/frame codec.
+  Tree learning, image orchestration, and the upstream image test inventory
+  remain separate boundaries.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises
