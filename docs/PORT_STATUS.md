@@ -972,17 +972,24 @@ group and exposed an AArch64-only captured GamutMap word in an ordinary test.
 The test now retains independently captured exact words for both reference
 targets, with its input also added to the differential corpus. The existing
 AArch64 arithmetic and captured words remain unchanged. The x86 production
-helper now additionally preserves the original optimized luminance ADDSS
-operand order through local out-of-line Add calls. The same old scalar and
-stage/pipeline cases retain exact comparisons in both native build modes;
-no expected word or existing request is changed by that mapping.
+helper now additionally preserves the actual original object's optimized
+luminance and product-first blend ADDSS operands through local out-of-line Add
+calls. The same old scalar and stage/pipeline cases retain exact comparisons
+in both build modes; no expected word or existing request is changed by that
+mapping.
 
-Focused x86_64 ordinary and UBSan-reference runs both pass four filtered groups
-and 56,085 requests in Debug and Release, including the original scalar gamut
-and stage/pipeline corpora. Both native tone-mapping tests also pass in each
-mode. The focused UBSan variant instruments the unchanged original-source
-adapter containing the actual scalar functions/stage and links the cached
+Focused emulated x86_64 ordinary and UBSan-reference runs both pass four filtered
+groups and 56,085 requests in Debug and Release, including the original scalar
+gamut and stage/pipeline corpora. Both ordinary Rust tone-mapping tests also pass
+in each mode. The emulated runtime selects the same larger quiet-NaN payload
+for both ADDSS operand orders; these passes do not prove native operand fidelity.
+Native hosted execution exposed the earlier tiny source probe's different register
+allocation and the need to inspect the actual oracle's GamutMap object. The
+focused UBSan variant instruments the unchanged original-source adapter
+containing the actual scalar functions/stage and links the cached
 ordinary codec archive; this is not a fully instrumented Linux codec run.
-All six complete macOS ordinary/sanitized configurations retain the same 325
-tests, 183 differential groups, and 703,420 requests after this repair. Existing
-cases and expected words remain unchanged; no emulated ASan gate is claimed.
+Complete ordinary macOS Debug, Release, and Rust 1.85 checks retain the same 325
+tests, 183 differential groups, and 703,420 requests. The preceding mapping also
+passed all three macOS ASan/UBSan configurations; this correction only compiles
+on x86_64 and leaves the AArch64 arithmetic unchanged. Existing cases and
+expected words remain unchanged; no emulated ASan gate is claimed.

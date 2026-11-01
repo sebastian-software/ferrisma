@@ -659,17 +659,24 @@ channel value as the first add operand, followed by the separately computed
 product. Express that emitted operand order explicitly so a quiet-NaN channel
 retains its payload. This does not change finite arithmetic or fuse operations;
 exact differential and captured-word regressions cover it. The original x86_64
-configuration selects the red/green NaN payload in all three channels for the
-native regression's input. Its optimized scalar luminance object adds the blue
-product to the green product, then adds the red product. Local out-of-line
-x86 Add calls preserve those ADDSS destination/source operands through native
-release optimization while keeping the original right-nested association and
-separate rounding. The selected original O3 object emits scalar MULSS products;
+configuration selects the green channel's quieted NaN payload in all three
+channels for the native regression's input. The actual oracle's optimized
+scalar GamutMap object
+uses the green product as the inner ADDSS destination and the red product as
+the outer destination. Its final blend uses the separately computed product as
+the ADDSS destination in every channel. Local out-of-line x86 Add calls preserve
+those operand choices while keeping the original right-nested association and
+separate rounding. An independent tiny source wrapper can allocate different
+operands and is not a substitute for the actual oracle's object. The observed
+emulated x86 runtime selects the same larger quiet-NaN payload in both operand
+orders; native execution and actual-object disassembly are required to verify
+these choices. The selected original O3 object emits scalar MULSS products;
 its Highway double promotions are optimized away at that boundary. Keep the
 AArch64 path and captured words unchanged and retain the same input in the real
 differential corpus. Cross-target NaN payload equality is not assumed. Review
-this mapping with compiler/target changes. ToneMappingStage retains the original unneeded
-return before argument guards, then RGB load/scale/map/gamut/scale/store order.
+this mapping with compiler/target changes. ToneMappingStage retains the original
+unneeded return before argument guards, then RGB load/scale/map/gamut/scale/store
+order.
 
 PassesDecoderState owns its complete shared storage and coefficient/reference
 owners. Its shared pointer selects either its own storage or an actual immutable
