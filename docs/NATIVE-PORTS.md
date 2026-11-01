@@ -81,7 +81,7 @@ ABI, feature, and behavioral comparison before adoption.
   rather than an intentionally limited libavif-only subset.
 - Keep separate crates in one Cargo workspace in the existing repository.
 - Accept the inventoried primary upstream licenses while retaining original
-  terms per imported source; simplification remains a separate policy topic.
+  terms per imported source; standardize records and generated license notices.
 - Require bit-exact bitstreams and decoded pixels, with matching return values
   and errors, against a pinned original and declared reference configuration.
 - Start with the portable upstream paths; keep optimization separate and allow
@@ -89,26 +89,31 @@ ABI, feature, and behavioral comparison before adoption.
 - Target Rust consumers and full behavioral parity; existing compiled C++
   applications are outside the compatibility goal. Foreign interfaces remain
   useful for validation without creating a product support obligation.
+- Keep unchanged tests where they exercise Rust faithfully; mechanically
+  translate coupled C++ tests with explicit case/parameter/assertion mapping
+  and preserve the original tests as the native reference.
+- Pilot on macOS ARM64 and require Linux x86-64 evidence before releasing a new
+  crate. Full-pipeline platform claims need their own integration evidence.
 
 These decisions are recorded in
 [ADR 0010](adr/0010-port-native-libraries-from-their-original-sources.md) and
 [ADR 0011](adr/0011-keep-library-ports-in-one-cargo-workspace.md),
 [ADR 0012](adr/0012-require-bit-exact-results-against-declared-references.md),
-[ADR 0013](adr/0013-separate-optimization-from-the-mechanical-port.md), and
-[ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md), and
-[ADR 0015](adr/0015-target-rust-consumers-without-cpp-binary-compatibility.md).
+[ADR 0013](adr/0013-separate-optimization-from-the-mechanical-port.md),
+[ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md),
+[ADR 0015](adr/0015-target-rust-consumers-without-cpp-binary-compatibility.md),
+[ADR 0016](adr/0016-preserve-test-cases-when-translating-coupled-tests.md),
+[ADR 0017](adr/0017-standardize-license-records-and-generated-notices.md), and
+[ADR 0018](adr/0018-validate-new-crates-on-macos-arm64-and-linux-x86-64.md).
 
 ## Open decision tree
 
-- License simplification: select a consistent presentation and tooling
-  convention; keep any broader relicensing proposal distinct.
-- Concrete references: choose exact source revisions, reproducible build
-  configurations, and execution matrices for each milestone.
-- Optimization: decide its later scope, supported CPU paths, and performance
-  gates separately from the portable mechanical ports.
-- Supported platforms: distinguish pilot evidence from release support.
-- Test correspondence: decide how internally coupled C++ tests exercise Rust
-  implementations while retaining their original reference and assertions.
+- First milestone: select the first crate and its concrete reference and
+  validation contract.
+- Program scope and sequence: decide whether to eliminate the default native
+  image pipeline before beginning optional library and transitive closures.
+- Source and build pins: resolve immutable source identifiers, toolchain pins,
+  and complete source closures before implementing a selected milestone.
 
 Those answers determine the first milestone and port order, transitive library
 scope, concrete parity and performance gates, maintenance, package identities,
@@ -147,12 +152,13 @@ tests instantiate header-only templates, including `Array2DView` and `Vector`.
 Compiling those unchanged implementation headers into the candidate test
 program would still exercise original C++ algorithms, not their Rust ports.
 
-A possible policy is to preserve original C++ tests as the native reference,
+The selected policy is to preserve original C++ tests as the native reference,
 retain unchanged consumer tests through bridges where feasible, and
 mechanically translate internally coupled tests to Rust with an explicit
-case/parameter/assertion mapping. This is a proposal, not an accepted exception
-to the original-test requirement. Neither a public facade nor an exit code of
-zero establishes whole-suite Rust coverage.
+case/parameter/assertion mapping. See
+[ADR 0016](adr/0016-preserve-test-cases-when-translating-coupled-tests.md).
+Neither a public facade nor an exit code of zero establishes whole-suite Rust
+coverage.
 
 ### Candidate pilot evidence
 
@@ -168,6 +174,92 @@ tests against the pinned scalar C reference in addition to the available
 original fuzz/integration tests and libavif suite. It must not claim to retain
 a dedicated upstream SharpYUV suite that does not exist. Pilot selection and
 acceptance gates remain open.
+
+## Proposed first milestone: standalone portable SharpYUV
+
+The proposed source boundary is the standalone `sharpyuv` target from libwebp
+v1.6.0, whose SharpYUV API version is 0.4.2. Resolve the tag and source archive
+to immutable identifiers and hashes before translation. Preserve the complete
+source and notices, including shared CPU-support source outside `sharpyuv/`.
+The `libwebpextras` risk-estimation functions are a different library boundary.
+
+Use the original `WEBP_ENABLE_SIMD=OFF` configuration for the portable native
+reference and the native test consumers. Record threading and compiler options
+independently. This selects the upstream portable path; it does not require
+disabling ordinary compiler code generation or prove optimized CPU coverage.
+
+### Proposed implementation and API coverage
+
+- Preserve the six declared exported entry points: `SharpYuvGetVersion`,
+  `SharpYuvConvert`, `SharpYuvConvertWithOptions`,
+  `SharpYuvOptionsInitInternal`, `SharpYuvComputeConversionMatrix`, and
+  `SharpYuvGetConversionMatrix`.
+- Preserve the initialization behavior behind the inline `SharpYuvOptionsInit`
+  wrapper and the exported `SharpYuvInit` entry point used by original libwebp.
+- Cover RGB depths 8/10/12/16, YUV420 depths 8/10/12, all sixteen defined
+  transfer-function choices, the five predefined matrices, and documented
+  matrix computation. The original truncation of sixteen-bit RGB input is
+  preserved rather than redesigned.
+- Exercise interleaved and planar layouts, padded rows, valid aligned
+  high-bit-depth buffers, odd/even dimensions, narrow images, initialization,
+  defined argument-rejection behavior, and allocation-failure cleanup.
+- Keep source preconditions explicit. Arbitrary malformed inputs that trigger
+  undefined behavior in C are not automatically a defined equivalence oracle.
+
+The versioned
+[conversion header](https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/sharpyuv/sharpyuv.h),
+[colorspace header](https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/sharpyuv/sharpyuv_csp.h),
+[implementation](https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/sharpyuv/sharpyuv.c),
+and [native consumer](https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/src/enc/picture_csp_enc.c)
+establish this boundary.
+
+### Proposed acceptance evidence
+
+1. Upstream source hashes and generated Rust correspondence are reproducible;
+   required license and attribution records are complete for the imported code.
+2. Native and Rust entry-point results match exactly on a deterministic corpus
+   and supplemental seeded differential cases covering the declared API matrix.
+3. Available original WebP fuzz/integration tests and libavif tests exercise the
+   Rust implementation through an explicit target replacement. Keep their
+   native-reference results and executed inventories separately.
+4. Compile commands, archive members, symbols, and linker evidence establish
+   that the candidate consumer uses Rust SharpYUV, including `SharpYuvInit`,
+   with no original or system SharpYUV implementation masking the port.
+5. Native-reference and Rust differential execution are isolated to avoid
+   duplicate unprefixed symbols or dynamic interposition hiding the candidate.
+6. The standalone crate passes its native comparisons on macOS ARM64 and Linux
+   x86-64. Existing libavif integration runs on its supported host; Linux
+   integration of the root package remains a separate validation gate.
+7. Record remaining configurations and unavailable cases explicitly. Passing
+   indirect fuzzers alone does not establish coverage of the complete API, and
+   this milestone does not claim SIMD or complete WebP codec coverage.
+
+## Proposed program sequence
+
+| Stage | Deliverable | Required boundary |
+| --- | --- | --- |
+| Foundation | Shared workspace, provenance, native reference isolation, test correspondence records, license generation, and target-specific CI | Keep current libavif behavior and original snapshot intact; independent Linux jobs do not imply root Linux support. |
+| SharpYUV | Complete selected portable SharpYUV implementation and its integration | The proposed milestone above; no dedicated upstream SharpYUV suite is invented. |
+| dav1d | Portable original AV1 decoder as its own crate | Public behavior, bit depths, frame/thread state, film grain, ownership, errors, and internal DSP evidence; assembly-gated checkasm coverage cannot silently disappear. |
+| libaom | Portable original AV1 encoder and decoder as its own crate | Pin enabled features and reference builds; preserve full selected-library behavior rather than only AVIF still-image smoke paths. |
+| Default integration | libavif's default codec/conversion implementations resolve to Rust crates | Audit actual linked implementations and rerun original suites and bit-exact end-to-end comparisons; existing RGB rounding and root Linux gaps remain visible until resolved. |
+| Later library ports | Full libyuv, libgav1, and SVT-AV1 in a separately detailed sequence | Prove internal C++ test correspondence before scaling C++ ports; resolve optional transitive features explicitly. |
+| Separate AV2 work | AVM and its selected experiment/dependency closure | Resolve ML and transitive scope before accepting an AVM completion contract. |
+
+rav1e is already Rust. Its existing implementation can be integrated as a pinned
+Rust dependency rather than mechanically ported again; any change from its
+current native-library packaging still needs matching behavior and feature
+evidence. It does not replace the planned libaom port.
+
+Full libyuv's MJPEG path delegates to JPEG and therefore needs a separate JPEG
+implementation decision. AVM's configured ML experiments introduce another
+substantial dependency graph. Neither is silently included as an unbounded
+porting obligation or removed while claiming complete library parity. Their
+full-library completion claims remain blocked until the selected closure is
+explicitly implemented and tested.
+
+The first milestone and program sequence above are proposals for the next
+interview round. Their implementation has not started.
 
 ## Proposed evidence for each milestone
 

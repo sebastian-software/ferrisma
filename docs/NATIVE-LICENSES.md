@@ -56,7 +56,7 @@ closure extends beyond BSD-family licenses. The exact transitive revisions and
 imported files need their own inventory if this configuration enters a port
 milestone.
 
-## Selected policy and proposed simplification
+## Selected policy and standardization
 
 The listed primary licenses are accepted. Preserve each imported file's
 attribution and applicable terms, together with its license, notice, and patent
@@ -64,11 +64,12 @@ files. Future crate metadata should reflect the files actually distributed
 rather than blindly inheriting the current root package's BSD-2-Clause field.
 See [ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md).
 
-The desired simplification could use a common `LICENSES/` layout, a consistent
-provenance manifest, and generated per-crate attribution summaries. That
-standardizes presentation without claiming all source material has one new
-license. Any selected license for original project-owned additions is a
-separate decision from the retained upstream conditions.
+Use a common license-file layout, a consistent provenance manifest, and
+generated per-crate attribution summaries. This standardizes presentation
+without claiming all source material has one new license. See
+[ADR 0017](adr/0017-standardize-license-records-and-generated-notices.md).
+Any selected license for original project-owned additions is a separate
+decision from the retained upstream conditions.
 
 [Apache-2.0 section 4](https://www.apache.org/licenses/LICENSE-2.0) allows
 different terms for modifications or a derivative work as a whole only while
