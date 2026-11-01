@@ -72,8 +72,14 @@ impl<'m> LosslessHeader<'m> {
             || h.loop_filter.epf_iters != 0
             || h.dc_level != 0
             || h.upsampling != 1
-            || !h.extra_channel_upsampling.is_empty()
-            || !h.extra_channel_blending_info.is_empty()
+            || h.extra_channel_upsampling.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_upsampling.iter().any(|&up| up != 1)
+            || h.extra_channel_blending_info.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_blending_info
+                .iter()
+                .any(|blend| blend.mode != BlendMode::REPLACE)
             || h.custom_size_or_origin
             || h.blending_info.mode != BlendMode::REPLACE
             || h.passes.num_passes != 1
@@ -164,8 +170,17 @@ impl FrameDecoder<'_, '_, '_> {
     fn prepare_pipeline(&mut self) -> Status {
         // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
         // render_spotcolors=true, render_noise=true. Header admission proves
-        // all feature/filter/transform/reference/extra-channel branches absent.
-        let mut builder = SimpleRenderPipelineBuilder::new(3);
+        // feature/filter/transform/reference branches absent. One unassociated
+        // full-resolution alpha plane needs no additional processing stage.
+        let mut builder = SimpleRenderPipelineBuilder::new(
+            3 + self
+                .header
+                .0
+                .nonserialized_metadata
+                .unwrap()
+                .m
+                .num_extra_channels as usize,
+        );
         let info = &self.state.output_encoding_info;
         let tone = get_tone_mapping_stage(info);
         assert!(
@@ -696,7 +711,7 @@ pub fn decode_lossless_thunder(bytes: &[u8]) -> LosslessThunderImageDecode {
         // before the caller invokes the original external conversion.
         let cfg = config.as_ref().unwrap();
         let m = cfg.metadata();
-        let n = m.m.color_encoding.channels();
+        let n = m.m.color_encoding.channels() + usize::from(m.m.has_alpha());
         let bits = m.m.bit_depth.bits_per_sample as usize;
         status = (|| {
             let stride = m

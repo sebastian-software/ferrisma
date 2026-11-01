@@ -25,7 +25,7 @@ fn read_params(args: &mut std::str::SplitWhitespace<'_>) -> DctQuantWeightParams
 fn weights<const N: usize>(values: &[f32; 27]) -> [[f32; N]; 3] {
     std::array::from_fn(|c| std::array::from_fn(|i| values[c * N + i]))
 }
-fn read(args: &mut std::str::SplitWhitespace<'_>) -> (QuantEncoding, Vec<i32>) {
+pub(super) fn read(args: &mut std::str::SplitWhitespace<'_>) -> (QuantEncoding, Vec<i32>) {
     let mode = number::<u32>(args);
     let p = read_params(args);
     let p2 = read_params(args);
@@ -66,7 +66,7 @@ fn values<T: std::fmt::Display>(out: &mut String, vs: &[T]) {
         write!(out, " {v}").unwrap();
     }
 }
-fn encoding(out: &mut String, q: &QuantEncoding) {
+pub(super) fn encoding(out: &mut String, q: &QuantEncoding) {
     write!(out, " Q {}", q.mode() as u32).unwrap();
     params(out, &q.dct_params);
     match q.data() {

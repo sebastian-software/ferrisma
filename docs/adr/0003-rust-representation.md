@@ -490,13 +490,31 @@ select only the original buffer path. Native shared views replace its callback
 table and no-op release; they cannot outlive the adapter or its input borrow.
 
 The fixed profile's CopyColorChannels retains the default FrameInfo, including
-FROM_PIXEL_FORMAT and ib_needs_color_transform=true, and has no alpha plane.
+FROM_PIXEL_FORMAT and ib_needs_color_transform=true. The original color-only
+component entry point keeps a null alpha destination; the complete fixed-profile
+entry point also binds its optional alpha plane by owner-relative index.
 It sets the interleaved-alpha flag before requesting data and validates channel
 count afterward. A disjoint borrow of the three owned planes supports gray
 replication in source order without cloning storage. Failure retains completed
 plane writes and the alpha flag; later planes remain untouched. This boundary
 remains independently testable at the color-copy boundary. The fixed image
-entry point now calls it through the original outer computation order.
+entry point calls it through the original outer computation order. Allocate all
+extra planes before color import, copy interleaved alpha only after all color
+planes, then run CopyExtraChannels and skip the first interleaved alpha request
+at the original checkpoint. The buffer-only adapter retains no-op release
+semantics through scoped borrows. Separate component callers may supply an
+extra-channel buffer; missing buffers retain the original failure order.
+
+Modular preparation includes each alpha plane after color in original channel
+order, retaining per-channel dimensions/shifts, sample-depth conversion, and
+max-bitdepth updates before the existing palette/compaction policy. The simple
+render pipeline owns three color channels plus the admitted alpha channel. Its
+existing modular conversion and WriteToImageBundleStage retain the alpha plane
+without changing the RGB stages. Complete integer export requests gray/alpha
+or RGBA when metadata has alpha. Associated alpha remains outside this profile,
+so its source unpremultiplication condition is false. The original lossless
+keep-invisible default prevents SimplifyInvisible; the port introduces no
+replacement pixel values for transparent areas.
 
 Quantizer stores the source scalar state and reifies its enclosing matrix
 pointer as an explicit same-owner borrow for construction, recomputation, and
@@ -862,6 +880,31 @@ scales, rounding, or error checkpoints. Review them after compiler/target
 changes. Captured-word native regressions and the unchanged differential
 corpora cover the observed failures.
 
+AC matrix computation retains the original single aligned owner: the first
+TOTAL_TABLE_SIZE f32 slots hold the table and the next slots hold its inverse.
+Two local views rely on the existing 128-byte alignment, initialized storage,
+exact byte count, and all-valid f32 bit patterns. Immutable access borrows the
+owner; computation splits its exclusive view into disjoint arrays. Matrix
+accessors check the source strategy/channel/computed-mask preconditions and
+return bounded aligned slices instead of pointers. Uncomputed slots have no
+source observation contract. Library entries preserve each original V(float)
+constant as an exact f32 word with its source expression beside it; OnceLock
+owns the immutable static library.
+
+DequantMatrices::Decode recreates Library<0> owners before parsing. Retain its
+initialized 27-float AFV payload as overlapping backing for partial non-RAW
+writes until the original successful final mode assignment. A failure keeps
+the old mode, already written/scaled payload words, and distance-band fields.
+Successful decoding selects the corresponding typed payload. RAW commits its
+mode and optional vector owner before reading its denominator or modular image,
+then retains each copied sample before a nonpositive-sample error. Decode clears
+the computed mask only after every table succeeds, preserving an existing mask
+and allocation on failure. DecodeQuantTable lives beside the QuantEncoding owner;
+its optional frame decoder is an immutable borrow of the same original frame
+dimensions/tree/code/context owners because that source routine mutates none of
+them. Native allocators and the null-pool scalar path retain their established
+scope; general AC encoding and VarDCT frame orchestration remain separate work.
+
 Scalar DCT templates retain the original radix-2 recursion, normalization,
 transpose order, coefficient mutation, and scratch offsets. Valid power-of-two
 sizes become checked internal parameters rather than C++ template arguments.
@@ -908,3 +951,16 @@ addition. Native captures from both complete original graphs check the distinct
 DCT/AFV winning payloads, the later LLF signaling-NaN winner, and the length-one
 unquieted copy. These are target/configuration mappings, not cross-target NaN
 payload equivalence or a replacement of the original scalar algorithms.
+
+Native x86_64 Linux run 41345075028, job 124963054935, separately exercised
+both complete ordinary and ASan/UBSan original graphs. For an 8x8 DCT with
+stride 11, coefficients 0/1 set to 0x7fc12345/0xffc98765, and every other
+coefficient set to 0.125, both original graphs retain 0x7fc12345 at pixel zero.
+The earlier product-first Rust addition instead selected 0xffc98765 in 32
+pixels while coefficients and scratch already matched. The local IDCT addition
+therefore keeps the addend first on both native targets; an x86 captured
+regression retains that original word. The competing-payload corpus still
+compares every complete observation exactly, collecting all mismatches before
+failing. Linux diagnostics inspect the actual ordinary and instrumented DCT
+objects as well as the Rust helpers; small arithmetic probes and emulation do
+not establish the original objects' operand selection.

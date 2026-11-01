@@ -15,18 +15,12 @@ pub(crate) fn scalar_mul(a: f32, b: f32) -> f32 {
     (f64::from(a) * f64::from(b)) as f32
 }
 
-// The selected original AArch64 IDCT object's FADD places the addend before
-// the product. Keep that observed competing-NaN operand order out of line.
+// The selected original IDCT objects retain the addend's payload when it
+// competes with the product. Keep that operand order out of line in both the
+// native AArch64 and x86_64 configurations.
 #[inline(never)]
 fn idct_add(addend: f32, product: f32) -> f32 {
-    #[cfg(target_arch = "aarch64")]
-    {
-        addend + product
-    }
-    #[cfg(not(target_arch = "aarch64"))]
-    {
-        product + addend
-    }
+    addend + product
 }
 
 fn dct_1d(n: usize, mem: &mut [f32], at: usize, tmp: usize) {

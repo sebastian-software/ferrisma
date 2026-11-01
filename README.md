@@ -89,9 +89,13 @@ fn round_trip() -> Result<(), jxl::jxl::base::status::StatusCode> {
 
 The decoder obtains dimensions, channel layout, and bit depth from the file.
 Output is interleaved bytes, with native-endian words for 16-bit samples.
-The first profile uses sRGB, one final frame, no extra channels or animation,
-and the original simple rendering option. Input outside that profile has an
-explicit admission boundary; this is not the general decoder API.
+The fixed profile uses sRGB, one final frame, and the original simple rendering
+option. `LosslessThunderConfig::new_with_alpha` also accepts interleaved RGBA
+or gray/alpha with one full-resolution, unassociated alpha channel at the color
+sample depth. Lossless defaults preserve color values under zero alpha.
+Animation and other extra channels remain outside this profile. Input outside
+that profile has an explicit admission boundary; this is not the general
+decoder API.
 
 ## Project records
 

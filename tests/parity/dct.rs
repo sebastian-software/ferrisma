@@ -251,6 +251,48 @@ fn dct_identity_keeps_selected_original_subnormal_and_signed_zero_rounding() {
     compare(cases);
 }
 
+// Keep checking this whole new corpus before failing so native target logs
+// reveal later operand-selection mismatches as well as the first one.
+fn compare_competing_payloads(requests: Vec<String>) {
+    let observations = original_observations(&requests);
+    let mut failures = 0usize;
+    for (request, cpp) in requests.iter().zip(observations) {
+        let rust = super::observe(request);
+        if rust != cpp {
+            failures += 1;
+            let rust_words: Vec<_> = rust.split_whitespace().collect();
+            let cpp_words: Vec<_> = cpp.split_whitespace().collect();
+            let differences: Vec<_> = rust_words
+                .iter()
+                .zip(&cpp_words)
+                .enumerate()
+                .filter(|(_, (a, b))| a != b)
+                .map(|(index, (a, b))| format!("{index}:{a}/{b}"))
+                .collect();
+            eprintln!("DCT competing mismatch request: {request}");
+            eprintln!(
+                "DCT competing word counts Rust/C++: {}/{}; differing words: {}; first Rust/C++ differences: {}",
+                rust_words.len(),
+                cpp_words.len(),
+                differences.len(),
+                differences
+                    .iter()
+                    .take(12)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+        }
+    }
+    assert_eq!(
+        failures,
+        0,
+        "{failures} of {} competing-payload requests differ; all comparisons were executed",
+        requests.len()
+    );
+    println!("{} C++/Rust differential cases matched", requests.len());
+}
+
 #[test]
 fn dct_competing_nan_payloads_match_identity_afv_and_anisotropic_transform_paths() {
     let pairs = [
@@ -318,5 +360,5 @@ fn dct_competing_nan_payloads_match_identity_afv_and_anisotropic_transform_paths
             &[(0, second), (0, (rows - 1) * (cols + 3) + cols - 1)],
         );
     }
-    compare(cases);
+    compare_competing_payloads(cases);
 }

@@ -51,6 +51,16 @@ first-image gate includes whole-codestream parsing and integer samples beyond
 raw-frame and Float32 component integration; its verified evidence belongs in
 the milestone and port-status records.
 
+Expand the fixed image profile to one optional, full-resolution, unassociated
+alpha channel at the same 8/16-bit depth as color. Keep the no-alpha constructor
+unchanged and use a distinct constructor for interleaved gray/alpha or RGBA.
+Translate the reached color/alpha input, extra-plane preparation, modular
+channel count, simple-pipeline channel count, and integer export branches as one
+complete-file boundary. Preserve the original lossless keep-invisible default;
+color values under alpha zero remain encoded. Other extra-channel types,
+subsampling, associated alpha, and independently selected alpha depths remain
+outside admission until their complete source paths are translated.
+
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a
 specific source construct has no sound Rust representation. Compilation alone

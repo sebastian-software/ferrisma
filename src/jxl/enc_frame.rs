@@ -60,7 +60,8 @@ pub enum LosslessSampleDepth {
 }
 
 /// Fixed source configuration: SetLossless, Thunder, level 10, buffering 0,
-/// one regular final grayscale/RGB frame, and all remaining parameter defaults.
+/// one regular final grayscale/RGB frame with optional unassociated alpha, and
+/// all remaining parameter defaults.
 /// Private metadata prevents selecting unported image paths through this API.
 /// This is codec-internal configuration, not the encoder C API.
 pub struct LosslessThunderConfig {
@@ -75,8 +76,16 @@ impl LosslessThunderConfig {
         if m.bit_depth.floating_point_sample
             || ![8, 16].contains(&m.bit_depth.bits_per_sample)
             || m.xyb_encoded
-            || m.num_extra_channels != 0
-            || !m.extra_channel_info.is_empty()
+            || m.num_extra_channels as usize != m.extra_channel_info.len()
+            || m.extra_channel_info.len() > 1
+            || m.extra_channel_info.iter().any(|ec| {
+                ec.channel_type != ExtraChannel::ALPHA
+                    || ec.bit_depth.floating_point_sample
+                    || ec.bit_depth.bits_per_sample != m.bit_depth.bits_per_sample
+                    || ec.bit_depth.exponent_bits_per_sample != 0
+                    || ec.dim_shift != 0
+                    || ec.alpha_associated
+            })
             || m.have_animation
             || m.have_preview
             || m.have_intrinsic_size
@@ -121,6 +130,22 @@ impl LosslessThunderConfig {
         )?;
         Ok(Self { metadata })
     }
+    /// The same original fixed configuration with one full-resolution,
+    /// unassociated alpha channel at the color sample depth. Pixel input is
+    /// interleaved gray/alpha or RGBA; lossless defaults retain invisible RGB.
+    pub fn new_with_alpha(
+        xsize: usize,
+        ysize: usize,
+        gray: bool,
+        depth: LosslessSampleDepth,
+    ) -> StatusOr<Self> {
+        let mut config = Self::new(xsize, ysize, gray, depth)?;
+        config
+            .metadata
+            .m
+            .set_alpha_bits(config.metadata.m.bit_depth.bits_per_sample, false);
+        Ok(config)
+    }
     pub fn metadata(&self) -> &CodecMetadata {
         &self.metadata
     }
@@ -132,10 +157,14 @@ impl LosslessThunderConfig {
         data: &[u8],
         mut aux: Option<&mut AuxOut>,
     ) -> StatusOr<PaddedBytes> {
-        let mut input =
-            JxlEncoderChunkedFrameAdapter::new(self.metadata.xsize(), self.metadata.ysize(), 0);
+        let mut input = JxlEncoderChunkedFrameAdapter::new(
+            self.metadata.xsize(),
+            self.metadata.ysize(),
+            self.metadata.m.num_extra_channels as usize,
+        );
         let format = JxlPixelFormat {
-            num_channels: self.metadata.m.color_encoding.channels() as u32,
+            num_channels: self.metadata.m.color_encoding.channels() as u32
+                + u32::from(self.metadata.m.has_alpha()),
             data_type: if self.metadata.m.bit_depth.bits_per_sample == 8 {
                 JxlDataType::UINT8
             } else {
@@ -168,7 +197,7 @@ impl LosslessThunderConfig {
         writer.append_byte_aligned(frame_bytes.as_slice())?;
         Ok(writer.take_bytes())
     }
-    /// CopyColorChannels with the fixed FrameInfo and no extra/alpha planes.
+    /// CopyColorChannels with the fixed FrameInfo and a null alpha destination.
     /// The adapter is the original buffer-backed input branch; its release
     /// callback is a no-op and is represented by the scoped input borrow.
     pub fn copy_color_channels(
@@ -176,6 +205,16 @@ impl LosslessThunderConfig {
         input: &JxlEncoderChunkedFrameAdapter<'_>,
         rect: Rect,
         color: &mut Image3<f32>,
+        has_interleaved_alpha: &mut bool,
+    ) -> Status {
+        self.copy_color_and_alpha(input, rect, color, None, has_interleaved_alpha)
+    }
+    fn copy_color_and_alpha(
+        &self,
+        input: &JxlEncoderChunkedFrameAdapter<'_>,
+        rect: Rect,
+        color: &mut Image3<f32>,
+        alpha: Option<&mut Plane<f32>>,
         has_interleaved_alpha: &mut bool,
     ) -> Status {
         let mut format = input.get_color_channels_pixel_format();
@@ -212,6 +251,65 @@ impl LosslessThunderConfig {
             let [first, second, third] = color.planes_mut();
             copy_image_to(first, second)?;
             copy_image_to(first, third)?;
+        }
+        if let Some(alpha) = alpha {
+            if *has_interleaved_alpha {
+                convert_from_external_plane_no_size_check(
+                    data,
+                    rect.xsize(),
+                    rect.ysize(),
+                    row_offset,
+                    bits_per_sample,
+                    format,
+                    format.num_channels as usize - 1,
+                    alpha,
+                )?;
+            } else {
+                super::image_ops::fill_image(1.0, alpha);
+            }
+        }
+        Ok(())
+    }
+    /// Buffer-backed CopyExtraChannels. Interleaved input supplies the first
+    /// alpha plane, so the fixed-profile complete encoder skips that request.
+    fn copy_extra_channels(
+        &self,
+        input: &JxlEncoderChunkedFrameAdapter<'_>,
+        rect: Rect,
+        mut has_interleaved_alpha: bool,
+        extra_channels: &mut [Plane<f32>],
+    ) -> Status {
+        for (ec, extra) in extra_channels.iter_mut().enumerate() {
+            if has_interleaved_alpha
+                && self.metadata.m.extra_channel_info[ec].channel_type == ExtraChannel::ALPHA
+            {
+                has_interleaved_alpha = false;
+                continue;
+            }
+            let mut format = input.get_extra_channel_pixel_format(ec);
+            format.num_channels = 1;
+            let mut row_offset = 0;
+            let data = input
+                .get_extra_channel_data_at(
+                    ec,
+                    rect.x0(),
+                    rect.y0(),
+                    rect.xsize(),
+                    rect.ysize(),
+                    &mut row_offset,
+                )
+                .ok_or(StatusCode::GenericError)?;
+            convert_from_external_plane_no_size_check(
+                data,
+                rect.xsize(),
+                rect.ysize(),
+                row_offset,
+                bits_per_channel(format.data_type),
+                format,
+                0,
+                extra,
+            )
+            .map_err(|_| StatusCode::GenericError)?;
         }
         Ok(())
     }
@@ -304,7 +402,7 @@ impl LosslessThunderFrame<'_> {
     }
     /// Complete reached ComputeEncodingData branches for this private profile.
     /// The buffer adapter cannot select JPEG/callback input; metadata/parameters
-    /// cannot enable VarDCT, XYB, extra channels, effects, or streaming branches.
+    /// cannot enable VarDCT, XYB, other extra channels, effects, or streaming branches.
     pub fn compute_encoding_data(
         &mut self,
         input: &JxlEncoderChunkedFrameAdapter<'_>,
@@ -320,8 +418,15 @@ impl LosslessThunderFrame<'_> {
             return Err(StatusCode::GenericError);
         }
         self.allocate_frame_fields()?;
-        // Find(alpha/black) yields no entries; optional indices replace unused
-        // source null-pointer differences. Retain the reached color copy owner.
+        // Find returns the optional alpha index; the private profile has no
+        // black plane. Native indices retain the binding through owner moves.
+        let alpha_index = self
+            .config
+            .metadata
+            .m
+            .extra_channel_info
+            .iter()
+            .position(|ec| ec.channel_type == ExtraChannel::ALPHA);
         let _c_enc = self.config.metadata.m.color_encoding.clone();
         let frame_rect = Rect::new(0, 0, input.xsize(), input.ysize());
         let frame_area_rect = Rect::new(0, 0, xsize, ysize);
@@ -335,18 +440,31 @@ impl LosslessThunderFrame<'_> {
             round_block(patch_rect.ysize()),
         )?;
         color.shrink_to(patch_rect.xsize(), patch_rect.ysize())?;
-        let _extra_channels: Vec<Plane<f32>> = Vec::new();
+        let mut extra_channels = Vec::new();
+        for _ in 0..self.config.metadata.m.num_extra_channels {
+            extra_channels.push(Plane::<f32>::create(
+                patch_rect.xsize(),
+                patch_rect.ysize(),
+            )?);
+        }
         let mut has_interleaved_alpha = false;
-        self.config.copy_color_channels(
+        self.config.copy_color_and_alpha(
             input,
             patch_rect,
             &mut color,
+            alpha_index.map(|i| &mut extra_channels[i]),
             &mut has_interleaved_alpha,
         )?;
-        // CopyExtraChannels iterates the private metadata's empty vector.
+        self.config.copy_extra_channels(
+            input,
+            patch_rect,
+            has_interleaved_alpha,
+            &mut extra_channels,
+        )?;
         self.state.cparams = self.cparams.clone();
         let _linear_storage = Image3::<f32>::default();
-        // ToXYB and invisible-alpha branches are not reached: NONE and no alpha.
+        // ToXYB is absent for NONE. SimplifyInvisible remains disabled by
+        // ApplyOverride(keep_invisible, IsLossless()) == true, also with alpha.
         pad_image_to_block_multiple_in_place(&mut color, 8)?;
         let _group_rect = Rect::new(
             0usize.wrapping_sub(patch_rect.x0()),
@@ -359,7 +477,7 @@ impl LosslessThunderFrame<'_> {
         // manual noise, modular encoding). DownsampleColorChannels returns at
         // upsampling==1; ec_resampling==1 skips the extra-channel loop.
         // Non-streaming group_rect becomes Rect(color) in prepare_modular.
-        self.prepare_modular(&color)?;
+        self.prepare_modular_with_extra_channels(&color, &extra_channels)?;
         self.compute_modular_tokens()?;
         self.header.update_flag(
             self.state.shared.image_features.patches.has_any(),
@@ -385,13 +503,28 @@ impl LosslessThunderFrame<'_> {
     }
     /// Translate ModularFrameEncoder::ComputeEncodingData at the original
     /// full-image, non-streaming call site. Input is already in Image3F form;
-    /// callers may also reach it through the complete fixed-profile entry point.
+    /// Color-only component callers require no extra-channel metadata. The
+    /// alpha configuration uses prepare_modular_with_extra_channels instead.
     pub fn prepare_modular(&mut self, color: &Image3<f32>) -> Status {
+        self.prepare_modular_with_extra_channels(color, &[])
+    }
+    /// The same original component boundary including its extra-channel planes.
+    /// Planes must correspond to the private metadata in source channel order.
+    pub fn prepare_modular_with_extra_channels(
+        &mut self,
+        color: &Image3<f32>,
+        extra_channels: &[Plane<f32>],
+    ) -> Status {
+        assert_eq!(
+            extra_channels.len(),
+            self.config.metadata.m.num_extra_channels as usize
+        );
         self.modular.compute_encoding_data_lossless_thunder(
             self.config,
             &self.header,
             &self.state.progressive_splitter,
             color,
+            extra_channels,
         )
     }
     /// ComputeEncodingData's reached shared-tree/token branch for this profile.

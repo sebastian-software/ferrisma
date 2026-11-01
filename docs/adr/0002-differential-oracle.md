@@ -182,6 +182,30 @@ Linux's nonnull declaration rejects a null source. Supply a real zero-length
 span rather than suppress that sanitizer check or remove empty-group cases.
 The original writer and codec source stay unchanged.
 
+The AC quantization fixture calls the unchanged original DequantMatrices
+library, matrix, cache, and decode methods through quant_ac.cc. Its scoped
+-fno-access-control option observes initialized cache masks and offsets without
+changing source declarations or layout. All numeric compiler and sanitizer
+flags remain the same as the complete original library. Original AC encoding
+and modular frame encoding generate local and real shared-tree RAW streams for
+decoder comparisons; they do not implement a Rust encoder or runtime fallback.
+
+Failed non-RAW table parsing can retain the old Library mode after writing a
+different overlapping payload member. The AC fixture copies the initialized
+union object representation with memcpy before printing its float words; it
+does not load an inactive floating member. Source-indeterminate coefficient
+pointers and uncomputed table slots remain unobserved. Empty reader fixtures
+retain real padded backing while preserving their zero logical length. An empty
+writer receives no zero-bit Write call and its unused span is not read. These
+are source caller/lifecycle preconditions, with no sanitizer suppression.
+
+Exceptional AC matrix cases keep geometry finite. A single distance band
+bypasses FastPowf, allowing strict comparisons of NaN seed weights divided by
+independent signed quiet/signaling NaN multipliers in DCT4/DCT4X8. AFV direct
+weights and single-band submatrices exercise NaN words while its interpolation
+bands stay finite. Do not feed NaN/negative bases to FastLog2f, whose original
+source explicitly leaves those inputs undefined. Ordinary and fully instrumented
+reference graphs remain separate gates for these unchanged operand expressions.
 
 The dedicated dct.cc observation unit calls pristine scalar DCT/IDCT,
 TransformToPixels, LowestFrequenciesFromDC, and strategy order methods. Compile

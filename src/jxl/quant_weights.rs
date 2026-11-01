@@ -5,10 +5,14 @@
 //! lib/jxl/quant_weights.{h,cc}. The owning QuantEncoding record includes its
 //! base-class initialization. Typed payloads replace the source union; RAW owns
 //! an optional vector and explicit move_from retains the source's null owner.
-//! Matrix computation, coefficient tables, and their pointer APIs are unported.
-//! DC decode retains assignments completed before an error.
+//! AC library constants, scalar matrix computation, and borrowed accessors retain
+//! the original storage layout; slices replace the aligned pointer APIs.
+//! AC/DC decode retains assignments completed before an error. RAW table
+//! decoding translates ModularFrameDecoder::DecodeQuantTable in dec_modular.cc
+//! beside its owning record. Custom allocators and target-specific SIMD remain
+//! outside this scalar/null-pool boundary.
 
-use super::ac_strategy::{MAX_COEFF_AREA, NUM_VALID_STRATEGIES};
+use super::ac_strategy::{AcStrategyType, MAX_COEFF_AREA, NUM_VALID_STRATEGIES};
 use super::base::status::{Status, StatusCode};
 use super::dec_bit_reader::BitReader;
 use super::fields::f16_coder;
@@ -219,8 +223,8 @@ pub const DC_QUANT: [f32; 3] = [
     1.0 / INV_DC_QUANT[2],
 ];
 
-/// Original initialized constructor state. Source-indeterminate coefficient
-/// pointers remain absent until the computation/accessor methods are translated.
+/// Original constructor state. The aligned owner binds both coefficient arrays
+/// at EnsureComputed; immutable slices retain its original per-strategy offsets.
 pub struct DequantMatrices {
     pub computed_mask: u32,
     table_storage: Option<AlignedMemory>,
@@ -360,3 +364,598 @@ pub const AC_STRATEGY_TO_QUANT_TABLE_MAP: [QuantTable; NUM_VALID_STRATEGIES as u
     QuantTable::Dct128X256,
     QuantTable::Dct128X256,
 ];
+
+#[path = "quant_weights_library.rs"]
+mod library;
+
+const ALMOST_ZERO: f32 = 1e-8;
+
+fn mult(v: f32) -> f32 {
+    if v > 0.0 { 1.0 + v } else { 1.0 / (1.0 - v) }
+}
+
+fn interpolate(pos: f32, max: f32, array: &[f32]) -> super::base::status::StatusOr<f32> {
+    let scaled_pos = pos * (array.len() - 1) as f32 / max;
+    // Original size_t conversion is defined only for nonnegative finite input.
+    assert!(scaled_pos.is_finite() && scaled_pos >= 0.0);
+    let idx = scaled_pos as usize;
+    if idx + 1 >= array.len() {
+        return Err(StatusCode::GenericError);
+    }
+    let a = array[idx];
+    let b = array[idx + 1];
+    Ok(a * super::base::fast_math::fast_powf(b / a, scaled_pos - idx as f32))
+}
+
+fn get_quant_weights(
+    rows: usize,
+    cols: usize,
+    params: &DctQuantWeightParams,
+    out: &mut [f32],
+) -> Status {
+    assert!((1..=MAX_DISTANCE_BANDS).contains(&params.num_distance_bands));
+    let num_bands = params.num_distance_bands;
+    for c in 0..3 {
+        let mut bands = [0.0f32; MAX_DISTANCE_BANDS];
+        bands[0] = params.distance_bands[c][0];
+        if bands[0] < ALMOST_ZERO {
+            return Err(StatusCode::GenericError);
+        }
+        for i in 1..num_bands {
+            bands[i] = bands[i - 1] * mult(params.distance_bands[c][i]);
+            if bands[i] < ALMOST_ZERO {
+                return Err(StatusCode::GenericError);
+            }
+        }
+        let scale = (num_bands - 1) as f32 / (f32::from_bits(0x3fb504f3) + 1e-6f32);
+        let rcpcol = scale / (cols - 1) as f32;
+        let rcprow = scale / (rows - 1) as f32;
+        for y in 0..rows {
+            let dy = y as f32 * rcprow;
+            let dy2 = dy * dy;
+            for x in 0..cols {
+                let dx = (x as f32 + 0.0) * rcpcol;
+                let distance = (dx * dx + dy2).sqrt();
+                let weight = if num_bands == 1 {
+                    bands[0]
+                } else {
+                    let idx = super::base::hwy_scalar::to_i32(distance);
+                    assert!(
+                        idx >= 0 && (idx as usize) + 1 < MAX_DISTANCE_BANDS,
+                        "source gather indices must be in bounds"
+                    );
+                    let frac = distance - idx as f32;
+                    let a = bands[idx as usize];
+                    let b = bands[idx as usize + 1];
+                    a * super::base::fast_math::fast_powf(b / a, frac)
+                };
+                out[c * cols * rows + y * cols + x] = weight;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn compute_quant_table(
+    encoding: &QuantEncoding,
+    table: &mut [f32],
+    inv_table: &mut [f32],
+    kind: usize,
+    pos: &mut usize,
+) -> Status {
+    let wrows = 8 * DequantMatrices::REQUIRED_SIZE_X[kind] as usize;
+    let wcols = 8 * DequantMatrices::REQUIRED_SIZE_Y[kind] as usize;
+    let num = wrows * wcols;
+    let mut weights = vec![0.0f32; 3 * num];
+    match &encoding.data {
+        _ if encoding.mode == QuantMode::Library => return Err(StatusCode::GenericError),
+        QuantEncodingData::Identity(w) => {
+            if num != DCT_BLOCK_SIZE {
+                return Err(StatusCode::GenericError);
+            }
+            for (c, channel_weights) in w.iter().enumerate() {
+                weights[c * 64..(c + 1) * 64].fill(channel_weights[0]);
+                weights[c * 64 + 1] = channel_weights[1];
+                weights[c * 64 + 8] = channel_weights[1];
+                weights[c * 64 + 9] = channel_weights[2];
+            }
+        }
+        QuantEncodingData::Dct2(w) => {
+            if num != DCT_BLOCK_SIZE {
+                return Err(StatusCode::GenericError);
+            }
+            for (c, channel_weights) in w.iter().enumerate() {
+                let start = c * 64;
+                weights[start] = 0xBAD as f32;
+                weights[start + 1] = channel_weights[0];
+                weights[start + 8] = channel_weights[0];
+                weights[start + 9] = channel_weights[1];
+                for y in 0..2 {
+                    for x in 0..2 {
+                        weights[start + y * 8 + x + 2] = channel_weights[2];
+                        weights[start + (y + 2) * 8 + x] = channel_weights[2];
+                    }
+                }
+                for y in 0..2 {
+                    for x in 0..2 {
+                        weights[start + (y + 2) * 8 + x + 2] = channel_weights[3];
+                    }
+                }
+                for y in 0..4 {
+                    for x in 0..4 {
+                        weights[start + y * 8 + x + 4] = channel_weights[4];
+                        weights[start + (y + 4) * 8 + x] = channel_weights[4];
+                    }
+                }
+                for y in 0..4 {
+                    for x in 0..4 {
+                        weights[start + (y + 4) * 8 + x + 4] = channel_weights[5];
+                    }
+                }
+            }
+        }
+        QuantEncodingData::Dct4(w) => {
+            if num != DCT_BLOCK_SIZE {
+                return Err(StatusCode::GenericError);
+            }
+            let mut small = [0.0; 3 * 16];
+            get_quant_weights(4, 4, &encoding.dct_params, &mut small)?;
+            for (c, channel_weights) in w.iter().enumerate() {
+                for y in 0..8 {
+                    for x in 0..8 {
+                        weights[c * num + y * 8 + x] = small[c * 16 + (y / 2) * 4 + x / 2];
+                    }
+                }
+                weights[c * num + 1] /= channel_weights[0];
+                weights[c * num + 8] /= channel_weights[0];
+                weights[c * num + 9] /= channel_weights[1];
+            }
+        }
+        QuantEncodingData::Dct4X8(w) => {
+            if num != DCT_BLOCK_SIZE {
+                return Err(StatusCode::GenericError);
+            }
+            let mut small = [0.0; 3 * 32];
+            get_quant_weights(4, 8, &encoding.dct_params, &mut small)?;
+            for (c, channel_weights) in w.iter().enumerate() {
+                for y in 0..8 {
+                    for x in 0..8 {
+                        weights[c * num + y * 8 + x] = small[c * 32 + (y / 2) * 8 + x];
+                    }
+                }
+                weights[c * num + 8] /= channel_weights;
+            }
+        }
+        _ if encoding.mode == QuantMode::Dct => {
+            get_quant_weights(wrows, wcols, &encoding.dct_params, &mut weights)?
+        }
+        QuantEncodingData::Raw { qtable, qtable_den } => {
+            let Some(qtable) = qtable else {
+                return Err(StatusCode::GenericError);
+            };
+            if qtable.len() != 3 * num {
+                return Err(StatusCode::GenericError);
+            }
+            for i in 0..3 * num {
+                weights[i] = 1.0 / (*qtable_den * qtable[i] as f32);
+            }
+        }
+        QuantEncodingData::Afv(w) => {
+            const FREQS: [f32; 16] = [
+                0xBAD as f32,
+                0xBAD as f32,
+                f32::from_bits(0x3f5a0e1e),
+                f32::from_bits(0x40ac16cf),
+                0xBAD as f32,
+                0xBAD as f32,
+                f32::from_bits(0x4097830e),
+                f32::from_bits(0x40ae6038),
+                f32::from_bits(0x3fd47536),
+                4.0,
+                f32::from_bits(0x40e8d2f0),
+                f32::from_bits(0x4126c58a),
+                f32::from_bits(0x402a6d7c),
+                f32::from_bits(0x40f42e59),
+                f32::from_bits(0x410f65f2),
+                f32::from_bits(0x414f8bed),
+            ];
+            let mut small8 = [0.0; 3 * 32];
+            get_quant_weights(4, 8, &encoding.dct_params, &mut small8)?;
+            let mut small4 = [0.0; 3 * 16];
+            get_quant_weights(4, 4, &encoding.dct_params_afv_4x4, &mut small4)?;
+            let lo = f32::from_bits(0x3f5a0e1e);
+            let hi = f32::from_bits(0x414f8bed) - lo + 1e-6f32;
+            for (c, channel_weights) in w.iter().enumerate() {
+                let mut bands = [0.0; 4];
+                bands[0] = channel_weights[5];
+                if bands[0] < ALMOST_ZERO {
+                    return Err(StatusCode::GenericError);
+                }
+                for i in 1..4 {
+                    bands[i] = bands[i - 1] * mult(channel_weights[i + 5]);
+                    if bands[i] < ALMOST_ZERO {
+                        return Err(StatusCode::GenericError);
+                    }
+                }
+                let start = c * 64;
+                weights[start] = 1.0;
+                weights[start + 8] = channel_weights[0];
+                weights[start + 1] = channel_weights[1];
+                weights[start + 16] = channel_weights[2];
+                weights[start + 2] = channel_weights[3];
+                weights[start + 18] = channel_weights[4];
+                for y in 0..4 {
+                    for x in 0..4 {
+                        if x < 2 && y < 2 {
+                            continue;
+                        }
+                        weights[start + (2 * y) * 8 + 2 * x] =
+                            interpolate(FREQS[y * 4 + x] - lo, hi, &bands)?;
+                    }
+                }
+                for y in 0..4 {
+                    for x in 0..8 {
+                        if x == 0 && y == 0 {
+                            continue;
+                        }
+                        weights[c * num + (2 * y + 1) * 8 + x] = small8[c * 32 + y * 8 + x];
+                    }
+                }
+                for y in 0..4 {
+                    for x in 0..4 {
+                        if x == 0 && y == 0 {
+                            continue;
+                        }
+                        weights[c * num + 2 * y * 8 + 2 * x + 1] = small4[c * 16 + y * 4 + x];
+                    }
+                }
+            }
+        }
+    }
+    let prev_pos = *pos;
+    for i in 0..num * 3 {
+        let inv_val = weights[i];
+        if inv_val >= 1.0 / ALMOST_ZERO || inv_val < ALMOST_ZERO {
+            return Err(StatusCode::GenericError);
+        }
+        table[*pos + i] = 1.0 / inv_val;
+        inv_table[*pos + i] = inv_val;
+    }
+    *pos += 3 * num;
+    let mut xs = DequantMatrices::REQUIRED_SIZE_X[kind] as usize;
+    let mut ys = DequantMatrices::REQUIRED_SIZE_Y[kind] as usize;
+    super::coeff_order_fwd::coefficient_layout(&mut ys, &mut xs);
+    for c in 0..3 {
+        for y in 0..ys {
+            for x in 0..xs {
+                inv_table[prev_pos + c * ys * xs * DCT_BLOCK_SIZE + y * 8 * xs + x] = 0.0;
+            }
+        }
+    }
+    Ok(())
+}
+
+impl DequantMatrices {
+    pub fn library_init() -> [QuantEncoding; NUM_QUANT_TABLES as usize] {
+        library::library_init()
+    }
+    pub fn library() -> &'static [QuantEncoding; NUM_QUANT_TABLES as usize] {
+        static LIBRARY: std::sync::OnceLock<[QuantEncoding; NUM_QUANT_TABLES as usize]> =
+            std::sync::OnceLock::new();
+        LIBRARY.get_or_init(Self::library_init)
+    }
+
+    fn tables(&self) -> &[f32] {
+        let storage = self
+            .table_storage
+            .as_ref()
+            .expect("source matrix access requires storage");
+        let bytes = storage.bytes();
+        // SAFETY: AlignedMemory guarantees 128-byte alignment, this allocation
+        // contains exactly 2*TOTAL_TABLE_SIZE initialized f32 slots, every f32
+        // bit pattern is valid, and its owner remains immutably borrowed.
+        unsafe { std::slice::from_raw_parts(bytes.as_ptr().cast(), bytes.len() / 4) }
+    }
+    pub fn matrix(&self, strategy: AcStrategyType, c: usize) -> &[f32] {
+        let strategy = strategy.0;
+        assert!(strategy < NUM_VALID_STRATEGIES as u32 && c < 3);
+        assert_ne!((1u32 << strategy) & self.computed_mask, 0);
+        let kind = AC_STRATEGY_TO_QUANT_TABLE_MAP[strategy as usize] as usize;
+        let len = Self::REQUIRED_SIZE_X[kind] as usize
+            * Self::REQUIRED_SIZE_Y[kind] as usize
+            * DCT_BLOCK_SIZE;
+        let offset = self.table_offsets[strategy as usize * 3 + c];
+        &self.tables()[offset..offset + len]
+    }
+    pub fn inv_matrix(&self, strategy: AcStrategyType, c: usize) -> &[f32] {
+        let strategy = strategy.0;
+        assert!(strategy < NUM_VALID_STRATEGIES as u32 && c < 3);
+        assert_ne!((1u32 << strategy) & self.computed_mask, 0);
+        let kind = AC_STRATEGY_TO_QUANT_TABLE_MAP[strategy as usize] as usize;
+        let len = Self::REQUIRED_SIZE_X[kind] as usize
+            * Self::REQUIRED_SIZE_Y[kind] as usize
+            * DCT_BLOCK_SIZE;
+        let offset = Self::TOTAL_TABLE_SIZE + self.table_offsets[strategy as usize * 3 + c];
+        &self.tables()[offset..offset + len]
+    }
+    pub fn ensure_computed(&mut self, acs_mask: u32) -> Status {
+        let library = Self::library();
+        if self.table_storage.is_none() {
+            self.table_storage = Some(AlignedMemory::create(2 * Self::TOTAL_TABLE_SIZE * 4, 0)?);
+        }
+        let mut offsets = [0usize; NUM_QUANT_TABLES as usize * 3 + 1];
+        let mut pos = 0;
+        for i in 0..NUM_QUANT_TABLES as usize {
+            let num = Self::REQUIRED_SIZE_X[i] as usize
+                * Self::REQUIRED_SIZE_Y[i] as usize
+                * DCT_BLOCK_SIZE;
+            for c in 0..3 {
+                offsets[3 * i + c] = pos + c * num;
+            }
+            pos += 3 * num;
+        }
+        offsets[NUM_QUANT_TABLES as usize * 3] = pos;
+        if pos != Self::TOTAL_TABLE_SIZE {
+            return Err(StatusCode::GenericError);
+        }
+        let mut kind_mask = 0u32;
+        let mut computed_kind_mask = 0u32;
+        for (i, quant_table) in AC_STRATEGY_TO_QUANT_TABLE_MAP.iter().enumerate() {
+            if acs_mask & (1 << i) != 0 {
+                kind_mask |= 1 << *quant_table as u32;
+            }
+            if self.computed_mask & (1 << i) != 0 {
+                computed_kind_mask |= 1 << *quant_table as u32;
+            }
+        }
+        let storage = self.table_storage.as_mut().unwrap();
+        let bytes = storage.bytes_mut();
+        // SAFETY: The allocation is 128-byte aligned with the exact initialized
+        // byte length for two f32 arrays; all f32 words are valid. The exclusive
+        // owner borrow and split_at_mut make the original restrict arrays disjoint.
+        let values = unsafe {
+            std::slice::from_raw_parts_mut(bytes.as_mut_ptr().cast::<f32>(), bytes.len() / 4)
+        };
+        let (table, inv_table) = values.split_at_mut(Self::TOTAL_TABLE_SIZE);
+        for kind in 0..NUM_QUANT_TABLES as usize {
+            if (1 << kind) & computed_kind_mask != 0 {
+                continue;
+            }
+            if (1 << kind) & !kind_mask != 0 {
+                continue;
+            }
+            let mut offset = offsets[kind * 3];
+            let encoding = if self.encodings[kind].mode == QuantMode::Library {
+                &library[kind]
+            } else {
+                &self.encodings[kind]
+            };
+            compute_quant_table(encoding, table, inv_table, kind, &mut offset)?;
+            if offset != offsets[kind * 3 + 3] {
+                return Err(StatusCode::GenericError);
+            }
+        }
+        self.computed_mask |= acs_mask;
+        Ok(())
+    }
+}
+
+fn decode_dct_params(reader: &mut BitReader<'_>, params: &mut DctQuantWeightParams) -> Status {
+    params.num_distance_bands = reader.read_fixed_bits::<LOG2_MAX_DISTANCE_BANDS>() as usize + 1;
+    for c in 0..3 {
+        for i in 0..params.num_distance_bands {
+            f16_coder::read(reader, &mut params.distance_bands[c][i])?;
+        }
+        if params.distance_bands[c][0] < ALMOST_ZERO {
+            return Err(StatusCode::GenericError);
+        }
+        params.distance_bands[c][0] *= 64.0;
+    }
+    Ok(())
+}
+
+// lib/jxl/dec_modular.cc: ModularFrameDecoder::DecodeQuantTable. The optional
+// decoder is read-only at this boundary; its original tree/code owners remain
+// borrowed instead of passing the containing mutable pointer.
+fn decode_raw_quant_table(
+    required_size_x: usize,
+    required_size_y: usize,
+    reader: &mut BitReader<'_>,
+    encoding: &mut QuantEncoding,
+    idx: usize,
+    decoder: Option<&super::dec_modular::ModularFrameDecoder>,
+) -> Status {
+    use super::modular::encoding::encoding::modular_generic_decompress;
+    use super::modular::modular_image::Image;
+    use super::modular::options::ModularOptions;
+    let QuantEncodingData::Raw { qtable, qtable_den } = &mut encoding.data else {
+        unreachable!("RAW owns its payload before the original decoder call")
+    };
+    f16_coder::read(reader, qtable_den)?;
+    if *qtable_den < ALMOST_ZERO {
+        return Err(StatusCode::GenericError);
+    }
+    let mut image = Image::create(required_size_x, required_size_y, 8, 3)?;
+    let mut options = ModularOptions::default();
+    if let Some(decoder) = decoder {
+        let qt = super::dec_modular::ModularStreamId::quant_table(idx)?;
+        modular_generic_decompress(
+            reader,
+            &mut image,
+            None,
+            qt.id(decoder.frame_dimensions()),
+            &mut options,
+            true,
+            Some(decoder.tree()),
+            Some(decoder.code()),
+            Some(decoder.context_map()),
+            false,
+        )?;
+    } else {
+        modular_generic_decompress(
+            reader,
+            &mut image,
+            None,
+            0,
+            &mut options,
+            true,
+            None,
+            None,
+            None,
+            false,
+        )?;
+    }
+    if qtable.is_none() {
+        *qtable = Some(vec![0; required_size_x * required_size_y * 3]);
+    } else if qtable.as_ref().unwrap().len() != required_size_x * required_size_y * 3 {
+        return Err(StatusCode::GenericError);
+    }
+    let table = qtable.as_mut().unwrap();
+    for c in 0..3 {
+        for y in 0..required_size_y {
+            let row = image.channel[c].row(y);
+            for x in 0..required_size_x {
+                table[c * required_size_x * required_size_y + y * required_size_x + x] = row[x];
+                if row[x] <= 0 {
+                    return Err(StatusCode::GenericError);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+impl QuantEncoding {
+    // Decode is entered only after DequantMatrices::Decode has recreated every
+    // encoding as Library<0>. Its zeroed 27-float AFV union member therefore
+    // owns every partial non-RAW write until the final mode assignment. Keeping
+    // that backing on failure preserves the observable old Library mode and
+    // overlapping union bytes without reading an inactive C++ member in Rust.
+    fn decode(
+        &mut self,
+        reader: &mut BitReader<'_>,
+        size_x: usize,
+        size_y: usize,
+        idx: usize,
+        decoder: Option<&super::dec_modular::ModularFrameDecoder>,
+    ) -> Status {
+        let size = size_x * size_y;
+        let mode = reader.read_fixed_bits::<LOG2_NUM_QUANT_MODES>();
+        if matches!(mode, 1..=5) && size != 1 {
+            return Err(StatusCode::GenericError);
+        }
+        match mode {
+            0 => {
+                self.predefined = reader.read_fixed_bits::<CEIL_LOG2_NUM_PREDEFINED_TABLES>() as u8;
+                if self.predefined as usize >= NUM_PREDEFINED_TABLES {
+                    return Err(StatusCode::GenericError);
+                }
+            }
+            1..=5 => {
+                let n = match mode {
+                    1 => 3,
+                    2 => 6,
+                    3 => 2,
+                    4 => 1,
+                    _ => 9,
+                };
+                for c in 0..3 {
+                    for i in 0..n {
+                        let QuantEncodingData::Afv(backing) = &mut self.data else {
+                            unreachable!()
+                        };
+                        let slot = &mut backing[(c * n + i) / 9][(c * n + i) % 9];
+                        f16_coder::read(reader, slot)?;
+                        if mode != 5 && slot.abs() < ALMOST_ZERO {
+                            return Err(StatusCode::GenericError);
+                        }
+                        if mode == 1 || mode == 2 {
+                            *slot *= 64.0;
+                        }
+                    }
+                    if mode == 5 {
+                        let QuantEncodingData::Afv(backing) = &mut self.data else {
+                            unreachable!()
+                        };
+                        for value in &mut backing[c][..6] {
+                            *value *= 64.0;
+                        }
+                    }
+                }
+                if matches!(mode, 3..=5) {
+                    decode_dct_params(reader, &mut self.dct_params)?;
+                }
+                if mode == 5 {
+                    decode_dct_params(reader, &mut self.dct_params_afv_4x4)?;
+                }
+            }
+            6 => decode_dct_params(reader, &mut self.dct_params)?,
+            7 => {
+                self.mode = QuantMode::Raw;
+                self.data = QuantEncodingData::Raw {
+                    qtable: None,
+                    qtable_den: 0.0,
+                };
+                decode_raw_quant_table(size_x * 8, size_y * 8, reader, self, idx, decoder)?;
+            }
+            _ => return Err(StatusCode::GenericError),
+        }
+        if let QuantEncodingData::Afv(backing) = &self.data {
+            let flat: [f32; 27] = std::array::from_fn(|i| backing[i / 9][i % 9]);
+            self.data = match mode {
+                1 => QuantEncodingData::Identity(std::array::from_fn(|c| {
+                    std::array::from_fn(|i| flat[c * 3 + i])
+                })),
+                2 => QuantEncodingData::Dct2(std::array::from_fn(|c| {
+                    std::array::from_fn(|i| flat[c * 6 + i])
+                })),
+                3 => QuantEncodingData::Dct4(std::array::from_fn(|c| {
+                    std::array::from_fn(|i| flat[c * 2 + i])
+                })),
+                4 => QuantEncodingData::Dct4X8([flat[0], flat[1], flat[2]]),
+                _ => QuantEncodingData::Afv(*backing),
+            };
+        }
+        self.mode = match mode {
+            0 => QuantMode::Library,
+            1 => QuantMode::Identity,
+            2 => QuantMode::Dct2,
+            3 => QuantMode::Dct4,
+            4 => QuantMode::Dct4X8,
+            5 => QuantMode::Afv,
+            6 => QuantMode::Dct,
+            7 => QuantMode::Raw,
+            _ => unreachable!(),
+        };
+        Ok(())
+    }
+}
+
+impl DequantMatrices {
+    pub fn decode(
+        &mut self,
+        reader: &mut BitReader<'_>,
+        decoder: Option<&super::dec_modular::ModularFrameDecoder>,
+    ) -> Status {
+        let all_default = reader.read_bits(1);
+        let num_tables = if all_default != 0 {
+            0
+        } else {
+            NUM_QUANT_TABLES as usize
+        };
+        self.encodings.clear();
+        self.encodings
+            .resize(NUM_QUANT_TABLES as usize, QuantEncoding::library::<0>());
+        for i in 0..num_tables {
+            self.encodings[i].decode(
+                reader,
+                Self::REQUIRED_SIZE_X[i] as usize,
+                Self::REQUIRED_SIZE_Y[i] as usize,
+                i,
+                decoder,
+            )?;
+        }
+        self.computed_mask = 0;
+        Ok(())
+    }
+}

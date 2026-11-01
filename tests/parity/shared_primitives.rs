@@ -97,8 +97,8 @@ fn code_output(out: &mut String, codes: &[BitWriter]) {
     }
 }
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
-    if kind == "ss-image" {
-        return observe_image(args);
+    if kind == "ss-image" || kind == "ss-image-alpha" {
+        return observe_image(args, kind == "ss-image-alpha");
     }
     if kind == "ss-owners" {
         return observe_owners(args);
@@ -339,7 +339,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     out
 }
 
-fn observe_image(args: &mut std::str::SplitWhitespace<'_>) -> String {
+fn observe_image(args: &mut std::str::SplitWhitespace<'_>, alpha: bool) -> String {
     let w = number(args);
     let h = number(args);
     let gray = number::<u32>(args) != 0;
@@ -347,7 +347,12 @@ fn observe_image(args: &mut std::str::SplitWhitespace<'_>) -> String {
     let has_aux = number::<u32>(args) != 0;
     let data = unhex(args.next().unwrap());
     let supplied = unhex(args.next().unwrap());
-    let mut config = LosslessThunderConfig::new(
+    let constructor = if alpha {
+        LosslessThunderConfig::new_with_alpha
+    } else {
+        LosslessThunderConfig::new
+    };
+    let mut config = constructor(
         w,
         h,
         gray,

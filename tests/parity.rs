@@ -57,6 +57,9 @@ mod enc_frame;
 #[path = "parity/quant_dc.rs"]
 mod quant_dc;
 
+#[path = "parity/quant_ac.rs"]
+mod quant_ac;
+
 #[path = "parity/quant_storage.rs"]
 mod quant_storage;
 
@@ -725,6 +728,7 @@ fn observe(request: &str) -> String {
         kind if frame::handles(kind) => frame::observe(kind, &mut args),
         kind if enc_frame::handles(kind) => enc_frame::observe(kind, &mut args),
         kind if quant_dc::handles(kind) => quant_dc::observe(kind, &mut args),
+        kind if quant_ac::handles(kind) => quant_ac::observe(kind, &mut args),
         kind if quant_storage::handles(kind) => quant_storage::observe(kind, &mut args),
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
