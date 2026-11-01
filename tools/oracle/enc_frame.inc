@@ -16,6 +16,11 @@ jxl::Status EFPrepareLosslessThunder(const jxl::CompressParams& p,
                              header->nonserialized_metadata->ysize(), p,
                              *splitter, jxl::FrameInfo(), nullptr, false, header);
 }
+jxl::Status EFEncodeThunderGroups(const jxl::FrameHeader& header,jxl::PassesEncoderState* state,
+                                  jxl::ModularFrameEncoder* modular,
+                                  std::vector<std::unique_ptr<jxl::BitWriter>>* codes,jxl::AuxOut* aux) {
+  return jxl::EncodeGroups(header,state,modular,nullptr,codes,aux);
+}
 
 template<class... T> void EFValues(T... values) { ((std::cout<<' '<<values),...); }
 float EFReadFloat(std::istringstream& in) { uint32_t bits;in>>bits;float value;memcpy(&value,&bits,4);return value; }

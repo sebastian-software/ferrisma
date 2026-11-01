@@ -15,6 +15,17 @@ jxl::Status Prefix(jxl::BitWriter&, size_t);
 jxl::Status EFParamsPostInit(jxl::CompressParams*);
 jxl::Status EFPrepareLosslessThunder(const jxl::CompressParams&,
                                     jxl::ProgressiveSplitter*, jxl::FrameHeader*);
+jxl::Status EFEncodeThunderGroups(const jxl::FrameHeader&,jxl::PassesEncoderState*,jxl::ModularFrameEncoder*,std::vector<std::unique_ptr<jxl::BitWriter>>*,jxl::AuxOut*);
+void AuxSeed(jxl::AuxOut&,uint64_t);
+void AuxObservation(const jxl::AuxOut&);
+
+void MFSGroupCodes(const std::vector<std::unique_ptr<jxl::BitWriter>>& codes,JxlMemoryManager* mm) {
+  std::cout<<" G "<<codes.size();
+  for(const auto& code:codes) {
+    jxl::BitWriter copy(mm);if(!copy.AppendUnaligned(*code) || !Pad(copy)) throw std::runtime_error("group observation copy");
+    std::cout<<' '<<code->BitsWritten()<<' '<<Hex(copy.GetSpan());
+  }
+}
 
 template <class T> std::vector<T> MFSReadValues(std::istringstream& in) {
   size_t n; in >> n;
@@ -121,7 +132,7 @@ void MFSState(const jxl::ModularFrameEncoder& e) {
   MFSValues(e.code_.context_map);
 }
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm) {
-  if (command == "mfs-thunder") {
+  if (command == "mfs-thunder" || command == "mfs-thunder-groups") {
     size_t w, h, cw, ch; unsigned depth; bool gray;
     in >> w >> h >> gray >> depth >> cw >> ch;
     jxl::CodecMetadata metadata;
@@ -157,6 +168,25 @@ bool ModularFrameStateCommand(const std::string& command, std::istringstream& in
                                  enc_state.shared.frame_dim,frame_area_rect,
                                  &enc_state,cms,nullptr,nullptr,true);
     std::cout<<static_cast<int>(status.code());
+    if(command=="mfs-thunder-groups") {
+      bool has_aux,prepopulate,repeat;uint64_t seed;in>>has_aux>>prepopulate>>repeat>>seed;
+      jxl::AuxOut aux;AuxSeed(aux,seed);
+      std::vector<std::unique_ptr<jxl::BitWriter>> codes;
+      if(prepopulate) {codes.emplace_back(new jxl::BitWriter(mm));if(!Prefix(*codes[0],5))throw std::runtime_error("group fixture prefix");}
+      if(status) {
+        status=e->ComputeTree(nullptr);if(status)status=e->ComputeTokens(nullptr);
+        std::cout<<" T "<<static_cast<int>(status.code());
+        if(status) {
+          status=EFEncodeThunderGroups(header,&enc_state,e.get(),&codes,has_aux?&aux:nullptr);
+          std::cout<<" C "<<static_cast<int>(status.code());MFSGroupCodes(codes,mm);AuxObservation(aux);
+          if(repeat) {
+            status=EFEncodeThunderGroups(header,&enc_state,e.get(),&codes,has_aux?&aux:nullptr);
+            std::cout<<" C "<<static_cast<int>(status.code());MFSGroupCodes(codes,mm);AuxObservation(aux);
+          }
+        }
+      }
+      MFSState(*e);return true;
+    }
     MFSState(*e);
     // The source path does not mutate Image3F in this configuration.
     for(size_t c=0;c<3;++c) for(size_t y=0;y<ch;++y) for(size_t x=0;x<cw;++x)

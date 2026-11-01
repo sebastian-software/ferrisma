@@ -3,7 +3,8 @@
 
 //! FrameInfo and complete parameter/header preparation from lib/jxl/
 //! enc_frame.{h,cc}, plus fixed lossless Thunder frame owners and modular pixel
-//! preparation. Complete image encoding, section orchestration, streaming, and
+//! preparation and group encoding. Complete image encoding, frame finalization,
+//! streaming, and
 //! remaining EncodeFrame entry points are absent until translated. Byte names,
 //! narrowing, reused header state, and changes before errors retain source order.
 
@@ -12,9 +13,13 @@ use super::base::override_option::{Override, apply_override};
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::color_encoding::{ColorSpace, RenderingIntent};
 use super::common::SpeedTier;
+use super::dec_modular::ModularStreamId;
+use super::enc_aux_out::{AuxOut, LayerType};
+use super::enc_bit_writer::BitWriter;
 use super::enc_modular::ModularFrameEncoder;
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_NOISE};
 use super::enc_progressive_split::{PassDefinition, ProgressiveMode, ProgressiveSplitter};
+use super::enc_quant_weights::dequant_matrices_encode_dc;
 use super::frame_dimensions::GROUP_DIM;
 use super::frame_header::{
     BlendMode, BlendingInfo, ColorTransform, FLAG_NOISE, FLAG_SKIP_ADAPTIVE_DC_SMOOTHING,
@@ -26,6 +31,8 @@ use super::jpeg::enc_jpeg_data::{
     set_chroma_subsampling_from_jpeg_data, set_color_transform_from_jpeg_data,
 };
 use super::jpeg::jpeg_data::JpegData;
+use super::quant_weights::DequantMatrices;
+use super::toc::ac_group_index;
 use super::types::JxlBitDepth;
 
 // lib/jxl/noise.h: NoiseParams::kNumNoisePoints.
@@ -82,6 +89,7 @@ impl LosslessThunderConfig {
         };
         cparams.set_lossless();
         params_post_init(&mut cparams)?;
+        let matrices = DequantMatrices::default();
         let mut splitter = ProgressiveSplitter::default();
         set_progressive_mode(&cparams, &mut splitter);
         let mut header = FrameHeader::new(Some(&self.metadata));
@@ -101,6 +109,7 @@ impl LosslessThunderConfig {
             header,
             splitter,
             modular,
+            matrices,
         })
     }
 }
@@ -109,10 +118,12 @@ impl LosslessThunderConfig {
 /// the configuration; header/parameters cannot be mutated into unported paths.
 /// Full frame/image orchestration remains separate from this preparation API.
 pub struct LosslessThunderFrame<'a> {
-    config: &'a LosslessThunderConfig,
+    // These owners release in the source's reverse creation order.
+    modular: ModularFrameEncoder<'static>,
     header: FrameHeader<'a>,
     splitter: ProgressiveSplitter,
-    modular: ModularFrameEncoder<'static>,
+    matrices: DequantMatrices,
+    config: &'a LosslessThunderConfig,
 }
 impl LosslessThunderFrame<'_> {
     pub fn header(&self) -> &FrameHeader<'_> {
@@ -120,6 +131,9 @@ impl LosslessThunderFrame<'_> {
     }
     pub fn modular(&self) -> &ModularFrameEncoder<'static> {
         &self.modular
+    }
+    pub fn matrices(&self) -> &DequantMatrices {
+        &self.matrices
     }
     /// Translate ModularFrameEncoder::ComputeEncodingData at the original
     /// full-image, non-streaming call site. Input is already in Image3F form;
@@ -132,6 +146,127 @@ impl LosslessThunderFrame<'_> {
             color,
         )
     }
+    /// ComputeEncodingData's reached shared-tree/token branch for this profile.
+    /// Caller lifecycle: prepare pixels, compute tokens, encode groups once.
+    pub fn compute_modular_tokens(&mut self) -> Status {
+        self.modular.compute_tree()?;
+        self.modular.compute_tokens()
+    }
+    /// EncodeGroups for this fixed non-streaming modular configuration. Its
+    /// private header has no patch/spline/noise data and global state is always
+    /// initialized. VarDCT/effect/streaming branches cannot be selected here.
+    pub fn encode_groups(
+        &mut self,
+        group_codes: &mut Vec<BitWriter>,
+        mut aux: Option<&mut AuxOut>,
+    ) -> Status {
+        let frame_dim = self.header.to_frame_dimensions();
+        let num_groups = frame_dim.num_groups;
+        let num_passes = self.splitter.get_num_passes();
+        let is_small_image = num_groups == 1 && num_passes == 1;
+        let num_toc_entries = if is_small_image {
+            1
+        } else {
+            ac_group_index(0, 0, num_groups, frame_dim.num_dc_groups)
+                .wrapping_add(num_groups.wrapping_mul(num_passes))
+        };
+        if !group_codes.is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        group_codes.reserve(num_toc_entries);
+        for _ in 0..num_toc_entries {
+            group_codes.push(BitWriter::new());
+        }
+        let output_index = |index| if is_small_image { 0 } else { index };
+        dequant_matrices_encode_dc(
+            &self.matrices,
+            &mut group_codes[0],
+            LayerType::Quant,
+            aux.as_deref_mut(),
+        )?;
+        self.modular
+            .encode_global_info(false, &mut group_codes[0], aux.as_deref_mut())?;
+        self.modular.encode_stream(
+            &mut group_codes[0],
+            aux.as_deref_mut(),
+            LayerType::ModularGlobal,
+            &ModularStreamId::global(),
+        )?;
+
+        let mut aux_outs = Vec::new();
+        // RunOnPool's null runner initializes one worker for a nonempty range.
+        // Its public task bounds narrow to uint32_t before scheduling.
+        let dc_end = frame_dim.num_dc_groups as u32;
+        if dc_end != 0 {
+            resize_group_aux_outs(&mut aux_outs, 1, aux.as_deref_mut())?;
+            for group in 0..dc_end {
+                self.modular
+                    .encode_stream(
+                        &mut group_codes[output_index(group as usize + 1)],
+                        aux_outs[0].as_deref_mut(),
+                        LayerType::ModularDcGroup,
+                        &ModularStreamId::modular_dc(group as usize),
+                    )
+                    .map_err(|_| StatusCode::GenericError)?;
+            }
+        }
+        let ac_end = num_groups as u32;
+        if ac_end != 0 {
+            resize_group_aux_outs(&mut aux_outs, 1, aux.as_deref_mut())?;
+            for group in 0..ac_end {
+                for pass in 0..num_passes {
+                    let output = output_index(ac_group_index(
+                        pass,
+                        group as usize,
+                        num_groups,
+                        frame_dim.num_dc_groups,
+                    ));
+                    self.modular
+                        .encode_stream(
+                            &mut group_codes[output],
+                            aux_outs[0].as_deref_mut(),
+                            LayerType::ModularAcGroup,
+                            &ModularStreamId::modular_ac(group as usize, pass),
+                        )
+                        .map_err(|_| StatusCode::GenericError)?;
+                }
+            }
+        }
+        let _ = resize_group_aux_outs(&mut aux_outs, 0, aux.as_deref_mut());
+        for writer in group_codes {
+            writer.with_max_bits(
+                8,
+                LayerType::Ac,
+                aux.as_deref_mut(),
+                |w, _| {
+                    w.zero_pad_to_byte();
+                    Ok(())
+                },
+                false,
+            )?;
+        }
+        Ok(())
+    }
+}
+
+// Parameters reify the source lambda captures into sequential disjoint borrows.
+fn resize_group_aux_outs(
+    aux_outs: &mut Vec<Option<Box<AuxOut>>>,
+    num_threads: usize,
+    aux: Option<&mut AuxOut>,
+) -> Status {
+    if let Some(aux) = aux {
+        while aux_outs.len() > num_threads {
+            aux.assimilate(aux_outs.last().unwrap().as_deref().unwrap());
+            aux_outs.pop();
+        }
+        while num_threads > aux_outs.len() {
+            aux_outs.push(Some(Box::new(AuxOut::default())));
+        }
+    } else {
+        aux_outs.resize_with(num_threads, || None);
+    }
+    Ok(())
 }
 #[derive(Clone)]
 pub struct FrameInfo {

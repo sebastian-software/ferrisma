@@ -7,7 +7,7 @@ use jxl::jxl::color_encoding::{ColorSpace, RenderingIntent};
 use jxl::jxl::common::SpeedTier;
 use jxl::jxl::dec_modular::ModularStreamId;
 use jxl::jxl::enc_ans::Token;
-use jxl::jxl::enc_aux_out::LayerType;
+use jxl::jxl::enc_aux_out::{AuxOut, LayerType};
 use jxl::jxl::enc_bit_writer::BitWriter;
 use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 use jxl::jxl::enc_modular::{
@@ -244,6 +244,62 @@ fn lossless_thunder_preparation_releases_global_planes_and_keeps_edge_group_dime
         assert_eq!((channel.w, channel.h), (width, 3));
         assert_eq!(e.gi_channel[stream], [0]);
     }
+}
+
+#[test]
+fn lossless_thunder_groups_keep_the_original_zero_gray_section_bytes_and_nonempty_guard() {
+    let config = LosslessThunderConfig::new(1, 1, true, LosslessSampleDepth::Uint8).unwrap();
+    let mut frame = config.create_frame().unwrap();
+    let color = Image3::<f32>::create(1, 1).unwrap();
+    frame.prepare_modular(&color).unwrap();
+    frame.compute_modular_tokens().unwrap();
+    let mut codes = Vec::new();
+    let mut aux = AuxOut::default();
+    frame.encode_groups(&mut codes, Some(&mut aux)).unwrap();
+    assert_eq!(codes.len(), 1);
+    assert_eq!(codes[0].bits_written(), 56);
+    // Captured from the original EncodeGroups; this contains no frame/TOC.
+    assert_eq!(
+        codes[0].get_span(),
+        &[0x4b, 0x12, 0xa5, 0x42, 0x85, 0x24, 0x0c]
+    );
+    assert_eq!(aux.total_bits(), 56);
+    assert_eq!(
+        frame.encode_groups(&mut codes, Some(&mut aux)),
+        Err(StatusCode::GenericError)
+    );
+    assert_eq!(
+        codes[0].get_span(),
+        &[0x4b, 0x12, 0xa5, 0x42, 0x85, 0x24, 0x0c]
+    );
+    assert_eq!(aux.total_bits(), 56);
+}
+
+#[test]
+fn lossless_thunder_group_writers_follow_dc_global_ac_and_edge_group_layout() {
+    let config = LosslessThunderConfig::new(513, 3, true, LosslessSampleDepth::Uint16).unwrap();
+    let mut frame = config.create_frame().unwrap();
+    let mut color = Image3::<f32>::create(513, 3).unwrap();
+    for y in 0..3 {
+        for x in 0..513 {
+            color.plane_row_mut(0, y)[x] = ((x + y * 997) * 137 % 65536) as f32 / 65535.0;
+        }
+    }
+    frame.prepare_modular(&color).unwrap();
+    frame.compute_modular_tokens().unwrap();
+    let mut codes = Vec::new();
+    let mut aux = AuxOut::default();
+    frame.encode_groups(&mut codes, Some(&mut aux)).unwrap();
+    assert_eq!(codes.len(), 6);
+    assert!(codes[0].bits_written() > 0);
+    assert_eq!(codes[1].bits_written(), 0);
+    assert_eq!(codes[2].bits_written(), 0);
+    assert!(codes[3..].iter().all(|w| w.bits_written() > 0));
+    assert!(codes.iter().all(|w| w.bits_written() % 8 == 0));
+    assert_eq!(
+        codes.iter().map(BitWriter::bits_written).sum::<usize>(),
+        aux.total_bits()
+    );
 }
 
 #[test]

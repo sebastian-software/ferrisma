@@ -209,8 +209,8 @@ pub(super) fn writer_output(out: &mut String, writer: &BitWriter, aux: &AuxOut) 
     }
 }
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
-    if kind == "mfs-thunder" {
-        return thunder(args);
+    if kind == "mfs-thunder" || kind == "mfs-thunder-groups" {
+        return thunder(args, kind == "mfs-thunder-groups");
     }
     assert!(matches!(kind, "mfs-init" | "mfs-chain"));
     let streaming = number::<u32>(args) != 0;
@@ -367,7 +367,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     out
 }
 
-fn thunder(args: &mut std::str::SplitWhitespace<'_>) -> String {
+fn thunder(args: &mut std::str::SplitWhitespace<'_>, groups: bool) -> String {
     let w = number(args);
     let h = number(args);
     let gray = number::<u32>(args) != 0;
@@ -391,7 +391,40 @@ fn thunder(args: &mut std::str::SplitWhitespace<'_>) -> String {
             }
         }
     }
-    let mut out = status_code(&frame.prepare_modular(&color)).to_string();
+    let prepared = frame.prepare_modular(&color);
+    let mut out = status_code(&prepared).to_string();
+    if groups {
+        let has_aux = number::<u32>(args) != 0;
+        let prepopulate = number::<u32>(args) != 0;
+        let repeat = number::<u32>(args) != 0;
+        let mut aux = aux_stats::seed(number(args));
+        let mut codes = Vec::new();
+        if prepopulate {
+            let mut w = BitWriter::new();
+            prefix(&mut w, 5);
+            codes.push(w);
+        }
+        if prepared.is_ok() {
+            let result = frame.compute_modular_tokens();
+            write!(out, " T {}", status_code(&result)).unwrap();
+            if result.is_ok() {
+                let result =
+                    frame.encode_groups(&mut codes, if has_aux { Some(&mut aux) } else { None });
+                write!(out, " C {}", status_code(&result)).unwrap();
+                group_codes(&mut out, &codes);
+                aux_stats::output(&mut out, &aux);
+                if repeat {
+                    let result = frame
+                        .encode_groups(&mut codes, if has_aux { Some(&mut aux) } else { None });
+                    write!(out, " C {}", status_code(&result)).unwrap();
+                    group_codes(&mut out, &codes);
+                    aux_stats::output(&mut out, &aux);
+                }
+            }
+        }
+        state(&mut out, frame.modular());
+        return out;
+    }
     state(&mut out, frame.modular());
     for c in 0..3 {
         for y in 0..ch {
@@ -401,6 +434,54 @@ fn thunder(args: &mut std::str::SplitWhitespace<'_>) -> String {
         }
     }
     out
+}
+fn group_codes(out: &mut String, codes: &[BitWriter]) {
+    write!(out, " G {}", codes.len()).unwrap();
+    for code in codes {
+        let mut copy = BitWriter::new();
+        copy.append_unaligned(code).unwrap();
+        pad(&mut copy);
+        write!(out, " {} {}", code.bits_written(), hex(copy.get_span())).unwrap();
+    }
+}
+
+#[test]
+fn lossless_thunder_group_encoding_matches_original_sections_shared_tokens_auxiliary_state_and_guard_errors()
+ {
+    let mut cases = Vec::new();
+    let mut seed = 0x510a_3679_9cde_28bf;
+    for (w, h) in [
+        (1, 1),
+        (17, 9),
+        (129, 3),
+        (257, 3),
+        (401, 3),
+        (513, 5),
+        (9, 513),
+        (2049, 3),
+        (7, 2049),
+    ] {
+        for gray in [false, true] {
+            for depth in [8, 16] {
+                for mode in [0, 3, 5] {
+                    for has_aux in [0, 1] {
+                        let request = thunder_request(w, h, gray, depth, mode, false, &mut seed)
+                            .replacen("mfs-thunder", "mfs-thunder-groups", 1);
+                        cases.push(format!("{request} {has_aux} 0 1 {}", mode + has_aux));
+                    }
+                }
+            }
+        }
+    }
+    for mode in 0..7 {
+        let request = thunder_request(17, 9, false, 16, mode, false, &mut seed).replacen(
+            "mfs-thunder",
+            "mfs-thunder-groups",
+            1,
+        );
+        cases.push(format!("{request} 1 1 1 {mode}"));
+    }
+    compare(cases);
 }
 
 fn thunder_request(

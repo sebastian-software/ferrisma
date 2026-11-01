@@ -373,9 +373,9 @@ wrapping before float conversion. Multiplier sorting retains the reference
 algorithm; safe Default values fill moved-from holes with no added meaning.
 
 The first image configuration owns private metadata, and its frame owner borrows
-that metadata while owning the header, progressive splitter, and modular
-encoder. Its parameters contain no borrowed custom inputs and can therefore
-use a static parameter lifetime. Expose read-only observations of these owners;
+that metadata while owning the header, progressive splitter, modular encoder,
+and initialized quantization matrices. Its parameters contain no borrowed custom
+inputs and can therefore use a static parameter lifetime. Expose read-only observations of these owners;
 do not expose mutations that could select unported source branches. This is a
 configuration-specific internal path, not a substitute general encoder API.
 
@@ -431,6 +431,23 @@ while ordinary Rust moves invalidate the old binding. A moved-from null RAW
 owner remains distinct from an allocated empty table. Non-owning raw-pointer
 base copies are not exposed. SetEncodings copies a disjoint vector owner and
 invalidates the computed mask at the source checkpoint.
+
+The fixed profile's EncodeGroups uses an owning writer vector for the source's
+unique writer owners. Preserve single-group merging, the empty global-AC slot,
+DC/AC index order, and the original byte-padding/allotment layer. Null-pool task
+bounds narrow to u32 and use one temporary AuxOut owner, or a null owner when
+statistics are disabled. Reify the resize lambda's captures as parameters for
+sequential disjoint borrows. Assimilate the worker only at the original final
+resize; errors before that point drop its unassimilated statistics while keeping
+earlier output mutations. Pool task failures retain the source's generic status.
+The output vector's nonempty guard precedes all writes. Frame owners release the
+modular encoder before its header and matrices, following reverse creation order.
+
+AuxOut includes all source block counters and the signed iteration counter.
+Unsigned sums wrap; signed overflow remains a source precondition, checked in
+Rust. Layer and object assimilation preserve field order and double addition,
+including signed zero and NaN bits in the reference configuration. Diagnostic
+printing remains separate from this storage/accounting boundary.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
