@@ -334,7 +334,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         _ => unreachable!(),
     }
 }
-fn read_transform(args: &mut std::str::SplitWhitespace<'_>) -> Transform {
+pub(super) fn read_transform(args: &mut std::str::SplitWhitespace<'_>) -> Transform {
     let id = TransformId(number(args));
     let mut t = Transform::new(id);
     t.max_delta_error = 77;

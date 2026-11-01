@@ -45,7 +45,8 @@ and no placeholder codec APIs. The source revision is pinned in
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, and complete MakeFrameHeader including JPEG inputs, partial state, blending, and animation; pixel/section orchestration unported |
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
-| `float_to_int` in `enc_modular.cc` | `enc_modular.rs` | Complete integer/custom-float sample conversion, original precision thresholds, rounding, raw binary32 copy, and partially written error state; frame encoder unported |
+| Helpers in `enc_modular.cc` | `enc_modular.rs` | Complete integer/custom-float sample conversion, plane quantization, weighted predictor cost, transform attempts/rejection/undo, global palette/compaction selection, and tree merging; frame encoder state and orchestration unported |
+| `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h` | `quant_weights.rs` | QuantTable indices and count; weights/matrix APIs unported |
 | `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
@@ -100,13 +101,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 204 tests, including 116 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 204 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 204 tests and corpus |
+| Rust debug | PASSED | 213 tests, including 121 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 213 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 213 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **616,642 requests** against C++. These include
+Each differential run compares **622,356 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -351,6 +352,20 @@ are discarded, without substitute definitions. Native tests recover all 8-bit
 and 16-bit integer samples through the source's row conversions, round-trip all
 binary16 patterns, and check raw binary32 copies and partial errors. These are
 sample boundaries, not complete JPEG XL encode/decode evidence.
+
+Modular frame selection helpers add 5,714 differential requests. They compare
+gradient/weighted cost bits, edge dimensions and predictor modes, weighted
+overflow rejection, quantization over physical planes with different logical
+dimensions, append-only tree merging and child-offset narrowing, transform
+attempts and cost-based rollback, and global/all-but-one/single-channel palette
+selection. Fixtures preserve original slow/fast tier decisions, signed palette
+limits, compaction percentages, and metadata-only force modes. Undefined source
+gradient residual overflow, invalid numeric conversions, and indeterminate
+force-mode pixels are outside observations. New transform observations omit
+the source's indeterminate max_delta_error field. Native tests check merge
+direction/offsets, original pixel restoration after rejection, retained fast
+transforms, palette undo, physical-plane quantization, and weighted rejection.
+These helpers remain dependencies of the unported frame encoder state/path.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through

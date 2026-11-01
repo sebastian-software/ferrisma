@@ -262,3 +262,17 @@ call the actual private encoder helper and decoder functions. It does not
 compile those source files a second time or provide replacement frame methods.
 The generated sample corpora and native row tests are local infrastructure.
 Frame and group orchestration remain outside this completed sample boundary.
+
+The private helpers MergeTrees, QuantizeChannel, EstimateWPCost, do_transform,
+maybe_do_transform, and try_palettes in `enc_modular.cc`, plus the scalar
+EstimateCost specialization in `enc_modular_simd.cc`, supply the original frame
+transform selection dependencies. Their translation retains context thresholds,
+fixed-point weighted state, overflow rejection, fractional cost accumulation,
+source float/double casts, tier decisions, inverse rollback, palette ordering,
+and partial metadata/stack mutations. The oracle's `modular_frame.inc` is
+included after unchanged encoder source in `sample_conversion.cc` and calls
+those actual helpers; unchanged `enc_modular_simd.cc` supplies the cost function.
+Metadata-only force fixtures do not read uninitialized pixel planes. Newly
+created source transforms' indeterminate max_delta_error is omitted from state
+observations. Generated helper corpora and native tests do not replace complete
+frame/group integration or the first-image acceptance corpus.

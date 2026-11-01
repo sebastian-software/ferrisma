@@ -39,7 +39,7 @@ fn output_floats(out: &mut String, values: &[f32]) {
         vals!(out;v.to_bits());
     }
 }
-fn tier(value: i32) -> SpeedTier {
+pub(super) fn tier(value: i32) -> SpeedTier {
     [
         SpeedTier::TectonicPlate,
         SpeedTier::Glacier,

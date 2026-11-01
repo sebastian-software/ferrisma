@@ -342,6 +342,17 @@ errors retain prior writes and leave the remaining output storage untouched.
 Original format checks that fail without accessing rows precede buffer-length
 assertions; an error-only call does not require storage for an unused row.
 
+Frame transform attempts clone the source transform, append it only at the
+source success checkpoint, and pop a rejected attempt only after successful
+inverse application. A failed inverse keeps its entry and returns the source's
+false value, not a new status error. Forced metadata edits do not establish
+defined pixel contents. Tree merging retains append offsets even in leaf child
+fields; later tokenization performs the source's canonicalization. Scalar
+gradient-cost residuals keep their defined signed-subtraction precondition;
+weighted cost instead records overflow and rejects that mode with FLT_MAX.
+Preserve per-context float-to-size_t truncation, the accumulated fraction, and
+the final size_t-to-float conversion rather than summing costs in float.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

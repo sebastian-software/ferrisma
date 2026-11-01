@@ -29,6 +29,7 @@ pub mod enc_huffman_tree;
 pub mod enc_lz77;
 mod enc_lz77_costs;
 pub mod enc_modular;
+pub mod enc_modular_simd;
 pub mod enc_params;
 pub mod enc_progressive_split;
 pub mod enc_toc;

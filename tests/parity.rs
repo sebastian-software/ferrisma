@@ -54,6 +54,9 @@ mod enc_frame;
 #[path = "parity/sample_conversion.rs"]
 mod sample_conversion;
 
+#[path = "parity/modular_frame.rs"]
+mod modular_frame;
+
 #[path = "parity/toc.rs"]
 mod toc;
 
@@ -651,6 +654,7 @@ fn observe(request: &str) -> String {
         kind if frame::handles(kind) => frame::observe(kind, &mut args),
         kind if enc_frame::handles(kind) => enc_frame::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
+        kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if toc::handles(kind) => toc::observe(kind, &mut args),
         kind if image::handles(kind) => image::observe(kind, &mut args),
         kind if rct::handles(kind) => rct::observe(kind, &mut args),

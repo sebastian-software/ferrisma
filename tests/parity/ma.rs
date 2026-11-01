@@ -21,7 +21,7 @@ use jxl::jxl::modular::transform::transform::{Transform, TransformId};
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("ma-")
 }
-fn read_tree(args: &mut std::str::SplitWhitespace<'_>) -> Tree {
+pub(super) fn read_tree(args: &mut std::str::SplitWhitespace<'_>) -> Tree {
     let n = number(args);
     (0..n)
         .map(|_| {
@@ -37,7 +37,7 @@ fn read_tree(args: &mut std::str::SplitWhitespace<'_>) -> Tree {
         })
         .collect()
 }
-fn tree(out: &mut String, tree: &Tree) {
+pub(super) fn tree(out: &mut String, tree: &Tree) {
     write!(out, " {}", tree.len()).unwrap();
     for n in tree {
         write!(

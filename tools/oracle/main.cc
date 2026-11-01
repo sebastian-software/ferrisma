@@ -459,6 +459,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "enc_frame.inc"
 
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
+bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
 
 int main() {
   try {
@@ -498,6 +499,7 @@ int main() {
       else if (LearnCommand(command, in, &mm)) {}
       else if (EncFrameCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
+      else if (ModularFrameCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);

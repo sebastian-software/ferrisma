@@ -84,3 +84,5 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
   }
   return true;
 }
+
+#include "modular_frame.inc"
