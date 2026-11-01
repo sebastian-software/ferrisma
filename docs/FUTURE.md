@@ -8,11 +8,15 @@ the mechanical translation:
 - Replace raw pointer operations only with independent behavioral evidence.
 - Profile before changing algorithms, allocations, SIMD, or codec selection.
 - Expand sanitizer, fuzzing, and platform evidence for translated unsafe code.
-- Choose an explicit cross-compiler floating-point contraction contract before
-  claiming exact decoded RGB byte parity (ADR 0005).
+- Extend the explicit noncontracting C reference contract (ADR 0024) to additional
+  toolchains and targets with independent differential evidence.
 - Generate and validate platform-specific libc/ABI declarations for Linux,
   Windows, and other architectures before enabling those Cargo targets.
 - Exercise optional MP4Box golden tests, FuzzTest, and ComplianceWarden, and
   adapt the preserved upstream CI matrix to the Rust build.
 - Stabilize translated opaque external types and the nightly toolchain choice
   without changing allocation or callback behavior.
+- Implement the next separate portable dependency crates, dav1d and libaom,
+  following the original-source and original-test requirements in NATIVE-PORTS.
+- Evaluate SharpYUV SIMD, safe wrappers, source-declaration consolidation, and
+  existing Rust conversion crates only as separately measured follow-up work.

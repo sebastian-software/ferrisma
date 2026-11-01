@@ -1,0 +1,270 @@
+{
+  "date": "2026-11-01",
+  "component": "SharpYUV 0.4.2 in libwebp 1.6.0",
+  "upstream_revision": "4fa21912338357f89e4fd51cf2368325b59e9bd9",
+  "source_files_verified": {
+    "libwebp": 343,
+    "libavif": 429
+  },
+  "translation_manifest_sha256": "5b5d54015c782c7730bd3be519bf9f777521cf44123376f39e3753d95f9560dc",
+  "rustc": "rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)",
+  "primary_c_flags": [
+    "-ffp-contract=off"
+  ],
+  "special_rust_float_flags": [],
+  "sharpyuv_development_opt_level": 0,
+  "development_assertions": true,
+  "ci": {
+    "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41342064047",
+    "head_sha": "a7bd187c26b280e11cbe48a9f6e7f16717b04d0a",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "parity (ubuntu-24.04, x86_64)",
+        "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41342064047/job/124954000493",
+        "conclusion": "success"
+      },
+      {
+        "name": "parity (macos-15, arm64)",
+        "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41342064047/job/124954000704",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "native_profiles": [
+    {
+      "platform": "macOS-15.8.2-arm64-arm-64bit-Mach-O",
+      "profile": "release",
+      "cases": 1271,
+      "differences": [],
+      "reference_sha256": "933b2ebfe8fbc601d24e08300a9daeff2d7759bb66c2065901148a0bb2443cfd",
+      "candidate_sha256": "f8d54be28d192e0d45f2f052ac24b85d46d30394e64f6d5c9ec53f517d3de27f",
+      "reference_configuration": {
+        "acceptance_reference": true,
+        "c_flags": "-ffp-contract=off",
+        "build_type": "Release",
+        "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+        "sharp_compile_command": "/usr/bin/cc -DHAVE_CONFIG_H -Dsharpyuv_EXPORTS -I/Users/runner/work/libavif-rs/libavif-rs/build/sharpyuv-reference -I/Users/runner/work/libavif-rs/libavif-rs/upstream/libwebp -I/Users/runner/work/libavif-rs/libavif-rs/upstream/libwebp/src -ffp-contract=off -pthread -O3 -DNDEBUG -arch arm64 -fPIC -fvisibility=hidden -o CMakeFiles/sharpyuv.dir/sharpyuv/sharpyuv_sse2.c.o -c /Users/runner/work/libavif-rs/libavif-rs/upstream/libwebp/sharpyuv/sharpyuv_sse2.c",
+        "compile_commands_sha256": "ecfd2cb576a6e3fe044a93274e8d9810c83cb5240b7cefa0c96afc079c474391",
+        "manual_simd": false,
+        "threading": true
+      }
+    },
+    {
+      "platform": "macOS-15.8.2-arm64-arm-64bit-Mach-O",
+      "profile": "debug",
+      "cases": 1271,
+      "differences": [],
+      "reference_sha256": "c822f4710b5f23af679ad6c0dd2133082aa576b28c335cebf87e1f0b6402723d",
+      "candidate_sha256": "c044095118a4a9e6b659e6b963b4250be5c299dde0dd12c156cfa98e0415db65",
+      "reference_configuration": {
+        "acceptance_reference": true,
+        "c_flags": "-ffp-contract=off",
+        "build_type": "Debug",
+        "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+        "sharp_compile_command": "/usr/bin/cc -DHAVE_CONFIG_H -Dsharpyuv_EXPORTS -I/Users/runner/work/libavif-rs/libavif-rs/build/sharpyuv-reference-debug -I/Users/runner/work/libavif-rs/libavif-rs/upstream/libwebp -I/Users/runner/work/libavif-rs/libavif-rs/upstream/libwebp/src -ffp-contract=off -pthread -g -arch arm64 -fPIC -fvisibility=hidden -o CMakeFiles/sharpyuv.dir/sharpyuv/sharpyuv_sse2.c.o -c /Users/runner/work/libavif-rs/libavif-rs/upstream/libwebp/sharpyuv/sharpyuv_sse2.c",
+        "compile_commands_sha256": "445b7e42f4cf259cc68de0be304c809a761c9ce762ed28b52e52df0f3f5cd76a",
+        "manual_simd": false,
+        "threading": true
+      }
+    },
+    {
+      "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "profile": "release",
+      "cases": 1271,
+      "differences": [],
+      "reference_sha256": "b0a31453bfbe8df9ce1e5bcfc8f1a5f87f5e65e922d92617dd4247ec0d995e84",
+      "candidate_sha256": "4987a831a8fc9bb05b62a71c57f0f1e474d604af38aaf175d72764b2c9b2183d",
+      "reference_configuration": {
+        "acceptance_reference": true,
+        "c_flags": "-ffp-contract=off",
+        "build_type": "Release",
+        "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+        "sharp_compile_command": "/usr/bin/cc -DHAVE_CONFIG_H -Dsharpyuv_EXPORTS -I/home/runner/work/libavif-rs/libavif-rs/build/sharpyuv-reference -I/home/runner/work/libavif-rs/libavif-rs/upstream/libwebp -I/home/runner/work/libavif-rs/libavif-rs/upstream/libwebp/src -ffp-contract=off -pthread -mno-avx2 -mno-sse4.1 -mno-sse2 -O3 -DNDEBUG -fPIC -fvisibility=hidden -o CMakeFiles/sharpyuv.dir/sharpyuv/sharpyuv_sse2.c.o -c /home/runner/work/libavif-rs/libavif-rs/upstream/libwebp/sharpyuv/sharpyuv_sse2.c",
+        "compile_commands_sha256": "f71b7018e7ee5a608d7e228b2aeedb9a3bd1344f611e2e281339a95aed86191f",
+        "manual_simd": false,
+        "threading": true
+      }
+    },
+    {
+      "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "profile": "debug",
+      "cases": 1271,
+      "differences": [],
+      "reference_sha256": "d1d024d3f77ac0bfdaa3bc9578099091ed3272f0e735f0608aa601e239729841",
+      "candidate_sha256": "a78720590b564b4c4d1b7e876b8ada9898ac994a3a3b34c7f6b226597174ceed",
+      "reference_configuration": {
+        "acceptance_reference": true,
+        "c_flags": "-ffp-contract=off",
+        "build_type": "Debug",
+        "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+        "sharp_compile_command": "/usr/bin/cc -DHAVE_CONFIG_H -Dsharpyuv_EXPORTS -I/home/runner/work/libavif-rs/libavif-rs/build/sharpyuv-reference-debug -I/home/runner/work/libavif-rs/libavif-rs/upstream/libwebp -I/home/runner/work/libavif-rs/libavif-rs/upstream/libwebp/src -ffp-contract=off -pthread -mno-avx2 -mno-sse4.1 -mno-sse2 -g -fPIC -fvisibility=hidden -o CMakeFiles/sharpyuv.dir/sharpyuv/sharpyuv_sse2.c.o -c /home/runner/work/libavif-rs/libavif-rs/upstream/libwebp/sharpyuv/sharpyuv_sse2.c",
+        "compile_commands_sha256": "61b27cf3c7ff4a727c372fd33101dfe8722c8123829dc35820466fa166383b7c",
+        "manual_simd": false,
+        "threading": true
+      }
+    }
+  ],
+  "local_integration": {
+    "default": {
+      "ctest_registrations_each": 64,
+      "gtest_cases_each": 9473,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "3707431f4db8a51de8433d6342b834aa65fadc03702e838b56b936983f2d3610",
+      "rust_junit_sha256": "5566cf895c0d331653f5621321159569690e6174f978145dcc2fd34bfe440e71"
+    },
+    "debug": {
+      "ctest_registrations_each": 64,
+      "gtest_cases_each": 9473,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "3707431f4db8a51de8433d6342b834aa65fadc03702e838b56b936983f2d3610",
+      "rust_junit_sha256": "1da1dcd07f2840af3f15db0fee5488aab367b28eb2dfd40af3fd42ad99f89b2c"
+    },
+    "asan": {
+      "ctest_registrations_each": 64,
+      "gtest_cases_each": 9473,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "d0c769a48d32eb92e16ca8b927c657f33f8841d7f2911b28a17bf464ba19b97a",
+      "rust_junit_sha256": "a3080b7f5b1705966b1405996ed7369a1c002731a296505a023673df4889f8e6"
+    },
+    "all_features": {
+      "ctest_registrations_each": 70,
+      "gtest_cases_each": 9555,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "b25000c71054ad9759c8d00bc0f15b195594ef94381a89573f361740bf02a382",
+      "rust_junit_sha256": "456dea309076aa38c8c67a071183d604020ccc98c7b321be611dfe2a0003f5f9"
+    },
+    "webp": {
+      "ctest_registrations_each": 12,
+      "gtest_cases_each": 12,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "461337bbd20bd7536f840922d6a6dccea8b8c2f6599ffb5597eef61291c3ef5c",
+      "rust_junit_sha256": "62621d130abe718811912d8ad47cdfa1e40a268640632e3f4a1820b09569517f"
+    }
+  },
+  "native_consumers": {
+    "sharpyuv-macos-15-arm64": {
+      "ctest_registrations_each": 12,
+      "gtest_cases_each": 12,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "f6ebc557b652542facc36f2eb97b5bb18daadf36d0868aa620b70c6aefa665bb",
+      "rust_junit_sha256": "dd16ee5517abb402fa9ec8a17627b88545006c9c54cde31677904417efd149b9",
+      "cpu_query_results": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "allocation_failure_points": 7,
+      "abi_checks_each_profile": 23
+    },
+    "sharpyuv-ubuntu-24.04-x86_64": {
+      "ctest_registrations_each": 12,
+      "gtest_cases_each": 12,
+      "matching_case_and_skip_inventory": true,
+      "baseline_junit_sha256": "e44febfad9379ab4a6a09d86ac14c1d93b1f44844becc66c0c055b1f91f67f31",
+      "rust_junit_sha256": "fe9a9893fd494a1621eb1c0ef050fa7bdf16cf0d57d12f0cbb63a9f24c26c6ef",
+      "cpu_query_results": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "allocation_failure_points": 7,
+      "abi_checks_each_profile": 23
+    }
+  },
+  "compiler_default_diagnostics": [
+    {
+      "platform": "macOS-15.8.2-arm64-arm-64bit-Mach-O",
+      "cases": 1271,
+      "differing_groups": 47,
+      "differences": [
+        "convert-rgb16-yuv10-tf16-matrix4-layout2-15x7",
+        "convert-rgb10-yuv8-tf16-matrix0-layout2-33x11",
+        "seeded-25",
+        "seeded-108",
+        "convert-rgb12-yuv8-tf16-matrix0-layout2-15x7",
+        "convert-rgb16-yuv12-tf15-matrix2-layout0-16x8",
+        "seeded-61",
+        "seeded-215",
+        "seeded-145",
+        "convert-rgb16-yuv10-tf16-matrix0-layout1-1x9",
+        "seeded-116",
+        "convert-rgb10-yuv12-tf16-matrix0-layout0-16x8",
+        "convert-rgb12-yuv10-tf16-matrix0-layout1-3x5",
+        "convert-rgb12-yuv8-tf16-matrix1-layout0-16x8",
+        "convert-rgb12-yuv10-tf1-matrix3-layout2-15x7",
+        "convert-rgb12-yuv12-tf16-matrix4-layout1-17x9",
+        "seeded-98",
+        "convert-rgb10-yuv12-tf16-matrix2-layout2-33x11",
+        "convert-rgb12-yuv10-tf16-matrix2-layout0-16x8",
+        "seeded-113",
+        "convert-rgb12-yuv10-tf16-matrix4-layout2-33x11",
+        "seeded-24",
+        "convert-rgb10-yuv10-tf16-matrix3-layout1-1x9",
+        "seeded-251",
+        "convert-rgb10-yuv10-tf16-matrix0-layout1-17x9",
+        "convert-rgb12-yuv12-tf16-matrix2-layout2-15x7",
+        "convert-rgb10-yuv12-tf16-matrix4-layout1-1x9",
+        "convert-rgb12-yuv12-tf16-matrix1-layout1-3x5",
+        "seeded-172",
+        "convert-rgb12-yuv8-tf16-matrix2-layout1-17x9",
+        "seeded-250",
+        "seeded-237",
+        "seeded-197",
+        "seeded-176",
+        "convert-rgb12-yuv10-tf16-matrix1-layout2-15x7",
+        "seeded-238",
+        "seeded-249",
+        "seeded-222",
+        "seeded-48",
+        "convert-rgb16-yuv10-tf6-matrix3-layout2-33x11",
+        "seeded-139",
+        "seeded-147",
+        "seeded-191",
+        "convert-rgb10-yuv12-tf16-matrix1-layout1-17x9",
+        "convert-rgb10-yuv10-tf16-matrix1-layout2-33x11",
+        "seeded-78",
+        "convert-rgb16-yuv12-tf16-matrix4-layout1-3x5"
+      ],
+      "acceptance_reference": false,
+      "reference_sha256": "78d59a0d681cfb822d664e00333090909ed8e4494063a79b037f5affaa4e3dac",
+      "candidate_sha256": "f8d54be28d192e0d45f2f052ac24b85d46d30394e64f6d5c9ec53f517d3de27f"
+    }
+  ],
+  "allocation_asan": {
+    "failure_points": 7,
+    "live_allocations_after_each_call": 0,
+    "results_sha256": "ea41d05f40b7fc7a661c653892855606c51cef3b6f945774bdc3e02a7af9ce48",
+    "platform": "macOS ARM64",
+    "c_compiler": "LLVM 16.0.6",
+    "runtime": "matching Rust nightly ASan v8"
+  },
+  "libavif_differential": {
+    "exact_avif_scenarios": 10,
+    "exact_png_scenarios": 10,
+    "results_sha256": "9efcf1f633c351c653cc44093299f43b2097697c833af0df6b615dc9368fde9e"
+  },
+  "libavif_compiler_default_diagnostic": {
+    "acceptance_reference": false,
+    "avif_scenarios": 10,
+    "exact_png_scenarios": 9,
+    "confirmed_noncontracting_matches": 1,
+    "results_sha256": "250b208af4e8d3a4a84c315d8693e2b77b3ad3a5dd7aeb0615a4425b5ec53403"
+  }
+}

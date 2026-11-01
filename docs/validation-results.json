@@ -115,8 +115,12 @@
   },
   "differential": {
     "byte_identical_avif_scenarios": 10,
-    "byte_identical_png_scenarios": 9,
-    "confirmed_noncontracting_c_matches": 1,
-    "strict_png_byte_parity": false
-  }
+    "byte_identical_png_scenarios": 10,
+    "confirmed_noncontracting_c_matches": 0,
+    "strict_png_byte_parity": true,
+    "compiler_contract": "ADR 0024; primary C references use -ffp-contract=off, normal Rust arithmetic",
+    "compiler_default_diagnostic": "See sharpyuv-validation-results.json; excluded from acceptance"
+  },
+  "evidence_scope": "Original libavif port; feature-specific intermediate profiles predate the SharpYUV workspace replacement. See sharpyuv-validation-results.json for fresh integration runs.",
+  "dependency_port_extension": "sharpyuv-validation-results.json"
 }

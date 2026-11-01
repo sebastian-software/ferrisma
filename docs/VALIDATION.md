@@ -4,11 +4,18 @@ The compact machine-readable snapshot is
 [`validation-results.json`](validation-results.json), generated from the actual
 JUnit inventories by `tools/record_validation.py`.
 
+The dependency-port extension has separate
+[SharpYUV evidence](SHARPYUV-VALIDATION.md), including fresh default, Debug,
+all-feature, and sanitizer libavif runs after replacing native SharpYUV.
+The feature-specific intermediate rows below retain their earlier evidence.
+
 ## Reference baseline
 
 - Upstream: `9b07a9d7a874b159bb4e14b80a6f08bb469d06f7` (libavif 1.4.2).
 - Host: macOS, Apple Silicon (`aarch64-apple-darwin`).
-- Build: Release, static library, AppleClang 21, CMake 4.4.5, Ninja.
+- Build: Release, static library, AppleClang 21, CMake 4.4.5, Ninja. Fresh
+  dependency-port runs explicitly set `-ffp-contract=off`; earlier intermediate
+  feature runs used compiler-default contraction.
 - Codecs: system libaom 3.15.2 (encode/decode), dav1d 1.5.4 (decode).
 - Color/scaling: system SharpYUV 1.6.0, bundled scalar libyuv fallback.
 - Applications: PNG, JPEG, libxml2 gain-map conversion enabled.
@@ -82,12 +89,12 @@ decodes the original 33x11 IDAT fixture and encodes a 502-byte AVIF.
 
 Ten additional deterministic encoding scenarios produce byte-identical AVIF
 files across C and Rust (8/10/12-bit, chroma sampling, lossless, alpha, SharpYUV,
-progressive output, transforms, color profiles, and metadata). Nine decoded PNGs
-are byte-identical. The large JPEG-derived case differs due to floating-point
-contraction in the original Clang RGB conversion; its PNG is byte-identical to a
-separate C decoder with only `reformat.c` compiled using `-ffp-contract=off`.
-`tools/differential.py` fails strict PNG parity; `--diagnose-float` verifies and
-reports the cause without certifying full PNG byte parity. See ADR 0005.
+progressive output, transforms, color profiles, and metadata). All ten decoded
+PNGs are byte-identical against the primary noncontracting C reference without
+changing source expressions or normal Rust arithmetic. The earlier nine-of-ten
+compiler-default result is documented in ADR 0005; ADR 0024 establishes the
+current compiler contract. Clang-default differences remain separate diagnostics.
+`tools/differential.py` passes its strict check against the primary reference.
 
 All eight Mini/Extended-PIXI/AVM preprocessor combinations regenerate exactly
 through `tools/transpile.py --check`. Optional AV1 adapter and registry
@@ -95,6 +102,6 @@ regeneration also reproduces the recorded implementation files.
 
 Remaining work includes other platforms and dependency versions, AOM
 encode-only/decode-only configurations, optional golden tests requiring MP4Box,
-FuzzTest, the C++ ComplianceWarden integration, and the broader upstream CI
+libavif FuzzTest, the C++ ComplianceWarden integration, and the broader upstream CI
 matrix. The original sources, feature gates, fixtures, and workflows remain
 available in the untouched snapshot.

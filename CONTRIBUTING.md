@@ -5,8 +5,9 @@ separately. Keep algorithms, names, data layout, numeric behavior, and ownership
 close to the pinned C source. Record lasting decisions in `docs/adr/` and later
 redesign or optimization candidates in `docs/FUTURE.md`.
 
-Treat `upstream/libavif` as immutable. `tools/verify_upstream.py` checks every
-file, including tests and fixtures. Do not replace missing functionality with
+Treat both `upstream/libavif` and `upstream/libwebp` as immutable.
+`tools/verify_upstream.py` checks every file, including tests and fixtures.
+Do not replace missing functionality with
 stubs or a C fallback. The original C/C++ tests and applications are deliberately
 retained as independent consumers of the Rust library.
 
@@ -95,13 +96,81 @@ python3 tools/run_tests.py build/port-asan-llvm16
 python3 tools/compare_results.py \
   --baseline build/baseline-asan-llvm16-results.xml \
   --port build/port-asan-llvm16-results.xml
-python3 tools/differential.py --diagnose-float
+python3 tools/differential.py
 ```
 
 The sanitizer runner defaults to the same allocation-failure setting as upstream
 CI. It does not disable memory findings. Run separate suites through
 `tools/run_tests.py` to isolate upstream tests' fixed temporary file names.
 
-The differential tool checks exact AVIF bytes and records strict PNG differences.
-Its float diagnostic builds a separate C decoder to explain contraction-related
-rounding; it does not replace the primary C baseline or certify exact PNG parity.
+The differential tool requires exact AVIF and PNG bytes against the primary C
+reference. Its separate float diagnostic builds a C decoder to explain
+contraction-related rounding; that diagnostic does not establish acceptance.
+
+## Standalone SharpYUV crate
+
+The workspace uses the pinned toolchain in `rust-toolchain.toml`. Original C
+references explicitly use `-ffp-contract=off`; Rust uses normal arithmetic and
+unoptimized development builds. Preserve that contract when supplying custom
+compiler flags. Original source hashes and generated license records must match
+before building a reference.
+
+```sh
+python3 tools/verify_upstream.py
+python3 tools/generate_licenses.py --check
+python3 tools/build_sharpyuv.py
+python3 tools/build_sharpyuv.py --debug
+cargo build -p libavif-sharpyuv --locked --release
+cargo build -p libavif-sharpyuv --locked
+python3 tools/check_sharpyuv.py
+python3 tools/check_sharpyuv.py --debug
+python3 tools/check_sharpyuv_abi.py
+python3 tools/check_sharpyuv_abi.py --debug
+python3 tools/check_sharpyuv_alloc.py
+python3 tools/check_sharpyuv_cpu.py
+python3 tools/check_sharpyuv_linkage.py
+python3 tools/diagnose_sharpyuv_numerics.py
+```
+
+`python3 tools/transpile_sharpyuv.py --check` reproduces all seven translated
+units and the x86 CPU-query variant with C2Rust and LLVM 16 on the recorded
+translation host. The macOS-only
+`python3 tools/check_sharpyuv_alloc.py --asan` instruments both implementations
+and the allocation-failure driver with the matching Rust ASan runtime.
+
+The original twelve WebP integration tests retain their assertions and fixtures:
+
+```sh
+export FUZZTEST_PRNG_SEED=OffQXb8u5_vZtH4-7wgVOLu_HNAhPIbLz7CFF13u3nk
+python3 tools/build_sharpyuv_consumers.py c --fetch-deps
+python3 tools/run_tests.py build/sharpyuv-webp-c
+python3 tools/build_sharpyuv_consumers.py rust
+python3 tools/run_tests.py build/sharpyuv-webp-rust
+python3 tools/compare_results.py \
+  --baseline build/sharpyuv-webp-c-results.xml \
+  --port build/sharpyuv-webp-rust-results.xml
+python3 tools/check_sharpyuv_linkage.py \
+  --consumer build/sharpyuv-webp-rust \
+  --executable build/sharpyuv-webp-rust/tests/fuzzer/enc_dec_fuzzer
+```
+
+Use `SHARPYUV_BUILD_ROOT` and `CARGO_TARGET_DIR` to keep another host's artifacts
+separate. Do not share CMake caches between macOS and Linux. See ADR 0022 for
+test-build compatibility overlays, and `docs/SHARPYUV-VALIDATION.md` for the
+executed scope and remaining gaps.
+
+For the separate original libavif compiler-default diagnostic, use
+`python3 tools/build.py baseline --compiler-default-diagnostic`, then
+`python3 tools/differential.py --baseline build/baseline-compiler-default --diagnose-float`.
+Restore the primary report with `python3 tools/differential.py` afterward.
+
+After downloading both native CI artifacts and the completed run's
+`gh run view --json status,conclusion,jobs,url,headSha` output, record the evidence:
+
+```sh
+python3 tools/record_sharpyuv_validation.py \
+  --ci-run build/sharpyuv-ci-success.json \
+  --ci-artifacts build/sharpyuv-ci-artifacts
+```
+
+This also requires the local libavif integration and sanitizer reports above.

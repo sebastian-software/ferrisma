@@ -4,7 +4,8 @@
 
 The requested outcome is a mechanical Rust port in a new local repository,
 with English documentation, recorded decisions, unchanged upstream tests, and
-separate Conventional Commits. No remote publication is required. Execution is
+separate Conventional Commits. The repository is public under
+`sebastian-software/libavif-rs`. Execution is
 sequential because the translation and test-linkage rules must be proven before
 scaling the conversion.
 
@@ -15,6 +16,8 @@ messages, metadata, image planes, encoder/decoder behavior, I/O callbacks,
 cleanup, and threading behavior. Preserve the complete upstream test tree and
 its feature gates. AV1/AV2 codec implementations and external libraries remain
 dependencies as they are upstream; their adapter code belongs to the port.
+SharpYUV is now delivered by a separate Rust workspace crate. The remaining
+engine dependencies follow the accepted sequence in `NATIVE-PORTS.md`.
 Applications and C/C++ test harnesses remain original consumers of the port.
 
 ## Semantic mapping
@@ -57,6 +60,8 @@ fixtures remain unchanged.
 Source translation and host parity gates are satisfied for the recorded
 configurations. Remaining gates concern other platforms, optional golden/fuzz/
 compliance harnesses, the optional C++ `src/compliance.cc` integration,
-additional dependency/build matrices, and strict decoded
-RGB byte parity across compilers. No full cross-platform or release-certification
+additional dependency/build matrices, and numeric equivalence on additional
+compilers and targets. The ten recorded decoded PNG scenarios now match the
+primary C reference exactly with the compiler contract in ADR 0024.
+No full cross-platform or release-certification
 claim is made. See `VALIDATION.md` for the exact evidence and residual gaps.

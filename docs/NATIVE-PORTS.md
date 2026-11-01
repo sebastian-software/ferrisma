@@ -1,6 +1,7 @@
 # Separate Codec and Conversion Crates
 
-Status: initial portable default-pipeline plan agreed; implementation not started.
+Status: the portable SharpYUV milestone is implemented and integrated. See
+[its validation evidence](SHARPYUV-VALIDATION.md). dav1d and libaom remain next.
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
@@ -26,7 +27,7 @@ recorded baseline, not a selected source revision for a future port.
 | --- | --- | --- |
 | libaom | Default AV1 encoding and decoding | C implementation with architecture-specific assembly and intrinsics; broader than still images. |
 | dav1d | Default AV1 decoding | C and assembly; an existing Rust port, rav1d, is a candidate for evaluation. |
-| SharpYUV | Default pixel conversion | Separate C library target distributed inside libwebp; it does not require porting the WebP codec. |
+| SharpYUV | Default pixel conversion | Replaced by the portable `libavif-sharpyuv` workspace crate; the original libwebp target remains its reference. |
 | libgav1 | Optional AV1 decoding | C++ with platform-specific DSP implementations. |
 | rav1e | Optional AV1 encoding | Already Rust, currently consumed through its C API; optional assembly remains a separate question. |
 | SVT-AV1 | Optional AV1 encoding | C with architecture-specific SIMD and assembly. |

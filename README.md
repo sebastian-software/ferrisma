@@ -15,10 +15,16 @@ The currently supported and tested target is **macOS on AArch64**. The original
 C/C++ applications and tests consume the Rust implementation through the C ABI;
 AV1/AV2 codec engines remain external dependencies as they do upstream.
 
+SharpYUV is now a separate mechanical Rust crate in
+[`crates/sharpyuv`](crates/sharpyuv), used directly by libavif-rs. Its portable
+configuration is validated on macOS ARM64 and Linux x86-64 independently of the
+root package. See [SharpYUV validation](docs/SHARPYUV-VALIDATION.md).
+
 ## Build and test
 
 Use Rust nightly, CMake, Ninja, Python 3.9+, pkg-config, and development packages
-for libaom, dav1d, SharpYUV, PNG, JPEG, and libxml2. The validated dependency
+for libaom, dav1d, PNG, JPEG, and libxml2. The original C baseline also requires
+native SharpYUV; the Rust library uses its workspace crate. The validated dependency
 versions and exact results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ```sh
@@ -61,21 +67,21 @@ feature test procedure, see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Current limits
 
 Other platforms require their own platform translation and ABI validation.
-Optional golden tests, FuzzTest, and the full upstream platform CI matrix are
+Optional libavif golden tests, libavif FuzzTest, and the full upstream platform CI matrix are
 preserved but have not been executed here. The optional C++ ComplianceWarden
 integration remains preserved upstream and is not enabled by the Rust build.
 
-Strict decoded RGB byte parity has one recorded compiler-rounding difference:
-all ten differential AVIF bitstreams match, while nine of ten decoded PNGs match
-the original Clang build byte-for-byte. The remaining PNG matches C when floating
-point contraction is disabled. No upstream test or tolerance was changed; see
-[ADR 0005](docs/adr/0005-floating-point-evaluation.md).
+All ten differential AVIF bitstreams and all ten decoded PNGs now match the
+noncontracting C reference byte-for-byte. The source expressions remain unchanged;
+C references explicitly use `-ffp-contract=off`, and Rust uses normal arithmetic.
+Clang-default differences are recorded separately. No upstream test or tolerance
+was changed; see [ADR 0024](docs/adr/0024-use-noncontracting-c-references-for-portable-ports.md).
 
 ## Planned dependency ports
 
 The [dependency porting plan](docs/NATIVE-PORTS.md) defines separate mechanical
-Rust crates in a shared workspace, starting with portable SharpYUV, then dav1d
-and libaom. It records bit-exact reference checks, original-test correspondence,
+Rust crates in a shared workspace. Portable SharpYUV is implemented; dav1d and
+libaom follow. The plan records bit-exact reference checks, original-test correspondence,
 license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
 
 ## License
