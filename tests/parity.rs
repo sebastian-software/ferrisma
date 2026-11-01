@@ -21,6 +21,9 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/block_context.rs"]
+mod block_context;
+
 #[path = "parity/dct.rs"]
 mod dct;
 
@@ -747,6 +750,7 @@ fn observe(request: &str) -> String {
         kind if render_pipeline::handles(kind) => render_pipeline::observe(kind, &mut args),
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
+        kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
         kind if gaborish_stage::handles(kind) => gaborish_stage::observe(kind, &mut args),
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),

@@ -68,7 +68,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc
+add_executable(jxl_oracle main.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.

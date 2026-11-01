@@ -38,7 +38,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `inverse_mtf-inl.h` | `inverse_mtf.rs` | Existing scalar Highway specialization; SIMD specializations unported |
 | `enc_ans.h`, `.cc` | `enc_ans.rs`, `enc_ans_histogram.rs`, `enc_entropy.rs` | ANS state, packed tokens, normalization, table construction, uint-strategy selection, complete entropy orchestration, streaming histogram output, and token writes; debug-only fuzzer setter unported |
 | `enc_ans_simd.h`, `.cc`, `simd_util.h`, `.cc` | `enc_entropy.rs` | Existing scalar token-cost loop, MaxValue, and maximum-vector padding for config selection; other functions/targets unported |
-| `enc_context_map.h`, `.cc` | `enc_context_map.rs` | MTF, cost comparison, and simple/entropy-coded context output; VarDCT BlockCtxMap output unported |
+| `enc_context_map.h`, `.cc` | `enc_context_map.rs` | MTF, cost comparison, simple/entropy-coded context output, and complete VarDCT BlockCtxMap output |
 | `enc_lz77.h`, `.cc` | `enc_lz77.rs`, `enc_lz77_costs.rs` | Symbol costs, RLE, greedy bucket variants, optimal hash-chain variants, and original method dispatch |
 | `enc_ans_params.h`, ForModular in `enc_ans.cc` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, uint config, and complete modular entropy-policy selection |
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
@@ -73,7 +73,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; VarDCT frame/group integration remains unported |
-| `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
+| `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
+| `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, remaining VarDCT methods, and debug descriptions unported; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -147,15 +148,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 385 tests, including 220 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 385 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 385 tests and corpus |
+| Rust debug | PASSED | 397 tests, including 226 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 397 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 397 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 385 tests and 757,634 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 397 tests and 855,867 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **757,634 requests** against C++. These include
+Each differential run compares **855,867 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -1238,3 +1239,25 @@ Local full quantizer validation runs both `python3 tools/check.py --msrv` and
 block runs 385 tests, including 220 differential groups and 757,634 exact
 requests, with zero failed or ignored tests. Native hosted evidence for earlier
 trees remains recorded separately above.
+
+## VarDCT block contexts
+
+The block-context slice adds six native tests and six differential groups with
+98,233 exact requests: normalized density domains and both tables, bucket
+arithmetic, threshold/order/channel lookup, predictor edges, original context
+map encoding/accounting, and parsing into fresh/reused owners. Fixtures include
+64 accepted versus 65 rejected threshold partitions, 15-entry threshold vectors,
+truncation, malformed real-stream mutations, and narrowed U32 offsets. The
+ordinary and fully instrumented original use their genuine entropy codec.
+
+Default parsing replaces the entire owner. Nondefault parsing preserves the
+original threshold mutations before size rejection, map resizing/partial
+decoding, and final context-count validation. Source index and signed-predictor
+preconditions are recorded in [ADR 0003](adr/0003-rust-representation.md). This
+provides contexts for subsequent AC-group symbol decoding; complete VarDCT
+frame/group orchestration remains unported.
+
+Full local validation of the integrated block-context tree runs 397 tests,
+226 differential groups, and 855,867 exact requests in each Debug, Release,
+and Rust 1.85 configuration against ordinary and ASan/UBSan originals.
+No test is failed or ignored.

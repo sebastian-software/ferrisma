@@ -1033,3 +1033,22 @@ source/compiler boundary, not a claim about every NaN arithmetic operation or
 every target. Constructor, decode, and defined scaling arithmetic retain their
 signaling-NaN cases, and no prior expected words, numeric flags, or sanitizer
 suppressions change.
+
+### VarDCT block-context helpers and wire format
+
+BlockCtxMap retains its existing owner and public vectors. Context lookup keeps
+the original channel swap, threshold comparisons, packed order/DC index, and
+caller-provided map bounds. Bucket calculations retain pointer-width arithmetic
+and source unsigned narrowing. Density normalization uses the original two
+64-entry tables; reached normalized count and position are in 1..63, and coverage
+is the power of two described by its logarithm. Predictor neighbor slices cover
+the reached elements, and each reached signed addition fits i32 as in C++.
+
+DecodeBlockCtxMap replaces the whole owner on its default bit. Otherwise it
+updates DC threshold vectors and their product, then QF thresholds, before the
+64-partition guard. The map is resized before genuine context-map decoding;
+errors preserve that partial state and the original num_ctxs update order.
+Threshold U32 additions narrow/wrap in the same place as the source. Encoding
+uses the same distributions, caller counts that fit four bits, and nested AC
+layer accounting. No new pointers, unsafe code, dependency, numeric option, or
+sanitizer suppression is introduced.
