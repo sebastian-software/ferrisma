@@ -26,6 +26,14 @@ The translated Highway scalar helpers use its offered BSD-3-Clause alternative;
 the unchanged notice is in
 [licenses/HIGHWAY-BSD-3-Clause.txt](../licenses/HIGHWAY-BSD-3-Clause.txt).
 
+`opsin_params.{h,cc}` and OpsinParams/OutputEncodingInfo/CanOutputToColorEncoding
+in `dec_xyb.{h,cc}` supply default inverse-matrix selection, lane expansion,
+parameter initialization, output-profile selection, and matrix/luminance/gamma
+updates. Original methods supply all reference observations; generated profile
+and reuse sequences are local infrastructure. Fixtures value-initialize source
+aggregate scalars explicitly and retain partial state after errors. Pixel
+conversion and full decoder-state integration remain separate boundaries.
+
 - `libjxl/libjxl` at `a16d32d0ac113f5e54125e49bb571281c5d0b704`:
   `dec_bit_reader`, `enc_bit_writer`, `field_encodings`, `fields`, `enc_fields`,
   `headers`, the relevant `base/status` semantics, writer storage, alignment,

@@ -608,6 +608,20 @@ MulAdd in this stage retains separate multiplication/addition in the original
 compiled object, including on AArch64; it must not inherit another algorithm's
 explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
 
+OutputEncodingInfo initializes source-indeterminate scalar/array storage safely;
+the oracle value-initializes those aggregate members explicitly. SetFromMetadata
+and MaybeSetColorEncoding perform SetColorEncoding's first profile copy at the
+original checkpoint, then borrow that stored copy for the remaining body. The
+source argument and copied field stay equal and unchanged during those reads.
+This avoids an extra profile clone when SetFromMetadata passes its own original
+profile field. Subsequent writes and partial errors retain source order.
+Non-XYB updates leave the old opsin matrix/default flag untouched. The
+all_default_opsin intensity comparison retains the unsuffixed double subtraction
+and the float threshold promoted to double; gamma and matrix coordinates narrow
+at the original float assignments/call boundaries.
+Setting the copied linear profile's transfer function retains its ICC bytes;
+regeneration belongs to the later original caller, not to this setter.
+
 RenderPipelineInput borrows its simple pipeline and stores owner-relative
 buffer indices/rectangles. Done retains its binding on success or failure, as
 in C++; explicit move_from nulls the old binding and transfers its buffer vector.

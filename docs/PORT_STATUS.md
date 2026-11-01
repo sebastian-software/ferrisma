@@ -53,6 +53,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, four reference owners, same-owner DC/patch binding; decoder initialization and VarDCT methods unported |
+| `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; pixel conversion, fast XYB output, and decoder-state integration unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes, and decoded-byte accessors; general import/export/copy and metadata verification unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
@@ -131,14 +132,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 293 tests, including 164 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 293 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 293 tests and corpus |
+| Rust debug | PASSED | 297 tests, including 167 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 297 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 297 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 293 tests and 669,438 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 297 tests and 669,797 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **669,438 requests** against C++. These include
+Each differential run compares **669,797 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -525,8 +526,9 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Translate decoder-state construction/initialization and output-encoding
-   dependencies, retaining the original unconditional 8x stage construction.
+1. Translate decoder-state construction/initialization using the translated
+   output-encoding information and retaining the original unconditional 8x
+   stage construction.
    Connect the frame/image decoder to the translated modular decoder, metadata,
    sections, entropy, prediction, and transforms. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
@@ -734,3 +736,22 @@ those rules are distinct from the port's C++ std::min/max helpers. Workspace
 owners retain the original allocation sizes/order and transfer float words
 through existing aligned u32 views, adding no unsafe casts. This stage is a
 decoder-initialization dependency, not a complete frame decoder.
+
+OpsinParams/OutputEncodingInfo and inverse-matrix lane expansion add 359
+differential requests. Observations retain all three color bundles, ICC bytes,
+inverse matrices, bias/cube-root/quantization words, intensity targets, gamma,
+luminances, original/default predicates, and statuses. The corpus covers RGB,
+gray, XYB, unknown color spaces, supported transfer functions, custom primaries/
+white points, singular/invalid coordinates, raw ICC fields, original-profile
+fallback, desired-profile rejection, custom matrices, exceptional floats, and
+intensity-threshold neighbors. Source-indeterminate aggregate scalars are
+explicitly value-initialized in these fixtures before observation.
+
+Repeated metadata sequences alternate XYB and non-XYB, preserving prior matrix
+and all_default_opsin state when the original non-XYB branch does not assign
+them, including after partial errors. A native regression checks that retention
+while updating to a gray lossless profile. The private SetColorEncoding copy is
+resolved at each caller's original assignment checkpoint; the remaining body
+borrows the stored copy, avoiding an extra clone for a same-owner argument.
+These are decoder-state dependencies; complete frame/image decoding remains
+unported.

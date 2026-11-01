@@ -86,6 +86,9 @@ mod modular_pixels;
 #[path = "parity/upsampling.rs"]
 mod upsampling;
 
+#[path = "parity/output_encoding.rs"]
+mod output_encoding;
+
 #[path = "parity/sample_conversion.rs"]
 mod sample_conversion;
 
@@ -704,6 +707,7 @@ fn observe(request: &str) -> String {
         kind if render_pipeline::handles(kind) => render_pipeline::observe(kind, &mut args),
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
+        kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if modular_frame_state::handles(kind) => modular_frame_state::observe(kind, &mut args),

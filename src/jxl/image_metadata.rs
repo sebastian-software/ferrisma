@@ -183,8 +183,8 @@ impl Fields for ExtraChannelInfo {
         Ok(())
     }
 }
-// Constants from lib/jxl/quantizer.h; quantizer operations remain unported.
-const DEFAULT_QUANT_BIAS: [f32; 4] = [
+// Constants from lib/jxl/quantizer.h, shared by metadata and OpsinParams.
+pub(crate) const DEFAULT_QUANT_BIAS: [f32; 4] = [
     1.0 - f32::from_bits(0x3d5fd8c1),
     1.0 - f32::from_bits(0x3d8f78bc),
     1.0 - f32::from_bits(0x3d4c88c0),
