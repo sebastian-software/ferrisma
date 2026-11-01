@@ -234,7 +234,7 @@
     },
     {
       "source": "upstream/libavif/src/codec_avm.c",
-      "rust": "src/variants/extended-pixi-avm/codec_avm.rs",
+      "rust": "src/codec_avm.rs",
       "raw_sha256": "e85dc2aebc574395626aac4c448c8f9e72eb61d23e51727a4baec51ace71d24c",
       "rust_sha256": "98cb7ed152801aa7a879e75947f77247af53d3f5f3594ba36cf0a17aeff505b0",
       "corrections": {

@@ -20,6 +20,10 @@ def main():
     # The original metadata tests use fixed file names in the process-wide temp
     # directory. Keep suites isolated without modifying their source or cases.
     environment.update(TMPDIR=str(temporary), TMP=str(temporary), TEMP=str(temporary))
+    if "-asan" in build.name:
+        # Match upstream's sanitized CI: allocation-failure tests deliberately
+        # request impossible allocations and expect NULL, rather than ASan abort.
+        environment.setdefault("ASAN_OPTIONS", "allocator_may_return_null=1")
     command = ["ctest", "--test-dir", str(build), "--output-on-failure", "-j", str(args.jobs),
                "--output-junit", str(ROOT / "build" / f"{build.name}-results.xml")]
     subprocess.run(command, cwd=ROOT, check=True, env=environment)

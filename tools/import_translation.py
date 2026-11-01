@@ -123,7 +123,8 @@ def main():
         target = target.with_suffix(".rs")
         raw = generated.read_text()
         text, changes = translate(source, raw)
-        if args.variant != "default" and target.exists() and target.read_text() != text:
+        owns_adapter = args.variant == "avm" and source.stem == "codec_avm"
+        if args.variant != "default" and not owns_adapter and target.exists() and target.read_text() != text:
             target = ROOT / "src/variants" / args.variant / target.relative_to(ROOT / "src")
         if args.check:
             if target.read_text() != text:

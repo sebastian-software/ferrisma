@@ -46,10 +46,16 @@ Rust used: `rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`.
 | AVM/AV2 | 67 | 67 | 9,485 |
 | AVM/AV2 + Mini + Extended PIXI | 69 | 69 | 9,547 |
 | All Cargo features and all six codec adapters | 70 | 70 | 9,555 |
+| Default with AddressSanitizer | 64 | 64 | 9,473 |
 
 Every registration above passes, and case/skip inventories match its C baseline.
 The additional AV1 configuration uses libgav1 v0.20.0, rav1e 0.8.1, SVT-AV1
 4.2.0, and libyuv revision `26e56be0f984af3dae4d0c0ab7a0bac8ac20e1b0`.
+AVM uses v1.0.0 at `966a7d7cd6fcf60360caf5dc413b2aeeb65e144d`, with
+the dependency-only export-list repair from ADR 0008. AddressSanitizer uses
+LLVM 16 for native consumers and the matching standard v8 Rust runtime, with
+the loader-array handling documented in ADR 0009. The Rust shared library
+contains ASan load/store, memcpy, and global-registration instrumentation.
 Use `tools/run_tests.py` to isolate temporary directories: upstream metadata
 tests use fixed temporary file names, so separate CTest suites otherwise collide
 when run concurrently. Initial concurrent reference runs exposed this harness
