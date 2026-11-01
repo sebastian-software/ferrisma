@@ -4,6 +4,7 @@ import re
 import subprocess
 
 from check_abi import compiler_flags, walk
+from dav1d_storage import retain_storage_alignment
 
 
 def alignment(node):
@@ -121,4 +122,5 @@ def retain_alignment(text, entry):
                 return match.group()
             return match.group() + ' ' + ' '.join(f'{marker}: [],' for marker in markers)
         text = re.sub(pattern, initializer, text)
-    return text, changes
+    text, storage_changes = retain_storage_alignment(text, ast, alignment)
+    return text, changes, storage_changes

@@ -23,6 +23,22 @@ pub struct Align32;
 #[repr(align(64))]
 pub struct Align64;
 
+// The single field stays at offset zero. These storage wrappers preserve
+// explicit alignment on original C local and static objects; all generated
+// value operations continue to address the field itself.
+#[repr(C, align(2))]
+pub struct Aligned2<T>(pub T);
+#[repr(C, align(4))]
+pub struct Aligned4<T>(pub T);
+#[repr(C, align(8))]
+pub struct Aligned8<T>(pub T);
+#[repr(C, align(16))]
+pub struct Aligned16<T>(pub T);
+#[repr(C, align(32))]
+pub struct Aligned32<T>(pub T);
+#[repr(C, align(64))]
+pub struct Aligned64<T>(pub T);
+
 #[cfg(target_os = "macos")]
 pub(crate) unsafe fn assertion(function: *const c_char, file: *const c_char,
                                line: c_int, expression: *const c_char) {

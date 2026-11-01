@@ -769,7 +769,7 @@ unsafe extern "C" fn mask_edges_inter(
         as *const TxfmInfo;
     let mut y: core::ffi::c_int = 0;
     let mut x: core::ffi::c_int = 0;
-    let mut txa: [[[[uint8_t; 32]; 32]; 2]; 2] = [[[[0; 32]; 32]; 2]; 2];
+    let mut txa: crate::platform::Aligned16<[[[[uint8_t; 32]; 32]; 2]; 2]> = crate::platform::Aligned16([[[[0; 32]; 32]; 2]; 2]);
     let mut y_off: core::ffi::c_int = 0 as core::ffi::c_int;
     let mut y_0: core::ffi::c_int = 0 as core::ffi::c_int;
     while y_0 < h4 {
@@ -777,7 +777,7 @@ unsafe extern "C" fn mask_edges_inter(
         let mut x_0: core::ffi::c_int = 0 as core::ffi::c_int;
         while x_0 < w4 {
             decomp_tx(
-                &raw mut *(*(*(*txa.as_mut_ptr().offset(0 as core::ffi::c_int as isize))
+                &raw mut *(*(*(*txa.0.as_mut_ptr().offset(0 as core::ffi::c_int as isize))
                     .as_mut_ptr()
                     .offset(0 as core::ffi::c_int as isize))
                     .as_mut_ptr()
@@ -808,7 +808,7 @@ unsafe extern "C" fn mask_edges_inter(
                 0 as core::ffi::c_int as isize,
             ))[bx4
             as usize][imin(
-            txa[0 as core::ffi::c_int
+            txa.0[0 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int
                 as usize][y as usize][0 as core::ffi::c_int as usize]
                 as core::ffi::c_int,
@@ -829,7 +829,7 @@ unsafe extern "C" fn mask_edges_inter(
                 1 as core::ffi::c_int as isize,
             ))[by4
             as usize][imin(
-            txa[1 as core::ffi::c_int
+            txa.0[1 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int as usize][x as usize]
                 as core::ffi::c_int,
@@ -846,17 +846,17 @@ unsafe extern "C" fn mask_edges_inter(
             let sidx_1: core::ffi::c_int = (mask >= 0x10000 as core::ffi::c_uint)
                 as core::ffi::c_int;
             let smask_1: core::ffi::c_uint = mask >> (sidx_1 << 4 as core::ffi::c_int);
-            let mut ltx: core::ffi::c_int = txa[0 as core::ffi::c_int
+            let mut ltx: core::ffi::c_int = txa.0[0 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int
                 as usize][y as usize][0 as core::ffi::c_int as usize]
                 as core::ffi::c_int;
-            let mut step: core::ffi::c_int = txa[0 as core::ffi::c_int
+            let mut step: core::ffi::c_int = txa.0[0 as core::ffi::c_int
                 as usize][1 as core::ffi::c_int
                 as usize][y as usize][0 as core::ffi::c_int as usize]
                 as core::ffi::c_int;
             x = step;
             while x < w4 {
-                let rtx: core::ffi::c_int = txa[0 as core::ffi::c_int
+                let rtx: core::ffi::c_int = txa.0[0 as core::ffi::c_int
                     as usize][0 as core::ffi::c_int as usize][y as usize][x as usize]
                     as core::ffi::c_int;
                 let fresh14 = &raw mut (*masks
@@ -865,7 +865,7 @@ unsafe extern "C" fn mask_edges_inter(
                     ))[(bx4 + x) as usize][imin(rtx, ltx) as usize][sidx_1 as usize];
                 *fresh14 = (*fresh14 as core::ffi::c_uint | smask_1) as uint16_t;
                 ltx = rtx;
-                step = txa[0 as core::ffi::c_int
+                step = txa.0[0 as core::ffi::c_int
                     as usize][1 as core::ffi::c_int as usize][y as usize][x as usize]
                     as core::ffi::c_int;
                 x += step;
@@ -879,17 +879,17 @@ unsafe extern "C" fn mask_edges_inter(
             let sidx_2: core::ffi::c_int = (mask >= 0x10000 as core::ffi::c_uint)
                 as core::ffi::c_int;
             let smask_2: core::ffi::c_uint = mask >> (sidx_2 << 4 as core::ffi::c_int);
-            let mut ttx: core::ffi::c_int = txa[1 as core::ffi::c_int
+            let mut ttx: core::ffi::c_int = txa.0[1 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int as usize][x as usize]
                 as core::ffi::c_int;
-            let mut step_0: core::ffi::c_int = txa[1 as core::ffi::c_int
+            let mut step_0: core::ffi::c_int = txa.0[1 as core::ffi::c_int
                 as usize][1 as core::ffi::c_int
                 as usize][0 as core::ffi::c_int as usize][x as usize]
                 as core::ffi::c_int;
             y = step_0;
             while y < h4 {
-                let btx: core::ffi::c_int = txa[1 as core::ffi::c_int
+                let btx: core::ffi::c_int = txa.0[1 as core::ffi::c_int
                     as usize][0 as core::ffi::c_int as usize][y as usize][x as usize]
                     as core::ffi::c_int;
                 let fresh15 = &raw mut (*masks
@@ -898,7 +898,7 @@ unsafe extern "C" fn mask_edges_inter(
                     ))[(by4 + y) as usize][imin(ttx, btx) as usize][sidx_2 as usize];
                 *fresh15 = (*fresh15 as core::ffi::c_uint | smask_2) as uint16_t;
                 ttx = btx;
-                step_0 = txa[1 as core::ffi::c_int
+                step_0 = txa.0[1 as core::ffi::c_int
                     as usize][1 as core::ffi::c_int as usize][y as usize][x as usize]
                     as core::ffi::c_int;
                 y += step_0;
@@ -909,14 +909,14 @@ unsafe extern "C" fn mask_edges_inter(
     }
     y = 0 as core::ffi::c_int;
     while y < h4 {
-        *l.offset(y as isize) = txa[0 as core::ffi::c_int
+        *l.offset(y as isize) = txa.0[0 as core::ffi::c_int
             as usize][0 as core::ffi::c_int
             as usize][y as usize][(w4 - 1 as core::ffi::c_int) as usize];
         y += 1;
     }
     memcpy(
         a as *mut core::ffi::c_void,
-        (txa[1 as core::ffi::c_int
+        (txa.0[1 as core::ffi::c_int
             as usize][0 as core::ffi::c_int
             as usize][(h4 - 1 as core::ffi::c_int) as usize])
             .as_mut_ptr() as *const core::ffi::c_void,

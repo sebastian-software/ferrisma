@@ -113,9 +113,11 @@ def corrected(source, raw, entry):
     text, count = re.subn(r'let ref mut (fresh\d+) = ([\s\S]*?);', r'let \1 = &raw mut \2;', text)
     if count:
         changes['raw-c-assignment-temporary'] = count
-    text, count = retain_alignment(text, entry)
+    text, count, storage_count = retain_alignment(text, entry)
     if count:
         changes['original-c-record-field-alignment'] = count
+    if storage_count:
+        changes['original-c-object-alignment'] = storage_count
     text, count = current_variadic(text)
     if count:
         changes['current-rust-variadic-list'] = count

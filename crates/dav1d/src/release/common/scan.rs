@@ -48,7 +48,7 @@ unsafe extern "C" fn imax(a: core::ffi::c_int, b: core::ffi::c_int) -> core::ffi
     return if a > b { a } else { b };
 }
 pub const _PTHREAD_ONCE_SIG_init: core::ffi::c_int = 0x30b1bcba as core::ffi::c_int;
-static mut scan_4x4: [uint16_t; 16] = [
+static mut scan_4x4: crate::platform::Aligned32<[uint16_t; 16]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     4 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -65,8 +65,8 @@ static mut scan_4x4: [uint16_t; 16] = [
     14 as core::ffi::c_int as uint16_t,
     11 as core::ffi::c_int as uint16_t,
     15 as core::ffi::c_int as uint16_t,
-];
-static mut scan_4x8: [uint16_t; 32] = [
+]);
+static mut scan_4x8: crate::platform::Aligned32<[uint16_t; 32]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     8 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -99,8 +99,8 @@ static mut scan_4x8: [uint16_t; 32] = [
     30 as core::ffi::c_int as uint16_t,
     23 as core::ffi::c_int as uint16_t,
     31 as core::ffi::c_int as uint16_t,
-];
-static mut scan_4x16: [uint16_t; 64] = [
+]);
+static mut scan_4x16: crate::platform::Aligned32<[uint16_t; 64]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     16 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -165,8 +165,8 @@ static mut scan_4x16: [uint16_t; 64] = [
     62 as core::ffi::c_int as uint16_t,
     47 as core::ffi::c_int as uint16_t,
     63 as core::ffi::c_int as uint16_t,
-];
-static mut scan_8x4: [uint16_t; 32] = [
+]);
+static mut scan_8x4: crate::platform::Aligned32<[uint16_t; 32]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
     4 as core::ffi::c_int as uint16_t,
@@ -199,8 +199,8 @@ static mut scan_8x4: [uint16_t; 32] = [
     27 as core::ffi::c_int as uint16_t,
     30 as core::ffi::c_int as uint16_t,
     31 as core::ffi::c_int as uint16_t,
-];
-static mut scan_8x8: [uint16_t; 64] = [
+]);
+static mut scan_8x8: crate::platform::Aligned32<[uint16_t; 64]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     8 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -265,8 +265,8 @@ static mut scan_8x8: [uint16_t; 64] = [
     62 as core::ffi::c_int as uint16_t,
     55 as core::ffi::c_int as uint16_t,
     63 as core::ffi::c_int as uint16_t,
-];
-static mut scan_8x16: [uint16_t; 128] = [
+]);
+static mut scan_8x16: crate::platform::Aligned32<[uint16_t; 128]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     16 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -395,8 +395,8 @@ static mut scan_8x16: [uint16_t; 128] = [
     126 as core::ffi::c_int as uint16_t,
     111 as core::ffi::c_int as uint16_t,
     127 as core::ffi::c_int as uint16_t,
-];
-static mut scan_8x32: [uint16_t; 256] = [
+]);
+static mut scan_8x32: crate::platform::Aligned32<[uint16_t; 256]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     32 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -653,8 +653,8 @@ static mut scan_8x32: [uint16_t; 256] = [
     254 as core::ffi::c_int as uint16_t,
     223 as core::ffi::c_int as uint16_t,
     255 as core::ffi::c_int as uint16_t,
-];
-static mut scan_16x4: [uint16_t; 64] = [
+]);
+static mut scan_16x4: crate::platform::Aligned32<[uint16_t; 64]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
     4 as core::ffi::c_int as uint16_t,
@@ -719,8 +719,8 @@ static mut scan_16x4: [uint16_t; 64] = [
     59 as core::ffi::c_int as uint16_t,
     62 as core::ffi::c_int as uint16_t,
     63 as core::ffi::c_int as uint16_t,
-];
-static mut scan_16x8: [uint16_t; 128] = [
+]);
+static mut scan_16x8: crate::platform::Aligned32<[uint16_t; 128]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
     8 as core::ffi::c_int as uint16_t,
@@ -849,8 +849,8 @@ static mut scan_16x8: [uint16_t; 128] = [
     119 as core::ffi::c_int as uint16_t,
     126 as core::ffi::c_int as uint16_t,
     127 as core::ffi::c_int as uint16_t,
-];
-static mut scan_16x16: [uint16_t; 256] = [
+]);
+static mut scan_16x16: crate::platform::Aligned32<[uint16_t; 256]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     16 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -1107,8 +1107,8 @@ static mut scan_16x16: [uint16_t; 256] = [
     254 as core::ffi::c_int as uint16_t,
     239 as core::ffi::c_int as uint16_t,
     255 as core::ffi::c_int as uint16_t,
-];
-static mut scan_16x32: [uint16_t; 512] = [
+]);
+static mut scan_16x32: crate::platform::Aligned32<[uint16_t; 512]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     32 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -1621,8 +1621,8 @@ static mut scan_16x32: [uint16_t; 512] = [
     510 as core::ffi::c_int as uint16_t,
     479 as core::ffi::c_int as uint16_t,
     511 as core::ffi::c_int as uint16_t,
-];
-static mut scan_32x8: [uint16_t; 256] = [
+]);
+static mut scan_32x8: crate::platform::Aligned32<[uint16_t; 256]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
     8 as core::ffi::c_int as uint16_t,
@@ -1879,8 +1879,8 @@ static mut scan_32x8: [uint16_t; 256] = [
     247 as core::ffi::c_int as uint16_t,
     254 as core::ffi::c_int as uint16_t,
     255 as core::ffi::c_int as uint16_t,
-];
-static mut scan_32x16: [uint16_t; 512] = [
+]);
+static mut scan_32x16: crate::platform::Aligned32<[uint16_t; 512]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
     16 as core::ffi::c_int as uint16_t,
@@ -2393,8 +2393,8 @@ static mut scan_32x16: [uint16_t; 512] = [
     495 as core::ffi::c_int as uint16_t,
     510 as core::ffi::c_int as uint16_t,
     511 as core::ffi::c_int as uint16_t,
-];
-static mut scan_32x32: [uint16_t; 1024] = [
+]);
+static mut scan_32x32: crate::platform::Aligned32<[uint16_t; 1024]> = crate::platform::Aligned32([
     0 as core::ffi::c_int as uint16_t,
     32 as core::ffi::c_int as uint16_t,
     1 as core::ffi::c_int as uint16_t,
@@ -3419,29 +3419,29 @@ static mut scan_32x32: [uint16_t; 1024] = [
     1022 as core::ffi::c_int as uint16_t,
     991 as core::ffi::c_int as uint16_t,
     1023 as core::ffi::c_int as uint16_t,
-];
+]);
 #[no_mangle]
 pub static mut dav1d_scans: [*const uint16_t; 19] = unsafe {
     [
-        core::ptr::addr_of!(scan_4x4).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_8x8).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_16x16).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_4x8).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_8x4).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_8x16).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_16x8).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_16x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x16).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_4x16).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_16x4).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_8x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x8).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_16x32).cast::<uint16_t>(),
-        core::ptr::addr_of!(scan_32x16).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_4x4.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x8.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x16.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_4x8.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x4.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x16.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x8.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x16.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_4x16.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x4.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x8.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x32.0).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x16.0).cast::<uint16_t>(),
     ]
 };
 static mut last_nonzero_col_from_eob_4x4: [uint8_t; 16] = [0; 16];
@@ -3485,85 +3485,85 @@ unsafe extern "C" fn init_tbl(
 unsafe extern "C" fn init_internal() {
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_4x4).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_4x4).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_4x4.0).cast::<uint16_t>(),
         4 as core::ffi::c_int,
         4 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_8x8).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_8x8).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x8.0).cast::<uint16_t>(),
         8 as core::ffi::c_int,
         8 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_16x16).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_16x16).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x16.0).cast::<uint16_t>(),
         16 as core::ffi::c_int,
         16 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_32x32).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_32x32).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x32.0).cast::<uint16_t>(),
         32 as core::ffi::c_int,
         32 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_4x8).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_4x8).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_4x8.0).cast::<uint16_t>(),
         4 as core::ffi::c_int,
         8 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_8x4).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_8x4).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x4.0).cast::<uint16_t>(),
         8 as core::ffi::c_int,
         4 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_8x16).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_8x16).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x16.0).cast::<uint16_t>(),
         8 as core::ffi::c_int,
         16 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_16x8).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_16x8).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x8.0).cast::<uint16_t>(),
         16 as core::ffi::c_int,
         8 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_16x32).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_16x32).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x32.0).cast::<uint16_t>(),
         16 as core::ffi::c_int,
         32 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_32x16).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_32x16).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x16.0).cast::<uint16_t>(),
         32 as core::ffi::c_int,
         16 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_4x16).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_4x16).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_4x16.0).cast::<uint16_t>(),
         4 as core::ffi::c_int,
         16 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_16x4).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_16x4).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_16x4.0).cast::<uint16_t>(),
         16 as core::ffi::c_int,
         4 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_8x32).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_8x32).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_8x32.0).cast::<uint16_t>(),
         8 as core::ffi::c_int,
         32 as core::ffi::c_int,
     );
     init_tbl(
         core::ptr::addr_of_mut!(last_nonzero_col_from_eob_32x8).cast::<uint8_t>(),
-        core::ptr::addr_of!(scan_32x8).cast::<uint16_t>(),
+        core::ptr::addr_of!(scan_32x8.0).cast::<uint16_t>(),
         32 as core::ffi::c_int,
         8 as core::ffi::c_int,
     );

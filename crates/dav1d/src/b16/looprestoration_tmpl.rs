@@ -1258,9 +1258,9 @@ unsafe extern "C" fn sgr_finish1(
     w1: core::ffi::c_int,
     bitdepth_max: core::ffi::c_int,
 ) {
-    let mut tmp: [coef; 384] = [0; 384];
-    sgr_finish_filter_row1(tmp.as_mut_ptr(), *dst, A_ptrs, B_ptrs, w);
-    sgr_weighted_row1(*dst, tmp.as_mut_ptr(), w, w1, bitdepth_max);
+    let mut tmp: crate::platform::Aligned16<[coef; 384]> = crate::platform::Aligned16([0; 384]);
+    sgr_finish_filter_row1(tmp.0.as_mut_ptr(), *dst, A_ptrs, B_ptrs, w);
+    sgr_weighted_row1(*dst, tmp.0.as_mut_ptr(), w, w1, bitdepth_max);
     *dst = (*dst).offset(PXSTRIDE(stride) as isize);
     rotate(A_ptrs, B_ptrs, 3 as core::ffi::c_int);
 }
@@ -1275,14 +1275,14 @@ unsafe extern "C" fn sgr_finish2(
     w1: core::ffi::c_int,
     bitdepth_max: core::ffi::c_int,
 ) {
-    let mut tmp: [coef; 768] = [0; 768];
-    sgr_finish_filter2(tmp.as_mut_ptr(), *dst, stride, A_ptrs, B_ptrs, w, h);
-    sgr_weighted_row1(*dst, tmp.as_mut_ptr(), w, w1, bitdepth_max);
+    let mut tmp: crate::platform::Aligned16<[coef; 768]> = crate::platform::Aligned16([0; 768]);
+    sgr_finish_filter2(tmp.0.as_mut_ptr(), *dst, stride, A_ptrs, B_ptrs, w, h);
+    sgr_weighted_row1(*dst, tmp.0.as_mut_ptr(), w, w1, bitdepth_max);
     *dst = (*dst).offset(PXSTRIDE(stride) as isize);
     if h > 1 as core::ffi::c_int {
         sgr_weighted_row1(
             *dst,
-            tmp.as_mut_ptr().offset(FILTER_OUT_STRIDE as isize),
+            tmp.0.as_mut_ptr().offset(FILTER_OUT_STRIDE as isize),
             w,
             w1,
             bitdepth_max,
@@ -1305,13 +1305,13 @@ unsafe extern "C" fn sgr_finish_mix(
     w1: core::ffi::c_int,
     bitdepth_max: core::ffi::c_int,
 ) {
-    let mut tmp5: [coef; 768] = [0; 768];
-    let mut tmp3: [coef; 768] = [0; 768];
-    sgr_finish_filter2(tmp5.as_mut_ptr(), *dst, stride, A5_ptrs, B5_ptrs, w, h);
-    sgr_finish_filter_row1(tmp3.as_mut_ptr(), *dst, A3_ptrs, B3_ptrs, w);
+    let mut tmp5: crate::platform::Aligned16<[coef; 768]> = crate::platform::Aligned16([0; 768]);
+    let mut tmp3: crate::platform::Aligned16<[coef; 768]> = crate::platform::Aligned16([0; 768]);
+    sgr_finish_filter2(tmp5.0.as_mut_ptr(), *dst, stride, A5_ptrs, B5_ptrs, w, h);
+    sgr_finish_filter_row1(tmp3.0.as_mut_ptr(), *dst, A3_ptrs, B3_ptrs, w);
     if h > 1 as core::ffi::c_int {
         sgr_finish_filter_row1(
-            tmp3.as_mut_ptr().offset(FILTER_OUT_STRIDE as isize),
+            tmp3.0.as_mut_ptr().offset(FILTER_OUT_STRIDE as isize),
             (*dst).offset(PXSTRIDE(stride) as isize),
             &raw mut *A3_ptrs.offset(1 as core::ffi::c_int as isize),
             &raw mut *B3_ptrs.offset(1 as core::ffi::c_int as isize),
@@ -1321,8 +1321,8 @@ unsafe extern "C" fn sgr_finish_mix(
     sgr_weighted2(
         *dst,
         stride,
-        tmp5.as_mut_ptr(),
-        tmp3.as_mut_ptr(),
+        tmp5.0.as_mut_ptr(),
+        tmp3.0.as_mut_ptr(),
         w,
         h,
         w0,
@@ -1345,32 +1345,32 @@ unsafe extern "C" fn sgr_3x3_c(
     bitdepth_max: core::ffi::c_int,
 ) {
     let mut current_block: u64;
-    let mut sumsq_buf: [int32_t; 1216] = [0; 1216];
-    let mut sum_buf: [coef; 1216] = [0; 1216];
+    let mut sumsq_buf: crate::platform::Aligned16<[int32_t; 1216]> = crate::platform::Aligned16([0; 1216]);
+    let mut sum_buf: crate::platform::Aligned16<[coef; 1216]> = crate::platform::Aligned16([0; 1216]);
     let mut sumsq_ptrs: [*mut int32_t; 3] = [0 as *mut int32_t; 3];
     let mut sumsq_rows: [*mut int32_t; 3] = [0 as *mut int32_t; 3];
     let mut sum_ptrs: [*mut coef; 3] = [0 as *mut coef; 3];
     let mut sum_rows: [*mut coef; 3] = [0 as *mut coef; 3];
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     while i < 3 as core::ffi::c_int {
-        sumsq_rows[i as usize] = &raw mut *sumsq_buf
+        sumsq_rows[i as usize] = &raw mut *sumsq_buf.0
             .as_mut_ptr()
             .offset((i * BUF_STRIDE) as isize) as *mut int32_t;
-        sum_rows[i as usize] = &raw mut *sum_buf
+        sum_rows[i as usize] = &raw mut *sum_buf.0
             .as_mut_ptr()
             .offset((i * BUF_STRIDE) as isize) as *mut coef;
         i += 1;
     }
-    let mut A_buf: [int32_t; 1216] = [0; 1216];
-    let mut B_buf: [coef; 1216] = [0; 1216];
+    let mut A_buf: crate::platform::Aligned16<[int32_t; 1216]> = crate::platform::Aligned16([0; 1216]);
+    let mut B_buf: crate::platform::Aligned16<[coef; 1216]> = crate::platform::Aligned16([0; 1216]);
     let mut A_ptrs: [*mut int32_t; 3] = [0 as *mut int32_t; 3];
     let mut B_ptrs: [*mut coef; 3] = [0 as *mut coef; 3];
     let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
     while i_0 < 3 as core::ffi::c_int {
-        A_ptrs[i_0 as usize] = &raw mut *A_buf
+        A_ptrs[i_0 as usize] = &raw mut *A_buf.0
             .as_mut_ptr()
             .offset((i_0 * BUF_STRIDE) as isize) as *mut int32_t;
-        B_ptrs[i_0 as usize] = &raw mut *B_buf
+        B_ptrs[i_0 as usize] = &raw mut *B_buf.0
             .as_mut_ptr()
             .offset((i_0 * BUF_STRIDE) as isize) as *mut coef;
         i_0 += 1;
@@ -1683,32 +1683,32 @@ unsafe extern "C" fn sgr_5x5_c(
     bitdepth_max: core::ffi::c_int,
 ) {
     let mut current_block: u64;
-    let mut sumsq_buf: [int32_t; 2016] = [0; 2016];
-    let mut sum_buf: [coef; 2016] = [0; 2016];
+    let mut sumsq_buf: crate::platform::Aligned16<[int32_t; 2016]> = crate::platform::Aligned16([0; 2016]);
+    let mut sum_buf: crate::platform::Aligned16<[coef; 2016]> = crate::platform::Aligned16([0; 2016]);
     let mut sumsq_ptrs: [*mut int32_t; 5] = [0 as *mut int32_t; 5];
     let mut sumsq_rows: [*mut int32_t; 5] = [0 as *mut int32_t; 5];
     let mut sum_ptrs: [*mut coef; 5] = [0 as *mut coef; 5];
     let mut sum_rows: [*mut coef; 5] = [0 as *mut coef; 5];
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     while i < 5 as core::ffi::c_int {
-        sumsq_rows[i as usize] = &raw mut *sumsq_buf
+        sumsq_rows[i as usize] = &raw mut *sumsq_buf.0
             .as_mut_ptr()
             .offset((i * BUF_STRIDE) as isize) as *mut int32_t;
-        sum_rows[i as usize] = &raw mut *sum_buf
+        sum_rows[i as usize] = &raw mut *sum_buf.0
             .as_mut_ptr()
             .offset((i * BUF_STRIDE) as isize) as *mut coef;
         i += 1;
     }
-    let mut A_buf: [int32_t; 816] = [0; 816];
-    let mut B_buf: [coef; 816] = [0; 816];
+    let mut A_buf: crate::platform::Aligned16<[int32_t; 816]> = crate::platform::Aligned16([0; 816]);
+    let mut B_buf: crate::platform::Aligned16<[coef; 816]> = crate::platform::Aligned16([0; 816]);
     let mut A_ptrs: [*mut int32_t; 2] = [0 as *mut int32_t; 2];
     let mut B_ptrs: [*mut coef; 2] = [0 as *mut coef; 2];
     let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
     while i_0 < 2 as core::ffi::c_int {
-        A_ptrs[i_0 as usize] = &raw mut *A_buf
+        A_ptrs[i_0 as usize] = &raw mut *A_buf.0
             .as_mut_ptr()
             .offset((i_0 * BUF_STRIDE) as isize) as *mut int32_t;
-        B_ptrs[i_0 as usize] = &raw mut *B_buf
+        B_ptrs[i_0 as usize] = &raw mut *B_buf.0
             .as_mut_ptr()
             .offset((i_0 * BUF_STRIDE) as isize) as *mut coef;
         i_0 += 1;
@@ -2138,62 +2138,62 @@ unsafe extern "C" fn sgr_mix_c(
     bitdepth_max: core::ffi::c_int,
 ) {
     let mut current_block: u64;
-    let mut sumsq5_buf: [int32_t; 2016] = [0; 2016];
-    let mut sum5_buf: [coef; 2016] = [0; 2016];
+    let mut sumsq5_buf: crate::platform::Aligned16<[int32_t; 2016]> = crate::platform::Aligned16([0; 2016]);
+    let mut sum5_buf: crate::platform::Aligned16<[coef; 2016]> = crate::platform::Aligned16([0; 2016]);
     let mut sumsq5_ptrs: [*mut int32_t; 5] = [0 as *mut int32_t; 5];
     let mut sumsq5_rows: [*mut int32_t; 5] = [0 as *mut int32_t; 5];
     let mut sum5_ptrs: [*mut coef; 5] = [0 as *mut coef; 5];
     let mut sum5_rows: [*mut coef; 5] = [0 as *mut coef; 5];
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     while i < 5 as core::ffi::c_int {
-        sumsq5_rows[i as usize] = &raw mut *sumsq5_buf
+        sumsq5_rows[i as usize] = &raw mut *sumsq5_buf.0
             .as_mut_ptr()
             .offset((i * BUF_STRIDE) as isize) as *mut int32_t;
-        sum5_rows[i as usize] = &raw mut *sum5_buf
+        sum5_rows[i as usize] = &raw mut *sum5_buf.0
             .as_mut_ptr()
             .offset((i * BUF_STRIDE) as isize) as *mut coef;
         i += 1;
     }
-    let mut sumsq3_buf: [int32_t; 1216] = [0; 1216];
-    let mut sum3_buf: [coef; 1216] = [0; 1216];
+    let mut sumsq3_buf: crate::platform::Aligned16<[int32_t; 1216]> = crate::platform::Aligned16([0; 1216]);
+    let mut sum3_buf: crate::platform::Aligned16<[coef; 1216]> = crate::platform::Aligned16([0; 1216]);
     let mut sumsq3_ptrs: [*mut int32_t; 3] = [0 as *mut int32_t; 3];
     let mut sumsq3_rows: [*mut int32_t; 3] = [0 as *mut int32_t; 3];
     let mut sum3_ptrs: [*mut coef; 3] = [0 as *mut coef; 3];
     let mut sum3_rows: [*mut coef; 3] = [0 as *mut coef; 3];
     let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
     while i_0 < 3 as core::ffi::c_int {
-        sumsq3_rows[i_0 as usize] = &raw mut *sumsq3_buf
+        sumsq3_rows[i_0 as usize] = &raw mut *sumsq3_buf.0
             .as_mut_ptr()
             .offset((i_0 * BUF_STRIDE) as isize) as *mut int32_t;
-        sum3_rows[i_0 as usize] = &raw mut *sum3_buf
+        sum3_rows[i_0 as usize] = &raw mut *sum3_buf.0
             .as_mut_ptr()
             .offset((i_0 * BUF_STRIDE) as isize) as *mut coef;
         i_0 += 1;
     }
-    let mut A5_buf: [int32_t; 816] = [0; 816];
-    let mut B5_buf: [coef; 816] = [0; 816];
+    let mut A5_buf: crate::platform::Aligned16<[int32_t; 816]> = crate::platform::Aligned16([0; 816]);
+    let mut B5_buf: crate::platform::Aligned16<[coef; 816]> = crate::platform::Aligned16([0; 816]);
     let mut A5_ptrs: [*mut int32_t; 2] = [0 as *mut int32_t; 2];
     let mut B5_ptrs: [*mut coef; 2] = [0 as *mut coef; 2];
     let mut i_1: core::ffi::c_int = 0 as core::ffi::c_int;
     while i_1 < 2 as core::ffi::c_int {
-        A5_ptrs[i_1 as usize] = &raw mut *A5_buf
+        A5_ptrs[i_1 as usize] = &raw mut *A5_buf.0
             .as_mut_ptr()
             .offset((i_1 * BUF_STRIDE) as isize) as *mut int32_t;
-        B5_ptrs[i_1 as usize] = &raw mut *B5_buf
+        B5_ptrs[i_1 as usize] = &raw mut *B5_buf.0
             .as_mut_ptr()
             .offset((i_1 * BUF_STRIDE) as isize) as *mut coef;
         i_1 += 1;
     }
-    let mut A3_buf: [int32_t; 1616] = [0; 1616];
-    let mut B3_buf: [coef; 1616] = [0; 1616];
+    let mut A3_buf: crate::platform::Aligned16<[int32_t; 1616]> = crate::platform::Aligned16([0; 1616]);
+    let mut B3_buf: crate::platform::Aligned16<[coef; 1616]> = crate::platform::Aligned16([0; 1616]);
     let mut A3_ptrs: [*mut int32_t; 4] = [0 as *mut int32_t; 4];
     let mut B3_ptrs: [*mut coef; 4] = [0 as *mut coef; 4];
     let mut i_2: core::ffi::c_int = 0 as core::ffi::c_int;
     while i_2 < 4 as core::ffi::c_int {
-        A3_ptrs[i_2 as usize] = &raw mut *A3_buf
+        A3_ptrs[i_2 as usize] = &raw mut *A3_buf.0
             .as_mut_ptr()
             .offset((i_2 * BUF_STRIDE) as isize) as *mut int32_t;
-        B3_ptrs[i_2 as usize] = &raw mut *B3_buf
+        B3_ptrs[i_2 as usize] = &raw mut *B3_buf.0
             .as_mut_ptr()
             .offset((i_2 * BUF_STRIDE) as isize) as *mut coef;
         i_2 += 1;

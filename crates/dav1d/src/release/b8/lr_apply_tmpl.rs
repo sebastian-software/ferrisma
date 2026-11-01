@@ -2318,7 +2318,7 @@ unsafe extern "C" fn lr_sbrow(
     let row_y: core::ffi::c_int = y
         + (8 as core::ffi::c_int >> ss_ver) * (y != 0) as core::ffi::c_int;
     let shift_hor: core::ffi::c_int = 7 as core::ffi::c_int - ss_hor;
-    let mut pre_lr_border: [[[pixel; 4]; 136]; 2] = [[[0; 4]; 136]; 2];
+    let mut pre_lr_border: crate::platform::Aligned16<[[[pixel; 4]; 136]; 2]> = crate::platform::Aligned16([[[0; 4]; 136]; 2]);
     let mut lr: [*const Av1RestorationUnit; 2] = [0 as *const Av1RestorationUnit; 2];
     let mut edges: LrEdgeFlags = ((if y > 0 as core::ffi::c_int {
         LR_HAVE_TOP as core::ffi::c_int
@@ -2365,7 +2365,7 @@ unsafe extern "C" fn lr_sbrow(
             as core::ffi::c_int;
         if restore_next != 0 {
             backup4xU(
-                (pre_lr_border[bit as usize]).as_mut_ptr() as *mut [pixel; 4],
+                (pre_lr_border.0[bit as usize]).as_mut_ptr() as *mut [pixel; 4],
                 p.offset(unit_size as isize).offset(-(4 as core::ffi::c_int as isize)),
                 p_stride,
                 backup_h,
@@ -2375,7 +2375,7 @@ unsafe extern "C" fn lr_sbrow(
             lr_stripe(
                 f,
                 p,
-                (pre_lr_border[(bit == 0) as core::ffi::c_int as usize]).as_mut_ptr()
+                (pre_lr_border.0[(bit == 0) as core::ffi::c_int as usize]).as_mut_ptr()
                     as *const [pixel; 4],
                 x,
                 y,
@@ -2410,7 +2410,7 @@ unsafe extern "C" fn lr_sbrow(
         lr_stripe(
             f,
             p,
-            (pre_lr_border[(bit == 0) as core::ffi::c_int as usize]).as_mut_ptr()
+            (pre_lr_border.0[(bit == 0) as core::ffi::c_int as usize]).as_mut_ptr()
                 as *const [pixel; 4],
             x,
             y,
