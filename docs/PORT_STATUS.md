@@ -43,9 +43,9 @@ and no placeholder codec APIs. The source revision is pinned in
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
-| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, and complete MakeFrameHeader including JPEG inputs, partial state, blending, and animation; pixel/section orchestration unported |
+| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder configuration/frame ownership with modular pixel preparation; full pixel/section orchestration unported |
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
-| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, plus sample/transform helpers; ComputeEncodingData pixel preparation, VarDCT entry points, frame/section orchestration, and custom runners/allocators unported |
+| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h` | `quant_weights.rs` | QuantTable indices and count; weights/matrix APIs unported |
 | `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
@@ -107,13 +107,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 224 tests, including 128 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 224 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 224 tests and corpus |
+| Rust debug | PASSED | 229 tests, including 131 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 229 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 229 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **623,972 requests** against C++. These include
+Each differential run compares **624,328 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -394,8 +394,25 @@ access-control support only in its fixture translation unit. Native tests
 check copied owners, progressive policy, cropped/shifted group selection,
 cleanup, retained error prefixes/widths, and independently captured C++ modular
 section bytes. Those 42-bit zero-gray sections do not include codestream/frame
-headers or a section table. ComputeEncodingData, actual frame entry points,
-frame decoding, and the complete first-image acceptance gate remain unported.
+headers or a section table. General ComputeEncodingData, actual frame entry
+points, frame decoding, and the complete first-image acceptance gate remain
+unported.
+
+The fixed lossless Thunder path adds 356 differential requests at the original
+ComputeEncodingData boundary. Cases compare converted samples, default global
+palette/compaction and RCT selection, metadata/transform order, all stream
+owners/options, group schedules/mappings, plane release, and unchanged Image3F
+input bits. They cover gray/RGB, 8/16-bit integers, constants, ramps, restricted
+palettes, deterministic noise, edge groups, and multiple DC groups. Extra input
+rows/columns contain NaNs and remain unread. Invalid dimensions fail at the
+original SizeHeader boundary before pixel access, including its uint32 cap.
+Native tests invert the selected transforms to recover integer samples and
+check retained logical dimensions after releasing copied global planes.
+The configuration owns private metadata and its frame exposes read-only
+observations, preventing selection of unported branches through this path.
+Input is already Image3F; CopyColorChannels, padding, outer frame preparation,
+section orchestration, complete codestream output, and frame decoding remain
+separate dependencies.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
@@ -428,8 +445,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Port original ComputeEncodingData pixel preparation, frame decoding, and
-   image/frame/section entry points, then run the complete cross-language image
+1. Connect the fixed source path's remaining outer pixel preparation, frame
+   decoding, and image/frame/section entry points, then run the cross-language image
    corpus in the first-image acceptance gate.
 2. Expand through remaining modular and VarDCT decoding and encoding before
    introducing the C ABI and optimized target-specific kernels.

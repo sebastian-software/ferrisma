@@ -30,6 +30,22 @@ requires the remaining encoder configurations, VarDCT, animation, metadata,
 public API, threading, target-specific code, and the full gates in
 [PORTING.md](PORTING.md).
 
+## Initial source configuration
+
+Use the original Thunder speed tier (public effort 2), SetLossless, codestream
+level 10, and buffering 0 to select the non-streaming EncodeFrameOneShot path.
+Use one regular, final frame with integer 8-bit or 16-bit grayscale/RGB samples,
+sRGB metadata, no extra channels, and no animation. Keep all other original
+parameter defaults, including palette/compaction selection and the default
+color transform policy. Use the scalar, null-pool configuration shared with the
+existing differential oracle.
+
+Represent this fixed configuration with private metadata/parameter ownership so
+callers cannot select unported branches through these entry points. The general
+image API remains absent until its additional paths are translated. Partial
+pixel preparation or section output still does not satisfy the acceptance
+evidence above.
+
 ## Dependency queue
 
 1. Entropy streams: hybrid integers, ANS histogram parsing and encoding,

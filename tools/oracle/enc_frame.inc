@@ -5,6 +5,18 @@
 #include "lib/jxl/enc_frame.cc"
 #include <cstddef>
 
+jxl::Status EFParamsPostInit(jxl::CompressParams* p) {
+  return jxl::ParamsPostInit(p);
+}
+jxl::Status EFPrepareLosslessThunder(const jxl::CompressParams& p,
+                                    jxl::ProgressiveSplitter* splitter,
+                                    jxl::FrameHeader* header) {
+  jxl::SetProgressiveMode(p, splitter);
+  return jxl::MakeFrameHeader(header->nonserialized_metadata->xsize(),
+                             header->nonserialized_metadata->ysize(), p,
+                             *splitter, jxl::FrameInfo(), nullptr, false, header);
+}
+
 template<class... T> void EFValues(T... values) { ((std::cout<<' '<<values),...); }
 float EFReadFloat(std::istringstream& in) { uint32_t bits;in>>bits;float value;memcpy(&value,&bits,4);return value; }
 std::vector<float> EFReadFloats(std::istringstream& in) { size_t n;in>>n;std::vector<float> values(n);for(auto& v:values)v=EFReadFloat(in);return values; }

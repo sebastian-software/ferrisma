@@ -7,10 +7,12 @@ use jxl::jxl::base::rect::Rect;
 use jxl::jxl::color_encoding::{ColorSpace, RenderingIntent};
 use jxl::jxl::common::SpeedTier;
 use jxl::jxl::dec_modular::ModularStreamId;
+use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 use jxl::jxl::enc_modular::{GroupParams, ModularFrameEncoder};
 use jxl::jxl::enc_params::CompressParams;
 use jxl::jxl::frame_dimensions::FrameDimensions;
 use jxl::jxl::frame_header::{FrameEncoding, FrameHeader};
+use jxl::jxl::image::Image3;
 use jxl::jxl::image_metadata::{CodecMetadata, ExtraChannelInfo};
 use jxl::jxl::modular::modular_image::Image;
 use jxl::jxl::modular::options::{
@@ -207,6 +209,9 @@ fn writer_output(out: &mut String, writer: &BitWriter, aux: &AuxOut) {
     }
 }
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
+    if kind == "mfs-thunder" {
+        return thunder(args);
+    }
     assert!(matches!(kind, "mfs-init" | "mfs-chain"));
     let streaming = number::<u32>(args) != 0;
     let p = read_params(args);
@@ -360,6 +365,153 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     out.push_str(" P");
     enc_frame::params(&mut out, &p);
     out
+}
+
+fn thunder(args: &mut std::str::SplitWhitespace<'_>) -> String {
+    let w = number(args);
+    let h = number(args);
+    let gray = number::<u32>(args) != 0;
+    let depth = match number::<u32>(args) {
+        8 => LosslessSampleDepth::Uint8,
+        16 => LosslessSampleDepth::Uint16,
+        _ => panic!("fixture depth"),
+    };
+    let cw = number(args);
+    let ch = number(args);
+    let config = match LosslessThunderConfig::new(w, h, gray, depth) {
+        Ok(c) => c,
+        Err(e) => return format!("S {}", e as i32),
+    };
+    let mut frame = config.create_frame().unwrap();
+    let mut color = Image3::<f32>::create(cw, ch).unwrap();
+    for c in 0..3 {
+        for y in 0..ch {
+            for x in 0..cw {
+                color.plane_row_mut(c, y)[x] = f32::from_bits(number(args));
+            }
+        }
+    }
+    let mut out = status_code(&frame.prepare_modular(&color)).to_string();
+    state(&mut out, frame.modular());
+    for c in 0..3 {
+        for y in 0..ch {
+            for x in 0..cw {
+                write!(out, " {}", color.plane_row(c, y)[x].to_bits()).unwrap();
+            }
+        }
+    }
+    out
+}
+
+fn thunder_request(
+    w: usize,
+    h: usize,
+    gray: bool,
+    depth: u32,
+    mode: usize,
+    padded: bool,
+    seed: &mut u64,
+) -> String {
+    let cw = w + if padded { 5 } else { 0 };
+    let ch = h + if padded { 3 } else { 0 };
+    let mut request = format!("mfs-thunder {w} {h} {} {depth} {cw} {ch}", u32::from(gray));
+    let maxval = (1u32 << depth) - 1;
+    let factor = 1.0f32 / maxval as f32;
+    for c in 0..3 {
+        for y in 0..ch {
+            for x in 0..cw {
+                let v = if x >= w || y >= h {
+                    f32::from_bits(0x7fc1_2345)
+                } else {
+                    let sample = match mode {
+                        0 => 0,
+                        1 => maxval,
+                        2 => ((c + 1) * 73) as u32 & maxval,
+                        3 => ((x + y * 11 + c * 31) as u32).wrapping_mul(997) & maxval,
+                        4 => (((x / 3 + y / 2 + c) % 4) * 47) as u32,
+                        5 => next(seed) as u32 & maxval,
+                        6 => [0, maxval, maxval / 2, 1][(x + y) % 4],
+                        _ => unreachable!(),
+                    };
+                    sample as f32 * factor
+                };
+                write!(request, " {}", v.to_bits()).unwrap();
+            }
+        }
+    }
+    request
+}
+
+#[test]
+fn lossless_thunder_pixel_preparation_matches_original_palettes_rct_groups_and_released_planes() {
+    let mut seed = 0x6d28_a954_72f1_0b63;
+    let mut cases = Vec::new();
+    for (w, h) in [
+        (1, 1),
+        (2, 3),
+        (17, 9),
+        (127, 3),
+        (128, 1),
+        (129, 3),
+        (256, 1),
+        (257, 3),
+        (399, 1),
+        (400, 3),
+    ] {
+        for gray in [false, true] {
+            for depth in [8, 16] {
+                for mode in 0..7 {
+                    cases.push(thunder_request(
+                        w,
+                        h,
+                        gray,
+                        depth,
+                        mode,
+                        mode % 2 == 0,
+                        &mut seed,
+                    ));
+                }
+            }
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn lossless_thunder_pixel_preparation_retains_group_boundaries_dc_groups_and_default_compaction() {
+    let mut seed = 0x307f_9652_4bad_8e11;
+    let mut cases = Vec::new();
+    for (w, h) in [
+        (401, 3),
+        (513, 5),
+        (9, 513),
+        (2049, 3),
+        (7, 2049),
+        (257, 129),
+    ] {
+        for gray in [false, true] {
+            for depth in [8, 16] {
+                for mode in [0, 3, 5] {
+                    cases.push(thunder_request(w, h, gray, depth, mode, false, &mut seed));
+                }
+            }
+        }
+    }
+    compare(cases);
+}
+
+#[test]
+fn lossless_thunder_configuration_rejects_original_invalid_dimensions_before_pixel_access() {
+    compare(
+        [
+            "mfs-thunder 0 1 0 8 0 1",
+            "mfs-thunder 1 0 1 16 1 0",
+            "mfs-thunder 4294967296 1 0 8 0 0",
+            "mfs-thunder 1 4294967296 1 16 0 0",
+        ]
+        .map(str::to_owned)
+        .to_vec(),
+    );
 }
 fn parameter_input(p: &CompressParams<'_>) -> String {
     let mut out = enc_frame::parameter_input(p);

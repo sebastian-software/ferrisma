@@ -12,6 +12,9 @@ void PredictHeaderObservation(const jxl::weighted::Header&);
 std::string Hex(jxl::Bytes);
 jxl::Status Pad(jxl::BitWriter&);
 jxl::Status Prefix(jxl::BitWriter&, size_t);
+jxl::Status EFParamsPostInit(jxl::CompressParams*);
+jxl::Status EFPrepareLosslessThunder(const jxl::CompressParams&,
+                                    jxl::ProgressiveSplitter*, jxl::FrameHeader*);
 
 template <class T> std::vector<T> MFSReadValues(std::istringstream& in) {
   size_t n; in >> n;
@@ -118,6 +121,48 @@ void MFSState(const jxl::ModularFrameEncoder& e) {
   MFSValues(e.code_.context_map);
 }
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm) {
+  if (command == "mfs-thunder") {
+    size_t w, h, cw, ch; unsigned depth; bool gray;
+    in >> w >> h >> gray >> depth >> cw >> ch;
+    jxl::CodecMetadata metadata;
+    auto status = metadata.size.Set(w,h);
+    if (!status) { std::cout << "S " << static_cast<int>(status.code()); return true; }
+    metadata.m.SetUintSamples(depth);
+    metadata.m.xyb_encoded = false;
+    if (!metadata.m.color_encoding.SetSRGB(gray ? jxl::ColorSpace::kGray : jxl::ColorSpace::kRGB,
+                                         jxl::RenderingIntent::kRelative))
+      throw std::runtime_error("Thunder fixture color");
+    jxl::CompressParams p;
+    p.cms={}; p.debug_image_opaque=nullptr;
+    p.speed_tier=jxl::SpeedTier::kThunder; p.level=10; p.buffering=0;
+    p.SetLossless();
+    if (!EFParamsPostInit(&p)) throw std::runtime_error("Thunder fixture parameters");
+    jxl::PassesEncoderState enc_state(mm);
+    jxl::FrameHeader header(&metadata);
+    if (!EFPrepareLosslessThunder(p,&enc_state.progressive_splitter,&header))
+      throw std::runtime_error("Thunder fixture header");
+    enc_state.shared.frame_dim=header.ToFrameDimensions();
+    auto created=jxl::ModularFrameEncoder::Create(mm,header,p,false);
+    if (!created.ok()) throw std::runtime_error("Thunder fixture frame allocation");
+    auto e=std::move(created).value_();
+    auto image=jxl::Image3F::Create(mm,cw,ch);
+    if (!image.ok()) throw std::runtime_error("Thunder fixture image allocation");
+    auto color=std::move(image).value_();
+    for (size_t c=0;c<3;++c) for(size_t y=0;y<ch;++y) for(size_t x=0;x<cw;++x) {
+      uint32_t bits; in>>bits; color.PlaneRow(c,y)[x]=SCBits<float>(bits);
+    }
+    JxlCmsInterface cms={};
+    const jxl::Rect group_rect(0,0,cw,ch), frame_area_rect(0,0,w,h);
+    status=e->ComputeEncodingData(header,metadata.m,&color,{},group_rect,
+                                 enc_state.shared.frame_dim,frame_area_rect,
+                                 &enc_state,cms,nullptr,nullptr,true);
+    std::cout<<static_cast<int>(status.code());
+    MFSState(*e);
+    // The source path does not mutate Image3F in this configuration.
+    for(size_t c=0;c<3;++c) for(size_t y=0;y<ch;++y) for(size_t x=0;x<cw;++x)
+      std::cout<<' '<<SCBits<uint32_t>(color.PlaneRow(c,y)[x]);
+    return true;
+  }
   if (command != "mfs-init" && command != "mfs-chain") return false;
   bool streaming;
   in >> streaming;

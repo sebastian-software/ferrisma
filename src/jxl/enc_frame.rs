@@ -2,14 +2,17 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! FrameInfo and complete parameter/header preparation from lib/jxl/
-//! enc_frame.{h,cc}. Pixel encoding, section orchestration, streaming, and the
+//! enc_frame.{h,cc}, plus fixed lossless Thunder frame owners and modular pixel
+//! preparation. Complete image encoding, section orchestration, streaming, and
 //! remaining EncodeFrame entry points are absent until translated. Byte names,
 //! narrowing, reused header state, and changes before errors retain source order.
 
 use super::base::float::{max_f32, mul_add_f64};
 use super::base::override_option::{Override, apply_override};
-use super::base::status::{Status, StatusCode};
+use super::base::status::{Status, StatusCode, StatusOr};
+use super::color_encoding::{ColorSpace, RenderingIntent};
 use super::common::SpeedTier;
+use super::enc_modular::ModularFrameEncoder;
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_NOISE};
 use super::enc_progressive_split::{PassDefinition, ProgressiveMode, ProgressiveSplitter};
 use super::frame_dimensions::GROUP_DIM;
@@ -17,7 +20,8 @@ use super::frame_header::{
     BlendMode, BlendingInfo, ColorTransform, FLAG_NOISE, FLAG_SKIP_ADAPTIVE_DC_SMOOTHING,
     FLAG_USE_DC_FRAME, FrameEncoding, FrameHeader, FrameOrigin, FrameType,
 };
-use super::image_metadata::ExtraChannel;
+use super::image::Image3;
+use super::image_metadata::{CodecMetadata, ExtraChannel};
 use super::jpeg::enc_jpeg_data::{
     set_chroma_subsampling_from_jpeg_data, set_color_transform_from_jpeg_data,
 };
@@ -26,6 +30,109 @@ use super::types::JxlBitDepth;
 
 // lib/jxl/noise.h: NoiseParams::kNumNoisePoints.
 const NUM_NOISE_POINTS: usize = 8;
+
+/// Integer metadata configurations for the first original image path.
+#[derive(Clone, Copy)]
+pub enum LosslessSampleDepth {
+    Uint8,
+    Uint16,
+}
+
+/// Fixed source configuration: SetLossless, Thunder, level 10, buffering 0,
+/// one regular final grayscale/RGB frame, and all remaining parameter defaults.
+/// Private metadata prevents selecting unported image paths through this API.
+/// This is codec-internal configuration, not the encoder C API.
+pub struct LosslessThunderConfig {
+    metadata: CodecMetadata,
+}
+impl LosslessThunderConfig {
+    pub fn new(
+        xsize: usize,
+        ysize: usize,
+        gray: bool,
+        depth: LosslessSampleDepth,
+    ) -> StatusOr<Self> {
+        let mut metadata = CodecMetadata::default();
+        metadata.size.set(xsize, ysize)?;
+        metadata.m.set_uint_samples(match depth {
+            LosslessSampleDepth::Uint8 => 8,
+            LosslessSampleDepth::Uint16 => 16,
+        });
+        metadata.m.xyb_encoded = false;
+        metadata.m.color_encoding.set_srgb(
+            if gray {
+                ColorSpace::GRAY
+            } else {
+                ColorSpace::RGB
+            },
+            RenderingIntent::RELATIVE,
+        )?;
+        Ok(Self { metadata })
+    }
+    pub fn metadata(&self) -> &CodecMetadata {
+        &self.metadata
+    }
+    /// The reached setup in EncodeFrameOneShot, before pixel preparation.
+    pub fn create_frame(&self) -> StatusOr<LosslessThunderFrame<'_>> {
+        let mut cparams = CompressParams {
+            speed_tier: SpeedTier::Thunder,
+            level: 10,
+            buffering: 0,
+            ..CompressParams::default()
+        };
+        cparams.set_lossless();
+        params_post_init(&mut cparams)?;
+        let mut splitter = ProgressiveSplitter::default();
+        set_progressive_mode(&cparams, &mut splitter);
+        let mut header = FrameHeader::new(Some(&self.metadata));
+        make_frame_header(
+            self.metadata.xsize(),
+            self.metadata.ysize(),
+            &cparams,
+            &splitter,
+            &FrameInfo::default(),
+            None,
+            false,
+            &mut header,
+        )?;
+        let modular = ModularFrameEncoder::create(&header, &cparams, false)?;
+        Ok(LosslessThunderFrame {
+            config: self,
+            header,
+            splitter,
+            modular,
+        })
+    }
+}
+
+/// Source frame owners for the fixed configuration. Metadata is borrowed from
+/// the configuration; header/parameters cannot be mutated into unported paths.
+/// Full frame/image orchestration remains separate from this preparation API.
+pub struct LosslessThunderFrame<'a> {
+    config: &'a LosslessThunderConfig,
+    header: FrameHeader<'a>,
+    splitter: ProgressiveSplitter,
+    modular: ModularFrameEncoder<'static>,
+}
+impl LosslessThunderFrame<'_> {
+    pub fn header(&self) -> &FrameHeader<'_> {
+        &self.header
+    }
+    pub fn modular(&self) -> &ModularFrameEncoder<'static> {
+        &self.modular
+    }
+    /// Translate ModularFrameEncoder::ComputeEncodingData at the original
+    /// full-image, non-streaming call site. Input is already in Image3F form;
+    /// this does not implement CopyColorChannels or complete image encoding.
+    pub fn prepare_modular(&mut self, color: &Image3<f32>) -> Status {
+        self.modular.compute_encoding_data_lossless_thunder(
+            self.config,
+            &self.header,
+            &self.splitter,
+            color,
+        )
+    }
+}
 #[derive(Clone)]
 pub struct FrameInfo {
     pub save_before_color_transform: bool,

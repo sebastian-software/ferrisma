@@ -372,6 +372,23 @@ uses size_t arithmetic because decoding_speed_tier is unsigned, including its
 wrapping before float conversion. Multiplier sorting retains the reference
 algorithm; safe Default values fill moved-from holes with no added meaning.
 
+The first image configuration owns private metadata, and its frame owner borrows
+that metadata while owning the header, progressive splitter, and modular
+encoder. Its parameters contain no borrowed custom inputs and can therefore
+use a static parameter lifetime. Expose read-only observations of these owners;
+do not expose mutations that could select unported source branches. This is a
+configuration-specific internal path, not a substitute general encoder API.
+
+For the fixed lossless Thunder configuration, ComputeEncodingData's Gaborish,
+patch search, custom splines, XYB, extra-channel conversion, channel moves,
+responsive squeeze, and lossy quantization branches are unreachable through
+original parameter/metadata values. Translate the reached integer conversion,
+default global palette/RCT policy, group scheduling/preparation, plane release,
+and validation in source order. The Image3F input can be borrowed immutably
+because the only source writes to it are in the excluded effect branches.
+Retain the source's double conversion factor and physical-plane versus logical
+channel dimensions. General pixel-preparation entry points remain absent.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

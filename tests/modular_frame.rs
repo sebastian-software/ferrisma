@@ -9,6 +9,7 @@ use jxl::jxl::dec_modular::ModularStreamId;
 use jxl::jxl::enc_ans::Token;
 use jxl::jxl::enc_aux_out::LayerType;
 use jxl::jxl::enc_bit_writer::BitWriter;
+use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 use jxl::jxl::enc_modular::{
     GroupParams, ModularFrameEncoder, do_transform, estimate_wp_cost, maybe_do_transform,
     merge_trees, quantize_channel, try_palettes,
@@ -16,6 +17,7 @@ use jxl::jxl::enc_modular::{
 use jxl::jxl::enc_modular_simd::estimate_cost;
 use jxl::jxl::enc_params::CompressParams;
 use jxl::jxl::frame_header::{FrameEncoding, FrameHeader};
+use jxl::jxl::image::Image3;
 use jxl::jxl::image_metadata::CodecMetadata;
 use jxl::jxl::modular::encoding::context_predict::weighted;
 use jxl::jxl::modular::encoding::dec_ma::PropertyDecisionNode;
@@ -166,6 +168,82 @@ fn header(m: &CodecMetadata) -> FrameHeader<'_> {
     h.encoding = FrameEncoding::MODULAR;
     h.group_size_shift = 0;
     h
+}
+
+#[test]
+fn lossless_thunder_preparation_recovers_integer_pixels_through_the_selected_transforms() {
+    for (gray, depth, bits) in [
+        (true, LosslessSampleDepth::Uint8, 8),
+        (false, LosslessSampleDepth::Uint8, 8),
+        (true, LosslessSampleDepth::Uint16, 16),
+        (false, LosslessSampleDepth::Uint16, 16),
+    ] {
+        let config = LosslessThunderConfig::new(17, 9, gray, depth).unwrap();
+        assert_eq!(config.metadata().m.bit_depth.bits_per_sample, bits);
+        assert!(!config.metadata().m.xyb_encoded);
+        assert_eq!(
+            config.metadata().m.modular_16_bit_buffer_sufficient,
+            bits <= 12
+        );
+        let mut frame = config.create_frame().unwrap();
+        assert_eq!(frame.header().encoding, FrameEncoding::MODULAR);
+        assert!(!frame.header().loop_filter.gab);
+        assert_eq!(frame.header().passes.num_passes, 1);
+        let maxval = (1u32 << bits) - 1;
+        let factor = 1.0f32 / maxval as f32;
+        let mut color = Image3::<f32>::create(17, 9).unwrap();
+        for c in 0..3 {
+            for y in 0..9 {
+                for x in 0..17 {
+                    let sample = ((x + y * 37 + c * 311) * 997) as u32 & maxval;
+                    color.plane_row_mut(c, y)[x] = sample as f32 * factor;
+                }
+            }
+        }
+        frame.prepare_modular(&color).unwrap();
+        let e = frame.modular();
+        assert_eq!(e.cparams.speed_tier, SpeedTier::Thunder);
+        assert_eq!(e.cparams.buffering, 0);
+        assert_eq!(e.cparams.level, 10);
+        assert_eq!(e.cparams.responsive, 0);
+        assert_eq!(e.stream_params.len(), 3);
+        let mut restored = Image::clone_image(&e.stream_images[0]).unwrap();
+        restored.undo_transforms(&weighted::Header::default());
+        assert!(!restored.error);
+        assert_eq!(restored.channel.len(), if gray { 1 } else { 3 });
+        for (c, channel) in restored.channel.iter().enumerate() {
+            for y in 0..9 {
+                for x in 0..17 {
+                    let expected = ((x + y * 37 + c * 311) * 997) as u32 & maxval;
+                    assert_eq!(channel.row(y)[x], expected as i32);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn lossless_thunder_preparation_releases_global_planes_and_keeps_edge_group_dimensions() {
+    let config = LosslessThunderConfig::new(513, 3, true, LosslessSampleDepth::Uint16).unwrap();
+    let mut frame = config.create_frame().unwrap();
+    let mut color = Image3::<f32>::create(513, 3).unwrap();
+    for y in 0..3 {
+        for x in 0..513 {
+            color.plane_row_mut(0, y)[x] = ((x + y * 997) * 137 % 65536) as f32 / 65535.0;
+        }
+    }
+    frame.prepare_modular(&color).unwrap();
+    let e = frame.modular();
+    assert_eq!(e.frame_dim.num_groups, 3);
+    let full = &e.stream_images[0].channel[0];
+    assert_eq!((full.w, full.h), (513, 3));
+    assert_eq!((full.plane.xsize(), full.plane.ysize()), (0, 0));
+    for (group, width) in [256, 256, 1].into_iter().enumerate() {
+        let stream = ModularStreamId::modular_ac(group, 0).id(&e.frame_dim);
+        let channel = &e.stream_images[stream].channel[0];
+        assert_eq!((channel.w, channel.h), (width, 3));
+        assert_eq!(e.gi_channel[stream], [0]);
+    }
 }
 
 #[test]

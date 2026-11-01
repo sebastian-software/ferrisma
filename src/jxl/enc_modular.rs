@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Sample conversion and transform/tree helpers from lib/jxl/enc_modular.cc.
-//! Frame stream state uses the null-pool configuration. Pixel preparation and
-//! VarDCT entry points remain unported. Owning vectors replace their C++ owners;
+//! Frame stream state uses the null-pool configuration. Pixel preparation is
+//! translated for enc_frame::LosslessThunderConfig's fixed source path; general
+//! pixel preparation and VarDCT entry points remain unported.
+//! Owning vectors replace their C++ owners;
 //! borrowed custom parameter views retain their original lifetime obligations.
 //! Disjoint slices replace the source's row pointers. Source-undefined floating
 //! conversions and shifts remain caller preconditions, checked with assertions.
@@ -22,11 +24,14 @@ use super::enc_ans::{
 use super::enc_ans_params::{Histogram, HistogramParams};
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+use super::enc_frame::LosslessThunderConfig;
 use super::enc_modular_simd::estimate_cost;
 use super::enc_params::CompressParams;
+use super::enc_progressive_split::ProgressiveSplitter;
 use super::fields::bundle;
 use super::frame_dimensions::FrameDimensions;
 use super::frame_header::{ColorTransform, FrameHeader};
+use super::image::{Image3, Plane};
 use super::modular::encoding::context_predict::{
     NUM_NONREF_PROPERTIES, predictor_has_weighted, weighted,
 };
@@ -35,7 +40,7 @@ use super::modular::encoding::enc_encoding::{
     learn_tree, modular_compress, modular_generic_compress, predefined_tree,
 };
 use super::modular::encoding::enc_ma::tokenize_tree;
-use super::modular::encoding::encoding::GroupHeader;
+use super::modular::encoding::encoding::{GroupHeader, validate_channel_dimensions};
 use super::modular::encoding::ma_common::NUM_TREE_CONTEXTS;
 use super::modular::modular_image::{Channel, Image};
 use super::modular::options::{
@@ -309,6 +314,179 @@ impl<'a> ModularFrameEncoder<'a> {
         self.stream_options[0].histogram_params =
             HistogramParams::for_modular(p, &[], streaming_mode);
         Ok(())
+    }
+
+    /// ComputeEncodingData's reached branches for the sealed configuration.
+    /// The owning frame alone can call this method; its private parameters and
+    /// metadata fix do_color=true, groupwise=false, integer samples, no effects,
+    /// no extra channels, no XYB, no quantization, and no responsive squeeze.
+    pub(super) fn compute_encoding_data_lossless_thunder(
+        &mut self,
+        config: &LosslessThunderConfig,
+        frame_header: &FrameHeader<'_>,
+        splitter: &ProgressiveSplitter,
+        color: &Image3<f32>,
+    ) -> Status {
+        let metadata = &config.metadata().m;
+        let patch_dim = frame_header.to_frame_dimensions();
+        let xsize = patch_dim.xsize;
+        let ysize = patch_dim.ysize;
+        let group_rect = Rect::new(0, 0, color.xsize(), color.ysize());
+        let frame_area_rect = Rect::new(0, 0, xsize, ysize);
+        assert!(color.xsize() >= xsize && color.ysize() >= ysize);
+        let nb_chans = if metadata.color_encoding.is_gray() {
+            1
+        } else {
+            3
+        };
+        let mut max_bitdepth = metadata.bit_depth.bits_per_sample as i32 + 1;
+        self.stream_images[0] = Image::create(
+            xsize,
+            ysize,
+            metadata.bit_depth.bits_per_sample as i32,
+            nb_chans,
+        )?;
+        let mut maxval = (1u32 << self.stream_images[0].bitdepth) as i32 - 1;
+        for c in 0..3 {
+            if metadata.color_encoding.is_gray() && c != 0 {
+                continue;
+            }
+            let ch = &mut self.stream_images[0].channel[c];
+            let factor = f64::from(maxval);
+            let bits = metadata.bit_depth.bits_per_sample;
+            let exp_bits = metadata.bit_depth.exponent_bits_per_sample;
+            ch.hshift = frame_header.chroma_subsampling.h_shift(c) as i32;
+            ch.vshift = frame_header.chroma_subsampling.v_shift(c) as i32;
+            let xsize_shifted = xsize.div_ceil(1 << ch.hshift);
+            let ysize_shifted = ysize.div_ceil(1 << ch.vshift);
+            ch.shrink_to(xsize_shifted as i32, ysize_shifted as i32)?;
+            for y in 0..ysize_shifted {
+                let row_in = &color.plane_row(c, y + group_rect.y0())[group_rect.x0()..];
+                float_to_int(
+                    row_in,
+                    ch.row_mut(y),
+                    xsize_shifted,
+                    bits,
+                    exp_bits,
+                    false,
+                    factor,
+                )?;
+            }
+        }
+        let level_max_bitdepth = if self.cparams.level == 5 { 16 } else { 32 };
+        if max_bitdepth > level_max_bitdepth {
+            return Err(StatusCode::GenericError);
+        }
+        // Both source palette guards are true for this fixed configuration.
+        // Preserve default palette/compaction policy and all transform attempts.
+        try_palettes(
+            &mut self.stream_images[0],
+            &mut max_bitdepth,
+            &mut maxval,
+            &self.cparams,
+            self.cparams.channel_colors_pre_transform_percent,
+        )?;
+        let gi = &mut self.stream_images[0];
+        #[expect(
+            clippy::collapsible_if,
+            reason = "Preserve the source's separate RCT eligibility and selection checks."
+        )]
+        if gi.channel.len() - gi.nb_meta_channels >= 3 && max_bitdepth + 1 < level_max_bitdepth {
+            if self.cparams.colorspace < 0 {
+                let mut ycocg = Transform::new(TransformId::RCT);
+                ycocg.rct_type = 6;
+                ycocg.begin_c = gi.nb_meta_channels as u32;
+                do_transform(gi, &ycocg, &weighted::Header::default(), false);
+                max_bitdepth += 1;
+            }
+        }
+        if max_bitdepth + 1 > level_max_bitdepth {
+            self.cparams.colorspace = 0;
+        }
+        if max_bitdepth > level_max_bitdepth {
+            return Err(StatusCode::GenericError);
+        }
+
+        for group_id in 0..patch_dim.num_dc_groups {
+            let rgx = group_id % patch_dim.xsize_dc_groups;
+            let rgy = group_id / patch_dim.xsize_dc_groups;
+            let rect = Rect::new(
+                rgx * patch_dim.dc_group_dim,
+                rgy * patch_dim.dc_group_dim,
+                patch_dim.dc_group_dim,
+                patch_dim.dc_group_dim,
+            );
+            let gx = rgx + frame_area_rect.x0() / 2048;
+            let gy = rgy + frame_area_rect.y0() / 2048;
+            let real_group_id = gy * self.frame_dim.xsize_dc_groups + gx;
+            self.stream_params.push(GroupParams {
+                rect,
+                min_shift: 3,
+                max_shift: 1000,
+                id: ModularStreamId::modular_dc(real_group_id),
+            });
+        }
+        for group_id in 0..patch_dim.num_groups {
+            let rgx = group_id % patch_dim.xsize_groups;
+            let rgy = group_id / patch_dim.xsize_groups;
+            let rect = Rect::new(
+                rgx * patch_dim.group_dim,
+                rgy * patch_dim.group_dim,
+                patch_dim.group_dim,
+                patch_dim.group_dim,
+            );
+            let gx = rgx + frame_area_rect.x0() / self.frame_dim.group_dim;
+            let gy = rgy + frame_area_rect.y0() / self.frame_dim.group_dim;
+            let real_group_id = gy * self.frame_dim.xsize_groups + gx;
+            for pass in 0..splitter.get_num_passes() {
+                let (min_shift, max_shift) = frame_header.passes.get_downsampling_bracket(pass);
+                self.stream_params.push(GroupParams {
+                    rect,
+                    min_shift,
+                    max_shift,
+                    id: ModularStreamId::modular_ac(real_group_id, pass),
+                });
+            }
+        }
+        if self.stream_params.len() == 2 {
+            self.stream_params.push(GroupParams {
+                rect: Rect::new(0, 0, xsize, ysize),
+                min_shift: 0,
+                max_shift: 1000,
+                id: ModularStreamId::global(),
+            });
+        }
+        self.gi_channel
+            .resize_with(self.stream_images.len(), Vec::new);
+        for i in 0..self.stream_params.len() {
+            let group = self.stream_params[i];
+            let stream = group.id.id(&self.frame_dim);
+            if stream != 0 {
+                self.stream_options[stream] = self.stream_options[0].clone();
+            }
+            self.prepare_stream_params(
+                &group.rect,
+                group.min_shift,
+                group.max_shift,
+                &group.id,
+                true,
+                false,
+            )?;
+        }
+        let gi = &mut self.stream_images[0];
+        let mut ch = gi.nb_meta_channels;
+        while ch < gi.channel.len() {
+            let fc = &gi.channel[ch];
+            if fc.w > self.frame_dim.group_dim || fc.h > self.frame_dim.group_dim {
+                break;
+            }
+            ch += 1;
+        }
+        for channel in &mut gi.channel[ch..] {
+            // Source releases the plane while retaining logical channel sizes.
+            channel.plane = Plane::default();
+        }
+        validate_channel_dimensions(gi, &self.stream_options[0])
     }
 
     /// The source's private caller always passes its own cparams member.
