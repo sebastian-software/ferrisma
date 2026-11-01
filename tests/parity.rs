@@ -92,6 +92,9 @@ mod output_encoding;
 #[path = "parity/decoder_state.rs"]
 mod decoder_state;
 
+#[path = "parity/cms_stage.rs"]
+mod cms_stage;
+
 #[path = "parity/sample_conversion.rs"]
 mod sample_conversion;
 
@@ -712,6 +715,7 @@ fn observe(request: &str) -> String {
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),
         kind if decoder_state::handles(kind) => decoder_state::observe(kind, &mut args),
+        kind if cms_stage::handles(kind) => cms_stage::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if modular_frame_state::handles(kind) => modular_frame_state::observe(kind, &mut args),

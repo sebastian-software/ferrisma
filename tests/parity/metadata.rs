@@ -12,7 +12,7 @@ use jxl::jxl::image_metadata::*;
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("meta-")
 }
-fn color_storage(out: &mut String, s: &storage::ColorEncoding) {
+pub(super) fn color_storage(out: &mut String, s: &storage::ColorEncoding) {
     write!(
         out,
         " {},{},{},{},{},{},{},{},{}",

@@ -44,6 +44,16 @@ observations. Callback functions are local caller probes, not codec replacements
 Native ownership/retention regressions and generated action sequences are local
 infrastructure. General pipeline preparation and GroupDecCache remain unported.
 
+`ColorEncoding::SetICC` and `ColorSpaceTransform` in
+`color_encoding_internal.h`, `cms::ColorEncoding::SetFieldsFromICC` in
+`cms/color_encoding_cms.h`, and `render_pipeline/stage_cms.{h,cc}` supply the
+callback-backed ICC/transform/stage implementation. The fixture calls actual
+original methods with a caller-owned trace/bit-copy CMS; it does not replace
+their parsing/ownership/control flow or claim to translate the default CMS.
+The probe retains allocations until teardown while recording every destroy
+callback, including original repeated-Init behavior. Generated profile/layout/
+error corpora and native ICC-lifetime tests are local infrastructure.
+
 - `libjxl/libjxl` at `a16d32d0ac113f5e54125e49bb571281c5d0b704`:
   `dec_bit_reader`, `enc_bit_writer`, `field_encodings`, `fields`, `enc_fields`,
   `headers`, the relevant `base/status` semantics, writer storage, alignment,

@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Field storage and conversions from `lib/jxl/cms/color_encoding_cms.h`.
-//! CMS callback-driven ICC parsing is a separate, unported entry point.
+//! SetFieldsFromICC forwards to the caller's CMS and retains partial state.
 //! Setters preserve the source's partially updated state on errors.
 
 use super::super::base::status::{Status, StatusCode};
+use super::super::cms_interface::JxlCmsInterface;
 use super::super::color_encoding::JxlColorEncoding;
 pub use super::super::color_encoding::{
     ColorSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
@@ -234,6 +235,46 @@ impl Default for ColorEncoding {
     }
 }
 impl ColorEncoding {
+    /// Original SetFieldsFromICC callback, invalidation, and ownership transfer.
+    ///
+    /// # Safety
+    /// Invoked callback/opaque data must be valid, non-unwinding, non-reentrant,
+    /// and obey cms_interface.h. On success the callback must initialize both
+    /// complete output values. It may borrow input bytes during the call only.
+    pub unsafe fn set_fields_from_icc(
+        &mut self,
+        new_icc: &mut IccBytes,
+        cms: &JxlCmsInterface,
+    ) -> Status {
+        if new_icc.is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        self.color_space = ColorSpace::UNKNOWN;
+        self.tf.transfer_function = TransferFunction::UNKNOWN;
+        self.icc.clear();
+        let mut external = JxlColorEncoding::default();
+        let mut new_cmyk = 0;
+        // SAFETY: The exclusive byte-owner borrow is live for the call and both
+        // output pointers address initialized local storage. The unsafe caller
+        // guarantees the callback/data and complete-success-output contract.
+        let success = unsafe {
+            cms.set_fields_from_icc
+                .expect("source requires an ICC field callback")(
+                cms.set_fields_data,
+                new_icc.as_ptr(),
+                new_icc.len(),
+                &mut external,
+                &mut new_cmyk,
+            )
+        };
+        if success == 0 {
+            return Err(StatusCode::GenericError);
+        }
+        self.cmyk = new_cmyk != 0;
+        self.from_external(&external)?;
+        self.icc = std::mem::take(new_icc);
+        Ok(())
+    }
     pub fn has_primaries(&self) -> bool {
         self.color_space != ColorSpace::GRAY && self.color_space != ColorSpace::XYB
     }

@@ -2,16 +2,18 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Color bundles and non-callback field APIs from
-//! `lib/jxl/color_encoding_internal.{h,cc}`. CMS callback interfaces and color
-//! transforms remain unported. Visitors retain mutable storage synchronization.
+//! `lib/jxl/color_encoding_internal.{h,cc}`, including callback ICC assignment
+//! and ColorSpaceTransform. Visitors retain mutable storage synchronization.
 
 use super::base::status::{Status, StatusCode};
 use super::cms::color_encoding_cms as cms;
 use super::cms::icc::{color_encoding_description, maybe_create_profile};
+use super::cms_interface::JxlCmsInterface;
 use super::color_encoding::JxlColorEncoding;
 pub use super::color_encoding::{
     ColorSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
 };
+pub use super::color_space_transform::ColorSpaceTransform;
 use super::field_encodings::{Fields, U32Enc, bits, bits_offset};
 use super::fields::{Visitor, bundle, visit_enum};
 use std::sync::OnceLock;
@@ -170,6 +172,28 @@ impl ColorEncoding {
     }
     pub fn icc(&self) -> &[u8] {
         &self.storage.icc
+    }
+    /// Assign ICC bytes and populate fields using the original CMS callback.
+    ///
+    /// # Safety
+    /// Any invoked CMS callback and opaque data must be valid for this call,
+    /// obey cms_interface.h, fully initialize successful output, and neither
+    /// unwind nor reenter this color owner. The input remains owned by the
+    /// caller on error; success transfers its byte allocation.
+    pub unsafe fn set_icc(&mut self, icc: &mut Vec<u8>, cms: Option<&JxlCmsInterface>) -> Status {
+        let cms = cms.ok_or(StatusCode::GenericError)?;
+        if icc.is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        self.storage.have_fields = true;
+        // SAFETY: The caller supplies the callback/opaque-data/output contract;
+        // the exclusive owner/input borrows prevent aliases during mutation.
+        self.want_icc = unsafe { self.storage.set_fields_from_icc(icc, cms) }.is_ok();
+        if self.want_icc {
+            Ok(())
+        } else {
+            Err(StatusCode::GenericError)
+        }
     }
     pub fn set_icc_raw(&mut self, icc: Vec<u8>) {
         debug_assert!(!icc.is_empty());

@@ -3,9 +3,10 @@
 
 //! Descriptor storage and callback signatures from lib/include/jxl/
 //! cms_interface.h. These are non-owning C data carriers: storing/copying them
-//! never invokes a callback or transfers ownership. Callback execution and the
-//! color-transform lifecycle remain a separate, unported boundary. Any future
-//! invocation must uphold the header's buffer, lifetime, and thread contracts.
+//! never invokes a callback or transfers ownership. ColorEncoding's ICC setters
+//! and ColorSpaceTransform implement the corresponding callback lifecycle;
+//! calls uphold the header's buffer, lifetime, and thread contracts. The
+//! default CMS implementation remains a separate, unported boundary.
 
 use super::color_encoding::JxlColorEncoding;
 use std::ffi::{c_int, c_void};

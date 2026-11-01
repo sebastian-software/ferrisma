@@ -10,6 +10,7 @@ pub mod coeff_order;
 pub mod coeff_order_fwd;
 pub mod color_encoding;
 pub mod color_encoding_internal;
+mod color_space_transform;
 pub mod common;
 pub mod dct_util;
 pub mod dec_ans;

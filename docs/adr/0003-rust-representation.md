@@ -648,6 +648,34 @@ unchanged, including null. Descriptor drops do not call destroy. The output-stag
 lifecycle and custom allocators/runners remain separate work. Oracle fixtures
 explicitly seed source-indeterminate state before observing initialization.
 
+Callback ICC setters take a mutable byte owner: failed guards/parsing retain its
+allocation, while success transfers it at the original assignment. Preserve the
+have_fields/want_icc updates, unknown color/transfer markers, stale gamma state,
+CMYK flag assignment, and partial FromExternal mutations. Source callback output
+locals receive safe native storage; successful callbacks must initialize their
+complete values, and failed callbacks' output is not read.
+
+ColorSpaceTransform owns both ICC caches and the destroy obligation for its
+current foreign context. Moves transfer that obligation without copying caches.
+Destroy runs before ICC storage is freed, with explicit reverse cache-release
+order matching C++. Zero-capacity empty caches expose null ICC pointers in the
+reference configuration; emptied allocated caches retain non-null backing.
+Repeated Init keeps the original context overwrite behavior instead of adding
+an extra destroy. SetICC/transform calls are unsafe at the actual foreign
+function boundary, with callback/data lifetimes, read-only ICC spans, complete
+output initialization, non-unwinding calls, and no owner reentry required.
+General C ABI reentrancy remains outside this internal Rust boundary.
+
+CmsStage's unsafe factory establishes the backend contract through stage drop.
+Safe stage methods additionally check source programmer preconditions for input
+size initialization, successful context setup, and CMS thread/pixel bounds.
+Those checks guard undefined source call sequences; they do not add bitstream
+validation. Stack row descriptors borrow pipeline storage, and foreign CMS
+buffers use bounded raw accesses to preserve the permitted identical-pointer
+channel-reduction case without aliased mutable slices. Context/profile members
+are released in source order. The original IsNeeded early return invokes no
+foreign function, including for the fixed lossless profile with cms_set=false.
+
 RenderPipelineInput borrows its simple pipeline and stores owner-relative
 buffer indices/rectangles. Done retains its binding on success or failure, as
 in C++; explicit move_from nulls the old binding and transfers its buffer vector.

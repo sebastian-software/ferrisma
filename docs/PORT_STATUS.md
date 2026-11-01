@@ -43,10 +43,10 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, and AcStrategyImage allocation/fills/validity/counting; strategy objects, interpreted row views, geometry/transform methods, and strategy setters unported |
 | `chroma_from_luma.h`, `.cc` | `chroma_from_luma.rs` | Complete ColorCorrelation constants/defaults, ratios, setters/getters, DC parsing, and ColorCorrelationMap allocation/default/move ownership/delegated DC parsing |
 | `quantizer.h`, `.cc` | `quantizer.rs` | Constructors, RecomputeFromGlobalScale, DC scaling getters, inverse AC scaling, and ClearDCMul; quantization fields, scale selection, parsing, and other APIs unported |
-| `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points and CMS callback execution unported |
-| `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; invocation, transform lifecycle, and public encoder API remain unported |
-| `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, and partial setter state; callback-driven ICC parsing unported |
-| `color_encoding_internal.h`, `.cc` | `color_encoding_internal.rs` | Field bundles, profile generation, raw ICC storage, static encodings, and non-callback field APIs; CMS callbacks/transforms unported |
+| `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points unported |
+| `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; ICC/transform invocation is translated below; default CMS backend and public encoder API remain unported |
+| `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, partial setter state, and callback-backed ICC field extraction; default ICC parser unported |
+| `color_encoding_internal.h`, `.cc`, SetFieldsFromICC in `cms/color_encoding_cms.h` | `color_encoding_internal.rs`, `color_space_transform.rs`, `cms/color_encoding_cms.rs` | Field bundles, profile generation, raw ICC storage, static encodings, callback SetICC/SetFieldsFromICC with conditional byte transfer, complete callback-backed ColorSpaceTransform and destruction; default CMS backend and C ABI entry points unported |
 | `image_metadata.h`, `.cc`, quantizer bias constants | `image_metadata.rs`, `image_metadata_weights.rs` | Bit depth, extra channels, opsin/custom weights, tone mapping, image/codec metadata, sample/alpha/orientation helpers, and metadata reading; diagnostic output unported |
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
@@ -59,6 +59,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
+| `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
@@ -94,7 +95,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
-| `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; ICC parsing and color transforms unported |
+| `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, and frame header writing; quantizer writes unported |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
@@ -133,14 +134,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 302 tests, including 170 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 302 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 302 tests and corpus |
+| Rust debug | PASSED | 307 tests, including 173 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 307 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 307 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 302 tests and 670,257 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 307 tests and 673,219 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **670,257 requests** against C++. These include
+Each differential run compares **673,219 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -780,3 +781,30 @@ Init sizes sigma from the selected shared state while InitForAC mutates the
 owning shared_storage fields. Uninitialized source pixels and source-indeterminate
 members are omitted or explicitly seeded before observation. The pipeline and
 outer frame/image entry points remain required for the first-image gate.
+
+Callback-backed ICC assignment, ColorSpaceTransform, and CmsStage add 2,962
+differential requests. The actual original methods run with a caller CMS that
+records profiles, retained ICC spans, thread/pixel arguments, buffer aliases,
+statuses, and destruction. Its bit-copy operation is caller behavior, not a
+replacement color-conversion algorithm. Cases include raw/empty ICC profiles,
+CMYK sources/destination rejection, partial external-field errors, source gamma
+retention during invalidation, input allocation transfer only on success,
+profile/linear selection, size guards, zero pixels/threads, initialization/run
+failure, repeated preparation, and all defined source/destination layouts.
+Foreign buffers include signed zero, infinities, subnormals, and NaN payloads.
+
+The stage uses stack row descriptors and actual callback buffers, with no pixel
+clone. Input/output CMS buffers can be identical for channel reduction, without
+forming overlapping Rust slice references. Run failure leaves pipeline pixels
+untouched. The original repeated transform Init overwrites its current context
+without destroying a previous one; exact callback traces retain that behavior.
+The caller probe owns its registry until fixture teardown and reports which
+contexts received destroy, so it does not hide a missing callback.
+
+Native regressions verify that ICC caches survive owner moves and source-profile
+destruction, remain live during the single destroy callback, and that the fixed
+lossless configuration needs no CMS callbacks. Native precondition checks cover
+initialized size/context and successful CMS thread/pixel bounds; undefined
+source call order is not treated as a valid decoding result. Default CMS backend,
+C ABI reentrancy, custom thread runners, and complete frame/image decoding remain
+unported.

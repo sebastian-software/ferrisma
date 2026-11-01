@@ -474,6 +474,7 @@ bool ModularGroupsCommand(const std::string& command,std::istringstream& in,JxlM
 bool UpsamplingCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool OutputEncodingCommand(const std::string& command,std::istringstream& in);
 bool DecoderStateCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+bool CmsStageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
 int main() {
   try {
@@ -528,6 +529,7 @@ int main() {
       else if (UpsamplingCommand(command, in, &mm)) {}
       else if (OutputEncodingCommand(command, in)) {}
       else if (DecoderStateCommand(command, in, &mm)) {}
+      else if (CmsStageCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
