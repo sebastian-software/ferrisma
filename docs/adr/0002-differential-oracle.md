@@ -98,3 +98,14 @@ source loop returns true at that earlier value. Keep the original header and
 method unchanged and retain all exceptional-value cases. This compile setting
 is limited to the noise observation unit; it does not alter the codec library
 or other fixtures. Review it with compiler/target changes.
+
+The modular frame decoder fixture calls the original DecodeGlobalInfo and
+MaybeDropFullImage on original encoder payloads. It explicitly seeds otherwise
+indeterminate constructor flags/code scalars before comparing partial state.
+Only globally decoded channels expose samples; the first oversized non-meta
+channel ends that initialized prefix. The remaining channels retain real
+allocations without observing their undefined source contents. Local generic
+encoder streams exercise the no-shared-tree branch and metadata/channel shifts.
+Repeated calls preserve existing owners and tables at the original checkpoints.
+The fixture supplies frame metadata and the reader's initial bit position;
+it does not claim complete frame/image decoding.

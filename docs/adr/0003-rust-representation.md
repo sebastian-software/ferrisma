@@ -548,6 +548,21 @@ allowed. Splines keeps its borrowed data view and owning storage separately;
 the translated constructor/Clear establishes empty views and releases both
 aligned cache owners in source order. Data import/rendering remain absent.
 
+ModularFrameDecoder owns its full modular image, deferred transform vector,
+global prediction tree, ANS tables, context map, and group header. Init copies
+only frame dimensions, preserving the original reused-state behavior. Global
+decoding borrows the caller's header and reader for each call. A local image is
+assigned to the full-image owner only after the original fatal/truncation
+checks; earlier failures retain the old image and already mutated tree/table/
+header state. Nonfatal truncation can still transfer that local image. Preserve
+the original transform-vector copy before clearing it, and do not reset the
+deferred vector or use_full_image flag at extra checkpoints. MaybeDropFullImage
+releases channel planes while retaining their logical metadata. Native moves
+transfer all owners; no borrowed entropy reader is stored inside the decoder.
+Initial source-indeterminate flags/dimensions receive safe native storage. The
+oracle explicitly seeds those flags before partial-state comparisons, and only
+observes pixels that the original global decoder has initialized.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

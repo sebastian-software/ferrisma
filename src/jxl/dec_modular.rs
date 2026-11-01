@@ -3,14 +3,26 @@
 
 //! ModularStreamId storage, constructors, and index mapping from
 //! lib/jxl/dec_modular.h, and sample conversion from lib/jxl/dec_modular.cc.
-//! The frame decoder and debug descriptions are unported. The three Highway
+//! ModularFrameDecoder storage, Init, DecodeGlobalInfo, and MaybeDropFullImage
+//! retain their complete source control flow. Group decoding, final rendering,
+//! and debug descriptions remain unported. The three Highway
 //! kernels retain the one-lane scalar configuration; disjoint row slices replace
 //! restrict pointers. Custom-float shifts retain source caller preconditions.
 //! Kind retains raw fixed-underlying-type enum values: the source switch leaves
 //! an unknown kind's initialized index at zero. All size_t arithmetic wraps.
 
+use super::base::bits::ceil_log2_nonzero;
 use super::base::status::{Status, StatusCode, StatusOr};
+use super::dec_ans::{ANSCode, decode_histograms};
+use super::dec_bit_reader::BitReader;
 use super::frame_dimensions::FrameDimensions;
+use super::frame_header::{ColorTransform, FrameEncoding, FrameHeader};
+use super::image::Plane;
+use super::modular::encoding::dec_ma::{Tree, decode_tree};
+use super::modular::encoding::encoding::{GroupHeader, modular_generic_decompress};
+use super::modular::modular_image::Image;
+use super::modular::options::ModularOptions;
+use super::modular::transform::transform::{Transform, TransformId};
 use super::quant_weights::NUM_QUANT_TABLES;
 
 pub fn multiply_sum(
@@ -223,5 +235,245 @@ impl ModularStreamId {
     }
     pub fn num(frame_dim: &FrameDimensions, passes: usize) -> usize {
         Self::modular_ac(0, passes).id(frame_dim)
+    }
+}
+
+/// Original frame decoder owners. Safe initial values for source-indeterminate
+/// fields do not give them source meaning before Init/DecodeGlobalInfo assigns
+/// them. Native allocation uses the existing valid memory-manager context.
+pub struct ModularFrameDecoder {
+    memory_manager_present: bool,
+    full_image: Image,
+    global_transform: Vec<Transform>,
+    frame_dim: FrameDimensions,
+    do_color: bool,
+    have_something: bool,
+    use_full_image: bool,
+    all_same_shift: bool,
+    tree: Tree,
+    code: ANSCode,
+    context_map: Vec<u8>,
+    global_header: GroupHeader,
+}
+impl Default for ModularFrameDecoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ModularFrameDecoder {
+    pub fn new() -> Self {
+        Self {
+            memory_manager_present: true,
+            full_image: Image::default(),
+            global_transform: Vec::new(),
+            frame_dim: FrameDimensions::default(),
+            do_color: false,
+            have_something: false,
+            use_full_image: true,
+            all_same_shift: false,
+            tree: Vec::new(),
+            code: ANSCode::default(),
+            context_map: Vec::new(),
+            global_header: GroupHeader::default(),
+        }
+    }
+    pub fn init(&mut self, new_frame_dim: &FrameDimensions) {
+        self.frame_dim = *new_frame_dim;
+    }
+    pub fn decode_global_info(
+        &mut self,
+        reader: &mut BitReader<'_>,
+        frame_header: &FrameHeader<'_>,
+        allow_truncated_group: bool,
+    ) -> Status {
+        let decode_color = frame_header.encoding == FrameEncoding::MODULAR;
+        let metadata = &frame_header
+            .nonserialized_metadata
+            .expect("source requires frame metadata")
+            .m;
+        let is_gray = metadata.color_encoding.is_gray();
+        let mut nb_chans = 3usize;
+        if is_gray && frame_header.color_transform == ColorTransform::NONE {
+            nb_chans = 1;
+        }
+        self.do_color = decode_color;
+        let nb_extra = metadata.extra_channel_info.len();
+        let has_tree = reader.read_bits(1) != 0;
+        #[expect(
+            clippy::collapsible_if,
+            reason = "Keep the original truncation guard outside the tree-presence branch."
+        )]
+        if !allow_truncated_group
+            || reader.total_bits_consumed() < reader.total_bytes().wrapping_mul(8)
+        {
+            if has_tree {
+                let tree_size_limit = (1usize << 22).min(
+                    1024usize.wrapping_add(
+                        self.frame_dim
+                            .xsize
+                            .wrapping_mul(self.frame_dim.ysize)
+                            .wrapping_mul(nb_chans.wrapping_add(nb_extra))
+                            / 16,
+                    ),
+                );
+                decode_tree(reader, &mut self.tree, tree_size_limit)?;
+                decode_histograms(
+                    reader,
+                    self.tree.len().wrapping_add(1) / 2,
+                    &mut self.code,
+                    &mut self.context_map,
+                    false,
+                )?;
+            }
+        }
+        if !self.do_color {
+            nb_chans = 0;
+        }
+        let fp = metadata.bit_depth.floating_point_sample;
+        #[expect(
+            clippy::if_same_then_else,
+            reason = "Preserve the distinct original uint32 and greater-than-32 rejection checkpoints."
+        )]
+        if metadata.bit_depth.bits_per_sample >= 32
+            && self.do_color
+            && frame_header.color_transform != ColorTransform::XYB
+        {
+            if metadata.bit_depth.bits_per_sample == 32 && !fp {
+                return Err(StatusCode::GenericError);
+            } else if metadata.bit_depth.bits_per_sample > 32 {
+                return Err(StatusCode::GenericError);
+            }
+        }
+        let mut gi = Image::create(
+            self.frame_dim.xsize,
+            self.frame_dim.ysize,
+            metadata.bit_depth.bits_per_sample as i32,
+            nb_chans.wrapping_add(nb_extra) as i32,
+        )?;
+        self.all_same_shift = true;
+        if frame_header.color_transform == ColorTransform::YCBCR {
+            for c in 0..nb_chans {
+                gi.channel[c].hshift = frame_header.chroma_subsampling.h_shift(c) as i32;
+                gi.channel[c].vshift = frame_header.chroma_subsampling.v_shift(c) as i32;
+                let xsize_shifted = self
+                    .frame_dim
+                    .xsize
+                    .wrapping_add((1usize << gi.channel[c].hshift) - 1)
+                    / (1usize << gi.channel[c].hshift);
+                let ysize_shifted = self
+                    .frame_dim
+                    .ysize
+                    .wrapping_add((1usize << gi.channel[c].vshift) - 1)
+                    / (1usize << gi.channel[c].vshift);
+                gi.channel[c].shrink_to(xsize_shifted as i32, ysize_shifted as i32)?;
+                if gi.channel[c].hshift != gi.channel[0].hshift
+                    || gi.channel[c].vshift != gi.channel[0].vshift
+                {
+                    self.all_same_shift = false;
+                }
+            }
+        }
+        for ec in 0..nb_extra {
+            let c = nb_chans + ec;
+            let ecups = frame_header.extra_channel_upsampling[ec] as usize;
+            let w = self.frame_dim.xsize_upsampled.wrapping_add(ecups - 1) / ecups;
+            let h = self.frame_dim.ysize_upsampled.wrapping_add(ecups - 1) / ecups;
+            gi.channel[c].shrink_to(w as i32, h as i32)?;
+            let shift = (ceil_log2_nonzero(ecups) as i32)
+                .wrapping_sub(ceil_log2_nonzero(frame_header.upsampling as usize) as i32);
+            gi.channel[c].hshift = shift;
+            gi.channel[c].vshift = shift;
+            if gi.channel[c].hshift != gi.channel[0].hshift
+                || gi.channel[c].vshift != gi.channel[0].vshift
+            {
+                self.all_same_shift = false;
+            }
+        }
+        let mut options = ModularOptions {
+            max_chan_size: self.frame_dim.group_dim,
+            group_dim: self.frame_dim.group_dim,
+            ..ModularOptions::default()
+        };
+        let dec_status = modular_generic_decompress(
+            reader,
+            &mut gi,
+            Some(&mut self.global_header),
+            ModularStreamId::global().id(&self.frame_dim),
+            &mut options,
+            false,
+            Some(&self.tree),
+            Some(&self.code),
+            Some(&self.context_map),
+            allow_truncated_group,
+        );
+        if !allow_truncated_group {
+            dec_status?;
+        }
+        if dec_status.is_err_and(StatusCode::is_fatal_error) {
+            return Err(StatusCode::GenericError);
+        }
+        self.have_something = false;
+        for (c, gic) in gi.channel.iter().enumerate() {
+            if c >= gi.nb_meta_channels
+                && gic.w <= self.frame_dim.group_dim
+                && gic.h <= self.frame_dim.group_dim
+            {
+                self.have_something = true;
+            }
+        }
+        if !self.have_something
+            && self.all_same_shift
+            && gi.transform.len() == 1
+            && gi.transform[0].id == TransformId::RCT
+        {
+            self.global_transform = gi.transform.clone();
+            gi.transform.clear();
+        }
+        self.full_image = gi;
+        dec_status
+    }
+    pub fn maybe_drop_full_image(&mut self) {
+        if self.full_image.transform.is_empty() && !self.have_something && self.all_same_shift {
+            self.use_full_image = false;
+            for ch in &mut self.full_image.channel {
+                ch.plane = Plane::default();
+            }
+        }
+    }
+    pub fn have_dc(&self) -> bool {
+        self.have_something
+    }
+    pub fn uses_full_image(&self) -> bool {
+        self.use_full_image
+    }
+    pub fn have_memory_manager(&self) -> bool {
+        self.memory_manager_present
+    }
+    pub fn full_image(&self) -> &Image {
+        &self.full_image
+    }
+    pub fn global_transforms(&self) -> &[Transform] {
+        &self.global_transform
+    }
+    pub fn frame_dimensions(&self) -> &FrameDimensions {
+        &self.frame_dim
+    }
+    pub fn do_color(&self) -> bool {
+        self.do_color
+    }
+    pub fn all_same_shift(&self) -> bool {
+        self.all_same_shift
+    }
+    pub fn tree(&self) -> &Tree {
+        &self.tree
+    }
+    pub fn code(&self) -> &ANSCode {
+        &self.code
+    }
+    pub fn context_map(&self) -> &[u8] {
+        &self.context_map
+    }
+    pub fn global_header(&self) -> &GroupHeader {
+        &self.global_header
     }
 }

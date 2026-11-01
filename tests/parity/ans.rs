@@ -38,7 +38,7 @@ fn config_observation(result: &mut String, cfg: HybridUintConfig) {
     .unwrap();
 }
 
-fn code_observation(result: &mut String, code: &ANSCode, initialized_tables: bool) {
+pub(super) fn code_observation(result: &mut String, code: &ANSCode, initialized_tables: bool) {
     write!(
         result,
         " {} {} {} {} {} {} {}",

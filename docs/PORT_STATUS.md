@@ -56,7 +56,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `image_bundle.h` | `image_bundle.rs` | Storage, constructors, initialized scalar state, metadata borrow, and decoded-byte accessors; image import/export/copy and other methods unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
-| `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
+| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage and state accessors; group decoding, final rendering, quantization-table decoding, and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, constructor and DC methods in `.cc` | `quant_weights.rs` | Distance-band and owning quantization-encoding constructors, active union storage, deep copies/assignment/moves, strategy table mapping, complete initialized DequantMatrices constructor state, SetEncodings, and DC APIs; non-owning raw base copies, coefficient libraries, matrix computation/accessors, and AC table algorithms unported |
@@ -128,14 +128,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 280 tests, including 153 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 280 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 280 tests and corpus |
+| Rust debug | PASSED | 282 tests, including 155 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 282 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 282 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 280 tests and 657,218 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 282 tests and 661,466 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **657,218 requests** against C++. These include
+Each differential run compares **661,466 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -522,8 +522,9 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the original frame/image decoder to the existing metadata, section,
-   entropy, modular prediction, and transform dependencies. Decode complete
+1. Connect the original group decoding, pixel conversion/render pipeline, and
+   frame/image decoder to the translated global modular decoder, metadata,
+   sections, entropy, prediction, and transforms. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
    input evidence. The fixed encoder and C++ cross-decoding cover only the
    encoder half of the first-image acceptance gate.
@@ -642,3 +643,23 @@ Noise HasAny observations retain the original early-return loop with the
 reference compile setting documented in ADR 0002. The ordinary AArch64 O3
 unrolled FMAXNM reduction changed its signaling-NaN result; no case or exact
 comparison was removed.
+
+Modular frame global decoding adds 4,248 differential requests. The original
+Thunder encoder supplies real first-group payloads for gray/RGB, both integer
+depths, constants, ramps, noise, and seven dimensions. The fixture begins after
+the caller's default DC-matrix bit; it compares global decoding with shared
+trees, truncation permission, damaged data, repeated calls, and optional plane
+release. Separate original generic-encoder streams exercise local trees,
+YCbCr shifts, XYB metadata, extra-channel upsampling, VarDCT's no-color branch,
+and the source bit-depth rejection checkpoints.
+
+Observations include exact status, consumed bits/close, frame dimensions,
+logical/physical channel metadata, initialized global pixels, deferred
+transforms, tree/context/code state, and group-header mutations. Failed global
+decoding retains the previous full-image owner until the original assignment;
+nonfatal truncation follows the original transfer behavior. Constructor-undefined
+source flags/code scalars receive explicit fixture seeds before observation.
+Unread image channels and source-indeterminate transform members are omitted.
+MaybeDropFullImage preserves channel metadata while releasing plane owners.
+Group decoding, final rendering, and complete Rust codestream decoding remain
+unported; these component requests do not satisfy the first-image gate.

@@ -468,6 +468,7 @@ bool ModularFrameStateCommand(const std::string& command, std::istringstream& in
 bool QuantStorageCommand(const std::string& command,std::istringstream& in);
 bool FrameBuffersCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool SharedPrimitivesCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+bool ModularFrameDecoderCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
 int main() {
   try {
@@ -516,6 +517,7 @@ int main() {
       else if (ModularFrameStateCommand(command, in, &mm)) {}
       else if (FrameBuffersCommand(command, in, &mm)) {}
       else if (SharedPrimitivesCommand(command, in, &mm)) {}
+      else if (ModularFrameDecoderCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
