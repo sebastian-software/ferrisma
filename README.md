@@ -15,7 +15,9 @@ image metadata, custom transform data, complete codestream-header output,
 frame headers, frame geometry, filter parameter bundles, permutation streams,
 section tables with group offsets, aligned image/channel storage, and modular
 transform parameter bundles, the existing scalar reversible color transforms,
-and modular predictors with weighted state, reference properties, and flat-tree lookup.
+and modular predictors with weighted state and reference properties. Modular
+decision trees now include serialization, parsing, static-branch filtering,
+flat-tree lookup, lookup tables, and group-header bundles.
 The image path is still being translated; the
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate

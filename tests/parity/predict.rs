@@ -17,7 +17,7 @@ fn values<T: std::fmt::Display>(out: &mut String, v: &[T]) {
         write!(out, " {value}").unwrap();
     }
 }
-fn header(out: &mut String, h: &weighted::Header) {
+pub(super) fn header(out: &mut String, h: &weighted::Header) {
     write!(
         out,
         " {},{},{},{},{},{},{},{}",

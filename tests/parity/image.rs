@@ -165,7 +165,7 @@ fn copy_command<T: TestSample>(args: &mut std::str::SplitWhitespace<'_>) -> Stri
     }
     out
 }
-fn transform(out: &mut String, t: &Transform) {
+pub(super) fn transform(out: &mut String, t: &Transform) {
     write!(
         out,
         " {},{},{},{},{},{},{},{},{},{}",

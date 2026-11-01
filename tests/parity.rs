@@ -57,6 +57,8 @@ mod image;
 #[path = "parity/rct.rs"]
 mod rct;
 
+#[path = "parity/ma.rs"]
+mod ma;
 #[path = "parity/predict.rs"]
 mod predict;
 
@@ -639,6 +641,7 @@ fn observe(request: &str) -> String {
         kind if image::handles(kind) => image::observe(kind, &mut args),
         kind if rct::handles(kind) => rct::observe(kind, &mut args),
         kind if predict::handles(kind) => predict::observe(kind, &mut args),
+        kind if ma::handles(kind) => ma::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

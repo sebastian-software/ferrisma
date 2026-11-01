@@ -133,6 +133,18 @@ XL Project Authors' copyright notice and name the source files they translate.
   multiplier. No residual codec or prediction-tree learning algorithm is
   substituted by these test fixtures.
 
+- `modular/encoding/ma_common.h`, `dec_ma.{h,cc}`, the `TokenizeTree` entry point
+  in `enc_ma.cc`, and the group-header/filter/LUT portions of `encoding.{h,cc}`:
+  original constants, tree storage, iterative validation, entropy-backed parsing,
+  BFS tokenization, static pruning, flattening, and lookup-table range traversal.
+  Generated trees, raw token fixtures, bundle inputs, and native integration
+  cases are local infrastructure. Stream tests compose the actual original
+  tokenization, histogram encoding, and token-writing calls, as the source
+  encoder does. LUT observations losslessly encode every initialized entry as
+  runs, including untouched entries after failure. No tree-learning or residual
+  algorithm is replaced by fixtures, and no upstream tree test inventory is
+  claimed as translated.
+
 The differential protocol adapter and corpus generators are project test
 infrastructure. Their reference side calls original upstream implementations,
 not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises

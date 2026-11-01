@@ -223,7 +223,18 @@ inactive-union references and invalid enum discriminants while keeping the
 that C++ leaves indeterminate, including PredictionResult::multiplier without a
 tree; this gives that member no added non-tree meaning. The oracle must omit
 such undefined observations rather than turning extra initialization into a
-parity claim. Prediction-tree parsing/learning remain separate boundaries.
+parity claim. Prediction-tree learning remains a separate boundary.
+
+Tree parsing and tokenization retain breadth-first node/leaf indices, the source
+integer narrowing points, iterative property-range validation, and error-time
+mutation order. Rust VecDeque replaces the source queues; work stacks own their
+records and retain the same traversal order. TreeLut keeps its fixed context
+array; optional offset/multiplier arrays use vectors of exactly zero or 16,384
+entries because stable Rust cannot express those conditional generic array
+lengths. Rust initializes storage that the source leaves indeterminate. The
+oracle seeds LUT storage before observing every entry and reads only the active
+union members of flattened nodes. Header transforms resize only on reading,
+including when an existing bundle receives defaults.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
