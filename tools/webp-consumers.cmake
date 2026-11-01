@@ -2,6 +2,13 @@
 # Upstream registers tests in its subdirectory but omits root enable_testing().
 enable_testing()
 function(libavif_rs_webp_test_platform)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64" AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+        # Upstream SIMD=OFF adds -mno-sse2 globally. Clang still needs baseline
+        # SSE2 registers for the x86-64 float ABI. Config macros keep all manual
+        # SIMD DSP disabled; ordinary compiler code generation remains allowed.
+        string(REGEX REPLACE "(^| )-mno-sse2( |$)" " " flags "${CMAKE_C_FLAGS}")
+        set(CMAKE_C_FLAGS "${flags}" PARENT_SCOPE)
+    endif()
     if(APPLE AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
         # The original EncDec fuzzer wraps and calls VP8GetCPUInfo even when
         # SIMD=OFF makes it NULL on ARM. Compile only WebP's original CPU-query

@@ -20,6 +20,12 @@ Linux test consumers use Clang: the pinned FuzzTest adds
 which GCC rejects. The standalone native API reference keeps the system C
 compiler default and is independent of this C++ test-framework requirement.
 
+On x86-64, remove the original build's global `-mno-sse2` flag for Clang:
+floating-point calls require baseline SSE2 registers under the platform ABI.
+Keep all SIMD feature macros disabled and verify that configuration before
+building. This permits ordinary compiler code generation, already allowed by
+the portable reference contract, without selecting manual SIMD DSP routines.
+
 The original EncDec fuzzer also dereferences its default CPU-query callback on
 macOS ARM64 when `WEBP_ENABLE_SIMD=OFF` initializes that callback to NULL. LLDB
 locates the native-reference crash in `GetCPUInfoForceSlowSSSE3`, called from

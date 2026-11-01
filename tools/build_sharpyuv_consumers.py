@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tarfile
@@ -98,6 +99,9 @@ def main():
             if path.exists():
                 command += ['-DFETCHCONTENT_SOURCE_DIR_' + name.upper() + '=' + str(path)]
     run(command)
+    config = (build / 'src/webp/config.h').read_text()
+    if re.search(r'^#define WEBP_HAVE_(?:NEON|SSE2|SSE41|AVX2)\b', config, re.M):
+        raise SystemExit('The original consumer unexpectedly enabled manual SIMD DSP')
     run(['cmake', '--build', build, '-j', args.jobs])
     entries = json.loads((build / 'compile_commands.json').read_text())
     units = [entry['file'] for entry in entries if 'sharpyuv.dir' in entry['command']]
