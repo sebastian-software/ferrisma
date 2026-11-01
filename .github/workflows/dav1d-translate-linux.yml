@@ -54,6 +54,10 @@ jobs:
           python3 tools/transpile_dav1d.py --check
           python3 tools/transpile_dav1d.py --release --check
       - name: Compile both generated profiles and exercise original DSP bodies
+        env:
+          # The legacy translator uses a separate explicit compiler. Select the
+          # decoder toolchain directly without auto-installing editor components.
+          RUSTUP_TOOLCHAIN: nightly-2026-09-07
         run: |
           python3 tools/build_dav1d_consumers.py
           python3 tools/build_dav1d_consumers.py --debug
