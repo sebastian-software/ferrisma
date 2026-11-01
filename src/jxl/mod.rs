@@ -14,6 +14,7 @@ pub mod common;
 pub mod dct_util;
 pub mod dec_ans;
 pub mod dec_bit_reader;
+pub mod dec_cache;
 pub mod dec_context_map;
 pub mod dec_huffman;
 pub mod dec_modular;

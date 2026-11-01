@@ -569,7 +569,8 @@ only shared.matrices; finalization additionally reads shared.frame_dim and
 mutates the pipeline. Optional shared-state presence retains DecodeGroup's
 nullable-state checkpoint. These are field dependencies of the translated
 callee, not a replacement PassesDecoderState constructor. The complete decoder
-owner and its initialization remain separate work. Null-pool task loops retain
+owner and initialization are translated separately; these callees retain their
+field borrows. Null-pool task loops retain
 uint32 bounds and the source wrapper's generic-error mapping.
 
 Modular Image::move_from copies scalar metadata and transfers channel/transform
@@ -621,6 +622,31 @@ and the float threshold promoted to double; gamma and matrix coordinates narrow
 at the original float assignments/call boundaries.
 Setting the copied linear profile's transfer function retains its ICC bytes;
 regeneration belongs to the later original caller, not to this setter.
+
+PassesDecoderState owns its complete shared storage and coefficient/reference
+owners. Its shared pointer selects either its own storage or an actual immutable
+external shared borrow; methods retain each source use of shared versus
+shared_storage. Init reads sigma dimensions and transform weights through the
+selected shared owner, while InitForAC always updates owned coefficient fields.
+Valid source shared pointers are non-null at these method boundaries. Separate
+metadata and pipeline lifetimes retain borrowed output owners; the available
+pipeline type currently admits the original simple implementation only.
+
+Shared DC bindings select owned storage or a DC-frame index in the same owner.
+Preserve the assignment before a missing-frame error and the earlier level-four
+guard. Owner moves keep the selector attached to the new owner. Reference-frame
+patch binding still occurs before field allocation, and Create keeps its source
+default xyb=true even for non-XYB metadata. No additional vector clearing or
+coefficient-buffer shrinking occurs during these initialization methods.
+
+The used-AC atomic retains 32-bit sequentially consistent stores/loads, including
+the original per-strategy load in InitForAC. Callback descriptors and image-output
+pointers are non-owning. PixelCallback::init is unsafe because its actual foreign
+function/opaque-data contract belongs to the caller; a local proof covers the
+call. Presence tests only inspect run, and Init returns the callback pointer
+unchanged, including null. Descriptor drops do not call destroy. The output-stage
+lifecycle and custom allocators/runners remain separate work. Oracle fixtures
+explicitly seed source-indeterminate state before observing initialization.
 
 RenderPipelineInput borrows its simple pipeline and stores owner-relative
 buffer indices/rectangles. Done retains its binding on success or failure, as

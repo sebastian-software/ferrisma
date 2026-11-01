@@ -3,16 +3,21 @@
 
 //! Shared storage/constructors from lib/jxl/passes_state.h. Pointer bindings to
 //! containing members use owner-relative selectors; matrix operations receive
-//! the existing same-owner borrow. InitializePassesSharedState remains unported.
+//! the existing same-owner borrow. InitializePassesSharedState retains complete
+//! allocation/assignment order and owner-relative DC-frame bindings.
 use super::ac_context::BlockCtxMap;
 use super::ac_strategy::AcStrategyImage;
+use super::base::status::{Status, StatusCode};
 use super::chroma_from_luma::ColorCorrelationMap;
+use super::coeff_order::COEFF_ORDER_MAX_SIZE;
 use super::coeff_order_fwd::CoeffOrder;
 use super::dec_patch_dictionary::{PatchDictionary, ReferenceFrame};
 use super::frame_dimensions::FrameDimensions;
+use super::frame_header::{FLAG_USE_DC_FRAME, FrameEncoding, FrameHeader};
 use super::image::{Image3, Plane};
 use super::image_bundle::ImageBundle;
 use super::image_metadata::CodecMetadata;
+use super::image_ops::zero_fill_image;
 use super::noise::NoiseParams;
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
@@ -26,6 +31,7 @@ pub struct ImageFeatures<'a> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DcSource {
     Storage,
+    Frame(usize),
 }
 pub struct PassesSharedState<'a> {
     memory_manager_present: bool,
@@ -105,9 +111,57 @@ impl<'a> PassesSharedState<'a> {
     pub fn dc(&self) -> &Image3<f32> {
         match self.dc_source {
             DcSource::Storage => &self.dc_storage,
+            DcSource::Frame(i) => &self.dc_frames[i],
         }
     }
     pub fn bind_own_reference_frames(&mut self) {
         self.image_features.patches.bind_own_reference_frames();
     }
+}
+
+pub fn initialize_passes_shared_state<'a>(
+    header: &FrameHeader<'a>,
+    shared: &mut PassesSharedState<'a>,
+    encoder: bool,
+) -> Status {
+    let metadata = header
+        .nonserialized_metadata
+        .ok_or(StatusCode::GenericError)?;
+    shared.metadata = Some(metadata);
+    shared.frame_dim = header.to_frame_dimensions();
+    shared.bind_own_reference_frames();
+    let dim = &shared.frame_dim;
+    shared.ac_strategy = AcStrategyImage::create(dim.xsize_blocks, dim.ysize_blocks)?;
+    shared.raw_quant_field = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+    shared.epf_sharpness = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+    // The original call uses ColorCorrelationMap::Create's default xyb=true.
+    shared.cmap = ColorCorrelationMap::create(dim.xsize, dim.ysize, true)?;
+    shared.coeff_order_size = COEFF_ORDER_MAX_SIZE;
+    if encoder
+        && shared.coeff_orders.len()
+            < (header.passes.num_passes as usize).wrapping_mul(COEFF_ORDER_MAX_SIZE)
+        && header.encoding == FrameEncoding::VAR_DCT
+    {
+        shared.coeff_orders.resize(
+            (header.passes.num_passes as usize).wrapping_mul(COEFF_ORDER_MAX_SIZE),
+            0,
+        );
+    }
+    shared.quant_dc = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+    let use_dc_frame = header.flags & FLAG_USE_DC_FRAME != 0;
+    if !encoder && use_dc_frame {
+        if header.dc_level == 4 {
+            return Err(StatusCode::GenericError);
+        }
+        shared.dc_storage = Image3::default();
+        shared.dc_source = DcSource::Frame(header.dc_level as usize);
+        if shared.dc().xsize() == 0 {
+            return Err(StatusCode::GenericError);
+        }
+        zero_fill_image(&mut shared.quant_dc);
+    } else {
+        shared.dc_storage = Image3::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        shared.dc_source = DcSource::Storage;
+    }
+    Ok(())
 }

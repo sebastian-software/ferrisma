@@ -52,8 +52,9 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
-| `passes_state.h`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, four reference owners, same-owner DC/patch binding; decoder initialization and VarDCT methods unported |
-| `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; pixel conversion, fast XYB output, and decoder-state integration unported |
+| `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
+| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, and complete null-pool InitForAC; simple-pipeline storage admitted, general PreparePipeline, GroupDecCache, output lifecycle, and custom runners unported |
+| `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; pixel conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes, and decoded-byte accessors; general import/export/copy and metadata verification unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
@@ -132,14 +133,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 297 tests, including 167 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 297 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 297 tests and corpus |
+| Rust debug | PASSED | 302 tests, including 170 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 302 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 302 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 297 tests and 669,797 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 302 tests and 670,257 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **669,797 requests** against C++. These include
+Each differential run compares **670,257 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -526,10 +527,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Translate decoder-state construction/initialization using the translated
-   output-encoding information and retaining the original unconditional 8x
-   stage construction.
-   Connect the frame/image decoder to the translated modular decoder, metadata,
+1. Connect original pipeline preparation and the frame/image decoder to the
+   translated decoder-state initialization, modular decoder, metadata,
    sections, entropy, prediction, and transforms. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
    input evidence. The fixed encoder and C++ cross-decoding cover only the
@@ -714,8 +713,8 @@ and retained bit-depth metadata after in-place finalization. It still supplies
 metadata directly and does not parse complete JPEG XL codestreams.
 
 The translated callees borrow real shared-state and pipeline fields separately;
-they do not substitute a partial PassesDecoderState constructor. Full state
-construction, outer frame parsing/scheduling, and final external pixel-buffer
+they do not substitute a partial PassesDecoderState constructor. Pipeline
+preparation, outer frame parsing/scheduling, and final external pixel-buffer
 conversion remain required for the first-image acceptance gate.
 
 The original scalar UpsamplingStage adds 1,360 differential requests. The
@@ -755,3 +754,29 @@ resolved at each caller's original assignment checkpoint; the remaining body
 borrows the stored copy, avoiding an extra clone for a same-owner argument.
 These are decoder-state dependencies; complete frame/image decoding remains
 unported.
+
+Shared/decoder-state initialization adds 460 differential requests. They call
+the original InitializePassesSharedState, PassesDecoderState constructor/Init,
+InitForAC, and PixelCallback constructor/IsPresent/Init. Shared-state sequences
+cover missing metadata, all DC-frame levels and availability masks, encoder
+versus decoder allocation, modular versus VarDCT coefficient buffers, partial
+errors, and retained prefixes through repeated initialization. Non-XYB metadata
+still uses ColorCorrelationMap::Create's original xyb=true default. Missing DC
+frames leave the cleared storage and newly selected empty frame visible; level
+four fails before that transfer.
+
+Decoder observations retain own/external shared selection, sigma geometry,
+unconditional original 8x stage construction, stale output format/depth/stride,
+callback/buffer resets, unchanged frame counters/entropy owners/reference
+bundle, coefficient type, and original output-encoding storage. AC tests cover
+each strategy bucket/offset, mask combinations, retained coefficient-vector
+prefixes, zero passes, and defined size_t multiplication wrapping. Exact vector
+observations use lossless run-length notation, without omitting entries.
+Callback fixtures exercise all release-state descriptor combinations, null
+opaque data, and complete forwarding of pointer-width argument values.
+
+Native regressions verify a DC binding after failure and owner moves, and that
+Init sizes sigma from the selected shared state while InitForAC mutates the
+owning shared_storage fields. Uninitialized source pixels and source-indeterminate
+members are omitted or explicitly seeded before observation. The pipeline and
+outer frame/image entry points remain required for the first-image gate.

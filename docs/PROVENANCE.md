@@ -32,7 +32,17 @@ parameter initialization, output-profile selection, and matrix/luminance/gamma
 updates. Original methods supply all reference observations; generated profile
 and reuse sequences are local infrastructure. Fixtures value-initialize source
 aggregate scalars explicitly and retain partial state after errors. Pixel
-conversion and full decoder-state integration remain separate boundaries.
+conversion and frame-pipeline integration remain separate boundaries.
+
+`passes_state.cc`, decoder storage/constructor/Init and callback carriers in
+`dec_cache.h`, InitForAC in `dec_cache.cc`, callback typedefs in the public
+`decode.h`, and strategy-order/offset tables in `coeff_order.h` supply shared
+and decoder initialization. The reference calls actual original methods and
+observes their allocation metadata, bindings, partial state, and defined vector
+entries. Lossless run-length notation compresses complete coefficient-vector
+observations. Callback functions are local caller probes, not codec replacements.
+Native ownership/retention regressions and generated action sequences are local
+infrastructure. General pipeline preparation and GroupDecCache remain unported.
 
 - `libjxl/libjxl` at `a16d32d0ac113f5e54125e49bb571281c5d0b704`:
   `dec_bit_reader`, `enc_bit_writer`, `field_encodings`, `fields`, `enc_fields`,

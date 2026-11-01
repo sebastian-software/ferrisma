@@ -20,7 +20,7 @@ fn opsin(out: &mut String, p: &OpsinParams) {
         }
     }
 }
-fn observation(out: &mut String, s: &OutputEncodingInfo) {
+pub(super) fn observation(out: &mut String, s: &OutputEncodingInfo) {
     metadata::color_bundle(out, &s.orig_color_encoding);
     write!(out, " {}", s.orig_intensity_target.to_bits()).unwrap();
     for row in s.orig_inverse_matrix {

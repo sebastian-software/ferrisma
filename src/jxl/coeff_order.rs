@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Permutation context and decoder from lib/jxl/coeff_order.{h,cc}.
-//! AC-strategy coefficient orders remain a separate, unported boundary.
+//! Strategy-order buckets and coefficient offsets retain the original tables;
+//! actual AC coefficient-order decoding remains a separate, unported boundary.
 
 use super::base::status::{Status, StatusCode};
 use super::coeff_order_fwd::CoeffOrder;
@@ -12,6 +13,51 @@ use super::lehmer_code::decode_lehmer_code;
 pub const PERMUTATION_CONTEXTS: u32 = 8;
 pub const COEFF_ORDER_LIMIT: usize = 6156;
 pub const COEFF_ORDER_MAX_SIZE: usize = COEFF_ORDER_LIMIT * super::frame_dimensions::DCT_BLOCK_SIZE;
+pub const COEFF_ORDER_OFFSET: [usize; 40] = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    10,
+    14,
+    18,
+    34,
+    50,
+    66,
+    68,
+    70,
+    72,
+    76,
+    80,
+    84,
+    92,
+    100,
+    108,
+    172,
+    236,
+    300,
+    332,
+    364,
+    396,
+    652,
+    908,
+    1164,
+    1292,
+    1420,
+    1548,
+    2572,
+    3596,
+    4620,
+    5132,
+    5644,
+    COEFF_ORDER_LIMIT,
+];
+pub const STRATEGY_ORDER: [u8; 27] = [
+    0, 1, 1, 1, 2, 3, 4, 4, 5, 5, 6, 6, 1, 1, 1, 1, 1, 1, 7, 8, 8, 9, 10, 10, 11, 12, 12,
+];
 
 pub fn coeff_order_context(value: u32) -> u32 {
     let (token, _, _) = HybridUintConfig::new(0, 0, 0).encode(value);

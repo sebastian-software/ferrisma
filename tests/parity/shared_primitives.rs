@@ -14,7 +14,7 @@ use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("ss-")
 }
-fn corr(out: &mut String, c: &ColorCorrelation) {
+pub(super) fn corr(out: &mut String, c: &ColorCorrelation) {
     write!(
         out,
         " C {} {} {} {} {} {} {} {}",
@@ -68,7 +68,7 @@ fn quant(out: &mut String, q: &Quantizer, d: &DequantMatrices, slots: usize) {
         write!(out, " {}", q.inv_quant_ac(n).to_bits()).unwrap();
     }
 }
-fn plane<T: Sample>(out: &mut String, p: &Plane<T>) {
+pub(super) fn plane<T: Sample>(out: &mut String, p: &Plane<T>) {
     write!(
         out,
         " P {} {} {} {}",
@@ -386,7 +386,7 @@ fn observe_image(args: &mut std::str::SplitWhitespace<'_>) -> String {
     out
 }
 
-fn observe_bundle(out: &mut String, b: &jxl::jxl::image_bundle::ImageBundle<'_>) {
+pub(super) fn observe_bundle(out: &mut String, b: &jxl::jxl::image_bundle::ImageBundle<'_>) {
     write!(
         out,
         " B {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
