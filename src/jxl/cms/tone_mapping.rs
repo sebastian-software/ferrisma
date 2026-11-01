@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Scalar tone/gamut mapping from `lib/jxl/cms/tone_mapping.h`.
-//! SIMD specializations are separate, unported source boundaries.
+//! The separate one-lane derived specialization is in tone_mapping_scalar;
+//! other SIMD specializations remain unported.
 
 use super::super::base::float::{clamp_f32, max_f32, min_f32, mul_add_f32};
 use super::super::base::matrix_ops::Vector3;
@@ -11,18 +12,18 @@ pub type Color = [f32; 3];
 pub type Range = [f32; 2];
 
 pub struct Rec2408ToneMapperBase {
-    source: Range,
-    target: Range,
-    luminances: Vector3,
-    pq_mastering_min: f32,
-    pq_mastering_range: f32,
-    inv_pq_mastering_range: f32,
-    min_lum: f32,
-    max_lum: f32,
-    ks: f32,
-    inv_one_minus_ks: f32,
-    normalizer: f32,
-    inv_target_peak: f32,
+    pub(crate) source: Range,
+    pub(crate) target: Range,
+    pub(crate) luminances: Vector3,
+    pub(crate) pq_mastering_min: f32,
+    pub(crate) pq_mastering_range: f32,
+    pub(crate) inv_pq_mastering_range: f32,
+    pub(crate) min_lum: f32,
+    pub(crate) max_lum: f32,
+    pub(crate) ks: f32,
+    pub(crate) inv_one_minus_ks: f32,
+    pub(crate) normalizer: f32,
+    pub(crate) inv_target_peak: f32,
 }
 fn luminance(p: Vector3, rgb: Color) -> f32 {
     mul_add_f32(p[2], rgb[2], mul_add_f32(p[0], rgb[0], p[1] * rgb[1]))
@@ -95,11 +96,20 @@ impl Rec2408ToneMapperBase {
     }
 }
 pub struct HlgOotfBase {
-    exponent: f32,
-    apply_ootf: bool,
-    luminances: Vector3,
+    pub(crate) exponent: f32,
+    pub(crate) apply_ootf: bool,
+    pub(crate) luminances: Vector3,
 }
 impl HlgOotfBase {
+    // Original protected gamma constructor, used by the derived scalar stage.
+    pub(crate) fn from_gamma(gamma: f32, luminances: Vector3) -> Self {
+        let exponent = gamma - 1.0;
+        Self {
+            exponent,
+            apply_ootf: exponent < -0.01 || 0.01 < exponent,
+            luminances,
+        }
+    }
     pub fn new(source: f32, target: f32, luminances: Vector3) -> Self {
         let gamma = 1.111f32.powf((target / source).log2());
         let exponent = gamma - 1.0;

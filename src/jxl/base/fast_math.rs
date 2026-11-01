@@ -3,7 +3,27 @@
 
 //! Existing one-lane Highway specialization of FastLog2f from
 //! `base/fast_math-inl.h` and its degree-two rational polynomial evaluation
-//! from `base/rational_polynomial-inl.h`. Other functions/targets are unported.
+//! from `base/rational_polynomial-inl.h`, plus FastPow2f/FastPowf. Other
+//! functions/targets are unported.
+
+use super::hwy_scalar::{floor, mul_add, to_i32};
+
+pub fn fast_pow2f(x: f32) -> f32 {
+    let floorx = floor(x);
+    let exp = f32::from_bits(to_i32(floorx).wrapping_add(127).wrapping_shl(23) as u32);
+    let frac = x - floorx;
+    let mut num = frac + f32::from_bits(0x4122cc6b);
+    num = mul_add(num, frac, f32::from_bits(0x424379a1));
+    num = mul_add(num, frac, f32::from_bits(0x42c519f0));
+    num *= exp;
+    let mut den = mul_add(frac, f32::from_bits(0x3e5749ee), f32::from_bits(0xbcb621be));
+    den = mul_add(den, frac, f32::from_bits(0xc19b8831));
+    den = mul_add(den, frac, f32::from_bits(0x42c519f1));
+    num / den
+}
+pub fn fast_powf(base: f32, exponent: f32) -> f32 {
+    fast_pow2f(fast_log2f(base) * exponent)
+}
 
 /// The source leaves negative and NaN arguments undefined.
 pub fn fast_log2f(x: f32) -> f32 {

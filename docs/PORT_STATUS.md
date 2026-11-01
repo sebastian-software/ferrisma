@@ -38,7 +38,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_lz77.h`, `.cc` | `enc_lz77.rs`, `enc_lz77_costs.rs` | Symbol costs, RLE, greedy bucket variants, optimal hash-chain variants, and original method dispatch |
 | `enc_ans_params.h`, ForModular in `enc_ans.cc` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, uint config, and complete modular entropy-policy selection |
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
-| `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs` | Existing scalar FastLog2f and its degree-two polynomial; other functions/targets unported |
+| `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs`, `cms/transfer_functions_scalar.rs` | Existing one-lane FastLog2f/FastPow2f/FastPowf and degree-two/degree-four rational evaluation with original x86 fence sites; other functions/targets unported |
+| Highway `hwy/ops/scalar-inl.h`, `generic_ops-inl.h` | `base/hwy_scalar.rs` | Used one-lane Min/Max, unfused MulAdd, Clamp, Floor, saturating float-to-i32 conversion, and sign-bit ZeroIfNegative; other operations/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
 | `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, and AcStrategyImage allocation/fills/validity/counting; strategy objects, interpreted row views, geometry/transform methods, and strategy setters unported |
 | `chroma_from_luma.h`, `.cc` | `chroma_from_luma.rs` | Complete ColorCorrelation constants/defaults, ratios, setters/getters, DC parsing, and ColorCorrelationMap allocation/default/move ownership/delegated DC parsing |
@@ -60,6 +61,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
+| `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, VarDCT/quantization-table decoding, and debug descriptions unported |
@@ -95,6 +97,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
+| `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, and frame header writing; quantizer writes unported |
@@ -134,14 +137,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 307 tests, including 173 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 307 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 307 tests and corpus |
+| Rust debug | PASSED | 312 tests, including 176 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 312 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 312 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 307 tests and 673,219 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 312 tests and 690,355 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **673,219 requests** against C++. These include
+Each differential run compares **690,355 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -808,3 +811,19 @@ initialized size/context and successful CMS thread/pixel bounds; undefined
 source call order is not treated as a valid decoding result. Default CMS backend,
 C ABI reentrancy, custom thread runners, and complete frame/image decoding remain
 unported.
+
+The one-lane tone-mapping stage and numeric dependencies add 17,136 differential
+requests: 5,148 FastPow2f/FastPowf/TF_PQ cases, 10,260 derived Rec. 2408/HLG/gamut
+cases, and 1,728 factory/direct-row/simple-pipeline cases. They retain exact
+float words through rational approximation thresholds, signed zeros, subnormals,
+infinities, signaling/quiet NaNs, intensity changes, gamut policies, no-op
+selection, early guards, PQ scaling, and reversed multi-group scheduling.
+The oracle calls the pristine specialized functions and concrete stage, and
+the original simple pipeline performs all scheduling and output writes.
+
+Assembly inspection confirms separate multiply/add instructions in the scalar
+stage and gamut kernel. The gamut blend's original-value-first add preserves
+the original quiet-NaN payload; a captured native regression retains that case.
+Another native test establishes the original no-tone-mapping selection for all
+four fixed lossless sample/channel configurations. These component results do
+not complete pipeline preparation or the outer frame/image decoder.

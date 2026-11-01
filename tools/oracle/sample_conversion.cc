@@ -97,3 +97,4 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "output_encoding.inc"
 #include "decoder_state.inc"
 #include "cms_stage.inc"
+#include "tone_mapping.inc"

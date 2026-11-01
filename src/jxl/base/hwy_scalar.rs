@@ -1,0 +1,63 @@
+// Copyright 2019 Google LLC
+// Copyright (c) The Highway Project Authors. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// Use of this source code is governed by Highway's offered BSD alternative in
+// licenses/HIGHWAY-BSD-3-Clause.txt. Modified: translated the used one-lane
+// Min/Max/MulAdd/Floor/ConvertTo/sign operations from hwy/ops/scalar-inl.h and
+// generic_ops-inl.h. Other operations and SIMD targets remain separate work.
+pub(crate) fn mul_add(a: f32, b: f32, c: f32) -> f32 {
+    a * b + c
+}
+pub(crate) fn min(a: f32, b: f32) -> f32 {
+    if a.is_nan() {
+        return b;
+    }
+    if b.is_nan() {
+        return a;
+    }
+    if a < b { a } else { b }
+}
+pub(crate) fn max(a: f32, b: f32) -> f32 {
+    if a.is_nan() {
+        return b;
+    }
+    if b.is_nan() {
+        return a;
+    }
+    if a > b { a } else { b }
+}
+pub(crate) fn clamp(x: f32, lo: f32, hi: f32) -> f32 {
+    min(max(lo, x), hi)
+}
+pub(crate) fn zero_if_negative(x: f32) -> f32 {
+    if x.to_bits() >> 31 != 0 { 0.0 } else { x }
+}
+pub(crate) fn floor(x: f32) -> f32 {
+    let negative = x < 0.0;
+    let mut bits = x.to_bits();
+    let exponent = ((bits >> 23) & 255) as i32 - 127;
+    if exponent >= 23 {
+        return x;
+    }
+    if exponent < 0 {
+        return if negative { -1.0 } else { 0.0 };
+    }
+    let mask = 0x7fffffu32 >> exponent;
+    if bits & mask == 0 {
+        return x;
+    }
+    if negative {
+        bits = bits.wrapping_add(0x800000u32 >> exponent);
+    }
+    bits &= !mask;
+    f32::from_bits(bits)
+}
+pub(crate) fn to_i32(x: f32) -> i32 {
+    if (x.to_bits() & 0x7fffffff) >> 23 < 158 {
+        x as i32
+    } else if x.to_bits() >> 31 != 0 {
+        i32::MIN
+    } else {
+        i32::MAX
+    }
+}

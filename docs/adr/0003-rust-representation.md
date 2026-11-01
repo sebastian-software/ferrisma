@@ -623,6 +623,24 @@ at the original float assignments/call boundaries.
 Setting the copied linear profile's transfer function retains its ICC bytes;
 regeneration belongs to the later original caller, not to this setter.
 
+The derived one-lane tone/HLG classes compose their actual base constructors;
+their Highway bodies keep separate multiply/add operations and the original
+right-nested luminance order. They do not reuse the base classes' different
+pixel equations or the double-precision PQ base transfer function. TF_PQ uses
+the source's exact float coefficient words, degree-four evaluation, sign
+restoration, eager branch evaluation, and x86 atomic-fence sites. Scalar
+FastPow2f retains Highway Floor's positive-zero result for negative zero and
+its sign-based saturating NaN/infinity conversion before wrapped exponent math.
+ZeroIfNegative tests the sign bit, including negative NaNs.
+
+In the scalar GamutMap blend, the reference Clang object emits the original
+channel value as the first add operand, followed by the separately computed
+product. Express that emitted operand order explicitly so a quiet-NaN channel
+retains its payload. This does not change finite arithmetic or fuse operations;
+exact differential and captured-word regressions cover it. Review this mapping
+with compiler/target changes. ToneMappingStage retains the original unneeded
+return before argument guards, then RGB load/scale/map/gamut/scale/store order.
+
 PassesDecoderState owns its complete shared storage and coefficient/reference
 owners. Its shared pointer selects either its own storage or an actual immutable
 external shared borrow; methods retain each source use of shared versus

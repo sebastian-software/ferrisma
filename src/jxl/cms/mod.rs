@@ -6,4 +6,6 @@ mod icc_md5;
 mod icc_tags;
 pub mod opsin_params;
 pub mod tone_mapping;
+pub mod tone_mapping_scalar;
 pub mod transfer_functions;
+pub mod transfer_functions_scalar;
