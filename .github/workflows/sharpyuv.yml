@@ -57,6 +57,7 @@ jobs:
           python3 tools/check_sharpyuv_abi.py
           python3 tools/check_sharpyuv_abi.py --debug
           python3 tools/check_sharpyuv_alloc.py
+          python3 tools/check_sharpyuv_cpu.py
           python3 tools/check_sharpyuv_linkage.py
       - name: Original native WebP integration tests
         run: |
@@ -78,6 +79,7 @@ jobs:
             build/sharpyuv-parity-*/
             build/sharpyuv-abi/*.json
             build/sharpyuv-allocation/results.json
+            build/sharpyuv-cpu/results.json
             build/sharpyuv-linkage.json
             build/sharpyuv-webp-*/replacement.json
             build/sharpyuv-webp-*/sharpyuv-linkage.json

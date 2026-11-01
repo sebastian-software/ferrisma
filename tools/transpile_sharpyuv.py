@@ -15,8 +15,25 @@ ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / "crates/sharpyuv"
 
 
-def corrected(source, raw):
+def corrected(source, raw, cpu_x86=False):
     text, changes = translate(source, raw, codec_registry=False)
+    if cpu_x86:
+        # C2Rust's CPUID lowering uses a partial BX move and cannot describe
+        # LLVM's reserved RBX register correctly. This intrinsic executes the
+        # same CPUID leaf/subleaf and preserves all four full-width outputs.
+        text, count = re.subn(r'    asm!\(\n        "cpuid[\s\S]*?    \);\n',
+            '    let registers = core::arch::x86_64::__cpuid_count(info_type as u32, 0);\n'
+            '    *cpu_info.offset(0) = registers.eax as core::ffi::c_int;\n'
+            '    *cpu_info.offset(1) = registers.ebx as core::ffi::c_int;\n'
+            '    *cpu_info.offset(2) = registers.ecx as core::ffi::c_int;\n'
+            '    *cpu_info.offset(3) = registers.edx as core::ffi::c_int;\n', text)
+        if count != 1:
+            raise SystemExit('Unexpected CPUID assembly lowering')
+        changes['cpuid-register-mapping'] = count
+        included = ROOT / 'upstream/libwebp/src/dsp/cpu.c'
+        notice = re.match(r'(?:(?:\s*//[^\n]*\n)|(?:\s*/\*.*?\*/\s*))*', included.read_text(), re.S).group().rstrip()
+        text = notice + '\n\n// Included x86 CPU-query source; SIMD conversion remains disabled.\n' + text
+        changes['included-cpu-source-notice'] = 1
     # Debug assertions are captured from the original Debug preprocessing. Their
     # predicates have no side effects; the platform helper follows NDEBUG in
     # release and uses the target C runtime's assertion entry point in debug.
@@ -122,6 +139,39 @@ def main():
                       "rust_sha256": hashlib.sha256(text.encode()).hexdigest(), "corrections": changes})
     record = {"translator": "c2rust 0.21.0", "llvm": "16.0.6", "reference": "Debug, WEBP_ENABLE_SIMD=OFF, WEBP_USE_THREAD=ON",
               "generation_target": "aarch64-apple-darwin", "units": units}
+    # CPU detection has an x86 source branch even when all SIMD DSP units are
+    # disabled. Capture that branch independently instead of using ARM's NULL
+    # callback initializer on Linux x86-64. Its selected body has no OS branches.
+    cpu = dict(next(entry for entry in entries if entry['file'].endswith('sharpyuv_cpu.c')))
+    flags = shlex.split(cpu['command'])
+    if '-arch' in flags:
+        flags[flags.index('-arch') + 1] = 'x86_64'
+    flags += ['-target', 'x86_64-apple-darwin']
+    cpu['command'] = shlex.join(flags)
+    cpu_database = work / 'cpu-x86-compile_commands.json'
+    cpu_database.write_text(json.dumps([cpu], indent=2) + '\n')
+    cpu_raw_root = ROOT / 'build/sharpyuv-x86-generated'
+    if not args.import_only:
+        result = subprocess.run(['c2rust-transpile', cpu_database, '--emit-build-files', '--fail-on-error',
+                                 '--output-dir', cpu_raw_root], env=environment,
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        (ROOT / 'build/sharpyuv-x86-transpile.log').write_text(result.stdout)
+        if result.returncode or 'error:' in result.stdout or 'error generated' in result.stdout:
+            raise SystemExit('x86 CPU-query translation failed')
+    source = Path(cpu['file'])
+    raw = (cpu_raw_root / 'src/sharpyuv_cpu.rs').read_text()
+    text, changes = corrected(source, raw, cpu_x86=True)
+    target = CRATE / 'src/sharpyuv_cpu_x86_64.rs'
+    if args.check:
+        if target.read_text() != text:
+            raise SystemExit('x86 CPU-query translation differs')
+    else:
+        target.write_text(text)
+    units.append({'source': str(source.relative_to(ROOT)), 'rust': str(target.relative_to(ROOT)),
+                  'included_sources': ['upstream/libwebp/src/dsp/cpu.c'],
+                  'generation_target': 'x86_64-apple-darwin (OS-independent x86 CPU-query body)',
+                  'raw_sha256': hashlib.sha256(raw.encode()).hexdigest(),
+                  'rust_sha256': hashlib.sha256(text.encode()).hexdigest(), 'corrections': changes})
     manifest = CRATE / "TRANSLATION.json"
     encoded = json.dumps(record, indent=2) + "\n"
     if args.check:
@@ -129,7 +179,7 @@ def main():
             raise SystemExit("Translation manifest differs")
     else:
         manifest.write_text(encoded)
-    print(f"{'Verified' if args.check else 'Imported'} {len(units)} SharpYUV units")
+    print(f"{'Verified' if args.check else 'Imported'} seven SharpYUV units and one x86 CPU-query variant")
 
 
 if __name__ == "__main__":

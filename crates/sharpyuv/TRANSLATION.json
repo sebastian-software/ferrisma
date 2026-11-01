@@ -70,6 +70,20 @@
         "target-libc-mutex": 1,
         "raw-static-address": 7
       }
+    },
+    {
+      "source": "upstream/libwebp/sharpyuv/sharpyuv_cpu.c",
+      "rust": "crates/sharpyuv/src/sharpyuv_cpu_x86_64.rs",
+      "included_sources": [
+        "upstream/libwebp/src/dsp/cpu.c"
+      ],
+      "generation_target": "x86_64-apple-darwin (OS-independent x86 CPU-query body)",
+      "raw_sha256": "3535b3628580bc18dd392fd2bff61a91fafabe743e738b15eb9d38811c381a4d",
+      "rust_sha256": "df0471f66ce92e8b7afc6077144342b8d8c74055c919e1b31409ca1892207c37",
+      "corrections": {
+        "cpuid-register-mapping": 1,
+        "included-cpu-source-notice": 1
+      }
     }
   ]
 }

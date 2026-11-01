@@ -5,6 +5,8 @@ Mechanical portable translation of SharpYUV 0.4.2 from libwebp 1.6.0, commit
 to the original `sharpyuv` target with `WEBP_ENABLE_SIMD=OFF` and threading on.
 The two SIMD translation units retain the original disabled-configuration
 behavior. No C codec implementation is linked into this crate.
+An additional generated x86 CPU-query variant preserves the original detector
+that remains present on Linux even with SIMD disabled; see ADR 0023.
 
 The Rust API keeps the original unsafe pointer, stride, ownership, callback,
 and initialization contracts. It exports the original structures and functions,

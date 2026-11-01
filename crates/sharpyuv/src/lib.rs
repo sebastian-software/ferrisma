@@ -15,6 +15,10 @@
 compile_error!("The portable source mapping targets macOS ARM64 and Linux x86-64");
 
 mod sharpyuv;
+#[cfg(target_arch = "aarch64")]
+mod sharpyuv_cpu;
+#[cfg(target_arch = "x86_64")]
+#[path = "sharpyuv_cpu_x86_64.rs"]
 mod sharpyuv_cpu;
 pub mod sharpyuv_csp;
 mod sharpyuv_dsp;
