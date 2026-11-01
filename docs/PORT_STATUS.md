@@ -87,7 +87,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
-| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits, permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; natural AC-strategy coefficient orders are tracked with ac_strategy above |
+| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
 | `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, and native moves; C allocators and MSan-only padding instrumentation unported |
 | `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
@@ -147,15 +147,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 365 tests, including 211 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 365 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 365 tests and corpus |
+| Rust debug | PASSED | 372 tests, including 214 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 372 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 372 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 365 tests and 750,177 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 372 tests and 750,874 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **750,177 requests** against C++. These include
+Each differential run compares **750,874 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -1195,3 +1195,27 @@ requests. Another 24 competing-basis requests exercise two even-even AFV
 coefficients in all four orientations, increasing the DCT slice to 2,929
 requests and its mixed-payload group to 366. No previous request or expected
 word is removed or changed; the selected ARM operations remain identical.
+
+## AC coefficient-order decoding
+
+DecodeCoeffOrders now selects the first strategy for each order bucket, maps
+used strategy bits to those buckets, fills natural defaults, and reads custom
+permutations through the original histogram/symbol machinery. Encoded orders
+that are unused by the caller still consume entropy with an absent output. A
+nonzero mask initializes and validates the reader even when only reserved bits
+are set. With a zero mask no bits are consumed. Failures retain the original
+partial packed output; unused ranges and trailing guards remain unchanged.
+
+New fixtures use genuine original EncodeCoeffOrders streams, including custom
+LLF-preserving tails, unaligned input, all strategy aliases and 13 order buckets,
+unused custom orders, reserved masks, truncation, corruption, and reused output.
+The full packed output is compared losslessly as a sentinel plus every changed
+index/value, avoiding hashes while bounding peak fixture memory. This slice
+provides the order decoder for later AC/frame orchestration; it does not add a
+complete VarDCT frame decoder or port the coefficient-order encoder dispatcher.
+
+The coefficient-order slice adds four native tests and three differential groups
+with 697 exact requests. Local full ordinary and ASan/UBSan validation, each in
+Debug, Release, and Rust 1.85, runs 372 tests, 214 differential groups, and
+750,874 requests with zero failed/ignored tests. A captured original custom-order
+stream also exercises the entropy decoder in ordinary Rust-only tests.

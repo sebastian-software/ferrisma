@@ -981,3 +981,22 @@ Another 24 exact requests place competing payloads at coefficients 2/16, which
 both enter that basis loop, across all four orientations. Retain every prior
 request and expected word. These changes leave the selected ARM operations,
 association, finite arithmetic, compiler flags, and original source unchanged.
+
+### Packed coefficient-order decoding
+
+The original CoeffOrderOffset macro is a const function over the unchanged
+40-entry offset table. DecodeCoeffOrders receives the existing packed u32 order
+storage as a mutable slice. Each accessed channel range covers the selected
+strategy bucket's full coefficient count; unused buckets need no writes.
+Internal optional slices represent original null outputs for encoded unused
+orders, while the real entropy symbols and final state are still validated.
+
+The source's first-representative strategy loop and masks remain explicit.
+Natural-order scratch grows only when required and is filled by the existing
+AcStrategy traversal. A permutation is fully read before its destination is
+Lehmer-decoded and mapped through the natural order. No synthetic output or
+rollback is added after an error; already completed channels remain observable.
+Zero used_orders leaves the reader untouched; nonzero reserved bits still run
+histogram initialization and final-state validation. The new original-reader
+fixture keeps eight leading and trailing bytes of real backing while exposing
+only its logical input span.

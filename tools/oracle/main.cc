@@ -449,6 +449,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "metadata.inc"
 #include "frame.inc"
 #include "toc.inc"
+#include "coeff_orders.inc"
 #include "image.inc"
 #include "rct.inc"
 #include "predict.inc"
@@ -514,6 +515,7 @@ int main() {
       else if (MetadataCommand(command, in, &mm)) {}
       else if (FrameCommand(command, in, &mm)) {}
       else if (TocCommand(command, in, &mm)) {}
+      else if (CoeffOrdersCommand(command, in, &mm)) {}
       else if (ImageCommand(command, in, &mm)) {}
       else if (RctCommand(command, in, &mm)) {}
       else if (PredictCommand(command, in, &mm)) {}
