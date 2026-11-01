@@ -69,7 +69,9 @@ stage source and calls its actual scalar helper and public factory. Its
 source-scoped -O0 setting retains source operand order across ordinary and
 ASan/UBSan builds; all instrumentations stay active. Other fixture/original
 codec-library flags are unchanged. The native helper's local Add/Mul call
-boundaries retain the same Highway scalar order and unfused rounding. This
+boundaries retain the same Highway scalar order, binary64 multiplication with
+float narrowing, and unfused rounding. The scaled-output stage uses the same
+local product mapping. This
 pins a numeric configuration without changing any source algorithm or claiming
 performance parity. It supplies input/profile/parameter
 fixtures, observes all output words and unchanged guards/extra channels, and

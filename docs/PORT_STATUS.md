@@ -920,3 +920,12 @@ including the existing complete first-image corpus. The Linux x86_64 all-target,
 all-feature offline cargo check also passes; Linux runtime evidence remains a
 separate hosted gate. The ordinary native XYB test executable links only
 libSystem and introduces no C++ runtime dependency.
+
+A structural precision review additionally preserves Highway scalar operator*'s
+literal float-to-double promotions, binary64 product, and narrowing to the
+float lane in both XybToRgb and scaled XYB output. Local out-of-line widening
+and product calls retain those checkpoints in native release assembly. The
+existing finite/NaN corpora and captured regression words stay unchanged; no
+extra request, expected-word replacement, or global helper change is needed.
+Renewed ordinary and sanitized full checks retain the same test/group/request
+counts in debug, release, and Rust 1.85.1 after this precision mapping repair.

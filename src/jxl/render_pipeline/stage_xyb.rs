@@ -10,7 +10,7 @@ use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::cms::opsin_params::{SCALED_XYB_OFFSET, SCALED_XYB_SCALE};
 use crate::jxl::color_encoding::ColorSpace;
 use crate::jxl::dec_xyb::{OpsinParams, OutputEncodingInfo};
-use crate::jxl::dec_xyb_scalar::xyb_to_rgb;
+use crate::jxl::dec_xyb_scalar::{mul, xyb_to_rgb};
 
 pub struct XybStage {
     opsin_params: OpsinParams,
@@ -55,9 +55,9 @@ impl RenderPipelineStage for XybStage {
                 let in_x = buffers.row(rows[0])[x];
                 let in_y = buffers.row(rows[1])[x];
                 let in_b = buffers.row(rows[2])[x];
-                let out_x = (in_x + SCALED_XYB_OFFSET[0]) * SCALED_XYB_SCALE[0];
-                let out_y = (in_y + SCALED_XYB_OFFSET[1]) * SCALED_XYB_SCALE[1];
-                let out_b = ((in_b - in_y) + SCALED_XYB_OFFSET[2]) * SCALED_XYB_SCALE[2];
+                let out_x = mul(in_x + SCALED_XYB_OFFSET[0], SCALED_XYB_SCALE[0]);
+                let out_y = mul(in_y + SCALED_XYB_OFFSET[1], SCALED_XYB_SCALE[1]);
+                let out_b = mul((in_b - in_y) + SCALED_XYB_OFFSET[2], SCALED_XYB_SCALE[2]);
                 buffers.row_mut(rows[0])[x] = out_x;
                 buffers.row_mut(rows[1])[x] = out_y;
                 buffers.row_mut(rows[2])[x] = out_b;

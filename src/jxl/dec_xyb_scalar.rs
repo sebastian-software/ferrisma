@@ -16,8 +16,21 @@ fn add(a: f32, b: f32) -> f32 {
     a + b
 }
 #[inline(never)]
-fn mul(a: f32, b: f32) -> f32 {
+fn widen(value: f32) -> f64 {
+    f64::from(value)
+}
+#[inline(never)]
+fn mul_f64(a: f64, b: f64) -> f64 {
     a * b
+}
+// scalar-inl.h's floating operator* widens both operands to double and
+// narrows its product to the lane type. Keep these checkpoints even when
+// finite f32 products happen to round identically without the promotion.
+#[inline(never)]
+pub(super) fn mul(a: f32, b: f32) -> f32 {
+    let a = widen(a);
+    let b = widen(b);
+    mul_f64(a, b) as f32
 }
 fn mul_add(a: f32, b: f32, c: f32) -> f32 {
     add(mul(a, b), c)

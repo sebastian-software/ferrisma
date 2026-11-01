@@ -632,6 +632,10 @@ four-lane inverse-matrix entry participates in the scalar helper. Local Add/Mul
 call boundaries retain the source scalar operand order when native release
 optimization would otherwise commute NaN operands. MulAdd remains exactly
 Add(Mul(a,b),c), with separate rounding; global Highway helpers are unchanged.
+Each local Mul additionally preserves scalar-inl.h's float-to-double promotions,
+binary64 product, and narrowing to the float lane. Out-of-line widening and
+binary64 multiplication keep native optimization from collapsing those source
+checkpoints. Both XybToRgb and the scaled-output stage use this same mapping.
 The helper remains out of line, and its source dataflow matches the isolated
 original-source compiler configuration in ADR 0002. Captured-word regressions
 cover competing NaN payloads, overflow/cancellation, and finite pixels. Review
