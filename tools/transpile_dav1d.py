@@ -16,6 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / 'crates/dav1d'
 
 
+def current_variadic(text):
+    count = text.count('::core::ffi::VaListImpl')
+    text = text.replace('::core::ffi::VaListImpl', '::core::ffi::VaList')
+    text, converted = re.subn(r'\b(\w+)\.as_va_list\(\)(?: as ::core::ffi::VaList)?', r'\1', text)
+    return text, count + converted
+
+
 def corrected(source, raw, entry):
     if sys.platform == 'linux' and re.search(r'\bf128\b', raw):
         raise SystemExit('Linux long-double translation needs its own mapping')
@@ -102,6 +109,9 @@ def corrected(source, raw, entry):
     text, count = retain_alignment(text, entry)
     if count:
         changes['original-c-record-field-alignment'] = count
+    text, count = current_variadic(text)
+    if count:
+        changes['current-rust-variadic-list'] = count
     return text, changes
 
 

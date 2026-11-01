@@ -1,0 +1,616 @@
+{
+  "translator": "c2rust 0.21.0",
+  "llvm": "16.0.6",
+  "preprocessing_profile": "debug",
+  "generation_target": "x86_64-unknown-linux-gnu",
+  "units": [
+    {
+      "source": "upstream/dav1d/src/cdf.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/cdf.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "raw-c-mutable-address": 6,
+        "raw-c-static-address": 2,
+        "original-c-record-field-alignment": 109
+      },
+      "raw_sha256": "6bd75e9d4218585ce1bf3dab83a4a02e10c3f36021d069776663141c7963333e",
+      "rust_sha256": "fb476ba19fee61140ac6be4ecb13a9c21c5c7153633b1959d4a3123a2b721772"
+    },
+    {
+      "source": "upstream/dav1d/src/cpu.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/cpu.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "fe289b6998ddbed1fd98a33af4a13fa064abd9d3c4155ca0e6f868b003dd7e5e",
+      "rust_sha256": "f80ef846abbe0ee7ac6fa121324fc9c8b1578c2edb3abe2ed6b143c2cf7d9bc4"
+    },
+    {
+      "source": "upstream/dav1d/src/ctx.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/ctx.rs",
+      "corrections": {
+        "raw-c-mutable-address": 6
+      },
+      "raw_sha256": "b9ae754b801c12f63ae3478e70526a26bc5465e7d02f823ca333626d321788a7",
+      "rust_sha256": "617075211f64cc978f52008a806148fb2c54e0519dd2d200a23899279b73cbdb"
+    },
+    {
+      "source": "upstream/dav1d/src/data.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/data.rs",
+      "corrections": {
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 9
+      },
+      "raw_sha256": "e0f06710aa410f06e222d0bfa6a126903745c839bec95c70ef04af4df8c5369e",
+      "rust_sha256": "c111c56b476262a70700c1854562d8b73d0c9d81d841bb4343a4da7c382c9ce4"
+    },
+    {
+      "source": "upstream/dav1d/src/decode.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/decode.rs",
+      "corrections": {
+        "canonical-cfg-labels": 34,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 15,
+        "raw-c-mutable-address": 616,
+        "raw-c-assignment-temporary": 4,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "ad07d34826ff9a8fe4e2d8ddaa958fec0f8909a8d3c207e94362c0ba6c649fcc",
+      "rust_sha256": "c6a036809e8085deebee7513fb90d9764a338a61020da6197f375f761e565657"
+    },
+    {
+      "source": "upstream/dav1d/src/dequant_tables.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/dequant_tables.rs",
+      "corrections": {},
+      "raw_sha256": "8dbbc8aceb74c00c999f7ff9e59c1afada13f9823be25a777d90f41127a7fec8",
+      "rust_sha256": "9ee1da525eb414f607f2a04644721ad27afeed49140344ee949bbafc995fa7ee"
+    },
+    {
+      "source": "upstream/dav1d/src/getbits.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/getbits.rs",
+      "corrections": {},
+      "raw_sha256": "8d1bdfeb6cc3310f4b1e5bea807fac9e8747133e55f5f0202261210f7eaa4b45",
+      "rust_sha256": "447264965f7c6e2d599c43a3382651851c7ab44ba057fe30a4dabcf97636caf8"
+    },
+    {
+      "source": "upstream/dav1d/src/intra_edge.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/intra_edge.rs",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "raw-static-field-array-address": 18,
+        "raw-c-mutable-address": 16,
+        "raw-c-static-address": 7
+      },
+      "raw_sha256": "a058cdc34f526ccc7d55981b428c0ca7e44332ade8e5e6726e67f32758be6da5",
+      "rust_sha256": "d6fe0fa29252baf6db8287549c34df9f9643bee797b76e5b9ad2537015aaa715"
+    },
+    {
+      "source": "upstream/dav1d/src/itx_1d.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/itx_1d.rs",
+      "corrections": {
+        "raw-c-mutable-address": 3,
+        "raw-c-assignment-temporary": 2
+      },
+      "raw_sha256": "361c596f954b485e3d3ecb31c1ebb999dfb7a4da9b1f74cea8bb57e1a4ce2248",
+      "rust_sha256": "e8b83b8c7ed909f3a2ff31f9ad63838c9e930dbf5912720c8cad8baae46c8ef1"
+    },
+    {
+      "source": "upstream/dav1d/src/lf_mask.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/lf_mask.rs",
+      "corrections": {
+        "raw-c-mutable-address": 14,
+        "raw-c-assignment-temporary": 17,
+        "original-c-record-field-alignment": 3
+      },
+      "raw_sha256": "320eb67edddbb1db155245e7cf43a370b264abbbd6b9de3226c8e3fb86a8b734",
+      "rust_sha256": "dc5c5053d8402f696209b8e0d4f69aa8c79b947ccc8c0c3797fd7f6b74a34b9f"
+    },
+    {
+      "source": "upstream/dav1d/src/lib.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/lib.rs",
+      "corrections": {
+        "canonical-cfg-labels": 6,
+        "target-libc-thread-storage": 2,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 10,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 131,
+        "raw-c-assignment-temporary": 5,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "7434718aaee31f79b2ae3993b0929761d21593b85222fc2a7998c103724f0f72",
+      "rust_sha256": "2f709c9b8f1c7307129e90b58d8a5fe81f70c298ca568d9fab46a11b14405927"
+    },
+    {
+      "source": "upstream/dav1d/src/log.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/log.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "target-libc-file-handle": 1,
+        "original-c-record-field-alignment": 107,
+        "current-rust-variadic-list": 3
+      },
+      "raw_sha256": "9a501a7b48c430499251ec0dff656f72b947570738cfcfd05e79b5abfe4ed498",
+      "rust_sha256": "95d399c287d2e953533f44dbd6c1d3b04ed2cb16d1bf704158bbed6ed039a578"
+    },
+    {
+      "source": "upstream/dav1d/src/mem.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/mem.rs",
+      "corrections": {
+        "canonical-cfg-labels": 2,
+        "raw-c-mutable-address": 13
+      },
+      "raw_sha256": "caedbf7f74f496bd993258035121b7f1264aa7f60125a3515c6137d7eb5447d1",
+      "rust_sha256": "aee5caeb56a7d537a6362bf59a371ff43734852d6646484182864e15fb7a143f"
+    },
+    {
+      "source": "upstream/dav1d/src/msac.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/msac.rs",
+      "corrections": {
+        "raw-c-assignment-temporary": 4
+      },
+      "raw_sha256": "565e0d431b146dfa9fad5864bce01121c1de08d7cdd14aad8b5424281e285de7",
+      "rust_sha256": "ae2b23438996f08bebbdd1e043900bfa1e2e8ed7705961b33d8c0370d30baa3f"
+    },
+    {
+      "source": "upstream/dav1d/src/obu.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/obu.rs",
+      "corrections": {
+        "canonical-cfg-labels": 34,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 9,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 106,
+        "raw-c-assignment-temporary": 1,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "0242442ba08ef06351727157c620d5144a28231ed9e1aaa9ed6430ac08b67dac",
+      "rust_sha256": "57ec10f4dba37bda3cb7a6fc2be11a12567d1b9f847f5398c192029d23c9254f"
+    },
+    {
+      "source": "upstream/dav1d/src/pal.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/pal.rs",
+      "corrections": {
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "5bc1529c8667e595dc08b0e8999c347934249137e5a54bf798cf6bcfd817384f",
+      "rust_sha256": "96863162d2529c73db15b784cd4e235df62b7fcd973fc48917af0ccebecb6707"
+    },
+    {
+      "source": "upstream/dav1d/src/picture.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/picture.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 35,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "b07238991d8b91c97c2e6382d091655c89b380e08b2312f027950c7d29dad601",
+      "rust_sha256": "806832d89aca4acec89ca9027ba37d624268b477a9cdc79f5b7dc70e1b1909a7"
+    },
+    {
+      "source": "upstream/dav1d/src/qm.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/qm.rs",
+      "corrections": {},
+      "raw_sha256": "60dd18260f57b2b189cbb255c0dd75373919de9fe9817aacf4dcc6ab1db5c97a",
+      "rust_sha256": "9635ae50dfac0bdbfecc779b728d8f7998c9e3aa8cb45d62d498188a6b3fcbd2"
+    },
+    {
+      "source": "upstream/dav1d/src/ref.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/ref.rs",
+      "corrections": {
+        "pinned-rust-atomic-intrinsic-spelling": 1,
+        "raw-c-mutable-address": 5
+      },
+      "raw_sha256": "62a6ede1bff8d78e376206e8898d5efef67d364745042fdbe8b6b3050ba0012b",
+      "rust_sha256": "82bd172963d50c30f39c454b2f03aa82ea11826357ae161b38b837107ab57f85"
+    },
+    {
+      "source": "upstream/dav1d/src/refmvs.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/refmvs.rs",
+      "corrections": {
+        "canonical-cfg-labels": 2,
+        "raw-c-mutable-address": 35,
+        "raw-c-assignment-temporary": 6,
+        "original-c-record-field-alignment": 2
+      },
+      "raw_sha256": "c577788199915b39d6e7de29743bc52046cfb18cd29c5430c756644ba16e26aa",
+      "rust_sha256": "840732ca5a1ffac68eb9e9c30b323055dc5ac09120bd50d7e11b4f61da173284"
+    },
+    {
+      "source": "upstream/dav1d/src/scan.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/scan.rs",
+      "corrections": {
+        "static-raw-address": 66,
+        "target-libc-thread-storage": 1,
+        "remove-inferred-identity-pointer-cast": 19,
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "a7b8d17b7e4717c4e8f39cd411ccc86be428dbe7a6cd923101753aeb3b9fd492",
+      "rust_sha256": "6711d3ea8607915faf7dd86d9cad851ee1d798c55c446784da36e257d6a883bd"
+    },
+    {
+      "source": "upstream/dav1d/src/tables.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/tables.rs",
+      "corrections": {},
+      "raw_sha256": "f4d7fad6017fa6f4128c3b8789152e0b2c15f1b88dfd4a897d9ece96ca28f06e",
+      "rust_sha256": "5e252245151a34ac45d4b4ab5c337815aac01713936c669f7016c86575eed102"
+    },
+    {
+      "source": "upstream/dav1d/src/thread_task.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/thread_task.rs",
+      "corrections": {
+        "canonical-cfg-labels": 19,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "pinned-rust-atomic-intrinsic-spelling": 100,
+        "raw-c-mutable-address": 161,
+        "raw-c-assignment-temporary": 1,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "f764cb56b9990b45e86995f7c81ebf60d322982b04265ac65048149b6d96cc47",
+      "rust_sha256": "dfafe1214d41af8dae7f41b70cda70358de205db0f0ddedcb78c0c2390d56d04"
+    },
+    {
+      "source": "upstream/dav1d/src/warpmv.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/warpmv.rs",
+      "corrections": {
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "1129d0ed164410d41f8de7291fe6fded0df7b972c36b0a481aeca523961dabc5",
+      "rust_sha256": "db706434f89b067f6ee8e75b5a5aff7e43e417bec50440514461062b8e7a4366"
+    },
+    {
+      "source": "upstream/dav1d/src/wedge.c",
+      "instantiation": "common",
+      "rust": "crates/dav1d/src/linux/common/wedge.rs",
+      "corrections": {
+        "static-raw-address": 9,
+        "raw-static-record-array-address": 38,
+        "raw-c-mutable-address": 55,
+        "original-c-record-field-alignment": 37
+      },
+      "raw_sha256": "6f8a96e7532ff501542d133bb7d9f89d34ef25bd929f7654c94da62b8ac51e79",
+      "rust_sha256": "cc20364c44b42b7fd31c5e450be7302e946de569f763fd53b4e38163b2b8d878"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/cdef_apply_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 4,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 16,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "9cdf6bc7254596195c01f6fb04d6446fa4d88f1a453300656296df5b8557cff9",
+      "rust_sha256": "53ded6efcadc351b94ae41ce45d8687be78bda1d259b392af5a3154bd4d7f4c0"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/cdef_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "5f0ce800f0b8c66a09ce182d3722fe99d152b4299f16987e8d7bb21b97fb87fa",
+      "rust_sha256": "750573143dd29ee9d5327ca3eb5259892efbe5331e43a38d8ce92dc7352ce766"
+    },
+    {
+      "source": "upstream/dav1d/src/fg_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/fg_apply_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 3
+      },
+      "raw_sha256": "fdb00d61454857ed7179ff1aba1dfeeec6d71dcef3127de352c7f8b4fcaf2ec3",
+      "rust_sha256": "7519a09e986df96bb5e210a751dd6ed545830b84ce99bdf025cd22bc8991882c"
+    },
+    {
+      "source": "upstream/dav1d/src/filmgrain_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/filmgrain_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 4
+      },
+      "raw_sha256": "7fa1c2dba5afd4ef47ac0c4b7d0019dce6402a025dedab7742c508ac2933e650",
+      "rust_sha256": "bfacd0bdf744d21e24ccf2a4d8a070773bc8d94bba577d6608a9f5744da2f294"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_prepare_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/ipred_prepare_tmpl.rs",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "f2df62f818f52ade73f90c0a8a2f6fd403b1821d4185240189287728d3abbbb8",
+      "rust_sha256": "496b776e8d8446a1ea5c146c50937ead56ff5e72b4fbd1f8dea1c39b63a18078"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/ipred_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 17,
+        "raw-c-assignment-temporary": 1
+      },
+      "raw_sha256": "3195976dfdcacd1ff4f7e39e16fa6c761b84df50a86eae5a2dbf6ac82189f71c",
+      "rust_sha256": "e27c289b85b3035f5eda582344e056912e557a1586f69e747bd8ad7e6c0f10dd"
+    },
+    {
+      "source": "upstream/dav1d/src/itx_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/itx_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "a57a01da319c7ba1e1abf47c79d6c1f057761dc6a5ec685693f0d59dbe6c50ca",
+      "rust_sha256": "13e7ea25484c32aa2d7b235cf99fd1812feb5669a1a4bd1a5add64582af64e96"
+    },
+    {
+      "source": "upstream/dav1d/src/lf_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/lf_apply_tmpl.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 22,
+        "raw-c-assignment-temporary": 14,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "0ce110898e2f173d1218ee19cc674a8c852fbf9c7aa54ad29d7795d25ac13178",
+      "rust_sha256": "4d33a1782395f5c5372a615528ce941e1a81f0397f034937316871d3e6744de9"
+    },
+    {
+      "source": "upstream/dav1d/src/loopfilter_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/loopfilter_tmpl.rs",
+      "corrections": {
+        "original-c-record-field-alignment": 3
+      },
+      "raw_sha256": "405e5a409e764d231c89c050ff904a4adcc6d9835ef7a35db7ffe89e6c36872d",
+      "rust_sha256": "fb5ab0983d49caedf5d9b91fd204dd8a655945bc60c842d6f3679c3e77dd995c"
+    },
+    {
+      "source": "upstream/dav1d/src/looprestoration_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/looprestoration_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 22,
+        "raw-c-mutable-address": 36,
+        "raw-c-assignment-temporary": 11,
+        "original-c-record-field-alignment": 1
+      },
+      "raw_sha256": "c46e864da5cfd82612c4b8dac34902e94d815e9681ba694dbe5a271df7603a38",
+      "rust_sha256": "5451e9e2c70a90ddd7cc055a6154c4287a67dc8f25a2db308c5b7a001f5ae138"
+    },
+    {
+      "source": "upstream/dav1d/src/lr_apply_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/lr_apply_tmpl.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 3,
+        "raw-c-assignment-temporary": 6,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "c9ca78719b5b27ae776a6060467be1f4faa89a4ad92f9d19ee9b4c21a4c71644",
+      "rust_sha256": "ca8b6e98f4f29dae3b55161bbe749fef30af53e1f7e9eb90d8faab3c40ab20bd"
+    },
+    {
+      "source": "upstream/dav1d/src/mc_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/mc_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 11
+      },
+      "raw_sha256": "472b41b26a8817dbf1822e2de6bd9bd6534eb68b3833ca3e63ca58d3656b6302",
+      "rust_sha256": "0fffd32ea1bdfe057171123315521da4672ae332ae949b2ec5f7db1a84946ea8"
+    },
+    {
+      "source": "upstream/dav1d/src/recon_tmpl.c",
+      "instantiation": "b8",
+      "rust": "crates/dav1d/src/linux/b8/recon_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 13,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 152,
+        "raw-c-assignment-temporary": 4,
+        "original-c-record-field-alignment": 144
+      },
+      "raw_sha256": "bba376c285e2ce2d5148b72442829e1edb30212056d600e1d4f316e32722bf34",
+      "rust_sha256": "af03d01dd79a238a494dd9119c38ed332068a866774581b4eebc0c8b2ff1b8f1"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/cdef_apply_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 4,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 16,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "3083cb09dc5df01dbd02b0fc418eadc2f653b683ae77fb07acf0c358c27f8466",
+      "rust_sha256": "eeae303338f87ece2291038f69e8dde2673fcacdd6083e1baa97ce92bf7bd2d9"
+    },
+    {
+      "source": "upstream/dav1d/src/cdef_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/cdef_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 1
+      },
+      "raw_sha256": "968a9980f8c5f73e784745081615295f6fb10580b861b4f8dfa2ce8a91dd1163",
+      "rust_sha256": "a064ea7bc7c4efec37f955ef805333574fdb794aba817c80d49a0f00a9fe01fa"
+    },
+    {
+      "source": "upstream/dav1d/src/fg_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/fg_apply_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 3
+      },
+      "raw_sha256": "bbca187420f5b9ec50f1f705e0a7948a6b215df12995026a84d5b8c1724d3eda",
+      "rust_sha256": "427109373726d745f312a9c8575617a0111c64051a6068c945f225762e57febb"
+    },
+    {
+      "source": "upstream/dav1d/src/filmgrain_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/filmgrain_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 4
+      },
+      "raw_sha256": "28a30ac0c16e7811e25c4bdae9b3f709b756693bf8ba7c03633db1dbcac4d773",
+      "rust_sha256": "044bdae337ee4f880312201093cd2162831d16130a0e10bd166fb95c897f36ec"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_prepare_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/ipred_prepare_tmpl.rs",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "052c9de47f503593bdce26fdb242d7b40d42870e385192a13f5c8480609f14a8",
+      "rust_sha256": "03c4015d513c4a92646edb1b3889d3a40d001baf330ea1d97b66a220e4657692"
+    },
+    {
+      "source": "upstream/dav1d/src/ipred_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/ipred_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 16,
+        "raw-c-assignment-temporary": 1
+      },
+      "raw_sha256": "9b31e4980097b0299200e701bcdf718ef94745a013b2333cc4af81abadd20d18",
+      "rust_sha256": "31901c13e54177be4fa51785a095329a62e1d652e37e8f8f1ee19d4a84752fad"
+    },
+    {
+      "source": "upstream/dav1d/src/itx_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/itx_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 2
+      },
+      "raw_sha256": "a95cbd565e1e5b403ac03e612418a7944c8ae4a4819b5816b8c369dd28ce9a15",
+      "rust_sha256": "66aa91df0c34d1295a4f40cb08a60c4b32e467d1e914f797b19761f0ac27e561"
+    },
+    {
+      "source": "upstream/dav1d/src/lf_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/lf_apply_tmpl.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 22,
+        "raw-c-assignment-temporary": 14,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "934508ecbee64878e9e8302a1690f59797fc0016364bc4ce3a3bdfd9bf49f08b",
+      "rust_sha256": "debc086e6466d60a6811f77b80bcc5addea617f57c8a4a574ceef7d82bfc4c87"
+    },
+    {
+      "source": "upstream/dav1d/src/loopfilter_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/loopfilter_tmpl.rs",
+      "corrections": {
+        "original-c-record-field-alignment": 3
+      },
+      "raw_sha256": "fde740aa6ee9091903fdf5fc039b600e7387b749a7e35ae20554e44b67d28c34",
+      "rust_sha256": "8fb78b45343542577cf0d674e6b53d5af179f159358f01b6e34aba8e6d8e19aa"
+    },
+    {
+      "source": "upstream/dav1d/src/looprestoration_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/looprestoration_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 22,
+        "raw-c-mutable-address": 36,
+        "raw-c-assignment-temporary": 11,
+        "original-c-record-field-alignment": 1
+      },
+      "raw_sha256": "cf4502625a1631e999e9e2e6254485287dd9b4e41d3fa575a33285cd314dbad2",
+      "rust_sha256": "9d45c18f24a820d36843ea69f63240ea57d3bed3f021e1625cf9360074e9ae0e"
+    },
+    {
+      "source": "upstream/dav1d/src/lr_apply_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/lr_apply_tmpl.rs",
+      "corrections": {
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "raw-c-mutable-address": 3,
+        "raw-c-assignment-temporary": 7,
+        "original-c-record-field-alignment": 107
+      },
+      "raw_sha256": "1bb032d0fea522bd06c7ae323e80651adef54ed38ad6c994f6d59dba6a2bb81b",
+      "rust_sha256": "dd79788698d1f940c4b4deb486aa5e16ebb856043c60254f91dae26fbdeaae19"
+    },
+    {
+      "source": "upstream/dav1d/src/mc_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/mc_tmpl.rs",
+      "corrections": {
+        "raw-c-mutable-address": 11
+      },
+      "raw_sha256": "0df675bfe299aeae1c4eea5c189ec508b395db869e653498e2cc76682382e54e",
+      "rust_sha256": "2abaae54ac9895b8f4795440e454957f599e0e55c309c38d05981417ee807499"
+    },
+    {
+      "source": "upstream/dav1d/src/recon_tmpl.c",
+      "instantiation": "b16",
+      "rust": "crates/dav1d/src/linux/b16/recon_tmpl.rs",
+      "corrections": {
+        "canonical-cfg-labels": 13,
+        "target-libc-thread-storage": 1,
+        "variadic-abi": 1,
+        "target-libc-file-handle": 1,
+        "raw-c-mutable-address": 152,
+        "raw-c-assignment-temporary": 4,
+        "original-c-record-field-alignment": 144
+      },
+      "raw_sha256": "f645e20a1ac57d991607f6dd632f40e09cf71272f34f7acfca50cfdbe52d3043",
+      "rust_sha256": "ac17df7c81d43770cae88891131119e75fee506f04abc889818fd9334628f657"
+    }
+  ]
+}

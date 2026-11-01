@@ -10,17 +10,22 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #![allow(dead_code, unused_assignments, unused_mut)]
 
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-compile_error!("The dav1d translation is being validated on macOS ARM64 first");
+#[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"),
+              all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))))]
+compile_error!("The recorded dav1d profiles target macOS ARM64 and GNU Linux x86-64");
 
 #[macro_use]
 extern crate c2rust_bitfields;
 
 mod platform;
-#[cfg(debug_assertions)]
+#[cfg(all(target_os = "macos", debug_assertions))]
 include!("modules.rs");
-#[cfg(not(debug_assertions))]
+#[cfg(all(target_os = "macos", not(debug_assertions)))]
 include!("modules-release.rs");
+#[cfg(all(target_os = "linux", debug_assertions))]
+include!("modules-linux.rs");
+#[cfg(all(target_os = "linux", not(debug_assertions)))]
+include!("modules-linux-release.rs");
 
 pub use common::decoder::*;
 pub use common::cpu::dav1d_set_cpu_flags_mask;

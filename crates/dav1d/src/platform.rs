@@ -1,4 +1,5 @@
 //! Target runtime for the original source assertion macro.
+#[cfg(target_os = "macos")]
 use core::ffi::{c_char, c_int};
 
 // Zero-length fields with these types retain C member alignment without
@@ -22,6 +23,7 @@ pub struct Align32;
 #[repr(align(64))]
 pub struct Align64;
 
+#[cfg(target_os = "macos")]
 pub(crate) unsafe fn assertion(function: *const c_char, file: *const c_char,
                                line: c_int, expression: *const c_char) {
     #[cfg(debug_assertions)]
