@@ -24,6 +24,11 @@ otherwise changes its result for a signaling NaN after an above-threshold
 value. This setting does not affect other fixtures or the original codec
 library. Keep the exceptional-value cases and exact comparisons.
 
+The frame/pipeline adapter uses `-fno-rtti` to match upstream CMake's class
+hierarchy when deriving fixture stages. The original archive does not provide
+base RTTI. The setting is limited to that adapter; reference algorithms remain
+unmodified.
+
 ## Prerequisites
 
 - Rust 1.85 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.

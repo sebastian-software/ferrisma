@@ -75,6 +75,9 @@ mod shared_primitives;
 #[path = "parity/modular_frame_decoder.rs"]
 mod modular_frame_decoder;
 
+#[path = "parity/render_pipeline.rs"]
+mod render_pipeline;
+
 #[path = "parity/sample_conversion.rs"]
 mod sample_conversion;
 
@@ -690,6 +693,7 @@ fn observe(request: &str) -> String {
         kind if modular_frame_decoder::handles(kind) => {
             modular_frame_decoder::observe(kind, &mut args)
         }
+        kind if render_pipeline::handles(kind) => render_pipeline::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if modular_frame_state::handles(kind) => modular_frame_state::observe(kind, &mut args),

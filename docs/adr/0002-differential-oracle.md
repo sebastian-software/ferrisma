@@ -109,3 +109,15 @@ encoder streams exercise the no-shared-tree branch and metadata/channel shifts.
 Repeated calls preserve existing owners and tables at the original checkpoints.
 The fixture supplies frame metadata and the reader's initial bit position;
 it does not claim complete frame/image decoding.
+
+Render fixtures derive callback stages from the original abstract stage and
+run the unchanged simple pipeline and image writers. They include upstream's
+unmodified interpolation test stages; native fixture stages translate those
+tests rather than replace production pipeline code. Callback probes supply
+defined failures and dimension transitions to compare scheduling and partial
+state. The adapter TU uses -fno-rtti to match upstream CMake's class hierarchy;
+the original library omits base type information. This is limited to that
+adapter, alongside its existing access-control option. No runtime algorithm or
+source access declaration is changed. Observations omit undefined padding and
+unfilled groups. Image setter fixtures initialize their input pixels before
+testing ownership and post-assignment errors.

@@ -563,6 +563,41 @@ Initial source-indeterminate flags/dimensions receive safe native storage. The
 oracle explicitly seeds those flags before partial-state comparisons, and only
 observes pixels that the original global decoder has initialized.
 
+The simple render builder represents the original Builder followed by
+UseSimpleImplementation; the default low-memory branch remains absent. Stage
+trait defaults translate the original base bodies, including its actual empty
+hooks. A mutable stage borrow expresses its SetInputSizes/PrepareForThreads and
+output writes. Preserve settings reads across callbacks: border_y is captured
+after SetInputSizes, and output-row shifts are read at their source checkpoints.
+Do not cache an earlier settings value across that mutable callback.
+
+Pipeline row pointers become descriptors of storage, channel, row, and column.
+RowBuffers resolves them under exclusive borrows of the existing input/output
+planes; it does not clone pixels or retain raw aliases. Vertical mirroring
+copies byte ranges within the same owner, retaining float payloads and avoiding
+scratch allocations. The horizontal offset retains the original architecture
+guard (ARM 24, other supported targets 32). Allocation padding uses hwy/base.h's
+kMaxVectorSize (x86 64, other baseline targets 16), independently of the scalar
+MaxVectorSize() function. RVV intrinsic builds remain unported.
+
+RenderPipelineInput borrows its simple pipeline and stores owner-relative
+buffer indices/rectangles. Done retains its binding on success or failure, as
+in C++; explicit move_from nulls the old binding and transfers its buffer vector.
+Ordinary Rust moves invalidate the old name. The borrowed token prevents moving
+or aliasing pipeline storage while mutable buffers are live. This establishes
+sequential null-pool behavior, not concurrent pipeline access.
+
+ImageBundle::SetFromImage takes a mutable optional owner. Guard failures retain
+Some(input); the original move consumes it into None before profile assignment
+and size verification. C++ moved-from planes retain non-owning raw addresses;
+native ownership does not expose those aliases as live image owners. The
+destination retains its moved color/profile on a later VerifySizes error.
+Profiles borrow disjoint storage, matching the real write-stage call site.
+Write stages borrow the destination image/bundle for their lifetime and own the
+source profile copy where required. Extra planes clear/allocate only after a
+successful SetFromImage. Size getters retain the pinned JPEG-enabled build's
+JPEG/color/extra-plane precedence and independent X/Y fallbacks.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

@@ -53,7 +53,9 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, four reference owners, same-owner DC/patch binding; decoder initialization and VarDCT methods unported |
-| `image_bundle.h` | `image_bundle.rs` | Storage, constructors, initialized scalar state, metadata borrow, and decoded-byte accessors; image import/export/copy and other methods unported |
+| `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes, and decoded-byte accessors; general import/export/copy and metadata verification unported |
+| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
+| `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch HasAny/same-owner SetShared, and noise Clear/HasAny; parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage and state accessors; group decoding, final rendering, quantization-table decoding, and debug descriptions unported |
@@ -128,14 +130,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 282 tests, including 155 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 282 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 282 tests and corpus |
+| Rust debug | PASSED | 286 tests, including 159 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 286 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 286 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 282 tests and 661,466 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 286 tests and 662,190 requests in debug, release, and Rust 1.85.1 |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **661,466 requests** against C++. These include
+Each differential run compares **662,190 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -522,7 +524,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Connect the original group decoding, pixel conversion/render pipeline, and
+1. Connect the original group decoding and pixel conversion to the translated
+   simple render pipeline/write stages, then connect the
    frame/image decoder to the translated global modular decoder, metadata,
    sections, entropy, prediction, and transforms. Decode complete
    native/reference codestreams in Rust and add integrated malformed/truncated
@@ -663,3 +666,25 @@ Unread image channels and source-indeterminate transform members are omitted.
 MaybeDropFullImage preserves channel metadata while releasing plane owners.
 Group decoding, final rendering, and complete Rust codestream decoding remain
 unported; these component requests do not satisfy the first-image gate.
+
+The original simple render pipeline adds 724 differential requests across four
+test groups. They exercise original pipeline/base operations and both original
+float image write stages, including gray/RGB profiles and extra planes. The
+reference includes the original upstream X/Y interpolation test stages without
+changes; native fixture translations exercise their row offsets and mirrored
+borders on odd dimensions and edge groups. Comparisons retain inferred channel
+shifts, cumulative padding, physical strides, initialized interior float bits,
+group completion counts, repeated passes, reverse group order, input-owner
+moves, and the original uint8 pass-counter wrap. Row padding and incomplete
+initial group data remain unobserved.
+
+Fixture callbacks exercise initialization/preparation/size/row failures, image
+dimension switching, signed foreground clipping, and background-row writes.
+They also mutate border_y during SetInputSizes: the current pass must read it
+after that mutable callback, matching the source checkpoint. ImageBundle setter
+cases distinguish failed guards before ownership transfer from VerifySizes
+errors after the color/profile assignments. The native input binding becomes
+None only at the original move; no additional pixel allocation/copy is used.
+The first-image decoder has not selected a render implementation yet. Modular
+group decoding, color-to-pipeline conversion, and outer frame/image decoding
+remain unported; this independent pipeline does not complete that milestone.

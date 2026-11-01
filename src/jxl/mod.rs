@@ -65,6 +65,7 @@ pub mod padded_bytes;
 pub mod passes_state;
 pub mod quant_weights;
 pub mod quantizer;
+pub mod render_pipeline;
 pub mod splines;
 pub mod toc;
 pub mod types;

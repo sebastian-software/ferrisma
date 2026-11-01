@@ -50,7 +50,8 @@ add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc)
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-  set_source_files_properties(sample_conversion.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
+  # Match upstream's no-RTTI build when deriving fixture pipeline stages.
+  set_source_files_properties(sample_conversion.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Clang's unrolled max-number reduction changes the early-return result when
   # a signaling NaN follows a value above the threshold. Retain the source loop.
   set_source_files_properties(noise.cc PROPERTIES COMPILE_OPTIONS -fno-unroll-loops)

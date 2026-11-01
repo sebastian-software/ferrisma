@@ -91,3 +91,4 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "shared_primitives.inc"
 #include "quant_storage.inc"
 #include "modular_frame_decoder.inc"
+#include "render_pipeline.inc"

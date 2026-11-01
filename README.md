@@ -38,8 +38,9 @@ stream owners now prepare grouped channels, select local transforms, construct
 shared trees/tokens, and write global or local entropy streams. The fixed
 configuration connects input conversion, padding, shared-state construction,
 frame/group output, image metadata, and byte ownership. General encoder and
-decoder orchestration remain unported. Frame
-transform selection includes original costs, palette/compaction decisions,
+decoder orchestration remain unported. Rendering includes the original simple
+pipeline and float image/bundle write stages as independently tested components.
+Frame transform selection includes original costs, palette/compaction decisions,
 rollback, and tree merging. The [first-image milestone](docs/FIRST_IMAGE.md)
 defines their integration gate. The Rust library has no external crate
 dependencies and does not compile or link C/C++. A separate executable built
