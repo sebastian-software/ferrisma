@@ -61,3 +61,26 @@ histograms belong to the non-streaming path; streaming uses local generic
 streams. Internal callers must satisfy source preconditions before observation.
 Undefined source inputs or invalid lifecycle combinations do not become passing
 Rust behavior by suppressing sanitizer failures or changing reference routines.
+
+The shared-state frame fixture calls the complete original ComputeEncodingData
+for state/group observations, then independently calls EncodeFrameOneShot and
+its real output processor for complete frame bytes. The native side composes
+ported components without claiming that the enclosing constructor/entry point
+is translated. Small DC-reader fixture spans use real backing storage with
+eight leading and trailing bytes while preserving their original span length
+and contents. This keeps the source end-minus-eight pointer inside its backing
+allocation and represents a non-null empty stream rather than the null-reader
+sentinel. The source reader and its status/close algorithms stay unchanged.
+
+Keep Quantizer's constructor/recomputation boundary stable in the reference.
+Clang's ordinary release build inlined the default constructor's arithmetic
+and reduced multiplier-by-one operations to stored copies. ASan's higher
+inlining cost retained the RecomputeFromGlobalScale call and quieted signaling
+NaNs. Assembly inspection verified both paths. Compile only the original
+quantizer.cc with -fno-inline-functions so both reference variants execute the
+source recomputation. CMake 3.18 is required for that source's directory-scoped
+option. Rust marks RecomputeFromGlobalScale inline(never) for the same reason.
+This pins one reproducible numeric configuration while keeping all original
+source routines, scalar algorithms, and exact comparisons. It does not establish
+performance parity. Review this boundary after compiler/source changes; do not
+replace it with NaN-bit rewriting or relaxed comparisons.

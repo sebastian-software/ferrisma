@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 project(libjxl_rust_oracle LANGUAGES C CXX)
 
 get_filename_component(PORT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
@@ -39,6 +39,13 @@ endforeach()
 # Adapter TUs include selected pristine .cc files to reach private functions;
 # the archive supplies the remaining original objects, without replacement code.
 add_subdirectory("${UPSTREAM}" upstream EXCLUDE_FROM_ALL)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Keep Quantizer's original constructor/recomputation calls across plain and
+  # sanitized builds. Inlining folds *1 into a raw copy only in the plain build,
+  # changing signaling-NaN observations. The source routines stay unmodified.
+  set_property(SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc"
+    DIRECTORY "${UPSTREAM}/lib" APPEND PROPERTY COMPILE_OPTIONS -fno-inline-functions)
+endif()
 add_executable(jxl_oracle main.cc sample_conversion.cc)
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.

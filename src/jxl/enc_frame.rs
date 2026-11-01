@@ -8,10 +8,13 @@
 //! are absent until translated. Byte names, narrowing, reused header state, and
 //! changes before errors retain source order.
 
+use super::ac_strategy::AcStrategyImage;
 use super::base::float::{max_f32, mul_add_f64};
 use super::base::override_option::{Override, apply_override};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
+use super::chroma_from_luma::ColorCorrelationMap;
+use super::coeff_order::COEFF_ORDER_MAX_SIZE;
 use super::color_encoding::{ColorSpace, RenderingIntent};
 use super::common::SpeedTier;
 use super::dec_modular::ModularStreamId;
@@ -30,7 +33,7 @@ use super::frame_header::{
     BlendMode, BlendingInfo, ColorTransform, FLAG_NOISE, FLAG_SKIP_ADAPTIVE_DC_SMOOTHING,
     FLAG_USE_DC_FRAME, FrameEncoding, FrameHeader, FrameOrigin, FrameType,
 };
-use super::image::Image3;
+use super::image::{Image3, Plane};
 use super::image_metadata::{CodecMetadata, ExtraChannel};
 use super::image_ops::copy_image_to;
 use super::jpeg::enc_jpeg_data::{
@@ -38,6 +41,7 @@ use super::jpeg::enc_jpeg_data::{
 };
 use super::jpeg::jpeg_data::JpegData;
 use super::quant_weights::DequantMatrices;
+use super::quantizer::Quantizer;
 use super::toc::ac_group_index;
 use super::types::JxlBitDepth;
 
@@ -143,6 +147,8 @@ impl LosslessThunderConfig {
         cparams.set_lossless();
         params_post_init(&mut cparams)?;
         let matrices = DequantMatrices::default();
+        let quantizer = Quantizer::new(&matrices);
+        let fields = LosslessThunderFrameFields::default();
         let mut splitter = ProgressiveSplitter::default();
         set_progressive_mode(&cparams, &mut splitter);
         let mut header = FrameHeader::new(Some(&self.metadata));
@@ -163,6 +169,8 @@ impl LosslessThunderConfig {
             splitter,
             modular,
             matrices,
+            quantizer,
+            fields,
         })
     }
 }
@@ -171,12 +179,27 @@ impl LosslessThunderConfig {
 /// the configuration; header/parameters cannot be mutated into unported paths.
 /// Full frame/image orchestration remains separate from this preparation API.
 pub struct LosslessThunderFrame<'a> {
-    // These owners release in the source's reverse creation order.
+    // The modular owner releases before its borrowed setup, as in the source.
     modular: ModularFrameEncoder<'static>,
     header: FrameHeader<'a>,
     splitter: ProgressiveSplitter,
+    fields: LosslessThunderFrameFields,
+    quantizer: Quantizer,
     matrices: DequantMatrices,
     config: &'a LosslessThunderConfig,
+}
+/// The reached field-allocation block in ComputeEncodingData. This is a
+/// projection of shared storage, not the complete PassesSharedState constructor.
+/// Indeterminate source image samples are not observable initialization data.
+#[derive(Default)]
+pub struct LosslessThunderFrameFields {
+    pub dc_storage: Image3<f32>,
+    pub quant_dc: Plane<u8>,
+    pub coeff_order_size: usize,
+    pub cmap: ColorCorrelationMap,
+    pub epf_sharpness: Plane<u8>,
+    pub raw_quant_field: Plane<i32>,
+    pub ac_strategy: AcStrategyImage,
 }
 impl LosslessThunderFrame<'_> {
     pub fn header(&self) -> &FrameHeader<'_> {
@@ -187,6 +210,27 @@ impl LosslessThunderFrame<'_> {
     }
     pub fn matrices(&self) -> &DequantMatrices {
         &self.matrices
+    }
+    pub fn quantizer(&self) -> &Quantizer {
+        &self.quantizer
+    }
+    pub fn fields(&self) -> &LosslessThunderFrameFields {
+        &self.fields
+    }
+    /// The shared-field allocation block after the original metadata,
+    /// dimensions, and patch-reference binding. Those surrounding shared-state
+    /// operations and its complete constructor remain outside this boundary.
+    pub fn allocate_frame_fields(&mut self) -> Status {
+        let dim = self.header.to_frame_dimensions();
+        self.fields.ac_strategy = AcStrategyImage::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.fields.raw_quant_field = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.fields.epf_sharpness = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        // The original call retains Create's default XYB=true, even here.
+        self.fields.cmap = ColorCorrelationMap::create(dim.xsize, dim.ysize, true)?;
+        self.fields.coeff_order_size = COEFF_ORDER_MAX_SIZE;
+        self.fields.quant_dc = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        self.fields.dc_storage = Image3::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        Ok(())
     }
     /// Translate ModularFrameEncoder::ComputeEncodingData at the original
     /// full-image, non-streaming call site. Input is already in Image3F form;

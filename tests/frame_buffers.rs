@@ -102,6 +102,8 @@ fn gray_replication_error_keeps_converted_first_plane_untouched_later_planes_and
 #[test]
 fn buffer_backed_zero_gray_components_retain_original_finalized_frame_bytes() {
     let config = LosslessThunderConfig::new(1, 1, true, LosslessSampleDepth::Uint8).unwrap();
+    let mut frame = config.create_frame().unwrap();
+    frame.allocate_frame_fields().unwrap();
     let data = [0];
     let mut input = JxlEncoderChunkedFrameAdapter::new(1, 1, 0);
     assert!(input.set_from_buffer(0, Some(&data), 1, format(1, 0)));
@@ -112,7 +114,6 @@ fn buffer_backed_zero_gray_components_retain_original_finalized_frame_bytes() {
         .copy_color_channels(&input, Rect::new(0, 0, 1, 1), &mut color, &mut alpha)
         .unwrap();
     jxl::jxl::image_ops::pad_image_to_block_multiple_in_place(&mut color, 8).unwrap();
-    let mut frame = config.create_frame().unwrap();
     frame.prepare_modular(&color).unwrap();
     frame.compute_modular_tokens().unwrap();
     let mut groups = Vec::new();

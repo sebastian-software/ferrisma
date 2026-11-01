@@ -10,6 +10,8 @@ use super::dec_ans::{ANSCode, ANSSymbolReader, HybridUintConfig, decode_histogra
 use super::dec_bit_reader::BitReader;
 use super::lehmer_code::decode_lehmer_code;
 pub const PERMUTATION_CONTEXTS: u32 = 8;
+pub const COEFF_ORDER_LIMIT: usize = 6156;
+pub const COEFF_ORDER_MAX_SIZE: usize = COEFF_ORDER_LIMIT * super::frame_dimensions::DCT_BLOCK_SIZE;
 
 pub fn coeff_order_context(value: u32) -> u32 {
     let (token, _, _) = HybridUintConfig::new(0, 0, 0).encode(value);

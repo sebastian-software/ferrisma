@@ -492,6 +492,36 @@ plane writes and the alpha flag; later planes remain untouched. This boundary
 does not imply that the enclosing shared-state allocation or image entry point
 is translated.
 
+Quantizer stores the source scalar state and reifies its enclosing matrix
+pointer as an explicit same-owner borrow for construction, recomputation, and
+DC getters. This avoids a Rust self-reference when the containing frame moves.
+Callers must pass the original matrix owner. Mutating that owner changes fresh
+DC getters immediately while the stored multipliers retain their prior values
+until recomputation. The fourth multiplier lanes have no defined source initial
+values; safe Rust storage is initialized but the oracle omits those lanes until
+ClearDCMul assigns them. Recompute changes only the first three lanes, retaining
+a previously cleared fourth lane. Keep the original double-to-float assignments
+and subsequent float arithmetic. The recomputation call stays out of line to
+preserve arithmetic on signaling NaNs; the reference configuration in ADR 0002
+pins the same boundary for both ordinary and instrumented C++ builds.
+
+AcStrategyImage replaces its cached Row(0) pointer with an owner-relative offset
+and retains its cached stride. Both survive native owner moves; borrowed layer
+observations cannot outlive the allocation. Raw AcStrategyType uses u32 storage.
+CountBlocks first truncates the type to u8, then promotes to int for the shift:
+unnamed type 127 counts the 255 sentinel, 256 aliases DCT, and 128/255 compare
+against values above 255. Do not wrap the shifted byte before comparing it.
+
+The fixed frame owns a projection of ComputeEncodingData's reached allocation
+block. Preserve each assignment checkpoint, the coefficient-order size, and the
+original default XYB=true map construction even for this RGB configuration.
+The projection does not replace the complete PassesSharedState constructor,
+metadata/patch-reference binding, or the enclosing image entry point. Source
+image samples not initialized by the algorithm remain omitted from observations.
+ColorCorrelation default construction leaves all DC factors zero; only explicit
+recomputation, setters, successful DC parsing, or map creation assign them. Its
+ratio expressions retain the reference's scalar contraction.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

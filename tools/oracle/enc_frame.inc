@@ -25,6 +25,18 @@ jxl::Status EFCopyThunderColorChannels(jxl::JxlEncoderChunkedFrameAdapter& input
     const jxl::ImageMetadata& metadata,const jxl::Rect& rect,jxl::Image3F* color,bool* alpha) {
   return jxl::CopyColorChannels(input.GetInputSource(),rect,jxl::FrameInfo(),metadata,nullptr,color,nullptr,alpha);
 }
+jxl::Status EFComputeThunderFrame(const jxl::CompressParams& p,const jxl::CodecMetadata& metadata,
+    jxl::JxlEncoderChunkedFrameAdapter& input,jxl::FrameHeader& header,jxl::ModularFrameEncoder& modular,
+    jxl::PassesEncoderState& state,std::vector<std::unique_ptr<jxl::BitWriter>>& codes,jxl::AuxOut* aux) {
+  JxlCmsInterface cms={};
+  return jxl::ComputeEncodingData(p,jxl::FrameInfo(),&metadata,input,nullptr,0,0,input.xsize,input.ysize,cms,nullptr,header,modular,state,&codes,aux);
+}
+jxl::Status EFThunderOneShot(JxlMemoryManager* mm,const jxl::CompressParams& p,const jxl::CodecMetadata& metadata,
+    jxl::JxlEncoderChunkedFrameAdapter& input,std::vector<uint8_t>& bytes,jxl::AuxOut* aux) {
+  JxlEncoderOutputProcessorWrapper output(mm);JxlCmsInterface cms={};
+  JXL_RETURN_IF_ERROR(jxl::EncodeFrameOneShot(mm,p,jxl::FrameInfo(),&metadata,input,cms,nullptr,&output,aux));
+  JXL_RETURN_IF_ERROR(output.SetFinalizedPosition());return output.CopyOutput(bytes);
+}
 
 template<class... T> void EFValues(T... values) { ((std::cout<<' '<<values),...); }
 float EFReadFloat(std::istringstream& in) { uint32_t bits;in>>bits;float value;memcpy(&value,&bits,4);return value; }
