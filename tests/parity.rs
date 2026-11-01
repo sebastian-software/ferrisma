@@ -131,6 +131,8 @@ mod modular_frame;
 #[path = "parity/modular_frame_state.rs"]
 mod modular_frame_state;
 
+#[path = "parity/coeff_orders.rs"]
+mod coeff_orders;
 #[path = "parity/toc.rs"]
 mod toc;
 
@@ -756,6 +758,7 @@ fn observe(request: &str) -> String {
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if modular_frame_state::handles(kind) => modular_frame_state::observe(kind, &mut args),
         kind if toc::handles(kind) => toc::observe(kind, &mut args),
+        kind if coeff_orders::handles(kind) => coeff_orders::observe(kind, &mut args),
         kind if image::handles(kind) => image::observe(kind, &mut args),
         kind if rct::handles(kind) => rct::observe(kind, &mut args),
         kind if predict::handles(kind) => predict::observe(kind, &mut args),
