@@ -762,3 +762,15 @@ the source uses restrict pointers. Callback/float-output entry points remain
 absent. JxlEndianness value 3 is representable but unnamed and exercises the
 source fall-through; value 9 produces an undefined C++ enum load and has no
 assigned source codec meaning.
+
+The x86_64 reference downsampling loop keeps its accumulator as the destination
+of ADDSS. A local out-of-line scalar addition retains that operand order in
+Rust Debug and Release, including competing NaN payloads. The original x86_64
+DC-scaling object uses the matrix as the multiplication destination for its
+first two lanes and the reciprocal scale for the third; a local out-of-line
+multiplication and the same per-lane argument order retain that behavior.
+AArch64 keeps its existing source expressions. These are explicit mappings of
+the fixed reference compiler's scalar instructions, not changes to the sums,
+scales, rounding, or error checkpoints. Review them after compiler/target
+changes. Captured-word native regressions and the unchanged differential
+corpora cover the observed failures.

@@ -888,3 +888,24 @@ runtime link, external crate, manually assembled codestream, or image-specific
 expected output is used by that native path. The [first-image acceptance
 boundary](FIRST_IMAGE.md) is satisfied for the fixed profile; this result does
 not establish the full library port or any unclaimed platform/release gate.
+
+## Linux reference configuration and scalar operand order
+
+The first hosted Linux run identified four reference-platform gaps. The Linux
+oracle now explicitly selects libc++ for the recorded palette-sort algorithm;
+libstdc++ uses a different equivalent-element order. The frame-finalization
+adapter gives empty groups real backing storage without adding bits, retaining
+all empty-group cases and the original writer under Linux's nonnull memcpy
+checks. Local out-of-line x86 scalar additions/multiplications preserve the
+original downsampling/DC-scaling instruction operand order and NaN payloads.
+Existing AArch64 expressions and all prior differential cases are unchanged.
+Two ordinary Rust regressions retain independently observed source words and
+failed-roundtrip partial state. Compiler and standard-library changes require
+renewed evidence; these fixes do not establish any new codec configuration.
+
+The ordinary macOS check with `--msrv` passes all 325 tests and 703,419
+differential requests in each Debug, Release, and Rust 1.85 configuration.
+The two captured regressions also pass in the isolated x86_64 Linux runtime;
+full Linux and sanitized checks remain required before integration. CI runs
+the unchanged full Linux/macOS matrix on each PR update and on pushes to main,
+avoiding duplicate full runs for a feature-branch push followed by its PR.

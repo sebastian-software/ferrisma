@@ -377,3 +377,13 @@ writer unchanged. The native zero-gray test uses independently captured original
 42-bit modular sections (`258cc50ac100`, padded), not a JPEG XL codestream.
 Generated state/action corpora remain local infrastructure; complete frame
 entry points, decoding, and the first-image corpus are separate requirements.
+
+The Linux reference explicitly uses Clang with libc++ for the translated
+palette sort boundary. The same tied-element and heap-fallback differential
+corpus compares the actual selected standard library; no sort implementation
+is substituted in the adapter. Empty frame-group fixtures allocate a real
+zero-length span using the original writer before its original vector append.
+`tests/linux_scalar.rs` records the original x86_64/AArch64 downsampling and
+failed DC-scaling observations. Local x86 scalar calls retain the original
+ADDSS/MULSS operand order for competing NaN payloads; the source algorithms and
+all prior expected outputs remain unchanged.

@@ -121,3 +121,18 @@ adapter, alongside its existing access-control option. No runtime algorithm or
 source access declaration is changed. Observations omit undefined padding and
 unfilled groups. Image setter fixtures initialize their input pixels before
 testing ownership and post-assignment errors.
+
+Select libc++ explicitly for the Linux Clang reference and install its
+development packages in CI. The translated palette sort preserves the recorded
+libc++ non-arithmetic specialization; silently selecting libstdc++ compares a
+different algorithm with a different equivalent-element order. The complete
+existing sort and codec corpus remains enabled for the selected library.
+Other standard-library algorithms/configurations require separate translation
+and evidence. This does not add a C++ dependency to the Rust library.
+
+The frame-finalization fixture allocates backing storage for an empty group
+through the original BitWriter::WithMaxBits without writing bits. Its vector
+append calls memcpy even for a zero-byte span when other groups are nonempty;
+Linux's nonnull declaration rejects a null source. Supply a real zero-length
+span rather than suppress that sanitizer check or remove empty-group cases.
+The original writer and codec source stay unchanged.
