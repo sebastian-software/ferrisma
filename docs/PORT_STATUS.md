@@ -35,6 +35,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs` | Existing scalar FastLog2f and its degree-two polynomial; other functions/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
+| `ac_strategy.h` | `ac_strategy.rs` | Raw AcStrategyType values and size/count constants; strategy objects, geometry/transform methods, and AcStrategyImage unported |
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points and CMS callback execution unported |
 | `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; invocation, transform lifecycle, and public encoder API remain unported |
 | `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, and partial setter state; callback-driven ICC parsing unported |
@@ -47,7 +48,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
-| `quant_weights.h`, DC methods in `.cc` | `quant_weights.rs` | QuantTable indices/count, DC member initialization/accessors/setter, and DecodeDC with retained partial state; AC owners/full constructor, weights, and matrix/table APIs unported |
+| `quant_weights.h`, constructor and DC methods in `.cc` | `quant_weights.rs` | Distance-band and owning quantization-encoding constructors, active union storage, deep copies/assignment/moves, strategy table mapping, complete initialized DequantMatrices constructor state, SetEncodings, and DC APIs; non-owning raw base copies, coefficient libraries, matrix computation/accessors, and AC table algorithms unported |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
 | `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
@@ -111,13 +112,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 239 tests, including 135 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 239 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 239 tests and corpus |
+| Rust debug | PASSED | 244 tests, including 137 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 244 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 244 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **627,615 requests** against C++. These include
+Each differential run compares **628,124 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -440,8 +441,20 @@ round trips, and recovery on reused state. Native tests independently check the
 one-bit default encoding and the per-component mutation/inverse checkpoint.
 The signaling-NaN copy regression runs in debug and release with the repository's
 source-matched scalar compiler configuration.
-Only DC storage is represented; this evidence does not establish the full
-DequantMatrices constructor, AC owners, or VarDCT matrix computation.
+DC evidence does not establish VarDCT matrix computation.
+
+Quantization constructor/ownership state adds 509 differential requests. The
+oracle observes the original initialized fields, all 81 strategy offsets, default
+library entries, all active quantization modes, distance-band constructors,
+exact float payloads, and reused encoding vectors. RAW cases compare retained
+input vectors, deep-copy isolation, replacement of old owners, moved-from null
+owners, copies of moved-from values, empty tables, and the sign bit reached by
+shift 31. Matrix setters invalidate seeded masks
+without reading coefficient storage. Indeterminate coefficient pointers and
+inactive union bytes are omitted. Native tests check known block offsets, copied
+table independence, null-versus-empty ownership, and zeroed band suffixes.
+Coefficient libraries, EnsureComputed, AC table algorithms, and actual matrix
+accessors remain unported.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through
@@ -474,8 +487,8 @@ The active [first-image milestone](FIRST_IMAGE.md) requires a complete Rust
 image encode/decode path and cross-decoding with the original implementation.
 The entropy slices above do not complete it.
 
-1. Complete the source ownership/constructor dependencies reached by the fixed
-   path, including DequantMatrices AC-owner initialization. Connect the remaining
+1. Complete the remaining source ownership dependencies reached by the fixed
+   path. Connect the remaining
    outer pixel preparation, frame decoding, and image/frame/section entry points,
    then run the cross-language image
    corpus in the first-image acceptance gate.

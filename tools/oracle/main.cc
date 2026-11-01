@@ -462,6 +462,7 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
+bool QuantStorageCommand(const std::string& command,std::istringstream& in);
 
 int main() {
   try {
@@ -501,6 +502,7 @@ int main() {
       else if (LearnCommand(command, in, &mm)) {}
       else if (EncFrameCommand(command, in, &mm)) {}
       else if (QuantDcCommand(command, in, &mm)) {}
+      else if (QuantStorageCommand(command, in)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

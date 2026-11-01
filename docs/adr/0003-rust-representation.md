@@ -403,9 +403,12 @@ zero still has one. These equal logical dimensions can therefore yield different
 allocation statuses. Propagate the existing native-owner/null distinction to
 Image3 creation; custom C allocator callbacks remain unported.
 
-DC quantization owns the source's three DC and inverse-DC values. This is a
-partial DequantMatrices representation: the AC owners, constructor bookkeeping,
-and matrix/table APIs remain absent until translated. Preserve each coefficient
+DequantMatrices owns the source's default encoding vector, strategy-to-table
+offsets, empty lazy table storage, and three DC/inverse-DC values. Its constructor
+retains the original block-size schedule and all initialized state. The source's
+indeterminate coefficient pointers have no Rust meaning before computation;
+matrix computation/accessors and coefficient libraries remain unported.
+Preserve each coefficient
 assignment before its validation and update the inverse only after validation.
 The serialized all-default flag keeps reused values rather than restoring the
 initial constants. Custom-DC round trips close their private Rust reader even
@@ -414,6 +417,20 @@ the extra close has no externally observed reader state.
 Setter inputs borrow a disjoint three-value array, matching the pinned callers'
 local arrays or separate parameter storage. Aliasing matrix members through the
 source's raw input pointer is not represented by this safe internal boundary.
+
+QuantEncoding incorporates the initialization from its C++ constexpr base into
+one owning Rust record. Typed payload variants replace the active union member;
+do not observe inactive source bytes or give them extra meaning. Mode storage
+retains the reference compiler's four-byte unsigned underlying type. Non-RAW
+constructors preserve constexpr initialization. RAW borrows and copies its table
+because the original named rvalue-reference argument is copied, leaving the
+caller's vector unchanged. Clone duplicates its optional table owner; clone_from
+releases an old RAW table before replacement. Explicit move_from transfers the
+table and leaves a null owner with the original mode/metadata in the source,
+while ordinary Rust moves invalidate the old binding. A moved-from null RAW
+owner remains distinct from an allocated empty table. Non-owning raw-pointer
+base copies are not exposed. SetEncodings copies a disjoint vector owner and
+invalidates the computed mask at the source checkpoint.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current

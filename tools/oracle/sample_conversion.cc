@@ -87,3 +87,4 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 
 #include "modular_frame.inc"
 #include "modular_frame_state.inc"
+#include "quant_storage.inc"
