@@ -1,0 +1,86 @@
+name: Portable SharpYUV
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: x86_64
+          - runner: macos-15
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      FUZZTEST_PRNG_SEED: OffQXb8u5_vZtH4-7wgVOLu_HNAhPIbLz7CFF13u3nk
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check target and install native test tools
+        shell: bash
+        run: |
+          test "$(uname -m)" = "${{ matrix.architecture }}"
+          if [ "${{ runner.os }}" = Linux ]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake ninja-build clang pkg-config libpng-dev libjpeg-dev libtiff-dev libgif-dev
+          else
+            brew install cmake ninja pkg-config libpng jpeg-turbo libtiff giflib
+          fi
+          rustup toolchain install nightly-2026-09-07 --profile minimal
+          rustc --version --verbose
+          cc --version
+      - name: Verify immutable source and license records
+        run: |
+          python3 tools/verify_upstream.py
+          python3 tools/generate_licenses.py --check
+      - name: Build original portable references and Rust crate
+        run: |
+          python3 tools/build_sharpyuv.py
+          python3 tools/build_sharpyuv.py --debug
+          cargo build -p libavif-sharpyuv --locked --release
+          cargo build -p libavif-sharpyuv --locked
+      - name: Exact API, ABI, and allocation comparisons
+        run: |
+          python3 tools/check_sharpyuv.py
+          python3 tools/check_sharpyuv.py --debug
+          python3 tools/check_sharpyuv_abi.py
+          python3 tools/check_sharpyuv_abi.py --debug
+          python3 tools/check_sharpyuv_alloc.py
+          python3 tools/check_sharpyuv_linkage.py
+      - name: Original native WebP integration tests
+        run: |
+          python3 tools/build_sharpyuv_consumers.py c --fetch-deps
+          python3 tools/run_tests.py build/sharpyuv-webp-c
+      - name: Original WebP tests with Rust SharpYUV
+        run: |
+          python3 tools/build_sharpyuv_consumers.py rust
+          python3 tools/run_tests.py build/sharpyuv-webp-rust
+          python3 tools/compare_results.py --baseline build/sharpyuv-webp-c-results.xml --port build/sharpyuv-webp-rust-results.xml --report build/sharpyuv-webp-inventory.json
+          python3 tools/check_sharpyuv_linkage.py --consumer build/sharpyuv-webp-rust --executable build/sharpyuv-webp-rust/tests/fuzzer/enc_dec_fuzzer
+          python3 tools/verify_upstream.py
+      - name: Preserve comparison evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sharpyuv-${{ matrix.runner }}-${{ matrix.architecture }}
+          path: |
+            build/sharpyuv-parity-*/
+            build/sharpyuv-abi/*.json
+            build/sharpyuv-allocation/results.json
+            build/sharpyuv-linkage.json
+            build/sharpyuv-webp-*/replacement.json
+            build/sharpyuv-webp-*/sharpyuv-linkage.json
+            build/sharpyuv-webp-*/Testing/Temporary/LastTest.log
+            build/sharpyuv-webp-*-results.xml
+            build/sharpyuv-webp-inventory.json
