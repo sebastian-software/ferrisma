@@ -319,13 +319,14 @@ impl<'a> ModularFrameEncoder<'a> {
     /// ComputeEncodingData's reached branches for the sealed configuration.
     /// The owning frame alone can call this method; its private parameters and
     /// metadata fix do_color=true, groupwise=false, integer samples, no effects,
-    /// no extra channels, no XYB, no quantization, and no responsive squeeze.
+    /// optional same-depth alpha, no XYB, no quantization, and no responsive squeeze.
     pub(super) fn compute_encoding_data_lossless_thunder(
         &mut self,
         config: &LosslessThunderConfig,
         frame_header: &FrameHeader<'_>,
         splitter: &ProgressiveSplitter,
         color: &Image3<f32>,
+        extra_channels: &[Plane<f32>],
     ) -> Status {
         let metadata = &config.metadata().m;
         let patch_dim = frame_header.to_frame_dimensions();
@@ -334,17 +335,18 @@ impl<'a> ModularFrameEncoder<'a> {
         let group_rect = Rect::new(0, 0, color.xsize(), color.ysize());
         let frame_area_rect = Rect::new(0, 0, xsize, ysize);
         assert!(color.xsize() >= xsize && color.ysize() >= ysize);
-        let nb_chans = if metadata.color_encoding.is_gray() {
+        let color_channels = if metadata.color_encoding.is_gray() {
             1
         } else {
             3
         };
+        let nb_chans = color_channels + extra_channels.len();
         let mut max_bitdepth = metadata.bit_depth.bits_per_sample as i32 + 1;
         self.stream_images[0] = Image::create(
             xsize,
             ysize,
             metadata.bit_depth.bits_per_sample as i32,
-            nb_chans,
+            nb_chans as i32,
         )?;
         let mut maxval = (1u32 << self.stream_images[0].bitdepth) as i32 - 1;
         for c in 0..3 {
@@ -372,6 +374,37 @@ impl<'a> ModularFrameEncoder<'a> {
                     factor,
                 )?;
             }
+        }
+        let mut c = color_channels;
+        for (ec, extra) in extra_channels.iter().enumerate() {
+            let eci = &metadata.extra_channel_info[ec];
+            let ecups = frame_header.extra_channel_upsampling[ec] as usize;
+            let ch = &mut self.stream_images[0].channel[c];
+            ch.shrink_to(
+                patch_dim.xsize_upsampled.div_ceil(ecups) as i32,
+                patch_dim.ysize_upsampled.div_ceil(ecups) as i32,
+            )?;
+            ch.hshift =
+                ceil_log2_nonzero(ecups) as i32 - ceil_log2_nonzero(frame_header.upsampling) as i32;
+            ch.vshift = ch.hshift;
+            let bits = eci.bit_depth.bits_per_sample;
+            let exp_bits = eci.bit_depth.exponent_bits_per_sample;
+            let fp = eci.bit_depth.floating_point_sample;
+            let factor = if fp {
+                1.0
+            } else {
+                f64::from((1u32 << bits) - 1)
+            };
+            max_bitdepth = max_bitdepth.max(bits as i32 + i32::from(!fp));
+            for y in 0..ch.plane.ysize() {
+                let row_in = &extra.row(y + group_rect.y0())[group_rect.x0()..];
+                let width = ch.plane.xsize();
+                float_to_int(row_in, ch.row_mut(y), width, bits, exp_bits, fp, factor)?;
+            }
+            c += 1;
+        }
+        if c != nb_chans {
+            return Err(StatusCode::GenericError);
         }
         let level_max_bitdepth = if self.cparams.level == 5 { 16 } else { 32 };
         if max_bitdepth > level_max_bitdepth {

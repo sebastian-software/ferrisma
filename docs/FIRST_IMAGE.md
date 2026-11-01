@@ -74,3 +74,40 @@ Verified on 2026-11-01; the original acceptance boundary above is unchanged.
 and release boundaries. The default low-memory pipeline, other configurations,
 public C ABI, threading, SIMD targets, and full-library acceptance remain future
 work.
+
+## Alpha profile extension
+
+The initial milestone and its historical evidence above remain unchanged. A
+separate `LosslessThunderConfig::new_with_alpha` constructor extends the same
+original configuration to interleaved gray/alpha and RGBA at 8/16 bits, with one
+full-resolution, unassociated alpha plane at the color sample depth. The
+complete decoder admits that metadata after parsing it and exports every color
+and alpha sample. Original lossless defaults retain invisible color values.
+
+The extension translates the newly reached CopyColorChannels alpha branch,
+CopyExtraChannels interleaved-alpha skip, extra-plane allocation and modular
+sample conversion, simple-pipeline channel count, and integer-export layout.
+Existing metadata/frame fields, palette/compaction selection, modular decoder
+conversion, and image-bundle write stages execute their original extra-channel
+paths. No premultiplied alpha, independently selected alpha depth, subsampling,
+additional extra-channel type, animation, or general decoder API is admitted.
+
+[Whole-image parity tests](../tests/parity/whole_image.rs) compare 400 complete
+encoder requests, including original auxiliary statistics and independent C++
+cross-decoding of both original and Rust files, plus 400 complete original/Rust
+decoder observations. Ten dimensions cover odd sizes, horizontal and vertical
+AC/DC group boundaries, and multiple groups in both axes. Samples include fully
+transparent, fully opaque, partial, palette, and deterministic noise layouts;
+nonzero invisible colors must survive exactly. Another 606 complete-file
+prefix/payload/trailing-byte observations retain original partial state, and
+216 short pixel-buffer observations compare rejection before header statistics.
+Sixteen separate-buffer requests call the original complete encoder with planar
+color/alpha input and compare its bytes and public-decoder observations. The
+Rust raw-frame path independently supplies separate buffers, reaching opaque
+alpha fill followed by the actual extra-plane copy, and must produce the same
+complete encoder frame bytes.
+The ordinary Rust tests additionally recover every 16-bit alpha value and check
+that unported alpha metadata is rejected at explicit profile admission.
+
+Validation evidence for this extension is recorded separately in
+[PORT_STATUS.md](PORT_STATUS.md).
