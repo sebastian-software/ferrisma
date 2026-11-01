@@ -17,3 +17,6 @@ The existing libavif RGB rounding difference in
 [ADR 0005](0005-floating-point-evaluation.md) remains an unresolved full-pipeline
 verification item. It does not grant an exception to this new-port contract.
 Public C++ binary compatibility is a separate, still-open decision.
+
+That compatibility question is subsequently resolved by
+[ADR 0015](0015-target-rust-consumers-without-cpp-binary-compatibility.md).

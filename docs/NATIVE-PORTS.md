@@ -86,13 +86,17 @@ ABI, feature, and behavioral comparison before adoption.
   and errors, against a pinned original and declared reference configuration.
 - Start with the portable upstream paths; keep optimization separate and allow
   existing crates to be evaluated in that later work.
+- Target Rust consumers and full behavioral parity; existing compiled C++
+  applications are outside the compatibility goal. Foreign interfaces remain
+  useful for validation without creating a product support obligation.
 
 These decisions are recorded in
 [ADR 0010](adr/0010-port-native-libraries-from-their-original-sources.md) and
 [ADR 0011](adr/0011-keep-library-ports-in-one-cargo-workspace.md),
 [ADR 0012](adr/0012-require-bit-exact-results-against-declared-references.md),
 [ADR 0013](adr/0013-separate-optimization-from-the-mechanical-port.md), and
-[ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md).
+[ADR 0014](adr/0014-retain-upstream-license-terms-for-ported-crates.md), and
+[ADR 0015](adr/0015-target-rust-consumers-without-cpp-binary-compatibility.md).
 
 ## Open decision tree
 
@@ -103,14 +107,20 @@ These decisions are recorded in
 - Optimization: decide its later scope, supported CPU paths, and performance
   gates separately from the portable mechanical ports.
 - Supported platforms: distinguish pilot evidence from release support.
-- API and ABI: define the treatment of public C and C++ interfaces.
+- Test correspondence: decide how internally coupled C++ tests exercise Rust
+  implementations while retaining their original reference and assertions.
 
 Those answers determine the first milestone and port order, transitive library
 scope, concrete parity and performance gates, maintenance, package identities,
 and publication. No implementation work is authorized by completing a single
 interview round; the complete plan is still being developed.
 
-### Public C++ interfaces need a separate compatibility decision
+### C++ interfaces matter to test correspondence
+
+Existing C++ application compatibility is excluded by
+[ADR 0015](adr/0015-target-rust-consumers-without-cpp-binary-compatibility.md).
+The source facts below now inform validation bridges and Rust test coverage,
+rather than a requirement to ship a binary-compatible C++ library.
 
 libgav1 exposes a public C++ `Decoder` class in addition to its C functions.
 Its `GetFramesMeanQpInTemporalUnit()` method returns `std::vector<int>` and has
@@ -122,13 +132,11 @@ libyuv similarly exposes a public `MJpegDecoder` C++ class when JPEG support is
 enabled; original conversion tests use it. See the pinned
 [MJPEG header](https://chromium.googlesource.com/libyuv/libyuv/+/26e56be0f984af3dae4d0c0ab7a0bac8ac20e1b0/include/libyuv/mjpeg_decoder.h).
 
-Preserving functionality, preserving the C ABI, retaining the original C++
-tests, and shipping a binary-compatible C++ library are distinct requirements.
-Any compatibility layer must have an explicit scope; it must not quietly
+Test compatibility layers must have an explicit scope; they must not quietly
 reintroduce the original algorithms or count original C++ execution as Rust
-coverage. Internal C++ unit tests may require additional bridging beyond the
-public API. The feasibility of unchanged linkage needs a pilot rather than an
-assumption.
+coverage. Internal C++ unit tests may require additional bridging or mechanical
+test translation beyond the public API. The feasibility of unchanged test
+linkage needs a pilot rather than an assumption.
 
 At the pinned libgav1 revision, 52 of 57 `src/**/*_test.{c,cc}` source files
 directly include at least one implementation header outside the public
