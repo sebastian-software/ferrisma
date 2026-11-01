@@ -7,6 +7,9 @@ JUnit inventories by `tools/record_validation.py`.
 The dependency-port extension has separate
 [SharpYUV evidence](SHARPYUV-VALIDATION.md), including fresh default, Debug,
 all-feature, and sanitizer libavif runs after replacing native SharpYUV.
+The subsequent [dav1d evidence](DAV1D-PORT.md) records fresh runs of those four
+configurations after replacing the decoder with its Rust workspace crate.
+The original baseline and intermediate matrices below remain historical results.
 The feature-specific intermediate rows below retain their earlier evidence.
 
 ## Reference baseline

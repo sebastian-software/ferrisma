@@ -12,19 +12,27 @@ The complete upstream snapshot, including its tests and fixtures, lives in
 `docs/PORTING.md` for the migration contract and validation status.
 
 The currently supported and tested target is **macOS on AArch64**. The original
-C/C++ applications and tests consume the Rust implementation through the C ABI;
-AV1/AV2 codec engines remain external dependencies as they do upstream.
+C/C++ applications and tests consume the Rust implementation through the C ABI.
+libaom and optional codec engines remain native dependencies.
 
 SharpYUV is now a separate mechanical Rust crate in
 [`crates/sharpyuv`](crates/sharpyuv), used directly by libavif-rs. Its portable
 configuration is validated on macOS ARM64 and Linux x86-64 independently of the
 root package. See [SharpYUV validation](docs/SHARPYUV-VALIDATION.md).
 
+The complete portable dav1d 1.5.4 decoder is a separate mechanical Rust crate in
+[`crates/dav1d`](crates/dav1d), used by the existing libavif decoder adapter.
+Its Debug and Release profiles cover both upstream bit-depth instantiations,
+including 8/10/12-bit decoding and film grain. See
+[dav1d port and validation](docs/DAV1D-PORT.md) for the original test inventories,
+native target evidence, and remaining limits.
+
 ## Build and test
 
 Use Rust nightly, CMake, Ninja, Python 3.9+, pkg-config, and development packages
-for libaom, dav1d, PNG, JPEG, and libxml2. The original C baseline also requires
-native SharpYUV; the Rust library uses its workspace crate. The validated dependency
+for libaom, PNG, JPEG, and libxml2. The original C baseline and CMake test setup
+also require native dav1d and SharpYUV development packages; the Rust library
+uses their workspace crates. The validated dependency
 versions and exact results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ```sh
@@ -80,8 +88,8 @@ was changed; see [ADR 0024](docs/adr/0024-use-noncontracting-c-references-for-po
 ## Planned dependency ports
 
 The [dependency porting plan](docs/NATIVE-PORTS.md) defines separate mechanical
-Rust crates in a shared workspace. Portable SharpYUV is implemented; dav1d and
-libaom follow. The plan records bit-exact reference checks, original-test correspondence,
+Rust crates in a shared workspace. Portable SharpYUV and dav1d are implemented;
+libaom is next. The plan records bit-exact reference checks, original-test correspondence,
 license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
 
 ## License

@@ -110,7 +110,8 @@ remain allowed infrastructure/dependencies at this milestone.
 
 ## Remaining scope
 
-dav1d and libaom are the next separate crates. Other targets, SharpYUV SIMD,
+The subsequent [dav1d milestone](DAV1D-PORT.md) is implemented; libaom is next.
+Other targets, SharpYUV SIMD,
 safe API design, optimization, a broader external corpus, continuous fuzzing,
 and registry publication remain separate work. Linux support of this crate
 does not enable the root libavif package on Linux. Optional golden tests and

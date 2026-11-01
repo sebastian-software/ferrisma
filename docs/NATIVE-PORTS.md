@@ -1,8 +1,8 @@
 # Separate Codec and Conversion Crates
 
-Status: the portable SharpYUV milestone is implemented and integrated. See
-[its validation evidence](SHARPYUV-VALIDATION.md). The [dav1d port](DAV1D-PORT.md)
-is in progress; libaom follows it.
+Status: portable SharpYUV and dav1d are implemented and integrated. See
+[SharpYUV validation](SHARPYUV-VALIDATION.md) and the
+[dav1d port and validation](DAV1D-PORT.md). libaom is the next milestone.
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
@@ -27,7 +27,7 @@ recorded baseline, not a selected source revision for a future port.
 | Library | Existing use | Porting considerations |
 | --- | --- | --- |
 | libaom | Default AV1 encoding and decoding | C implementation with architecture-specific assembly and intrinsics; broader than still images. |
-| dav1d | Default AV1 decoding | C and assembly; an existing Rust port, rav1d, is a candidate for evaluation. |
+| dav1d | Default AV1 decoding | Replaced by the portable `libavif-dav1d` workspace crate; original C remains its reference. |
 | SharpYUV | Default pixel conversion | Replaced by the portable `libavif-sharpyuv` workspace crate; the original libwebp target remains its reference. |
 | libgav1 | Optional AV1 decoding | C++ with platform-specific DSP implementations. |
 | rav1e | Optional AV1 encoding | Already Rust, currently consumed through its C API; optional assembly remains a separate question. |
@@ -302,8 +302,9 @@ full-library completion claims remain blocked until the selected closure is
 explicitly implemented and tested.
 
 Detailed contracts for later optional libraries will be prepared before their
-implementation. SharpYUV is implemented; the dav1d decoder's source and test
-inputs are pinned separately before translation and integration.
+implementation. SharpYUV and dav1d are implemented; the next detailed contract
+must pin libaom's complete selected portable source and original test closure
+before translation.
 
 ## Evidence for each milestone
 
@@ -313,7 +314,8 @@ and applicable differential and ABI checks. Compilation or a passing libavif
 subset alone cannot establish complete dependency parity.
 
 Apply the concrete SharpYUV gates above to its first milestone. Declare equally
-explicit references and case inventories for dav1d and libaom before expanding
-their translation. Existing validation limitations, including root platform
-coverage and strict RGB byte differences, remain recorded in
+explicit references and case inventories for libaom before expanding its
+translation. The dav1d milestone records these in `DAV1D-PORT.md`. Existing
+validation limitations, including root platform coverage and compiler-default
+RGB diagnostics, remain recorded in
 [VALIDATION.md](VALIDATION.md).

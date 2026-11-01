@@ -16,7 +16,11 @@ the mechanical translation:
   adapt the preserved upstream CI matrix to the Rust build.
 - Stabilize translated opaque external types and the nightly toolchain choice
   without changing allocation or callback behavior.
-- Implement the next separate portable dependency crates, dav1d and libaom,
+- Implement the next separate portable dependency crate, libaom,
   following the original-source and original-test requirements in NATIVE-PORTS.
+- Extend dav1d's portable evidence with the optional external Argon corpus,
+  continuous fuzzing, and additional sanitizer coverage before broader claims.
+- Evaluate dav1d SIMD, safe wrappers, and existing Rust decoder crates as
+  separate work; retain the mechanical scalar implementation as the reference.
 - Evaluate SharpYUV SIMD, safe wrappers, source-declaration consolidation, and
   existing Rust conversion crates only as separately measured follow-up work.

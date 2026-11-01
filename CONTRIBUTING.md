@@ -5,7 +5,7 @@ separately. Keep algorithms, names, data layout, numeric behavior, and ownership
 close to the pinned C source. Record lasting decisions in `docs/adr/` and later
 redesign or optimization candidates in `docs/FUTURE.md`.
 
-Treat both `upstream/libavif` and `upstream/libwebp` as immutable.
+Treat `upstream/libavif`, `upstream/libwebp`, and `upstream/dav1d` as immutable.
 `tools/verify_upstream.py` checks every file, including tests and fixtures.
 Do not replace missing functionality with
 stubs or a C fallback. The original C/C++ tests and applications are deliberately
@@ -174,3 +174,28 @@ python3 tools/record_sharpyuv_validation.py \
 ```
 
 This also requires the local libavif integration and sanitizer reports above.
+
+## Standalone dav1d crate
+
+The selected configuration, complete reproduction commands, test-only DSP
+bridge, and validation limits are in [docs/DAV1D-PORT.md](docs/DAV1D-PORT.md).
+Fetch the pinned external test inputs before building its two C reference
+profiles. `tools/transpile_dav1d.py --check` and `--release --check` reproduce
+the matching host profiles; the Linux workflow builds C2Rust 0.21.0 with Rust
+1.80.1 and LLVM 16, while the decoder uses the workspace nightly toolchain.
+
+After downloading both successful native CI artifacts and saving completed
+`gh run view --json status,conclusion,jobs,url,headSha` reports for the native
+tests and Linux translation verification, record the evidence:
+
+```sh
+python3 tools/record_dav1d_validation.py \
+  --ci-run build/dav1d-ci-success.json \
+  --ci-artifacts build/dav1d-ci-artifacts \
+  --translation-run build/dav1d-linux-verify-run.json
+```
+
+This requires the local API sanitizer, downstream test inventories,
+`python3 tools/check_dav1d_linkage.py --root-library`, and strict differential
+reports. Run the root build with its default features before the linkage audit
+if the shared Cargo output was most recently built with optional features.
