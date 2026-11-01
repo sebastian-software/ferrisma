@@ -2,26 +2,29 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! FrameInfo and complete parameter/header preparation from lib/jxl/
-//! enc_frame.{h,cc}, plus fixed lossless Thunder frame owners and modular pixel
-//! preparation, group encoding, and frame section finalization. Complete image
-//! encoding, streaming, and remaining EncodeFrame entry points are absent until
-//! translated. Byte names,
-//! narrowing, reused header state, and changes before errors retain source order.
+//! enc_frame.{h,cc}, plus fixed lossless Thunder ownership, color copying,
+//! modular pixel preparation, group encoding, and frame section finalization.
+//! Complete image encoding, streaming, and remaining EncodeFrame entry points
+//! are absent until translated. Byte names, narrowing, reused header state, and
+//! changes before errors retain source order.
 
 use super::base::float::{max_f32, mul_add_f64};
 use super::base::override_option::{Override, apply_override};
+use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::color_encoding::{ColorSpace, RenderingIntent};
 use super::common::SpeedTier;
 use super::dec_modular::ModularStreamId;
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+use super::enc_external_image::convert_from_external_plane_no_size_check;
 use super::enc_fields::write_frame_header;
 use super::enc_modular::ModularFrameEncoder;
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_NOISE};
 use super::enc_progressive_split::{PassDefinition, ProgressiveMode, ProgressiveSplitter};
 use super::enc_quant_weights::dequant_matrices_encode_dc;
 use super::enc_toc::{write_toc_permutation, write_toc_sizes};
+use super::encode_internal::{JxlEncoderChunkedFrameAdapter, bits_per_channel};
 use super::frame_dimensions::GROUP_DIM;
 use super::frame_header::{
     BlendMode, BlendingInfo, ColorTransform, FLAG_NOISE, FLAG_SKIP_ADAPTIVE_DC_SMOOTHING,
@@ -29,6 +32,7 @@ use super::frame_header::{
 };
 use super::image::Image3;
 use super::image_metadata::{CodecMetadata, ExtraChannel};
+use super::image_ops::copy_image_to;
 use super::jpeg::enc_jpeg_data::{
     set_chroma_subsampling_from_jpeg_data, set_color_transform_from_jpeg_data,
 };
@@ -80,6 +84,53 @@ impl LosslessThunderConfig {
     }
     pub fn metadata(&self) -> &CodecMetadata {
         &self.metadata
+    }
+    /// CopyColorChannels with the fixed FrameInfo and no extra/alpha planes.
+    /// The adapter is the original buffer-backed input branch; its release
+    /// callback is a no-op and is represented by the scoped input borrow.
+    pub fn copy_color_channels(
+        &self,
+        input: &JxlEncoderChunkedFrameAdapter<'_>,
+        rect: Rect,
+        color: &mut Image3<f32>,
+        has_interleaved_alpha: &mut bool,
+    ) -> Status {
+        let mut format = input.get_color_channels_pixel_format();
+        format.align = 0;
+        *has_interleaved_alpha = format.num_channels == 2 || format.num_channels == 4;
+        let bits_per_sample = bits_per_channel(format.data_type);
+        let mut row_offset = 0;
+        let data = input
+            .get_color_channel_data_at(
+                rect.x0(),
+                rect.y0(),
+                rect.xsize(),
+                rect.ysize(),
+                &mut row_offset,
+            )
+            .ok_or(StatusCode::GenericError)?;
+        let color_channels = self.metadata.m.color_encoding.channels();
+        if (format.num_channels as usize) < color_channels {
+            return Err(StatusCode::GenericError);
+        }
+        for c in 0..color_channels {
+            convert_from_external_plane_no_size_check(
+                data,
+                rect.xsize(),
+                rect.ysize(),
+                row_offset,
+                bits_per_sample,
+                format,
+                c,
+                color.plane_mut(c),
+            )?;
+        }
+        if color_channels == 1 {
+            let [first, second, third] = color.planes_mut();
+            copy_image_to(first, second)?;
+            copy_image_to(first, third)?;
+        }
+        Ok(())
     }
     /// The reached setup in EncodeFrameOneShot, before pixel preparation.
     pub fn create_frame(&self) -> StatusOr<LosslessThunderFrame<'_>> {

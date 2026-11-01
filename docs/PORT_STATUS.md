@@ -18,6 +18,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `base/byte_order.h` | `base/byte_order.rs` | Endian loads/stores, float-bit conversions, and order-tag helpers |
 | `base/float.h` | `base/float.rs` | Complete LoadFloat16 and callback-based LoadFloatRow, including unsupported-format failure before access |
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
+| `encode_internal.h` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, and the buffer-backed adapter/channel construction, binding, copying, views, and format accessors; callback/JPEG input, CopyFromBuffer, queued frames, and output processors unported |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
 | `ans_params.h` | `ans_params.rs` | ANS and prefix coding constants |
@@ -46,7 +47,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
-| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder ownership/pixel preparation/shared-token/group output and frame section finalization; outer pixel preparation, byte-owner/output-processor handoff, general EncodeGroups, and remaining frame entry points unported |
+| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder ownership/pixel preparation/shared-token/group output and frame section finalization; fixed-profile CopyColorChannels; outer ComputeEncodingData state allocation, byte-owner/output-processor handoff, general EncodeGroups, and remaining frame entry points unported |
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -114,13 +115,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 257 tests, including 142 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 257 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 257 tests and corpus |
+| Rust debug | PASSED | 264 tests, including 145 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 264 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 264 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **642,444 requests** against C++. These include
+Each differential run compares **654,206 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -540,5 +541,22 @@ minimum/full last-row sizes, size=0, invalid bit depths, dimension/stride errors
 and checked arithmetic overflow. Native regressions retain original half-float
 bit patterns, RGB16 channel selection with padded rows, last-row padding limits,
 and unclamped custom integer-depth scaling. These functions provide external
-planes; the outer frame pixel adapter and complete image entry point remain
+planes; the callback pixel adapter and complete image entry point remain
 unported.
+
+Frame buffer integration adds 11,762 differential requests: 4,032 binding/helper
+cases, 384 rebinding/copy sequences with twelve operations each, and 7,346
+fixed-profile CopyColorChannels cases. The original buffer adapter and its
+private channel state are observed after explicit initialization. Comparisons
+retain old-copy precedence, null/empty ownership, immediate extra-channel
+copies, color-only CopyBuffers, format/stride mutations before failed binds,
+unsigned overflow checks, and unmodified row-offset outputs for unavailable
+views. Color-copy cases cover all sample types, endian values, aligned strides,
+cropped/out-of-bounds rectangles, grayscale replication, interleaved-alpha
+flags, and errors after earlier planes were written. Every physical output-row
+sample is compared, including seeded padding and rows retained after shrinking.
+Native regressions cover wrapped stride assignment, stale copies, gray-copy
+partial failure, and composition from a zero-gray pixel buffer through padding,
+modular coding, and the original 13 finalized frame bytes. That composition
+is not evidence for the missing enclosing shared-state initialization, complete
+codestream entry point, or decoder.

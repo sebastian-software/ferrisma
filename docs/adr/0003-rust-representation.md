@@ -470,6 +470,28 @@ u32 wrappers, so unnamed enum values can follow the original guards without
 invalid Rust enum discriminants. This extends the earlier endianness descriptor
 to raw storage; the three named values keep their numeric representations.
 
+The buffer-backed frame adapter borrows color input and owns copied input in
+the source channel field order. Extra channels copy only after a successful
+bind; CopyBuffers copies the color channel. Preserve the old copy's precedence
+over a subsequently rebound pointer, including null-pointer rebindings. Empty
+copies fall back to the borrowed pointer, which CopyBuffer has cleared. Input
+size remains separate from the physical slice extent. SetFormatAndDimensions
+retains format/dimension changes before failed size arithmetic; SafeRoundUpTo
+assigns its wrapped stride even when reporting overflow. Initial Rust numeric
+storage is safe, but source-indeterminate fields are observed only after their
+assignment. The callback/JPEG setters remain absent, so these entry points can
+select only the original buffer path. Native shared views replace its callback
+table and no-op release; they cannot outlive the adapter or its input borrow.
+
+The fixed profile's CopyColorChannels retains the default FrameInfo, including
+FROM_PIXEL_FORMAT and ib_needs_color_transform=true, and has no alpha plane.
+It sets the interleaved-alpha flag before requesting data and validates channel
+count afterward. A disjoint borrow of the three owned planes supports gray
+replication in source order without cloning storage. Failure retains completed
+plane writes and the alpha flag; later planes remain untouched. This boundary
+does not imply that the enclosing shared-state allocation or image entry point
+is translated.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

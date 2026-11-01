@@ -21,6 +21,10 @@ jxl::Status EFEncodeThunderGroups(const jxl::FrameHeader& header,jxl::PassesEnco
                                   std::vector<std::unique_ptr<jxl::BitWriter>>* codes,jxl::AuxOut* aux) {
   return jxl::EncodeGroups(header,state,modular,nullptr,codes,aux);
 }
+jxl::Status EFCopyThunderColorChannels(jxl::JxlEncoderChunkedFrameAdapter& input,
+    const jxl::ImageMetadata& metadata,const jxl::Rect& rect,jxl::Image3F* color,bool* alpha) {
+  return jxl::CopyColorChannels(input.GetInputSource(),rect,jxl::FrameInfo(),metadata,nullptr,color,nullptr,alpha);
+}
 
 template<class... T> void EFValues(T... values) { ((std::cout<<' '<<values),...); }
 float EFReadFloat(std::istringstream& in) { uint32_t bits;in>>bits;float value;memcpy(&value,&bits,4);return value; }

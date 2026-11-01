@@ -66,6 +66,9 @@ mod frame_output;
 #[path = "parity/external_image.rs"]
 mod external_image;
 
+#[path = "parity/frame_buffers.rs"]
+mod frame_buffers;
+
 #[path = "parity/sample_conversion.rs"]
 mod sample_conversion;
 
@@ -676,6 +679,7 @@ fn observe(request: &str) -> String {
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),
+        kind if frame_buffers::handles(kind) => frame_buffers::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
         kind if modular_frame_state::handles(kind) => modular_frame_state::observe(kind, &mut args),

@@ -36,6 +36,7 @@ pub mod enc_params;
 pub mod enc_progressive_split;
 pub mod enc_quant_weights;
 pub mod enc_toc;
+pub mod encode_internal;
 pub mod field_encodings;
 pub mod fields;
 pub mod frame_dimensions;
