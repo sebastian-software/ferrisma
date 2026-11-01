@@ -189,8 +189,7 @@ of positive widths with eight-byte samples. Zero-sized planes have no allocation
 context; channel reallocation inherits that null context and retains the source
 failure rather than silently using a fresh allocator. Failed channel resize
 keeps newly assigned logical dimensions and the old plane. C allocator callbacks
-remain unported. Transform execution stays absent until its pixel kernels are
-translated; initialized Rust storage for max_delta_error is an internal
+remain unported. Initialized Rust storage for max_delta_error is an internal
 difference from the source's indeterminate nonserialized member. Oracle callers
 seed that member and observed pixel storage explicitly. No Rust sanitizer or
 memory/performance parity is inferred from C++ instrumentation or these borrows.
@@ -248,6 +247,20 @@ pixel write; no aliased mutable/shared channel pointers or whole-plane copies
 are needed. Its first-row relative-pointer cases map to the same prior samples.
 Shared Huffman/RLE run/value state outlives individual channel calls, and its
 original global-tree predicate remains part of the fast-path selection.
+
+Palette/Squeeze output channels own their allocations and replace the source
+channel at the original assignment point. Palette index planes use the source
+swap; short shared palette/prediction borrows end before each output write.
+Keep source task narrowing and eight-row/64-column span order, signed tendency
+division, i32 forward arithmetic preconditions, and inverse narrowing explicit.
+Clamp1 retains its ordered ternary checks even for reversed bounds: an empty
+single-channel palette distinguishes negative from nonnegative input indices.
+Do not substitute Rust clamp or unordered min/max composition for that case.
+Metadata edits retain changes completed before failure, including meta counts
+and previously processed channels. New source pixel storage is indeterminate;
+metadata-only oracle observations omit it. Reverse stack execution copies one
+Transform as the source does, pops it after success, and leaves a failed entry
+and the error flag visible. Custom runners remain a separate boundary.
 
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current

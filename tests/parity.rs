@@ -61,6 +61,8 @@ mod rct;
 mod ma;
 #[path = "parity/predict.rs"]
 mod predict;
+#[path = "parity/transforms.rs"]
+mod transforms;
 
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
@@ -642,6 +644,7 @@ fn observe(request: &str) -> String {
         kind if rct::handles(kind) => rct::observe(kind, &mut args),
         kind if predict::handles(kind) => predict::observe(kind, &mut args),
         kind if ma::handles(kind) => ma::observe(kind, &mut args),
+        kind if transforms::handles(kind) => transforms::observe(kind, &mut args),
         kind => entropy::observe(kind, &mut args),
     }
 }

@@ -3,8 +3,10 @@
 
 //! Channel and Image storage from lib/jxl/modular/modular_image.{h,cc}.
 //! Rust moves transfer plane ownership. Explicit clone_image performs the
-//! source copy; transform execution and diagnostic strings remain unported.
+//! source copy; undo_transforms retains the original stack and failure state.
+//! Diagnostic strings and custom runners remain unported.
 
+use super::encoding::context_predict::weighted;
 use super::transform::transform::Transform;
 use crate::jxl::base::status::{Status, StatusOr};
 use crate::jxl::image::Plane;
@@ -76,6 +78,15 @@ impl Default for Image {
     }
 }
 impl Image {
+    pub fn undo_transforms(&mut self, wp_header: &weighted::Header) {
+        while let Some(t) = self.transform.last().cloned() {
+            if t.inverse(self, wp_header).is_err() {
+                self.error = true;
+                return;
+            }
+            self.transform.pop();
+        }
+    }
     fn new(w: usize, h: usize, bitdepth: i32) -> Self {
         Self {
             w,

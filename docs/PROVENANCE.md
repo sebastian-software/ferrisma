@@ -162,3 +162,14 @@ not copied algorithm rewrites. The local `DefaultedBundle` fixture exercises
 the upstream `AllDefault`/`SetDefault`/`VisitNested` pattern and is not presented
 as a preexisting upstream test case. No external image corpus has been imported
 yet.
+
+Palette lookup/inversion/metadata in `modular/transform/palette.{h,cc}`, scalar
+Squeeze kernels/defaults/metadata in `squeeze.{h,cc}` and `enc_squeeze.{h,cc}`,
+the original `Transform::MetaApply`/`Inverse` dispatch, and
+`Image::undo_transforms` are translated. Differential tables, schedules, raster
+fixtures, invalid-state inputs, and native known-answer/stack tests are local
+infrastructure. The oracle calls those original APIs with a null pool. Metadata
+observations omit indeterminate pixel storage; forward arithmetic cases remain
+inside the source's defined i32 range. No forward palette algorithm, SIMD
+specialization, custom runner, or upstream full-image test inventory is claimed
+by these fixtures.

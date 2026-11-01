@@ -2,16 +2,20 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Transform storage/fields, channel validation, and PixelAdd from
-//! lib/jxl/modular/transform/transform.{h,cc}. Inverse/MetaApply remain absent
-//! until the corresponding pixel kernels are translated. Rust initializes
+//! lib/jxl/modular/transform/transform.{h,cc}, including MetaApply/Inverse
+//! dispatch to the scalar null-pool kernels. Rust initializes
 //! nonserialized max_delta_error storage that has no defined initial C++ value.
 
 use super::super::modular_image::Image;
 use super::super::options::Predictor;
+use super::palette::{inv_palette, meta_palette};
+use super::rct::inv_rct;
+use super::squeeze::{inv_squeeze, meta_squeeze};
 use super::squeeze_params::SqueezeParams;
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::field_encodings::{Fields, U32Enc, bits, bits_offset, val};
 use crate::jxl::fields::{Visitor, bundle};
+use crate::jxl::modular::encoding::context_predict::weighted;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct TransformId(pub u32);
 impl TransformId {
@@ -57,6 +61,38 @@ impl Transform {
         bundle::init(&mut value);
         value.id = id;
         value
+    }
+    pub fn inverse(&self, input: &mut Image, wp_header: &weighted::Header) -> Status {
+        match self.id {
+            TransformId::RCT => inv_rct(input, self.begin_c as usize, self.rct_type as usize),
+            TransformId::SQUEEZE => inv_squeeze(input, &self.squeezes),
+            TransformId::PALETTE => inv_palette(
+                input,
+                self.begin_c,
+                self.nb_colors,
+                self.nb_deltas,
+                self.predictor,
+                wp_header,
+            ),
+            _ => Err(StatusCode::GenericError),
+        }
+    }
+    pub fn meta_apply(&mut self, input: &mut Image) -> Status {
+        match self.id {
+            TransformId::RCT => {
+                check_equal_channels(input, self.begin_c, self.begin_c.wrapping_add(2))
+            }
+            TransformId::SQUEEZE => meta_squeeze(input, &mut self.squeezes),
+            TransformId::PALETTE => meta_palette(
+                input,
+                self.begin_c,
+                self.begin_c.wrapping_add(self.num_c).wrapping_sub(1),
+                self.nb_colors,
+                self.nb_deltas,
+                self.lossy_palette,
+            ),
+            _ => Err(StatusCode::GenericError),
+        }
     }
 }
 impl Fields for Transform {

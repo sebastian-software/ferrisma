@@ -54,9 +54,11 @@ and no placeholder codec APIs. The source revision is pinned in
 | `modular/encoding/ma_common.h`, `dec_ma.h`, `.cc`, `enc_ma.cc` | `modular/encoding/ma_common.rs`, `modular/encoding/dec_ma.rs`, `modular/encoding/enc_ma.rs` | Tree constants/storage, complete entropy-backed tree parsing and validation, and BFS tokenization; sample collection and tree learning unported |
 | `modular/encoding/encoding.h`, `.cc` | `modular/encoding/encoding.rs` | GroupHeader fields, static-branch filtering and two-level flattening, lookup-table conversion, and complete channel residual decoding with original fast/NEC/LZ77/RLE paths; image orchestration and dimension validation unported |
 | `modular/encoding/enc_encoding.h`, `.cc` | `modular/encoding/enc_encoding.rs` | All predefined trees, given-tree ModularCompress and channel residual encoding, original fast paths and overflow checks, and predictor-image scratch writes; learning and ModularGenericCompress unported |
-| `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, and resize failure state; transform execution and diagnostics unported |
-| `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, and channel-range validation; MetaApply/Inverse dispatch and palette/squeeze kernels unported |
+| `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, resize failure state, and reverse transform-stack execution with retained failures; diagnostics/custom runners unported |
+| `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, channel-range validation, and complete MetaApply/Inverse dispatch to scalar null-pool kernels |
 | `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
+| `modular/transform/palette.h`, `.cc` | `modular/transform/palette.rs` | Explicit/implicit/delta palette lookup, unsigned scaling, metadata channel edits, and all inverse prediction paths; forward palette selection/encoding unported |
+| `modular/transform/squeeze.h`, `.cc`, `enc_squeeze.h`, `.cc` | `modular/transform/squeeze.rs`, `modular/transform/enc_squeeze.rs` | Original scalar forward/inverse kernels, tendency, default schedules, validation, metadata edits, task spans, and channel replacement; SIMD/custom runners unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
@@ -85,13 +87,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway pin, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 142 tests, including 76 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 142 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 142 tests and corpus |
+| Rust debug | PASSED | 157 tests, including 86 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 157 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 157 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **550,690 requests** against C++. These include
+Each differential run compares **580,057 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -247,6 +249,22 @@ Native tests recover complete raster samples, preserve row padding, compare
 fast/slow tokens, and check known tokens and overflow state. These streams lack
 codestream/frame framing and transform orchestration; they are not yet a
 complete JPEG XL image path.
+
+Palette/Squeeze/stack coverage adds 29,367 differential requests. Palette tests
+cover every delta-table entry and implicit cube color, component/stride lookup,
+signed extrema, unsigned scaling, all inverse predictors, channel insertion and
+removal, meta-channel arithmetic, and zero-width/empty-palette handling. The
+source Clamp1 checks the low bound first; an empty single-channel palette has
+reversed bounds and retains that branch-dependent result. Squeeze tests compare
+signed tendency/rounding, default schedules, forward scalar inputs within the
+source's nonoverflowing range, inverse int32 extrema, eight-row/64-column task
+boundaries, corrupted geometry, and partial metadata changes. Dispatch/stack
+tests verify retained failed transforms, popped successes, and combined RCT/
+Squeeze sample restoration. Metadata-only calls omit undefined newly allocated
+samples. Native tests check known palette colors, the empty-palette regression,
+RGB expansion, odd/negative Squeeze samples, partial failure state, and stack
+ownership/order. Forward palette selection and full image orchestration remain
+unported.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through

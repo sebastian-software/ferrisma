@@ -19,6 +19,8 @@ and modular predictors with weighted state and reference properties. Modular
 decision trees now include serialization, parsing, static-branch filtering,
 flat-tree lookup, lookup tables, and group-header bundles. Given-tree residual
 encoding and channel decoding now connect samples through real entropy streams.
+Palette lookup/inversion and scalar Squeeze encoding/decoding now run through
+the original transform dispatch and reverse stack traversal.
 The image path is still being translated; the
 [first-image milestone](docs/FIRST_IMAGE.md) defines their integration gate.
 The Rust library has no external crate
