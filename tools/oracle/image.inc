@@ -67,7 +67,48 @@ void ImageModularObservation(const jxl::Image& image) {
   std::cout<<' '<<image.transform.size();for(const auto& t:image.transform) ImageTransformObservation(t);
 }
 bool ImageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
-  if(command=="image-row-size") {
+  if(command=="image-pad" || command=="image-pad-partial") {
+    size_t cw,ch,w,h,block; in>>cw>>ch>>w>>h>>block;
+    auto result=jxl::Image3F::Create(mm,cw,ch);
+    if(!result.ok()) throw std::runtime_error("padding fixture allocation");
+    auto image=std::move(result).value_();
+    const bool partial=command=="image-pad-partial";
+    if(partial) {
+      auto replacement=jxl::ImageF::Create(mm,20,12);
+      if(!replacement.ok()) throw std::runtime_error("padding fixture replacement");
+      auto plane=std::move(replacement).value_(); image.Plane(1).Swap(plane);
+    }
+    for(size_t c=0;c<3;++c) ImagePaint(image.Plane(c),51+c);
+    auto initial=image.ShrinkTo(w,h);
+    std::cout<<Code(initial);
+    if(initial) for(unsigned phase=0;phase<2;++phase) {
+      auto status=jxl::PadImageToBlockMultipleInPlace(&image,block);
+      std::cout<<' '<<Code(status);
+      for(size_t c=0;c<3;++c) ImagePlaneObservation(image.Plane(c),partial&&c==1?12:ch,true);
+      if(image.xsize()==0 || image.ysize()==0) break; // no second call with source-undefined empty input
+    }
+  } else if(command=="image-downsample") {
+    size_t w,h,factor; bool three; unsigned mode;
+    in>>three>>w>>h>>factor>>mode;
+    auto result=jxl::Image3F::Create(mm,mode>=2?w+8:w,mode>=2?h+8:h);
+    if(!result.ok()) throw std::runtime_error("downsample fixture allocation");
+    auto image=std::move(result).value_();
+    if(mode>=2 && !image.ShrinkTo(w,h)) throw std::runtime_error("downsample fixture shrink");
+    const uint32_t values[]={0,0x80000000,1,0x80000001,0x3f800000,0xbf800000,
+      0x7f7fffff,0xff7fffff,0x7f800000,0xff800000,0x7fc12345,0x7fa23456};
+    for(size_t c=0;c<3;++c) for(size_t y=0;y<h;++y) for(size_t x=0;x<w;++x) {
+      if(mode%2==0) image.PlaneRow(c,y)[x]=static_cast<float>((x*13+y*67+c*997)%4093)-2051.f;
+      else { uint32_t bits=values[(x+y*7+c*3)%12]; memcpy(&image.PlaneRow(c,y)[x],&bits,4); }
+    }
+    if(three) {
+      auto down=jxl::DownsampleImage(image,factor); std::cout<<Code(down.status());
+      if(down.ok()) { auto output=std::move(down).value_(); for(size_t c=0;c<3;++c) ImagePlaneObservation(output.Plane(c),output.ysize(),false); }
+    } else {
+      auto down=jxl::DownsampleImage(image.Plane(0),factor); std::cout<<Code(down.status());
+      if(down.ok()) { auto output=std::move(down).value_(); ImagePlaneObservation(output,output.ysize(),false); }
+    }
+    for(size_t c=0;c<3;++c) ImagePlaneObservation(image.Plane(c),h,false);
+  } else if(command=="image-row-size") {
     size_t x,size;in>>x>>size;auto result=jxl::BytesPerRow(x,size);std::cout<<Code(result.status())<<' '<<(result.ok()?std::move(result).value_():0);
   } else if(command=="image-plane" || command=="image-three" || command=="image-copy") {
     unsigned type;in>>type;

@@ -236,9 +236,16 @@ impl<T: Sample> Default for Image3<T> {
 impl<T: Sample> Image3<T> {
     pub const NUM_PLANES: usize = 3;
     pub fn create(xsize: usize, ysize: usize) -> StatusOr<Self> {
-        let plane0 = Plane::create(xsize, ysize)?;
-        let plane1 = Plane::create(xsize, ysize)?;
-        let plane2 = Plane::create(xsize, ysize)?;
+        Self::create_in(xsize, ysize, true)
+    }
+    pub(crate) fn create_in(
+        xsize: usize,
+        ysize: usize,
+        have_memory_manager: bool,
+    ) -> StatusOr<Self> {
+        let plane0 = Plane::create_in(xsize, ysize, 0, have_memory_manager)?;
+        let plane1 = Plane::create_in(xsize, ysize, 0, have_memory_manager)?;
+        let plane2 = Plane::create_in(xsize, ysize, 0, have_memory_manager)?;
         Ok(Self {
             planes: [plane0, plane1, plane2],
         })

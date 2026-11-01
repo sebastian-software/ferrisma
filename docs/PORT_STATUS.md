@@ -59,7 +59,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Permutation context, tokenization, complete entropy output/parsing, optional output, and ANS final-state validation; AC-strategy coefficient orders unported |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
 | `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, and native moves; C allocators and MSan-only padding instrumentation unported |
-| `image_ops.h` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular copies, plane copies with padding, and Mirror; arithmetic, conversion, min/max, and image_ops.cc unported |
+| `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
 | `modular/encoding/ma_common.h`, `dec_ma.h`, `.cc`, `enc_ma.h`, `.cc` | `modular/encoding/ma_common.rs`, `modular/encoding/dec_ma.rs`, `modular/encoding/enc_ma.rs` | Tree constants/storage, complete entropy-backed tree parsing and validation, BFS tokenization, sample storage/deduplication/quantization, pixel sampling, and original scalar best-split learning |
@@ -107,13 +107,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 229 tests, including 131 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 229 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 229 tests and corpus |
+| Rust debug | PASSED | 234 tests, including 133 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 234 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 234 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **624,328 requests** against C++. These include
+Each differential run compares **625,067 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -410,9 +410,21 @@ Native tests invert the selected transforms to recover integer samples and
 check retained logical dimensions after releasing copied global planes.
 The configuration owns private metadata and its frame exposes read-only
 observations, preventing selection of unported branches through this path.
-Input is already Image3F; CopyColorChannels, padding, outer frame preparation,
+Input is already Image3F; CopyColorChannels, outer frame preparation,
 section orchestration, complete codestream output, and frame decoding remain
 separate dependencies.
+
+Image preparation helpers add 739 differential requests: in-place block padding
+and both original downsampling overloads. Padding compares all caller-seeded
+capacity bytes, exact float payloads, unchanged row padding, repeated calls,
+insufficient capacity, and partial plane-size changes. Downsampling compares
+exact accumulated float bits, actual edge-block sample counts, scalar/three-plane
+overloads, infinities/NaNs/subnormals, factor-one failures, and unsigned rounding
+at large factors. Empty-image cases distinguish missing allocation owners from
+allocated images shrunk to zero; the output inherits that source allocator
+boundary. Native tests check repeated edge pixels, unchanged allocation addresses
+and row padding, known edge averages, and the empty-owner allocation regression.
+Connecting these helpers to the outer frame path remains separate work.
 
 The fixture adapter's outer entropy framing is test infrastructure and is not
 an image encoder. Failed allocations/table builds are not observed through

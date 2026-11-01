@@ -389,6 +389,20 @@ because the only source writes to it are in the excluded effect branches.
 Retain the source's double conversion factor and physical-plane versus logical
 channel dimensions. General pixel-preparation entry points remain absent.
 
+Block padding keeps its original allocation and the source Image3 stride from
+plane zero. Byte copies retain float payloads and leave physical row padding
+untouched. A failed ShrinkTo retains the planes already resized. Preserve the
+source's unsigned DivCeil/RoundUpTo arithmetic, including defined wrapping.
+An empty fill range does not construct a checked Rust row view.
+
+Downsampling preserves nested float accumulation order and the actual sample
+count at partial edges. Safe row selection replaces strided pointer arithmetic.
+Allocate output through the input image's existing allocator boundary: a newly
+created empty image has no allocator owner, while an allocated image shrunk to
+zero still has one. These equal logical dimensions can therefore yield different
+allocation statuses. Propagate the existing native-owner/null distinction to
+Image3 creation; custom C allocator callbacks remain unported.
+
 Review these mappings when adding the C ABI, custom allocators, nested bundle
 extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.

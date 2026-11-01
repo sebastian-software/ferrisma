@@ -4,10 +4,81 @@
 
 use jxl::jxl::base::status::StatusCode;
 use jxl::jxl::image::{Image3, Plane};
-use jxl::jxl::image_ops::{copy_image_to, copy_image3_to};
+use jxl::jxl::image_ops::{
+    copy_image_to, copy_image3_to, downsample_image, pad_image_to_block_multiple_in_place,
+};
 use jxl::jxl::modular::modular_image::{Channel, Image};
 use jxl::jxl::modular::transform::squeeze_params::SqueezeParams;
 use jxl::jxl::modular::transform::transform::{Transform, TransformId};
+
+#[test]
+fn block_padding_repeats_edge_samples_without_allocating_or_overwriting_row_padding() {
+    let mut image = Image3::<f32>::create(8, 8).unwrap();
+    let addresses: Vec<_> = (0..3)
+        .map(|c| image.plane(c).bytes().unwrap().as_ptr())
+        .collect();
+    for c in 0..3 {
+        image.plane_mut(c).bytes_mut().unwrap().fill(0xa5);
+        for y in 0..3 {
+            for x in 0..4 {
+                image.plane_row_mut(c, y)[x] = (x + y * 10 + c * 100) as f32;
+            }
+        }
+    }
+    image.shrink_to(4, 3).unwrap();
+    pad_image_to_block_multiple_in_place(&mut image, 8).unwrap();
+    assert_eq!((image.xsize(), image.ysize()), (8, 8));
+    for (c, &address) in addresses.iter().enumerate() {
+        assert_eq!(image.plane(c).bytes().unwrap().as_ptr(), address);
+        for y in 0..8 {
+            for x in 0..8 {
+                assert_eq!(
+                    image.plane_row(c, y)[x],
+                    (x.min(3) + y.min(2) * 10 + c * 100) as f32
+                );
+            }
+            let bytes = image.plane(c).bytes().unwrap();
+            let stride = image.plane(c).bytes_per_row();
+            assert!(
+                bytes[y * stride + 8 * 4..(y + 1) * stride]
+                    .iter()
+                    .all(|&v| v == 0xa5)
+            );
+        }
+    }
+}
+
+#[test]
+fn downsampling_averages_each_partial_edge_block_with_its_actual_sample_count() {
+    let mut input = Plane::<f32>::create(4, 3).unwrap();
+    for y in 0..3 {
+        for x in 0..4 {
+            input.row_mut(y)[x] = (y * 4 + x) as f32;
+        }
+    }
+    let output = downsample_image(&input, 2).unwrap();
+    assert_eq!((output.xsize(), output.ysize()), (2, 2));
+    assert_eq!(&output.row(0)[..2], &[2.5, 4.5]);
+    assert_eq!(&output.row(1)[..2], &[8.5, 10.5]);
+    assert_eq!(
+        downsample_image(&input, 1).err(),
+        Some(StatusCode::GenericError)
+    );
+}
+
+#[test]
+fn downsampling_empty_images_preserves_the_source_allocation_owner() {
+    let empty = Plane::<f32>::create(0, 0).unwrap();
+    assert_eq!(
+        downsample_image(&empty, 2).err(),
+        Some(StatusCode::GenericError)
+    );
+    let mut allocated = Plane::<f32>::create(8, 8).unwrap();
+    allocated.shrink_to(0, 0).unwrap();
+    let output = downsample_image(&allocated, 2).unwrap();
+    assert_eq!((output.xsize(), output.ysize()), (0, 0));
+    assert!(output.bytes().is_some());
+}
 
 #[test]
 fn aligned_rows_retain_samples_and_stride_through_shrink_and_restore() {

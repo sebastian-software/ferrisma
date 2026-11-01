@@ -1,12 +1,15 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Copy/fill, padded copy, and border mirroring from lib/jxl/image_ops.h.
-//! Explicit names distinguish source overloads. Numeric image operations and
-//! image_ops.cc remain separate, unported boundaries.
+//! Copy/fill, padded copy, and border mirroring from lib/jxl/image_ops.h, plus
+//! block padding and both downsampling overloads from image_ops.cc.
+//! Explicit names distinguish source overloads. Other header-only numeric image
+//! operations remain unported. Slices replace row pointers and memcpy without
+//! changing float operation order or observing uninitialized allocation padding.
 
 use super::base::rect::Rect;
-use super::base::status::{Status, StatusCode};
+use super::base::status::{Status, StatusCode, StatusOr};
+use super::frame_dimensions::BLOCK_DIM;
 use super::image::{Image3, Plane, Sample};
 
 pub fn copy_image_to<T: Sample>(from: &Plane<T>, to: &mut Plane<T>) -> Status {
@@ -152,4 +155,112 @@ pub fn mirror(mut x: i64, size: i64) -> i64 {
         }
     }
     x
+}
+
+fn div_ceil(what: usize, align: usize) -> usize {
+    assert_ne!(align, 0, "source division requires a nonzero divisor");
+    what.wrapping_add(align - 1) / align
+}
+
+/// The source assumes a nonempty image with sufficient original allocation.
+/// ShrinkTo errors retain its earlier plane-size changes before pixel access.
+pub fn pad_image_to_block_multiple_in_place(image: &mut Image3<f32>, block_dim: usize) -> Status {
+    let xsize_orig = image.xsize();
+    let ysize_orig = image.ysize();
+    let xsize = div_ceil(xsize_orig, block_dim).wrapping_mul(block_dim);
+    let ysize = div_ceil(ysize_orig, block_dim).wrapping_mul(block_dim);
+    image.shrink_to(xsize, ysize)?;
+    assert!(
+        xsize_orig != 0 && ysize_orig != 0,
+        "source padding reads the last input pixel/row"
+    );
+    // Image3::PlaneRow uses plane zero's stride for every component.
+    let stride = image.plane(0).bytes_per_row();
+    for c in 0..3 {
+        for y in 0..ysize_orig {
+            // An empty fill range need not construct a checked row view. The
+            // source's unsigned rounding can shrink a huge block size to zero.
+            if xsize_orig < xsize {
+                let row = image.plane_row_mut(c, y);
+                for x in xsize_orig..xsize {
+                    row[x] = row[xsize_orig - 1];
+                }
+            }
+        }
+        // This byte copy is the source memcpy, including exact float payloads.
+        // Its ranges lie in different rows of this same owning allocation.
+        let bytes = image
+            .plane_mut(c)
+            .bytes_mut()
+            .expect("nonempty source allocation");
+        let source = (ysize_orig - 1) * stride;
+        for y in ysize_orig..ysize {
+            bytes.copy_within(source..source + xsize * size_of::<f32>(), y * stride);
+        }
+    }
+    Ok(())
+}
+
+fn do_downsample_image(input: &Plane<f32>, factor: usize, output: &mut Plane<f32>) -> Status {
+    if factor == 1 {
+        return Err(StatusCode::GenericError);
+    }
+    output.shrink_to(
+        div_ceil(input.xsize(), factor),
+        div_ceil(input.ysize(), factor),
+    )?;
+    let xsize = output.xsize();
+    for y in 0..output.ysize() {
+        let row_out = output.row_mut(y);
+        for (x, value) in row_out[..xsize].iter_mut().enumerate() {
+            let mut cnt = 0usize;
+            let mut sum = 0.0f32;
+            for iy in 0..factor {
+                if iy + factor * y >= input.ysize() {
+                    break;
+                }
+                // Selecting each source row replaces strided pointer access.
+                let row_in = input.row(factor * y + iy);
+                for ix in 0..factor {
+                    if ix + factor * x >= input.xsize() {
+                        break;
+                    }
+                    sum += row_in[x * factor + ix];
+                    cnt += 1;
+                }
+            }
+            *value = sum / cnt as f32;
+        }
+    }
+    Ok(())
+}
+
+pub fn downsample_image(image: &Plane<f32>, factor: usize) -> StatusOr<Plane<f32>> {
+    let mut downsampled = Plane::create_in(
+        div_ceil(image.xsize(), factor).wrapping_add(BLOCK_DIM),
+        div_ceil(image.ysize(), factor).wrapping_add(BLOCK_DIM),
+        0,
+        image.have_memory_manager(),
+    )?;
+    do_downsample_image(image, factor, &mut downsampled)?;
+    Ok(downsampled)
+}
+
+pub fn downsample_image3(image: &Image3<f32>, factor: usize) -> StatusOr<Image3<f32>> {
+    if factor == 1 {
+        return Err(StatusCode::GenericError);
+    }
+    let mut downsampled = Image3::create_in(
+        div_ceil(image.xsize(), factor).wrapping_add(BLOCK_DIM),
+        div_ceil(image.ysize(), factor).wrapping_add(BLOCK_DIM),
+        image.plane(0).have_memory_manager(),
+    )?;
+    downsampled.shrink_to(
+        downsampled.xsize() - BLOCK_DIM,
+        downsampled.ysize() - BLOCK_DIM,
+    )?;
+    for c in 0..3 {
+        do_downsample_image(image.plane(c), factor, downsampled.plane_mut(c))?;
+    }
+    Ok(downsampled)
 }

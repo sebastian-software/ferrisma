@@ -226,6 +226,92 @@ pub(super) fn modular(out: &mut String, image: &Image) {
 }
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
     match kind {
+        "image-pad" | "image-pad-partial" => {
+            let cw = number(args);
+            let ch = number(args);
+            let w = number(args);
+            let h = number(args);
+            let block = number(args);
+            let mut image = Image3::<f32>::create(cw, ch).unwrap();
+            let partial = kind == "image-pad-partial";
+            if partial {
+                let mut replacement = Plane::create(20, 12).unwrap();
+                image.plane_mut(1).swap(&mut replacement);
+            }
+            for c in 0..3 {
+                paint(image.plane_mut(c), 51 + c as u64);
+            }
+            let initial = image.shrink_to(w, h);
+            let mut out = code(&initial).to_string();
+            if initial.is_ok() {
+                for _ in 0..2 {
+                    let status = pad_image_to_block_multiple_in_place(&mut image, block);
+                    write!(out, " {}", code(&status)).unwrap();
+                    for c in 0..3 {
+                        plane(
+                            &mut out,
+                            image.plane(c),
+                            if partial && c == 1 { 12 } else { ch },
+                            true,
+                        );
+                    }
+                    if image.xsize() == 0 || image.ysize() == 0 {
+                        break;
+                    }
+                }
+            }
+            out
+        }
+        "image-downsample" => {
+            let three = number::<u32>(args) != 0;
+            let w = number(args);
+            let h = number(args);
+            let factor = number(args);
+            let mode = number::<u32>(args);
+            let mut image = Image3::<f32>::create(
+                w + if mode >= 2 { 8 } else { 0 },
+                h + if mode >= 2 { 8 } else { 0 },
+            )
+            .unwrap();
+            if mode >= 2 {
+                image.shrink_to(w, h).unwrap();
+            }
+            let values = [
+                0, 0x80000000, 1, 0x80000001, 0x3f800000, 0xbf800000, 0x7f7fffff, 0xff7fffff,
+                0x7f800000, 0xff800000, 0x7fc12345, 0x7fa23456,
+            ];
+            for c in 0..3 {
+                for y in 0..h {
+                    for x in 0..w {
+                        image.plane_row_mut(c, y)[x] = if mode % 2 == 0 {
+                            ((x * 13 + y * 67 + c * 997) % 4093) as f32 - 2051.0
+                        } else {
+                            f32::from_bits(values[(x + y * 7 + c * 3) % 12])
+                        };
+                    }
+                }
+            }
+            let mut out;
+            if three {
+                let down = downsample_image3(&image, factor);
+                out = code(&down).to_string();
+                if let Ok(output) = down {
+                    for c in 0..3 {
+                        plane(&mut out, output.plane(c), output.ysize(), false);
+                    }
+                }
+            } else {
+                let down = downsample_image(image.plane(0), factor);
+                out = code(&down).to_string();
+                if let Ok(output) = down {
+                    plane(&mut out, &output, output.ysize(), false);
+                }
+            }
+            for c in 0..3 {
+                plane(&mut out, image.plane(c), h, false);
+            }
+            out
+        }
         "image-row-size" => {
             let r = bytes_per_row(number(args), number(args));
             format!("{} {}", code(&r), r.unwrap_or(0))
@@ -516,6 +602,47 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         "image-mirror" => mirror(number(args), number(args)).to_string(),
         _ => panic!("unknown image request"),
     }
+}
+
+#[test]
+fn block_padding_preserves_float_bits_capacity_bytes_and_partial_plane_sizes() {
+    let mut cases = Vec::new();
+    for (w, h) in [(1, 1), (2, 3), (7, 9), (8, 8), (9, 17), (17, 9), (31, 3)] {
+        for block in [1, 2, 3, 8, 16, 32, usize::MAX] {
+            for spare in [false, true] {
+                let (cw, ch) = if spare { (64, 64) } else { (w, h) };
+                cases.push(format!("image-pad {cw} {ch} {w} {h} {block}"));
+            }
+        }
+    }
+    cases.push("image-pad-partial 32 16 17 9 8".to_owned());
+    compare(cases);
+}
+
+#[test]
+fn downsampling_matches_float_accumulation_edges_special_values_and_unsigned_rounding() {
+    let mut cases = Vec::new();
+    for three in [0, 1] {
+        for (w, h) in [
+            (1, 1),
+            (2, 3),
+            (7, 9),
+            (8, 8),
+            (9, 17),
+            (17, 9),
+            (31, 3),
+            (0, 0),
+            (17, 0),
+            (0, 5),
+        ] {
+            for factor in [1, 2, 3, 4, 8, 16, usize::MAX - 1, usize::MAX] {
+                for mode in [0, 1, 2, 3] {
+                    cases.push(format!("image-downsample {three} {w} {h} {factor} {mode}"));
+                }
+            }
+        }
+    }
+    compare(cases);
 }
 
 #[test]
