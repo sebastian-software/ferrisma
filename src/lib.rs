@@ -5,7 +5,7 @@
 //! This translation currently targets macOS on AArch64. Other targets require
 //! regeneration and independent ABI and behavioral validation.
 #![feature(extern_types)]
-#![cfg_attr(libawfrs_asan, feature(sanitize))]
+#![cfg_attr(libavif_rs_asan, feature(sanitize))]
 // Generated identifiers and temporaries intentionally match the C source.
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #![allow(dead_code, unused_assignments, unused_mut)]

@@ -1,4 +1,4 @@
-# libAWFRS
+# libavif-rs
 
 A mechanical Rust port of [libavif](https://github.com/AOMediaCodec/libavif).
 

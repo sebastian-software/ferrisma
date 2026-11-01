@@ -37,7 +37,7 @@ def translate(source: Path, raw: str, codec_registry: bool = True) -> tuple[str,
     # Loader function-pointer arrays must retain their exact Mach-O section size.
     # ASan's ordinary global padding would make dyld interpret redzones as
     # initializer pointers. Their initializer functions remain instrumented.
-    replace("static INIT_ARRAY:", '#[cfg_attr(libawfrs_asan, sanitize(address = "off"))]\nstatic INIT_ARRAY:',
+    replace("static INIT_ARRAY:", '#[cfg_attr(libavif_rs_asan, sanitize(address = "off"))]\nstatic INIT_ARRAY:',
             "loader-array-sanitizer-layout")
 
     # Darwin AArch64 long double has the same representation as double. C2Rust

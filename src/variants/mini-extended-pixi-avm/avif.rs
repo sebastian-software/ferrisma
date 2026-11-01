@@ -2568,5 +2568,5 @@ unsafe extern "C" fn run_static_initializers() {
 #[cfg_attr(target_os = "linux", link_section = ".init_array")]
 #[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
 #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-#[cfg_attr(libawfrs_asan, sanitize(address = "off"))]
+#[cfg_attr(libavif_rs_asan, sanitize(address = "off"))]
 static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];

@@ -72,9 +72,9 @@ def main():
         f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
     if args.asan:
-        prefix = Path(os.environ.get("LIBAWFRS_LLVM_PREFIX", str(ROOT / "build/toolchain/llvm@16/16.0.6_1")))
+        prefix = Path(os.environ.get("LIBAVIF_RS_LLVM_PREFIX", str(ROOT / "build/toolchain/llvm@16/16.0.6_1")))
         if not (prefix / "bin/clang").is_file():
-            raise SystemExit("ASan parity requires LLVM 16; set LIBAWFRS_LLVM_PREFIX to its installation prefix")
+            raise SystemExit("ASan parity requires LLVM 16; set LIBAVIF_RS_LLVM_PREFIX to its installation prefix")
         wrappers = ROOT / "build/toolchain/wrappers"
         wrappers.mkdir(parents=True, exist_ok=True)
         for compiler in ["clang", "clang++"]:
@@ -104,7 +104,7 @@ def main():
             environment["CARGO_TARGET_DIR"] = str(target)
             flags = environment.get("CARGO_ENCODED_RUSTFLAGS", "").split("\x1f") if environment.get("CARGO_ENCODED_RUSTFLAGS") else shlex.split(environment.get("RUSTFLAGS", ""))
             flags += ["-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
-                      "--cfg", "libawfrs_asan", "-Lnative=" + str(runtime_path),
+                      "--cfg", "libavif_rs_asan", "-Lnative=" + str(runtime_path),
                       "-ldylib=rustc-nightly_rt.asan", "-Clink-arg=-Wl,-rpath," + str(runtime_path)]
             environment["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
             environment.pop("RUSTFLAGS", None)
@@ -112,7 +112,7 @@ def main():
             target = target / "aarch64-apple-darwin"
         run(cargo, env=environment)
         archive = target / ("debug" if args.debug else "release") / "libavif.a"
-        command += [f"-DLIBAWFRS_ARCHIVE={archive}"]
+        command += [f"-DLIBAVIF_RS_ARCHIVE={archive}"]
     run(command)
     run(["cmake", "--build", build, "-j", args.jobs])
     if args.implementation == "port":

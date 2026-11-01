@@ -82,7 +82,7 @@ before running `tools/check_translation.py`; their manifests cover shared files.
 ## Sanitizer and differential checks
 
 `--asan` uses LLVM 16 native compilers and the selected nightly's standard ASan
-v8 runtime. Set `LIBAWFRS_LLVM_PREFIX` for a regular LLVM installation; otherwise
+v8 runtime. Set `LIBAVIF_RS_LLVM_PREFIX` for a regular LLVM installation; otherwise
 the helper uses the task-local prefix shown above. Extracted Homebrew toolchains
 must have their native library paths relocated before use, as a normal Homebrew
 installation does.

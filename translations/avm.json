@@ -14,7 +14,7 @@
       "source": "upstream/libavif/src/avif.c",
       "rust": "src/variants/avm/avif.rs",
       "raw_sha256": "be03a200653d83aa34b6c70b15fbf4055768fd331808a36c90cdf60569ab0d9c",
-      "rust_sha256": "0e1b08724eff912747e8107c5cbc9ca7a4c4b9afe9c9cebe4e94c9fd84fd8bcd",
+      "rust_sha256": "a383c78974565b224a5c60500aca58d7ed0b42530431d2f2cea7fca5c880f780",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -25,7 +25,7 @@
       "source": "upstream/libavif/src/colr.c",
       "rust": "src/colr.rs",
       "raw_sha256": "a07601808bc01455b36ecfceb5fa11d95f09f45f18943a8bb122085ac2d547d6",
-      "rust_sha256": "d35334271ea40d3c689389722882d37d589708d8531d604271d3c92757607bb2",
+      "rust_sha256": "7f82f8b3687b69f68dd1cfcfdcce165a49df871b0bbfe8ea58ca8133926e2536",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 3
@@ -91,7 +91,7 @@
       "source": "upstream/libavif/src/properties.c",
       "rust": "src/properties.rs",
       "raw_sha256": "35ce5f8a002d03a4aeb92dde29b8d375e308eb63de257178c17f81b9cba8bdee",
-      "rust_sha256": "020f59f1603d2f55ebb21ab1f3dff14623270cfe2440f5f1c173e7559d7e59b6",
+      "rust_sha256": "7e65bfdc930663636bea364e3d66c56cea1dab320139bbfea6451a8bb5d02e34",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1
@@ -226,7 +226,7 @@
       "source": "upstream/libavif/src/codec_aom.c",
       "rust": "src/codec_aom.rs",
       "raw_sha256": "00387d2ae94d8b36a8c8975638466d59c1adf6e30821877b0bbfd13f71afcc8b",
-      "rust_sha256": "01b69d51bb2a4579e2049a8d908abfec5c0f9b0a8fd75b210dec38bed7580386",
+      "rust_sha256": "b11402e7e681e70a5b43460bf4f4f9a079aadffee7dbe28f4c4826fa3ec32af4",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2
@@ -236,7 +236,7 @@
       "source": "upstream/libavif/src/codec_avm.c",
       "rust": "src/codec_avm.rs",
       "raw_sha256": "e85dc2aebc574395626aac4c448c8f9e72eb61d23e51727a4baec51ace71d24c",
-      "rust_sha256": "98cb7ed152801aa7a879e75947f77247af53d3f5f3594ba36cf0a17aeff505b0",
+      "rust_sha256": "3446a1dc674799ab11c2846716af43234a6eb61d15472b4af59209996a4ef53c",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1

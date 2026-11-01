@@ -106,11 +106,11 @@ def main():
         if c_values:
             probe = work / f"probe-{index}.c"
             ir = work / f"probe-{index}.ll"
-            probe.write_text(f'#include "{source}"\nconst unsigned long long libawfrs_abi_values[] = {{\n'
+            probe.write_text(f'#include "{source}"\nconst unsigned long long libavif_rs_abi_values[] = {{\n'
                              + ",\n".join(c_values) + "\n};\n")
             subprocess.run(flags + ["-S", "-emit-llvm", "-o", str(ir), str(probe)],
                            cwd=entry["directory"], check=True, stderr=subprocess.PIPE)
-            line = next(line for line in ir.read_text().splitlines() if line.startswith("@libawfrs_abi_values ="))
+            line = next(line for line in ir.read_text().splitlines() if line.startswith("@libavif_rs_abi_values ="))
             values = [int(value) for value in re.findall(r"i64 (\d+)", line)]
             if len(values) != len(c_values):
                 raise SystemExit(f"Unexpected Clang layout probe output for {source}")
@@ -123,9 +123,9 @@ def main():
     probe.write_text("\n".join(rust) + "\n")
     # Use Cargo rather than assuming a particular compiler metadata/deps layout.
     (work / "Cargo.toml").write_text(
-        '[package]\nname = "libawfrs-abi-probe"\nversion = "0.0.0"\nedition = "2021"\n'
+        '[package]\nname = "libavif-rs-abi-probe"\nversion = "0.0.0"\nedition = "2021"\n'
         '[workspace]\n[[bin]]\nname = "probe"\npath = "probe.rs"\n'
-        f'[dependencies]\navif = {{ package = "libawfrs", path = {json.dumps(str(ROOT))}, features = {json.dumps(features)} }}\n'
+        f'[dependencies]\navif = {{ package = "libavif-rs", path = {json.dumps(str(ROOT))}, features = {json.dumps(features)} }}\n'
         '[profile.release]\npanic = "abort"\noverflow-checks = false\n'
     )
     # The probe is a Rust consumer of an rlib, so it owns the runtime search

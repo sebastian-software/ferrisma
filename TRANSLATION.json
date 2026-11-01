@@ -14,7 +14,7 @@
       "source": "upstream/libavif/src/avif.c",
       "rust": "src/avif.rs",
       "raw_sha256": "afbfc6d777297e705aef6374f85c38b1042f1652f9d07cd4edae0b853097a02a",
-      "rust_sha256": "0675266453034ea1c9b2adfbc155cfc9fa7a800deca20b6134495a284a415585",
+      "rust_sha256": "5ba54644205b203e11b5c3ab9df7b8a8aa52d73aada32480f8550508a473fe8c",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -25,7 +25,7 @@
       "source": "upstream/libavif/src/colr.c",
       "rust": "src/colr.rs",
       "raw_sha256": "a07601808bc01455b36ecfceb5fa11d95f09f45f18943a8bb122085ac2d547d6",
-      "rust_sha256": "d35334271ea40d3c689389722882d37d589708d8531d604271d3c92757607bb2",
+      "rust_sha256": "7f82f8b3687b69f68dd1cfcfdcce165a49df871b0bbfe8ea58ca8133926e2536",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 3
@@ -91,7 +91,7 @@
       "source": "upstream/libavif/src/properties.c",
       "rust": "src/properties.rs",
       "raw_sha256": "35ce5f8a002d03a4aeb92dde29b8d375e308eb63de257178c17f81b9cba8bdee",
-      "rust_sha256": "020f59f1603d2f55ebb21ab1f3dff14623270cfe2440f5f1c173e7559d7e59b6",
+      "rust_sha256": "7e65bfdc930663636bea364e3d66c56cea1dab320139bbfea6451a8bb5d02e34",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1
@@ -226,7 +226,7 @@
       "source": "upstream/libavif/src/codec_aom.c",
       "rust": "src/codec_aom.rs",
       "raw_sha256": "00387d2ae94d8b36a8c8975638466d59c1adf6e30821877b0bbfd13f71afcc8b",
-      "rust_sha256": "01b69d51bb2a4579e2049a8d908abfec5c0f9b0a8fd75b210dec38bed7580386",
+      "rust_sha256": "b11402e7e681e70a5b43460bf4f4f9a079aadffee7dbe28f4c4826fa3ec32af4",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2
