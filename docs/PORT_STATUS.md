@@ -932,18 +932,33 @@ The implementation does not rewrite NaN words or change kernel grouping.
 All 1,985 original differential cases remain; another 128 requests exercise
 competing signed signaling/quiet weight and pixel payloads during normalization
 and filtering. The original finite 3x2 native regression and its captured words
-are unchanged. A second native regression uses independently captured competing
+are unchanged. A second native regression uses captured competing
 payload words and verifies untouched rows, extra spans, and ignored channels.
-Its separate ARM/x86 NaN tables were independently captured from each target's
-original stage; the input stencil is identical despite different row padding.
+Both complete ordinary and ASan/UBSan x86 original oracles in hosted
+[run 41331075671, job 124921109245](https://github.com/sebastian-software/libjxl-rs/actions/runs/41331075671/job/124921109245)
+produce the unchanged ARM nine-word table. The invalid earlier QEMU-specific
+x86 alternate was removed using those original captures. The input stencil is
+identical despite different row padding.
 Both run without the C++ feature. A temporary fused-pixel replacement failed the
 original finite regression, proving that it detects separate-rounding changes.
 This numeric configuration establishes no SIMD or performance parity.
 
 Focused x86_64 Linux runs under QEMU use Clang 21.1.8/libc++ 21 and Rust 1.99.0.
-Debug and release each compare all 2,113 Gaborish requests in four groups
+Debug and release each compared all 2,113 Gaborish requests in four groups
 against both an ordinary and a fail-fast UBSan observation executable; both
-native Gaborish regressions pass in both profiles. The temporary focused
+Rust-only Gaborish regressions passed in both emulated profiles. QEMU selects
+the same larger quiet-NaN payload in either operand order, so these results do
+not prove native x86 payload parity. Actual hosted x86 execution exposed the
+invalid emulated capture in the new native test; the old finite test passed.
+Static inspection also found that Clang 21 plain `-O0` normalizes all three
+weights reciprocal-first, while ASan/UBSan commutes the first two products and
+retains reciprocal-first for the third. Rust release had commuted those
+products too. A local binary32 multiply now retains reciprocal-first on x86,
+with ARM's original compound assignments unchanged. Both complete original
+native oracle captures agree for the existing signaling/quiet normalization
+requests: each channel's six written words retain the first filter payload.
+Complete native ordinary/instrumented Rust differential gates remain required.
+The temporary focused
 executables retain the actual original fixture observation bodies and dedicated
 stage, linked against the complete original ordinary static archives. UBSan
 instruments that focused fixture/stage, not those ordinary archive members.
@@ -1018,17 +1033,24 @@ group and exposed an AArch64-only captured GamutMap word in an ordinary test.
 The test now retains independently captured exact words for both reference
 targets, with its input also added to the differential corpus. The existing
 AArch64 arithmetic and captured words remain unchanged. The x86 production
-helper now additionally preserves the original optimized luminance ADDSS
-operand order through local out-of-line Add calls. The same old scalar and
-stage/pipeline cases retain exact comparisons in both native build modes;
-no expected word or existing request is changed by that mapping.
+helper now additionally preserves the actual original object's optimized
+luminance and product-first blend ADDSS operands through local out-of-line Add
+calls. The same old scalar and stage/pipeline cases retain exact comparisons
+in both build modes; no expected word or existing request is changed by that
+mapping.
 
-Focused x86_64 ordinary and UBSan-reference runs both pass four filtered groups
-and 56,085 requests in Debug and Release, including the original scalar gamut
-and stage/pipeline corpora. Both native tone-mapping tests also pass in each
-mode. The focused UBSan variant instruments the unchanged original-source
-adapter containing the actual scalar functions/stage and links the cached
+Focused emulated x86_64 ordinary and UBSan-reference runs both pass four filtered
+groups and 56,085 requests in Debug and Release, including the original scalar
+gamut and stage/pipeline corpora. Both ordinary Rust tone-mapping tests also pass
+in each mode. The emulated runtime selects the same larger quiet-NaN payload
+for both ADDSS operand orders; these passes do not prove native operand fidelity.
+Native hosted execution exposed the earlier tiny source probe's different register
+allocation and the need to inspect the actual oracle's GamutMap object. The
+focused UBSan variant instruments the unchanged original-source adapter
+containing the actual scalar functions/stage and links the cached
 ordinary codec archive; this is not a fully instrumented Linux codec run.
-All six complete macOS ordinary/sanitized configurations retain the same 325
-tests, 183 differential groups, and 703,420 requests after this repair. Existing
-cases and expected words remain unchanged; no emulated ASan gate is claimed.
+Complete ordinary macOS Debug, Release, and Rust 1.85 checks retain the same 325
+tests, 183 differential groups, and 703,420 requests. The preceding mapping also
+passed all three macOS ASan/UBSan configurations; this correction only compiles
+on x86_64 and leaves the AArch64 arithmetic unchanged. Existing cases and
+expected words remain unchanged; no emulated ASan gate is claimed.

@@ -611,9 +611,17 @@ explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
 
 Gaborish uses the same row descriptors and stores its nine normalized weights
 in source channel order. Its constructor keeps the ordinary reference Clang
-normalization contraction. The dedicated pristine scalar observation unit in
-ADR 0002 keeps Highway's literal Add/Mul/MulAdd boundaries stable under
-instrumentation. Its original operator* explicitly promotes both binary32
+normalization contraction. On x86, a local non-inlined binary32 multiply keeps
+the reciprocal as its first operand when normalizing weights, matching the
+plain source object's destination order and the instrumented object's third
+weight product. The other targets retain the source compound assignments.
+The instrumented x86 constructor commutes its first two products; native
+ordinary/instrumented captures of competing signaling/quiet filter pairs agree
+at stage output. Retain complete native parity gates for both references.
+This mapping does not use Highway's widened
+multiply for the constructor's ordinary float arithmetic.
+The dedicated pristine scalar observation unit in ADR 0002 retains Highway's
+literal Add/Mul/MulAdd boundaries. Its original operator* promotes both binary32
 operands to double, multiplies, and narrows to binary32 before the separate add.
 Those promotions quiet signaling NaNs before the product selects its payload.
 Preserve them even when a particular optimized object folds the finite-equivalent
@@ -623,7 +631,10 @@ checkpoints in Rust debug/release, with no global numeric helper change.
 The kernel keeps the literal nested product-first MulAdd order rather than
 borrowing fused ordinary-expression helpers or an ARM-only optimized register
 schedule. Exact competing-payload row/normalization corpora and independently
-captured native exceptional-value words guard this mapping. The prior finite
+captured native exceptional-value words guard this mapping. QEMU's x86
+quiet-NaN payload selection is insensitive to operand order and cannot prove
+native exceptional-value equivalence. Native x86 captures from both complete
+original builds agree with the original ARM nine-word table. The prior finite
 3x2 observation remains unchanged. Reinspect these boundaries after compiler,
 source, target, linker, or instrumentation changes; other targets need their
 own oracle runs.
@@ -678,17 +689,24 @@ channel value as the first add operand, followed by the separately computed
 product. Express that emitted operand order explicitly so a quiet-NaN channel
 retains its payload. This does not change finite arithmetic or fuse operations;
 exact differential and captured-word regressions cover it. The original x86_64
-configuration selects the red/green NaN payload in all three channels for the
-native regression's input. Its optimized scalar luminance object adds the blue
-product to the green product, then adds the red product. Local out-of-line
-x86 Add calls preserve those ADDSS destination/source operands through native
-release optimization while keeping the original right-nested association and
-separate rounding. The selected original O3 object emits scalar MULSS products;
+configuration selects the green channel's quieted NaN payload in all three
+channels for the native regression's input. The actual oracle's optimized
+scalar GamutMap object
+uses the green product as the inner ADDSS destination and the red product as
+the outer destination. Its final blend uses the separately computed product as
+the ADDSS destination in every channel. Local out-of-line x86 Add calls preserve
+those operand choices while keeping the original right-nested association and
+separate rounding. An independent tiny source wrapper can allocate different
+operands and is not a substitute for the actual oracle's object. The observed
+emulated x86 runtime selects the same larger quiet-NaN payload in both operand
+orders; native execution and actual-object disassembly are required to verify
+these choices. The selected original O3 object emits scalar MULSS products;
 its Highway double promotions are optimized away at that boundary. Keep the
 AArch64 path and captured words unchanged and retain the same input in the real
 differential corpus. Cross-target NaN payload equality is not assumed. Review
-this mapping with compiler/target changes. ToneMappingStage retains the original unneeded
-return before argument guards, then RGB load/scale/map/gamut/scale/store order.
+this mapping with compiler/target changes. ToneMappingStage retains the original
+unneeded return before argument guards, then RGB load/scale/map/gamut/scale/store
+order.
 
 PassesDecoderState owns its complete shared storage and coefficient/reference
 owners. Its shared pointer selects either its own storage or an actual immutable

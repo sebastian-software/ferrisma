@@ -37,6 +37,15 @@ fn mul(a: f32, b: f32) -> f32 {
     multiply_and_demote(promote(a), promote(b))
 }
 
+// The pinned x86 plain constructor object multiplies reciprocal first; its
+// instrumented third weight keeps that order too. This is ordinary binary32
+// arithmetic, separate from Highway's explicitly widened pixel multiplication.
+#[cfg(target_arch = "x86_64")]
+#[inline(never)]
+fn normalize_mul(reciprocal: f32, weight: f32) -> f32 {
+    reciprocal * weight
+}
+
 pub struct GaborishStage {
     weights: [f32; 9],
 }
@@ -62,9 +71,18 @@ impl GaborishStage {
                 weights[3 * c],
             );
             let mul = 1.0 / div;
-            weights[3 * c] *= mul;
-            weights[3 * c + 1] *= mul;
-            weights[3 * c + 2] *= mul;
+            #[cfg(target_arch = "x86_64")]
+            {
+                weights[3 * c] = normalize_mul(mul, weights[3 * c]);
+                weights[3 * c + 1] = normalize_mul(mul, weights[3 * c + 1]);
+                weights[3 * c + 2] = normalize_mul(mul, weights[3 * c + 2]);
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            {
+                weights[3 * c] *= mul;
+                weights[3 * c + 1] *= mul;
+                weights[3 * c + 2] *= mul;
+            }
         }
         Self { weights }
     }

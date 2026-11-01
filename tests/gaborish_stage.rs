@@ -143,24 +143,15 @@ fn original_scalar_gaborish_competing_nan_rows_preserve_operator_boundaries() {
         )
         .unwrap();
     // Captured from the unchanged original stage in the dedicated scalar TU:
-    // ordinary and ASan/UBSan on ARM, ordinary and UBSan on x86. These are
-    // source observations, not words recomputed by the Rust filter or its test.
-    // The architectures have different NaN preference, even with identical
-    // input stencils and source operator order. Each table was captured from
-    // that target's actual original ordinary/instrumented scalar stage.
-    let expected = if cfg!(target_arch = "x86_64") {
-        [
-            [0x7fe12345, 0xffe54321, 0xffe54321],
-            [0xffe54321, 0xffe54321, 0x7fe12345],
-            [0xffe54321, 0x7fe12345, 0xffe54321],
-        ]
-    } else {
-        [
-            [0xffe54321, 0x7fc98765, 0xffc43210],
-            [0xffe54321, 0x7fe12345, 0xffe54321],
-            [0x7fe12345, 0x7fe12345, 0xffe54321],
-        ]
-    };
+    // ordinary and ASan/UBSan on native ARM and native hosted x86. Both complete
+    // x86 oracle builds in run 41331075671/job 124921109245 produced these same
+    // nine words. QEMU's different quiet-NaN policy is not a native capture.
+    // These are original observations, not words recomputed by the Rust filter.
+    let expected = [
+        [0xffe54321, 0x7fc98765, 0xffc43210],
+        [0xffe54321, 0x7fe12345, 0xffe54321],
+        [0x7fe12345, 0x7fe12345, 0xffe54321],
+    ];
     for (c, plane) in output.iter().enumerate() {
         for y in 0..4 {
             for x in 0..len {

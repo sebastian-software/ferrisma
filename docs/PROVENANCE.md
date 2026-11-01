@@ -84,9 +84,20 @@ rounding; promotions quiet signaling NaNs before multiplication. Link maps
 verify that the real source factory and stage bind to the dedicated object.
 The finite 3x2 native observation is unchanged; another captured regression with
 competing payloads and 128 normalization/pixel cases guard the repaired seam.
-The new native NaN tables are independently captured per target because ARM
-and x86 select different payloads under the same literal arithmetic; existing
-finite expected words are unchanged.
+The ARM native exceptional words came from the original stage. Native hosted
+x86 [captures from both complete ordinary and ASan/UBSan original oracles](https://github.com/sebastian-software/libjxl-rs/actions/runs/41331075671/job/124921109245)
+agree with the unchanged ARM nine-word table. The earlier x86 table was observed
+under QEMU, whose quiet-NaN selection ignored operand order; those emulated
+values are not evidence of native x86 payload behavior and were removed.
+The original x86 plain `-O0` constructor multiplies reciprocal-first, whereas
+ASan/UBSan commutes the first two normalized products and retains that order for
+the third. A local Rust non-inlined binary32 normalization multiply preserves
+reciprocal-first independently of release inlining; ARM compound assignments
+remain unchanged. The complete original native captures also agree for the
+existing competing signaling/quiet filter-pair normalization observations,
+despite those differing first two products. Complete ordinary and instrumented
+native differential gates remain required. Existing finite
+expected words and every differential case remain unchanged.
 No filter algorithm is supplied by the C++ adapter. Review this numeric
 configuration after source/compiler/target/linker/instrumentation changes.
 Full lossy frame integration, SIMD, and performance parity remain separate work.
@@ -464,12 +475,16 @@ word `0x7fc98765`. The native test now checks its target's exact source words,
 and the same input is added to the differential corpus. No production gamut
 algorithm or existing AArch64 expectation changes.
 
-The x86_64 optimized GamutMap luminance calculation retains the original
-right-nested operation tree with ADDSS operands in blue-product, green-product,
-then red-product order. Local native x86 Add call boundaries preserve those
-commutative operand choices in release builds; an unrestricted expression had
-selected the other competing NaN payload. Original optimized ordinary and
-UBSan-only probes agree on the captured input. Their MULSS products preserve
-separate rounding without executing the source's folded double promotions.
+The actual x86_64 oracle's optimized GamutMap object retains the original
+right-nested luminance tree with the green product as the inner ADDSS
+destination and red product as the outer destination. Each final blend also
+uses the separately computed product as the ADDSS destination. Local native x86
+Add call boundaries preserve those operand choices in both build modes. The
+earlier standalone source probe allocated different operands, while the
+emulated runtime selected the same larger quiet-NaN payload in either order.
+Its ordinary/UBSan agreement therefore did not prove native NaN parity. Native
+execution and disassembly of the actual source and Rust objects are the
+required evidence for this mapping. MULSS products preserve separate rounding
+without executing the source's folded double promotions.
 The original source, oracle settings, global Highway helpers, existing cases,
 expected words, and AArch64 arithmetic remain unchanged.

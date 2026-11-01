@@ -61,6 +61,19 @@ unit; no stage/factory algorithm is supplied by the adapter. Review this numeric
 configuration and its exact exceptional-value evidence after source, compiler,
 target, linker, or instrumentation changes. It establishes no performance parity.
 
+The scoped `-O0` setting does not by itself prove stable constructor operand
+order: Clang 21 x86 plain code multiplies each normalized weight with the
+reciprocal in the destination operand, while ASan/UBSan code commutes the first
+two weight products and retains reciprocal-first for the third. Native captures
+of the competing signaling/quiet filter-pair observations agree between both
+complete original builds. Keep the complete ordinary and fully instrumented
+original oracle comparisons on native hardware as separate gates. QEMU's x86
+arithmetic selected the same larger
+quiet-NaN payload in either operand order, so its passing exceptional-value
+comparisons cannot establish native x86 payload parity. Captured native words
+must come independently from those actual original stage/factory objects;
+temporary probes or Rust outputs cannot supply expected words.
+
 The frame fixture translation unit uses Clang/GCC `-fno-access-control` to
 observe and seed the original private state at internal boundaries. This is
 limited to the test adapter and does not change declarations, layouts, source
