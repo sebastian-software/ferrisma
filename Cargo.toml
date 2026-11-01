@@ -32,11 +32,6 @@ avm = []
 overflow-checks = false
 panic = "abort"
 
-[profile.dev.package.libavif-sharpyuv]
-# LLVM performs reference-compatible contraction at this level. Debug assertions
-# remain enabled. This preserves expressions; see ADR 0021.
-opt-level = 1
-
 [profile.release]
 overflow-checks = false
 panic = "abort"

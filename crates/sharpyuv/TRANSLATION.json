@@ -1,7 +1,7 @@
 {
   "translator": "c2rust 0.21.0",
   "llvm": "16.0.6",
-  "reference": "Debug, WEBP_ENABLE_SIMD=OFF, WEBP_USE_THREAD=ON",
+  "reference": "Debug, WEBP_ENABLE_SIMD=OFF, WEBP_USE_THREAD=ON, -ffp-contract=off",
   "generation_target": "aarch64-apple-darwin",
   "units": [
     {

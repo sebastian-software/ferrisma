@@ -44,20 +44,28 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--debug", action="store_true", help="Test unoptimized Rust with the same upstream Release configuration")
     parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
+    parser.add_argument("--compiler-default-diagnostic", action="store_true",
+                        help="Build a separate original C baseline with compiler-default contraction")
     parser.add_argument("--mini", action="store_true", help="Enable upstream experimental reduced headers")
     parser.add_argument("--extended-pixi", action="store_true", help="Enable upstream experimental extended pixel information")
     for feature in ["libgav1", "rav1e", "svt", "libyuv", "avm"]:
         parser.add_argument("--" + feature, action="store_true")
     args = parser.parse_args()
+    if args.compiler_default_diagnostic and args.implementation != 'baseline':
+        parser.error('Compiler-default diagnostics apply only to the original C baseline')
     run(["python3", ROOT / "tools/verify_upstream.py"])
     dependencies(args.fetch_deps)
     features = [name for name, enabled in [("mini", args.mini), ("extended-pixi", args.extended_pixi),
                 ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv), ("avm", args.avm)] if enabled]
     suffix = ("-" + "-".join(features) if features else "") + ("-debug" if args.debug else "") + ("-asan-llvm16" if args.asan else "")
+    if args.compiler_default_diagnostic:
+        suffix += '-compiler-default'
+    numeric_flags = '' if args.compiler_default_diagnostic else '-ffp-contract=off'
     build = ROOT / "build" / (args.implementation + suffix)
     command = [
         "cmake", "-S", ROOT / "upstream/libavif", "-B", build, "-G", "Ninja",
         "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DCMAKE_C_FLAGS=" + numeric_flags,
         "-DBUILD_SHARED_LIBS=OFF", "-DAVIF_BUILD_TESTS=ON", "-DAVIF_BUILD_APPS=ON",
         "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=SYSTEM", f"-DAVIF_LIBYUV={'SYSTEM' if args.libyuv else 'OFF'}",
         "-DAVIF_LIBSHARPYUV=SYSTEM", "-DAVIF_LIBXML2=SYSTEM", "-DAVIF_GTEST=LOCAL",
@@ -86,7 +94,7 @@ def main():
         runtime_path = sysroot / "lib/rustlib/aarch64-apple-darwin/lib"
         if not (runtime_path / "librustc-nightly_rt.asan.dylib").is_file():
             raise SystemExit("The selected nightly toolchain has no matching macOS ASan runtime")
-        command += ["-DCMAKE_C_FLAGS=-fsanitize=address -fno-omit-frame-pointer",
+        command += ["-DCMAKE_C_FLAGS=" + numeric_flags + " -fsanitize=address -fno-omit-frame-pointer",
                     "-DCMAKE_CXX_FLAGS=-fsanitize=address -fno-omit-frame-pointer",
                     f"-DCMAKE_C_COMPILER={wrappers}/clang", f"-DCMAKE_CXX_COMPILER={wrappers}/clang++",
                     "-DCMAKE_EXE_LINKER_FLAGS=-fno-sanitize=address " + shlex.join([
@@ -103,7 +111,7 @@ def main():
             target = target / "asan"
             environment["CARGO_TARGET_DIR"] = str(target)
             flags = environment.get("CARGO_ENCODED_RUSTFLAGS", "").split("\x1f") if environment.get("CARGO_ENCODED_RUSTFLAGS") else shlex.split(environment.get("RUSTFLAGS", ""))
-            flags += ["-Cllvm-args=-fp-contract=fast", "-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
+            flags += ["-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
                       "--cfg", "libavif_rs_asan", "-Lnative=" + str(runtime_path),
                       "-ldylib=rustc-nightly_rt.asan", "-Clink-arg=-Wl,-rpath," + str(runtime_path)]
             environment["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)

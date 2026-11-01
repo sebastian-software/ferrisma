@@ -175,6 +175,11 @@ def main():
     base = Path(os.environ.get('SHARPYUV_BUILD_ROOT', ROOT / 'build'))
     reference = args.reference or base / ('sharpyuv-reference-debug' if args.debug else 'sharpyuv-reference') / ('libsharpyuv' + suffix)
     candidate = args.candidate or Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')) / profile / ('libsharpyuv' + suffix)
+    configuration_path = reference.parent / 'reference-profile.json'
+    configuration = json.loads(configuration_path.read_text()) if configuration_path.exists() else None
+    if args.reference is None and (not configuration or not configuration['acceptance_reference']
+                                   or configuration['c_flags'] != '-ffp-contract=off'):
+        raise SystemExit('Build the primary reference with tools/build_sharpyuv.py; its numeric contract must be -ffp-contract=off')
     work = base / ('sharpyuv-parity-' + (args.label or profile))
     work.mkdir(parents=True, exist_ok=True)
     results = []
@@ -187,6 +192,7 @@ def main():
               'candidate': str(candidate), 'cases': len(results[0]), 'differences': differences,
               'reference_sha256': hashlib.sha256(reference.read_bytes()).hexdigest(),
               'candidate_sha256': hashlib.sha256(candidate.read_bytes()).hexdigest()}
+    report['reference_configuration'] = configuration
     (work / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
     if differences:
         for name in differences[:8]:

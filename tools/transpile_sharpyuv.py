@@ -137,7 +137,7 @@ def main():
         units.append({"source": str(source.relative_to(ROOT)), "rust": str(target.relative_to(ROOT)),
                       "raw_sha256": hashlib.sha256(raw.encode()).hexdigest(),
                       "rust_sha256": hashlib.sha256(text.encode()).hexdigest(), "corrections": changes})
-    record = {"translator": "c2rust 0.21.0", "llvm": "16.0.6", "reference": "Debug, WEBP_ENABLE_SIMD=OFF, WEBP_USE_THREAD=ON",
+    record = {"translator": "c2rust 0.21.0", "llvm": "16.0.6", "reference": "Debug, WEBP_ENABLE_SIMD=OFF, WEBP_USE_THREAD=ON, -ffp-contract=off",
               "generation_target": "aarch64-apple-darwin", "units": units}
     # CPU detection has an x86 source branch even when all SIMD DSP units are
     # disabled. Capture that branch independently instead of using ARM's NULL

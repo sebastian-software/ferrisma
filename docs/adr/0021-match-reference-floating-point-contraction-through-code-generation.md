@@ -1,5 +1,9 @@
 # Match reference floating-point contraction through code generation
 
+Status: superseded by [ADR 0024](0024-use-noncontracting-c-references-for-portable-ports.md).
+The experiments below remain historical; primary C references now disable
+contraction explicitly and Rust uses its normal code generation.
+
 Keep the original AppleClang C reference and the translated expressions.
 For aarch64-apple-darwin, enable LLVM floating-point contraction through the
 pinned Rust compiler's `-C llvm-args=-fp-contract=fast` option. Record this

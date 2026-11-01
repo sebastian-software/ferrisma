@@ -18,7 +18,7 @@ work.mkdir(parents=True, exist_ok=True)
 compiler = shlex.split(os.environ.get('CC', 'cc'))
 source = ROOT / 'upstream/libwebp'
 reference = base / 'sharpyuv-reference'
-common = ['-I' + str(source), '-I' + str(reference), '-DHAVE_CONFIG_H', '-O2', '-DNDEBUG', '-pthread']
+common = ['-I' + str(source), '-I' + str(reference), '-DHAVE_CONFIG_H', '-O2', '-DNDEBUG', '-pthread', '-ffp-contract=off']
 environment = os.environ.copy()
 runtime_link = []
 if args.asan:
@@ -35,7 +35,7 @@ if args.asan:
         raise SystemExit('Missing matching Rust ASan runtime')
     runtime_link = ['-fno-sanitize=address', '-L' + str(runtime), '-lrustc-nightly_rt.asan', '-Wl,-rpath,' + str(runtime)]
     environment['CARGO_ENCODED_RUSTFLAGS'] = '\x1f'.join([
-        '-Cllvm-args=-fp-contract=fast', '-Zsanitizer=address', '-Zexternal-clangrt',
+        '-Zsanitizer=address', '-Zexternal-clangrt',
         '-Cforce-frame-pointers=yes', '-Lnative=' + str(runtime), '-ldylib=rustc-nightly_rt.asan',
         '-Clink-arg=-Wl,-rpath,' + str(runtime)])
     environment.pop('RUSTFLAGS', None)

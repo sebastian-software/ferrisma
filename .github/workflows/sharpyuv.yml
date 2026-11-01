@@ -59,6 +59,9 @@ jobs:
           python3 tools/check_sharpyuv_alloc.py
           python3 tools/check_sharpyuv_cpu.py
           python3 tools/check_sharpyuv_linkage.py
+      - name: Record compiler-default Clang diagnostic
+        if: runner.os == 'macOS'
+        run: python3 tools/diagnose_sharpyuv_numerics.py
       - name: Original native WebP integration tests
         run: |
           python3 tools/build_sharpyuv_consumers.py c --fetch-deps
@@ -77,6 +80,8 @@ jobs:
           name: sharpyuv-${{ matrix.runner }}-${{ matrix.architecture }}
           path: |
             build/sharpyuv-parity-*/
+            build/sharpyuv-reference*/reference-profile.json
+            build/sharpyuv-compiler-default/reference-profile.json
             build/sharpyuv-abi/*.json
             build/sharpyuv-allocation/results.json
             build/sharpyuv-cpu/results.json

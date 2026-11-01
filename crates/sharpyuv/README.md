@@ -17,8 +17,8 @@ headers under `upstream/libwebp/sharpyuv/` for caller preconditions.
 `tools/transpile_sharpyuv.py --check` reproduces the translation with C2Rust
 0.21.0 and LLVM 16 using the recorded macOS preprocessing configuration.
 Platform mutexes and assertions use the target libc; algorithms and numeric
-expressions retain their source forms. See ADRs 0020 and 0021 for the mappings
-and the explicit floating-point compiler configuration.
+expressions retain their source forms. See ADRs 0020 and 0023 for the mappings
+and ADR 0024 for the noncontracting C reference and normal Rust arithmetic.
 
 Supported validation targets are macOS ARM64 and Linux x86-64. Other targets,
 SIMD implementations, safe API design, and optimization remain separate work.

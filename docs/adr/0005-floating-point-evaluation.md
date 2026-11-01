@@ -1,5 +1,10 @@
 # Keep the translated arithmetic and expose compiler rounding differences
 
+Updated by [ADR 0024](0024-use-noncontracting-c-references-for-portable-ports.md):
+the primary C references now explicitly disable contraction, and Rust uses
+normal arithmetic. Compiler-default differences remain separate diagnostics.
+The initial observations below record the earlier reference configuration.
+
 Do not rewrite translated floating-point expressions into Rust-specific fused
 operations merely to match one C optimizer. The original Clang Release build
 contracts some multiply/add expressions, while Rust retains separate rounding;

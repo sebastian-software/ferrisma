@@ -73,6 +73,7 @@ def main():
     build = base / ('sharpyuv-webp-' + args.implementation)
     command = ['cmake', '-S', ROOT / 'upstream/libwebp', '-B', build, '-G', 'Ninja',
                '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
+               '-DCMAKE_C_FLAGS=-ffp-contract=off',
                '-DCMAKE_POLICY_VERSION_MINIMUM=3.5', '-DBUILD_SHARED_LIBS=OFF',
                '-DWEBP_LINK_STATIC=OFF', '-DWEBP_ENABLE_SIMD=OFF', '-DWEBP_USE_THREAD=ON',
                '-DWEBP_BUILD_FUZZTEST=ON', '-DWEBP_BUILD_LIBWEBPMUX=ON', '-DWEBP_BUILD_WEBPINFO=ON',
