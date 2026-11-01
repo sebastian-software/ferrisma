@@ -1000,3 +1000,36 @@ Zero used_orders leaves the reader untouched; nonzero reserved bits still run
 histogram initialization and final-state validation. The new original-reader
 fixture keeps eight leading and trailing bytes of real backing while exposing
 only its logical input span.
+
+### Quantizer parameter and scale boundary
+
+QuantizerParams uses the existing bundle visitor and the original two U32
+distributions. Decode reads into a local parameter object and assigns the
+quantizer only after successful parsing; reader failure/close state remains
+observable. GetParams preserves signed-to-unsigned field conversion. The matrix
+owner remains an explicit same-owner borrow for decode, recomputation, scale
+changes, and matrix slices. No new stored pointer or runtime dependency is added.
+
+ScaleGlobalScale retains binary32 multiplication, ties-away-from-zero lround,
+ratio computation before assignment, and recomputation afterward. Its native
+precondition bounds the rounded product to the target C long domain and
+excludes nonfinite products. The rounded long then narrows to i32 with the
+selected original low-bit integer conversion, including results outside i32.
+For global_scale=2147483647 and scale=1, the binary32 product is 2147483648;
+both ordinary and instrumented originals narrow it to -2147483648 and return
+ratio word 3212836864. This is integer narrowing after lround, not an undefined
+floating-to-i32 cast. ClampVal uses ordered comparisons corresponding to
+std::max(1, std::min(value, kQuantMax)), including quiet NaNs and infinities.
+
+The selected original optimized AArch64 ClampVal lowers its inner minimum to
+FCMP/FCSEL, its outer maximum to FMAXNM, and the cast to FCVTZS. The exact request
+`qz-clamp 4 2143363909 4290917462 2141266757 4288820310` gives
+`C 1 1 0 0` in the ordinary original. The complete ASan/UBSan original instead
+aborts at pristine quantizer.h:70:9 with `nan is outside the range of
+representable values of type 'int'` on the first signaling NaN. Those inputs
+therefore do not establish a defined portable ClampVal integer result and are
+excluded from that new method's differential domain. This is a narrow observed
+source/compiler boundary, not a claim about every NaN arithmetic operation or
+every target. Constructor, decode, and defined scaling arithmetic retain their
+signaling-NaN cases, and no prior expected words, numeric flags, or sanitizer
+suppressions change.

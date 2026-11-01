@@ -47,7 +47,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
 | `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, strategy objects/geometry, complete natural coefficient order/LUT traversal, and AcStrategyImage allocation/fills/validity/counting; interpreted row views and strategy setters unported |
 | `chroma_from_luma.h`, `.cc` | `chroma_from_luma.rs` | Complete ColorCorrelation constants/defaults, ratios, setters/getters, DC parsing, and ColorCorrelationMap allocation/default/move ownership/delegated DC parsing |
-| `quantizer.h`, `.cc` | `quantizer.rs` | Constructors, RecomputeFromGlobalScale, DC scaling getters, inverse AC scaling, and ClearDCMul; quantization fields, scale selection, parsing, and other APIs unported |
+| `quantizer.h`, `.cc` | `quantizer.rs` | Constructors/recomputation, DC and inverse AC scaling, ClearDCMul, QuantizerParams visitor, GetParams/Decode, ClampVal/ScaleGlobalScale, and same-owner matrix forwarding; quantization-field/scale selection and diagnostic dumps unported |
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points unported |
 | `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; ICC/transform invocation is translated below; default CMS backend and public encoder API remain unported |
 | `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, partial setter state, and callback-backed ICC field extraction; default ICC parser unported |
@@ -110,7 +110,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
-| `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, and frame header writing; quantizer writes unported |
+| `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
@@ -147,15 +147,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 372 tests, including 214 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 372 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 372 tests and corpus |
+| Rust debug | PASSED | 385 tests, including 220 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 385 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 385 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 372 tests and 750,874 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 385 tests and 757,634 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **750,874 requests** against C++. These include
+Each differential run compares **757,634 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -1219,3 +1219,22 @@ with 697 exact requests. Local full ordinary and ASan/UBSan validation, each in
 Debug, Release, and Rust 1.85, runs 372 tests, 214 differential groups, and
 750,874 requests with zero failed/ignored tests. A captured original custom-order
 stream also exercises the entropy decoder in ordinary Rust-only tests.
+
+## Quantizer parameters and scalar APIs
+
+The parameter slice adds 6,760 exact requests in six differential groups and
+seven native regressions. It covers the original U32 field distributions, defaults,
+write/accounting order, unaligned and truncated parsing, failure before owner
+assignment, GetParams, C-long scale rounding and signed integer narrowing,
+ClampVal, and forwarding of all
+strategy/channel matrix slices. Existing constructor/recomputation observations
+and numeric flags remain unchanged. Signaling NaNs remain in defined arithmetic
+paths; the demonstrated ClampVal float-to-int source boundary is recorded in
+[ADR 0003](adr/0003-rust-representation.md). Quantization-field selection,
+SetQuant/ComputeGlobalScaleAndQuant, and diagnostic dumps remain unported.
+
+Local full quantizer validation runs both `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`: each Debug, Release, and Rust 1.85
+block runs 385 tests, including 220 differential groups and 757,634 exact
+requests, with zero failed or ignored tests. Native hosted evidence for earlier
+trees remains recorded separately above.

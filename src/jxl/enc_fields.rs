@@ -3,7 +3,7 @@
 
 //! Ported from `lib/jxl/enc_fields.cc`: primitive coders and Bundle::Write.
 //! Codestream/image metadata and frame header writes are also translated.
-//! Quantizer writing remains unported.
+//! Quantizer parameter writes use the original bundle visitor.
 
 use super::base::status::{Status, StatusCode};
 use super::enc_aux_out::{AuxOut, LayerType};
@@ -259,4 +259,13 @@ pub fn write_frame_header(
     aux_out: Option<&mut AuxOut>,
 ) -> Status {
     bundle::write(frame, writer, LayerType::Header, aux_out)
+}
+
+pub fn write_quantizer_params(
+    params: &mut super::quantizer::QuantizerParams,
+    writer: &mut BitWriter,
+    layer: LayerType,
+    aux_out: Option<&mut AuxOut>,
+) -> Status {
+    bundle::write(params, writer, layer, aux_out)
 }
