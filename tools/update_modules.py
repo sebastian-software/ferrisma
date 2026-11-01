@@ -5,9 +5,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONDITIONS = {
-    "mini": 'all(feature = "mini", not(feature = "extended-pixi"))',
-    "extended-pixi": 'all(not(feature = "mini"), feature = "extended-pixi")',
-    "mini-extended-pixi": 'all(feature = "mini", feature = "extended-pixi")',
+    "mini": 'all(feature = "mini", not(feature = "extended-pixi"), not(feature = "avm"))',
+    "extended-pixi": 'all(not(feature = "mini"), feature = "extended-pixi", not(feature = "avm"))',
+    "mini-extended-pixi": 'all(feature = "mini", feature = "extended-pixi", not(feature = "avm"))',
+    "avm": 'all(not(feature = "mini"), not(feature = "extended-pixi"), feature = "avm")',
+    "mini-avm": 'all(feature = "mini", not(feature = "extended-pixi"), feature = "avm")',
+    "extended-pixi-avm": 'all(not(feature = "mini"), feature = "extended-pixi", feature = "avm")',
+    "mini-extended-pixi-avm": 'all(feature = "mini", feature = "extended-pixi", feature = "avm")',
 }
 base = json.loads((ROOT / "TRANSLATION.json").read_text())["units"]
 variants = {}
@@ -34,6 +38,6 @@ for unit in base:
     if unit["rust"].startswith("src/libyuv/"):
         lines.append(f"    pub mod {Path(unit['rust']).stem};")
 lines.append("}")
-for feature in ["libgav1", "rav1e", "svt"]:
+for feature in ["libgav1", "rav1e", "svt", "avm"]:
     lines += [f'#[cfg(feature = "{feature}")]', f'pub mod codec_{feature};']
 (ROOT / "src/modules.rs").write_text("\n".join(lines) + "\n")

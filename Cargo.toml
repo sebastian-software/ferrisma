@@ -21,6 +21,7 @@ libgav1 = []
 rav1e = []
 svt = []
 libyuv = []
+avm = []
 
 [profile.dev]
 overflow-checks = false

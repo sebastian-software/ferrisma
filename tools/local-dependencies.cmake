@@ -15,6 +15,12 @@ if(EXISTS "${LIBAWFRS_ROOT}/build/deps/libyuv-build/libyuv.a" AND NOT TARGET yuv
     string(REGEX MATCH "#define LIBYUV_VERSION ([0-9]+)" _ "${LIBAWFRS_YUV_VERSION}")
     set(LIBYUV_VERSION "${CMAKE_MATCH_1}")
 endif()
+if(EXISTS "${LIBAWFRS_ROOT}/build/deps/avm-build/libavm.dylib" AND NOT TARGET avm)
+    add_library(avm SHARED IMPORTED GLOBAL)
+    set_target_properties(avm PROPERTIES
+        IMPORTED_LOCATION "${LIBAWFRS_ROOT}/build/deps/avm-build/libavm.dylib"
+        INTERFACE_INCLUDE_DIRECTORIES "${LIBAWFRS_ROOT}/build/deps/avm;${LIBAWFRS_ROOT}/build/deps/avm-build")
+endif()
 if(LIBAWFRS_ARCHIVE)
     include("${CMAKE_CURRENT_LIST_DIR}/rust-library.cmake")
 endif()

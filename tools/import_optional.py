@@ -9,12 +9,15 @@ from import_translation import ROOT, translate
 
 raw_root = ROOT / "build/generated-optional/src"
 source_root = ROOT / "upstream/libavif/src"
-avif_raw = (raw_root / "avif.rs").read_text()
+avm_registry = ROOT / "build/generated-avm-registry/src/avif.rs"
+avif_raw = avm_registry.read_text() if avm_registry.exists() else (raw_root / "avif.rs").read_text()
 avif, _ = translate(source_root / "avif.c", avif_raw, codec_registry=False)
 start = avif.index("static mut availableCodecs:")
 end = avif.index("\nstatic mut availableCodecsCount:", start)
 table = avif[start:end]
 features = {"LIBGAV1": "libgav1", "RAV1E": "rav1e", "SVT": "svt"}
+if avm_registry.exists():
+    features["AVM"] = "avm"
 array = "[AvailableCodec; 3 + " + " + ".join(f'cfg!(feature = "{feature}") as usize' for feature in features.values()) + "]"
 table = re.sub(r"\[AvailableCodec; \d+\]", array, table)
 for choice, feature in features.items():
@@ -22,7 +25,7 @@ for choice, feature in features.items():
     if marker not in table:
         raise SystemExit(f"Missing original codec registry entry: {choice}")
     table = table.replace(marker, f'        #[cfg(feature = "{feature}")]\n' + marker)
-declarations = re.findall(r"    fn (avifCodec(?:Create|Version)(?:Gav1|Rav1e|Svt))\([^;]+;", avif_raw)
+declarations = re.findall(r"    fn (avifCodec(?:Create|Version)(?:Gav1|Rav1e|Svt|Avm))\([^;]+;", avif_raw)
 registry = {
     "source": "upstream/libavif/src/avif.c",
     "raw_sha256": hashlib.sha256(avif_raw.encode()).hexdigest(),

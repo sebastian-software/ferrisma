@@ -1,6 +1,7 @@
 use std::process::Command;
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(libawfrs_asan)");
     let mut packages = vec!["aom", "dav1d", "libsharpyuv"];
     for (feature, package) in [("RAV1E", "rav1e"), ("SVT", "SvtAv1Enc")] {
         if std::env::var_os(format!("CARGO_FEATURE_{feature}")).is_some() {
@@ -8,6 +9,16 @@ fn main() {
         }
     }
     let root = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    if std::env::var_os("CARGO_FEATURE_AVM").is_some() {
+        let path = root.join("build/deps/avm-build");
+        if path.join("libavm.dylib").exists() {
+            println!("cargo:rustc-link-search=native={}", path.display());
+            println!("cargo:rustc-link-lib=dylib=avm");
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", path.display());
+        } else {
+            packages.push("avm");
+        }
+    }
     for (feature, library, local) in [
         ("LIBGAV1", "gav1", "libgav1-build"),
         ("LIBYUV", "yuv", "libyuv-build"),

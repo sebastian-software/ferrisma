@@ -43,6 +43,9 @@ Rust used: `rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`.
 | Extended PIXI | 64 | 64 | 9,474 |
 | Mini + Extended PIXI | 65 | 65 | 9,527 |
 | libgav1 + rav1e + SVT-AV1 + external libyuv | 65 | 65 | 9,481 |
+| AVM/AV2 | 67 | 67 | 9,485 |
+| AVM/AV2 + Mini + Extended PIXI | 69 | 69 | 9,547 |
+| All Cargo features and all six codec adapters | 70 | 70 | 9,555 |
 
 Every registration above passes, and case/skip inventories match its C baseline.
 The additional AV1 configuration uses libgav1 v0.20.0, rav1e 0.8.1, SVT-AV1

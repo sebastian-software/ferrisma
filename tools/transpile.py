@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--clang-include", type=Path, required=True,
                         help="LLVM 16's lib/clang/16/include directory")
     parser.add_argument("--check", action="store_true", help="Regenerate and compare without importing")
-    parser.add_argument("--variant", choices=["default", "mini", "extended-pixi", "mini-extended-pixi"], default="default")
+    parser.add_argument("--variant", choices=["default", "mini", "extended-pixi", "mini-extended-pixi", "avm", "mini-avm", "extended-pixi-avm", "mini-extended-pixi-avm"], default="default")
     args = parser.parse_args()
     if not (args.clang_include / "stdarg.h").exists():
         raise SystemExit("--clang-include must contain LLVM 16's standard headers")

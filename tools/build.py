@@ -2,8 +2,10 @@
 """Build the unchanged upstream consumers against C or the Rust archive."""
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
+import shlex
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCIES = {
@@ -36,16 +38,17 @@ def main():
     parser.add_argument("--fetch-deps", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--debug", action="store_true", help="Test unoptimized Rust with the same upstream Release configuration")
+    parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
     parser.add_argument("--mini", action="store_true", help="Enable upstream experimental reduced headers")
     parser.add_argument("--extended-pixi", action="store_true", help="Enable upstream experimental extended pixel information")
-    for feature in ["libgav1", "rav1e", "svt", "libyuv"]:
+    for feature in ["libgav1", "rav1e", "svt", "libyuv", "avm"]:
         parser.add_argument("--" + feature, action="store_true")
     args = parser.parse_args()
     run(["python3", ROOT / "tools/verify_upstream.py"])
     dependencies(args.fetch_deps)
     features = [name for name, enabled in [("mini", args.mini), ("extended-pixi", args.extended_pixi),
-                ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv)] if enabled]
-    suffix = ("-" + "-".join(features) if features else "") + ("-debug" if args.debug else "")
+                ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv), ("avm", args.avm)] if enabled]
+    suffix = ("-" + "-".join(features) if features else "") + ("-debug" if args.debug else "") + ("-asan-llvm16" if args.asan else "")
     build = ROOT / "build" / (args.implementation + suffix)
     command = [
         "cmake", "-S", ROOT / "upstream/libavif", "-B", build, "-G", "Ninja",
@@ -60,16 +63,50 @@ def main():
         f"-DAVIF_CODEC_LIBGAV1={'SYSTEM' if args.libgav1 else 'OFF'}",
         f"-DAVIF_CODEC_RAV1E={'SYSTEM' if args.rav1e else 'OFF'}",
         f"-DAVIF_CODEC_SVT={'SYSTEM' if args.svt else 'OFF'}",
+        f"-DAVIF_CODEC_AVM={'SYSTEM' if args.avm else 'OFF'}",
         f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
+    if args.asan:
+        prefix = Path(os.environ.get("LIBAWFRS_LLVM_PREFIX", str(ROOT / "build/toolchain/llvm@16/16.0.6_1")))
+        if not (prefix / "bin/clang").is_file():
+            raise SystemExit("ASan parity requires LLVM 16; set LIBAWFRS_LLVM_PREFIX to its installation prefix")
+        wrappers = ROOT / "build/toolchain/wrappers"
+        wrappers.mkdir(parents=True, exist_ok=True)
+        for compiler in ["clang", "clang++"]:
+            wrapper = wrappers / compiler
+            wrapper.write_text("#!/bin/sh\nexport DYLD_LIBRARY_PATH=" + shlex.quote(str(prefix / "lib") + ":/opt/homebrew/lib") +
+                               "\nexec " + shlex.quote(str(prefix / "bin" / compiler)) + ' "$@"\n')
+            wrapper.chmod(0o755)
+        sysroot = Path(subprocess.check_output(["rustc", "--print", "sysroot"], text=True).strip())
+        runtime_path = sysroot / "lib/rustlib/aarch64-apple-darwin/lib"
+        if not (runtime_path / "librustc-nightly_rt.asan.dylib").is_file():
+            raise SystemExit("The selected nightly toolchain has no matching macOS ASan runtime")
+        command += ["-DCMAKE_C_FLAGS=-fsanitize=address -fno-omit-frame-pointer",
+                    "-DCMAKE_CXX_FLAGS=-fsanitize=address -fno-omit-frame-pointer",
+                    f"-DCMAKE_C_COMPILER={wrappers}/clang", f"-DCMAKE_CXX_COMPILER={wrappers}/clang++",
+                    "-DCMAKE_EXE_LINKER_FLAGS=-fno-sanitize=address " + shlex.join([
+                        "-L" + str(runtime_path), "-lrustc-nightly_rt.asan", "-Wl,-rpath," + str(runtime_path)])]
     if args.implementation == "port":
         cargo = ["cargo", "build", "--locked"]
         if not args.debug:
             cargo.append("--release")
         if features:
             cargo += ["--features", ",".join(features)]
-        run(cargo)
-        archive = ROOT / "target" / ("debug" if args.debug else "release") / "libavif.a"
+        environment = os.environ.copy()
+        target = ROOT / "target"
+        if args.asan:
+            target = target / "asan"
+            environment["CARGO_TARGET_DIR"] = str(target)
+            flags = environment.get("CARGO_ENCODED_RUSTFLAGS", "").split("\x1f") if environment.get("CARGO_ENCODED_RUSTFLAGS") else shlex.split(environment.get("RUSTFLAGS", ""))
+            flags += ["-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
+                      "--cfg", "libawfrs_asan", "-Lnative=" + str(runtime_path),
+                      "-ldylib=rustc-nightly_rt.asan", "-Clink-arg=-Wl,-rpath," + str(runtime_path)]
+            environment["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
+            environment.pop("RUSTFLAGS", None)
+            cargo += ["--target", "aarch64-apple-darwin"]
+            target = target / "aarch64-apple-darwin"
+        run(cargo, env=environment)
+        archive = target / ("debug" if args.debug else "release") / "libavif.a"
         command += [f"-DLIBAWFRS_ARCHIVE={archive}"]
     run(command)
     run(["cmake", "--build", build, "-j", args.jobs])
