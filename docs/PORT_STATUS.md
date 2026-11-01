@@ -44,7 +44,7 @@ and no placeholder codec APIs. The source revision is pinned in
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
-| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder ownership/pixel preparation/shared-token/group output; outer pixel preparation, frame finalization, general EncodeGroups, and remaining frame entry points unported |
+| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder ownership/pixel preparation/shared-token/group output and frame section finalization; outer pixel preparation, byte-owner/output-processor handoff, general EncodeGroups, and remaining frame entry points unported |
 | `dec_modular.h`, sample functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, custom-float bit decoding, scalar row/RGB conversion, wrapped integer sums, and double-precision conversion; frame decoder and debug descriptions unported |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -112,13 +112,13 @@ Command: `python3 tools/check.py --sanitizers --msrv`.
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 249 tests, including 139 differential groups; zero ignored cases |
-| Rust release | PASSED | Same 249 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 249 tests and corpus |
+| Rust debug | PASSED | 252 tests, including 140 differential groups; zero ignored cases |
+| Rust release | PASSED | Same 252 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 252 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
 
-Each differential run compares **628,587 requests** against C++. These include
+Each differential run compares **628,817 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -416,7 +416,7 @@ check retained logical dimensions after releasing copied global planes.
 The configuration owns private metadata and its frame exposes read-only
 observations, preventing selection of unported branches through this path.
 Input is already Image3F; CopyColorChannels, outer frame preparation,
-frame finalization, complete codestream output, and frame decoding remain
+the outer frame entry point, complete codestream output, and frame decoding remain
 separate dependencies.
 
 Image preparation helpers add 739 differential requests: in-place block padding
@@ -515,3 +515,13 @@ The entropy slices above do not complete it.
 Preserve the upstream test inventory as that scope grows. Adapted tests in this
 first slice do not replace the unported image, threading, allocation-failure,
 platform, or codec test suites.
+
+Frame section finalization adds 230 differential requests at the local-writer
+boundary in EncodeFrameOneShot. The fixture calls the original header,
+PermuteGroups, TOC, and append stages. It compares complete section bytes,
+header mutations, and all auxiliary statistics with and without accounting.
+Unaligned group writers fail after the header and before TOC output; coverage
+also crosses all three TOC size distribution transitions with real payloads.
+The private profile retains centerfirst=false, which returns at PermuteGroups'
+first guard. The returned writer precedes TakeBytes and AppendData; this is
+frame finalization evidence, not the missing pixel-buffer/image entry point.

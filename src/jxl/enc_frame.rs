@@ -3,9 +3,9 @@
 
 //! FrameInfo and complete parameter/header preparation from lib/jxl/
 //! enc_frame.{h,cc}, plus fixed lossless Thunder frame owners and modular pixel
-//! preparation and group encoding. Complete image encoding, frame finalization,
-//! streaming, and
-//! remaining EncodeFrame entry points are absent until translated. Byte names,
+//! preparation, group encoding, and frame section finalization. Complete image
+//! encoding, streaming, and remaining EncodeFrame entry points are absent until
+//! translated. Byte names,
 //! narrowing, reused header state, and changes before errors retain source order.
 
 use super::base::float::{max_f32, mul_add_f64};
@@ -16,10 +16,12 @@ use super::common::SpeedTier;
 use super::dec_modular::ModularStreamId;
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+use super::enc_fields::write_frame_header;
 use super::enc_modular::ModularFrameEncoder;
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_NOISE};
 use super::enc_progressive_split::{PassDefinition, ProgressiveMode, ProgressiveSplitter};
 use super::enc_quant_weights::dequant_matrices_encode_dc;
+use super::enc_toc::{write_toc_permutation, write_toc_sizes};
 use super::frame_dimensions::GROUP_DIM;
 use super::frame_header::{
     BlendMode, BlendingInfo, ColorTransform, FLAG_NOISE, FLAG_SKIP_ADAPTIVE_DC_SMOOTHING,
@@ -246,6 +248,36 @@ impl LosslessThunderFrame<'_> {
             )?;
         }
         Ok(())
+    }
+    /// EncodeFrameOneShot's tail from the local writer through the final group
+    /// append. This boundary returns that writer before TakeBytes/AppendData;
+    /// it does not implement the outer pixel input or image entry point.
+    pub fn finalize_groups(
+        &mut self,
+        group_codes: &[BitWriter],
+        mut aux: Option<&mut AuxOut>,
+    ) -> StatusOr<BitWriter> {
+        let mut writer = BitWriter::new();
+        // The fixed frame has the original default, empty special_frames vector.
+        writer.append_byte_aligned_writers(&[])?;
+        write_frame_header(&mut self.header, &mut writer, aux.as_deref_mut())?;
+
+        // PermuteGroups returns at its first !centerfirst guard for this private
+        // configuration. No center-first permutation entry point is exposed.
+        debug_assert!(!self.modular.cparams.centerfirst);
+        let permutation = Vec::new();
+        let mut group_sizes = Vec::with_capacity(group_codes.len());
+        for bw in group_codes {
+            if bw.bits_written() % 8 != 0 {
+                return Err(StatusCode::GenericError);
+            }
+            group_sizes.push(bw.bits_written() / 8);
+        }
+        write_toc_permutation(&permutation, &mut writer, aux.as_deref_mut())?;
+        write_toc_sizes(&group_sizes, &mut writer, aux)?;
+        let refs: Vec<_> = group_codes.iter().collect();
+        writer.append_byte_aligned_writers(&refs)?;
+        Ok(writer)
     }
 }
 

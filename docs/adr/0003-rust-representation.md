@@ -443,6 +443,14 @@ earlier output mutations. Pool task failures retain the source's generic status.
 The output vector's nonempty guard precedes all writes. Frame owners release the
 modular encoder before its header and matrices, following reverse creation order.
 
+The fixed profile's finalization boundary returns the local BitWriter before
+TakeBytes/AppendData. Its original special-frame vector is empty and the fixed
+centerfirst=false setting exits PermuteGroups at its first guard. Header
+visitation mutates the real header before group-alignment validation; an error
+drops the local writer while retaining header/statistics changes. Successful
+TOC output precedes the byte-aligned group append. No generic permutation or
+output-processor API is inferred from this boundary.
+
 AuxOut includes all source block counters and the signed iteration counter.
 Unsigned sums wrap; signed overflow remains a source precondition, checked in
 Rust. Layer and object assimilation preserve field order and double addition,
