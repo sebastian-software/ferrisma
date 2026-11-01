@@ -121,3 +121,22 @@ adapter, alongside its existing access-control option. No runtime algorithm or
 source access declaration is changed. Observations omit undefined padding and
 unfilled groups. Image setter fixtures initialize their input pixels before
 testing ownership and post-assignment errors.
+
+The dedicated XYB fixture translation unit includes pristine stage_xyb.cc and
+its dec_xyb-inl.h helper and compiles with source-scoped -O0, alongside the
+existing access-control/no-RTTI fixture options. Its original factories and
+stage methods bind from this object; the archive does not supply a second XYB
+implementation. Ordinary optimization commutes competing-NaN operands
+differently after ASan inserts matrix-load checks. For example, a quiet-NaN
+matrix coefficient multiplied by an independently produced canonical NaN
+selects a different payload between the original optimized ordinary and
+sanitized objects. A small noinline adapter alone does not remove this drift.
+The isolated -O0 setting retains the original scalar expression operand order
+for both configurations, including the actual stage, without replacing any
+source routine or changing the original codec-library/other fixture settings.
+All sanitizers and every raw-parameter/exceptional-value case remain enabled.
+This is a reproducible numeric reference configuration, not a performance
+comparison or a change to an existing source algorithm/optimization. Review it
+with compiler/target/source changes; do not replace it with NaN rewriting or
+relaxed comparisons. Ordinary and instrumented complete-image parity remain
+separate required regression gates.

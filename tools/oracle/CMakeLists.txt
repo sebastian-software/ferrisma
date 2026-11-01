@@ -58,7 +58,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc
+add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc xyb_stage.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
@@ -68,6 +68,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Clang's unrolled max-number reduction changes the early-return result when
   # a signaling NaN follows a value above the threshold. Retain the source loop.
   set_source_files_properties(noise.cc PROPERTIES COMPILE_OPTIONS -fno-unroll-loops)
+  # Keep original scalar XYB operand order reproducible with active sanitizers.
+  # Only this new adapter and its included pristine stage/helper use -O0;
+  # neither the original codec library nor another fixture changes flags.
+  set_source_files_properties(xyb_stage.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-access-control;-fno-rtti")
 else()
   message(FATAL_ERROR "Frame state fixtures require Clang or GCC access-control support")
 endif()
