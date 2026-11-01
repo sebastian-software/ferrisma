@@ -1,5 +1,9 @@
 # Validation evidence
 
+The compact machine-readable snapshot is
+[`validation-results.json`](validation-results.json), generated from the actual
+JUnit inventories by `tools/record_validation.py`.
+
 ## Reference baseline
 
 - Upstream: `9b07a9d7a874b159bb4e14b80a6f08bb469d06f7` (libavif 1.4.2).
@@ -44,6 +48,8 @@ Rust used: `rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`.
 | Mini + Extended PIXI | 65 | 65 | 9,527 |
 | libgav1 + rav1e + SVT-AV1 + external libyuv | 65 | 65 | 9,481 |
 | AVM/AV2 | 67 | 67 | 9,485 |
+| AVM/AV2 + Mini | 69 | 69 | 9,546 |
+| AVM/AV2 + Extended PIXI | 67 | 67 | 9,486 |
 | AVM/AV2 + Mini + Extended PIXI | 69 | 69 | 9,547 |
 | All Cargo features and all six codec adapters | 70 | 70 | 9,555 |
 | Default with AddressSanitizer | 64 | 64 | 9,473 |
@@ -67,6 +73,12 @@ collision; reruns in isolated directories passed without changing the tests.
 across 389 named record instances in the default configuration. Seventeen
 anonymous/bitfield record instances are explicitly excluded from this automated
 layout probe; the original end-to-end tests still exercise their consumers.
+With all features enabled, the same probe passes 4,484 comparisons across 522
+named record instances, with 20 anonymous/bitfield instances excluded.
+
+`tools/smoke_shared.py` loads the Rust dylib through its C ABI and exercises
+initialization, allocation, decoding, encoding, and cleanup. It successfully
+decodes the original 33x11 IDAT fixture and encodes a 502-byte AVIF.
 
 Ten additional deterministic encoding scenarios produce byte-identical AVIF
 files across C and Rust (8/10/12-bit, chroma sampling, lossless, alpha, SharpYUV,
@@ -77,6 +89,12 @@ separate C decoder with only `reformat.c` compiled using `-ffp-contract=off`.
 `tools/differential.py` fails strict PNG parity; `--diagnose-float` verifies and
 reports the cause without certifying full PNG byte parity. See ADR 0005.
 
-Optional upstream configurations (other codec adapters, experimental syntax,
-golden tests requiring MP4Box, FuzzTest, ComplianceWarden, other platforms) remain
-in the untouched source snapshot and require separate validation.
+All eight Mini/Extended-PIXI/AVM preprocessor combinations regenerate exactly
+through `tools/transpile.py --check`. Optional AV1 adapter and registry
+regeneration also reproduces the recorded implementation files.
+
+Remaining work includes other platforms and dependency versions, AOM
+encode-only/decode-only configurations, optional golden tests requiring MP4Box,
+FuzzTest, the C++ ComplianceWarden integration, and the broader upstream CI
+matrix. The original sources, feature gates, fixtures, and workflows remain
+available in the untouched snapshot.

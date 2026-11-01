@@ -42,12 +42,21 @@ Applications and C/C++ test harnesses remain original consumers of the port.
 
 ## Status
 
-The selected macOS AArch64 configuration is translated: 23 libavif modules and
-five bundled scalar libyuv modules. Both the C baseline and Rust implementation
-pass the same 64 CTest registrations containing 9,473 GoogleTest cases, plus the
-original C and shell tests. The port test build compiles no C library
-implementation; upstream C/C++ consumers remain unchanged.
+All 27 upstream C library files have Rust implementations, including the six
+codec adapters and the Mini, Extended-PIXI, and AV2 container branches. The five
+bundled scalar libyuv files are also translated; external libyuv remains an
+independent optional dependency exactly as upstream.
 
-Optional adapters and preprocessor branches outside this configuration remain
-an explicit completion queue. Full feature and cross-platform parity have not
-been established. See `VALIDATION.md` for exact evidence and residual gaps.
+The default macOS AArch64 configuration passes the same 64 CTest registrations
+containing 9,473 GoogleTest cases in C and Rust. The complete supported feature
+configuration passes 70 registrations containing 9,555 GoogleTest cases in each.
+The default AddressSanitizer comparison passes all 64 registrations. The port
+test build compiles no C libavif implementation; upstream C/C++ consumers and
+fixtures remain unchanged.
+
+Source translation and host parity gates are satisfied for the recorded
+configurations. Remaining gates concern other platforms, optional golden/fuzz/
+compliance harnesses, the optional C++ `src/compliance.cc` integration,
+additional dependency/build matrices, and strict decoded
+RGB byte parity across compilers. No full cross-platform or release-certification
+claim is made. See `VALIDATION.md` for the exact evidence and residual gaps.
