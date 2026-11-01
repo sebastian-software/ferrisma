@@ -108,7 +108,7 @@ def main():
               'upstream_revision': source['revision'], 'source_files_verified': len(source['files']),
               'source_manifest_sha256': digest(ROOT / 'provenance/dav1d-source.json'),
               'test_input_manifest_sha256': digest(ROOT / 'provenance/dav1d-test-inputs.json'),
-              'translation_manifests_sha256': {}, 'native_ci': native_ci,
+              'translation_manifests_sha256': {}, 'explicit_object_alignments_retained': {}, 'native_ci': native_ci,
               'linux_translation_verification': translation_ci, 'native_targets': {},
               'local_integration': {'platform': 'macOS ARM64',
                                     'head_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
@@ -123,6 +123,8 @@ def main():
             if hashlib.sha256(regenerated).hexdigest() != digest(path):
                 raise SystemExit('Translation verification did not check the current Linux implementation')
         record['translation_manifests_sha256'][relative] = digest(path)
+        record['explicit_object_alignments_retained'][relative] = sum(
+            unit['corrections'].get('original-c-object-alignment', 0) for unit in read(path)['units'])
     expected_artifacts = ['dav1d-macos-15-arm64', 'dav1d-ubuntu-24.04-x86_64']
     for name in expected_artifacts:
         artifact = args.ci_artifacts / name
