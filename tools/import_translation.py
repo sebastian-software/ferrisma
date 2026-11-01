@@ -33,18 +33,13 @@ def translate(source: Path, raw: str) -> tuple[str, dict]:
 
     # Preserve C array-to-pointer decay without introducing Rust references to
     # static storage. Read the complete array type, including nested arrays.
-    for name, array in re.findall(r"^static mut (\w+): (\[.*?\]) =", text, re.M | re.S):
+    for name, array in re.findall(r"^\s*static mut (\w+): (\[.*?\]) =", text, re.M | re.S):
         element = array[1:-1].rsplit(";", 1)[0].strip()
-        replace(
-            f"{name}.as_mut_ptr()",
-            f"core::ptr::addr_of_mut!({name}).cast::<{element}>()",
-            "static-raw-address",
-        )
-        replace(
-            f"{name}.as_ptr()",
-            f"core::ptr::addr_of!({name}).cast::<{element}>()",
-            "static-raw-address",
-        )
+        for method, address in [("as_mut_ptr", "addr_of_mut"), ("as_ptr", "addr_of")]:
+            pattern = rf"\b{re.escape(name)}\s*\.{method}\(\)"
+            text, count = re.subn(pattern, lambda _: f"core::ptr::{address}!({name}).cast::<{element}>()", text)
+            if count:
+                changes["static-raw-address"] = changes.get("static-raw-address", 0) + count
 
     if source.stem == "read":
         # The SDK inline helper is not an exported libavif implementation.

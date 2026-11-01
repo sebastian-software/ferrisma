@@ -687,8 +687,7 @@ unsafe extern "C" fn calcYUVInfoFromCICP(
     } else {
         let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
         while i < avifMatrixCoefficientsTableSize {
-            let table: *const avifMatrixCoefficientsTable = &*matrixCoefficientsTables
-                .as_ptr()
+            let table: *const avifMatrixCoefficientsTable = &*core::ptr::addr_of!(matrixCoefficientsTables).cast::<avifMatrixCoefficientsTable>()
                 .offset(i as isize) as *const avifMatrixCoefficientsTable;
             if (*table).matrixCoefficientsEnum as core::ffi::c_int
                 == (*image).matrixCoefficients as core::ffi::c_int
@@ -1315,8 +1314,7 @@ pub unsafe extern "C" fn avifTransferCharacteristicsGetGammaToLinearFunction(
 ) -> avifTransferFunction {
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     while i < avifTransferCharacteristicsTableSize {
-        let table: *const avifTransferCharacteristicsTable = &*transferCharacteristicsTables
-            .as_ptr()
+        let table: *const avifTransferCharacteristicsTable = &*core::ptr::addr_of!(transferCharacteristicsTables).cast::<avifTransferCharacteristicsTable>()
             .offset(i as isize) as *const avifTransferCharacteristicsTable;
         if (*table).transferCharacteristicsEnum as core::ffi::c_int
             == atc as core::ffi::c_int
@@ -1335,8 +1333,7 @@ pub unsafe extern "C" fn avifTransferCharacteristicsGetLinearToGammaFunction(
 ) -> avifTransferFunction {
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     while i < avifTransferCharacteristicsTableSize {
-        let table: *const avifTransferCharacteristicsTable = &*transferCharacteristicsTables
-            .as_ptr()
+        let table: *const avifTransferCharacteristicsTable = &*core::ptr::addr_of!(transferCharacteristicsTables).cast::<avifTransferCharacteristicsTable>()
             .offset(i as isize) as *const avifTransferCharacteristicsTable;
         if (*table).transferCharacteristicsEnum as core::ffi::c_int
             == atc as core::ffi::c_int

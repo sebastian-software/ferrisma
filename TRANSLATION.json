@@ -22,8 +22,10 @@
       "source": "upstream/libavif/src/colr.c",
       "rust": "src/colr.rs",
       "raw_sha256": "a07601808bc01455b36ecfceb5fa11d95f09f45f18943a8bb122085ac2d547d6",
-      "rust_sha256": "55c1d0b3b10211e36925e85210b155e204f13176f77e636d779db8b3b7ca81fa",
-      "corrections": {}
+      "rust_sha256": "ed44b45add38a4e2f07dd25eca403d53c893fa531e7d4335d59085dd4814a0b4",
+      "corrections": {
+        "static-raw-address": 3
+      }
     },
     {
       "source": "upstream/libavif/src/colrconvert.c",
@@ -100,8 +102,9 @@
       "source": "upstream/libavif/src/read.c",
       "rust": "src/read.rs",
       "raw_sha256": "50f19c91f0301fe2e8cc3824b2bc58863f58b43bb84464ea8745600f6397c4cf",
-      "rust_sha256": "95ca031ef7dd91d42e28ecea9581da0bc8819110c123a6d139a605acd7860d98",
+      "rust_sha256": "7e185fbcb312a1cf38ffcf73eebeae780bc4415d0943d15644ad634357582d77",
       "corrections": {
+        "static-raw-address": 1,
         "local-sdk-inline": 1
       }
     },
@@ -160,9 +163,9 @@
       "source": "upstream/libavif/src/write.c",
       "rust": "src/write.rs",
       "raw_sha256": "0f74ac40f1da03a13821c3a6bba0a717d284e7a8a3bbbdc3ca4eaf175663d4cb",
-      "rust_sha256": "77461f640d584090c52165314a5560430a1dee48c68e73aefe594f80efcc8f05",
+      "rust_sha256": "92fa5066e758eabb4ce06feb2d03fbbd6aacab158ad1348249db964419353439",
       "corrections": {
-        "static-raw-address": 11
+        "static-raw-address": 13
       }
     },
     {

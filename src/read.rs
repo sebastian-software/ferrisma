@@ -1407,7 +1407,7 @@ unsafe extern "C" fn avifGetConfigurationPropertyName(
     };
     match codecType as core::ffi::c_uint {
         1 => return b"av1C\0" as *const u8 as *const core::ffi::c_char,
-        _ => return kUnknown.as_ptr(),
+        _ => return core::ptr::addr_of!(kUnknown).cast::<core::ffi::c_char>(),
     };
 }
 pub const MAX_PIXI_PLANE_DEPTHS: core::ffi::c_int = 4 as core::ffi::c_int;

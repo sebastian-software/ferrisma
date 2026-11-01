@@ -7671,7 +7671,7 @@ pub unsafe extern "C" fn avifEncoderFinish(
         }
         let result___95: avifResult = avifRWStreamWrite(
             &mut s,
-            unityMatrix.as_ptr() as *const core::ffi::c_void,
+            core::ptr::addr_of!(unityMatrix).cast::<[uint8_t; 4]>() as *const core::ffi::c_void,
             ::core::mem::size_of::<[[uint8_t; 4]; 9]>() as size_t,
         ) as avifResult;
         if result___95 as core::ffi::c_uint
@@ -7836,7 +7836,7 @@ pub unsafe extern "C" fn avifEncoderFinish(
                 }
                 let result___111: avifResult = avifRWStreamWrite(
                     &mut s,
-                    unityMatrix.as_ptr() as *const core::ffi::c_void,
+                    core::ptr::addr_of!(unityMatrix).cast::<[uint8_t; 4]>() as *const core::ffi::c_void,
                     ::core::mem::size_of::<[[uint8_t; 4]; 9]>() as size_t,
                 ) as avifResult;
                 if result___111 as core::ffi::c_uint
