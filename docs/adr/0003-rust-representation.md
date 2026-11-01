@@ -1052,3 +1052,22 @@ Threshold U32 additions narrow/wrap in the same place as the source. Encoding
 uses the same distributions, caller counts that fit four bits, and nested AC
 layer accounting. No new pointers, unsafe code, dependency, numeric option, or
 sanitizer suppression is introduced.
+
+### AC block entropy symbols
+
+DecodeACVarBlock retains its source argument boundary. Existing AcPtrMut typed
+slice variants replace ACPtr and the ACType template parameter; a const bool
+retains uses_lz77 specialization over the genuine symbol reader. Neighbor rows,
+coefficient storage, context maps, and packed order storage remain caller
+borrows with the original valid-index and signed-predictor preconditions.
+
+Nonzero context calculation narrows from pointer width to i32 at the source
+assignment, then promotes back for symbol lookup. Coefficient reconstruction
+uses unsigned magnitude/sign/left-shift first, followed by the source ptrdiff_t
+conversion and low-bit signed narrowing selected by Clang. Shift is below the
+pointer width and reached ptrdiff_t additions must be representable. Defined
+inputs retain identical additions, row updates, early errors, and partial
+mutation. The test adapter extracts only the original template with a pinned
+SHA-256 and calls actual entropy machinery in ordinary and fully instrumented
+original graphs. No unsafe Rust, new dependency, numeric flag, or blanket
+suppression is added.

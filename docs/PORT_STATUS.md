@@ -75,6 +75,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; VarDCT frame/group integration remains unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
 | `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
+| `dec_group.cc` (`DecodeACVarBlock`) | `dec_group.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; group scheduling/dequantization/pixel integration unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, remaining VarDCT methods, and debug descriptions unported; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -148,15 +149,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 397 tests, including 226 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 397 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 397 tests and corpus |
+| Rust debug | PASSED | 403 tests, including 229 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 403 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 403 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 397 tests and 855,867 requests in debug, release, and Rust 1.85.1 |
+| Ordinary C++ reference | PASSED | The same 403 tests and 856,401 requests in debug, release, and Rust 1.85.1 |
 | Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **855,867 requests** against C++. These include
+Each differential run compares **856,401 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -1261,3 +1262,49 @@ Full local validation of the integrated block-context tree runs 397 tests,
 226 differential groups, and 855,867 exact requests in each Debug, Release,
 and Rust 1.85 configuration against ordinary and ASan/UBSan originals.
 No test is failed or ignored.
+
+## Quantized AC block symbols
+
+DecodeACVarBlock now reads each pass through the existing real ANS/prefix/LZ77
+reader, predicts/stores nonzero counts, selects block/density contexts, scatters
+through the caller's coefficient order, and adds signed shifted coefficients to
+either i16 or i32 storage. Invalid counts fail at the original point and retain
+all earlier row/coefficient/reader mutations. Group scheduling, dequantization,
+and pixels remain separate unported boundaries.
+
+Three native tests and three differential groups add 534 exact block-decoding
+comparisons. Fixtures call a hash-checked verbatim extraction of the original
+template, with genuine BuildAndEncodeHistograms/WriteTokens streams in both
+ANS/prefix and LZ77 modes. All 27 strategies, both coefficient widths, natural
+and reversed orders, predictor edges, channels, multipass accumulation, shifts,
+count errors, and truncations compare complete coefficient/row owners and
+reader checkpoints. Real varied prefix tokens force actual LZ77 activation,
+which is asserted and consumed through the same reader. No mock symbol reader
+or C++ runtime fallback is used.
+
+The next small orchestration boundary is DecodeGlobalDCInfo, whose quantizer,
+block-context, color-correlation, and invalid-strategy-fill dependencies are now
+present. Actual DC groups still require DecodeVarDCTDC and DequantDC. Subsequent
+AC metadata must produce real strategies, QF/CfL maps, sharpness, and used_acs;
+GetBlockFromBitstream with GroupDecCache::InitOnce then connects passes, channels,
+histogram selection, and row storage to the symbol loop. Original ProcessACGlobal
+adds 16 padding contexts, matching the malformed-count fixtures here.
+
+Rendering still needs AdjustQuantBias, block dequantization, and DecodeGroupImpl
+traversal before connecting the existing LowestFrequenciesFromDC/TransformToPixels.
+The fixed-profile frame admission remains Modular-only; removing that guard would
+not supply the missing VarDCT DC/AC setup, finalization, pipeline preparation,
+adaptive DC smoothing, or EPF branches.
+
+Full local validation of all four integrated slices runs 403 tests, including
+229 differential groups and 856,401 exact C++/Rust requests per configuration.
+Both `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv` pass in Debug, Release, and Rust 1.85
+with zero failed or ignored tests. All prior requests and expected words remain.
+
+The highest default block-context regression uses strategy 19, channel 2, and
+context 14. A nonzero penultimate symbol leaves the final symbol at density 473;
+fixture assertions prove the final two lookups select NumACContexts+14/+15,
+including the last original ProcessACGlobal padding slot. Both genuine ANS and
+prefix streams cover this partial-failure path; the previous strategy 0/18
+requests and their encoded inputs remain unchanged.

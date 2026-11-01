@@ -21,6 +21,7 @@ pub mod dec_cache;
 pub mod dec_context_map;
 pub mod dec_external_image;
 pub mod dec_frame;
+pub mod dec_group;
 pub mod dec_huffman;
 pub mod dec_modular;
 pub mod dec_patch_dictionary;

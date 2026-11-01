@@ -61,14 +61,15 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/extract_source.py"
   "${CMAKE_CURRENT_SOURCE_DIR}/source_fragments.json"
   "${UPSTREAM}/lib/jxl/render_pipeline/render_pipeline_test.cc"
-  "${UPSTREAM}/lib/jxl/test_utils.cc")
+  "${UPSTREAM}/lib/jxl/test_utils.cc"
+  "${UPSTREAM}/lib/jxl/dec_group.cc")
 execute_process(COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/extract_source.py" "${CMAKE_CURRENT_BINARY_DIR}/generated"
   RESULT_VARIABLE extraction_status)
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc
+add_executable(jxl_oracle main.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
