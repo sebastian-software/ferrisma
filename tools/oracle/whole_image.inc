@@ -18,7 +18,7 @@ bool WholeImageCommand(const std::string& command,std::istringstream& in,JxlMemo
   std::string hex;in>>hex;auto bytes=Unhex(hex);std::vector<uint8_t> backing(bytes.size()+16);std::copy(bytes.begin(),bytes.end(),backing.begin()+8);
   jxl::CodecInOut io(mm);auto status=jxl::DecodeFile(jxl::Bytes(backing.data()+8,bytes.size()),true,&io,nullptr);
   std::vector<uint8_t> pixels;
-  if(status){size_t n=io.metadata.m.color_encoding.Channels(),bits=io.metadata.m.bit_depth.bits_per_sample;size_t stride=io.xsize()*n*(bits/8);pixels.resize(stride*io.ysize());jxl::PixelCallback callback;status=jxl::ConvertToExternal(io.Main(),bits,false,n,JXL_NATIVE_ENDIAN,stride,nullptr,pixels.data(),pixels.size(),callback,jxl::Orientation::kIdentity,false);}
+  if(status){size_t n=io.metadata.m.color_encoding.Channels()+(io.metadata.m.HasAlpha()?1:0),bits=io.metadata.m.bit_depth.bits_per_sample;size_t stride=io.xsize()*n*(bits/8);pixels.resize(stride*io.ysize());jxl::PixelCallback callback;status=jxl::ConvertToExternal(io.Main(),bits,false,n,JXL_NATIVE_ENDIAN,stride,nullptr,pixels.data(),pixels.size(),callback,jxl::Orientation::kIdentity,false);}
   std::cout<<int(status.code())<<" M "<<io.xsize()<<' '<<io.ysize();MetadataObservation(io.metadata.m);TransformObservation(io.metadata.transform_data);
   const auto& image=io.Main();std::cout<<" F "<<image.color_.xsize()<<' '<<image.color_.ysize()<<' '<<image.decoded_bytes()<<" O "<<Hex(jxl::Bytes(pixels));return true;
 }

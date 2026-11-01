@@ -490,13 +490,31 @@ select only the original buffer path. Native shared views replace its callback
 table and no-op release; they cannot outlive the adapter or its input borrow.
 
 The fixed profile's CopyColorChannels retains the default FrameInfo, including
-FROM_PIXEL_FORMAT and ib_needs_color_transform=true, and has no alpha plane.
+FROM_PIXEL_FORMAT and ib_needs_color_transform=true. The original color-only
+component entry point keeps a null alpha destination; the complete fixed-profile
+entry point also binds its optional alpha plane by owner-relative index.
 It sets the interleaved-alpha flag before requesting data and validates channel
 count afterward. A disjoint borrow of the three owned planes supports gray
 replication in source order without cloning storage. Failure retains completed
 plane writes and the alpha flag; later planes remain untouched. This boundary
 remains independently testable at the color-copy boundary. The fixed image
-entry point now calls it through the original outer computation order.
+entry point calls it through the original outer computation order. Allocate all
+extra planes before color import, copy interleaved alpha only after all color
+planes, then run CopyExtraChannels and skip the first interleaved alpha request
+at the original checkpoint. The buffer-only adapter retains no-op release
+semantics through scoped borrows. Separate component callers may supply an
+extra-channel buffer; missing buffers retain the original failure order.
+
+Modular preparation includes each alpha plane after color in original channel
+order, retaining per-channel dimensions/shifts, sample-depth conversion, and
+max-bitdepth updates before the existing palette/compaction policy. The simple
+render pipeline owns three color channels plus the admitted alpha channel. Its
+existing modular conversion and WriteToImageBundleStage retain the alpha plane
+without changing the RGB stages. Complete integer export requests gray/alpha
+or RGBA when metadata has alpha. Associated alpha remains outside this profile,
+so its source unpremultiplication condition is false. The original lossless
+keep-invisible default prevents SimplifyInvisible; the port introduces no
+replacement pixel values for transparent areas.
 
 Quantizer stores the source scalar state and reifies its enclosing matrix
 pointer as an explicit same-owner borrow for construction, recomputation, and

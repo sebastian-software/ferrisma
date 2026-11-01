@@ -4,8 +4,9 @@ This repository contains codestream/frame-header, metadata, geometry, entropy,
 and color-profile dependencies, standalone modular image encoding/decoding,
 and a fixed lossless Thunder encoder from pixel buffers to complete raw JPEG XL
 codestreams, plus complete Rust parsing and integer decoding for that same fixed
-profile. Rust and the original C++ decoder recover the exact samples from both
-native and reference codestreams. The first-image milestone is verified; general
+profile, now including one optional full-resolution, unassociated alpha channel
+at the same color sample depth. Rust and the original C++ decoder recover the
+exact samples from both native and reference codestreams. The first-image milestone is verified; general
 image/frame decoding and the complete library remain unported.
 There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
 [upstream.json](../upstream.json).
@@ -55,11 +56,11 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
-| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder CopyColorChannels/ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
+| `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, general preparation, VarDCT cache initialization, output lifecycle, and custom runners unported |
 | `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; general/progressive frame APIs, JPEG, and VarDCT orchestration unported |
-| DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export; preview/animation/ICC/general profiles remain outside admission |
+| DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, and decoded-byte accessors; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
@@ -72,7 +73,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations and BlockCtxMap storage/defaults; context lookup helpers unported |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, remaining VarDCT methods, and debug descriptions unported; quantization-table decoding is mapped below |
-| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
+| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
@@ -144,14 +145,15 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 344 tests, including 195 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 344 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 344 tests and corpus |
+| Rust debug | PASSED | 356 tests, including 204 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 356 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 356 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 344 tests and 744,124 requests in debug, release, and Rust 1.85.1 |
-| Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; component runtime evidence below does not establish the full Linux suite |
+| Ordinary C++ reference | PASSED | The same 356 tests and 747,248 requests in debug, release, and Rust 1.85.1 |
+| Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
+| Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
-Each differential run compares **744,124 requests** against C++. These include
+Each differential run compares **747,248 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -553,9 +555,10 @@ fail the build; the reference source has not been edited to suppress it.
 Not yet established: general Rust image decoding and encoding,
 public C ABI compatibility,
 thread runners, SIMD parity, full upstream test inventory, external conformance
-corpus, cross-platform CI results, fuzzing, Rust sanitizer/Miri results, or
-performance/memory parity. Test passing here does not establish any of those.
-The Linux/macOS workflow is configured but has not run on a hosted service.
+corpus, fuzzing, Rust sanitizer/Miri results, or performance/memory parity.
+Test passing here does not establish any of those. Native Linux/macOS hosted
+results for the prior integrated tree are recorded above; new port batches
+require their own current-head CI evidence.
 
 ## Next dependency boundaries
 
@@ -1079,3 +1082,58 @@ tests, 183 differential groups, and 703,420 requests. The preceding mapping also
 passed all three macOS ASan/UBSan configurations; this correction only compiles
 on x86_64 and leaves the AArch64 arithmetic unchanged. Existing cases and
 expected words remain unchanged; no emulated ASan gate is claimed.
+
+## Complete alpha image profile
+
+The optional alpha extension preserves the initial first-image milestone as
+historical evidence and adds a separate complete configuration. The
+`new_with_alpha` constructor owns one full-resolution, unassociated alpha
+channel with the same 8/16-bit depth as color. The original no-alpha constructor
+and all its corpus remain unchanged. See [FIRST_IMAGE.md](FIRST_IMAGE.md#alpha-profile-extension)
+for the source branches, bounded admission, and complete-file corpus.
+
+The reached encoder branches allocate alpha before color import, copy the
+interleaved last sample after RGB/gray import, skip that first alpha in
+CopyExtraChannels, and append its integer modular channel before the original
+palette/compaction selection. The original default keep-invisible condition
+prevents SimplifyInvisible in lossless mode. Decoder frame admission permits
+only matching channel counts, upsampling one, and replacement blending; the
+simple pipeline allocates its fourth channel and existing modular/image-bundle
+stages carry it through to gray/alpha or RGBA integer output. Non-admitted alpha
+configurations remain explicit native admission results, not generic codec
+status replacements.
+
+The added parity corpus contains 400 complete encoder/statistics/cross-decoder
+requests, 400 complete-file decoder observations, 606 prefix/payload/trailing
+error observations, 216 short input-buffer observations, and 16 separate-alpha
+buffer observations through the original complete encoder: 1,638 additional
+exact C++/Rust requests. Ordinary Rust tests cover complete alpha image paths,
+every uint16 alpha value, invisible RGB, and rejection of associated,
+subsampled, mismatched-depth, non-alpha, and multiple-extra metadata.
+
+
+Both local native macOS arm64 commands, `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`, pass with the complete alpha corpus:
+351 tests, 199 differential groups, and 745,762 exact requests in each debug,
+release, and Rust 1.85 configuration; zero failed or ignored cases. The earlier
+hosted Linux/macOS results above belong to the baseline tree. Current-head
+hosted validation for this alpha extension remains a separate integration gate.
+
+
+## Integrated alpha and AC matrix checkpoint
+
+The combined lossless alpha and scalar AC matrix tree passes both complete
+local native ARM macOS commands, `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`. Each debug, release, and Rust 1.85
+configuration runs 356 tests, including 204 differential groups and 747,248
+exact C++/Rust requests, with zero failed or ignored cases. All earlier corpora
+remain enabled. The source maps and representation records above include both
+slices; AC encoding and general VarDCT frame decoding remain unported. Native
+Linux/macOS checks are required for this combined PR tree before integration.
+
+The separate alpha commit also passed the [native hosted matrix](https://github.com/sebastian-software/libjxl-rs/actions/runs/41343768003):
+Linux ordinary and ASan/UBSan reference graphs each ran debug, release, and
+Rust 1.85; macOS ran the instrumented graph in those three configurations.
+Every block passed 351 tests and 745,762 requests with zero failed or ignored
+cases. That hosted evidence belongs to the alpha tree, independently of this
+combined checkpoint.
