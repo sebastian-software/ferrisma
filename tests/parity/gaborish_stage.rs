@@ -236,6 +236,26 @@ fn scalar_gaborish_factory_settings_channel_modes_and_lifecycle_match_original()
             .collect(),
     );
 }
+
+#[test]
+fn scalar_gaborish_competing_nan_normalization_and_pixel_payloads_match_original() {
+    let words = [
+        0x7fa12345, 0xffa54321, 0x7fc98765, 0xffc43210, 0, 0x7f800000, 0xff800000, 1,
+    ];
+    let mut cases = Vec::new();
+    for a in words.map(f32::from_bits) {
+        for b in words.map(f32::from_bits) {
+            let weights = [a, b, b, a, a, b];
+            for pixels in [
+                "1065353216 1065353216 1065353216 1065353216 1065353216 1065353216 1065353216 1065353216 1065353216",
+                "2141266757 4289020705 2143913829 4291047952 2139095040 4286578688 1056964608 1065353216 2147483648",
+            ] {
+                cases.push(format!("gab-row {} 1 2 3 3 {pixels}", params(1, weights)));
+            }
+        }
+    }
+    compare(cases);
+}
 #[test]
 fn scalar_gaborish_rows_normalization_extras_offsets_and_float_bits_match_original() {
     let mut cases = Vec::new();

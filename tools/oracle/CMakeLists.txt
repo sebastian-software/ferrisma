@@ -58,7 +58,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc
+add_executable(jxl_oracle main.cc sample_conversion.cc noise.cc gaborish.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
@@ -68,6 +68,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Clang's unrolled max-number reduction changes the early-return result when
   # a signaling NaN follows a value above the threshold. Retain the source loop.
   set_source_files_properties(noise.cc PROPERTIES COMPILE_OPTIONS -fno-unroll-loops)
+  # O3 commutes the original scalar Gaborish operands differently with ASan.
+  # Retain the pristine operator bodies in their own TU, with all sanitizer
+  # flags active. The old adapter and original library flags stay unchanged.
+  set_source_files_properties(gaborish.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")
 else()
   message(FATAL_ERROR "Frame state fixtures require Clang or GCC access-control support")
 endif()

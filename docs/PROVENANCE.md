@@ -48,10 +48,23 @@ Gaborish stage and factory. The oracle calls the actual original stage directly
 and inside the unchanged simple pipeline. Padded-row/random-weight/exceptional
 float corpora and the 3x2 ordinary Rust regression are local test infrastructure;
 the latter's exact words were captured independently from the original stage.
-The compiled scalar object's multiplication/addition operand order is retained
-for NaN payloads while preserving original separate Highway rounding. No filter
-algorithm is supplied by the C++ adapter. Full lossy frame integration and SIMD
-specializations remain separate work.
+The dedicated `tools/oracle/gaborish.cc` observation unit includes the pristine
+original source at scoped `-O0`; original-library and old-adapter flags are
+unchanged and every sanitizer flag remains active. Clang 21 x86 ordinary and
+instrumented `-O3` objects had selected different competing NaN operands.
+The isolated unit preserves Highway's literal Add/Mul/MulAdd boundaries and
+operator*'s float-to-double/product/float sequence. Local Rust non-inlined
+arithmetic functions preserve those conversions, operand order, and separate
+rounding; promotions quiet signaling NaNs before multiplication. Link maps
+verify that the real source factory and stage bind to the dedicated object.
+The finite 3x2 native observation is unchanged; another captured regression with
+competing payloads and 128 normalization/pixel cases guard the repaired seam.
+The new native NaN tables are independently captured per target because ARM
+and x86 select different payloads under the same literal arithmetic; existing
+finite expected words are unchanged.
+No filter algorithm is supplied by the C++ adapter. Review this numeric
+configuration after source/compiler/target/linker/instrumentation changes.
+Full lossy frame integration, SIMD, and performance parity remain separate work.
 
 `render_pipeline/stage_upsampling.{h,cc}` and Highway's scalar Min/Max/MulAdd
 operations supply the complete scalar upsampling stage. Differential requests

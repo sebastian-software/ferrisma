@@ -11,6 +11,32 @@ use crate::jxl::base::float::mul_add_f32;
 use crate::jxl::base::status::Status;
 use crate::jxl::loop_filter::LoopFilter;
 
+// Copyright 2019 Google LLC
+// Copyright (c) The Highway Project Authors. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// Use of this derived helper code is governed by Highway's offered BSD
+// alternative in licenses/HIGHWAY-BSD-3-Clause.txt.
+// Used Add/operator*/MulAdd from hwy/ops/scalar-inl.h. Keep the original
+// scalar operator boundaries in the dedicated reference TU.
+// Inlining may commute operands with different NaN payloads. Highway's float
+// multiplication explicitly promotes both operands to double before narrowing;
+// promotion also quiets signaling NaNs before the product chooses its payload.
+#[inline(never)]
+fn add(a: f32, b: f32) -> f32 {
+    a + b
+}
+#[inline(never)]
+fn promote(a: f32) -> f64 {
+    f64::from(a)
+}
+#[inline(never)]
+fn multiply_and_demote(a: f64, b: f64) -> f32 {
+    (a * b) as f32
+}
+fn mul(a: f32, b: f32) -> f32 {
+    multiply_and_demote(promote(a), promote(b))
+}
+
 pub struct GaborishStage {
     weights: [f32; 9],
 }
@@ -30,7 +56,11 @@ impl GaborishStage {
         for c in 0..3 {
             // Ordinary source arithmetic contracts at this site on AArch64.
             // This is distinct from Highway's unfused pixel MulAdd below.
-            let div = mul_add_f32(4.0, weights[3 * c + 1] + weights[3 * c + 2], weights[3 * c]);
+            let div = mul_add_f32(
+                4.0,
+                add(weights[3 * c + 1], weights[3 * c + 2]),
+                weights[3 * c],
+            );
             let mul = 1.0 / div;
             weights[3 * c] *= mul;
             weights[3 * c + 1] *= mul;
@@ -76,13 +106,11 @@ impl RenderPipelineStage for GaborishStage {
                 let bl = buffers.row(row_b.offset(x - 1))[0];
                 let br = buffers.row(row_b.offset(x + 1))[0];
                 let sum0 = m;
-                let sum1 = (l + r) + (t + b);
-                let sum2 = (tl + tr) + (bl + br);
-                // The reference scalar object uses weights as the first FMUL
-                // operand and the accumulated result as the first FADD operand.
-                // Preserve that order for NaN payloads, and Highway MulAdd's
-                // separate multiplication/addition rounding even on AArch64.
-                let pixels = (w0 * sum0 + w1 * sum1) + w2 * sum2;
+                let sum1 = add(add(l, r), add(t, b));
+                let sum2 = add(add(tl, tr), add(bl, br));
+                // Literal original MulAdd(sum2,w2,MulAdd(sum1,w1,Mul(sum0,w0))).
+                // Each scalar multiply and add retains its own rounding.
+                let pixels = add(mul(sum2, w2), add(mul(sum1, w1), mul(sum0, w0)));
                 buffers.row_mut(row_out.offset(x))[0] = pixels;
             }
         }

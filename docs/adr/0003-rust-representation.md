@@ -611,15 +611,22 @@ explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
 
 Gaborish uses the same row descriptors and stores its nine normalized weights
 in source channel order. Its constructor keeps the ordinary reference Clang
-normalization contraction. The scalar reference ProcessRow object emits
-weight-first multiplications and accumulation-first additions for the nested
-Highway MulAdd expression. Preserve that local operand order for exact NaN
-payloads, together with each separate multiplication/addition rounding, rather
-than inheriting fused ordinary-expression helpers. This mapping changes neither
-the kernel, operation grouping, nor rounding checkpoints. Debug/release
-exceptional-value comparisons and independently captured ordinary Rust output
-words guard it. Reinspect the emitted operand order after compiler, source,
-target, or instrumentation changes; other targets need their own oracle runs.
+normalization contraction. The dedicated pristine scalar observation unit in
+ADR 0002 keeps Highway's literal Add/Mul/MulAdd boundaries stable under
+instrumentation. Its original operator* explicitly promotes both binary32
+operands to double, multiplies, and narrows to binary32 before the separate add.
+Those promotions quiet signaling NaNs before the product selects its payload.
+Preserve them even when a particular optimized object folds the finite-equivalent
+sequence to a binary32 multiply. Local non-inlined add, promotion, and
+double-product/narrowing functions retain the original operand order and
+checkpoints in Rust debug/release, with no global numeric helper change.
+The kernel keeps the literal nested product-first MulAdd order rather than
+borrowing fused ordinary-expression helpers or an ARM-only optimized register
+schedule. Exact competing-payload row/normalization corpora and independently
+captured native exceptional-value words guard this mapping. The prior finite
+3x2 observation remains unchanged. Reinspect these boundaries after compiler,
+source, target, linker, or instrumentation changes; other targets need their
+own oracle runs.
 
 OutputEncodingInfo initializes source-indeterminate scalar/array storage safely;
 the oracle value-initializes those aggregate members explicitly. SetFromMetadata

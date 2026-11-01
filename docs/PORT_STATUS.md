@@ -143,14 +143,14 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
-| Rust debug | PASSED | 327 tests, including 186 differential test groups; zero ignored cases |
-| Rust release | PASSED | Same 327 tests and corpus |
-| Rust 1.85.1 | PASSED | Same 327 tests and corpus |
+| Rust debug | PASSED | 329 tests, including 187 differential test groups; zero ignored cases |
+| Rust release | PASSED | Same 329 tests and corpus |
+| Rust 1.85.1 | PASSED | Same 329 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
-| Ordinary C++ reference | PASSED | The same 327 tests and 705,404 requests in debug, release, and Rust 1.85.1 |
-| Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; no Linux runtime tests claimed |
+| Ordinary C++ reference | PASSED | The same 329 tests and 705,532 requests in debug, release, and Rust 1.85.1 |
+| Rust x86_64 Linux compile | PASSED | `cargo check --locked --offline --all-targets --all-features --target x86_64-unknown-linux-gnu`; component runtime evidence below does not establish the full Linux suite |
 
-Each differential run compares **705,404 requests** against C++. These include
+Each differential run compares **705,532 requests** against C++. These include
 all 65,536 binary16 input patterns; primitive encodings; header limits, aspect
 ratios and truncations; reader refills and checkpoints; nested accounting;
 appends; extension compatibility; default/nested bundle control flow; raw enum
@@ -902,10 +902,36 @@ reversed group arrival, repeated passes, and the original mirrored borders.
 The factory retains its gab guard; this component does not admit a general
 lossy frame path.
 
-Exact exceptional-value observations exposed the reference object's weight-first
-multiplications and accumulation-first additions in its Highway MulAdd expansion.
-The local Rust expression preserves that emitted operand order and each separate
-rounding operation in debug and release. No NaN value is normalized or rewritten.
-The ordinary Rust 3x2 regression uses independently captured original output
-words and runs without the C++ feature. A temporary fused-pixel replacement
-failed that regression, proving that it detects the separate-rounding boundary.
+Hosted x86 exceptional-value observations exposed different NaN operand
+schedules between the original ordinary and sanitized Clang 21 `-O3` objects.
+The dedicated pristine Gaborish observation TU now uses scoped `-O0`, retaining
+all sanitizer flags and the literal Highway Add/Mul/MulAdd boundaries. The
+original library and existing fixture TU options are unchanged. Link maps bind
+the actual original stage and factory to that dedicated object. Rust retains
+literal product-first nested additions and operator*'s explicit promotions,
+double product, and binary32 narrowing through local non-inlined boundaries.
+The implementation does not rewrite NaN words or change kernel grouping.
+
+All 1,985 original differential cases remain; another 128 requests exercise
+competing signed signaling/quiet weight and pixel payloads during normalization
+and filtering. The original finite 3x2 native regression and its captured words
+are unchanged. A second native regression uses independently captured competing
+payload words and verifies untouched rows, extra spans, and ignored channels.
+Its separate ARM/x86 NaN tables were independently captured from each target's
+original stage; the input stencil is identical despite different row padding.
+Both run without the C++ feature. A temporary fused-pixel replacement failed the
+original finite regression, proving that it detects separate-rounding changes.
+This numeric configuration establishes no SIMD or performance parity.
+
+Focused x86_64 Linux runs under QEMU use Clang 21.1.8/libc++ 21 and Rust 1.99.0.
+Debug and release each compare all 2,113 Gaborish requests in four groups
+against both an ordinary and a fail-fast UBSan observation executable; both
+native Gaborish regressions pass in both profiles. The temporary focused
+executables retain the actual original fixture observation bodies and dedicated
+stage, linked against the complete original ordinary static archives. UBSan
+instruments that focused fixture/stage, not those ordinary archive members.
+Link maps bind the original factory and ProcessRow to the dedicated stage
+object. Emulated ASan is unavailable; it is not counted as a passing gate.
+Native hosted CI must validate the complete Linux ASan/UBSan graph and MSRV
+before merge. The complete ordinary/sanitized macOS runs in the evidence table
+remain separate, fully instrumented reference gates.

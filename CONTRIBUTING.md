@@ -29,6 +29,16 @@ hierarchy when deriving fixture stages. The original archive does not provide
 base RTTI. The setting is limited to that adapter; reference algorithms remain
 unmodified.
 
+The dedicated `gaborish.cc` oracle unit includes pristine stage_gaborish.cc and
+uses scoped `-O0` with all sanitizer flags active. Ordinary and instrumented
+Clang 21 x86 `-O3` objects otherwise choose different NaN operands in the same
+source expression. This separate unit retains Highway's original scalar
+operator boundaries, including its explicit double product and binary32
+narrowing. The original library and existing adapter keep their options; no
+algorithm is replaced. Review the original-stage/factory link binding and exact
+float-word evidence with compiler, source, target, linker, or instrumentation
+changes. See ADRs 0002 and 0003.
+
 The complete-file oracle compiles the original DecodeFile and ReadICC helper
 bodies without their unrelated test framework. At CMake configure time,
 `tools/oracle/extract_source.py` copies their exact pinned source ranges and
