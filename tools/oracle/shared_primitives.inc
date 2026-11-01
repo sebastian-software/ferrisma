@@ -48,19 +48,37 @@ void SSDecodeImage(const std::vector<uint8_t>& bytes, const JxlPixelFormat& form
   std::cout<<" D "<<int(status)<<' '<<info.xsize<<' '<<info.ysize<<' '<<info.bits_per_sample<<' '<<info.num_color_channels<<' '<<Hex(jxl::Bytes(pixels.data(),pixels.size()));
   JxlDecoderDestroy(decoder);
 }
-bool SSImageCommand(std::istringstream& in,JxlMemoryManager* mm) {
+bool SSImageCommand(std::istringstream& in,JxlMemoryManager* mm,bool alpha=false,bool planar=false) {
   size_t w,h;bool gray,has_aux;unsigned depth;std::string hex,supplied_hex;
   in>>w>>h>>gray>>depth>>has_aux>>hex>>supplied_hex;
   jxl::CodecMetadata metadata;if(!metadata.size.Set(w,h))throw std::runtime_error("image metadata");
   metadata.m.SetUintSamples(depth);metadata.m.xyb_encoded=false;
+  if(alpha)metadata.m.SetAlphaBits(depth,false);
   if(!metadata.m.color_encoding.SetSRGB(gray?jxl::ColorSpace::kGray:jxl::ColorSpace::kRGB,jxl::RenderingIntent::kRelative))throw std::runtime_error("image color");
   jxl::CompressParams p;p.cms={};p.debug_image_opaque=nullptr;p.speed_tier=jxl::SpeedTier::kThunder;p.level=10;p.buffering=0;p.SetLossless();if(!EFParamsPostInit(&p))throw std::runtime_error("image params");
-  auto data=Unhex(hex);jxl::JxlEncoderChunkedFrameAdapter input(w,h,0);
-  JxlPixelFormat format{gray?1u:3u,depth==8?JXL_TYPE_UINT8:JXL_TYPE_UINT16,JXL_NATIVE_ENDIAN,0};
+  auto data=Unhex(hex);jxl::JxlEncoderChunkedFrameAdapter input(w,h,alpha?1:0);
+  JxlPixelFormat format{(gray?1u:3u)+(alpha?1u:0u),depth==8?JXL_TYPE_UINT8:JXL_TYPE_UINT16,JXL_NATIVE_ENDIAN,0};
   jxl::AuxOut aux;AuxSeed(aux,7);auto* aux_ptr=has_aux?&aux:nullptr;
   std::vector<uint8_t> bytes;
   jxl::Status status=false;
-  if(input.SetFromBuffer(0,data.data(),data.size(),format)) {
+  // Fixture input layout only: both cases call the real original adapter and
+  // complete encoder. The planar case reaches opaque-fill then extra-copy.
+  std::vector<uint8_t> color,extra;
+  bool bound;
+  if(planar) {
+    size_t sample=depth/8, channels=format.num_channels;
+    for(size_t i=0;i<data.size();i+=channels*sample) {
+      color.insert(color.end(),data.begin()+i,data.begin()+i+(channels-1)*sample);
+      extra.insert(extra.end(),data.begin()+i+(channels-1)*sample,data.begin()+i+channels*sample);
+    }
+    auto color_format=format;--color_format.num_channels;
+    auto extra_format=format;extra_format.num_channels=1;
+    bound=input.SetFromBuffer(0,color.data(),color.size(),color_format) &&
+          input.SetFromBuffer(1,extra.data(),extra.size(),extra_format);
+  } else {
+    bound=input.SetFromBuffer(0,data.data(),data.size(),format);
+  }
+  if(bound) {
     jxl::BitWriter writer(mm);
     status=jxl::WriteCodestreamHeaders(&metadata,&writer,aux_ptr);
     if(status)status=writer.WithMaxBits(8,jxl::LayerType::Header,aux_ptr,[&]{writer.ZeroPadToByte();return true;});
@@ -79,6 +97,8 @@ bool SharedPrimitivesCommand(const std::string& command,std::istringstream& in,J
   if(command=="ss-owners"){SSOwners(in,mm);return true;}
   if(command=="ss-acimage"){unsigned kind;in>>kind;if(kind==0)SSAcImage<int16_t>(in,mm);else SSAcImage<int32_t>(in,mm);return true;}
   if(command=="ss-image")return SSImageCommand(in,mm);
+  if(command=="ss-image-alpha")return SSImageCommand(in,mm,true);
+  if(command=="ss-image-alpha-planar")return SSImageCommand(in,mm,true,true);
   if(command=="ss-quant") {
     bool def,custom,clear;int dc,global;in>>def>>dc>>global>>custom>>clear;float first[3],second[3];for(float& v:first)v=EFReadFloat(in);for(float& v:second)v=EFReadFloat(in);
     jxl::DequantMatrices d;if(custom)d.SetDCQuant(first);
