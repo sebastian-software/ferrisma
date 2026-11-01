@@ -1,7 +1,8 @@
 # Separate Codec and Conversion Crates
 
 Status: the portable SharpYUV milestone is implemented and integrated. See
-[its validation evidence](SHARPYUV-VALIDATION.md). dav1d and libaom remain next.
+[its validation evidence](SHARPYUV-VALIDATION.md). The [dav1d port](DAV1D-PORT.md)
+is in progress; libaom follows it.
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
@@ -301,8 +302,8 @@ full-library completion claims remain blocked until the selected closure is
 explicitly implemented and tested.
 
 Detailed contracts for later optional libraries will be prepared before their
-implementation. The first phase is planned; no new codec/conversion crate has
-been implemented as part of this planning work.
+implementation. SharpYUV is implemented; the dav1d decoder's source and test
+inputs are pinned separately before translation and integration.
 
 ## Evidence for each milestone
 
