@@ -76,6 +76,8 @@ jobs:
           PY
           python3 tools/check_dav1d_dsp.py
           python3 tools/check_dav1d_dsp.py --debug
+          python3 tools/check_dav1d_faults.py
+          python3 tools/check_dav1d_faults.py --debug
       - name: Preserve generated source and reference configuration
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -93,3 +95,4 @@ jobs:
             build/dav1d-api-*/summary.json
             build/dav1d-dsp-*/inventory.json
             build/dav1d-dsp-*/results.log
+            build/dav1d-faults-*/summary.json

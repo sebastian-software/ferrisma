@@ -192,7 +192,8 @@ tests and Linux translation verification, record the evidence:
 python3 tools/record_dav1d_validation.py \
   --ci-run build/dav1d-ci-success.json \
   --ci-artifacts build/dav1d-ci-artifacts \
-  --translation-run build/dav1d-linux-verify-run.json
+  --translation-run build/dav1d-linux-verify-run.json \
+  --translation-artifacts build/dav1d-linux-verification-artifact
 ```
 
 This requires the local API sanitizer, downstream test inventories,

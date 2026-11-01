@@ -73,6 +73,18 @@ Rust decoder, and C caller instrumented by AddressSanitizer. The native compiler
 is LLVM 16 and both consumers link the matching Rust nightly ASan v8 runtime.
 This does not claim complete leak, race, or undefined-behavior-sanitizer coverage.
 
+The original conditional static fault fuzzer is also exercised through its
+unchanged `dav1d_fuzzer.c`, `main.c`, and `alloc_fail.c` bodies. Four original
+8/10/12-bit and film-grain payloads receive 512 reserved-header variants each,
+controlling the original input-derived fault seed. Each profile runs 2,048
+paired scenarios and requires observed calls and failures for malloc, aligned
+allocation, thread creation, condition initialization, and mutex initialization
+in both implementations. Local Debug, Release, and fully instrumented Release
+pass. The supplemental native Linux run is recorded separately. ADR 0034
+documents object rewriting, runtime isolation, and recovery of compiler-folded
+malloc/zeroing operations for the original fault hook. These test adapters are
+absent from production builds.
+
 ## Downstream integration
 
 The original libavif adapter now links the `libavif-dav1d` workspace crate.
@@ -104,10 +116,8 @@ This is the complete selected scalar decoder configuration. Assembly and SIMD,
 other platforms, a safe Rust API, optimization, and registry publication remain
 separate work. The optional external Argon conformance corpus was not downloaded.
 Archived fuzz regressions and bounded original tests do not establish continuous
-fuzz, complete leak, race, or undefined-behavior sanitizer coverage. The static
-reference's conditional internal allocation-failure fuzzer is not part of the
-selected shared reference build; supplemental public allocator failure scenarios
-cover the exercised callback ownership paths.
+fuzz, complete leak, race, or undefined-behavior sanitizer coverage. Fault-fuzzer
+sampling does not enumerate every failure position or possible thread schedule.
 
 Linux validation of this crate does not enable the root libavif package on Linux.
 libaom is the next planned default-pipeline crate. Optional libavif golden tests,
@@ -116,9 +126,12 @@ previous gaps.
 
 ## Current reproduction commands
 
-Install Meson 1.7.2 in an isolated environment if Meson is unavailable:
-The original checkasm framework also requires NASM on GNU Linux x86-64; this
+Install Meson 1.7.2 in an isolated environment if Meson is unavailable. The
+original checkasm framework also requires NASM on GNU Linux x86-64; this
 assembler builds test infrastructure while codec assembly remains disabled.
+The static fault-fuzzer bridge requires GNU objcopy on Linux or LLVM objcopy
+under `LIBAVIF_RS_LLVM_PREFIX` on macOS, using the task-local LLVM 16 prefix by
+default. Its AddressSanitizer mode currently targets macOS ARM64.
 
 ```sh
 python3 -m venv build/dav1d-tools
@@ -139,6 +152,9 @@ python3 tools/check_dav1d_linkage.py --debug
 python3 tools/check_dav1d_api.py
 python3 tools/check_dav1d_api.py --debug
 python3 tools/check_dav1d_api.py --asan
+python3 tools/check_dav1d_faults.py
+python3 tools/check_dav1d_faults.py --debug
+python3 tools/check_dav1d_faults.py --asan
 python3 tools/build.py port
 python3 tools/check_dav1d_linkage.py --root-library
 ```

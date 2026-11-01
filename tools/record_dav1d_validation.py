@@ -92,12 +92,37 @@ def linkage(path):
     return value | {'summary_sha256': digest(path)}
 
 
+def faults(path, sanitizer=None):
+    value = read(path)
+    if (value['paired_scenarios'] != 2048 or len(value['records']) != 2048
+            or value['header_variants'] != 512 or value['sanitizer'] != sanitizer
+            or value['caller_instrumented'] != bool(sanitizer) or value['unwrapped_decoder_objects']):
+        raise SystemExit(f'Incomplete original fault-fuzzer evidence: {path}')
+    expected = ['malloc', 'posix_memalign', 'pthread_create', 'pthread_cond_init', 'pthread_mutex_init']
+    if value['hooks'] != expected or value['observer_sha256'] != digest(ROOT / 'tools/dav1d-fault-runtime.c'):
+        raise SystemExit('Different fault hooks or observer source')
+    for name, sha in value['original_callers_sha256'].items():
+        if sha != digest(ROOT / 'upstream/dav1d/tests/libfuzzer' / name):
+            raise SystemExit('Original fault-fuzzer source differs')
+    for implementation in ['c', 'rust']:
+        for key in ['calls', 'failures']:
+            if len(value['totals'][implementation][key]) != 5 or any(count <= 0 for count in value['totals'][implementation][key]):
+                raise SystemExit('An original failure class was not exercised')
+    return {key: value[key] for key in ['profile', 'sanitizer', 'caller_instrumented', 'paired_scenarios',
+        'header_variants', 'hooks', 'totals', 'original_callers_sha256', 'observer_sha256',
+        'candidate_archive_sha256', 'rewritten_rust_codegen_objects', 'unwrapped_decoder_objects']} | {
+            'summary_sha256': digest(path), 'oracle': 'unchanged original fuzzer exit/crash behavior',
+            'hook_event_count_equality_required': False}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ci-run', type=Path, required=True)
     parser.add_argument('--ci-artifacts', type=Path, required=True)
     parser.add_argument('--translation-run', type=Path, required=True,
                         help='Completed Linux generation workflow in verify mode')
+    parser.add_argument('--translation-artifacts', type=Path, required=True,
+                        help='Downloaded native Linux generation artifact, including static fault-fuzzer reports')
     args = parser.parse_args()
     native_ci = successful_run(args.ci_run, 2)
     translation_ci = successful_run(args.translation_run, 1)
@@ -170,6 +195,12 @@ def main():
         'summary_sha256': digest(initial_path), 'performance_parity_claimed': False}
     record['public_api_asan'] = api(ROOT / 'build/dav1d-api-release-asan/summary.json', 83, 'address') | {
         'platform': 'macOS ARM64', 'c_compiler': 'LLVM 16.0.6', 'runtime': 'matching Rust nightly ASan v8'}
+    record['original_static_fault_fuzzer'] = {'local_macos_arm64': {
+        'release': faults(ROOT / 'build/dav1d-faults-release/summary.json'),
+        'debug': faults(ROOT / 'build/dav1d-faults-debug/summary.json'),
+        'asan': faults(ROOT / 'build/dav1d-faults-release-asan/summary.json', 'address')},
+        'native_linux_x86_64': {profile: faults(args.translation_artifacts / 'build' /
+                f'dav1d-faults-{profile}/summary.json') for profile in ['release', 'debug']}}
     differential = ROOT / 'build/differential/summary.json'
     scenarios = read(differential)
     if len(scenarios) != 10 or not all(row['png_byte_equal'] for row in scenarios):
