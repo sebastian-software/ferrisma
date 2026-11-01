@@ -101,6 +101,9 @@ mod tone_mapping;
 #[path = "parity/decode_frame.rs"]
 mod decode_frame;
 
+#[path = "parity/float_output.rs"]
+mod float_output;
+
 #[path = "parity/uint_output.rs"]
 mod uint_output;
 
@@ -731,6 +734,7 @@ fn observe(request: &str) -> String {
         kind if tone_mapping::handles(kind) => tone_mapping::observe(kind, &mut args),
         kind if decode_frame::handles(kind) => decode_frame::observe(kind, &mut args),
         kind if uint_output::handles(kind) => uint_output::observe(kind, &mut args),
+        kind if float_output::handles(kind) => float_output::observe(kind, &mut args),
         kind if whole_image::handles(kind) => whole_image::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),

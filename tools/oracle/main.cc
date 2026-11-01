@@ -477,6 +477,7 @@ bool DecoderStateCommand(const std::string& command,std::istringstream& in,JxlMe
 bool CmsStageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool ToneMappingCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool DecodeFrameCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+bool FloatOutputCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool UintOutputCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool WholeImageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
@@ -537,6 +538,7 @@ int main() {
       else if (ToneMappingCommand(command, in, &mm)) {}
       else if (DecodeFrameCommand(command, in, &mm)) {}
       else if (UintOutputCommand(command, in, &mm)) {}
+      else if (FloatOutputCommand(command, in, &mm)) {}
       else if (WholeImageCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
