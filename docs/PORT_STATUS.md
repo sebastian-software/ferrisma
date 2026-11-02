@@ -1352,3 +1352,11 @@ traversal observers use hash-checked bodies in isolated test namespaces, so they
 do not replace the complete original decoder's archive object. Full native
 ARM64 ordinary and ASan/UBSan checks run 418 tests, 241 differential groups and
 858,552 requests in each Debug, Release and Rust 1.85 configuration.
+
+Native x86_64 Linux CI identified differing original ordinary/ASan competing-NaN
+payloads in the isolated DequantLane observer. ADR 0002 records its scoped
+numerical configuration and required finite-baseline audit. A native x86 capture
+regression complements the ARM-only capture, making the completed slice's native
+Linux count 418 tests with the same 241 groups and 858,552 differential requests.
+The earlier failed runs remain visible; replacement native CI must pass before
+integration.

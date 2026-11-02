@@ -41,3 +41,32 @@ fn quant_bias_zero_and_one_keep_original_select_and_sign_xor() {
         );
     }
 }
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn dequant_x_correlation_retains_captured_native_x86_nan_operand() {
+    use jxl::jxl::dct_util::ConstAcPtr;
+    use jxl::jxl::dec_group_render::dequant_lane;
+    // Independent original Linux capture, PR #13 run 41410474499, lane 7.
+    // Ordinary and fully instrumented original observers agree on these words.
+    let matrices = [
+        [f32::from_bits(0x7fa12345)],
+        [f32::from_bits(0xffa98765)],
+        [0.0],
+    ];
+    let quantized = [[32767i16], [-32768], [0]];
+    let biases = [1064436340, 1064177896, 1064515444, 1041529569].map(f32::from_bits);
+    let mut block = [0.0; 3];
+    dequant_lane(
+        [0.125 * 0.8, 0.125, 0.125 * 1.25],
+        matrices.each_ref().map(|v| &v[..]),
+        1,
+        0,
+        -0.125,
+        0.375,
+        &biases,
+        &quantized.each_ref().map(|v| ConstAcPtr::I16(v)),
+        &mut block,
+    );
+    assert_eq!(block.map(f32::to_bits), [0xffe98765; 3]);
+}

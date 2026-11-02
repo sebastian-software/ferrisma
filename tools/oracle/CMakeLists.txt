@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(libjxl_rust_oracle LANGUAGES C CXX)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # The Rust palette sort follows the recorded libc++ specialization. Select
 # that same standard library explicitly on Linux instead of silently using
@@ -77,6 +78,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Match the original GetBlock class hierarchy in this traversal observer.
   set_source_files_properties(group_render.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(group_schedule.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    # Native x86 ordinary/ASan objects choose different competing NaN payloads
+    # in the B correlation sum. Retain pristine scalar operator boundaries in
+    # this isolated observer; original decoder objects and sanitizers stay intact.
+    set_source_files_properties(dequant.cc PROPERTIES COMPILE_OPTIONS -O0)
+  endif()
   # Pristine scalar compressed_dc.cc supplies the actual public DC symbols.
   # Keep its operand order reproducible with every sanitizer still active;
   # neither the original archive nor any earlier adapter changes flags.

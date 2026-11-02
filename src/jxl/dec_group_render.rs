@@ -27,11 +27,12 @@ fn coefficient(block: &ConstAcPtr<'_>, k: usize) -> i32 {
     }
 }
 
-// The selected original AArch64 lane adds the X residual first. Keep the
-// scalar operand order at this arithmetic boundary, including competing NaNs.
+// Keep the selected original scalar addition's destination operand first.
+// AArch64 uses the X residual; x86_64 uses the CfL prediction for both sums.
+// The out-of-line boundary also preserves competing NaN payload selection.
 #[inline(never)]
-fn add_x_residual(residual: f32, prediction: f32) -> f32 {
-    residual + prediction
+fn add_dequant(first: f32, second: f32) -> f32 {
+    first + second
 }
 
 /// One scalar Highway lane; the three matrix views borrow the same owner.
@@ -56,8 +57,14 @@ pub fn dequant_lane(
     let dequant_x_cc = adjust_quant_bias(0, quantized_x_int, biases) * x_mul;
     let dequant_y = adjust_quant_bias(1, quantized_y_int, biases) * y_mul;
     let dequant_b_cc = adjust_quant_bias(2, quantized_b_int, biases) * b_mul;
+    #[cfg(target_arch = "x86_64")]
     let (dequant_x, dequant_b) = (
-        add_x_residual(dequant_x_cc, x_cc_mul * dequant_y),
+        add_dequant(x_cc_mul * dequant_y, dequant_x_cc),
+        add_dequant(b_cc_mul * dequant_y, dequant_b_cc),
+    );
+    #[cfg(not(target_arch = "x86_64"))]
+    let (dequant_x, dequant_b) = (
+        add_dequant(dequant_x_cc, x_cc_mul * dequant_y),
         b_cc_mul * dequant_y + dequant_b_cc,
     );
     block[k] = dequant_x;
