@@ -207,7 +207,7 @@ cases per profile, including `VmafPreprocessing`. Eight compound subjects pass
 intermediate-buffer, and final-pixel assertions. Only six 2D and ten compound
 reference sites change in the disposable compilation copies. Original
 small-block early returns in the VMAF cases remain unchanged. Both macOS
-profiles pass; native GNU Linux execution is pending. Together with the
+profiles and both native GNU Linux profiles pass. Together with the
 horizontal, vertical, copy, and IntraBC cases, this establishes independent
 references for 22 Rust subjects across 912 original convolution cases per
 profile. Other DSP roles remain open. See
