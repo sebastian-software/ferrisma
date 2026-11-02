@@ -87,7 +87,7 @@ def redirect_dependencies(original, command, directory, obj):
     return changes
 
 
-def candidate(root, build, directory, options, bindings):
+def candidate(root, build, directory, optimization, options, bindings):
     entries = json.loads((build / 'compile_commands.json').read_text())
     entry, = [item for item in entries if Path(item['file']).name == 'skcms.cc']
     expected_source = (root / 'upstream/libjxl/third_party/skcms/skcms.cc').resolve()
@@ -98,6 +98,9 @@ def candidate(root, build, directory, options, bindings):
         command_source = Path(entry['directory']) / command_source
     assert command_source.resolve() == expected_source
     command = list(original)
+    assert [arg for arg in original if arg.startswith('-O')] == ['-O3']
+    assert optimization in ('-O3', '-O0')
+    command[original.index('-O3')] = optimization
     original_object = Path(command[command.index('-o') + 1])
     if not original_object.is_absolute():
         original_object = Path(entry['directory']) / original_object
@@ -135,7 +138,7 @@ def candidate(root, build, directory, options, bindings):
     bound = bindings(mapping.read_text(), binary)
     with gzip.open(directory / 'source-object.asm.gz', 'wb') as assembly:
         assembly.write(subprocess.check_output(['objdump', '-d', '-C', str(obj)]))
-    return binary, {'numeric_options': options, 'dependency_output_changes': dependency_changes,
+    return binary, {'numeric_options': [optimization, *options], 'dependency_output_changes': dependency_changes,
                     'command_changes': command_changes, 'original_command': original,
                     'candidate_command': command, 'link': link, 'bindings': bound,
                     'original_archive_members': old_members, 'candidate_archive_members': new_members,
@@ -216,15 +219,18 @@ def main():
     report['full_baseline_source_differences'] = differences(
         full_requests, full_baseline_rows['oracle'], full_baseline_rows['oracle-asan'],
         output / 'full-baseline-differences.json.gz')
-    # Diagnose the least disruptive candidate first. Do not activate it even
-    # when both source graphs agree; source configuration selection needs review.
-    for name, options in [('o3-strict', ['-ffp-model=strict'])]:
+    # Reproduce the rejected O3/strict control, then diagnose the two distinct
+    # O0 candidates. Never select or activate a reference configuration here.
+    for name, optimization, options in [
+            ('o3-strict', '-O3', ['-ffp-model=strict']),
+            ('o0-strict', '-O0', ['-ffp-model=strict']),
+            ('o0-plain', '-O0', [])]:
         rows, full_rows = {}, {}
         item = {'graphs': {}}
         for graph in ['oracle', 'oracle-asan']:
             directory = output / name / graph
             directory.mkdir(parents=True)
-            binary, proof = candidate(root, root / 'target' / graph, directory, options, bindings)
+            binary, proof = candidate(root, root / 'target' / graph, directory, optimization, options, bindings)
             rows[graph] = observe(binary, payload, directory / 'observations.txt')
             proof['baseline_word_changes'] = differences(requests, baseline_rows[graph], rows[graph], directory / 'baseline-changes.json.gz')
             proof['observations_sha256'] = sha(directory / 'observations.txt')
