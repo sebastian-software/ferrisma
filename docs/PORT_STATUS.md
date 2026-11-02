@@ -1670,3 +1670,29 @@ captures and every positive diagnostic; no source routine, sanitizer, or old
 expected word changes. The original undefined stores receive no Rust output
 semantics. A separate sixth source-only group requires these exact diagnostics
 from the instrumented graph.
+
+## skcms transfer functions and matrices
+
+The pinned skcms dependency now has translated public transfer-function
+classification, five predicates, constructors (including the original inline
+HLGish shim), evaluation and inversion. The reached log2/exp2/power helpers keep
+the source approximations and constants. Matrix support covers concatenation,
+full double-temporary inversion, Bradford adaptation to XYZ D50 and primary
+chromaticities to XYZ D50. Both inversion paths support actual input/output
+aliasing and retain destination state at source failure checkpoints.
+
+Eleven defined differential groups cover 206,712 exact requests: 119,268 transfer
+calls and 87,444 matrix calls. All six focused ordinary/ASan/UBSan Debug, Release
+and Rust 1.85 configurations pass on native ARM with zero failed or ignored
+tests. The initial 71,226 matrix requests remain encoded exactly; extra controls
+include paired exceptional entries and the original sRGB/standard-primary cases.
+All 362 positively undefined original transfer calls remain in a separate source
+census and are never assigned invented Rust outputs. The independent source
+binding audit verifies all 16 actual archive functions, every retained matrix
+request and all 362 positive original-only boundaries. Both complete local
+checks pass in Debug, Release and Rust 1.85: each configuration runs 542 tests,
+330 differential groups and 1,239,491 exact defined comparisons, with zero
+failures or ignored tests. Native Linux/macOS CI remains an acceptance gate.
+ICC parsing, nonlinear curve fitting, pixel transformation and complete default
+JXL CMS integration are still open; the README color-profile milestone remains
+unchecked.

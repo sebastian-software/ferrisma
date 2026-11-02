@@ -593,3 +593,23 @@ decode-error requests remain paired comparisons; aligned positive controls add
 every fixture/channel/unpremultiplication combination. Existing integer16 byte
 stores and float32 memcpy stores retain their odd-stride comparisons unchanged.
 No undefined source output is used as a Rust expected word.
+
+The skcms transfer/matrix boundary derives from dependency revision
+`96d9171c94b937a1b5f0293de7309ac16311b722`, as pinned by libjxl. Its original
+BSD notice is retained verbatim in `licenses/SKCMS-BSD-3-Clause.txt` and checked
+against the pristine dependency. `src/skcms/transfer_function.rs` translates the
+public transfer operations and reached bespoke math helpers in skcms.cc and
+src/skcms_internals.h; `matrix.rs` translates skcms.cc:1810-1980, with the public
+matrix carriers in `types.rs`.
+
+The transfer classification and exceptional-domain fixtures contain input float
+words, not Rust-derived expected values. The complete exceptional census retains
+8,262 defined calls and all 362 positively diagnosed original float-to-integer
+boundaries. The matrix binary fixture losslessly encodes all 71,226 original
+preflight requests as command/flag bytes and little-endian float words. Its
+manifest retains the original textual request hash, allowing an independent
+round-trip inventory check without substituting expected results. Standard
+primary controls derive from skcms tests.c:1366-1414 and the JXL color-encoding
+constants. Paired exceptional entries supplement, rather than replace, the
+initial corpus. Source arithmetic, optimizer flags, sanitizer options and all
+four upstream pins remain unchanged.

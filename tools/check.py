@@ -56,6 +56,8 @@ def check_source():
             raise SystemExit(f"{name} differs from the pinned upstream notice")
     if (ROOT / "licenses/HIGHWAY-BSD-3-Clause.txt").read_bytes() != (highway / "LICENSE-BSD3").read_bytes():
         raise SystemExit("The translated Highway helper's notice differs from upstream")
+    if (ROOT / "licenses/SKCMS-BSD-3-Clause.txt").read_bytes() != (skcms / "LICENSE").read_bytes():
+        raise SystemExit("The translated skcms notice differs from upstream")
     sort_reference = ROOT / "tools/reference/libcxx"
     sort_pin = json.loads((sort_reference / "source.json").read_text())
     for name, expected in sort_pin["files"].items():

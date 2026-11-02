@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, feat/decoder-extra-channels]
+    branches: [main, feat/decoder-cms]
   pull_request:
 
 permissions:
@@ -50,6 +50,7 @@ jobs:
           python3 tools/epf_reference.py
           python3 tools/noise_reference.py
           python3 tools/alpha_reference.py
+          python3 tools/skcms_reference.py --output target/skcms-acceptance
       - name: Audit complete chroma images and retained frame lifecycles
         if: always()
         run: |
@@ -67,6 +68,7 @@ jobs:
             !target/chroma-acceptance/**/*.o
             target/chroma-image-acceptance
             target/lifecycle-acceptance
+            target/skcms-acceptance
           if-no-files-found: error
       - name: Audit complete extra-channel source bindings and stride boundaries
         if: always()

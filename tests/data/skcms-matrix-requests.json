@@ -1,0 +1,15 @@
+{
+  "source_revision": "96d9171c94b937a1b5f0293de7309ac16311b722",
+  "fixture_sha256": "288c29d3454a8c72149bf96fae3622a0c06fea4886eb6f8cbc51cb51df5d5f7e",
+  "requests": 71226,
+  "request_kinds": {
+    "skcms-concat": 24324,
+    "skcms-invert": 24324,
+    "skcms-adapt": 10290,
+    "skcms-primaries": 12288
+  },
+  "original_request_text_sha256": "096e28b3b24cf7fb822b8402222627512254cc5648974e8f3203be45d868f14a",
+  "layout": "Each record: command u8 (0 concat,1 invert,2 adapt,3 primaries), flag u8, followed by 18/18/11/17 little-endian u32 float words. No expected outputs are stored. All first preflight inputs, including four failing NaN-sign cases, are retained exactly.",
+  "origin": "Data-only deterministic preflight corpus; actual original public functions provide every expected observation at test time.",
+  "defined_original_graphs": "All 71,226 requests return cleanly and byte-identically with unchanged ordinary and nonrecovering ASan/UBSan original CMS archives."
+}

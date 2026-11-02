@@ -123,3 +123,20 @@ ones keep exact parity, and 888 aligned Float16 controls are added. The separate
 `tools/extra_half_boundaries.py` audit records every ordinary observation and
 requires each actual nonrecovering UBSan diagnostic. The C++ source and existing
 integer16/float32 odd-stride requests remain unchanged.
+
+## skcms transfer and matrix input inventories
+
+`skcms-transfer-classification.requests` retains the original 16,000
+classification/inversion inputs. `skcms-transfer-exceptional.tsv` retains all
+8,624 exceptional-parameter calls, marked D (8,262 defined) or U (362 positively
+diagnosed original float-to-integer boundaries). Its manifest records source
+pins and census provenance. Expected outputs are always obtained independently
+from the actual pinned public functions.
+
+`skcms-matrix-requests.bin` retains all 71,226 initial matrix requests without
+changing any float word, alias flag or destination sentinel. Each record stores
+a command byte (0 concat, 1 invert, 2 adapt, 3 primaries), a flag byte, and
+18/18/11/17 little-endian u32 float words. The adjacent JSON manifest records
+both the binary hash and the exact original textual request hash. The source
+audit decodes and checks that inventory independently. The fixture contains no
+expected outputs; the original CMS archive remains the numerical oracle.

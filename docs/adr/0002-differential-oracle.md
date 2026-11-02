@@ -450,3 +450,30 @@ byte-order memcpy stores, so their odd-stride requests remain defined and
 unchanged. No sanitizer flag or source algorithm is altered.
 
 Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
+
+The skcms transfer/matrix boundary calls unchanged public functions from the
+original CMS archive. The observer contains only raw-word protocol and public
+API calls, including actual same-pointer inversion and null matrix destinations.
+The deprecated HLGish inline shim is retained from the original public header;
+its reached scaled constructor binds to the archive. An independent map checks
+all 16 external entry points against the actual skcms.cc object. Both optimized
+original graphs keep their original numerical options and full nonrecovering
+instrumentation; temporary map links do not replace active objects or binaries.
+
+Transfer coverage retains the initial 86,696 defined requests and adds 8,262
+defined exceptional-parameter cases and 24,310 actual in-place inversions. The
+complete original exceptional census retains all 8,624 requests: 362 positively
+reach the NaN-to-int32 conversion in skcms_internals.h:149 and have no defined
+Rust result. Every original-only request is recorded individually in both
+source graphs; no parameter-word class is silently dropped or normalized.
+
+Matrix coverage retains every one of the initial 71,226 source requests,
+including the four initially failing infinity/NaN-sign observations. Its binary
+fixture encodes input words only, with the original text hash in its manifest.
+Another 16,200 paired exceptional-entry inversions and 18 standard-primary/null
+output calls remain exact comparisons. Expected results always come from the
+actual original functions. Source assembly records the original ARM contraction
+and pre-negation checkpoints; Rust preserves those checkpoints explicitly.
+Native Linux/macOS validation remains required before accepting this boundary.
+ICC parsing, nonlinear curve fitting, pixel transformation, JXL default CMS and
+complete-image profile admission remain separate source closures.
