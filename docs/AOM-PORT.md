@@ -131,8 +131,8 @@ Supplemental comparisons in each profile preserve exact output:
 
 Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
-execution, header-inline and scalar DSP test correspondence, additional
-allocation/thread failure scenarios, broader sanitizer coverage, Linux profiles, and
+execution, remaining header-inline and scalar DSP test correspondence, additional
+allocation/thread failure scenarios, broader sanitizer coverage, and
 root integration remain open.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
@@ -238,7 +238,7 @@ scalar subjects. All 24 enabled supplementary cases pass in Debug and Release;
 the twelve added speed registrations remain disabled. Native angle, upsampling,
 and timer helpers retain their original bindings. The original 18,729
 registrations remain unchanged and in order; these additions receive no
-original-suite execution credit. Native Linux execution remains pending. See
+original-suite execution credit. See
 [`aom-directional-prediction-validation.json`](aom-directional-prediction-validation.json).
 
 Two more SIMD-only test classes now have separate scalar registrations.
@@ -249,8 +249,18 @@ Cubic rate-distortion interpolation reuses the original 10,000 random
 iterations and exact equality assertions in one supplementary case. Both
 profiles pass; the 172 added speed registrations remain disabled. Original
 test bodies, input generation, and all 18,729 original registrations remain
-unchanged. Native Linux execution remains pending. See
+unchanged. See
 [`aom-scalar-rounding-model-validation.json`](aom-scalar-rounding-model-validation.json).
+
+These five supplementary scalar matrices also pass natively on GNU Linux
+x86-64 in both profiles: 28 k-means cases, one neural-network case, 24
+directional-prediction cases, 171 array-rounding cases, and one cubic-model
+case. Their 225 cases per profile retain the original assertions and numerical
+thresholds and receive no original-suite execution credit. All 336 production
+Rust units in that artifact match the committed manifests. This scoped run
+compiles the existing source; it does not rerun translation or the complete
+original suites. See
+[`aom-supplementary-linux-validation.json`](aom-supplementary-linux-validation.json).
 
 ## Execution and acceptance
 

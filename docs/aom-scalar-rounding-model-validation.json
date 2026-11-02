@@ -1,5 +1,5 @@
 {
-  "status": "supplementary scalar array rounding and cubic interpolation passed in both macOS profiles; native Linux execution pending",
+  "status": "supplementary scalar array rounding and cubic interpolation passed in both macOS profiles; native GNU Linux execution also passed in both profiles",
   "target": "aarch64-apple-darwin",
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "oracle_runner_sha256": "788bd8fc319dd80bee18d49bc3e32d567588a393bf1a8d9d58a87f2dfe07f9f5",
@@ -2621,5 +2621,7 @@
         ]
       }
     }
-  }
+  },
+  "native_linux_validation": "docs/aom-supplementary-linux-validation.json",
+  "native_linux_execution_run": 41491742092
 }
