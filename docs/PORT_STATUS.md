@@ -1425,3 +1425,22 @@ default optimized compilation; no new numeric compiler option or sanitizer
 suppression is introduced. Ownership and source-defined input limits are recorded
 in ADR 0003. Complete-file feature admission and cross-feature image evidence
 remain a separate integration gate, so the README spline checkbox stays open.
+
+## Scalar EPF filtering
+
+The complete scalar EPF stage boundary adds six differential groups and 7,092
+exact original requests: 12 factory observations, 144 original simple-pipeline
+sequences, 3,672 mixed/exceptional rows, 1,728 active finite rows, 288 signed-zero,
+subnormal and cancellation rows, and 1,248 independently varied filter-parameter
+rows. Two native regressions retain independently captured original finite pixels,
+live shared sigma updates, competing NaN payloads, and unquieted skipped pixels.
+
+The selected ordinary and fully ASan/UBSan original graphs agree on all 6,936
+row observations. The durable `tools/epf_reference.py` audit additionally requires
+all 4,152 finite-arithmetic rows to match both untouched default optimized archive
+objects and verifies real factory bindings. The new isolated pristine stage
+observation unit alone uses scoped `-O0`; ADRs 0002 and 0003 record the demonstrated
+original compiler-dependent NaN operand ambiguity and ownership mapping. No old
+cases, expected words, source pins, sanitizer flags, or original archive options
+change. Complete-file EPF admission and image evidence are a separate integration
+milestone, so the README's EPF checkbox remains open here.
