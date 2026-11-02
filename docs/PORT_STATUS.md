@@ -1757,3 +1757,74 @@ investigation, including newly exposed competing-NaN cases; its corrected
 prerequisite and expanded native gates must be accepted before this combined
 boundary. This leaf does not complete pixel transformation, default JXL CMS
 integration or whole-image color/HDR admission.
+### skcms ICC parser and directly reached curves
+
+The complete parser boundary translates profile/tag/curve carriers, public ICC
+parsing with A2B/B2A priorities, all reached curv/para/MFT1/MFT2/mAB/mBA readers,
+CICP, XYZ/CHAD/white-point getters, input-channel checks, built-in profiles and
+inline setters. Scalar curve evaluation, linear-prefix fitting and identity
+canonicalization preserve borrowed tables and partial output writes. This is a
+parser dependency for general color management; it does not complete nonlinear
+curve fitting, profile transforms, default JXL CMS orchestration or the public
+incremental decoder.
+
+Initial ordinary comparisons cover every one of the 88 pinned original ICC
+profiles, 5,001 generated LUT/curve/channel combinations, every original public
+priority request, 184,467 malformed/truncated structures, 34,920 direct curve
+reader failures/null guards, and 20,400 evaluation/fitting/alias/identity cases.
+Additional source-layout, static, getter, zeroing and same-count large-table
+controls bring the corpus to 247,790 defined requests in ten groups. All six
+complete local configurations pass: Debug, Release and Rust 1.85 against ordinary
+and nonrecovering ASan/UBSan originals. Each passes 543 tests, 328 differential
+groups and 1,280,569 exact comparisons, with zero failures or ignored tests.
+The independent audit also passes both graphs, verifies 11 public and four
+private live code addresses and actual source-object ownership, and retains all
+247,790 prior request/observation pairs exactly. Twelve independent original
+captures and moved/mutated borrowed ICC ownership tests pass. Native Linux/macOS
+CI and current-main integration remain separate acceptance gates.
+
+Nine original-only large-count probes positively diagnose source arithmetic UB:
+canonicalization's signed `2*N` at skcms.cc:1245, evaluation's out-of-range
+float-to-int at line 308, and 16-bit table evaluation's signed `2*lo` at line 318.
+Every exact request and diagnostic remains present; 74 defined controls use the
+same counts with reached index zero or the original canonicalization guard.
+They are paired comparisons, without a blanket exclusion of large tables.
+
+
+### skcms baseline pixel transform candidate
+
+The candidate completes the pinned baseline skcms pixel-transform and
+destination-usability source closure: all original formats and 79 stages,
+N=4 NEON/SSE arithmetic/load-store paths, tables/CLUTs, profile preparation,
+reference PQ/HLG CICP helpers and approximate-profile/TRC predicates. It unites
+the parser and fitting dependencies without changing their numeric algorithms.
+HSW/SKX targets and JXL default CMS/ColorSpaceTransform/pipeline integration
+remain separate work. Decoder checklist step 9 remains open until genuine
+complete ICC/HDR files pass exact pixels/statuses and native acceptance.
+
+All six local ordinary/nonrecovering ASan/UBSan configurations pass Debug,
+Release and Rust 1.85 with 591 tests, 363 parity groups and 1,650,305 exact
+observations per configuration. These retain all inherited requests, including
+45 skcms parity tests with 617,526 exact observations: 465,934 inherited
+transfer/fitting/parser requests and 151,592 transform requests. Ten standalone
+transform tests also pass, including 16 independently captured original
+observations. No tests are ignored or removed. All initial 11,448 transform
+requests and their original observations remain retained unchanged.
+
+The four independent source audits also pass: 206,712 transfer/matrix, 11,432
+fitting, 247,790 parser and 151,592 transform requests. They preserve both
+complete ordinary/instrumented observations and require actual archive/private
+bindings and source configurations. The transform audit additionally verifies
+all 42 formats, three alpha formats, 79 stages and actual baseline-object
+disassembly.
+
+Signed source channel counts retain the original post-decrement checkpoint and
+u32-to-int call conversions. Negative counts except INT_MIN read no curve;
+eight high-bit raw A2B/B2A controls remain valid at zero pixels without reading
+unknown grids. Three source-only INT_MIN cases positively diagnose the original
+signed decrement at skcms.cc:2536, alongside the existing 362 transfer and nine
+parser diagnostics. This does not exclude other high-bit channel words.
+
+Native Linux/macOS acceptance and current-main integration remain required.
+The inherited native x86 numeric/source-context discrepancy remains an explicit
+open gate; this candidate does not select diagnostic compiler flags to hide it.

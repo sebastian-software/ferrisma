@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, feat/decoder-skcms-fit]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -52,6 +52,8 @@ jobs:
           python3 tools/alpha_reference.py
           python3 tools/skcms_reference.py --output target/skcms-acceptance
           python3 tools/skcms_fitting_reference.py --output target/skcms-fitting-acceptance
+          python3 tools/skcms_parser_reference.py --output target/skcms-parser-acceptance
+          python3 tools/skcms_transform_reference.py --output target/skcms-transform-acceptance
       - name: Audit complete chroma images and retained frame lifecycles
         if: always()
         run: |
@@ -71,6 +73,8 @@ jobs:
             target/lifecycle-acceptance
             target/skcms-acceptance
             target/skcms-fitting-acceptance
+            target/skcms-parser-acceptance
+            target/skcms-transform-acceptance
           if-no-files-found: error
       - name: Audit complete extra-channel source bindings and stride boundaries
         if: always()

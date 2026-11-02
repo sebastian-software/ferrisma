@@ -142,44 +142,104 @@ fn marker(kind: TfType) -> f32 {
     -(kind as i32 as f32)
 }
 
-impl TransferFunction {
-    pub fn get_type(&self) -> TfType {
-        if self.g < 0.0 {
-            if self.g < -128.0 {
+/// Fieldwise original classifier. Only source-reached fields must be initialized.
+///
+/// # Safety
+/// Pointer has aligned function storage and every field reached by the original
+/// short circuit is initialized. This includes all words on the nonnegative path.
+pub(crate) unsafe fn classify_raw(tf: *const TransferFunction) -> TfType {
+    // SAFETY: raw field places are read only after the original short circuits;
+    // no reference or full value is formed from unknown inactive words.
+    unsafe {
+        if (*tf).g < 0.0 {
+            if (*tf).g < -128.0 {
                 return TfType::Invalid;
             }
-            let kind = -(self.g as i32);
-            if (-kind) as f32 != self.g {
+            let kind = -((*tf).g as i32);
+            if (-kind) as f32 != (*tf).g {
                 return TfType::Invalid;
             }
             return match kind {
                 2 => TfType::Pqish,
                 3 => TfType::Hlgish,
                 4 => TfType::HlgInvish,
-                5 if self.b == 0.0
-                    && self.c == 0.0
-                    && self.d == 0.0
-                    && self.e == 0.0
-                    && self.f == 0.0 =>
+                5 if (*tf).b == 0.0
+                    && (*tf).c == 0.0
+                    && (*tf).d == 0.0
+                    && (*tf).e == 0.0
+                    && (*tf).f == 0.0 =>
                 {
                     TfType::Pq
                 }
-                6 if self.d == 0.0 && self.e == 0.0 && self.f == 0.0 => TfType::Hlg,
+                6 if (*tf).d == 0.0 && (*tf).e == 0.0 && (*tf).f == 0.0 => TfType::Hlg,
                 _ => TfType::Invalid,
             };
         }
-        if finite(self.a + self.b + self.c + self.d + self.e + self.f + self.g)
-            && self.a >= 0.0
-            && self.c >= 0.0
-            && self.d >= 0.0
-            && self.g >= 0.0
-            && madd(self.a, self.d, self.b) >= 0.0
+        if finite((*tf).a + (*tf).b + (*tf).c + (*tf).d + (*tf).e + (*tf).f + (*tf).g)
+            && (*tf).a >= 0.0
+            && (*tf).c >= 0.0
+            && (*tf).d >= 0.0
+            && (*tf).g >= 0.0
+            && madd((*tf).a, (*tf).d, (*tf).b) >= 0.0
         {
             TfType::Srgbish
         } else {
             TfType::Invalid
         }
     }
+}
+
+/// Original inversion for a possibly partial source and initialized local output.
+///
+/// # Safety
+/// Source initializes exactly the fields reached by original classification and
+/// inversion. The initialized destination is disjoint from source storage;
+/// callers use a local destination before any external output assignment.
+pub(crate) unsafe fn invert_raw(
+    source: *const TransferFunction,
+    destination: &mut TransferFunction,
+) -> bool {
+    // SAFETY: original immediate-invalid / unsupported paths read only their
+    // classifier fields. Every remaining inversion reaches all seven words.
+    unsafe {
+        let kind = classify_raw(source);
+        if matches!(kind, TfType::Invalid | TfType::Pq | TfType::Hlg) {
+            return false;
+        }
+        let value = source.read();
+        value.invert_classified(kind, destination)
+    }
+}
+
+/// Original scalar evaluator with lazy classifier/source-field requirements.
+///
+/// # Safety
+/// Source initializes every field reached by original classification/evaluation.
+/// Immediate-invalid markers may leave a..f unknown. Built-in PQ/HLG markers
+/// require only classifier-tested fields; their standard formulas ignore other
+/// function parameters. Reached scalar math retains its source preconditions.
+pub(crate) unsafe fn eval_raw(source: *const TransferFunction, mut x: f32) -> f32 {
+    let sign = if x < 0.0 { -1.0 } else { 1.0 };
+    x *= sign;
+    // SAFETY: preserve source input arithmetic before the lazy classifier.
+    // Only branches that actually reach all seven fields materialize a value.
+    unsafe {
+        let kind = classify_raw(source);
+        match kind {
+            TfType::Invalid => 0.0,
+            TfType::Pq | TfType::Hlg => TransferFunction::default().eval_classified(kind, x, sign),
+            _ => source.read().eval_classified(kind, x, sign),
+        }
+    }
+}
+
+impl TransferFunction {
+    pub fn get_type(&self) -> TfType {
+        // SAFETY: a safe function value initializes all seven fields, which
+        // covers every possible original classifier path.
+        unsafe { classify_raw(self) }
+    }
+
     pub fn is_srgbish(&self) -> bool {
         self.get_type() == TfType::Srgbish
     }
@@ -246,11 +306,14 @@ impl TransferFunction {
         };
     }
 
-    #[expect(clippy::excessive_precision, reason = "Preserve original HLG literal.")]
     pub fn eval(&self, mut x: f32) -> f32 {
         let sign = if x < 0.0 { -1.0 } else { 1.0 };
         x *= sign;
-        match self.get_type() {
+        self.eval_classified(self.get_type(), x, sign)
+    }
+    #[expect(clippy::excessive_precision, reason = "Preserve original HLG literal.")]
+    fn eval_classified(&self, kind: TfType, mut x: f32, sign: f32) -> f32 {
+        match kind {
             TfType::Invalid => 0.0,
             TfType::Hlg => {
                 sign * if x <= 0.5 {
@@ -301,7 +364,10 @@ impl TransferFunction {
     }
 
     pub fn invert_into(&self, dst: &mut Self) -> bool {
-        match self.get_type() {
+        self.invert_classified(self.get_type(), dst)
+    }
+    fn invert_classified(&self, kind: TfType, dst: &mut Self) -> bool {
+        match kind {
             TfType::Invalid | TfType::Pq | TfType::Hlg => return false,
             TfType::Pqish => {
                 *dst = Self {

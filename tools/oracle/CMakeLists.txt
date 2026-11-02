@@ -85,7 +85,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle skcms_fitting.cc skcms_matrix.cc skcms_transfer.cc extra_channels.cc spot_color.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle skcms_transform.cc skcms_parser.cc skcms_fitting.cc skcms_matrix.cc skcms_transfer.cc extra_channels.cc spot_color.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
@@ -166,3 +166,15 @@ endif()
 
 # Public skcms headers; algorithms remain in the original CMS archive.
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}/third_party/skcms")
+# Private source operations live in a separate executable. Its compile command
+# is copied byte-for-byte from the actual untouched skcms.cc build except for
+# the input TU and output object paths; public archive bindings stay independent.
+add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/skcms_parser_private"
+  COMMAND "${Python3_EXECUTABLE}" "${PORT_ROOT}/tools/skcms_parser_reference.py"
+          --build-private "${CMAKE_CURRENT_BINARY_DIR}"
+  DEPENDS jxl_cms "$<TARGET_FILE:jxl_cms>" skcms_parser_private.cc skcms_parser.cc
+          "${PORT_ROOT}/tools/skcms_parser_reference.py"
+  VERBATIM)
+add_custom_target(skcms_parser_private_observer
+  DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/skcms_parser_private")
+add_dependencies(jxl_oracle skcms_parser_private_observer)

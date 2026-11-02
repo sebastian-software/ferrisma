@@ -43,11 +43,11 @@ fn subtract_product(a: f32, b: f32, c: f32) -> f32 {
 /// Original maximum sampled round-trip error, including source NaN selection.
 ///
 /// # Safety
-/// Curve count/selected branch and inverse TF must be initialized; borrowed
+/// Curve count/selected branch and reached inverse TF fields are initialized; borrowed
 /// tables must remain readable for every reached sample. eval_curve/TF math
 /// must satisfy the source's index, bounds and float-to-integer preconditions.
 pub unsafe fn max_roundtrip_error(curve: *const Curve, inv_tf: *const Tf) -> f32 {
-    // SAFETY: the source union prefix and complete inverse are initialized.
+    // SAFETY: the source union count is the initialized common prefix.
     let entries = unsafe { curve.cast::<u32>().read() };
     let n = if entries > 256 { entries } else { 256 };
     let dx = 1.0 / (n - 1) as f32;
@@ -57,7 +57,10 @@ pub unsafe fn max_roundtrip_error(curve: *const Curve, inv_tf: *const Tf) -> f32
         // SAFETY: the caller establishes all reached source sampling reads.
         let y = unsafe { eval_curve(curve, x) };
         // SAFETY: shared inverse storage remains valid through this call.
-        error = max(error, fabs(x - unsafe { (&*inv_tf).eval(y) }));
+        error = max(
+            error,
+            fabs(x - unsafe { super::transfer_function::eval_raw(inv_tf, y) }),
+        );
     }
     error
 }
@@ -164,11 +167,15 @@ pub unsafe fn gauss_newton_step(
 }
 
 /// # Safety
-/// The curve sampling contract and a fully initialized inverse TF apply.
+/// The curve sampling contract applies if inversion succeeds; only inverse TF
+/// fields reached by classification/inversion must be initialized.
 pub unsafe fn max_roundtrip_error_checked(curve: *const Curve, tf_inv: *const Tf) -> f32 {
     let mut tf = Tf::default();
-    // SAFETY: initialized TF remains readable throughout inversion.
-    if !unsafe { (&*tf_inv).invert_into(&mut tf) } || tf.get_type() != TfType::Srgbish {
+    // SAFETY: reached classifier/inversion fields remain readable; local output
+    // is initialized and disjoint from the possibly partial external function.
+    if !unsafe { super::transfer_function::invert_raw(tf_inv, &mut tf) }
+        || tf.get_type() != TfType::Srgbish
+    {
         return f32::INFINITY;
     }
     let mut again = Tf::default();

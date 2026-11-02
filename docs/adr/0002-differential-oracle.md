@@ -505,3 +505,75 @@ families. Curve-fitting and parser audits configure their own original private
 helpers independently. Adding another skcms family must not make an existing
 audit accidentally run that family's tests without its required observer, or
 change the retained requests and observations of the original audit.
+The skcms parser observer calls public functions from the untouched original
+CMS archive. Private curve helpers use a separate executable that includes the
+complete pristine skcms.cc. Its compile command is copied from that actual
+archive object's command, replacing only the input translation unit and output
+object paths. Compiler, target, optimization, numeric settings and nonrecovering
+sanitizers stay identical. Link maps must bind public parser/getter symbols to
+the archive, retain the private original bodies in the separate helper, and
+exclude a duplicate archive skcms.cc object from that helper. Every public
+request is also compared in the pristine helper's whole-Parse compilation
+context, because private arithmetic can inline differently inside the parser.
+
+Profile observations include initialized fields and retained non-pointer curve
+words on failures, borrowed pointer relationships, native ABI layout, getter
+boundary behavior, explicit profile zeroing, static pointer identity and setter
+self-aliases. Original ICC files remain in the corpus alongside generated tag,
+LUT, priority, malformed and truncation cases. Large-count source-only requests
+require the exact original-file/line arithmetic diagnostic before any payload
+bounds error. Their same-count defined controls remain exact comparisons.
+No source, sanitizer option, existing case or expected source word is relaxed.
+
+Parser source-binding verification cross-checks each actual executable nm code
+address against its expected live object and text range. Mach-O dead symbols and
+unwind FDE rows cannot establish a binding. GNU local helper addresses must lie
+inside the directly linked pristine-include object's actual text extent. Exact
+optimization and nonrecovering sanitizer tokens are checked in both graphs.
+
+
+### skcms baseline transform source closure
+
+The transform observer calls the actual archive Transform, destination-usability
+and approximate-profile/TRC APIs. A separate pristine skcms.cc include observes
+private selection, destination preparation and reference CICP helpers, and calls
+the original linked baseline::run_program for direct stages. Both contexts use
+the original O3/DNDEBUG commands and complete nonrecovering ASan/UBSan flags.
+The audit compares all public requests between both compilation contexts and
+retains ordinary/instrumented observations independently. It verifies live code
+addresses and archive/observer object ownership, exact private compile-command
+substitution, actual baseline-object disassembly and complete format/op names
+against the pinned headers.
+
+The 151,592 transform inputs supplement all inherited transfer, fitting and
+parser requests. They include all 42 formats, alpha combinations, zero/tail
+lengths, same-address and partial overlap, actual original ICC files, generated
+profiles, malformed guards, CICP priority and PQ/HLG parameters, profile mutation
+and failure states, direct stages/CLUT grids, all half words and integer rounding
+neighbors. Genuine uninitialized C++ and Rust contexts exercise source-defined
+g-only classification, per-op TF fields and dimension-prefix grid points.
+Whole inactive objects are never materialized merely to compare them.
+
+A profile's previous pointer words can overlap a later active parametric
+function. Observer pointer normalization applies separately to the old and new
+active branches before computing representation changes. It normalizes only
+address identity/borrowed offsets; it does not mask or canonicalize initialized
+post-call function words. Failure snapshots retain every initialized field and
+partially retained pointer state.
+
+The initial 11,448 preflight requests and 148 initial numeric failures remain
+regressions. Actual ARM assembly establishes rounded m1*g followed by the
+original m0*r and m2*b contractions, XR packing and Lab contraction checkpoints.
+Later exact agreement does not replace those requests or change source flags.
+Existing transfer/parser source-UB censuses remain independent and unchanged.
+Native Linux/macOS and complete JXL ICC/HDR files remain acceptance boundaries;
+a passing local baseline helper suite does not complete default CMS integration.
+
+The private curve selector retains signed int channel counts and its original
+post-decrement condition. Negative counts other than INT_MIN perform no curve
+or output access, including high-bit u32 A2B/B2A counts converted to int while
+preparing a zero-pixel program. Same-path defined controls retain unknown curve
+and CLUT payloads. Three direct/A2B/B2A INT_MIN requests require the actual
+nonrecovering source skcms.cc:2536 signed-decrement diagnostic; ordinary
+observations are retained without becoming Rust expected values. No broader
+high-bit count range is excluded. All earlier numeric requests remain paired.

@@ -1461,3 +1461,67 @@ adding caller-visible writes; admitted table fitting initializes every reached
 parameter before use. The original eight iterations and saved-best restoration
 remain unchanged. Existing scalar matrix and bespoke TF arithmetic supply the
 source numeric boundaries; fitting does not introduce a different optimizer.
+### Borrowed skcms profiles and active curve storage
+
+The pinned skcms profile representation remains one canonical `#[repr(C)]`
+profile/curve family. A curve's seven-word parametric function starts after its
+32-bit count; the count is not its gamma word. The table branch retains its
+native pointer alignment, padding and two borrowed byte pointers. Explicit
+`MaybeUninit` storage preserves initialized inactive bytes without manufacturing
+values for source-indeterminate bytes. Whole-curve copies transfer raw
+representation bytes and pointer provenance, without cloning table payloads.
+
+ICC parsing retains the original profile-wide memset, individual field writes,
+short-circuit tag reads and partial errors. Raw pointer operations carry an
+explicit initialized-branch, reached-bounds and external-lifetime contract.
+GetTagByIndex keeps the source's literal `idx > tag_count` guard; a physically
+backed `idx == tag_count` request remains observable. Successful parsing does not
+create an owner for ICC bytes, curve tables or color grids. Immutable built-in
+profiles receive a narrowly scoped static wrapper; arbitrary borrowed profiles
+and curves do not gain a general Send/Sync promise.
+
+Scalar curve evaluation and linear fitting retain original float checkpoints,
+output-pointer aliases and write order. Their safety contracts include the
+source's reached signed arithmetic and float-to-integer domain. Positive
+nonrecovering diagnostics classify individual undefined-source requests; they do
+not justify rejecting defined requests merely because their table counts match.
+
+
+### Baseline skcms stages and source-reached initialization
+
+PixelFormat and AlphaFormat use transparent i32 carriers with the original
+numeric named constants. This also represents unnamed, source-defined enum
+values at Release rejection/alpha paths without constructing an invalid Rust
+enum. The internal stage enum retains all 79 original names and numeric values.
+
+Transformation borrows canonical raw profiles, curves, tables and grids. Local
+matrices/functions and temporary profile copies remain live through program
+execution. Raw whole-object copies use MaybeUninit representation storage;
+external pointers never acquire ownership. The source's same-address, different
+width rejection, partial-overlap traversal, guards, error status and profile
+write/cleanup order remain observable. No reference spans a caller-visible
+mutating alias.
+
+The original classifier and selector short-circuit over raw fields. A count-zero
+curve with only g=-129 initialized is valid on its immediate-invalid path.
+Gamma stages read only g; PQ/HLG stages read a..f without reading g. CLUT stages
+read only grid_points[0..input_channels], while both original grid pointers are
+evaluated. Safe transfer methods delegate to the same raw classifier/evaluator
+boundary; their arithmetic bodies remain unchanged. Source memcmp paths still
+require every byte actually compared to be initialized.
+
+The baseline engine retains four lanes, native NEON/SSE arithmetic and the
+original zeroed 64-byte tail scratch schedule. Stable Rust 1.85 cannot promise
+Clang's musttail ABI. Stage dispatch therefore follows the original interpreter
+traversal while retaining the selected baseline operations and load/store
+branches. This is a language-required call-dispatch mapping, not a new scalar
+algorithm or a claim of equivalent call-stack/performance behavior. Native
+contraction checkpoints are validated against actual compiled original objects;
+source compiler options are not changed to obtain agreement.
+
+Curve selection keeps source control counts as i32, including the post-decrement
+before its comparison. A2B input and B2A output u32 channel words use the
+original native int conversion. Only a proven nonnegative, bounded source index
+becomes usize for Rust array/pointer access. A count's source-defined no-access
+path does not become an allocation-sized unsigned loop. INT_MIN's original
+signed-overflow boundary remains a separately diagnosed source precondition.

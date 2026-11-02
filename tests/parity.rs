@@ -5,6 +5,9 @@
 
 #![cfg(feature = "cpp-oracle")]
 
+#[path = "common/skcms_profile_observation.rs"]
+mod skcms_profile_observation;
+
 use jxl::jxl::base::status::{Status, StatusCode, status_code};
 use jxl::jxl::dec_bit_reader::BitReader;
 use jxl::jxl::enc_aux_out::{AuxOut, LayerType};
@@ -46,6 +49,10 @@ mod chroma_stages;
 mod extra_channels;
 #[path = "parity/icc_codec.rs"]
 mod icc_codec;
+#[path = "parity/skcms_parser.rs"]
+mod skcms_parser;
+#[path = "parity/skcms_transform.rs"]
+mod skcms_transform;
 #[path = "parity/spot_color.rs"]
 mod spot_color;
 
@@ -804,6 +811,8 @@ fn observe(request: &str) -> String {
         kind if splines::handles(kind) => splines::observe(kind, &mut args),
         kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
+        kind if skcms_transform::handles(kind) => skcms_transform::observe(kind, &mut args),
+        kind if skcms_parser::handles(kind) => skcms_parser::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if skcms_matrix::handles(kind) => skcms_matrix::observe(kind, &mut args),
         kind if skcms_transfer::handles(kind) => skcms_transfer::observe(kind, &mut args),

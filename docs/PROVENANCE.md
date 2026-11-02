@@ -633,3 +633,46 @@ adapter-only defines. It links the original baseline transform dependency withou
 a duplicate archive skcms.cc object. Live executable addresses, actual object
 owners, unchanged graph hashes, source flags and both complete observations are
 checked by `tools/skcms_fitting_reference.py`.
+The canonical skcms profile and curve modules translate pinned skcms.cc
+302-325 and 355-1728, together with the reached public/internal header layouts
+and inline profile setters. The original skcms BSD notice is retained verbatim
+in [licenses/SKCMS-BSD-3-Clause.txt](../licenses/SKCMS-BSD-3-Clause.txt).
+Transfer-function and matrix carriers are shared translated dependencies;
+nonlinear fitting and color-transform integration remain separate work.
+
+`tools/oracle/skcms_parser.cc` observes the actual original public parser,
+profile constants and getters. `tools/oracle/skcms_parser_private.cc` includes
+pristine skcms.cc only in a separate test executable to call its actual private
+curve readers, evaluation, linear fitting and identity canonicalization.
+`tools/skcms_parser_reference.py` checks exact compile-command equivalence,
+source pins, archive bindings and whole-public-parser observations in both
+compilation contexts. It retains the complete request inventory, independent
+native captures and original-only arithmetic diagnostics. Ordinary Rust builds
+neither compile nor link these C++ observers.
+
+
+### skcms baseline pixel transforms and destination preparation
+
+`src/skcms/transform.rs` translates pinned skcms.cc:2494-3143, including curve
+selection/fusion, format widths, reference PQ/HLG CICP functions, destination
+preparation, Transform, MakeUsableAsDestination/SingleCurve and approximate
+profile/TRC predicates. `transform_types.rs` follows src/skcms_public.h and
+src/skcms_Transform.h. `transform_simd.rs` and `transform_neon.rs` translate the
+reached src/Transform_inl.h baseline N=4 stages, native NEON/SSE arithmetic,
+loads/stores, tables, CLUT interpolation and vector tails. Existing HSW/SKX
+engines remain separate unported original targets.
+
+The source oracle uses the actual unchanged CMS archive with its existing
+SKCMS_DISABLE_HSW/SKCMS_DISABLE_SKX configuration, never SKCMS_PORTABLE. The
+private observer includes pristine skcms.cc under the actual original compile
+command and links the unchanged archive baseline engine. The binding audit
+records compiler arguments, live code addresses, object ownership and the actual
+linked baseline object's disassembly. All four dependency pins remain unchanged.
+
+Test observers serialize inputs, initialized output words, statuses and borrowed
+pointer relationships; they do not implement source algorithms. Pointer tokens
+normalize address identity before comparing profile representation changes.
+Final initialized transfer-function words and partially retained failure states
+remain exact. Independent native captures come only from both original graphs.
+The shared parser/profile observation extraction changes formatting ownership,
+not its field order, words or inherited request inventory.

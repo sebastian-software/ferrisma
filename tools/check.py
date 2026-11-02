@@ -91,10 +91,15 @@ def main():
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
         f"-DORACLE_SANITIZERS={'ON' if args.sanitizers else 'OFF'}")
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
-    from skcms_fitting_reference import build_private
-    helper = build_private(build)
+    from skcms_fitting_reference import build_private as build_fitting_private
+    from skcms_parser_reference import build_private as build_parser_private
+    from skcms_transform_reference import build_private as build_transform_private
+    transform_helper = build_transform_private(build)
+    helper = build_fitting_private(build)
+    build_parser_private(build)
     env = dict(os.environ, JXL_CPP_ORACLE=str(build / "jxl_oracle"),
-               JXL_SKCMS_FITTING_ORACLE=str(helper))
+               JXL_SKCMS_FITTING_ORACLE=str(helper),
+               JXL_SKCMS_TRANSFORM_ORACLE=str(transform_helper))
     run("cargo", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
     run("cargo", "test", "--locked", "--offline", "--all-features", "--", "--nocapture", env=env)
     run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--", "--nocapture", env=env)

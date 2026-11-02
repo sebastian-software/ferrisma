@@ -5,5 +5,9 @@
 pub mod curve;
 pub mod fitting;
 pub mod matrix;
+pub mod profile;
 pub mod transfer_function;
+pub mod transform;
+mod transform_simd;
+pub mod transform_types;
 pub mod types;

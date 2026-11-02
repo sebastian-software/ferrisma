@@ -152,3 +152,25 @@ only; the ordinary or fully instrumented original supplies every differential
 expected output. `skcms-fitting-degenerate.table8` retains the original 255-byte
 table for the five initially differing degenerate-segment/alias cases. Native
 source words and both archive hashes are recorded in the manifest.
+
+
+### skcms baseline transform inventories
+
+`skcms-transform-ops.txt` contains the 79 original work/store stage names in
+header order. The independent transform audit compares it and the Rust numeric
+carriers to the actual pinned headers, including every one of the 42 pixel and
+three alpha formats. It captures all 151,592 generated transform requests and
+both complete original observations as artifacts. `skcms-transform-preflight.requests.gz` freezes every one of the original
+11,448 preflight inputs; the adjacent JSON manifest records its hashes and all
+148 initial failure indices/request hashes. The audit requires every frozen
+input in the expanded generators and compares their original words under the
+recorded native configuration. Formats/tails, CICP/profile, Lab, alias and
+exceptional regressions remain in the expanded generators. All half words and integer halfway neighbors supplement
+that corpus; they do not replace earlier failures.
+
+`skcms-transform-native-arm64.tsv` stores 16 independent actual-original
+observations, including source-defined partially initialized contexts. Its JSON
+manifest records platform, compiler, pins and the fixture hash. These retained
+numeric captures apply to the macOS ARM baseline; native CI independently
+captures its own target and compares both original graphs. No Rust output is
+used to produce a source fixture.
