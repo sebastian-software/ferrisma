@@ -593,3 +593,43 @@ decode-error requests remain paired comparisons; aligned positive controls add
 every fixture/channel/unpremultiplication combination. Existing integer16 byte
 stores and float32 memcpy stores retain their odd-stride comparisons unchanged.
 No undefined source output is used as a Rust expected word.
+
+The skcms transfer/matrix boundary derives from dependency revision
+`96d9171c94b937a1b5f0293de7309ac16311b722`, as pinned by libjxl. Its original
+BSD notice is retained verbatim in `licenses/SKCMS-BSD-3-Clause.txt` and checked
+against the pristine dependency. `src/skcms/transfer_function.rs` translates the
+public transfer operations and reached bespoke math helpers in skcms.cc and
+src/skcms_internals.h; `matrix.rs` translates skcms.cc:1810-1980, with the public
+matrix carriers in `types.rs`.
+
+The transfer classification and exceptional-domain fixtures contain input float
+words, not Rust-derived expected values. The complete exceptional census retains
+8,262 defined calls and all 362 positively diagnosed original float-to-integer
+boundaries. The matrix binary fixture losslessly encodes all 71,226 original
+preflight requests as command/flag bytes and little-endian float words. Its
+manifest retains the original textual request hash, allowing an independent
+round-trip inventory check without substituting expected results. Standard
+primary controls derive from skcms tests.c:1366-1414 and the JXL color-encoding
+constants. Paired exceptional entries supplement, rather than replace, the
+initial corpus. Source arithmetic, optimizer flags, sanitizer options and all
+four upstream pins remain unchanged.
+
+
+### skcms nonlinear fitting
+
+`src/skcms/fitting.rs` translates pinned skcms `skcms.cc:328-342,2110-2421`.
+The source algorithms, iteration count, tolerances and original fit-linear/TF/
+matrix dependencies are retained. `tests/data/skcms-fitting-requests.bin` stores
+all 11,432 original preflight inputs; its manifest records the original text and
+binary hashes, command inventory, independent source archive hashes and the
+initial five degenerate-segment failures. `skcms-fitting-degenerate.table8` is
+the unchanged 255-entry input for those failures. No Rust output supplies oracle
+expected words.
+
+`tools/oracle/skcms_fitting.cc` calls actual archive public functions. A separate
+private-helper executable includes pristine skcms.cc once and inherits its exact
+original compilation command, replacing only the observation TU/output and two
+adapter-only defines. It links the original baseline transform dependency without
+a duplicate archive skcms.cc object. Live executable addresses, actual object
+owners, unchanged graph hashes, source flags and both complete observations are
+checked by `tools/skcms_fitting_reference.py`.

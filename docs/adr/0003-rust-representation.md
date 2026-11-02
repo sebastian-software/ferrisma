@@ -1419,3 +1419,45 @@ float ConvertToExternal buffer exports retain the existing source unpremultiply
 option and independently export every extra plane. Failed complete-file decoding
 is observed before export without reading unwritten output. Direct output-stage
 callbacks and the public incremental API remain separate unported boundaries.
+
+Pinned skcms transfer functions and 3x3/3x4 matrix carriers retain their original
+repr(C) field order and float widths. Shared matrix carriers have one canonical
+Rust definition. Transfer inversion and matrix inversion retain initialized
+caller destinations on early failure and every source write on later failure.
+In-place methods snapshot only the initialized input scalars because the source
+loads those scalars before its first destination write; they do not clone an
+ICC buffer or profile owner. Optional mutable matrix destinations represent the
+original null-output guard without creating a Rust reference to null storage.
+
+The original skcms bespoke logarithm, exponential and power approximations are
+translated directly, including constants, integer range reduction, classification
+and signed branches. No standard-library power approximation replaces them.
+Defined float-to-integer conversions keep their original rounding/cast points;
+positively undefined original conversions remain separately diagnosed source
+requests. Explicit native contraction follows the pinned source configuration.
+For ARM matrix inversion, a non-inlined bitwise sign change retains the measured
+FNEG checkpoint before subsequent FMUL/FMADD. This prevents LLVM from moving a
+negation across a NaN-producing operation and changing an initialized output
+word. Two source expressions negate an input before multiplication, while the
+other subtraction sites negate the rounded product. The distinction is retained
+in Debug, Release and Rust 1.85. It changes neither source algebra nor the
+accepted request domain. Revalidate these compiler-dependent details after a
+source, compiler, target or instrumentation change.
+
+
+### skcms fitting output and initialization checkpoints
+
+Curve fitting borrows the canonical raw Curve/table representation and uses
+individual raw output fields at original source checkpoints. No Rust reference
+to caller outputs survives an aliasing write. ApproximateCurve writes infinity
+to the actual max_error slot only after its original guards, rereads that slot
+after possible prior TF assignments, and retains max_error-before-full-TF write
+order. Valid source aliases can target any one actual TF float.
+
+Residual/gradient evaluation reads only g/a/b/c/d/f; e can remain genuinely
+uninitialized. Gauss-Newton writes g, a and b in source order and retains every
+source failure/partial state. Private fit temporaries are initialized without
+adding caller-visible writes; admitted table fitting initializes every reached
+parameter before use. The original eight iterations and saved-best restoration
+remain unchanged. Existing scalar matrix and bespoke TF arithmetic supply the
+source numeric boundaries; fitting does not introduce a different optimizer.

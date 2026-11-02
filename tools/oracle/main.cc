@@ -510,6 +510,9 @@ bool FrameSequencesCommand(const std::string&,std::istringstream&,JxlMemoryManag
 bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool SkcmsFittingCommand(const std::string&, std::istringstream&);
+bool SkcmsMatrixCommand(const std::string&, std::istringstream&);
+bool SkcmsTransferCommand(const std::string&, std::istringstream&);
 bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -541,6 +544,9 @@ int main() {
       else if (LZ77Command(command, in)) {}
       else if (EncodeEntropyCommand(command, in, &mm)) {}
       else if (CmsCommand(command, in)) {}
+      else if (SkcmsFittingCommand(command, in)) {}
+      else if (SkcmsTransferCommand(command, in)) {}
+      else if (SkcmsMatrixCommand(command, in)) {}
       else if (MetadataCommand(command, in, &mm)) {}
       else if (FrameCommand(command, in, &mm)) {}
       else if (TocCommand(command, in, &mm)) {}

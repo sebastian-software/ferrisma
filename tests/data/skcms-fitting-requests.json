@@ -1,0 +1,48 @@
+{
+  "source_revision": "96d9171c94b937a1b5f0293de7309ac16311b722",
+  "boundary": "skcms.cc curve approximation and nonlinear fitting",
+  "inventory": {
+    "records": 11432,
+    "commands": {
+      "skcms-fit-approx": 3143,
+      "skcms-fit-roundtrip": 1089,
+      "skcms-fit-gradient": 2400,
+      "skcms-fit-step": 3600,
+      "skcms-fit-nonlinear": 600,
+      "skcms-fit-checked": 600
+    },
+    "text_sha256": "3d57607b8a58adb47d01fc2c64dcb2ffe5a6e552d3835221c4ae792f483a11bb",
+    "binary_sha256": "3d754aaf3a531fe0476fb05e0ed7f4ea077315ef9701e19ea8ca62de5f455d38",
+    "format": "One u8 command index, LE u32 word count, then that many LE u32 protocol words. Signed alias/L/N fields retain their two-complement words. Command indices follow commands insertion order above. Inputs only; no expected outputs."
+  },
+  "regression": {
+    "target": "Apple Clang 21.0.0 AArch64 ordinary and fully instrumented actual skcms.cc archive agree; same unchanged private include agrees",
+    "table_sha256": "3945a2cdaa1789630efe266651d67cae0a329224f06c924f0cb0fe82c4c92588",
+    "initially_failing_indices": [
+      5293,
+      5294,
+      5295,
+      5297,
+      5298
+    ],
+    "initial_request": "skcms-fit-approx 8 255 255 0 -1 1040187392 1040187392 1 255 3270967296 1069547520 1061158912 1040187392 1073741824 1048576000 3187671040 1031798784 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255",
+    "original_expected": "1 989789184 1065353216 1065287168 998309896 1065353347 1065287164 0 0",
+    "ordinary_archive_sha256": "5cf5a6422c877a83f09194170d808ea861e7822589963fc00a0ce5fbb65ba674",
+    "sanitized_archive_sha256": "ada3849681c9b3cc0d99db60ef527c37e852463c674837fbe3efa0ce8f8284a3",
+    "mapping": "Degenerate two-point nonlinear segment b retains rounded a*index followed by the original contracted scaled subtraction. No source flags or expected words changed."
+  },
+  "acceptance": "Initial preflight only. Full local/native acceptance remains pending.",
+  "gradient_regression": {
+    "retained_request_index": 274,
+    "initialized_tf_fields": [
+      "g",
+      "a",
+      "b",
+      "c",
+      "d",
+      "f"
+    ],
+    "unused_e": "genuinely uninitialized in the standalone Rust regression; never observed",
+    "ordinary_and_asan_original": "V 3175297680 1074580685 1065353216 1040187392 1065353216 1031798784 0 0 1017729820 3164019213 3186153024"
+  }
+}

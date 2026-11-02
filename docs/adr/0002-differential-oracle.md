@@ -450,3 +450,58 @@ byte-order memcpy stores, so their odd-stride requests remain defined and
 unchanged. No sanitizer flag or source algorithm is altered.
 
 Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
+
+The skcms transfer/matrix boundary calls unchanged public functions from the
+original CMS archive. The observer contains only raw-word protocol and public
+API calls, including actual same-pointer inversion and null matrix destinations.
+The deprecated HLGish inline shim is retained from the original public header;
+its reached scaled constructor binds to the archive. An independent map checks
+all 16 external entry points against the actual skcms.cc object. Both optimized
+original graphs keep their original numerical options and full nonrecovering
+instrumentation; temporary map links do not replace active objects or binaries.
+
+Transfer coverage retains the initial 86,696 defined requests and adds 8,262
+defined exceptional-parameter cases and 24,310 actual in-place inversions. The
+complete original exceptional census retains all 8,624 requests: 362 positively
+reach the NaN-to-int32 conversion in skcms_internals.h:149 and have no defined
+Rust result. Every original-only request is recorded individually in both
+source graphs; no parameter-word class is silently dropped or normalized.
+
+Matrix coverage retains every one of the initial 71,226 source requests,
+including the four initially failing infinity/NaN-sign observations. Its binary
+fixture encodes input words only, with the original text hash in its manifest.
+Another 16,200 paired exceptional-entry inversions and 18 standard-primary/null
+output calls remain exact comparisons. Expected results always come from the
+actual original functions. Source assembly records the original ARM contraction
+and pre-negation checkpoints; Rust preserves those checkpoints explicitly.
+Native Linux/macOS validation remains required before accepting this boundary.
+ICC parsing, nonlinear curve fitting, pixel transformation, JXL default CMS and
+complete-image profile admission remain separate source closures.
+
+
+### skcms nonlinear fitting source context
+
+Public ApproximateCurve, MaxRoundtripError and AreApproximateInverses bind to the
+unchanged complete CMS archive. Direct observations of rg_nonlinear,
+gauss_newton_step, max_roundtrip_error_checked and fit_nonlinear use a separate
+pristine skcms.cc include executable. Its actual original compiler command is
+retained, changing only the test observation TU/output and adapter-only defines;
+all original optimization and nonrecovering sanitizer flags remain active. The
+original archive supplies only its baseline transform dependency to that helper.
+Actual live code addresses must map to the expected objects, excluding dead
+symbols and unwind FDEs. The complete public request subset must agree between
+archive and whole-include contexts and between ordinary/instrumented originals.
+
+The ARM degenerate two-point nonlinear segment contracts the final subtraction
+in `b = eval_curve(...) - a * index * dx`: the first product rounds and the
+scaled subtraction uses FMADD. The Rust mapping preserves those checkpoints.
+All five initially differing requests remain in the input inventory, including
+error-slot aliases; source flags, expected words and finite comparisons do not
+change. This establishes numeric equivalence for the recorded source context,
+not performance parity. Native target acceptance remains required.
+
+The transfer/matrix source audit captures exactly its two registered operation
+families. Curve-fitting and parser audits configure their own original private
+helpers independently. Adding another skcms family must not make an existing
+audit accidentally run that family's tests without its required observer, or
+change the retained requests and observations of the original audit.

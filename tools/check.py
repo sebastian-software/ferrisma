@@ -56,6 +56,8 @@ def check_source():
             raise SystemExit(f"{name} differs from the pinned upstream notice")
     if (ROOT / "licenses/HIGHWAY-BSD-3-Clause.txt").read_bytes() != (highway / "LICENSE-BSD3").read_bytes():
         raise SystemExit("The translated Highway helper's notice differs from upstream")
+    if (ROOT / "licenses/SKCMS-BSD-3-Clause.txt").read_bytes() != (skcms / "LICENSE").read_bytes():
+        raise SystemExit("The translated skcms notice differs from upstream")
     sort_reference = ROOT / "tools/reference/libcxx"
     sort_pin = json.loads((sort_reference / "source.json").read_text())
     for name, expected in sort_pin["files"].items():
@@ -89,7 +91,10 @@ def main():
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
         f"-DORACLE_SANITIZERS={'ON' if args.sanitizers else 'OFF'}")
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
-    env = dict(os.environ, JXL_CPP_ORACLE=str(build / "jxl_oracle"))
+    from skcms_fitting_reference import build_private
+    helper = build_private(build)
+    env = dict(os.environ, JXL_CPP_ORACLE=str(build / "jxl_oracle"),
+               JXL_SKCMS_FITTING_ORACLE=str(helper))
     run("cargo", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
     run("cargo", "test", "--locked", "--offline", "--all-features", "--", "--nocapture", env=env)
     run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--", "--nocapture", env=env)
