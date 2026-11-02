@@ -353,3 +353,5 @@ All 504 finite-input rows must match both default graphs and all 1,134 selected
 rows must agree. Exact exceptional words remain mandatory; no old comparison,
 expected word, sanitizer or source algorithm changes. Review the configuration
 with source/compiler/target changes. This establishes no performance parity.
+
+Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.

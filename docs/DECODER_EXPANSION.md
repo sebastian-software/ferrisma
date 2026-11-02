@@ -63,8 +63,8 @@ and connects EPF/noise/splines to the first complete VarDCT profile. Local
 complete-file evidence includes 305 successful original files and 4,582 error
 observations, with combined filters, progressive passes, grayscale/RGB and alpha.
 Both full local checks, including Rust 1.85 and ordinary/ASan/UBSan originals,
-pass 462 tests, 272 differential groups and 893,729 exact requests per
-configuration. Native CI and integration into `main` remain required.
+pass 466 tests, 275 differential groups and 893,681 exact defined requests per
+configuration, plus all 72 explicit original-only boundary probes. The corrected alpha/patch component has passed native Linux and macOS CI, including the independently confirmed 48 undefined original tree boundaries. Native combined CI and integration into `main` remain required.
 
 Positive complete-file patches still need reference-frame orchestration. General
 Modular profiles and the remaining steps above remain open. The first-image and
