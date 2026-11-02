@@ -335,6 +335,16 @@ This workflow is prepared for full native Linux acceptance; it has not yet
 established a passing full-suite result. The remaining subject/oracle role
 review is an additional gate even after full-suite execution passes.
 
+`aom-original-native.yml` schedules the same complete boundary on standard
+`ubuntu-24.04` or native ARM64 `macos-26` runners. It uses 120 paired main-suite
+shards per profile and the four original rate-control/speed jobs, with eight
+Linux or four macOS jobs at a time. This finer scheduling addresses measured
+Debug runtimes within the hosted job limit; it does not reduce cases or alter
+codec thread settings. Native macOS builds also check named record layouts
+against that runner's SDK. Local execution remains limited to two CPU-intensive
+processes. ADR 0044 records this scheduling decision; a complete passing run
+on either hosted platform is still pending.
+
 1. Verify complete source/license hashes, the archive's exact source closure,
    generated headers, configurations, and original test inventories.
 2. Prove the representative image/API and encoder/decoder state/error boundary.

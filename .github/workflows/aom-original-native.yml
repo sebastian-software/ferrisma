@@ -1,0 +1,189 @@
+name: Run complete original libaom suites on native hosts
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Native standard runner for the complete original suite
+        type: choice
+        options: [ubuntu-24.04, macos-26]
+        default: ubuntu-24.04
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 100
+    env:
+      CC: ${{ inputs.runner == 'macos-26' && 'clang' || 'clang-16' }}
+      CXX: ${{ inputs.runner == 'macos-26' && 'clang++' || 'clang++-16' }}
+      RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install native Linux reference tools
+        if: inputs.runner == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config python3-venv cmake
+      - name: Install native macOS reference tools
+        if: inputs.runner == 'macos-26'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          for aom_tool in cmake ninja pkgconf; do
+            brew list --formula "$aom_tool" >/dev/null 2>&1 || brew install "$aom_tool"
+          done
+      - name: Install the pinned Rust and VMAF build tools
+        run: |
+          rustup toolchain install nightly-2026-09-07 --profile minimal
+          python3 -m venv build/aom-tools
+          build/aom-tools/bin/python -m pip install meson==1.7.2
+      - name: Verify the complete source and error-target contract
+        run: |
+          python3 tools/verify_upstream.py --tracked
+          python3 tools/generate_licenses.py --check
+          python3 tests/ports/aom_jumps_test.py
+          python3 tools/review_aom_header_roles.py --check
+          python3 tools/check_translation.py
+          python3 tools/build_aom_vmaf.py --fetch
+          echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
+      - name: Build both original profiles and all three original test consumers
+        run: |
+          python3 tools/build_aom.py --debug --jobs 2
+          python3 tools/build_aom.py --jobs 2
+          python3 tools/build_aom_consumers.py --debug --only test_libaom --only test_aom_rc --only test_intra_pred_speed
+          python3 tools/build_aom_consumers.py --only test_libaom --only test_aom_rc --only test_intra_pred_speed
+          python3 tools/check_aom_linkage.py --debug
+          python3 tools/check_aom_linkage.py
+      - name: Check named record layouts on the native macOS SDK
+        if: inputs.runner == 'macos-26'
+        run: |
+          python3 tools/check_aom_abi.py
+          python3 tools/check_aom_abi.py --release
+      - name: Preserve the exact binaries and inventories for every shard
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-original-binaries
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            build/aom-native-*/test_libaom
+            build/aom-native-*/test_aom_rc
+            build/aom-native-*/test_intra_pred_speed
+            build/aom-native-*/test_*-inventory.txt
+            build/aom-native-*/test_*-inventory.json
+            build/aom-native-*/test-data.json
+            build/aom-native-*/config/aom_config.h
+            build/aom-native-*/reference-profile.json
+            build/aom-rust-*/test_libaom
+            build/aom-rust-*/test_aom_rc
+            build/aom-rust-*/test_intra_pred_speed
+            build/aom-rust-*/linkage.json
+            build/aom-rust-*/symbol-audit.json
+            build/aom-abi-*/summary.json
+  paired:
+    needs: build
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ inputs.runner == 'macos-26' && 4 || 8 }}
+      matrix:
+        program: [test_libaom]
+        shards: [120]
+        index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119]
+        profile: [debug, release]
+        include:
+          - {profile: debug, program: test_aom_rc, shards: 1, index: 0}
+          - {profile: release, program: test_aom_rc, shards: 1, index: 0}
+          - {profile: debug, program: test_intra_pred_speed, shards: 1, index: 0}
+          - {profile: release, program: test_intra_pred_speed, shards: 1, index: 0}
+    env:
+      AOM_PROFILE: ${{ matrix.profile }}
+      AOM_PROGRAM: ${{ matrix.program }}
+      AOM_SHARDS: ${{ matrix.shards }}
+      AOM_INDEX: ${{ matrix.index }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          path: build
+      - name: Restore executable permissions
+        run: |
+          for aom_binary in build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}; do
+            chmod +x "$aom_binary"
+          done
+      - name: Fetch and verify every original selected fixture
+        if: matrix.program == 'test_libaom'
+        run: python3 tools/fetch_aom_test_data.py --profile "$AOM_PROFILE" --jobs 2
+      - name: Run the identical original C and Rust shard
+        run: |
+          aom_profile_args=()
+          if [ "$AOM_PROFILE" = debug ]; then aom_profile_args+=(--debug); fi
+          python3 tools/run_aom_paired_shard.py "${aom_profile_args[@]}" --program "$AOM_PROGRAM" --shards "$AOM_SHARDS" --index "$AOM_INDEX"
+      - name: Preserve cases, diagnostics, and fixture provenance even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-original-shard-${{ matrix.profile }}-${{ matrix.program }}-${{ matrix.index }}
+          retention-days: 7
+          if-no-files-found: error
+          # The second path keeps build/ as the artifact root so profile and
+          # program directories survive merging independently produced shards.
+          path: |
+            build/aom-paired-${{ matrix.profile }}-${{ matrix.program }}/
+            build/aom-native-${{ matrix.profile }}/reference-profile.json
+  collect:
+    needs: [build, paired]
+    if: ${{ always() && !cancelled() && needs.build.result == 'success' }}
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-original-shard-*
+          merge-multiple: true
+          path: build
+      - name: Restore the original report directories and executable permissions
+        run: |
+          for aom_profile in debug release; do
+            for aom_program in test_libaom test_aom_rc test_intra_pred_speed; do
+              mkdir -p "build/aom-paired-$aom_profile-$aom_program"
+              chmod +x "build/aom-native-$aom_profile/$aom_program" "build/aom-rust-$aom_profile/$aom_program"
+            done
+          done
+      - name: Require complete original case and dynamic-skip inventories
+        run: |
+          aom_failed=0
+          for aom_profile in debug release; do
+            aom_profile_args=()
+            if [ "$aom_profile" = debug ]; then aom_profile_args+=(--debug); fi
+            for aom_program in test_libaom test_aom_rc test_intra_pred_speed; do
+              aom_shards=1
+              if [ "$aom_program" = test_libaom ]; then aom_shards=120; fi
+              python3 tools/run_aom_paired_shard.py "${aom_profile_args[@]}" --program "$aom_program" --shards "$aom_shards" --collect || aom_failed=1
+            done
+          done
+          exit "$aom_failed"
+      - name: Preserve complete-suite acceptance results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-original-results
+          retention-days: 7
+          if-no-files-found: error
+          path: build/aom-paired-*/summary.json
