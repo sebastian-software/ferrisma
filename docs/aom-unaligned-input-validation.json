@@ -1,0 +1,575 @@
+{
+  "status": "alignment failure reproduced and corrected locally in both macOS profiles; fresh complete native acceptance and final root checks remain pending",
+  "correction_commit": "ac05f436266b6e50734a01592c945175022d854c",
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "adr": "0046",
+  "failing_original_case": "HighbdEncodeSmallWidthHeight.SmallWidthMultiThreaded",
+  "original_test_source": "test/encode_small_width_height_test.cc",
+  "original_test_source_sha256": "59369298885fb00c2ed910407a346719155ed90a38d0d4d126036ebc72c7ee6d",
+  "original_test_objects_and_assertions_unchanged": true,
+  "hosted_failure": {
+    "run": 41508117713,
+    "job": 125578636631,
+    "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41508117713/job/125578636631",
+    "c_exit_code": 0,
+    "rust_exit_code": -6,
+    "c_completed_cases": 144,
+    "c_dynamic_skips": 1,
+    "c_failed_cases": 0,
+    "rust_complete_xml": false,
+    "failure": "Rust non-unwinding panic on misaligned unsigned-short dereference in validate_img",
+    "identity": {
+      "profile": "debug",
+      "program": "test_libaom",
+      "shards": 120,
+      "filter": "*",
+      "c_executable_sha256": "9e6a2893b9a3aefefad3a6d40fabb1f6ce9fad1adad05e1ca221f6311d91cb34",
+      "rust_executable_sha256": "51c77972abda0c34d7d70fac0a91a9b8869a4e74edb1a7fe68c10fe67834e060",
+      "original_inventory_sha256": "bd6eb64d0ed463a89128e66f751c16cbc41c664d35757fe6105d020c2b2a6205",
+      "config_sha256": "3843645fb8ff29484aac1a0af0cd25452f6df16112e86cee3e01fe1aad1c6c12",
+      "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+      "verified_fixtures_sha256": "ea0aa71f91bb066c65efabf0e3851354ed87a25e5d4bdcffeb79922c52f6c017",
+      "rust_archive_sha256": "aed4d0d133e70639628e152a3b0ca7f829ad8799db03a3340455786411c5ef76"
+    },
+    "c_xml_sha256": "17dc6165a02adf591108a6da633c0627e02899eb9d4594141bae2ccd8b90136c",
+    "c_log_sha256": "163520bbcea06f8652c793593390df8bc2ae7a790d39dea9c299406f9cd587e1",
+    "rust_log_sha256": "015f30ad8ad4ff5de2a65265082148edd56b1c2b410baa2fb9025e9ecbcb95a8"
+  },
+  "local_old_hosted_binary_reproduction": {
+    "binary_sha256": "51c77972abda0c34d7d70fac0a91a9b8869a4e74edb1a7fe68c10fe67834e060",
+    "returncode": -6,
+    "log_sha256": "00d8d6a13e91e06b544bb4971520efc8d8e5052cc2b677c5dcbd47b82ac21406"
+  },
+  "forced_odd_address_rejects_old_debug_archive": true,
+  "old_archive_negative_log_sha256": "479f012cadd3da4decaa43575d193763c84d54090abd0d946ba65d45589561bb",
+  "corrected_macos_generation": {
+    "debug": {
+      "original_c2rust_raw_sha256": "01b10a619ed62afea4e38455b478256c55328ba8e96046707bd162df5595426f",
+      "corrected_base_cache_sha256": "88846d3eb9eae3cda4b93154d3ad9390ba045f5fddf63835bda92dbd4f6a28a5",
+      "production_rust_sha256": "788c58b5b4b2d2d3fe6d9a713a5ab60fa5e3d739cf6dbac2fc7f1fcc5826eb66",
+      "exact_reproduction_from_original_c2rust_and_corrected_base": true
+    },
+    "release": {
+      "original_c2rust_raw_sha256": "09faf72f3286391262953144ed2978a600c5fedda1117d256e53f915ebc19cf1",
+      "corrected_base_cache_sha256": "d0d1b124dec7fc59f81dc3abe5a839018a60082cdff88ad2179b35573d2903d6",
+      "production_rust_sha256": "dee8f87cb06576847d1b028f0ee23af9f28688802a4022edbda95a80683cebfa",
+      "exact_reproduction_from_original_c2rust_and_corrected_base": true
+    }
+  },
+  "superseded_incomplete_hosted_runs": [
+    41507995195,
+    41508117713
+  ],
+  "full_original_suite_acceptance": false,
+  "root_default_engine_switched": false,
+  "native_vmaf_retained": true,
+  "supplementary_cases_assign_no_original_test_credit": true,
+  "profiles": {
+    "debug": {
+      "supplementary_validation": {
+        "profile": "debug",
+        "scope": "Supplementary zero-sample encoding and last-sample range rejection; no original-suite credit",
+        "cases": [
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 33,
+            "sha256": "495178e5d746a8a968e77ea3a89f8174a5daa2de8d0e6bcb2835d937c384e145"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 33,
+            "sha256": "495178e5d746a8a968e77ea3a89f8174a5daa2de8d0e6bcb2835d937c384e145"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "41dc6991b0512e6085578154f47cd79d072f3ca3fe69a6e7d4f8fa919896666b"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "41dc6991b0512e6085578154f47cd79d072f3ca3fe69a6e7d4f8fa919896666b"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "69e41c822bd2572f93d5fbcc5c133ee8773082129bad8e3c88d4a6d1cffddc2f"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "69e41c822bd2572f93d5fbcc5c133ee8773082129bad8e3c88d4a6d1cffddc2f"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          }
+        ],
+        "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+        "rust_archive_sha256": "95f0c9aedb32afaea2c166664b15392de7693ebffa5ed33a659e24247780f9b0",
+        "source_sha256": "6c0757e3c894af1b29489b16d09fc65cac1c6623474d20b4ae1a0b86d9fe0338",
+        "translation_manifest_sha256": "5327ff5af027cb584ddb88dddc807017b15bc6a2fa2c49967e7ea079f6ffbb57"
+      },
+      "unchanged_original_cases": [
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallWidthMultiThreaded",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallWidthMultiThreadedSpeed0",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallHeightMultiThreaded",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallHeightMultiThreadedSpeed0",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.1x1",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        }
+      ],
+      "original_case_identity": {
+        "profile": "debug",
+        "program": "test_libaom",
+        "shards": 1,
+        "filter": "HighbdEncodeSmallWidthHeight.*",
+        "c_executable_sha256": "51d338af3febda05a4d09e6974f34973d2da1107618d3a7ef97f68df4f84bc35",
+        "rust_executable_sha256": "2ac60aa42d5c76adc9afc0ba4c3ebb08cb2cd9ba9c6f4ee20358ef6ebd36817a",
+        "original_inventory_sha256": "bd6eb64d0ed463a89128e66f751c16cbc41c664d35757fe6105d020c2b2a6205",
+        "config_sha256": "3843645fb8ff29484aac1a0af0cd25452f6df16112e86cee3e01fe1aad1c6c12",
+        "translation_manifest_sha256": "5327ff5af027cb584ddb88dddc807017b15bc6a2fa2c49967e7ea079f6ffbb57",
+        "verified_fixtures_sha256": null,
+        "rust_archive_sha256": "95f0c9aedb32afaea2c166664b15392de7693ebffa5ed33a659e24247780f9b0"
+      },
+      "original_paired_report_sha256": "1f2f0421afc4385f0fa5d4e6c58fd325d4259cf15f23090591c795576fc94a60",
+      "original_codec_globals_owned_by_rust": 2743,
+      "unchanged_original_consumers_audited": 3,
+      "native_codec_objects_in_rust_consumers": 0
+    },
+    "release": {
+      "supplementary_validation": {
+        "profile": "release",
+        "scope": "Supplementary zero-sample encoding and last-sample range rejection; no original-suite credit",
+        "cases": [
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 33,
+            "sha256": "495178e5d746a8a968e77ea3a89f8174a5daa2de8d0e6bcb2835d937c384e145"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 0,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 33,
+            "sha256": "495178e5d746a8a968e77ea3a89f8174a5daa2de8d0e6bcb2835d937c384e145"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 8,
+            "address_parity": 1,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "41dc6991b0512e6085578154f47cd79d072f3ca3fe69a6e7d4f8fa919896666b"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 0,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "41dc6991b0512e6085578154f47cd79d072f3ca3fe69a6e7d4f8fa919896666b"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 10,
+            "address_parity": 1,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "69e41c822bd2572f93d5fbcc5c133ee8773082129bad8e3c88d4a6d1cffddc2f"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 0,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": null,
+            "exact": true,
+            "bytes": 32,
+            "sha256": "69e41c822bd2572f93d5fbcc5c133ee8773082129bad8e3c88d4a6d1cffddc2f"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": 1,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": 2,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          },
+          {
+            "bitdepth": 12,
+            "address_parity": 1,
+            "invalid_plane": 3,
+            "exact": true,
+            "bytes": 55,
+            "sha256": "16c303e0df85280a0f9dd1ad0eb4227ea23cec4a496b8128f6a7a684b72c2aaf"
+          }
+        ],
+        "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+        "rust_archive_sha256": "4d8e420ec43dc0b9762c79cae4ebda63b1f30678cea613960f85e90808f385d2",
+        "source_sha256": "6c0757e3c894af1b29489b16d09fc65cac1c6623474d20b4ae1a0b86d9fe0338",
+        "translation_manifest_sha256": "d840027ac510515fbfe772c46d7ac67fb1389d266769341accf3223593fc2244"
+      },
+      "unchanged_original_cases": [
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallWidthMultiThreaded",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallWidthMultiThreadedSpeed0",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallHeightMultiThreaded",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.SmallHeightMultiThreadedSpeed0",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "HighbdEncodeSmallWidthHeight.1x1",
+          "result": "completed",
+          "failed": false,
+          "skipped": false
+        }
+      ],
+      "original_case_identity": {
+        "profile": "release",
+        "program": "test_libaom",
+        "shards": 1,
+        "filter": "HighbdEncodeSmallWidthHeight.*",
+        "c_executable_sha256": "dafd88b22466689eb7ad9436ec405bf93395a771cb722147b775c5c14ecc2e0b",
+        "rust_executable_sha256": "8d2ad1d315a859de52c8390b6f5d9a648ddd610123f9a6327d00d555e730a9d4",
+        "original_inventory_sha256": "bd6eb64d0ed463a89128e66f751c16cbc41c664d35757fe6105d020c2b2a6205",
+        "config_sha256": "ef64f3b87c3cc954cd3f0449fc4eebd035cb0bc911fa9f189451cffa01c10a2c",
+        "translation_manifest_sha256": "d840027ac510515fbfe772c46d7ac67fb1389d266769341accf3223593fc2244",
+        "verified_fixtures_sha256": null,
+        "rust_archive_sha256": "4d8e420ec43dc0b9762c79cae4ebda63b1f30678cea613960f85e90808f385d2"
+      },
+      "original_paired_report_sha256": "a610d03edc0d5f0015f59fda4f966b85eb41946fe4b992c9eb2cbff5f3c405f5",
+      "original_codec_globals_owned_by_rust": 2741,
+      "unchanged_original_consumers_audited": 3,
+      "native_codec_objects_in_rust_consumers": 0
+    }
+  }
+}

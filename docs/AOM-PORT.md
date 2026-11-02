@@ -2,10 +2,25 @@
 
 Status: full standalone acceptance is in progress. All 168 portable C
 translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug and
-Release, with a raw Rust API and passing focused native comparisons. The
-explicit root candidate passes libavif Debug, Release, supported-feature, and
-AddressSanitizer suites. Default libavif builds still link native libaom while
-the complete original AOM suites and remaining correspondence gates run.
+Release, with a raw Rust API and passing focused native comparisons. Before
+the input-alignment correction in ADR 0046, the explicit root candidate passed
+libavif Debug, Release, supported-feature, and AddressSanitizer suites. Those
+root checks require final revalidation. Default libavif builds still link native
+libaom while the complete original AOM suites and remaining correspondence
+gates run.
+
+The first hosted macOS full Debug shard exposed an additional Rust alignment
+requirement when the original small-width test's byte-array fixture had an odd
+address. The unchanged C consumer passed; Rust aborted in `validate_img`.
+ADR 0046 retains that external sample load through `read_unaligned` in all
+four profiles. Preserve the original tests and supplement them with forced
+address-parity and per-plane range checks. The incomplete macOS run
+41508117713 and Linux run 41507995195 are superseded after this production
+change and provide no complete-suite acceptance credit. Earlier validation
+records retain their exact source/archive hashes as historical evidence.
+The failure, negative reproduction, and corrected local original/supplemental
+comparisons are recorded in
+[`aom-unaligned-input-validation.json`](aom-unaligned-input-validation.json).
 
 The immutable reference is libaom 3.15.2, tag `v3.15.2`, commit
 `af3dc9aadc793c1b00edc003e3fc19a44fdeb574`. The complete 1,520-file snapshot,

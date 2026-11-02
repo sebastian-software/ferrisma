@@ -7368,5 +7368,7 @@
     "Full standalone native C/Rust libaom main suites on macOS ARM64 and GNU Linux x86-64",
     "Complete remaining original subject/oracle correspondence review",
     "Final unconditional root wiring and removal of the temporary test feature"
-  ]
+  ],
+  "historical_validation_scope": "Recorded source and archive hashes before ADR 0046; final root acceptance must rerun after the external high-bit-depth input alignment correction.",
+  "requires_revalidation_after_adr_0046": true
 }

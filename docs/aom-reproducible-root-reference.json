@@ -1449,5 +1449,7 @@
     "Debug request rejects a Release AOM reference"
   ],
   "complete_standalone_aom_acceptance": false,
-  "root_default_engine_switched": false
+  "root_default_engine_switched": false,
+  "historical_validation_scope": "Recorded source and archive hashes before ADR 0046; final root acceptance must rerun after the external high-bit-depth input alignment correction.",
+  "requires_revalidation_after_adr_0046": true
 }

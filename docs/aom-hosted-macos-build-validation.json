@@ -1,11 +1,11 @@
 {
-  "status": "both hosted native macOS profiles build and pass named-record ABI and complete original global ownership checks; complete suite execution is pending",
+  "status": "historical hosted native macOS build, named-record ABI, and ownership checkpoint; full execution exposed the ADR 0046 alignment failure and the run is superseded",
   "execution_run": 41508117713,
   "execution_commit": "5357eab01cebbee4a85efabf50401aa6b2faa642",
   "execution_url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41508117713",
   "runner_label": "macos-26",
   "architecture": "arm64",
-  "current_aom_implementation_matches_execution_commit": true,
+  "current_aom_implementation_matches_execution_commit": false,
   "hosted_artifact_id": 13183385323,
   "hosted_artifact_sha256": "d773165084632374a5c77592811e30bc6e80458cb5055c99a1a77abdaa6c007b",
   "all_six_rust_consumer_binary_hashes_and_macho_architecture_verified": true,
@@ -963,5 +963,6 @@
         }
       ]
     }
-  }
+  },
+  "superseded_by_adr": "0046"
 }
