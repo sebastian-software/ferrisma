@@ -146,17 +146,18 @@ match in translated source is recorded as such; it is not execution coverage.
 References inside included C++ helper bodies and indirect calls need their
 own review beyond this direct-reference inventory.
 
-Eleven reviewed inline test subjects now have optional generated Rust exports
-under `port-test-bridges` (ADR 0039). Eight original C++ inputs are recompiled
+Twelve reviewed inline test subjects now have optional generated Rust exports
+under `port-test-bridges` (ADR 0039). Nine original C++ inputs are recompiled
 with forced includes that redirect those subjects while retaining native
 reference and fixture helpers. All 18,729 registrations remain identical;
-13 original cases pass against C and Rust in each profile, including the
-original scan-order dependency test through Rust's `get_default_scan`. The default
+14 original cases pass against C and Rust in each profile, including the
+original scan-order dependency test through Rust's `get_default_scan` and the
+`round_shift` test's six positive/negative rounding assertions. The default
 production translation bodies are byte-for-byte unchanged, verified by
 separate `production_rust_sha256` entries in the translation manifests.
 Both profiles reproduced with fresh alignment/layout extraction for the first
-ten wrappers. The additional scan wrapper preserves every production body
-hash. Remaining inline roles, macro subjects such as `OD_DIVU_SMALL`, indirect
+ten wrappers. The additional scan and rounding wrappers preserve every
+production body hash. Remaining inline roles, macro subjects such as `OD_DIVU_SMALL`, indirect
 helper calls, and scalar self-comparisons stay open. Fixture and oracle uses
 of the scan helper in other original test inputs retain their native bindings.
 

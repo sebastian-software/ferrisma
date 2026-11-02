@@ -45,7 +45,9 @@ def main():
         headers = [headers] if isinstance(headers, str) else headers
         text = '\n'.join(f'#include "{header}"' for header in headers) + '\nextern "C" {\n'
         text += ''.join(f'decltype({name}) port_aom_inline_{name};\n' for name in names)
-        text += '}\n' + ''.join(f'#define {name} port_aom_inline_{name}\n' for name in names)
+        # Function-like macros preserve a GoogleTest case whose name is also
+        # the subject identifier (for example TEST(..., round_shift)).
+        text += '}\n' + ''.join(f'#define {name}(...) port_aom_inline_{name}(__VA_ARGS__)\n' for name in names)
         include.write_text(text)
         output = work / (filename + '.o')
         subprocess.run([*compiler_flags(entry), '-include', include, '-c', source, '-o', output],
@@ -102,16 +104,16 @@ def main():
         if any(value['failed'] or value['skipped'] for value in cases):
             raise SystemExit('An original inline-subject assertion failed or skipped')
         records.append(cases)
-    if records[0] != records[1] or len(records[0]) != 13:
+    if records[0] != records[1] or len(records[0]) != 14:
         raise SystemExit('Original/Rust inline-subject execution inventories differ')
-    report = dict(profile=profile, original_registrations=len(reference_names), executed_original_cases=13,
-                  original_cases_and_assertions_unchanged=True, optional_rust_bridge_exports=11,
+    report = dict(profile=profile, original_registrations=len(reference_names), executed_original_cases=14,
+                  original_cases_and_assertions_unchanged=True, optional_rust_bridge_exports=12,
                   original_inline_subjects_execute_rust=True, native_reference_and_fixture_helpers_retained=True,
                   complete_inline_role_review=False, subjects=subjects, cases=records[1],
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                   map_sha256=hashlib.sha256(link_map.read_bytes()).hexdigest())
     (work / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
-    print('13 original cases exercise 11 Rust inline subjects; all 18,729 registrations preserved')
+    print('14 original cases exercise 12 Rust inline subjects; all 18,729 registrations preserved')
 
 
 if __name__ == '__main__':

@@ -6804,3 +6804,12 @@ extern "C" {
         __function: *const core::ffi::c_char,
     ) -> !;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_round_shift(
+    value: int64_t,
+    bit: core::ffi::c_int,
+) -> int32_t {
+    round_shift(value, bit)
+}

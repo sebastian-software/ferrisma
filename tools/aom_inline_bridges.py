@@ -12,10 +12,12 @@ SUBJECTS = {
     'av1_common_int_test.cc': ('av1/common/av1_common_int.h', ['get_tx_size']),
     'boolcoder_test.cc': (['aom_dsp/bitreader.h', 'aom_dsp/bitwriter.h'], ['aom_read_', 'aom_write']),
     'scan_test.cc': ('av1/common/scan.h', ['get_default_scan']),
+    'av1_fwd_txfm1d_test.cc': ('av1/common/av1_txfm.h', ['round_shift']),
 }
 FILTER = ('AomMemTest.*:Log2Test.*:GetQmLevelTest.*:IntrabcTest.DvValidation:'
           'BlockdTest.GetPartitionSubsize:AV1CommonInt.TestGetTxSize:'
-          'AV1.TestBitIO:AV1.TestTell:AV1.TestHasOverflowed:Av1ScanTest.Dependency')
+          'AV1.TestBitIO:AV1.TestTell:AV1.TestHasOverflowed:Av1ScanTest.Dependency:'
+          'av1_fwd_txfm1d.round_shift')
 
 
 def append_bridges(text, emitted):

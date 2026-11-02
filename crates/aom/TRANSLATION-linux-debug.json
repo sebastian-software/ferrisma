@@ -32,6 +32,11 @@
       "export": "port_aom_inline_aom_write"
     },
     {
+      "function": "round_shift",
+      "source": "upstream/aom/av1/common/av1_inv_txfm1d.c",
+      "export": "port_aom_inline_round_shift"
+    },
+    {
       "function": "get_tx_size",
       "source": "upstream/aom/av1/common/cfl.c",
       "export": "port_aom_inline_get_tx_size"
@@ -746,12 +751,13 @@
       "source": "upstream/aom/av1/common/av1_inv_txfm1d.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_inv_txfm1d.rs",
       "raw_sha256": "9bb19e9603f475ef01ca1b3799183364c4295b894ba5bf597699f899183118fe",
-      "rust_sha256": "e1b46145460cb32b74c7cfbdcf8475b05c8de00f2ee0915f0f4e0b627040dbe0",
+      "rust_sha256": "50e3d29d8ec416140266ae40b5df8bd6080e01323c520dff9f26c4ccd9f57cc3",
       "production_rust_sha256": "e1b46145460cb32b74c7cfbdcf8475b05c8de00f2ee0915f0f4e0b627040dbe0",
       "corrections": {
         "raw-c-assignment-temporary": 3,
         "unwinding-codec-and-callback-abi": 20,
-        "system-and-vmaf-c-abi-declarations": 1
+        "system-and-vmaf-c-abi-declarations": 1,
+        "optional-inline-test-bridge": 1
       }
     },
     {

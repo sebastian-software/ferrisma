@@ -1252,7 +1252,7 @@
         "excluded_count": 1423,
         "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
-      "translation_manifest_sha256": "4f4a96f02cde0f90aa708632990bb3bc440ca44fa3d01c0610ccf8b671a09e56",
+      "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
       "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
       "rust_archive_sha256": "603bd67357ea71de21f8222eea712b98f50ba6234ba22955579ef8fc7292af25",
       "raw_api_example_passed": true,
@@ -1666,9 +1666,9 @@
       "original_inline_subjects": {
         "profile": "debug",
         "original_registrations": 18729,
-        "executed_original_cases": 13,
+        "executed_original_cases": 14,
         "original_cases_and_assertions_unchanged": true,
-        "optional_rust_bridge_exports": 11,
+        "optional_rust_bridge_exports": 12,
         "original_inline_subjects_execute_rust": true,
         "native_reference_and_fixture_helpers_retained": true,
         "complete_inline_role_review": false,
@@ -1679,7 +1679,7 @@
             "functions": [
               "aom_memset16"
             ],
-            "forced_include_sha256": "88e6e9db7cf161a4bd43654c23a8865693dbb76d29ed6a64ba377455a11fd9ca",
+            "forced_include_sha256": "a65a2c5961a20a76bff201d187acff6315cd55a104b5b5bbf659aec80388f15d",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1689,7 +1689,7 @@
               "get_msb",
               "aom_ceil_log2"
             ],
-            "forced_include_sha256": "6a15945e0f3a4a75bfc4b19f21e3e11432373b06e54a05f2bb2e56e8731d2116",
+            "forced_include_sha256": "4633d42deb75ef20c557831d0e80d9bb4f680c7fa4e76c0ec45c8068b28d06d0",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1699,7 +1699,7 @@
               "aom_get_qmlevel",
               "aom_get_qmlevel_allintra"
             ],
-            "forced_include_sha256": "e0a26b55d8a80050bfdbd34dcfc175d1e28f660381123e4411202be8fba47f9d",
+            "forced_include_sha256": "ecff45682501c7b3a812b60aedb153fb7b99298c3d447965b76cd1172d96fa8a",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1708,7 +1708,7 @@
             "functions": [
               "av1_is_dv_valid"
             ],
-            "forced_include_sha256": "6efdfedaabe8cbcc30c1190cab39eb30874c63c6c80091edfdee80e54c6f6bfb",
+            "forced_include_sha256": "1f8254cf9298e77860512c0e9fd3914df1ee7b51b69089e6fbd7ed2884252647",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1717,7 +1717,7 @@
             "functions": [
               "get_partition_subsize"
             ],
-            "forced_include_sha256": "d8ff45077efd94cc8dc4635ba3be8a6beb3b42e33315862aa5a27261c7c6effc",
+            "forced_include_sha256": "315000ba19518b81ad6df51a30d4f05d410b2a95565b08dfcd622f465be2282e",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1726,7 +1726,7 @@
             "functions": [
               "get_tx_size"
             ],
-            "forced_include_sha256": "e2c2a46af819c2d2beea52f775986e35dc70c379c18dd690daaf48b6cade7b84",
+            "forced_include_sha256": "dec9bf4182fc930b8dd406a1af93ea21cbd358c78bad61867acd8b976c2d4e8c",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1736,7 +1736,7 @@
               "aom_read_",
               "aom_write"
             ],
-            "forced_include_sha256": "f064c606f6d7d845da669b25f3d813930b834bbac7a3e095e23ad9d9135d4e9f",
+            "forced_include_sha256": "3a219379a2a499e9343a2dd4bc8baa09ca2868f97364493962b4fe3f7d1c6fa8",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -1745,7 +1745,16 @@
             "functions": [
               "get_default_scan"
             ],
-            "forced_include_sha256": "19075effc545cc9e4485263c179e944cc5c8dda5b51d5e9aaddd631ee6d6e44f",
+            "forced_include_sha256": "aaa31b01db6c1cde0eeef424485a7a49daa8673550e35c64486a952ed9394f16",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/av1_fwd_txfm1d_test.cc",
+            "source_sha256": "44586326cf7d5bf9d544dfc0b1fadcdd812bff4616476ae03a4009c76169c609",
+            "functions": [
+              "round_shift"
+            ],
+            "forced_include_sha256": "d4aec43b443d6923ddca0650c75740d77a4553adb4206694a6f20ddb167b66f4",
             "assertions_and_cases_unchanged": true
           }
         ],
@@ -1828,6 +1837,13 @@
             "skipped": false
           },
           {
+            "name": "av1_fwd_txfm1d.round_shift",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
             "name": "GetQmLevelTest.Regular",
             "status": "run",
             "result": "completed",
@@ -1842,8 +1858,8 @@
             "skipped": false
           }
         ],
-        "rust_archive_sha256": "8dc88b5e57ef91a1ffbf969597f96b206bca2222e131a20bcb8ffdee93a8857f",
-        "map_sha256": "5727c7de75ed425d96071de68c8f79b09cb026d0df7e6653c17bdfec7b80f6e8"
+        "rust_archive_sha256": "819fe535fcb2337df79a2565798416b995d6bab62985a6a422baa5903b15bf8e",
+        "map_sha256": "f2a86f07adc779b298a9fcc4bb0e514c04f0fdb487ef63cc3922b626b0576a5a"
       },
       "translation_manifest_sha256_before_optional_bridges": "cc86c06c84b4b80e95666afecc94b3df8105443ed5311a84e2f1c3c87b23d331",
       "production_bodies_unchanged_by_optional_bridges": true,
@@ -4934,7 +4950,9 @@
             "skipped": false
           }
         ]
-      }
+      },
+      "translation_manifest_sha256_before_round_shift_bridge": "4f4a96f02cde0f90aa708632990bb3bc440ca44fa3d01c0610ccf8b671a09e56",
+      "production_bodies_unchanged_by_round_shift_bridge": true
     },
     "release": {
       "aom-cli": {
@@ -6145,7 +6163,7 @@
         "excluded_count": 1423,
         "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
-      "translation_manifest_sha256": "7a401b48d1107814c43c0ee863bcb0ef544c08808f276492f398301a000f912f",
+      "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
       "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
       "rust_archive_sha256": "31bdc814535ec2a6fd12190f5a92142ba4e2246510a3ed790b23e8b836525ceb",
       "raw_api_example_passed": true,
@@ -6600,9 +6618,9 @@
       "original_inline_subjects": {
         "profile": "release",
         "original_registrations": 18729,
-        "executed_original_cases": 13,
+        "executed_original_cases": 14,
         "original_cases_and_assertions_unchanged": true,
-        "optional_rust_bridge_exports": 11,
+        "optional_rust_bridge_exports": 12,
         "original_inline_subjects_execute_rust": true,
         "native_reference_and_fixture_helpers_retained": true,
         "complete_inline_role_review": false,
@@ -6613,7 +6631,7 @@
             "functions": [
               "aom_memset16"
             ],
-            "forced_include_sha256": "88e6e9db7cf161a4bd43654c23a8865693dbb76d29ed6a64ba377455a11fd9ca",
+            "forced_include_sha256": "a65a2c5961a20a76bff201d187acff6315cd55a104b5b5bbf659aec80388f15d",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6623,7 +6641,7 @@
               "get_msb",
               "aom_ceil_log2"
             ],
-            "forced_include_sha256": "6a15945e0f3a4a75bfc4b19f21e3e11432373b06e54a05f2bb2e56e8731d2116",
+            "forced_include_sha256": "4633d42deb75ef20c557831d0e80d9bb4f680c7fa4e76c0ec45c8068b28d06d0",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6633,7 +6651,7 @@
               "aom_get_qmlevel",
               "aom_get_qmlevel_allintra"
             ],
-            "forced_include_sha256": "e0a26b55d8a80050bfdbd34dcfc175d1e28f660381123e4411202be8fba47f9d",
+            "forced_include_sha256": "ecff45682501c7b3a812b60aedb153fb7b99298c3d447965b76cd1172d96fa8a",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6642,7 +6660,7 @@
             "functions": [
               "av1_is_dv_valid"
             ],
-            "forced_include_sha256": "6efdfedaabe8cbcc30c1190cab39eb30874c63c6c80091edfdee80e54c6f6bfb",
+            "forced_include_sha256": "1f8254cf9298e77860512c0e9fd3914df1ee7b51b69089e6fbd7ed2884252647",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6651,7 +6669,7 @@
             "functions": [
               "get_partition_subsize"
             ],
-            "forced_include_sha256": "d8ff45077efd94cc8dc4635ba3be8a6beb3b42e33315862aa5a27261c7c6effc",
+            "forced_include_sha256": "315000ba19518b81ad6df51a30d4f05d410b2a95565b08dfcd622f465be2282e",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6660,7 +6678,7 @@
             "functions": [
               "get_tx_size"
             ],
-            "forced_include_sha256": "e2c2a46af819c2d2beea52f775986e35dc70c379c18dd690daaf48b6cade7b84",
+            "forced_include_sha256": "dec9bf4182fc930b8dd406a1af93ea21cbd358c78bad61867acd8b976c2d4e8c",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6670,7 +6688,7 @@
               "aom_read_",
               "aom_write"
             ],
-            "forced_include_sha256": "f064c606f6d7d845da669b25f3d813930b834bbac7a3e095e23ad9d9135d4e9f",
+            "forced_include_sha256": "3a219379a2a499e9343a2dd4bc8baa09ca2868f97364493962b4fe3f7d1c6fa8",
             "assertions_and_cases_unchanged": true
           },
           {
@@ -6679,7 +6697,16 @@
             "functions": [
               "get_default_scan"
             ],
-            "forced_include_sha256": "19075effc545cc9e4485263c179e944cc5c8dda5b51d5e9aaddd631ee6d6e44f",
+            "forced_include_sha256": "aaa31b01db6c1cde0eeef424485a7a49daa8673550e35c64486a952ed9394f16",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/av1_fwd_txfm1d_test.cc",
+            "source_sha256": "44586326cf7d5bf9d544dfc0b1fadcdd812bff4616476ae03a4009c76169c609",
+            "functions": [
+              "round_shift"
+            ],
+            "forced_include_sha256": "d4aec43b443d6923ddca0650c75740d77a4553adb4206694a6f20ddb167b66f4",
             "assertions_and_cases_unchanged": true
           }
         ],
@@ -6762,6 +6789,13 @@
             "skipped": false
           },
           {
+            "name": "av1_fwd_txfm1d.round_shift",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
             "name": "GetQmLevelTest.Regular",
             "status": "run",
             "result": "completed",
@@ -6776,8 +6810,8 @@
             "skipped": false
           }
         ],
-        "rust_archive_sha256": "d64eeabdb2da1d8f6fe99963d1739aae6732969cc95cc0a1ba3b80c54c388109",
-        "map_sha256": "0aef5b0d70f72ef5f605e61eddf92f23f16279f55e5394fa3cfa9cececa5f3ec"
+        "rust_archive_sha256": "e40ce29952c9e6abd187eb25782566eb0b9aaed60f11888a756871be1cb5528a",
+        "map_sha256": "a5521770ceb35250344eb250b5e3dd97986c69f3ca3480546612882795ba1a6a"
       },
       "translation_manifest_sha256_before_optional_bridges": "646058753c64cebc8efcd6dfa91a9fd1070d77a6b83458d4c8d6ff0c49116008",
       "production_bodies_unchanged_by_optional_bridges": true,
@@ -9854,7 +9888,9 @@
             "skipped": false
           }
         ]
-      }
+      },
+      "translation_manifest_sha256_before_round_shift_bridge": "7a401b48d1107814c43c0ee863bcb0ef544c08808f276492f398301a000f912f",
+      "production_bodies_unchanged_by_round_shift_bridge": true
     }
   },
   "open_gates": [

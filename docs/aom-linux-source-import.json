@@ -44,7 +44,7 @@
         }
       },
       "artifact_manifest_sha256": "1373bb9da84b2c576bef08095f8e9b7fcee0732a132b0468707194cfec928287",
-      "imported_manifest_sha256": "a7ddd08e1002203ded1087f826b8c9a60b72cbdd30a578324e8d429b9bfc9b0d",
+      "imported_manifest_sha256": "7e971b6afde4207254a80fcf2ea215292ef96ff731bc1dc9896ad6d1689b7e66",
       "production_bodies_unchanged": false,
       "corrected_production_bodies": [
         "crates/aom/src/linux/debug/aom/src/aom_codec.rs",
@@ -53,7 +53,7 @@
         "crates/aom/src/linux/debug/av1/av1_dx_iface.rs",
         "crates/aom/src/linux/debug/av1/av1_cx_iface.rs"
       ],
-      "optional_inline_wrappers": 11
+      "optional_inline_wrappers": 12
     },
     {
       "profile": "release",
@@ -94,7 +94,7 @@
         }
       },
       "artifact_manifest_sha256": "a42e9839db9b5a7bc1e7505a5fc3a390ea62af61e6f318600c42d2c611cc1ff4",
-      "imported_manifest_sha256": "a38c9b8fcfa61c778bb733d2940ce45a20f54dccde8790577c470860c75d5efe",
+      "imported_manifest_sha256": "2b5a2458caa9b6a9e298d67a7c5a430988e64d4a5468071faca59c8f2beb7d2f",
       "production_bodies_unchanged": false,
       "corrected_production_bodies": [
         "crates/aom/src/linux/release/aom/src/aom_codec.rs",
@@ -103,7 +103,7 @@
         "crates/aom/src/linux/release/av1/av1_dx_iface.rs",
         "crates/aom/src/linux/release/av1/av1_cx_iface.rs"
       ],
-      "optional_inline_wrappers": 11
+      "optional_inline_wrappers": 12
     }
   ]
 }

@@ -6774,3 +6774,12 @@ pub unsafe extern "C-unwind" fn av1_idct64(
         *stage_range.offset(stage as isize),
     );
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_round_shift(
+    value: int64_t,
+    bit: core::ffi::c_int,
+) -> int32_t {
+    round_shift(value, bit)
+}

@@ -32,6 +32,11 @@
       "export": "port_aom_inline_aom_write"
     },
     {
+      "function": "round_shift",
+      "source": "upstream/aom/av1/common/av1_inv_txfm1d.c",
+      "export": "port_aom_inline_round_shift"
+    },
+    {
       "function": "get_tx_size",
       "source": "upstream/aom/av1/common/cfl.c",
       "export": "port_aom_inline_get_tx_size"
@@ -734,11 +739,12 @@
       "source": "upstream/aom/av1/common/av1_inv_txfm1d.c",
       "rust": "crates/aom/src/linux/release/av1/common/av1_inv_txfm1d.rs",
       "raw_sha256": "27262ef5664fc3a50b07543f0a6ace2ac640c25a468611b1db510cc78c3cfeb3",
-      "rust_sha256": "6b241f95c9717c70b5107d79ca607a0330b98e8032d21fca6e8f2380687b0abe",
+      "rust_sha256": "066396585fbd723238d0ce3fe9c893a3e5e99da85019a6f94b80490e5eefefa3",
       "production_rust_sha256": "6b241f95c9717c70b5107d79ca607a0330b98e8032d21fca6e8f2380687b0abe",
       "corrections": {
         "raw-c-assignment-temporary": 3,
-        "unwinding-codec-and-callback-abi": 20
+        "unwinding-codec-and-callback-abi": 20,
+        "optional-inline-test-bridge": 1
       }
     },
     {
