@@ -4,6 +4,7 @@
 // This .cc is not separately compiled into the oracle.
 #include "lib/jxl/enc_frame.cc"
 #include <cstddef>
+#include <jxl/cms.h>
 
 jxl::Status EFParamsPostInit(jxl::CompressParams* p) {
   return jxl::ParamsPostInit(p);
@@ -35,6 +36,15 @@ jxl::Status EFThunderOneShot(JxlMemoryManager* mm,const jxl::CompressParams& p,c
     jxl::JxlEncoderChunkedFrameAdapter& input,std::vector<uint8_t>& bytes,jxl::AuxOut* aux) {
   JxlEncoderOutputProcessorWrapper output(mm);JxlCmsInterface cms={};
   JXL_RETURN_IF_ERROR(jxl::EncodeFrameOneShot(mm,p,jxl::FrameInfo(),&metadata,input,cms,nullptr,&output,aux));
+  JXL_RETURN_IF_ERROR(output.SetFinalizedPosition());return output.CopyOutput(bytes);
+}
+
+jxl::Status EFVarDctOneShot(JxlMemoryManager* mm,const jxl::CompressParams& p,
+    const jxl::CodecMetadata& metadata,jxl::JxlEncoderChunkedFrameAdapter& input,
+    std::vector<uint8_t>& bytes) {
+  JxlEncoderOutputProcessorWrapper output(mm);
+  JXL_RETURN_IF_ERROR(jxl::EncodeFrameOneShot(mm,p,jxl::FrameInfo(),&metadata,input,
+      *JxlGetDefaultCms(),nullptr,&output,nullptr));
   JXL_RETURN_IF_ERROR(output.SetFinalizedPosition());return output.CopyOutput(bytes);
 }
 

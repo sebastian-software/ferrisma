@@ -21,9 +21,6 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
-#[path = "parity/vardct_dc.rs"]
-mod vardct_dc;
-
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
 
@@ -733,10 +730,6 @@ fn observe(request: &str) -> String {
         "append" => append_case(&mut args),
         kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
         kind if kind.starts_with("huffman") => huffman::observe(kind, &mut args),
-        kind if group_schedule::handles(kind) => group_schedule::observe(kind, &mut args),
-        kind if group_render::handles(kind) => group_render::observe(kind, &mut args),
-        kind if dequant::handles(kind) => dequant::observe(kind, &mut args),
-        kind if vardct_dc::handles(kind) => vardct_dc::observe(kind, &mut args),
         kind if ac_group_symbols::handles(kind) => ac_group_symbols::observe(kind, &mut args),
         kind if ans::handles(kind) => ans::observe(kind, &mut args),
         kind if cluster::handles(kind) => cluster::observe(kind, &mut args),
@@ -772,6 +765,11 @@ fn observe(request: &str) -> String {
         kind if decode_frame::handles(kind) => decode_frame::observe(kind, &mut args),
         kind if uint_output::handles(kind) => uint_output::observe(kind, &mut args),
         kind if float_output::handles(kind) => float_output::observe(kind, &mut args),
+        kind if vardct_dc::handles(kind) => vardct_dc::observe(kind, &mut args),
+        kind if group_schedule::handles(kind) => group_schedule::observe(kind, &mut args),
+        kind if group_render::handles(kind) => group_render::observe(kind, &mut args),
+        kind if dequant::handles(kind) => dequant::observe(kind, &mut args),
+        kind if vardct_image::handles(kind) => vardct_image::observe(kind, &mut args),
         kind if whole_image::handles(kind) => whole_image::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
         kind if modular_frame::handles(kind) => modular_frame::observe(kind, &mut args),
@@ -1172,11 +1170,17 @@ fn appends_preserve_padding_and_following_writes() {
     compare(cases);
 }
 
+#[path = "parity/vardct_image.rs"]
+mod vardct_image;
+
+#[path = "parity/vardct_dc.rs"]
+mod vardct_dc;
+
 #[path = "parity/group_schedule.rs"]
 mod group_schedule;
 
-#[path = "parity/group_render.rs"]
-mod group_render;
-
 #[path = "parity/dequant.rs"]
 mod dequant;
+
+#[path = "parity/group_render.rs"]
+mod group_render;

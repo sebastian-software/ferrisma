@@ -463,8 +463,6 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "external_image.inc"
 #include "quant_dc.inc"
 
-bool VarDCTDCCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
-
 bool DctCommand(const std::string&, std::istringstream&);
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
@@ -490,6 +488,10 @@ bool UintOutputCommand(const std::string& command,std::istringstream& in,JxlMemo
 bool ACGroupSymbolsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool BlockContextCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool WholeImageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+
+bool VarDctImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool VarDCTDCCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool GroupScheduleCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
@@ -541,10 +543,6 @@ int main() {
       else if (QuantDcCommand(command, in, &mm)) {}
       else if (QuantStorageCommand(command, in)) {}
       else if (DctCommand(command, in)) {}
-      else if (VarDCTDCCommand(command, in, &mm)) {}
-      else if (GroupRenderCommand(command, in, &mm)) {}
-      else if (DequantCommand(command, in, &mm)) {}
-      else if (GroupScheduleCommand(command, in, &mm)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (QuantizerCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
@@ -566,6 +564,11 @@ int main() {
       else if (UintOutputCommand(command, in, &mm)) {}
       else if (FloatOutputCommand(command, in, &mm)) {}
       else if (WholeImageCommand(command, in, &mm)) {}
+      else if (VarDctImageCommand(command, in, &mm)) {}
+      else if (GroupRenderCommand(command, in, &mm)) {}
+      else if (DequantCommand(command, in, &mm)) {}
+      else if (GroupScheduleCommand(command, in, &mm)) {}
+      else if (VarDCTDCCommand(command, in, &mm)) {}
       else if (ACGroupSymbolsCommand(command, in, &mm)) {}
       else if (BlockContextCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}

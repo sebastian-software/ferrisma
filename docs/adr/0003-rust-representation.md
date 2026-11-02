@@ -1098,3 +1098,9 @@ Dequantization preserves unsigned source bit operations, scalar multiplication,
 ordered CfL additions and coefficient-width narrowing. Source-derived traversal
 fixtures compare initialized pipeline pixels, owners, callback order and partial
 state for every strategy, both widths and draw/accumulation modes.
+
+The first complete VarDCT output uses TF_SRGB::EncodedFromDisplay because the
+pinned common.h defaults JXL_HIGH_PRECISION to 1. Retain its degree-four rational
+polynomials, square-root and sign restoration; FastLinearToSRGB is a separately
+translated helper and has its own exact corpus. No approximate replacement or
+float tolerance is used to make complete-file results pass.
