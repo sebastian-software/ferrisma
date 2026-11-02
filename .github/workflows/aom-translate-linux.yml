@@ -76,6 +76,8 @@ jobs:
           python3 tools/check_aom_vmaf.py --model float
           python3 tools/check_aom_faults.py --debug
           python3 tools/check_aom_faults.py
+          python3 tools/check_aom_faults.py --debug --thread-failures
+          python3 tools/check_aom_faults.py --thread-failures
       - name: Preserve focused original API and error registrations
         run: |
           filter='AomImageTest.*:AomLeb128.*:DecodeAPI.*:EncodeAPI.Invalid*:FilmGrainTableIOTest.*:FilmGrainTableTest.*:MetadataTest.*:KeyValAPI/*.*:EncodeAPI.SizeAlignOverflow'
@@ -114,4 +116,5 @@ jobs:
             build/aom-cli-*/*-decode.log
             build/aom-roundtrip-*/summary.json
             build/aom-faults-*/summary.json
+            build/aom-thread-faults-*/summary.json
             build/aom-vmaf-modes-*/summary.json

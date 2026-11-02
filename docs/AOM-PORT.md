@@ -102,11 +102,24 @@ Supplemental comparisons in each profile preserve exact output:
   and process exit. The Homebrew VMAF build lacks float extractors; float-model
   execution is a separate check for the isolated source-built VMAF profile,
   which explicitly enables those extractors.
+- Eight paired worker-creation scenarios per profile cover successful baselines
+  and each of three `pthread_create` failures in both encoder and decoder,
+  with four configured threads and row multithreading. Error state,
+  diagnostics, teardown, and thread-call counts match.
+- The 12 public round trips, 306 allocation scenarios, and eight worker-creation
+  scenarios also pass with AddressSanitizer. All 168 original C units, the Rust
+  archive, and the test callers are instrumented against the pinned Rust ASan
+  runtime. That supplementary macOS build uses Clang 16.0.6 and original Release
+  preprocessing. Native VMAF remains uninstrumented. ThreadSanitizer and broader
+  fault/fixture coverage are still open.
+- The 38 original C++ rate-control tests pass in both Release executables. The
+  original C++ wrapper remains native; this is consumer/integration evidence,
+  not a claim to have ported that wrapper.
 
 Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
 execution, header-inline and scalar DSP test correspondence, additional
-allocation/thread failure scenarios, sanitizer coverage, Linux profiles, and
+allocation/thread failure scenarios, broader sanitizer coverage, Linux profiles, and
 root integration remain open.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
@@ -157,6 +170,11 @@ python3 tools/check_aom_faults.py --debug
 python3 tools/check_aom_faults.py
 python3 tools/check_aom_vmaf.py --debug
 python3 tools/check_aom_vmaf.py
+python3 tools/check_aom_faults.py --debug --thread-failures
+python3 tools/check_aom_faults.py --thread-failures
+python3 tools/check_aom_roundtrip.py --asan
+python3 tools/check_aom_faults.py --asan
+python3 tools/check_aom_faults.py --asan --thread-failures
 python3 tools/run_aom_tests.py
 python3 tools/run_aom_tests.py --rust
 ```

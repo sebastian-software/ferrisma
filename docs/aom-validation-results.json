@@ -1414,6 +1414,202 @@
             "decoded_sha256": "6842fab532aec1427b14a1e6efb7f91a44a75136a5becd90a50a590fcc61dc56"
           }
         ]
+      },
+      "thread_failures": {
+        "profile": "debug",
+        "target": "macOS ARM64",
+        "sanitizer": null,
+        "caller_instrumented": false,
+        "hooks": [
+          "pthread_create"
+        ],
+        "single_threaded": false,
+        "codec_allocation_ownership_observed": false,
+        "paired_scenarios": 8,
+        "original_translation_units": 168,
+        "rewritten_rust_codegen_objects": 257,
+        "source_sha256": "19d33871b2ef9d5c1f6e064c5d893cf76707b0d2e7659b1003bcbdd3936b0362",
+        "input_sha256": "194af16218829b472602a0d6682d5ee9de719e01dece1899e42e7d5ced8f5c8a",
+        "native_vmaf_unhooked": true,
+        "rust_runtime_and_unwind_payload_unhooked": true,
+        "records": [
+          {
+            "mode": "encoder",
+            "failure_point": 0,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            }
+          },
+          {
+            "mode": "encoder",
+            "failure_point": 1,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            }
+          },
+          {
+            "mode": "encoder",
+            "failure_point": 2,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            }
+          },
+          {
+            "mode": "encoder",
+            "failure_point": 3,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 0,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 1,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 2,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 3,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            }
+          }
+        ]
       }
     },
     "release": {
@@ -2787,6 +2983,208 @@
             "decoded_sha256": "6842fab532aec1427b14a1e6efb7f91a44a75136a5becd90a50a590fcc61dc56"
           }
         ]
+      },
+      "thread_failures": {
+        "profile": "release",
+        "target": "macOS ARM64",
+        "sanitizer": null,
+        "caller_instrumented": false,
+        "hooks": [
+          "pthread_create"
+        ],
+        "single_threaded": false,
+        "codec_allocation_ownership_observed": false,
+        "paired_scenarios": 8,
+        "original_translation_units": 168,
+        "rewritten_rust_codegen_objects": 17,
+        "source_sha256": "19d33871b2ef9d5c1f6e064c5d893cf76707b0d2e7659b1003bcbdd3936b0362",
+        "input_sha256": "194af16218829b472602a0d6682d5ee9de719e01dece1899e42e7d5ced8f5c8a",
+        "native_vmaf_unhooked": true,
+        "rust_runtime_and_unwind_payload_unhooked": true,
+        "records": [
+          {
+            "mode": "encoder",
+            "failure_point": 0,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            }
+          },
+          {
+            "mode": "encoder",
+            "failure_point": 1,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            }
+          },
+          {
+            "mode": "encoder",
+            "failure_point": 2,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            }
+          },
+          {
+            "mode": "encoder",
+            "failure_point": 3,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile encoder thread creation failed"
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 0,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 0,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 0,
+              "detail": ""
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 1,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 1,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 2,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 2,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            }
+          },
+          {
+            "mode": "decoder",
+            "failure_point": 3,
+            "original": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            },
+            "rust": {
+              "init": 0,
+              "control": 0,
+              "operation": 1,
+              "destroy": 0,
+              "calls": 3,
+              "failures": 1,
+              "detail": "Tile decoder thread creation failed"
+            }
+          }
+        ]
+      },
+      "original_cpp_rate_control": {
+        "executed_per_implementation": 38,
+        "failures": 0,
+        "original_wrapper_remains_native": true,
+        "same_original_case_inventory": true
       }
     }
   },
@@ -2799,5 +3197,359 @@
     "Symbol/link-map audit",
     "Root libavif integration and original suites",
     "Additional VMAF model/configuration scenarios; float models require float extractors"
-  ]
+  ],
+  "address_sanitizer": {
+    "target": "aarch64-apple-darwin",
+    "original_release_preprocessing": true,
+    "build": {
+      "key": "1892c160b6123c22a61c45fa6ddf294549e1dcd17a80d1e16c62fad0d19144a1",
+      "original_translation_units": 168,
+      "compiler": "Homebrew clang version 16.0.6",
+      "original_sha256": "810986ca6926a206fc73b11d59eab179a2746367c17ff70493f018e910f32443",
+      "rust_sha256": "68389e503f73af784686b800cb1312dd4422ab60153e786a2f50749e14c69a7c",
+      "runtime_sha256": "c366ca4773d6734d89355950a8912ed242e4660153af85339a71c7665935516e",
+      "original_release_preprocessing": true,
+      "sanitizer": "address",
+      "native_vmaf_uninstrumented": true
+    },
+    "roundtrips": {
+      "profile": "release",
+      "cases": [
+        {
+          "bitdepth": 8,
+          "chroma": 420,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 9146,
+          "sha256": "fc7a571378228b4b5ae631b54827c89a4670c1b089431525ed9ad5a82b99d884"
+        },
+        {
+          "bitdepth": 8,
+          "chroma": 422,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 11873,
+          "sha256": "6d1bd18849a17815db6b0fbe44a03b86973cf03dbe71f54d444aa4e4afae7f93"
+        },
+        {
+          "bitdepth": 8,
+          "chroma": 444,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 17169,
+          "sha256": "0e51bbef3f92a8c872d6fadc157e841f27e76d4b3621088c782d076a994c7c7e"
+        },
+        {
+          "bitdepth": 8,
+          "chroma": 420,
+          "monochrome": 1,
+          "frames": 3,
+          "exact": true,
+          "bytes": 6097,
+          "sha256": "bdcb6469149cd0c26f06f29adc94741a543a07be1415394ebd0f105521ad945d"
+        },
+        {
+          "bitdepth": 10,
+          "chroma": 420,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 13544,
+          "sha256": "f72f39d2b2541c8fe7d499c1f6fc8a85b22877f4da97de5a1f26cbb0dbb46b34"
+        },
+        {
+          "bitdepth": 10,
+          "chroma": 422,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 18042,
+          "sha256": "bf4a35583a3973a21c45ccd4146b9e2e22067b063b4c63de4efc2c56da561d2b"
+        },
+        {
+          "bitdepth": 10,
+          "chroma": 444,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 26801,
+          "sha256": "4cfd8eb9b76e98c491ce19e3023446a76681cb2140acda3350f3dc9be45d79e2"
+        },
+        {
+          "bitdepth": 10,
+          "chroma": 420,
+          "monochrome": 1,
+          "frames": 3,
+          "exact": true,
+          "bytes": 8981,
+          "sha256": "b148936608260de3060529b3ac48cdea85c16ab1e60d4b7afa40a0c76b19fb01"
+        },
+        {
+          "bitdepth": 12,
+          "chroma": 420,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 11730,
+          "sha256": "bac29349cc5a29f0dfd23ebb50e1fb00999df1ed9043d480fa1e5476cb5b60ff"
+        },
+        {
+          "bitdepth": 12,
+          "chroma": 422,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 15580,
+          "sha256": "8e8cb24244b427f27f9aeaced03275fc79b3df55ff8f05c77528b4328679e400"
+        },
+        {
+          "bitdepth": 12,
+          "chroma": 444,
+          "monochrome": 0,
+          "frames": 3,
+          "exact": true,
+          "bytes": 23237,
+          "sha256": "d57743ca38d4e9798d86a5603630b64f52c5b224278aa412a0819e8fabf0a39f"
+        },
+        {
+          "bitdepth": 12,
+          "chroma": 420,
+          "monochrome": 1,
+          "frames": 3,
+          "exact": true,
+          "bytes": 7883,
+          "sha256": "ba040b46134a04b9cc225cb2f6dd2989a7519b1e55e7d58cb4a96ebb4df7ec25"
+        }
+      ],
+      "sanitizer": "address",
+      "caller_instrumented": true,
+      "original_archive_sha256": "8ebc72567f0435b127ce7fba82aeda942915874860335a77142f41915f0a5971",
+      "rust_archive_sha256": "68389e503f73af784686b800cb1312dd4422ab60153e786a2f50749e14c69a7c",
+      "source_sha256": "1df6ba111fa7433f70732cef332b7b8875b7b3d13ae038a3c6656644d91e48cd"
+    },
+    "allocation_failures": {
+      "profile": "release",
+      "target": "macOS ARM64",
+      "sanitizer": "address",
+      "caller_instrumented": true,
+      "hooks": [
+        "malloc",
+        "calloc",
+        "realloc",
+        "free"
+      ],
+      "single_threaded": true,
+      "paired_scenarios": 306,
+      "original_translation_units": 168,
+      "rewritten_rust_codegen_objects": 17,
+      "source_sha256": "f6fa06bd1e035def498bf5f605f8f1e434b4a398ccb040ec5172115b34485012",
+      "input_sha256": "ab8ccf9674e053548f6cb09eb1dd42f8a19a78bf9993bd82cdb9f38197467e55",
+      "native_vmaf_unhooked": true,
+      "rust_runtime_and_unwind_payload_unhooked": true
+    },
+    "allocation_failure_points": {
+      "encoder": 270,
+      "decoder": 34
+    },
+    "outstanding_codec_allocations": 0,
+    "thread_failures": {
+      "profile": "release",
+      "target": "macOS ARM64",
+      "sanitizer": "address",
+      "caller_instrumented": true,
+      "hooks": [
+        "pthread_create"
+      ],
+      "single_threaded": false,
+      "codec_allocation_ownership_observed": false,
+      "paired_scenarios": 8,
+      "original_translation_units": 168,
+      "rewritten_rust_codegen_objects": 17,
+      "source_sha256": "19d33871b2ef9d5c1f6e064c5d893cf76707b0d2e7659b1003bcbdd3936b0362",
+      "input_sha256": "194af16218829b472602a0d6682d5ee9de719e01dece1899e42e7d5ced8f5c8a",
+      "native_vmaf_unhooked": true,
+      "rust_runtime_and_unwind_payload_unhooked": true,
+      "records": [
+        {
+          "mode": "encoder",
+          "failure_point": 0,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 0,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 0,
+            "detail": ""
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 0,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 0,
+            "detail": ""
+          }
+        },
+        {
+          "mode": "encoder",
+          "failure_point": 1,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 1,
+            "failures": 1,
+            "detail": "Tile encoder thread creation failed"
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 1,
+            "failures": 1,
+            "detail": "Tile encoder thread creation failed"
+          }
+        },
+        {
+          "mode": "encoder",
+          "failure_point": 2,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 2,
+            "failures": 1,
+            "detail": "Tile encoder thread creation failed"
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 2,
+            "failures": 1,
+            "detail": "Tile encoder thread creation failed"
+          }
+        },
+        {
+          "mode": "encoder",
+          "failure_point": 3,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 1,
+            "detail": "Tile encoder thread creation failed"
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 1,
+            "detail": "Tile encoder thread creation failed"
+          }
+        },
+        {
+          "mode": "decoder",
+          "failure_point": 0,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 0,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 0,
+            "detail": ""
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 0,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 0,
+            "detail": ""
+          }
+        },
+        {
+          "mode": "decoder",
+          "failure_point": 1,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 1,
+            "failures": 1,
+            "detail": "Tile decoder thread creation failed"
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 1,
+            "failures": 1,
+            "detail": "Tile decoder thread creation failed"
+          }
+        },
+        {
+          "mode": "decoder",
+          "failure_point": 2,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 2,
+            "failures": 1,
+            "detail": "Tile decoder thread creation failed"
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 2,
+            "failures": 1,
+            "detail": "Tile decoder thread creation failed"
+          }
+        },
+        {
+          "mode": "decoder",
+          "failure_point": 3,
+          "original": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 1,
+            "detail": "Tile decoder thread creation failed"
+          },
+          "rust": {
+            "init": 0,
+            "control": 0,
+            "operation": 1,
+            "destroy": 0,
+            "calls": 3,
+            "failures": 1,
+            "detail": "Tile decoder thread creation failed"
+          }
+        }
+      ]
+    }
+  }
 }
