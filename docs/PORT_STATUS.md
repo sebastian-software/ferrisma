@@ -60,16 +60,18 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
-| `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
-| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
+| `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
+| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, retained shared reference temporary, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
 | `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; the first VarDCT profile is connected through the same original scheduling below; general/progressive public APIs and JPEG remain unported |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
-| `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, and decoded-byte accessors; general import/export/copy unported |
-| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
+| `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
+| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
+| `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
+| `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete scalar horizontal/vertical stages, 3/4–1/4 interpolation, original borders/shifts/channel modes and factory; source-ordered channel stages precede filters in admitted YCbCr frames |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
@@ -100,7 +102,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
-| `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, and native moves; C allocators and MSan-only padding instrumentation unported |
+| `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, native moves and source-header-preserving allocation transfer used by ImageBundle moves; C allocators and MSan-only padding instrumentation unported |
 | `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
@@ -122,6 +124,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
+| `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete source common helpers and command tables from main |
+| `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete command decoding and defined partial output from main; streaming reader/CMS remain separate |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
@@ -690,6 +694,19 @@ empty owners, virtual mutable/const row offsets, stride, moves, whole/plane
 zero-fill, and unchanged physical row padding. Native regressions verify
 same-owner bindings after moves, byte transfer without copying, repeated image
 encoding, and pre-output short-buffer rejection.
+
+Retained frame/DC ownership adds 6,240 original differential requests: 2,016
+ImageBundle move-constructor/assignment and RemoveColor cases plus 4,224 actual
+public write-stage cases. They observe destination identity, transferred pixel
+allocation identity, moved-from scalar/plane headers including restoration to
+the original allocated dimensions, name/ICC/vector state,
+valid source color aliases while the destination lives, and JPEG/extra-plane
+size fallback. Writer cases cover every DC/reference slot, enclosing owner
+moves, later target allocation replacement, row and size guards, partial writes,
+empty dimensions and exact exceptional float words. Four native regressions
+exercise decoder-owned pipelines across owner moves, live indexed DC access,
+existing reference Box identity, and the reference temporary's final allocation
+transfer. These component checks do not admit additional complete-frame modes.
 
 Noise HasAny observations retain the original early-return loop with the
 reference compile setting documented in ADR 0002. The ordinary AArch64 O3
@@ -1398,14 +1415,31 @@ thresholds through 513 intervals. Persistent-stage cases verify that subsequent
 dictionary and reference replacement remain visible. Two native tests retain
 independently captured original streams and blending samples.
 
-The alpha reference audit compares 1,920 actual fixture requests between selected
+The alpha reference audit compares 1,944 actual fixture requests between selected
 ordinary and fully ASan/UBSan graphs and checks all 1,632 finite requests against
-both untouched default graphs. All six real public alpha symbols bind to the
-pristine selected observation unit, including complete-file calls. That unit alone
-uses scoped `-fno-inline-functions` after demonstrated original signaling-NaN
-std::max drift; see ADR 0002. There is no new unsafe code, dependency, skipped case,
-relaxed float comparison, or changed old expected word. The README patch checkbox
-stays open until complete-file integration and its acceptance evidence land.
+both untouched default graphs. All six actual public alpha symbols bind to the
+pristine selected unit, including complete-file calls. That unit alone uses O0
+and no-inline configuration, with strict FP additionally on x86_64 Linux.
+ARM retains source contraction; strict FP there changes finite words. The
+[native source experiment](https://github.com/sebastian-software/libjxl-rs/actions/runs/41446120185)
+records the accepted x86 strict-O0 configuration and rejected candidates. Both
+initial local ARM gates passed Debug, Release and Rust 1.85 but included the
+48 subsequently identified undefined tree observations; their apparent ARM
+success does not establish pixel parity. The corrected multiply operation keeps
+the source's background-first product through the existing binary32 call
+boundary, retaining all old exceptional requests. All six corrected local ARM
+focused configurations (ordinary/ASan × Debug/Release/Rust 1.85) pass 11 parity
+tests with 5,478 exact defined requests, all 72 original-only probes and all
+three standalone regressions. The local independent census executes all 1,728
+tree requests in both graphs with no diagnostics and exact defined observations;
+it explicitly leaves native Linux confirmation pending. Both full corrected
+local gates also passed: all six ordinary/ASan/UBSan Debug, Release and Rust 1.85
+configurations completed 439 tests, 257 parity tests, 874,065 exact defined
+requests and all 72 original-only probes, with no failures or ignored tests.
+Native census, final native Rust CI and hosted integration remain required.
+No original source or sanitizer changes, unsafe operation, assembly,
+relaxed float comparison or changed old defined case is used. The README patch
+checkbox remains open until complete-file reference orchestration is connected.
 
 ## Scalar spline decoding and rendering
 
@@ -1444,3 +1478,139 @@ original compiler-dependent NaN operand ambiguity and ownership mapping. No old
 cases, expected words, source pins, sanitizer flags, or original archive options
 change. Complete-file EPF admission and image evidence are a separate integration
 milestone, so the README's EPF checkbox remains open here.
+
+## Sequential decoder lifecycle integration
+
+The internal `SequenceDecoder` now connects one shared decoder state across
+regular and reference-only frames, repeated reference-slot saves, cropped
+blending, animation, previews, progressive-DC dependencies, and NONE/XYB Modular
+and VarDCT frames. It retains source InitFrame/InitFrameOutput order, physical
+section traversal and reader closes, reference masks and slot identity, DC
+selection, finalization and decoded-byte checkpoints. Main and early/late
+extra-channel spatial upsampling run in original PreparePipeline order.
+The earlier fixed complete-file entry points keep their existing admission.
+
+The frozen manifest contains 113 genuine original encoder requests. Two of
+those document actual unsupported higher-level DC encoder requests; no invented
+DC codestream substitutes for them. The lifecycle corpus keeps all 1,110 prior
+whole-file requests and adds 666 later-frame truncation/mutation requests, plus
+18 additional original-header/TOC-writer section-size corruptions and
+20 direct original shared-state observations spanning DC levels 0 through 4,
+missing/existing slots and use-DC selection. The 1,794 whole-file cases include
+754 errors with initialized saved reference pixels, 10 with initialized DC
+pixels, and 476 with initialized output pixels. Two additional close failures
+retain all written output and uncommitted reference-storage pixels before the
+source's reference move. Their zero-change controls reproduce genuine encoder
+bytes exactly, and all 18 writer-produced cases remain in the corpus. Source slot identities and masks, preview-last/main-EOF behavior,
+metadata, every initialized retained sample, partial errors and reader/section
+checkpoints are compared exactly. Allocation-generation and row-span tracing
+prevents inspection of newly allocated unwritten source DC samples; ADR 0003
+records the observer's null-runner limit.
+
+The expanded corpus retains all 1,814 requests above and the original
+113-request manifest byte for byte. A separate 65-request encoder manifest
+adds 322 resampling, 234 deliberate multigroup, and 66 higher-DC whole-file
+observations. Actual encoder controls cover main and extra-channel factors
+1, 2, 4, and 8; the observer checks both ParamsPostInit readback and decoded
+header factors. The source normalizes an extra factor below the main factor
+upward inside EncodeFrame. Twelve early-extra, 18 late-extra, and six main-only
+upsampling fixtures succeed. Six odd-sized Modular early-extra files genuinely
+encode but the original decoder rejects them; aligned positive controls and
+all six encoder-rejected unsupported-factor requests remain explicit.
+Multigroup sequences use 257x3, 3x257, and 513x1 dimensions, parsed two/three-group
+headers, reference-only saves, reference reuse, animation, and optional previews.
+
+The encoder still rejects explicit DC levels 3 and 4. Separate source-writer
+fixtures parse genuine 1x1 progressive-DC2 frames and rewrite only dc_level
+through WriteFrameHeader/WriteToc. They reuse each genuine payload unchanged,
+verify all 18 FrameDimensions fields, reparse emitted headers/TOCs, restore the
+old level to reproduce the original frame bytes, and retain the exact-byte
+DC2 control. Both original graphs accept the resulting DC3/DC4 dependency
+chains; this is decoder acceptance, not an encoder capability claim.
+
+One additional opt-in Squirrel/patches-on encoder request produces a frozen
+112-byte Modular/NONE codestream from repeated glyph pixels. Its automatic
+reference-only save to slot 3 precedes a main frame with FLAG_PATCHES, 24 patch
+positions, two source rectangles, and reference mask 8. All 36,864 initialized
+output words equal the 0/1 glyph inputs. The original FrameHeader/TOC parsers
+locate its internal frame boundaries; 156 complete, truncated, and mutated
+observations retain exact dictionary, mask, identity, output, and storage
+snapshots. Of its 137 errors, 133 retain initialized reference pixels, 39 retain
+partial patch positions, and 20 retain initialized output pixels. Reserved
+frame flags remain accepted as in the original; the byte-40 flags=4 mutation
+reaches output initialization before the later section error.
+
+The resulting focused inventory contains seven groups and 2,592 differential
+requests, including the unchanged 20 direct state observations. The independent
+source audit compares all 2,592 requests between ordinary and ASan/UBSan graphs
+and verifies the actual public writer factory bindings. The extension adds
+241 errors retaining reference pixels, 45 retaining initialized DC pixels,
+and 153 retaining initialized output pixels. These focused results do not
+replace the required complete repository gates.
+
+The connected YCbCr/chroma extension is described below. This internal lifecycle
+boundary still excludes ICC/default CMS parsing, spot colors, broader extra-channel metadata, arbitrary
+external layouts, JPEG reconstruction and the public progressive C API. Its
+focused checks do not complete the general decoder milestone or establish the
+remaining complete-codec acceptance gates.
+
+
+## Complete-file YCbCr and chroma integration
+
+The shared-state sequence decoder now connects the original scalar YCbCr and
+horizontal/vertical chroma stages for sRGB 4:4:4, 4:2:2, 4:2:0 and 4:4:0. Genuine
+grayscale JPEG input follows the original YCbCr path with 4:4:4 shifts. Source
+stage order, group/channel dimensions, ceil-divided borders and pre-/post-color
+reference write checkpoints remain explicit; existing reconstruction and buffer
+algorithms are unchanged. ADRs 0002 and 0003 retain the independently verified
+platform-specific scalar reference and ownership/numeric mapping.
+
+Twenty-five genuine JPEG-derived raw JXL fixtures cover all five variants at
+65x33, 1x1, 9x7, 257x3 and 3x257. The original JPEG parser reports the actual
+component sampling; actual public encoder calls disable container and JPEG
+metadata storage and reproduce every stored codestream byte. Three new
+differential groups compare 25 complete files, 25 typed header/padding/group
+observations and 1,498 truncated, payload-mutated and trailing-byte observations.
+One Rust-only test decodes all 25 files against every planar binary32 sample
+independently captured from matching ordinary and ASan/UBSan original graphs.
+No comparison uses pre-JPEG RGB as a substitute for the already quantized image.
+
+The complete-file source audit retains every request/observation, checks genuine
+JPEG/wire/pixel fixture hashes, and verifies actual ParseJPG, public encoder,
+PreparePipeline and selected chroma factory symbol bindings. The unchanged
+5,562-request component audit and all 2,592 prior lifecycle requests, including
+20 direct DC-state cases, remain separate required controls. No source algorithm,
+old expected word, sanitizer option, global numeric flag, runtime dependency or
+production C++ fallback changes. All six focused native ARM configurations pass:
+ordinary and ASan/UBSan Debug, Release and Rust 1.85 each complete 27 tests,
+including 15 differential groups and 9,702 exact requests, with no failed or
+ignored tests. The no-feature 25-file capture test, all-target/all-feature Clippy,
+formatting, source/notices, documentation links and all three independent source
+audits pass. All six full local configurations also pass: each runs 513 tests,
+307 differential groups and 926,392 exact defined requests, plus all 72 explicit
+original-only boundary probes, with no failures or ignored tests. This union
+includes the ICC command-codec prerequisite. Native Linux/macOS CI and integration
+into `main` remain required before delivery. General orientation,
+ICC/CMS parsing, broader sampling/extra channels, JPEG reconstruction and the
+public progressive decoder API remain open.
+
+## ICC profile command decoding
+
+The complete common-helper and UnpredictICC boundary adds five differential
+groups and 12,247 exact original requests. These cover every byte-pair context
+class, tag/endian access, adaptive header prediction, preceding-history loads,
+unsigned overflow checks, all tenth-byte varint forms, nonrectangular shuffles,
+every tag/command byte and prediction flag, command errors and initialized output
+prefixes. Four sRGB/linear ICC profiles and 45 arbitrary byte buffers pass through
+the actual original PredictICC function; their genuine command streams are then
+decoded, truncated and mutated against both implementations. Three standalone
+regressions retain independent original captures for tenth-byte overflow,
+nonrectangular shuffling and partial output with the nonempty-result guard.
+
+The observer compiles pristine icc_codec.cc and calls the original common helpers
+and predictor. Source bodies, numeric options, dependencies and sanitizer
+coverage remain unchanged. A fresh source review retained the fallible allocated
+header checkpoint and the full logical-position/history domain. Focused
+comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
+Rust 1.85 configurations, including the three standalone regressions.
+Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.

@@ -54,3 +54,30 @@ word for each unchanged `.jxl` file. Their values were printed by the original
 AArch64 captures remain unchanged. The standalone test selects the exact native
 capture: source contraction differs across these CPU targets, as allowed by the
 porting contract. Integer captures are shared; no float tolerance is used.
+
+## JPEG-derived YCbCr and chroma fixtures
+
+`ycbcr-jpeg-fixtures.json` records 25 genuine baseline JPEG files and their raw
+JXL codestreams: 4:4:4, 4:2:2, 4:2:0, 4:4:0 and grayscale at 65x33, 1x1, 9x7,
+257x3 and 3x257. RGB8 source samples follow
+`(x*17 + y*23 + c*61 + (x*y)%47)%256`, written as binary P6 PPM. The recorded
+libjpeg-turbo cjpeg version encodes quality 90, precision 8, integer DCT and
+baseline JPEG; sampling is `1x1,1x1,1x1`, `2x1,1x1,1x1`, `2x2,1x1,1x1` or
+`1x2,1x1,1x1`, with `-grayscale` for the final variant. Validation uses the stored
+JPEGs and does not require cjpeg or ImageMagick.
+
+The pristine pinned parser independently reports actual JPEG sampling. Public
+JxlEncoderUseContainer(false), JxlEncoderStoreJPEGMetadata(false), effort 3 and
+JxlEncoderAddJPEGFrame produce the stored raw codestreams, with every API status
+successful. Every `.float-pixels` file contains all source-initialized RGB words
+in planar channel/y/x order as little-endian binary32. These are independently
+captured from matching ordinary and ASan/UBSan AArch64 original graphs; the
+already quantized JPEG samples are never compared to pre-JPEG RGB as a golden.
+The manifest retains original writer observations and JPEG/JXL/pixel hashes.
+
+`tools/chroma_image_reference.py` repeats the genuine original encoder calls,
+checks each exact codestream and captured pixel word, verifies actual original
+symbol bindings, and compares 1,548 complete/header/truncated/mutated/trailing
+observations between both source graphs. Existing stage exceptional/finite
+acceptance and lifecycle sequences remain independent controls. Strict native
+Linux/macOS validation is required for an integration tree.

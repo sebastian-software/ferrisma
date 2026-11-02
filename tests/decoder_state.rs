@@ -25,8 +25,8 @@ fn missing_dc_frame_error_keeps_new_binding_and_successful_binding_survives_owne
     );
     assert_eq!(shared.dc_source, DcSource::Frame(2));
     assert_eq!(shared.dc_storage.xsize(), 0);
-    shared.dc_frames[2] = Image3::create(2, 1).unwrap();
-    shared.dc_frames[2].plane_row_mut(0, 0)[0] = 7.0;
+    shared.dc_frames.borrow_mut()[2] = Image3::create(2, 1).unwrap();
+    shared.dc_frames.borrow_mut()[2].plane_row_mut(0, 0)[0] = 7.0;
     initialize_passes_shared_state(&header, &mut shared, false).unwrap();
     for y in 0..shared.quant_dc.ysize() {
         assert!(
@@ -36,7 +36,7 @@ fn missing_dc_frame_error_keeps_new_binding_and_successful_binding_survives_owne
         );
     }
     let mut moved = Box::new(shared);
-    assert!(std::ptr::eq(moved.dc(), &moved.dc_frames[2]));
+    assert!(std::ptr::eq(&*moved.dc(), &moved.dc_frames.borrow()[2]));
     assert_eq!(moved.dc().plane_row(0, 0)[0], 7.0);
     // InitializePassesSharedState uses Create's original xyb=true default even
     // for the selected lossless profile's non-XYB metadata.
@@ -45,8 +45,8 @@ fn missing_dc_frame_error_keeps_new_binding_and_successful_binding_survives_owne
     header.dc_level = 0;
     initialize_passes_shared_state(&header, &mut moved, false).unwrap();
     let moved = *moved;
-    assert!(std::ptr::eq(moved.dc(), &moved.dc_storage));
-    assert_eq!(moved.dc_frames[2].plane_row(0, 0)[0], 7.0);
+    assert!(std::ptr::eq(&*moved.dc(), &moved.dc_storage));
+    assert_eq!(moved.dc_frames.borrow()[2].plane_row(0, 0)[0], 7.0);
 }
 
 #[test]

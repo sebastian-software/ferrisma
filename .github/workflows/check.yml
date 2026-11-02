@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/decoder-chroma-integration]
   pull_request:
 
 permissions:
@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   port:
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -47,3 +50,37 @@ jobs:
           python3 tools/epf_reference.py
           python3 tools/noise_reference.py
           python3 tools/alpha_reference.py
+      - name: Audit complete chroma images and retained frame lifecycles
+        if: always()
+        run: |
+          python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
+          python3 tools/chroma_image_reference.py --output target/chroma-image-acceptance
+          python3 tools/frame_sequences.py --output target/lifecycle-acceptance
+      - name: Retain complete decoder source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: decoder-source-${{ matrix.os }}
+          path: |
+            target/chroma-acceptance
+            !target/chroma-acceptance/**/jxl_oracle
+            !target/chroma-acceptance/**/*.o
+            target/chroma-image-acceptance
+            target/lifecycle-acceptance
+          if-no-files-found: error
+      - name: Record native alpha configuration diagnostics
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/alpha_diagnostics.py
+      - name: Census every original patch-tree boundary
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/patches_boundaries.py
+      - name: Retain native alpha diagnostic evidence
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: alpha-diagnostics-${{ runner.os }}
+          path: |
+            target/alpha-diagnostics.json
+            target/patches-boundaries.json
+          if-no-files-found: error
+          retention-days: 7

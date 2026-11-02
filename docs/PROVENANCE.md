@@ -504,3 +504,60 @@ original graphs in CI run 41440766024. Each graph agrees on all 72 words for eac
 unchanged input file. They preserve independent source outputs instead of using
 Rust results as golden data; the original AArch64 captures are retained. See the
 fixture README for the native job and selection rule.
+
+The patch port translates `dec_patch_dictionary.{h,cc}`,
+`patch_dictionary_internal.h`, `blending.{h,cc}`, `alpha.{h,cc}`, and
+`render_pipeline/stage_patches.{h,cc}`. Genuine original entropy encoders produce
+the dictionary fixtures. Observations retain initialized partial dictionary/tree
+state and invoke actual original row/stage factories. The translated libc++
+non-arithmetic sort preserves tied interval order. Shared Rust stage bindings
+retain the existing dictionary and reference owners through their identities.
+
+`tools/oracle/alpha.cc` includes the pristine original file and supplies all six
+real public symbols, including complete-file calls. Only that unit uses scoped
+O0/no-inline configuration, with strict FP additionally on native x86_64 Linux.
+ARM keeps its original contraction. The numeric source audit verifies selected
+bindings, 1,944 ordinary/instrumented requests and all 1,632 finite observations
+against each untouched optimized archive. Native diagnostics retain complete
+source object disassembly and rejected candidate observations. Source revision,
+body, dependencies and every sanitizer remain unchanged.
+
+The original zero-width extra-channel weighted-add alias path can pass a null
+temporary destination to memcpy at `alpha.cc:70`. All 24 triggering old requests are
+retained as explicit original-only probes, with positive native Linux UBSan
+diagnostics; no output word from that undefined call is treated as reference
+semantics. Exact parity retains all 360 other blend requests, including 72
+zero-width cases. Direct zero-count alpha calls have non-null backing. See the
+[living oracle decision](adr/0002-differential-oracle.md) for the configuration
+and its review triggers.
+
+The YCbCr/chroma component translates the complete scalar stages/factories in
+`render_pipeline/stage_ycbcr.{h,cc}` and
+`render_pipeline/stage_chroma_upsampling.{h,cc}`, including original channel
+order, coefficients, interpolation, borders, shifts and argument guards.
+Highway scalar double-promotion/product-narrowing and ordered binary32 additions
+retain the selected target mappings recorded in ADRs 0002 and 0003. Only the
+already established native Linux x86_64 pristine stage wrappers use scoped O0;
+AArch64 remains bound to the untouched optimized original archive. The durable
+5,562-request component audit retains all exceptional words and every finite
+comparison against both unchanged defaults.
+
+The sequence integration follows `dec_cache.cc::PreparePipeline`: each channel's
+horizontal then vertical chroma stages precede filters, and YCbCr conversion
+occupies the original color checkpoint before blending/post-color reference
+writes. Reconstruction and group buffers retain their existing source-derived
+subsampling dimensions and traversal. Existing lifecycle owners and retained
+reference identities remain unchanged.
+
+`tools/oracle/chroma_image.cc` supplies only fixture orchestration around real
+`jpeg/enc_jpeg_data.cc::ParseJPG`, public `encode.cc` entry points and production
+header readers. Twenty-five static baseline JPEG inputs are recompressed into
+raw JXL with actual JxlEncoderAddJPEGFrame calls; no container or JPEG metadata
+is stored. Both original graphs independently reproduce every wire byte and
+every initialized planar float sample. The source audit verifies actual parser,
+public encoder, PreparePipeline and selected chroma factory symbol bindings,
+retains all complete/partial observations and leaves active objects unchanged.
+The fixture manifest and [fixture README](../tests/data/README.md) record input
+recipes, sampling, dimensions, tool version and byte hashes. These captures
+establish the bounded internal sequence path, not JPEG reconstruction or the
+public incremental decoder API.

@@ -66,6 +66,30 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             .collect();
         return u8::from(jxl::jxl::blending::needs_blending(&header)).to_string();
     }
+    if kind == "patch-rgba" {
+        let premul = number::<u8>(args) != 0;
+        let clamp = number::<u8>(args) != 0;
+        let n = number(args);
+        let input: [Vec<f32>; 8] =
+            std::array::from_fn(|_| (0..n).map(|_| f32::from_bits(number(args))).collect());
+        let mut result: [Vec<f32>; 4] = std::array::from_fn(|_| vec![19.0; n]);
+        let [r, g, b, a] = &mut result;
+        jxl::jxl::alpha::perform_alpha_blending_rgba(
+            [&input[0], &input[1], &input[2], &input[3]],
+            [&input[4], &input[5], &input[6], &input[7]],
+            &mut [r, g, b, a],
+            n,
+            premul,
+            clamp,
+        );
+        out.push('A');
+        for row in result {
+            for v in row {
+                write!(out, " {}", v.to_bits()).unwrap();
+            }
+        }
+        return out;
+    }
     if kind == "patch-alpha" {
         use jxl::jxl::alpha::*;
         let op: usize = number(args);
@@ -494,8 +518,7 @@ fn chunks(cases: Vec<String>) {
     println!("{} C++/Rust differential cases matched", cases.len());
 }
 
-#[test]
-fn patches_real_entropy_tree_rows_clipping_and_stage() {
+fn patch_tree_cases() -> Vec<(String, bool)> {
     let mut cases = Vec::new();
     for n in [0, 1, 3] {
         for mode in 0..8 {
@@ -506,13 +529,40 @@ fn patches_real_entropy_tree_rows_clipping_and_stage() {
                         for (x, width, l, r) in
                             [(0, 14, 0, 0), (3, 5, 0, 0), (3, 5, 2, 3), (8, 0, 0, 0)]
                         {
-                            cases.push(read(n, assoc, render, x, width, l, r, prefix, &bytes));
+                            // Original decoded blendings repeat these modes and
+                            // alpha selections for each generated position.
+                            // A zero-width AddOneRow at x=8 reaches patches:
+                            // its strict left-edge check retains the zero-size
+                            // clipped call. Weighted-add on its selected alpha
+                            // aliases fg/fga and calls memcpy(null,bg,0).
+                            let aliased_weighted = (1..=n).any(|j| {
+                                let ec_mode = (mode + j as u32) % 8;
+                                let alpha = if n > 1 && j % 2 != 0 { 2.min(n - 1) } else { 0 };
+                                ec_mode >= 6 && alpha == j - 1
+                            });
+                            let source_undefined =
+                                render != 0 && (x, width, l, r) == (8, 0, 0, 0) && aliased_weighted;
+                            cases.push((
+                                read(n, assoc, render, x, width, l, r, prefix, &bytes),
+                                source_undefined,
+                            ));
                         }
                     }
                 }
             }
         }
     }
+    assert_eq!(cases.len(), 1728);
+    assert_eq!(cases.iter().filter(|(_, undefined)| *undefined).count(), 48);
+    cases
+}
+
+#[test]
+fn patches_real_entropy_tree_rows_clipping_and_stage() {
+    let cases = patch_tree_cases()
+        .into_iter()
+        .filter_map(|(request, undefined)| (!undefined).then_some(request))
+        .collect();
     chunks(cases);
 }
 #[test]
@@ -593,9 +643,9 @@ fn patches_failures_truncation_checksums_partial_state_and_reuse() {
     }
     chunks(cases);
 }
-#[test]
-fn patches_all_blends_alpha_aliases_and_float_words() {
+fn patch_blend_cases() -> (Vec<String>, Vec<String>) {
     let mut cases = Vec::new();
+    let mut upstream_undefined = Vec::new();
     let values = [
         -4.0f32,
         -0.0,
@@ -639,13 +689,102 @@ fn patches_all_blends_alpha_aliases_and_float_words() {
                                 }
                             }
                         }
-                        cases.push(req);
+                        // The original zero-width temporary has null rows.
+                        // Its aliased weighted-add branch calls memcpy with a
+                        // null destination even for count 0 (alpha.cc:70).
+                        // Preserve these exact requests as explicit upstream
+                        // UB probes, rather than claiming original pixel words.
+                        if width == 0 && (0..n).any(|i| (mode + i) % 8 >= 6) {
+                            upstream_undefined.push(req);
+                        } else {
+                            cases.push(req);
+                        }
                     }
                 }
             }
         }
     }
+    assert_eq!((cases.len(), upstream_undefined.len()), (360, 24));
+    assert_eq!(
+        cases
+            .iter()
+            .filter(|s| s.split_whitespace().nth(3) == Some("0"))
+            .count(),
+        72
+    );
+    (cases, upstream_undefined)
+}
+
+#[test]
+fn patches_all_blends_alpha_aliases_and_float_words() {
+    let (cases, _) = patch_blend_cases();
     chunks(cases);
+}
+
+#[test]
+fn patches_original_zero_width_alias_memcpy_undefined_boundary() {
+    let (_, mut cases) = patch_blend_cases();
+    cases.extend(
+        patch_tree_cases()
+            .into_iter()
+            .filter_map(|(request, undefined)| undefined.then_some(request)),
+    );
+    assert_eq!(cases.len(), 72);
+    let instrumented = original_observations(&["patch-sanitizers".into()])[0] == "1";
+    let oracle = std::env::var_os("JXL_CPP_ORACLE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/oracle/jxl_oracle")
+        });
+    let mut diagnosed = 0;
+    for request in &cases {
+        let mut child = Command::new(&oracle)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start original UB boundary probe");
+        writeln!(child.stdin.take().unwrap(), "{request}").expect("write exact UB request");
+        let output = child
+            .wait_with_output()
+            .expect("observe original UB boundary");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let diagnostic: Vec<_> = stderr.lines().filter(|line| !line.is_empty()).collect();
+        let null_memcpy = diagnostic.len() == 3
+            && diagnostic[0].contains("alpha.cc:70:")
+            && diagnostic[0].ends_with(
+                "runtime error: null pointer passed as argument 1, which is declared to never be null",
+            )
+            && diagnostic[1].ends_with("note: nonnull attribute specified here")
+            && diagnostic[2].contains("SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior ")
+            && diagnostic[2].trim_end().ends_with("alpha.cc:70:12");
+        if null_memcpy {
+            assert!(
+                !output.status.success(),
+                "original non-recovering sanitizer returned success: {stderr}"
+            );
+            diagnosed += 1;
+            println!("Original undefined zero-width alias request: {request}\n{stderr}");
+        } else {
+            assert!(
+                output.status.success() && stderr.is_empty(),
+                "unexpected original UB probe failure: {stderr}"
+            );
+        }
+        if cfg!(target_os = "linux") && instrumented {
+            assert!(
+                null_memcpy && !output.status.success(),
+                "native Linux instrumented source must diagnose alpha.cc:70: {request}\n{stderr}"
+            );
+        }
+        // No comparison with Rust or assertion about source pixel semantics:
+        // a successful execution on another graph does not define this call.
+    }
+    println!(
+        "72 original undefined boundary probes exercised (24 blend, 48 tree); \
+              {diagnosed} diagnosed; 360 defined blend and 1680 defined tree \
+              requests remain exact parity"
+    );
 }
 
 #[test]
@@ -701,6 +840,106 @@ fn patches_alpha_kernels_aliases_rounding_and_exceptional_values() {
         }
     }
     assert_eq!(cases.len(), 1920);
+    chunks(cases);
+}
+
+#[test]
+fn patches_independent_rgba_competing_words_and_stage_regression() {
+    let words = [
+        0u32, 0x80000000, 0x3f800000, 0xbf800000, 0x3f000000, 0x40000000, 0x7fc12345, 0xffc23456,
+        0x7fa12345, 0xffa23456, 0x7f800000, 0xff800000, 1, 0x80000001, 0x3f7fffff, 0x3f800001,
+    ];
+    let mut cases = Vec::new();
+    for premul in 0..2 {
+        for clamp in 0..2 {
+            // The independent original BlendingStage planes that exposed the
+            // gap: bg RGB=Pixel(0,c,x,0), bg alpha=Pixel(1,3,x,0), and
+            // fg=Pixel(8,c,OFFSET+x,0). The different alpha reference is real
+            // BlendingStage behavior. Retain that split and a common reference,
+            // with both original native OFFSET row layouts on every target.
+            for offset in [24, 32] {
+                for alpha_reference in [0, 1] {
+                    let mut request = format!("patch-rgba {premul} {clamp} 17");
+                    for which in 0..2 {
+                        for c in 0..4 {
+                            for x in 0..17 {
+                                let index = which * (8 * 7 + offset)
+                                    + usize::from(which == 0 && c == 3) * alpha_reference * 7
+                                    + c * 5
+                                    + x;
+                                write!(request, " {}", words[index % words.len()]).unwrap();
+                            }
+                        }
+                    }
+                    cases.push(request);
+                }
+            }
+            // Every pair of the four source operands (bg, ba, fg, fa) varies
+            // independently, including both signs and quiet/signaling NaNs.
+            let mut samples = Vec::new();
+            for first in 0..4 {
+                for second in first + 1..4 {
+                    for &a in &words {
+                        for &b in &words {
+                            let mut sample = [0x3f400000, 0x3f000000, 0x3e800000, 0x3f400000];
+                            sample[first] = a;
+                            sample[second] = b;
+                            samples.push(sample);
+                        }
+                    }
+                }
+            }
+            let mut request = format!("patch-rgba {premul} {clamp} {}", samples.len());
+            for c in 0..8 {
+                let operand = match c {
+                    0..=2 => 0,
+                    3 => 1,
+                    4..=6 => 2,
+                    _ => 3,
+                };
+                for sample in &samples {
+                    write!(request, " {}", sample[operand]).unwrap();
+                }
+            }
+            cases.push(request);
+        }
+    }
+    assert_eq!(cases.len(), 20);
+    chunks(cases);
+}
+
+#[test]
+fn patches_weighted_add_and_multiply_competing_operand_pairs() {
+    let words = [
+        0u32, 0x80000000, 0x3f800000, 0xbf800000, 0x3f000000, 0x40000000, 0x7fc12345, 0xffc23456,
+        0x7fa12345, 0xffa23456, 0x7f800000, 0xff800000, 1, 0x80000001, 0x3f7fffff, 0x3f800001,
+    ];
+    let mut samples = Vec::new();
+    for first in 0..4 {
+        for second in first + 1..4 {
+            for &a in &words {
+                for &b in &words {
+                    let mut sample = [0x3f400000, 0x3f000000, 0x3e800000, 0x3f400000, 0x3f800000];
+                    sample[first] = a;
+                    sample[second] = b;
+                    samples.push(sample);
+                }
+            }
+        }
+    }
+    let mut cases = Vec::new();
+    for op in [2, 3] {
+        for clamp in 0..2 {
+            let mut request = format!("patch-alpha {op} 0 {clamp} {} 0 1 2 3", samples.len());
+            for c in 0..5 {
+                for sample in &samples {
+                    write!(request, " {}", sample[c]).unwrap();
+                }
+            }
+            cases.push(request);
+        }
+    }
+    assert_eq!(cases.len(), 4);
     chunks(cases);
 }
 

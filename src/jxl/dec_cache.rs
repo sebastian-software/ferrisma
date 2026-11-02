@@ -272,7 +272,7 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub used_acs: AtomicU32,
     pub coefficients: Option<Box<AcImage>>,
     pub render_pipeline: Option<Box<SimpleRenderPipeline<'pipeline>>>,
-    pub frame_storage_for_referencing: ImageBundle<'a>,
+    pub frame_storage_for_referencing: Rc<RefCell<ImageBundle<'a>>>,
     pub output_encoding_info: OutputEncodingInfo,
 }
 impl Default for PassesDecoderState<'_, '_> {
@@ -303,7 +303,7 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
             used_acs: AtomicU32::new(0),
             coefficients: Some(Box::new(AcImage::empty(AcType::I32))),
             render_pipeline: None,
-            frame_storage_for_referencing: ImageBundle::new(None),
+            frame_storage_for_referencing: Rc::new(RefCell::new(ImageBundle::new(None))),
             output_encoding_info: OutputEncodingInfo::default(),
         }
     }

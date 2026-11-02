@@ -474,7 +474,7 @@ fn observe_owners(args: &mut std::str::SplitWhitespace<'_>) -> String {
         " S {} {} {} {}",
         shared.coeff_order_size,
         shared.coeff_orders.len(),
-        u32::from(std::ptr::eq(shared.dc(), &shared.dc_storage)),
+        u32::from(std::ptr::eq(&*shared.dc(), &shared.dc_storage)),
         shared.block_ctx_map.num_ctxs
     )
     .unwrap();
@@ -499,7 +499,7 @@ fn observe_owners(args: &mut std::str::SplitWhitespace<'_>) -> String {
         .unwrap();
         observe_bundle(&mut out, reference.frame.as_deref().unwrap());
     }
-    for dc in &shared.dc_frames {
+    for dc in shared.dc_frames.borrow().iter() {
         for c in 0..3 {
             plane(&mut out, dc.plane(c));
         }
