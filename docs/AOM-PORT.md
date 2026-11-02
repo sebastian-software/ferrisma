@@ -163,9 +163,15 @@ of the scan helper in other original test inputs retain their native bindings.
 
 The optional `OD_DIVU_SMALL` subject is generated from a tiny C wrapper around
 the original `odintrin.h` macro (ADR 0043). Both macOS preprocessing profiles
-reproduce with C2Rust; native Linux generation, crate wiring, and execution of
-the two original division cases remain pending. These helper units are outside
-the 168-unit production closure and receive no execution credit from generation.
+reproduce with C2Rust, and the matching Linux subjects are generated natively
+with the same pinned compiler. The two unchanged original division cases pass
+against the Rust macro and Rust constant table in macOS Debug and Release,
+preserving every original loop, assertion, and all 18,729 registrations. Their
+expected values still use native C++ unsigned division. Native Linux execution
+remains pending. These optional helper units are outside the 168-unit production
+closure; generation alone receives no execution credit. Results and native
+Linux generation provenance are in
+[`aom-macro-validation.json`](aom-macro-validation.json).
 
 Six convolution subjects now use independent C oracles in 243 existing
 parameterized cases per profile (ADR 0041). A separate complete original C
@@ -280,6 +286,8 @@ python3 tools/check_aom_linkage.py --debug
 python3 tools/check_aom_linkage.py
 python3 tools/check_aom_inlines.py --debug
 python3 tools/check_aom_inlines.py
+python3 tools/check_aom_macros.py --debug
+python3 tools/check_aom_macros.py
 python3 tools/check_aom_oracles.py --debug
 python3 tools/check_aom_oracles.py
 python3 tools/check_aom_oracles.py --debug --suite softmax
@@ -328,27 +336,25 @@ acceptance and root Linux support remain open.
 
 A fresh translation check also reproduces all 336 committed Rust units across
 the two profiles. GNU link-map audits pass for all original codec globals in
-the selected consumers. Each profile passes 13 unchanged original cases through
-11 Rust inline subjects, 243 original convolution cases with isolated C
-oracles for six Rust subjects, and 12 exact integer-model VMAF scenarios. That
-run still fails on the original C float-model rejection described in ADR 0042;
-later allocation, thread, focused API, and ABI gates were not reached.
+the selected consumers. Each profile passes 14 unchanged original cases through
+12 Rust inline subjects, 243 convolution cases and 243 IntraBC cases against
+isolated C oracles, and both original softmax cases. The 28 supplementary
+k-means cases and one supplementary neural-network case also pass; they receive
+no original-suite execution credit. Both pinned VMAF model contracts pass:
+12 exact integer-model streams and 12 exact original float-model rejections.
 
-The subsequent native Linux failure gates exposed an incomplete translation:
-glibc expands `setjmp` to `_setjmp`, which the original mapping rule missed.
-The generator now normalizes that spelling before mapping all 32 scoped error
-targets in each Linux profile. Structural validation rejects surviving libc
-nonlocal-jump calls and incorrect target/transfer counts. Alias regression
-checks and artifact reproduction pass; native Linux compilation and failure
-behavior must pass again before accepting the corrected candidate.
+Both profiles also pass all 306 paired allocation scenarios, eight worker-creation
+scenarios, and 62 original focused API/error cases, with matching results and
+no dynamic skips in those focused cases. Named layout checks cover 18,598
+records / 208,029 checks in Debug and 18,548 records / 207,729 checks in Release,
+with zero differences. Anonymous records and bitfield offsets remain excluded.
 
-That earlier failure run still passes both pinned VMAF model contracts and
-the named layout checks: 18,598 records / 208,029 checks in Debug and 18,548
-records / 207,729 checks in Release, with zero differences. These layout checks
-exclude anonymous records and bitfield offsets. The native C executable passes
-all 62 focused API/error cases; Rust aborts before completing that inventory.
-The successful layout and normal-path evidence does not waive the failed
-allocation, thread, or API/error gates.
+Earlier failure gates exposed glibc's `_setjmp` spelling, which the initial
+mapping rule missed. The generator now normalizes it before mapping all 32
+scoped error targets per profile. Structural validation rejects surviving libc
+nonlocal-jump calls and incorrect target/transfer counts. The corrected native
+failure behavior and complete translation reproduction both pass; earlier
+failed checkpoints remain identified in the validation record.
 
 GNU pkg-config's `-pthread` spelling maps explicitly to the pthread library.
 For glibc's array-decayed `va_list` control callback typedef, ADR 0040 maps the parameter
@@ -378,13 +384,14 @@ remain errors.
 
 The Linux workflow's `compile` mode builds and checks committed candidates
 without rerunning translation. `generate` produces fresh profiles; `verify`
-reproduces committed profiles from the native source and headers. Fresh
-translation reproduction and the remaining Linux execution gates are still
-required before acceptance.
+reproduces committed profiles from the native source and headers. `macros`
+generates the optional original macro subjects separately. Full original-suite
+execution, remaining subject/oracle correspondence, and broader validation
+remain required before standalone acceptance.
 
 GNU consumer links now emit cross-reference tables with their map files.
 The ownership audit checks the defining archive/member for every loaded
 original codec global and rejects native codec objects or archives. The same
 parser supports the separate C oracle audit. Existing macOS audits still pass
-for all 15 consumer maps and both oracle executables; native GNU execution of
-this extended audit remains a Linux workflow gate.
+for all 15 consumer maps and the selected oracle executables. The native GNU
+consumer and isolated-oracle ownership audits also pass in both profiles.

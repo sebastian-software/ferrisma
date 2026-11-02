@@ -16,6 +16,7 @@ c2rust-bitfields = "=0.3.0"
 
 [features]
 port-test-bridges = []
+port-macro-tests = []
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)"] }

@@ -63,9 +63,13 @@ jobs:
           if [ "${{ inputs.mode }}" = generate ]; then
             python3 tools/transpile_aom.py
             python3 tools/transpile_aom.py --release
+            python3 tools/transpile_aom_macros.py
+            python3 tools/transpile_aom_macros.py --release
           else
             python3 tools/transpile_aom.py --check
             python3 tools/transpile_aom.py --release --check
+            python3 tools/transpile_aom_macros.py --check
+            python3 tools/transpile_aom_macros.py --release --check
           fi
       - name: Generate optional original macro subjects
         if: inputs.mode == 'macros'
@@ -92,6 +96,8 @@ jobs:
           python3 tools/check_aom_linkage.py
           python3 tools/check_aom_inlines.py --debug
           python3 tools/check_aom_inlines.py
+          python3 tools/check_aom_macros.py --debug
+          python3 tools/check_aom_macros.py
           python3 tools/check_aom_oracles.py --debug
           python3 tools/check_aom_oracles.py
           python3 tools/check_aom_oracles.py --debug --suite softmax
@@ -168,6 +174,9 @@ jobs:
             build/aom-cli-*/*-decode.log
             build/aom-roundtrip-*/summary.json
             build/aom-inlines-*/summary.json
+            build/aom-macro-tests-*/summary.json
+            build/aom-macro-tests-*/*.log
+            build/aom-macro-tests-*/*.xml
             build/aom-reference-*/summary.json
             build/aom-oracles-*/summary.json
             build/aom-faults-*/summary.json

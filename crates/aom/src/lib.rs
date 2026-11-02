@@ -22,6 +22,8 @@ extern crate c2rust_bitfields;
 
 mod platform;
 mod jump;
+#[cfg(feature = "port-macro-tests")]
+mod test_macros;
 #[cfg(all(target_os = "macos", debug_assertions))]
 include!("modules-macos-debug.rs");
 #[cfg(all(target_os = "macos", not(debug_assertions)))]
