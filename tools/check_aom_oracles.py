@@ -104,10 +104,18 @@ SUITES['cubic-rd'] = dict(source='test/model_rd_test.cc',
     filter='PortScalar/InterpCubicTest.CheckOutput/*', cases=1,
     headers=['config/av1_rtcd.h'], supplementary=True,
     added_registrations=2, added_disabled=1)
+SUITES['optical-flow'] = dict(source='test/disflow_test.cc',
+    sites={'aom_compute_flow_at_point_c': [77, 85]}, subjects=['aom_compute_flow_at_point_c'],
+    filter='PortScalar/ComputeFlowTest.CheckOutput/*', cases=1,
+    headers=['config/aom_dsp_rtcd.h'], supplementary=True,
+    added_registrations=2, added_disabled=1, fixtures=['bus_352x288_420_f20_b8.yuv'])
 
 
 def supplementary_registrations(original, suite, reference_prefix=''):
     """Reuse original parameter matrices and bodies for a separate scalar comparison."""
+    if suite == 'optical-flow':
+        return ('\nnamespace {\nINSTANTIATE_TEST_SUITE_P(PortScalar, ComputeFlowTest,\n'
+                '  ::testing::Values(aom_compute_flow_at_point_c));\n}\n')
     if suite == 'round-shift-array':
         bits = re.search(r'const int kValidBitCheck\[\] = \{(.*?)\};', original, re.S)
         if not bits or list(map(int, re.findall(r'-?\d+', bits[1]))) != list(range(-4, 5)):
@@ -185,6 +193,7 @@ def main():
     parser.add_argument('--suite', choices=SUITES, default='convolution')
     parser.add_argument('--reference-build', type=Path, help='Read an existing native reference without modifying it')
     parser.add_argument('--rust-archive', type=Path, help='Read an existing candidate Rust archive')
+    parser.add_argument('--fixtures', type=Path, help='Read an existing original fixture directory')
     args = parser.parse_args()
     suite = SUITES[args.suite]
     source_name, oracle_sites = suite['source'], suite['sites']
@@ -204,6 +213,23 @@ def main():
     for name, expected in translation['generated_reference_headers'].items():
         if hashlib.sha256((build / name).read_bytes()).hexdigest() != expected:
             raise SystemExit(f'The native reference and Rust preprocessing differ: {name}')
+    fixtures = (args.fixtures or ROOT / 'build/deps/aom-test-data').resolve()
+    fixture_records = {}
+    if suite.get('fixtures'):
+        selected = json.loads((build / 'test-data.json').read_text())
+        upstream = dict(line.split(' *')[::-1] for line in
+                        (ROOT / 'upstream/aom/test/test-data.sha1').read_text().splitlines())
+        for name in suite['fixtures']:
+            if Path(name).name != name or name not in selected or selected[name] != upstream.get(name):
+                raise SystemExit(f'Fixture is not in the original selected manifest: {name}')
+            path = fixtures / name
+            if not path.is_file():
+                raise SystemExit(f'Missing original fixture: {path}')
+            content = path.read_bytes()
+            if hashlib.sha1(content).hexdigest() != selected[name]:
+                raise SystemExit(f'Original fixture checksum mismatch: {name}')
+            fixture_records[name] = dict(sha1=selected[name], size=len(content),
+                                         sha256=hashlib.sha256(content).hexdigest())
     oracle, symbols, oracle_record = reference_archive(profile, build)
     entries = json.loads((build / 'compile_commands.json').read_text())
     entry = next(value for value in entries if Path(value['file']).as_posix().endswith('/' + source_name))
@@ -293,7 +319,7 @@ def main():
         if test_names(subprocess.check_output([baseline, '--gtest_list_tests'], text=True)) != registered:
             raise SystemExit('Supplementary C/Rust registrations differ')
     results = []
-    environment = dict(os.environ, LIBAOM_TEST_DATA_PATH=str(ROOT / 'build/deps/aom-test-data'))
+    environment = dict(os.environ, LIBAOM_TEST_DATA_PATH=str(fixtures))
     for label, binary in [('c', baseline), ('rust', executable)]:
         xml = work / f'{label}.xml'
         xml.unlink(missing_ok=True)
@@ -320,6 +346,8 @@ def main():
                   complete_dsp_role_review=False, reference_archive=oracle_record, ownership=ownership,
                   translation_manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), cases=results[1])
+    if fixture_records:
+        record['original_fixtures'] = fixture_records
     (work / 'summary.json').write_text(json.dumps(record, indent=2) + '\n')
     origin = 'supplementary' if augmentation else 'original'
     print(f'{len(results[1])} {origin} {args.suite} cases compare {len(suite["subjects"])} Rust subjects with isolated C oracles')

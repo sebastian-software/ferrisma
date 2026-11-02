@@ -1,0 +1,147 @@
+{
+  "status": "supplementary original optical-flow body passed on macOS ARM64 in both profiles",
+  "target": "aarch64-apple-darwin",
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "production_translation_units_per_profile": 168,
+  "original_suite_execution_credit": 0,
+  "full_standalone_acceptance": false,
+  "root_integration": false,
+  "native_linux_execution_pending": true,
+  "original_fixture_behavior": "YUVVideoSource reuses one image allocation: src and ref in the original body point to the second frame after Next(). The original body and assertions are preserved; this comparison does not establish distinct-frame optical-flow coverage.",
+  "negative_checks": {
+    "missing_fixture_rejected": true,
+    "incorrect_fixture_checksum_rejected": true,
+    "unselected_fixture_subset_rejected": true,
+    "subset_verification_preserves_existing_full_corpus_record": true
+  },
+  "profiles": {
+    "debug": {
+      "profile": "debug",
+      "original_registrations": 18729,
+      "executed_original_cases": 0,
+      "executed_supplementary_cases": 1,
+      "supplementary_registrations": [
+        "PortScalar/ComputeFlowTest.CheckOutput/0",
+        "PortScalar/ComputeFlowTest.DISABLED_Speed/0"
+      ],
+      "augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "baseline_augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/disflow_test.cc",
+      "original_source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "oracle_sites": {
+        "aom_compute_flow_at_point_c": [
+          77,
+          85
+        ]
+      },
+      "binding_copy_sha256": "9222d07d7b303c1f99af24fcb9442b1445360642f85ea0c1851580c78c2ab29a",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "f9cca754f93af4e0cafcbdb69e8957a96ae4412986e62f5da349d1e2d052bcb6",
+        "profile": "debug",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2743,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+        "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+        "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2742,
+        "isolated_c_oracle_globals": 139,
+        "reviewed_rust_subjects": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "map_sha256": "8136dc2b33b2c760188b5e481e8a40140a2a870a7ebefe6b7c4baee7f4bf12af"
+      },
+      "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+      "rust_archive_sha256": "c6efaa484839f6924cd782bf4c183d0ae5afcea1a575fb69ddd48ec1247949cf",
+      "cases": [
+        {
+          "name": "PortScalar/ComputeFlowTest.CheckOutput/0",
+          "failed": false,
+          "skipped": false
+        }
+      ],
+      "original_fixtures": {
+        "bus_352x288_420_f20_b8.yuv": {
+          "sha1": "3eaf216d9fc8b4b9bb8c3956311f49a85974806c",
+          "size": 2585088,
+          "sha256": "61b6c4c773d08b468afa92502d6decac78781724904056b7ff8565d07a1afc16"
+        }
+      }
+    },
+    "release": {
+      "profile": "release",
+      "original_registrations": 18729,
+      "executed_original_cases": 0,
+      "executed_supplementary_cases": 1,
+      "supplementary_registrations": [
+        "PortScalar/ComputeFlowTest.CheckOutput/0",
+        "PortScalar/ComputeFlowTest.DISABLED_Speed/0"
+      ],
+      "augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "baseline_augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/disflow_test.cc",
+      "original_source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "oracle_sites": {
+        "aom_compute_flow_at_point_c": [
+          77,
+          85
+        ]
+      },
+      "binding_copy_sha256": "9222d07d7b303c1f99af24fcb9442b1445360642f85ea0c1851580c78c2ab29a",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "5a8c3e6e8ae1eb63dcde8e230d7326559e136d05cc51cd4200e0a45e9db51f9f",
+        "profile": "release",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2741,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+        "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+        "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2741,
+        "isolated_c_oracle_globals": 137,
+        "reviewed_rust_subjects": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "map_sha256": "3eaa12b7ca29029591675ac0c57592c98844c1945b560fd0eaf8e9f18f2e408e"
+      },
+      "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
+      "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+      "cases": [
+        {
+          "name": "PortScalar/ComputeFlowTest.CheckOutput/0",
+          "failed": false,
+          "skipped": false
+        }
+      ],
+      "original_fixtures": {
+        "bus_352x288_420_f20_b8.yuv": {
+          "sha1": "3eaf216d9fc8b4b9bb8c3956311f49a85974806c",
+          "size": 2585088,
+          "sha256": "61b6c4c773d08b468afa92502d6decac78781724904056b7ff8565d07a1afc16"
+        }
+      }
+    }
+  }
+}

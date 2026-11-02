@@ -127,12 +127,19 @@ jobs:
           python3 tools/check_aom_oracles.py --suite round-shift-array
           python3 tools/check_aom_oracles.py --debug --suite cubic-rd
           python3 tools/check_aom_oracles.py --suite cubic-rd
+      - name: Compare supplementary scalar optical flow with its original fixture
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+        run: |
+          python3 tools/fetch_aom_test_data.py --jobs 1 --only bus_352x288_420_f20_b8.yuv
+          python3 tools/check_aom_oracles.py --debug --suite optical-flow
+          python3 tools/check_aom_oracles.py --suite optical-flow
       - name: Check only the supplementary scalar DSP additions
         if: inputs.mode == 'dsp'
         run: |
           cargo build -p libavif-aom --locked
           cargo build -p libavif-aom --locked --release
-          for aom_suite in kmeans nn-predict directional-prediction round-shift-array cubic-rd; do
+          python3 tools/fetch_aom_test_data.py --jobs 1 --only bus_352x288_420_f20_b8.yuv
+          for aom_suite in kmeans nn-predict directional-prediction round-shift-array cubic-rd optical-flow; do
             python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
             python3 tools/check_aom_oracles.py --suite "$aom_suite"
           done
@@ -209,6 +216,7 @@ jobs:
             build/aom-oracles-*/summary.json
             build/aom-oracles-*/*.log
             build/aom-oracles-*/*.xml
+            build/deps/aom-test-data/verified-subset-*.json
             build/aom-faults-*/summary.json
             build/aom-faults-*/failure.log
             build/aom-faults-*/mismatch.json

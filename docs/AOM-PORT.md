@@ -262,6 +262,15 @@ compiles the existing source; it does not rerun translation or the complete
 original suites. See
 [`aom-supplementary-linux-validation.json`](aom-supplementary-linux-validation.json).
 
+The SIMD-only optical-flow fixture also has a separate scalar registration.
+Its unchanged body compares the Rust kernel with an isolated C reference in
+both macOS profiles, using the original checksum-verified bus sequence. The
+original video helper reuses one image buffer, so both pointers in this test
+refer to the second frame; distinct-frame coverage is not claimed. The speed
+case stays disabled and the original suite receives no additional execution
+credit. Fixture subsets have separate provenance records and cannot replace
+the full-corpus record. See [the optical-flow record](aom-optical-flow-validation.json).
+
 ## Execution and acceptance
 
 Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated
