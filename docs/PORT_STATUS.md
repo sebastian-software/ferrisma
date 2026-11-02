@@ -45,7 +45,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs`, `cms/transfer_functions_scalar.rs` | Existing one-lane FastLog2f/FastPow2f/FastPowf and degree-two/degree-four rational evaluation with original x86 fence sites; other functions/targets unported |
 | Highway `hwy/ops/scalar-inl.h`, `generic_ops-inl.h` | `base/hwy_scalar.rs` | Used one-lane Min/Max, unfused MulAdd, Clamp, Floor, saturating float-to-i32 conversion, and sign-bit ZeroIfNegative; other operations/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
-| `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, strategy objects/geometry, complete natural coefficient order/LUT traversal, and AcStrategyImage allocation/fills/validity/counting; interpreted row views and strategy setters unported |
+| `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, strategy objects/geometry, complete natural coefficient order/LUT traversal, and AcStrategyImage allocation/fills/validity/counting, interpreted row views, and strategy setters with source overlap/error mutations |
 | `chroma_from_luma.h`, `.cc` | `chroma_from_luma.rs` | Complete ColorCorrelation constants/defaults, ratios, setters/getters, DC parsing, and ColorCorrelationMap allocation/default/move ownership/delegated DC parsing |
 | `quantizer.h`, `.cc` | `quantizer.rs` | Constructors/recomputation, DC and inverse AC scaling, ClearDCMul, QuantizerParams visitor, GetParams/Decode, ClampVal/ScaleGlobalScale, and same-owner matrix forwarding; quantization-field/scale selection and diagnostic dumps unported |
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points unported |
@@ -76,7 +76,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
 | `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
 | `dec_group.cc` (`DecodeACVarBlock`) | `dec_group.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; group scheduling/dequantization/pixel integration unported |
-| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; full decoder orchestration, remaining VarDCT methods, and debug descriptions unported; quantization-table decoding is mapped below |
+| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata; frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
@@ -86,6 +86,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
+| `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and null-pool row traversal |
+| `epf.cc` (`ComputeSigma`) | `epf.rs` | Complete block sigma generation and mirrored borders; EPF rendering kernels remain unported |
 | `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
@@ -1308,3 +1310,22 @@ fixture assertions prove the final two lookups select NumACContexts+14/+15,
 including the last original ProcessACGlobal padding slot. Both genuine ANS and
 prefix streams cover this partial-failure path; the previous strategy 0/18
 requests and their encoded inputs remain unchanged.
+
+## VarDCT DC and AC metadata dependencies
+
+The DC slice translates DecodeVarDCTDC and DecodeAcMetadata with real original
+modular streams, DequantDC, AdaptiveDCSmoothing, ComputeSigma, AC strategy
+setters/interpreted rows, and the reached signed conversion helper. It retains
+DC group offsets, CfL/quant/strategy/sharpness mutations on failure, reused
+owners, source geometry rejection, and used_acs assignment checkpoints.
+
+Four differential groups add 1,147 exact requests, including all 27 strategy
+setters, real DC/AC metadata streams, truncation, malformed overlap/geometry,
+multiple DC-group offsets, smoothing borders/subsampling and exceptional float
+words. One native AArch64 regression retains independently captured original
+smoothing words. Full frame/group integration remains a separate boundary.
+
+The full ordinary and ASan/UBSan checks, each with Debug, Release and Rust 1.85,
+run 408 tests, 233 differential groups, and 857,548 requests per configuration.
+The numerical reference configuration is recorded in ADRs 0002 and 0003;
+complete hosted native-platform evidence belongs to this slice's PR.

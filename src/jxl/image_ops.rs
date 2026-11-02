@@ -43,6 +43,25 @@ pub fn copy_rect_to<T: Sample>(rf: Rect, from: &Plane<T>, rt: Rect, to: &mut Pla
     }
     Ok(())
 }
+/// Reached ConvertPlaneAndClamp<int32_t, int8_t> specialization.
+pub fn convert_plane_and_clamp_i32_to_i8(
+    from_rect: Rect,
+    from: &Plane<i32>,
+    to_rect: Rect,
+    to: &mut Plane<i8>,
+) -> Status {
+    if (from_rect.xsize(), from_rect.ysize()) != (to_rect.xsize(), to_rect.ysize()) {
+        return Err(StatusCode::GenericError);
+    }
+    for y in 0..to_rect.ysize() {
+        let source = &from.row(from_rect.y0() + y)[from_rect.x0()..];
+        let destination = &mut to.row_mut(to_rect.y0() + y)[to_rect.x0()..];
+        for x in 0..to_rect.xsize() {
+            destination[x] = source[x].clamp(i32::from(i8::MIN), i32::from(i8::MAX)) as i8;
+        }
+    }
+    Ok(())
+}
 pub fn copy_rect3_to<T: Sample>(
     rf: Rect,
     from: &Image3<T>,

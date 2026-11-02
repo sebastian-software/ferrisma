@@ -4,9 +4,9 @@
 //! AcStrategyType and AcStrategy size/count constants from lib/jxl/ac_strategy.h.
 //! AcStrategyImage construction, fills, validity, and counting are also ported
 //! from ac_strategy.{h,cc}, with strategy objects, geometry and natural orders.
-//! Setters and interpreted AcStrategyRow views remain unported.
+//! Setters and interpreted AcStrategyRow views preserve the packed layer owner.
 use super::base::rect::Rect;
-use super::base::status::StatusOr;
+use super::base::status::{Status, StatusCode, StatusOr};
 use super::frame_dimensions::BLOCK_DIM;
 use super::image::Plane;
 use super::image_ops::{fill_image, fill_plane};
@@ -81,6 +81,39 @@ impl AcStrategyImage {
     pub fn fill_invalid(&mut self) {
         fill_image(Self::INVALID, &mut self.layers);
     }
+    pub fn set(&mut self, x: usize, y: usize, kind: AcStrategyType) -> Status {
+        let acs = AcStrategy::from_raw_strategy(kind);
+        debug_assert!(y + acs.covered_blocks_y() <= self.layers.ysize());
+        debug_assert!(x + acs.covered_blocks_x() <= self.layers.xsize());
+        self.set_no_bounds_check(x, y, kind, false)
+    }
+    pub fn set_no_bounds_check(
+        &mut self,
+        x: usize,
+        y: usize,
+        kind: AcStrategyType,
+        check: bool,
+    ) -> Status {
+        let acs = AcStrategy::from_raw_strategy(kind);
+        for iy in 0..acs.covered_blocks_y() {
+            for ix in 0..acs.covered_blocks_x() {
+                let row = self.layers.row_mut(y + iy);
+                if check && row[x + ix] != Self::INVALID {
+                    return Err(StatusCode::GenericError);
+                }
+                row[x + ix] = ((kind.0 as u8) << 1) | u8::from((iy | ix) == 0);
+            }
+        }
+        Ok(())
+    }
+    pub fn const_row(&self, y: usize, x_prefix: usize) -> AcStrategyRow<'_> {
+        AcStrategyRow {
+            row: &self.layers.row(y)[x_prefix..],
+        }
+    }
+    pub fn const_rect_row(&self, rect: Rect, y: usize) -> AcStrategyRow<'_> {
+        self.const_row(rect.y0() + y, rect.x0())
+    }
     pub fn is_valid(&self, x: usize, y: usize) -> bool {
         let index = self
             .row_offset
@@ -115,6 +148,19 @@ impl AcStrategyImage {
             }
         }
         ret
+    }
+}
+
+/// Original interpreted row; descriptors keep each packed first-block flag.
+pub struct AcStrategyRow<'a> {
+    row: &'a [u8],
+}
+impl AcStrategyRow<'_> {
+    pub fn get(&self, x: usize) -> AcStrategy {
+        let strategy = AcStrategyType(u32::from(self.row[x] >> 1));
+        let is_first = self.row[x] & 1 != 0;
+        debug_assert!(AcStrategy::from_raw_strategy(strategy).is_multiblock() || is_first);
+        AcStrategy { strategy, is_first }
     }
 }
 

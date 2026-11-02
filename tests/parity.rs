@@ -21,6 +21,9 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/vardct_dc.rs"]
+mod vardct_dc;
+
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
 
@@ -730,6 +733,7 @@ fn observe(request: &str) -> String {
         "append" => append_case(&mut args),
         kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
         kind if kind.starts_with("huffman") => huffman::observe(kind, &mut args),
+        kind if vardct_dc::handles(kind) => vardct_dc::observe(kind, &mut args),
         kind if ac_group_symbols::handles(kind) => ac_group_symbols::observe(kind, &mut args),
         kind if ans::handles(kind) => ans::observe(kind, &mut args),
         kind if cluster::handles(kind) => cluster::observe(kind, &mut args),
