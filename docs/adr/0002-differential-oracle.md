@@ -255,3 +255,52 @@ requests against each default graph and require the selected ordinary/ASan
 objects to agree on all 546 finite/exceptional requests. Assembly inspection is
 supporting evidence; native CI is the acceptance gate. Review this scoped
 configuration again after source, compiler, target or instrumentation changes.
+
+Compile the pristine scalar EPF stage in its dedicated `epf.cc` observation unit
+at scoped `-O0`, with every sanitizer active. Native ARM default optimized ordinary
+and instrumented archive objects disagree on 107 of 3,672 identical row requests.
+For request 1,299, pass one output word 61 is `0x7fe54321` ordinarily and
+`0x7fc98765` under ASan/UBSan. A Rust operand mapping cannot reproduce both
+objects simultaneously. The selected unit supplies the real public factories
+and stage methods, including for complete-file observations; source routines and
+the original archive remain unchanged.
+
+The durable EPF reference audit relinks the exact adapter against each untouched
+default archive, retaining every original compiler and sanitizer argument and
+using temporary objects only. It verifies original factory bindings, requires all
+4,152 finite-arithmetic rows to match both default graphs, and requires all 6,936
+selected rows to agree between ordinary and instrumented graphs. Keep exceptional
+float words exact and revisit this configuration with source/compiler/target or
+instrumentation changes. This is a reproducible numeric reference configuration,
+not performance evidence.
+
+Observe pristine `alpha.cc` through a dedicated translation unit with scoped
+`-fno-inline-functions`, retaining default optimization, arithmetic contraction
+and all sanitizer flags. Native ARM's optimized ordinary Premultiply/Unpremultiply
+std::max lowers to FMAXNM and propagates signaling NaNs, while the fully
+instrumented object uses ordered comparisons and selects SMALL_ALPHA. The same
+actual-original request produces `0xffe98765` ordinarily and zero under ASan in
+the first color sample. Both selected objects retain the original std::max
+call/comparison and agree without a Rust assembly workaround.
+
+The selected unit supplies all six actual public alpha functions; whole-file
+calls use the same object. `tools/alpha_reference.py` verifies those bindings,
+requires all 1,920 selected fixture observations to agree, and checks all 1,632
+finite observations against both untouched default archive graphs. Temporary
+relinking removes only the selected object, so the unchanged archive supplies
+the default alpha routines. No original source, archive flag, earlier observer,
+sanitizer or old expected word changes. Revisit this reference configuration with
+source/compiler/target/instrumentation changes; it is not a performance claim.
+
+The dedicated pristine `noise_stage.cc` unit uses scoped `-O0`, retaining every
+sanitizer. Native ARM optimized ordinary and ASan/UBSan stages disagree on 66 of
+756 original row requests. In the first competing-NaN request, Y/B sample words
+are `0x7fe11111` ordinarily and `0xffe22222` under instrumentation. The selected
+unit supplies the real stage factories/methods to component and complete-file
+calls; noise generation/decoding and the original archive retain their flags.
+`tools/noise_reference.py` recompiles that identical unit with only its scoped
+`-O0` removed and relinks temporary graphs without replacing active objects.
+All 504 finite-input rows must match both default graphs and all 1,134 selected
+rows must agree. Exact exceptional words remain mandatory; no old comparison,
+expected word, sanitizer or source algorithm changes. Review the configuration
+with source/compiler/target changes. This establishes no performance parity.

@@ -23,11 +23,12 @@ fn moved_shared_state_keeps_its_matrix_dc_and_reference_bindings_in_the_same_own
             .shared
             .image_features
             .patches
+            .borrow()
             .reference_frame_binding(),
         Some(ReferenceFrameBinding::SharedState)
     );
     assert!(
-        state.shared.reference_frames.iter().all(|r| r
+        state.shared.reference_frames.borrow().iter().all(|r| r
             .frame
             .as_ref()
             .is_some_and(|b| b.metadata().is_none())

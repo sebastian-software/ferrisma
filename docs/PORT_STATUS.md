@@ -6,7 +6,9 @@ global metadata/frame parsing, actual DC/AC groups, dequantization, all scalar
 inverse transforms, optional Gaborish, XYB conversion and high-precision sRGB
 output. The admitted profile supports gray/RGB, 8/16-bit samples, one optional
 full-resolution unassociated alpha channel, multiple AC passes and DC/AC groups.
-EPF, effects, general frames, containers and public APIs remain separate work.
+Scalar EPF and noise/spline effects are connected for this profile. Patch
+components are translated; complete reference-frame integration, general frames,
+containers and public APIs remain separate work.
 See [VARDCT_IMAGE.md](VARDCT_IMAGE.md) for the complete configuration and evidence.
 The lossless encoder/decoder profile and its existing corpus remain unchanged.
 There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
@@ -72,7 +74,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
-| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
+| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Complete documented scalar feature storage/parsing/rendering boundaries mapped below; reference identities are shared with stages, while general complete-frame orchestration remains separate |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; first VarDCT frame/group integration connected; general frame profiles remain separate |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
@@ -83,14 +85,17 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
-| `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
+| `dec_noise.h`, `.cc`, `xorshift128plus-inl.h`, `render_pipeline/stage_noise.h`, `.cc` | `dec_noise.rs`, `xorshift128plus.rs`, `render_pipeline/stage_noise.rs` | Complete scalar noise parsing/generation/convolution/application and admitted VarDCT file integration; frame-index and upsampling branches retain source seeds and geometry |
+| `dec_patch_dictionary.h`, `.cc`, `patch_dictionary_internal.h`, `render_pipeline/stage_patches.h`, `.cc` | `dec_patch_dictionary.rs`, `patch_dictionary_internal.rs`, `render_pipeline/stage_patches.rs` | Complete dictionary decoding/partial state, original libc++ interval tree, reference masks and clipped blending; borrowed/shared stages; complete saved-frame orchestration remains separate |
+| `alpha.h`, `.cc`, `blending.h`, `.cc` | `alpha.rs`, `blending.rs` | Complete scalar blending/alpha kernels and temporary-plane ownership; original pointer-identity branches and selected numeric configuration |
+| `splines.h`, `.cc`, `render_pipeline/stage_splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization, entropy decoding, curve/cache generation and rendering, with borrowed/shared SplineStage |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
 | `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and null-pool row traversal |
-| `epf.cc` (`ComputeSigma`) | `epf.rs` | Complete block sigma generation and mirrored borders; EPF rendering kernels remain unported |
-| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
+| `epf.cc`, `render_pipeline/stage_epf.h`, `.cc` | `epf.rs`, `render_pipeline/stage_epf.rs` | Complete block sigma generation and mirrored borders; complete scalar EPF0/1/2 stages and live shared sigma binding are connected for the expanded VarDCT profile |
+| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, scalar EPF stages mapped above |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
@@ -1350,3 +1355,73 @@ and independent default-optimization audit. One captured native x86 regression
 complements the ARM-only capture; both targets now run 425 tests, the same 246
 differential groups and 868,587 requests. Replacement native CI remains required
 before integration; the earlier failed runs are retained in the PR history.
+
+## Decoder effects integration
+
+The expanded VarDCT raw-file profile connects all three scalar EPF stages,
+noise parsing/input generation/convolution/application, and spline parsing/cache
+construction/rendering. It retains the existing gray/RGB, 8/16-bit,
+full-resolution unassociated alpha, progressive AC and group configurations.
+Patch components and shared reference-owner binding are translated; complete-file
+saved-reference/frame orchestration remains open. See
+[DECODER_EXPANSION.md](DECODER_EXPANSION.md) for the full remaining decoder scope.
+
+Successful original-file comparisons cover 114 EPF files, 140 noise files and
+51 spline files with combined EPF/Gaborish/noise/progressive/alpha features,
+including AC/DC-group edges. Another 4,582 exact prefix/payload/trailing
+observations cover EPF and combined effects failure paths. These five new
+whole-file groups contribute 4,887 requests. Both captured effects files in
+`tests/data` decode independently of a C++ executable and retain all original
+integer samples and color float words. Source mappings and selected numeric
+reference configurations remain in the living ADRs. Both full local commands
+(`tools/check.py --msrv` and `tools/check.py --sanitizers --msrv`) passed all
+six configurations, each with 462 tests, 272 differential groups and 893,729
+exact requests, with zero failed or ignored tests. Native CI and integration
+into `main` remain required; component evidence alone does not prove this
+expanded image boundary.
+
+## Scalar patches, blending, and alpha
+
+The complete patch dictionary now includes entropy decoding, reference checks,
+partial failure state, interval-tree construction, row lookup, reference masks,
+and clipped blending/rendering. PatchInterval sorting uses the already translated
+libc++ non-arithmetic sort, preserving tied-element ordering in tree arrays.
+The scalar alpha and blending dependencies and both borrowed/shared patch stages
+are translated too. Complete-file reference-frame orchestration remains separate.
+
+Eight differential groups add 5,526 exact original requests. The corpus includes
+real entropy streams, truncation/mutation/reuse, complete initialized tree arrays,
+row/stage rendering, every blending mode, alpha aliases and exceptional floats.
+Ninety padded-coordinate stage cases preserve size_t wrapping and clipping.
+Fifty-six tied/nested/reversed interval cases cross 24- and 128-element sort
+thresholds through 513 intervals. Persistent-stage cases verify that subsequent
+dictionary and reference replacement remain visible. Two native tests retain
+independently captured original streams and blending samples.
+
+The alpha reference audit compares 1,920 actual fixture requests between selected
+ordinary and fully ASan/UBSan graphs and checks all 1,632 finite requests against
+both untouched default graphs. All six real public alpha symbols bind to the
+pristine selected observation unit, including complete-file calls. That unit alone
+uses scoped `-fno-inline-functions` after demonstrated original signaling-NaN
+std::max drift; see ADR 0002. There is no new unsafe code, dependency, skipped case,
+relaxed float comparison, or changed old expected word. The README patch checkbox
+stays open until complete-file integration and its acceptance evidence land.
+
+## Scalar spline decoding and rendering
+
+The complete scalar spline boundary adds four differential groups and 6,253
+exact original requests: 259 quantize/dequantize cases, 129 curve/cache/render
+cases, 5,862 genuine original entropy-stream cases, and three repeated-decode
+sequences. The cache corpus asserts that every color and sigma coefficient
+position survives quantization. It compares the actual stage on extended rows,
+including unsigned wrapped left coordinates, as well as cache index order and
+all initialized pixels. Entropy cases cover starting-point and control-point
+limits, coefficient limits, truncation, damaged streams and partial state.
+
+Four standalone tests retain an independently captured original stream, its
+duplicate-point guard, disjoint three-row storage access and overlap rejection.
+The ordinary and fully ASan/UBSan original scalar objects retain their existing
+default optimized compilation; no new numeric compiler option or sanitizer
+suppression is introduced. Ownership and source-defined input limits are recorded
+in ADR 0003. Complete-file feature admission and cross-feature image evidence
+remain a separate integration gate, so the README spline checkbox stays open.

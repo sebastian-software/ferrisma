@@ -21,6 +21,21 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/noise_render.rs"]
+mod noise_render;
+
+#[path = "parity/decoder_effects.rs"]
+mod decoder_effects;
+
+#[path = "parity/patches.rs"]
+mod patches;
+
+#[path = "parity/splines.rs"]
+mod splines;
+
+#[path = "parity/epf.rs"]
+mod epf;
+
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
 
@@ -755,6 +770,10 @@ fn observe(request: &str) -> String {
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
+        kind if epf::handles(kind) => epf::observe(kind, &mut args),
+        kind if splines::handles(kind) => splines::observe(kind, &mut args),
+        kind if patches::handles(kind) => patches::observe(kind, &mut args),
+        kind if noise_render::handles(kind) => noise_render::observe(kind, &mut args),
         kind if gaborish_stage::handles(kind) => gaborish_stage::observe(kind, &mut args),
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),

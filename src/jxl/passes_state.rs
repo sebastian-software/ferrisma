@@ -22,11 +22,13 @@ use super::noise::NoiseParams;
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
 use super::splines::Splines;
+use std::cell::RefCell;
+use std::rc::Rc;
 #[derive(Default)]
 pub struct ImageFeatures<'a> {
-    pub noise_params: NoiseParams,
-    pub patches: PatchDictionary,
-    pub splines: Splines<'a>,
+    pub noise_params: Rc<RefCell<NoiseParams>>,
+    pub patches: Rc<RefCell<PatchDictionary>>,
+    pub splines: Rc<RefCell<Splines<'a>>>,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DcSource {
@@ -51,7 +53,7 @@ pub struct PassesSharedState<'a> {
     pub dc_source: DcSource,
     pub block_ctx_map: BlockCtxMap,
     pub dc_frames: [Image3<f32>; 4],
-    pub reference_frames: [ReferenceFrame<'a>; 4],
+    pub reference_frames: Rc<RefCell<[ReferenceFrame<'a>; 4]>>,
     pub num_histograms: usize,
 }
 impl Default for PassesSharedState<'_> {
@@ -101,7 +103,7 @@ impl<'a> PassesSharedState<'a> {
             dc_source,
             block_ctx_map,
             dc_frames,
-            reference_frames,
+            reference_frames: Rc::new(RefCell::new(reference_frames)),
             num_histograms,
         }
     }
@@ -115,7 +117,10 @@ impl<'a> PassesSharedState<'a> {
         }
     }
     pub fn bind_own_reference_frames(&mut self) {
-        self.image_features.patches.bind_own_reference_frames();
+        self.image_features
+            .patches
+            .borrow_mut()
+            .bind_own_reference_frames();
     }
 }
 

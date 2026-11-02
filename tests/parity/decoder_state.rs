@@ -33,7 +33,7 @@ fn shared(out: &mut String, s: &PassesSharedState<'_>, quant_pixels: bool) {
         " S {} {} {} {}",
         u32::from(s.metadata.is_some()),
         u32::from(matches!(
-            s.image_features.patches.reference_frame_binding(),
+            s.image_features.patches.borrow().reference_frame_binding(),
             Some(ReferenceFrameBinding::SharedState)
         )),
         s.coeff_order_size,
@@ -47,7 +47,7 @@ fn shared(out: &mut String, s: &PassesSharedState<'_>, quant_pixels: bool) {
     shared_primitives::plane(out, &s.cmap.ytox_map);
     shared_primitives::plane(out, &s.cmap.ytob_map);
     if s.cmap.ytox_map.xsize() != 0 {
-        shared_primitives::corr(out, s.cmap.base());
+        shared_primitives::corr(out, &s.cmap.base());
     }
     shared_primitives::plane(out, &s.quant_dc);
     if quant_pixels {
@@ -136,7 +136,7 @@ fn state(out: &mut String, s: &PassesDecoderState<'_, '_>) {
         s.b_dm_multiplier.to_bits()
     )
     .unwrap();
-    shared_primitives::plane(out, &s.sigma);
+    shared_primitives::plane(out, &s.sigma.borrow());
     write!(out, " {} {}", s.width, s.height).unwrap();
     output(out, &s.main_output);
     write!(out, " {}", s.extra_output.len()).unwrap();
@@ -340,7 +340,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     s.shared_storage.coeff_orders = vec![3, 5, 7];
     s.code = (0..2).map(|_| ANSCode::default()).collect();
     s.context_map = vec![vec![1, 2], vec![3]];
-    s.sigma = Plane::create(3, 2).unwrap();
+    *s.sigma.borrow_mut() = Plane::create(3, 2).unwrap();
     let mut out = String::new();
     state(&mut out, &s);
     for _ in 0..repeats {

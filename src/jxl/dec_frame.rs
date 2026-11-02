@@ -95,8 +95,12 @@ impl<'m> AdmittedHeader<'m> {
             || h.can_be_referenced()
             || h.color_transform != ColorTransform::XYB
             || !h.chroma_subsampling.is_444()
-            || h.flags & !FLAG_SKIP_ADAPTIVE_DC_SMOOTHING != 0
-            || h.loop_filter.epf_iters != 0
+            || h.flags
+                & !(FLAG_SKIP_ADAPTIVE_DC_SMOOTHING
+                    | super::frame_header::FLAG_NOISE
+                    | super::frame_header::FLAG_SPLINES
+                    | super::frame_header::FLAG_PATCHES)
+                != 0
             || h.dc_level != 0
             || h.upsampling != 1
             || h.extra_channel_upsampling.len()
@@ -157,14 +161,56 @@ impl FrameDecoder<'_, '_, '_> {
     }
     fn process_dc_global(&mut self, reader: &mut BitReader<'_>) -> Status {
         let shared = &mut self.state.shared_storage;
-        shared.image_features.patches.clear();
-        shared.image_features.splines.clear();
+        if self.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
+            let mut uses_extra_channels = false;
+            shared.image_features.patches.borrow_mut().decode(
+                reader,
+                self.dim.xsize_padded,
+                self.dim.ysize_padded,
+                self.header
+                    .0
+                    .nonserialized_metadata
+                    .unwrap()
+                    .m
+                    .num_extra_channels as usize,
+                &mut uses_extra_channels,
+                &shared.reference_frames.borrow(),
+            )?;
+        } else {
+            shared.image_features.patches.borrow_mut().clear();
+        }
+        shared.image_features.splines.borrow_mut().clear();
+        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+            shared
+                .image_features
+                .splines
+                .borrow_mut()
+                .decode(reader, self.dim.xsize * self.dim.ysize)?;
+        }
+        if self.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
+            super::dec_noise::decode_noise(
+                reader,
+                &mut shared.image_features.noise_params.borrow_mut(),
+            )?;
+        }
         shared.matrices.decode_dc(reader)?;
         if self.header.0.encoding == FrameEncoding::VAR_DCT {
             shared.quantizer.decode(&shared.matrices, reader)?;
             super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
             shared.cmap.decode_dc(reader)?;
             shared.ac_strategy.fill_invalid();
+        }
+        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+            let shared = self.state.shared();
+            shared
+                .image_features
+                .splines
+                .borrow_mut()
+                .initialize_draw_cache(
+                    self.dim.xsize_upsampled,
+                    self.dim.ysize_upsampled,
+                    &shared.cmap.base(),
+                )?;
         }
         let status = self
             .modular
@@ -211,18 +257,78 @@ impl FrameDecoder<'_, '_, '_> {
         // render_spotcolors=true, render_noise=true. Header admission proves
         // only the explicitly connected filter/transform branches are reachable. One unassociated
         // full-resolution alpha plane needs no additional processing stage.
-        let mut builder = SimpleRenderPipelineBuilder::new(
-            3 + self
-                .header
-                .0
-                .nonserialized_metadata
-                .unwrap()
-                .m
-                .num_extra_channels as usize,
-        );
+        let num_c = 3 + self
+            .header
+            .0
+            .nonserialized_metadata
+            .unwrap()
+            .m
+            .num_extra_channels as usize;
+        let render_noise = self.header.0.flags & super::frame_header::FLAG_NOISE != 0;
+        let mut builder =
+            SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
         if self.header.0.loop_filter.gab {
             builder.add_stage(super::render_pipeline::stage_gaborish::get_gaborish_stage(
                 &self.header.0.loop_filter,
+            ))?;
+        }
+        {
+            use super::render_pipeline::stage_epf::{EpfStage, get_epf_stage_shared};
+            let lf = &self.header.0.loop_filter;
+            if lf.epf_iters >= 3 {
+                builder.add_stage(get_epf_stage_shared(
+                    lf,
+                    self.state.sigma.clone(),
+                    EpfStage::Zero,
+                ))?;
+            }
+            if lf.epf_iters >= 1 {
+                builder.add_stage(get_epf_stage_shared(
+                    lf,
+                    self.state.sigma.clone(),
+                    EpfStage::One,
+                ))?;
+            }
+            if lf.epf_iters >= 2 {
+                builder.add_stage(get_epf_stage_shared(
+                    lf,
+                    self.state.sigma.clone(),
+                    EpfStage::Two,
+                ))?;
+            }
+        }
+        if self.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
+            builder.add_stage(Some(
+                super::render_pipeline::stage_patches::get_patches_stage_shared(
+                    self.state.shared().image_features.patches.clone(),
+                    self.state.shared().reference_frames.clone(),
+                    &self
+                        .header
+                        .0
+                        .nonserialized_metadata
+                        .unwrap()
+                        .m
+                        .extra_channel_info,
+                ),
+            ))?;
+        }
+        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+            builder.add_stage(Some(Box::new(
+                super::render_pipeline::stage_splines::get_spline_stage_shared(
+                    self.state.shared().image_features.splines.clone(),
+                ),
+            )))?;
+        }
+        if render_noise {
+            builder.add_stage(Some(
+                super::render_pipeline::stage_noise::get_convolve_noise_stage(num_c),
+            ))?;
+            builder.add_stage(Some(
+                super::render_pipeline::stage_noise::get_add_noise_stage_shared(
+                    self.state.shared().image_features.noise_params.clone(),
+                    self.state.shared().cmap.base_shared(),
+                    num_c,
+                ),
             ))?;
         }
         let info = &self.state.output_encoding_info;
@@ -432,6 +538,16 @@ impl FrameDecoder<'_, '_, '_> {
             }
         }
         self.passes[g] = self.passes[g].wrapping_add(count as u8);
+        if self.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
+            super::dec_noise::prepare_noise_input(
+                self.state.visible_frame_index,
+                self.state.nonvisible_frame_index,
+                &self.dim,
+                &self.header.0,
+                g,
+                &mut input,
+            );
+        }
         if !self.modular.uses_full_image() && should_run_pipeline && ready {
             input.done()?;
         }
@@ -993,7 +1109,8 @@ impl VarDctConfig {
 /// Complete raw-codestream VarDCT result for the admitted sRGB XYB profile.
 /// Integer samples retain the source bit depth; float samples are interleaved
 /// sRGB color from the original image-bundle output stage, before quantization.
-/// General frames, EPF, effects, and container boxes remain outside admission.
+/// General frames, saved references, resampling and container boxes remain outside
+/// admission. Scalar EPF, noise and spline effects follow their original stages.
 pub struct VarDctImageDecode {
     pub status: Status,
     pub metadata: super::image_metadata::CodecMetadata,

@@ -195,7 +195,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         };
         signed_plane(&mut out, &c.ytox_map);
         signed_plane(&mut out, &c.ytob_map);
-        corr(&mut out, c.base());
+        corr(&mut out, &c.base());
         let mut r = BitReader::new(&bytes);
         r.read_bits(prefix);
         let status = c.decode_dc(&mut r);
@@ -209,7 +209,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             status_code(&closed)
         )
         .unwrap();
-        corr(&mut out, c.base());
+        corr(&mut out, &c.base());
         return out;
     }
     if kind == "ss-acs" {
@@ -314,7 +314,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     plane(&mut out, &fields.epf_sharpness);
     signed_plane(&mut out, &fields.cmap.ytox_map);
     signed_plane(&mut out, &fields.cmap.ytob_map);
-    corr(&mut out, fields.cmap.base());
+    corr(&mut out, &fields.cmap.base());
     plane(&mut out, &fields.quant_dc);
     for c in 0..3 {
         plane(&mut out, fields.dc_storage.plane(c));
@@ -489,7 +489,7 @@ fn observe_owners(args: &mut std::str::SplitWhitespace<'_>) -> String {
         write!(out, " {}", threshold.len()).unwrap();
     }
     write!(out, " {}", shared.block_ctx_map.qf_thresholds.len()).unwrap();
-    for reference in &shared.reference_frames {
+    for reference in shared.reference_frames.borrow().iter() {
         write!(
             out,
             " R {} {}",
@@ -508,11 +508,11 @@ fn observe_owners(args: &mut std::str::SplitWhitespace<'_>) -> String {
     write!(
         out,
         " H {} {}",
-        u32::from(features.patches.have_memory_manager()),
-        u32::from(features.patches.has_any())
+        u32::from(features.patches.borrow().have_memory_manager()),
+        u32::from(features.patches.borrow().has_any())
     )
     .unwrap();
-    for n in features.patches.storage_sizes() {
+    for n in features.patches.borrow().storage_sizes() {
         write!(out, " {n}").unwrap();
     }
     shared.bind_own_reference_frames();
@@ -523,12 +523,13 @@ fn observe_owners(args: &mut std::str::SplitWhitespace<'_>) -> String {
             shared
                 .image_features
                 .patches
+                .borrow()
                 .reference_frame_binding()
                 .is_some()
         )
     )
     .unwrap();
-    let splines = &mut shared.image_features.splines;
+    let mut splines = shared.image_features.splines.borrow_mut();
     for _ in 0..=moves {
         write!(
             out,

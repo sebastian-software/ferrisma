@@ -488,3 +488,13 @@ required evidence for this mapping. MULSS products preserve separate rounding
 without executing the source's folded double promotions.
 The original source, oracle settings, global Highway helpers, existing cases,
 expected words, and AArch64 arithmetic remain unchanged.
+
+The decoder-effects fixtures call pristine scalar EPF, noise, spline, patch,
+blending and alpha boundaries. Dedicated original EPF/noise/alpha objects use
+only the numeric reference options recorded in ADR 0002, retaining all sanitizer
+instrumentation. Durable audits compare their selected observations with untouched
+optimized originals and check actual source binding. The source and dependency
+pins remain unchanged. The two captured combined-effects raw files and all their
+original integer/color-float outputs are documented in
+[tests/data/README.md](../tests/data/README.md); they were generated and observed
+through actual original entry points independently of Rust.

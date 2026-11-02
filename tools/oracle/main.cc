@@ -499,6 +499,11 @@ bool DequantCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool PatchesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool EPFCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
 int main() {
   try {
     JxlMemoryManager mm;
@@ -569,6 +574,10 @@ int main() {
       else if (DequantCommand(command, in, &mm)) {}
       else if (GroupScheduleCommand(command, in, &mm)) {}
       else if (VarDCTDCCommand(command, in, &mm)) {}
+      else if (NoiseRenderCommand(command, in, &mm)) {}
+      else if (EPFCommand(command, in, &mm)) {}
+      else if (PatchesCommand(command, in, &mm)) {}
+      else if (SplinesCommand(command, in, &mm)) {}
       else if (ACGroupSymbolsCommand(command, in, &mm)) {}
       else if (BlockContextCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}

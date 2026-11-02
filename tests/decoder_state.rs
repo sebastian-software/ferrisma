@@ -69,7 +69,7 @@ fn borrowed_shared_state_sizes_sigma_while_ac_orders_mutate_own_storage() {
     state.shared = DecoderShared::External(&ext);
     state.init(&header).unwrap();
     assert_eq!(
-        (state.sigma.xsize(), state.sigma.ysize()),
+        (state.sigma.borrow().xsize(), state.sigma.borrow().ysize()),
         (
             ext.frame_dim.xsize_blocks + 4,
             ext.frame_dim.ysize_blocks + 4

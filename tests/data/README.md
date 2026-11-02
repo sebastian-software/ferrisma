@@ -20,3 +20,28 @@ gray-alpha16 uses the native little-endian 16-bit words.
 
 No C++ executable is needed to run `tests/vardct_image.rs`. Broader generated
 original-file comparisons remain in the opt-in differential suite.
+
+## Captured decoder effects
+
+`effects_rgb_alpha8` and `effects_gray_alpha16` were captured independently from
+original `vd-encode-splines` and `vd-decode` calls on 2026-11-02. Their matching
+`.jxl`, `.pixels`, and `.f32le` files retain the same pinned source/license as
+above. Both are raw level-10 3x8 files, effort 7, distance 1, progressive AC,
+Gaborish, EPF=3, nonzero manual noise and one genuine custom spline. Input samples
+are `(i * 113 + i * i * 17) & 65535`, using their high byte at eight bits.
+The adapter supplies parameters to the original header/one-shot encoder and
+original spline quantization; it implements no framing or codec algorithm.
+
+Manual noise LUT values are 0.005 through 0.04 in steps of 0.005. The spline's
+four control points are `(1,1)`, `(0.3*w,0.8*h)`, `(0.6*w,0.2*h)` and `(w,h)`.
+Its X/Y/B DC coefficients are 0.02/0.3/0.5, its X AC coefficient 1 is 0.1, and
+its sigma coefficients 0/1 are 2.0/0.5; other coefficients are zero. The original
+quantizer uses adjustment zero and CfL ratios zero/one. See the actual adapter
+for source float rounding. The original decoder uses the selected scalar
+reference configuration in ADR 0002.
+
+`.pixels` contains interleaved original gray/alpha or RGBA integer samples,
+with little-endian 16-bit words. `.f32le` contains all three interleaved original
+color float words as little-endian u32 bytes. `tests/decoder_effects.rs` compares
+both without compiling, linking or invoking C++. Broader generated effects and
+error comparisons remain in the opt-in differential suite.

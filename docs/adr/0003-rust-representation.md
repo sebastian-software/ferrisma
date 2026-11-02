@@ -1104,3 +1104,77 @@ pinned common.h defaults JXL_HIGH_PRECISION to 1. Retain its degree-four rationa
 polynomials, square-root and sign restoration; FastLinearToSRGB is a separately
 translated helper and has its own exact corpus. No approximate replacement or
 float tolerance is used to make complete-file results pass.
+
+The scalar EPF stages retain the original filter copy, neighbor/SAD accumulation
+order, high-precision reciprocal and scalar Highway multiplication checkpoints.
+Signed extended-row coordinates convert to block indices at the original source
+points. Sigma binding is either an immutable borrowed plane or the same
+`Rc<RefCell<Plane<f32>>>` owner retained by the decoder. Each row call borrows that
+owner immutably and releases it before return; sigma generation requires an
+exclusive borrow between stage calls. No sigma snapshot or self-reference is
+created, and subsequent source-owner writes remain visible to the existing stage.
+The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
+one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
+original reference configuration in ADR 0002; other target specializations remain
+separate work.
+
+Patch decoding receives the same four reference owners denoted by the containing
+shared state's SetShared binding. The dictionary and reference-frame array can
+be retained separately through `Rc<RefCell<...>>` identities. A shared patch stage
+borrows both immutably only for each row call; decoding mutates the dictionary
+between calls, and replacing a saved frame remains visible without copying image
+owners. Extra-channel metadata retains its enclosing metadata lifetime. Borrowed
+stage construction remains available for the source's externally owned inputs.
+
+Patch tree intervals use the translated libc++ non-arithmetic std::sort
+specialization, including tied-element order and its heap fallback. Row results
+retain original patch order before blending. Scalar alpha routines express source
+pointer-identity branches through borrowed input slices; output is a disjoint
+borrow or the original blending temporary plane owner. Colors are copied from
+that temporary only after successful blending. Source contraction, ordered clamps
+and NaN behavior follow the selected original alpha configuration in ADR 0002.
+No new unsafe block, assembly, external dependency, or broad suppression is needed.
+
+Spline decoding owns its deserialized vectors and selects their committed data
+through an owner-relative flag and explicit span lengths. Borrowed SetData views
+retain their external lifetime. A failed repeated Decode preserves the source's
+old committed span lengths and partial new storage. Source spans that became
+invalid after vector reallocation are not recreated as dangling Rust references;
+only their still-defined lengths are observed until the source lifecycle becomes
+valid again. Quantization control points must remain finite and round into i32,
+and reached signed arithmetic must be representable, as required by the original
+routines. Defined coefficient clamps, budget checks and partial errors retain
+their original order.
+
+Spline caches retain the original curve, continuous-IDCT, segment population and
+scanline-index algorithms. Typed owned vectors replace aligned index storage;
+borrowed/shared stage variants retain the same cache owner rather than a copy.
+The shared variant borrows its `Rc<RefCell<Splines>>` only for each row call.
+Three restricted row pointers become disjoint mutable spans obtained through
+safe storage/channel/offset ordering and split_at_mut. Valid spans can belong
+to either input or output storage; overlap is a source programmer-precondition
+violation and is rejected. Extended left-row positions preserve the source's
+unsigned wrapping before its signed drawing calculations. No new unsafe code,
+external dependency or altered reference compilation is required.
+
+The sequential decoder and rendering stages share sigma, noise parameters,
+spline caches, patch dictionaries, reference arrays and the base color-correlation
+owner through separate `Rc<RefCell<...>>` identities. Only reference-count handles
+are copied. Parameter assignments replace the inner value at the original source
+checkpoint; row calls read current owners under short immutable borrows, and
+source decoding writes under exclusive borrows between stage calls. The enclosing
+metadata owner outlives headers, references and pipeline stages. These dynamic
+borrows eliminate owner self-references without cloning images or caches. This
+mapping applies to the admitted simple/null-runner pipeline; custom concurrent
+runners remain a separate source boundary.
+
+Noise parsing retains eight ten-bit reads and the original deferred bounds/close
+lifecycle. Xorshift128Plus keeps all eight independent generators, both original
+seed schedules, u32 seed truncation and wrapping u64 arithmetic. Native-endian
+word splitting represents the original memcpy. RandomImage retains its strict
+full-batch condition and unconditional final RNG fill, even for an empty remaining
+row span. PrepareNoiseInput resolves the same per-group input handle already
+borrowed by the simple decoder; its original GetInputBuffers call has no additional
+side effect. Convolution retains all 24 neighbor additions and scalar Highway
+rounding. Application retains original LUT interpolation, sign-bit clamp, color
+correlation and store order under the selected source configuration in ADR 0002.

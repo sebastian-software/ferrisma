@@ -14,11 +14,15 @@ bool VarDctImageCommand(const std::string& command, std::istringstream& in,
     auto out=command=="vd-srgb-high"?jxl::HWY_NAMESPACE::TF_SRGB().EncodedFromDisplay(d,input):jxl::HWY_NAMESPACE::FastLinearToSRGB(d,input);
     std::cout << SCBits<uint32_t>(hwy::HWY_NAMESPACE::GetLane(out)); return true;
   }
-  if (command == "vd-encode" || command == "vd-encode-raw") {
+  if (command == "vd-encode" || command == "vd-encode-raw" || command == "vd-encode-effects" || command == "vd-encode-splines") {
     uint32_t w,h,depth; bool gray,alpha,gab,progressive; int effort; std::string hex;
-    in >> w >> h >> gray >> alpha >> depth >> effort >> gab >> progressive >> hex;
+    in >> w >> h >> gray >> alpha >> depth >> effort >> gab >> progressive;
+    int epf=0; bool noise=false;
+    if(command=="vd-encode-effects" || command=="vd-encode-splines")in>>epf>>noise;
+    unsigned spline_mode=0;if(command=="vd-encode-splines")in>>spline_mode;
+    in>>hex;
     auto pixels=Unhex(hex);
-    if (command=="vd-encode-raw") {
+    if (command=="vd-encode-raw" || command=="vd-encode-effects" || command=="vd-encode-splines") {
       jxl::CodecMetadata metadata;
       if(!metadata.size.Set(w,h))throw std::runtime_error("VarDCT raw dimensions");
       metadata.m.SetUintSamples(depth);metadata.m.xyb_encoded=true;
@@ -27,8 +31,20 @@ bool VarDctImageCommand(const std::string& command, std::istringstream& in,
       jxl::CompressParams p;p.cms={};p.debug_image_opaque=nullptr;p.level=10;p.buffering=0;
       p.speed_tier=static_cast<jxl::SpeedTier>(10-effort);p.butteraugli_distance=1.0f;
       p.patches=jxl::Override::kOff;p.dots=jxl::Override::kOff;p.noise=jxl::Override::kOff;
-      p.gaborish=jxl::OverrideFromBool(gab);p.epf=0;p.progressive_dc=0;
+      p.gaborish=jxl::OverrideFromBool(gab);p.epf=epf;p.progressive_dc=0;
+      if(noise){p.noise=jxl::Override::kOn;p.manual_noise={0.005f,0.01f,0.015f,0.02f,0.025f,0.03f,0.035f,0.04f};}
       p.progressive_mode=jxl::OverrideFromBool(progressive);
+      std::vector<jxl::QuantizedSpline> custom;std::vector<jxl::Spline::Point> starts;
+      if(spline_mode){
+        for(unsigned i=0;i<spline_mode;++i){
+          jxl::Spline spline{};spline.control_points={{1.f,1.f},{float(w)*.3f,float(h)*.8f},{float(w)*.6f,float(h)*.2f},{float(w),float(h)}};
+          spline.color_dct[0][0]=.02f;spline.color_dct[1][0]=.3f;spline.color_dct[2][0]=.5f;
+          spline.color_dct[i%3][1]=.1f;spline.sigma_dct[0]=2.f+float(i);spline.sigma_dct[1]=.5f;
+          auto q=jxl::QuantizedSpline::Create(spline,0,0,1);if(!q.ok())throw std::runtime_error("custom spline");
+          custom.push_back(std::move(q).value_());starts.push_back(spline.control_points[0]);
+        }
+        p.custom_splines={jxl::Span<const jxl::QuantizedSpline>(custom),jxl::Span<const jxl::Spline::Point>(starts)};
+      }
       if(!EFParamsPostInit(&p))throw std::runtime_error("VarDCT raw params");
       jxl::JxlEncoderChunkedFrameAdapter input(w,h,alpha?1:0);
       JxlPixelFormat format{(gray?1u:3u)+(alpha?1u:0u),depth==8?JXL_TYPE_UINT8:JXL_TYPE_UINT16,JXL_NATIVE_ENDIAN,0};

@@ -14,6 +14,8 @@ use super::fields::{f16_coder, u32_coder};
 use super::frame_dimensions::BLOCK_DIM;
 use super::image::Plane;
 use super::image_ops::zero_fill_image;
+use std::cell::{Ref, RefCell};
+use std::rc::Rc;
 
 pub const COLOR_TILE_DIM: usize = 64;
 pub const COLOR_TILE_DIM_IN_BLOCKS: usize = COLOR_TILE_DIM / BLOCK_DIM;
@@ -134,7 +136,7 @@ impl ColorCorrelation {
 pub struct ColorCorrelationMap {
     pub ytox_map: Plane<i8>,
     pub ytob_map: Plane<i8>,
-    base: ColorCorrelation,
+    base: Rc<RefCell<ColorCorrelation>>,
 }
 impl ColorCorrelationMap {
     pub fn create(xsize: usize, ysize: usize, xyb: bool) -> StatusOr<Self> {
@@ -146,15 +148,18 @@ impl ColorCorrelationMap {
         zero_fill_image(&mut result.ytox_map);
         zero_fill_image(&mut result.ytob_map);
         if !xyb {
-            result.base.base_correlation_b = 0.0;
+            result.base.borrow_mut().base_correlation_b = 0.0;
         }
-        result.base.recompute_dc_factors();
+        result.base.borrow_mut().recompute_dc_factors();
         Ok(result)
     }
-    pub fn base(&self) -> &ColorCorrelation {
-        &self.base
+    pub fn base(&self) -> Ref<'_, ColorCorrelation> {
+        self.base.borrow()
+    }
+    pub fn base_shared(&self) -> Rc<RefCell<ColorCorrelation>> {
+        Rc::clone(&self.base)
     }
     pub fn decode_dc(&mut self, reader: &mut BitReader<'_>) -> Status {
-        self.base.decode_dc(reader)
+        self.base.borrow_mut().decode_dc(reader)
     }
 }
