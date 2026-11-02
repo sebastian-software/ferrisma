@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sharpyuv", "crates/dav1d"]
+members = ["crates/sharpyuv", "crates/dav1d", "crates/aom"]
 resolver = "2"
 
 [package]
@@ -31,8 +31,8 @@ avm = []
 
 [profile.dev]
 overflow-checks = false
-panic = "abort"
+panic = "unwind"
 
 [profile.release]
 overflow-checks = false
-panic = "abort"
+panic = "unwind"

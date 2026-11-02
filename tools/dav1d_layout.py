@@ -14,7 +14,7 @@ def alignment(node):
     return max(values, default=0)
 
 
-def retain_alignment(text, entry):
+def retain_alignment(text, entry, allow_pruned=False):
     flags = compiler_flags(entry)
     # C2Rust needs LLVM 16's resource headers; the original Clang layout query
     # uses its own matching built-in headers, as in the reference build.
@@ -118,9 +118,10 @@ def retain_alignment(text, entry):
     for name, markers in initializers.items():
         pattern = r'\b' + re.escape(name) + r' \{'
         def initializer(match):
-            if re.search(r'\bstruct\s*$', text[max(0, match.start() - 20):match.start()]):
+            prefix = text[max(0, match.start() - 40):match.start()]
+            if re.search(r'\bstruct\s*$|->\s*(?:\*mut\s*|\*const\s*)?$', prefix):
                 return match.group()
             return match.group() + ' ' + ' '.join(f'{marker}: [],' for marker in markers)
         text = re.sub(pattern, initializer, text)
-    text, storage_changes = retain_storage_alignment(text, ast, alignment)
+    text, storage_changes = retain_storage_alignment(text, ast, alignment, allow_pruned=allow_pruned)
     return text, changes, storage_changes

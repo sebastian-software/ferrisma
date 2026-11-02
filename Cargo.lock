@@ -23,6 +23,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "libavif-aom"
+version = "0.1.0"
+dependencies = [
+ "c2rust-bitfields",
+ "libc",
+]
+
+[[package]]
 name = "libavif-dav1d"
 version = "0.1.0"
 dependencies = [

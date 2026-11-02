@@ -30,7 +30,7 @@ def empty_register_barrier(text):
                    r'\1"/* {0} {1} */", inlateout(reg) mask, inlateout(reg) mul,', text)
 
 
-def corrected(source, raw, entry):
+def corrected(source, raw, entry, allow_pruned_alignment=False):
     if sys.platform == 'linux' and re.search(r'\bf128\b', raw):
         raise SystemExit('Linux long-double translation needs its own mapping')
     text, changes = translate(source, raw, codec_registry=False)
@@ -113,7 +113,7 @@ def corrected(source, raw, entry):
     text, count = re.subn(r'let ref mut (fresh\d+) = ([\s\S]*?);', r'let \1 = &raw mut \2;', text)
     if count:
         changes['raw-c-assignment-temporary'] = count
-    text, count, storage_count = retain_alignment(text, entry)
+    text, count, storage_count = retain_alignment(text, entry, allow_pruned=allow_pruned_alignment)
     if count:
         changes['original-c-record-field-alignment'] = count
     if storage_count:

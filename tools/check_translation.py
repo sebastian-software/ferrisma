@@ -45,3 +45,27 @@ if dav1d.exists():
         if actual != expected or len(units) != len(expected):
             raise SystemExit(f'Incomplete portable dav1d source instantiations: {name}')
     print(f'All {len(expected)} portable dav1d source instantiations are represented in {len(names)} platform/build profiles')
+aom = ROOT / 'crates/aom'
+if (aom / 'TRANSLATION-macos-debug.json').exists():
+    reference = json.loads((ROOT / 'docs/aom-reference-macos-debug.json').read_text())
+    expected = {name.replace('<generated>/', 'generated/') for name in reference['library_sources']}
+    for path in sorted(aom.glob('TRANSLATION-*.json')):
+        record = json.loads(path.read_text())
+        platform, profile = path.stem.removeprefix('TRANSLATION-').split('-')
+        actual = []
+        for unit in record['units']:
+            source = Path(unit['source'])
+            prefix = 'upstream/aom' if source.is_relative_to('upstream/aom') else f'crates/aom/reference/{platform}/{profile}'
+            actual.append(str(source.relative_to(prefix)))
+        if set(actual) != expected or len(actual) != len(expected):
+            raise SystemExit(f'Incomplete portable libaom source closure: {path}')
+        for name, digest in record['generated_reference_headers'].items():
+            header = aom / f'reference/{platform}/{profile}' / name
+            if hashlib.sha256(header.read_bytes()).hexdigest() != digest:
+                raise SystemExit(f'Generated libaom reference header changed: {header}')
+        config = (aom / f'reference/{platform}/{profile}/config/aom_config.h').read_text()
+        for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1', 'CONFIG_AV1_HIGHBITDEPTH 1',
+                        'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 1']:
+            if f'#define {setting}\n' not in config:
+                raise SystemExit(f'Incomplete libaom configuration: {path}: {setting}')
+    print(f'All {len(expected)} complete portable libaom translation units are represented in {len(list(aom.glob("TRANSLATION-*.json")))} profiles')

@@ -73,7 +73,7 @@ def function_span(text, name):
     raise SystemExit(f'Cannot delimit generated function: {name}')
 
 
-def retain_storage_alignment(text, ast, alignment):
+def retain_storage_alignment(text, ast, alignment, allow_pruned=False):
     groups = {}
 
     def visit(node, owner=None):
@@ -81,21 +81,41 @@ def retain_storage_alignment(text, ast, alignment):
             owner = node.get('name')
         if node.get('kind') == 'VarDecl' and alignment(node):
             value = alignment(node)
-            if value not in [2, 4, 8, 16, 32, 64]:
+            if value not in [2, 4, 8, 16, 32, 64, 128, 256]:
                 raise SystemExit(f'Unsupported explicit C object alignment: {value}')
-            groups.setdefault(owner, []).append((node['name'], value))
+            storage = 'static' if owner is None or node.get('storageClass') == 'static' else 'let'
+            c_type = node.get('type', {}).get('desugaredQualType', node.get('type', {}).get('qualType', ''))
+            array = '[' in c_type and '(*' not in c_type
+            groups.setdefault(owner, []).append((node['name'], value, storage, array))
         for child in node.get('inner', []):
             visit(child, owner)
 
     visit(ast)
     count = 0
     for owner, variables in groups.items():
+        if allow_pruned and owner and not re.search(r'\bfn\s+' + re.escape(owner) + r'\s*\(', text):
+            continue
         start, end = function_span(text, owner) if owner else (0, len(text))
         body = text[start:end]
         resolved = {}
-        for name, value in variables:
-            storage = 'let' if owner else 'static'
-            candidates = re.findall(rf'\b{storage}\s+(?:mut\s+)?({re.escape(name)}(?:_\d+)?):', body)
+        for name, value, storage, array in variables:
+            bindings = re.findall(rf'\b{storage}\s+(?:mut\s+)?({re.escape(name)}(?:_\d+)?):\s*(\[?)', body)
+            candidates = [candidate for candidate, bracket in bindings if not allow_pruned or bool(bracket) == array]
+            if allow_pruned and not candidates and not re.search(r'\b' + re.escape(name) + r'\b', body):
+                continue
+            if allow_pruned:
+                original_values = [other_value for other_name, other_value, other_storage, other_array in variables
+                                   if other_name == name and other_storage == storage and other_array == array]
+                if len(candidates) == len(original_values) and set(original_values) == {value}:
+                    # Original independent C scopes may reuse a local name;
+                    # C2Rust suffixes it when it lifts those declarations.
+                    # Mapping every candidate is unambiguous only when the
+                    # number and explicit alignment agree with all originals.
+                    for candidate in candidates:
+                        if candidate in resolved and resolved[candidate] != (value, storage):
+                            raise SystemExit(f'Conflicting aligned C binding: {owner}/{candidate}')
+                        resolved[candidate] = (value, storage)
+                    continue
             if len(candidates) != 1 or candidates[0] in resolved:
                 raise SystemExit(f'Ambiguous aligned C object: {owner}/{name}: {candidates}')
             resolved[candidates[0]] = (value, storage)

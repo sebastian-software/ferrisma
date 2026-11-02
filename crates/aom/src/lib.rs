@@ -1,0 +1,35 @@
+//! Mechanical translation of the complete portable libaom 3.15.2 C archive.
+//!
+//! # Safety
+//! Pointer validity, record/buffer alignment, allocation extent, ownership,
+//! callbacks, error state, and thread synchronization follow the original
+//! headers in `upstream/aom`. These entry points retain those unsafe caller
+//! contracts. Native libvmaf remains a distinct external quality engine.
+#![feature(core_intrinsics, extern_types, c_variadic)]
+#![cfg_attr(libavif_rs_asan, feature(sanitize))]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
+#![allow(dead_code, unused_assignments, unused_mut)]
+
+#[cfg(panic = "abort")]
+compile_error!("libaom's mapped nonlocal error handling requires panic=unwind");
+
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+compile_error!("The initial libaom translation profile targets macOS ARM64");
+
+#[macro_use]
+extern crate c2rust_bitfields;
+
+mod platform;
+mod jump;
+#[cfg(debug_assertions)]
+include!("modules-macos-debug.rs");
+#[cfg(not(debug_assertions))]
+include!("modules-macos-release.rs");
+
+/// Raw original API with one nominal Rust representation for public records.
+pub mod raw {
+    #[cfg(debug_assertions)]
+    include!("api-macos-debug.rs");
+    #[cfg(not(debug_assertions))]
+    include!("api-macos-release.rs");
+}
