@@ -1361,20 +1361,34 @@ libc++ non-arithmetic sort, preserving tied-element ordering in tree arrays.
 The scalar alpha and blending dependencies and both borrowed/shared patch stages
 are translated too. Complete-file reference-frame orchestration remains separate.
 
-Eight differential groups add 5,526 exact original requests. The corpus includes
-real entropy streams, truncation/mutation/reuse, complete initialized tree arrays,
-row/stage rendering, every blending mode, alpha aliases and exceptional floats.
-Ninety padded-coordinate stage cases preserve size_t wrapping and clipping.
-Fifty-six tied/nested/reversed interval cases cross 24- and 128-element sort
-thresholds through 513 intervals. Persistent-stage cases verify that subsequent
-dictionary and reference replacement remain visible. Two native tests retain
-independently captured original streams and blending samples.
+Ten differential groups compare 5,526 defined original requests. The corpus
+includes real entropy streams, truncation/mutation/reuse, complete initialized
+tree arrays, row/stage rendering, every blending mode, alpha aliases and
+exceptional floats. Ninety padded-coordinate stage cases preserve size_t wrapping
+and clipping. Fifty-six tied/nested/reversed interval cases cross 24- and
+128-element sort thresholds through 513 intervals. Persistent-stage cases verify
+that dictionary and reference replacement remain visible. Three standalone tests
+retain captured original streams, alpha comparison behavior and the independent
+color/alpha reference regression.
 
-The alpha reference audit compares 1,920 actual fixture requests between selected
+The original blend corpus remains fully accounted for: 360 exact defined requests
+include 72 zero-width cases; another test positively executes all 24 original
+zero-width alias requests whose memcpy destination is null. Linux instrumentation
+must diagnose `alpha.cc:70`; ordinary/ARM observations do not define those pixel
+words. Direct zero-count alpha kernels retain non-null backing.
+
+The alpha reference audit compares 1,944 actual fixture requests between selected
 ordinary and fully ASan/UBSan graphs and checks all 1,632 finite requests against
-both untouched default graphs. All six real public alpha symbols bind to the
-pristine selected observation unit, including complete-file calls. That unit alone
-uses scoped `-fno-inline-functions` after demonstrated original signaling-NaN
-std::max drift; see ADR 0002. There is no new unsafe code, dependency, skipped case,
-relaxed float comparison, or changed old expected word. The README patch checkbox
-stays open until complete-file integration and its acceptance evidence land.
+both untouched default graphs. All six actual public alpha symbols bind to the
+pristine selected unit, including complete-file calls. That unit alone uses O0
+and no-inline configuration, with strict FP additionally on x86_64 Linux.
+ARM retains source contraction; strict FP there changes finite words. The
+[native source experiment](https://github.com/sebastian-software/libjxl-rs/actions/runs/41446120185)
+records the accepted x86 strict-O0 configuration and rejected candidates. Both
+full local gates pass Debug, Release and Rust 1.85 against ordinary and fully
+ASan/UBSan original graphs: each of six configurations completes 439 tests, 257
+parity groups, 874,113 defined requests and all 24 explicit original-only probes
+with no failures or ignored tests. Final native Rust CI and hosted integration
+remain required beyond the source-only experiment. No original source or sanitizer changes, unsafe operation, assembly,
+relaxed float comparison or changed old defined case is used. The README patch
+checkbox remains open until complete-file reference orchestration is connected.

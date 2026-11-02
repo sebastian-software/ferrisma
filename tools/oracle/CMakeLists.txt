@@ -75,11 +75,16 @@ add_executable(jxl_oracle main.cc alpha.cc patches.cc vardct_dc.cc group_schedul
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-  # Keep std::max's original comparison boundary: native ARM O3 ordinary
-  # otherwise lowers signaling alpha NaNs to FMAXNM while ASan keeps selects.
-  # Pristine alpha.cc supplies actual public symbols, including whole files.
-  # All sanitizer, O3 and contraction options remain active.
-  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS -fno-inline-functions)
+  # Native original alpha expressions commute exceptional operands differently
+  # across optimized/instrumented graphs. O0 preserves their scalar boundaries;
+  # native x86 additionally requires strict FP to retain the source subtraction
+  # and ADDSS destinations. ARM keeps its original contraction: strict FP changes
+  # finite words there. The pristine TU supplies all actual public alpha symbols,
+  # with every sanitizer active. tools/alpha_reference.py audits both defaults.
+  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-inline-functions")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_property(SOURCE alpha.cc APPEND PROPERTY COMPILE_OPTIONS -ffp-model=strict)
+  endif()
   set_source_files_properties(patches.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Match the original GetBlock class hierarchy in this traversal observer.
   set_source_files_properties(group_render.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)

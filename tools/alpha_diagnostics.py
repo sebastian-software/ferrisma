@@ -71,6 +71,10 @@ def candidate(build, destination, options):
     entries = json.loads((build / 'compile_commands.json').read_text())
     entry, = [e for e in entries if Path(e['file']).resolve() == ROOT / 'tools/oracle/alpha.cc']
     command = shlex.split(entry['command'])
+    # Reproduce each explicit experiment even after the active selected unit
+    # adopts strict-O0. Normalize only its scoped scalar options; all original
+    # sanitizer, target, include and definition flags remain unchanged.
+    command = [arg for arg in command if arg != '-ffp-model=strict']
     command[command.index('-o') + 1] = str(obj)
     # Some generators include dependency-output flags in compile_commands.
     # Candidate compilation must never replace an active dependency file.
@@ -79,7 +83,7 @@ def candidate(build, destination, options):
             command[index + 1] = str(destination / 'alpha.cc.o.d')
         elif arg.startswith('-MF'):
             command[index] = '-MF' + str(destination / 'alpha.cc.o.d')
-    command.extend(options)
+    command.extend(['-O3', *options])
     print('temporary pristine alpha compile: ' + shlex.join(command), flush=True)
     subprocess.run(command, cwd=build, check=True)
     command = shlex.split((build / 'CMakeFiles/jxl_oracle.dir/link.txt').read_text())
@@ -149,7 +153,7 @@ def main():
                                ('O1', ['-O1']), ('O0', ['-O0']),
                                ('strict-O3', ['-ffp-model=strict']),
                                ('strict-O0', ['-O0', '-ffp-model=strict'])]:
-            record['candidate_options'][label] = options
+            record['candidate_options'][label] = ['-O3', *options]
             observed = []
             for name, build in zip(('ordinary', 'ASan'), builds):
                 destination = temporary / (label + '-' + name)

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Audit pristine selected alpha symbols against the original default objects.
 
-The selected wrapper changes only inlining. Removing that one object from an
+The selected wrapper changes only its scoped scalar compiler configuration.
+Removing that one object from an
 otherwise identical temporary link makes the unchanged original archive supply
 all alpha operations. No active object, dependency file, or binary is replaced.
 """
@@ -9,6 +10,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import platform
 import re
 import shlex
 import subprocess
@@ -51,19 +53,24 @@ def requests():
     return cases, finite
 
 
-def verify_rust_requests(cases, temporary):
+def rust_requests(name, temporary):
     source = (ROOT / "tests/parity/patches.rs").read_text()
-    name = "patches_alpha_kernels_aliases_rounding_and_exceptional_values"
     match = re.search(r"fn " + name + r"\(\) \{.*?^\}", source, re.M | re.S)
     if match is None:
         raise RuntimeError("Actual Rust alpha request generator not found")
     program = ("use std::fmt::Write as _;\n"
                "fn chunks(cases:Vec<String>){for case in cases {println!(\"{}\",case);}}\n"
                + match.group(0) + "\nfn main(){" + name + "();}\n")
-    code, binary = temporary / "alpha_requests.rs", temporary / "alpha_requests"
+    code, binary = temporary / (name + ".rs"), temporary / name
     code.write_text(program)
     subprocess.run(["rustc", "--edition=2024", str(code), "-o", str(binary)], check=True)
     actual = subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout.splitlines()
+    return actual
+
+
+def verify_rust_requests(cases, temporary):
+    name = "patches_alpha_kernels_aliases_rounding_and_exceptional_values"
+    actual = rust_requests(name, temporary)
     if actual != cases:
         raise RuntimeError("Alpha audit corpus differs from actual Rust parity generator")
     print(f"All {len(cases)} audit inputs match the actual Rust request generator", flush=True)
@@ -138,13 +145,26 @@ def audit(ordinary, sanitized):
     with tempfile.TemporaryDirectory(prefix="jxl-alpha-reference-") as directory:
         temporary = Path(directory)
         verify_rust_requests(cases, temporary)
+        extra = rust_requests("patches_independent_rgba_competing_words_and_stage_regression", temporary)
+        weighted = rust_requests("patches_weighted_add_and_multiply_competing_operand_pairs", temporary)
+        if (len(extra), len(weighted)) != (20, 4):
+            raise RuntimeError("Independent original RGBA request coverage changed")
+        extra.extend(weighted)
+        cases.extend(extra)
+        finite.extend([False] * len(extra))
+        print(f"Also retain all {len(extra)} independent RGBA/weighted/multiply source requests, "
+              "including split references and every competing operand pair", flush=True)
         chosen, defaults = [], []
         for name, build in zip(names, (ordinary, sanitized)):
             entries = json.loads((build / "compile_commands.json").read_text())
             entry, = [e for e in entries if Path(e["file"]).resolve() ==
                       ROOT / "tools/oracle/alpha.cc"]
             command = shlex.split(entry["command"])
-            if command.count("-fno-inline-functions") != 1 or "-O3" not in command:
+            optimization = [arg for arg in command if re.fullmatch(r"-O(?:[0-3sgz]|fast)", arg)]
+            strict = platform.system() == "Linux" and platform.machine().lower() in ("x86_64", "amd64")
+            if (command.count("-fno-inline-functions") != 1
+                    or optimization[-1:] != ["-O0"]
+                    or command.count("-ffp-model=strict") != int(strict)):
                 raise RuntimeError("Unexpected scoped alpha compile configuration")
             if (name == "ASan") != any("-fsanitize=" in arg for arg in command):
                 raise RuntimeError("Alpha sanitizer configuration changed")
@@ -163,9 +183,16 @@ def audit(ordinary, sanitized):
                 actual, baseline = observe(selected, chunk), observe(default, chunk)
                 for index, (a, b) in enumerate(zip(actual, baseline), start):
                     if finite[index] and a != b:
-                        raise RuntimeError(f"Finite alpha source drift in {name}, case {index}")
+                        raise RuntimeError(f"Finite alpha source drift in {name}, case {index}: "
+                                           f"{cases[index]}\nselected={a}\ndefault={b}")
                 if previous is not None and actual != previous:
-                    raise RuntimeError(f"Selected alpha ordinary/ASan drift at case {start}")
+                    for index, (a, b) in enumerate(zip(previous, actual), start):
+                        if a != b:
+                            words = [(i, x, y) for i, (x, y) in enumerate(
+                                zip(a.split(), b.split())) if x != y]
+                            raise RuntimeError(f"Selected alpha ordinary/ASan drift at case {index}: "
+                                               f"{cases[index]}\nword deltas={words}\n"
+                                               f"ordinary={a}\nASan={b}")
                 previous = actual
     for name in names:
         print(f"{name}: {sum(finite)} finite alpha requests match default source", flush=True)

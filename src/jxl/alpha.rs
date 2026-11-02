@@ -3,23 +3,51 @@
 //! Scalar alpha operations from lib/jxl/alpha.{h,cc}. Borrowed input slices
 //! retain source pointer-identity branches; owned temporary output permits
 //! the source's in-place callers without aliased mutable references.
-use super::base::float::{clamp_f32, mul_add_f32};
+use super::base::float::clamp_f32;
+#[cfg(target_arch = "aarch64")]
+use super::base::float::mul_add_f32;
 pub const SMALL_ALPHA: f32 = 1.0 / (1u32 << 26) as f32;
 
 #[inline(never)]
 fn mul(a: f32, b: f32) -> f32 {
     a * b
 }
+#[cfg(not(target_arch = "aarch64"))]
+#[inline(never)]
+fn add(a: f32, b: f32) -> f32 {
+    a + b
+}
 fn new_alpha(fa: f32, ba: f32) -> f32 {
-    mul_add_f32(-(1.0 - fa), 1.0 - ba, 1.0)
+    #[cfg(target_arch = "aarch64")]
+    {
+        mul_add_f32(-(1.0 - fa), 1.0 - ba, 1.0)
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        // Preserve the source subtraction rather than negating one product
+        // operand: non-fused multiplication retains the operand's NaN sign.
+        1.0 - mul(1.0 - fa, 1.0 - ba)
+    }
 }
 fn blend_sample(bg: f32, ba: f32, fg: f32, fa: f32, premultiplied: bool) -> f32 {
     if premultiplied {
-        mul_add_f32(bg, 1.0 - fa, fg)
+        #[cfg(target_arch = "aarch64")]
+        {
+            mul_add_f32(bg, 1.0 - fa, fg)
+        }
+        #[cfg(not(target_arch = "aarch64"))]
+        {
+            add(fg, mul(bg, 1.0 - fa))
+        }
     } else {
         let a = new_alpha(fa, ba);
         let ra = if a > 0.0 { 1.0 / a } else { 0.0 };
-        mul_add_f32(fg, fa, mul(1.0 - fa, mul(ba, bg))) * ra
+        let background = mul(mul(bg, ba), 1.0 - fa);
+        #[cfg(target_arch = "aarch64")]
+        let sum = mul_add_f32(fg, fa, background);
+        #[cfg(not(target_arch = "aarch64"))]
+        let sum = add(mul(fg, fa), background);
+        mul(sum, ra)
     }
 }
 #[expect(
@@ -87,7 +115,14 @@ pub fn perform_alpha_weighted_add(
             } else {
                 fga[x]
             };
-            out[x] = mul_add_f32(fg[x], fa, bg[x]);
+            #[cfg(target_arch = "aarch64")]
+            {
+                out[x] = mul_add_f32(fg[x], fa, bg[x]);
+            }
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                out[x] = add(bg[x], mul(fg[x], fa));
+            }
         }
     }
 }
@@ -101,11 +136,11 @@ pub fn perform_mul_blending(bg: &[f32], fg: &[f32], out: &mut [f32], n: usize, c
             };
     }
 }
-// The selected pristine alpha TU retains std::max's original comparison
-// boundary with -fno-inline-functions in both reference graphs. The default
-// optimized ARM ordinary graph otherwise emits FMAXNM, whose signaling-NaN
-// choice differs from the instrumented graph. tools/alpha_reference.py audits
-// all finite results against both unchanged default objects.
+// The selected pristine alpha TU retains scalar expression order and std::max's
+// comparison with scoped O0/no-inline, plus strict FP only on x86 Linux. ARM
+// retains source contraction. The optimized default ARM graph otherwise emits
+// FMAXNM with different signaling-NaN behavior; tools/alpha_reference.py audits
+// every finite request against both untouched default objects.
 fn alpha_max(alpha: f32) -> f32 {
     super::base::float::max_f32(SMALL_ALPHA, alpha)
 }

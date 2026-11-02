@@ -1121,3 +1121,13 @@ borrow or the original blending temporary plane owner. Colors are copied from
 that temporary only after successful blending. Source contraction, ordered clamps
 and NaN behavior follow the selected original alpha configuration in ADR 0002.
 No new unsafe block, assembly, external dependency, or broad suppression is needed.
+
+Alpha's unassociated color term preserves `(bg * bga) * (1 - fga)` in that
+source operand order. Native x86 retains `1 - ((1 - fga) * (1 - bga))` as a
+subtraction and foreground-first additions; replacing it with a negated product
+changes exceptional words. ARM retains its source contraction. Local arithmetic
+call boundaries preserve those choices across Rust optimization. The selected
+pristine configuration and its finite/default audit are recorded in ADR 0002.
+The original zero-width aliased memcpy boundary is exercised separately by
+oracle subprocesses, with explicit sanitizer evidence and no claimed source
+pixel semantics. Rust's empty owned temporary remains safe to represent.
