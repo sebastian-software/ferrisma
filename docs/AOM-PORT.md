@@ -312,6 +312,14 @@ nonlocal-jump calls and incorrect target/transfer counts. Alias regression
 checks and artifact reproduction pass; native Linux compilation and failure
 behavior must pass again before accepting the corrected candidate.
 
+That earlier failure run still passes both pinned VMAF model contracts and
+the named layout checks: 18,598 records / 208,029 checks in Debug and 18,548
+records / 207,729 checks in Release, with zero differences. These layout checks
+exclude anonymous records and bitfield offsets. The native C executable passes
+all 62 focused API/error cases; Rust aborts before completing that inventory.
+The successful layout and normal-path evidence does not waive the failed
+allocation, thread, or API/error gates.
+
 GNU pkg-config's `-pthread` spelling maps explicitly to the pthread library.
 For glibc's array-decayed `va_list` control callback typedef, ADR 0040 maps the parameter
 to Rust's C-compatible `VaList`, consistently with its callback definitions
