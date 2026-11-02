@@ -41,3 +41,6 @@ jobs:
       - name: Record native Linux scalar diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/scalar_diagnostics.py
+      - name: Audit the alpha numeric reference configuration
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/alpha_reference.py

@@ -255,3 +255,21 @@ requests against each default graph and require the selected ordinary/ASan
 objects to agree on all 546 finite/exceptional requests. Assembly inspection is
 supporting evidence; native CI is the acceptance gate. Review this scoped
 configuration again after source, compiler, target or instrumentation changes.
+
+Observe pristine `alpha.cc` through a dedicated translation unit with scoped
+`-fno-inline-functions`, retaining default optimization, arithmetic contraction
+and all sanitizer flags. Native ARM's optimized ordinary Premultiply/Unpremultiply
+std::max lowers to FMAXNM and propagates signaling NaNs, while the fully
+instrumented object uses ordered comparisons and selects SMALL_ALPHA. The same
+actual-original request produces `0xffe98765` ordinarily and zero under ASan in
+the first color sample. Both selected objects retain the original std::max
+call/comparison and agree without a Rust assembly workaround.
+
+The selected unit supplies all six actual public alpha functions; whole-file
+calls use the same object. `tools/alpha_reference.py` verifies those bindings,
+requires all 1,920 selected fixture observations to agree, and checks all 1,632
+finite observations against both untouched default archive graphs. Temporary
+relinking removes only the selected object, so the unchanged archive supplies
+the default alpha routines. No original source, archive flag, earlier observer,
+sanitizer or old expected word changes. Revisit this reference configuration with
+source/compiler/target/instrumentation changes; it is not a performance claim.

@@ -730,6 +730,7 @@ fn observe(request: &str) -> String {
         "append" => append_case(&mut args),
         kind if matches!(kind, "bits" | "u32" | "u64" | "f32") => primitive(kind, &mut args),
         kind if kind.starts_with("huffman") => huffman::observe(kind, &mut args),
+        kind if patches::handles(kind) => patches::observe(kind, &mut args),
         kind if ac_group_symbols::handles(kind) => ac_group_symbols::observe(kind, &mut args),
         kind if ans::handles(kind) => ans::observe(kind, &mut args),
         kind if cluster::handles(kind) => cluster::observe(kind, &mut args),
@@ -1184,3 +1185,6 @@ mod dequant;
 
 #[path = "parity/group_render.rs"]
 mod group_render;
+
+#[path = "parity/patches.rs"]
+mod patches;

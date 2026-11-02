@@ -1,8 +1,10 @@
 pub mod ac_context;
 pub mod ac_strategy;
+pub mod alpha;
 pub mod ans_common;
 pub mod ans_params;
 pub mod base;
+pub mod blending;
 pub mod chroma_from_luma;
 pub mod cms;
 pub mod cms_interface;
@@ -78,6 +80,7 @@ pub mod opsin_params;
 pub mod pack_signed;
 pub mod padded_bytes;
 pub mod passes_state;
+pub mod patch_dictionary_internal;
 pub mod quant_weights;
 pub mod quantizer;
 pub mod quantizer_inl;

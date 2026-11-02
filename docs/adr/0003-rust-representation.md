@@ -1104,3 +1104,20 @@ pinned common.h defaults JXL_HIGH_PRECISION to 1. Retain its degree-four rationa
 polynomials, square-root and sign restoration; FastLinearToSRGB is a separately
 translated helper and has its own exact corpus. No approximate replacement or
 float tolerance is used to make complete-file results pass.
+
+Patch decoding receives the same four reference owners denoted by the containing
+shared state's SetShared binding. The dictionary and reference-frame array can
+be retained separately through `Rc<RefCell<...>>` identities. A shared patch stage
+borrows both immutably only for each row call; decoding mutates the dictionary
+between calls, and replacing a saved frame remains visible without copying image
+owners. Extra-channel metadata retains its enclosing metadata lifetime. Borrowed
+stage construction remains available for the source's externally owned inputs.
+
+Patch tree intervals use the translated libc++ non-arithmetic std::sort
+specialization, including tied-element order and its heap fallback. Row results
+retain original patch order before blending. Scalar alpha routines express source
+pointer-identity branches through borrowed input slices; output is a disjoint
+borrow or the original blending temporary plane owner. Colors are copied from
+that temporary only after successful blending. Source contraction, ordered clamps
+and NaN behavior follow the selected original alpha configuration in ADR 0002.
+No new unsafe block, assembly, external dependency, or broad suppression is needed.

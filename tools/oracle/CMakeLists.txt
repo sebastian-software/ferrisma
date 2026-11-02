@@ -70,11 +70,17 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle main.cc alpha.cc patches.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Keep std::max's original comparison boundary: native ARM O3 ordinary
+  # otherwise lowers signaling alpha NaNs to FMAXNM while ASan keeps selects.
+  # Pristine alpha.cc supplies actual public symbols, including whole files.
+  # All sanitizer, O3 and contraction options remain active.
+  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS -fno-inline-functions)
+  set_source_files_properties(patches.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Match the original GetBlock class hierarchy in this traversal observer.
   set_source_files_properties(group_render.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(group_schedule.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)

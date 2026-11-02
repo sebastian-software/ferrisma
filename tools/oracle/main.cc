@@ -499,6 +499,8 @@ bool DequantCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool PatchesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
 int main() {
   try {
     JxlMemoryManager mm;
@@ -508,7 +510,8 @@ int main() {
       std::istringstream in(line);
       std::string command;
       in >> command;
-      if (command == "reader") Reader(in);
+      if (PatchesCommand(command, in, &mm)) {}
+      else if (command == "reader") Reader(in);
       else if (command == "size") DimensionHeader<jxl::SizeHeader>(in, &mm);
       else if (command == "preview") DimensionHeader<jxl::PreviewHeader>(in, &mm);
       else if (command == "read-size") ReadDimensionHeader<jxl::SizeHeader>(in);

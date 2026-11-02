@@ -72,7 +72,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
-| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
+| `dec_patch_dictionary.h`, `.cc`, `patch_dictionary_internal.h`; `blending.h`, `.cc`; `alpha.h`, `.cc`; `render_pipeline/stage_patches.h`, `.cc` | `dec_patch_dictionary.rs`, `patch_dictionary_internal.rs`, `blending.rs`, `alpha.rs`, `render_pipeline/stage_patches.rs` | Complete scalar dictionary parsing, reference checks, interval tree, clipped row/stage rendering and scalar blending/alpha; complete-file reference-frame orchestration remains separate |
+| `splines.h`, `noise.h` | `splines.rs`, `noise.rs` | Feature storage, constructors, spline Clear/getters and noise Clear/HasAny; remaining spline/noise operations unported |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; first VarDCT frame/group integration connected; general frame profiles remain separate |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
@@ -1350,3 +1351,30 @@ and independent default-optimization audit. One captured native x86 regression
 complements the ARM-only capture; both targets now run 425 tests, the same 246
 differential groups and 868,587 requests. Replacement native CI remains required
 before integration; the earlier failed runs are retained in the PR history.
+
+## Scalar patches, blending, and alpha
+
+The complete patch dictionary now includes entropy decoding, reference checks,
+partial failure state, interval-tree construction, row lookup, reference masks,
+and clipped blending/rendering. PatchInterval sorting uses the already translated
+libc++ non-arithmetic sort, preserving tied-element ordering in tree arrays.
+The scalar alpha and blending dependencies and both borrowed/shared patch stages
+are translated too. Complete-file reference-frame orchestration remains separate.
+
+Eight differential groups add 5,526 exact original requests. The corpus includes
+real entropy streams, truncation/mutation/reuse, complete initialized tree arrays,
+row/stage rendering, every blending mode, alpha aliases and exceptional floats.
+Ninety padded-coordinate stage cases preserve size_t wrapping and clipping.
+Fifty-six tied/nested/reversed interval cases cross 24- and 128-element sort
+thresholds through 513 intervals. Persistent-stage cases verify that subsequent
+dictionary and reference replacement remain visible. Two native tests retain
+independently captured original streams and blending samples.
+
+The alpha reference audit compares 1,920 actual fixture requests between selected
+ordinary and fully ASan/UBSan graphs and checks all 1,632 finite requests against
+both untouched default graphs. All six real public alpha symbols bind to the
+pristine selected observation unit, including complete-file calls. That unit alone
+uses scoped `-fno-inline-functions` after demonstrated original signaling-NaN
+std::max drift; see ADR 0002. There is no new unsafe code, dependency, skipped case,
+relaxed float comparison, or changed old expected word. The README patch checkbox
+stays open until complete-file integration and its acceptance evidence land.
