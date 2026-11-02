@@ -1,0 +1,95 @@
+{
+  "run_id": 41417830280,
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "status": "native Linux source profiles generated; compilation and acceptance pending",
+  "artifact_transformation": "Append the same optional inline wrappers as the current translator",
+  "native_reference_and_original_tests_preserved": true,
+  "profiles": [
+    {
+      "profile": "debug",
+      "native_reference": {
+        "reference": "libaom 3.15.2 complete portable C",
+        "profile": "debug",
+        "options": [
+          "-DAOM_TARGET_CPU=generic",
+          "-DCONFIG_TUNE_VMAF=1",
+          "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+          "-DENABLE_DOCS=OFF"
+        ],
+        "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
+        "compiler": "Ubuntu clang version 16.0.6 (23ubuntu4)",
+        "library_translation_units": 168,
+        "generated_units": 3,
+        "original_test_inventories": {
+          "test_libaom": {
+            "registrations": 18729,
+            "names_sha256": "bd6eb64d0ed463a89128e66f751c16cbc41c664d35757fe6105d020c2b2a6205",
+            "upstream_disabled": 1501
+          },
+          "test_aom_rc": {
+            "registrations": 38,
+            "names_sha256": "b7d4a18130d66d6d2b4fc87a2d1cb0ca55f1c3046e02d12bb5969e2a34c4f27c",
+            "upstream_disabled": 0
+          },
+          "test_intra_pred_speed": {
+            "registrations": 38,
+            "names_sha256": "0be91be0d110a4cac28bc0fb19335eaa21d7ac3fd0540c166133fbdba00ad41b",
+            "upstream_disabled": 38
+          }
+        },
+        "original_test_inputs": 568,
+        "config_sha256": "b3a1c2579ac5fef17394bf4867f4350638ff6092e586931efb1ce4d21e5e2855",
+        "transitive_runtime_dependencies": {
+          "libvmaf": "3.2.0"
+        }
+      },
+      "artifact_manifest_sha256": "1373bb9da84b2c576bef08095f8e9b7fcee0732a132b0468707194cfec928287",
+      "imported_manifest_sha256": "3a96db1618f5adfc97cea5e4955608fcc9f87e332050bf5b375a42c30d512efa",
+      "production_bodies_unchanged": true,
+      "optional_inline_wrappers": 10
+    },
+    {
+      "profile": "release",
+      "native_reference": {
+        "reference": "libaom 3.15.2 complete portable C",
+        "profile": "release",
+        "options": [
+          "-DAOM_TARGET_CPU=generic",
+          "-DCONFIG_TUNE_VMAF=1",
+          "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+          "-DENABLE_DOCS=OFF"
+        ],
+        "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
+        "compiler": "Ubuntu clang version 16.0.6 (23ubuntu4)",
+        "library_translation_units": 168,
+        "generated_units": 3,
+        "original_test_inventories": {
+          "test_libaom": {
+            "registrations": 18729,
+            "names_sha256": "bd6eb64d0ed463a89128e66f751c16cbc41c664d35757fe6105d020c2b2a6205",
+            "upstream_disabled": 1501
+          },
+          "test_aom_rc": {
+            "registrations": 38,
+            "names_sha256": "b7d4a18130d66d6d2b4fc87a2d1cb0ca55f1c3046e02d12bb5969e2a34c4f27c",
+            "upstream_disabled": 0
+          },
+          "test_intra_pred_speed": {
+            "registrations": 38,
+            "names_sha256": "0be91be0d110a4cac28bc0fb19335eaa21d7ac3fd0540c166133fbdba00ad41b",
+            "upstream_disabled": 38
+          }
+        },
+        "original_test_inputs": 568,
+        "config_sha256": "73fed02ff2d9ed47cf8964f4dc39f511868064de2bd1329519448990549a2079",
+        "transitive_runtime_dependencies": {
+          "libvmaf": "3.2.0"
+        }
+      },
+      "artifact_manifest_sha256": "a42e9839db9b5a7bc1e7505a5fc3a390ea62af61e6f318600c42d2c611cc1ff4",
+      "imported_manifest_sha256": "bb35454d9a6e8de7e962eae81006433e7628ebd9a45284e765701db852b9eba1",
+      "production_bodies_unchanged": true,
+      "optional_inline_wrappers": 10
+    }
+  ]
+}

@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Generate candidate profiles or verify committed profiles
+        description: Generate, reproduce, or compile committed profiles
         type: choice
-        options: [generate, verify]
+        options: [generate, verify, compile]
         default: generate
 
 permissions:
@@ -31,7 +31,9 @@ jobs:
           sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake
           rustup toolchain install nightly-2026-09-07 --profile minimal
           rustup toolchain install 1.80.1 --profile minimal
-          cargo +1.80.1 install c2rust --version 0.21.0 --locked
+          if [ "${{ inputs.mode }}" != compile ]; then
+            cargo +1.80.1 install c2rust --version 0.21.0 --locked
+          fi
           python3 -m venv build/aom-tools
           build/aom-tools/bin/python -m pip install meson==1.7.2
       - name: Verify source and build the retained native VMAF reference
@@ -45,6 +47,7 @@ jobs:
           python3 tools/build_aom.py --debug
           python3 tools/build_aom.py
       - name: Translate both complete native Linux source profiles
+        if: inputs.mode != 'compile'
         env:
           RUST_BACKTRACE: "1"
         run: |
@@ -59,6 +62,7 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: nightly-2026-09-07
         run: |
+          python3 tools/check_translation.py
           python3 tools/build_aom_consumers.py --debug --only aomenc --only aomdec --only test_libaom
           python3 tools/build_aom_consumers.py --only aomenc --only aomdec --only test_libaom
           python3 tools/check_aom_roundtrip.py --debug
@@ -70,6 +74,8 @@ jobs:
           cargo run -p libavif-aom --example raw_api --locked --release
           python3 tools/check_aom_linkage.py --debug --archives-only
           python3 tools/check_aom_linkage.py --archives-only
+          python3 tools/check_aom_inlines.py --debug
+          python3 tools/check_aom_inlines.py
       - name: Compare native VMAF modes and single-allocation failures
         run: |
           python3 tools/check_aom_vmaf.py --debug
@@ -105,6 +111,7 @@ jobs:
             crates/aom/TRANSLATION-linux-*.json
             crates/aom/reference/linux/
             build/aom-translate/*/transpile.log
+            build/aom-generated/
             build/aom-native-*/reference-profile.json
             build/aom-native-*/library-compile-commands.json
             build/aom-native-*/test_*-inventory.json
@@ -118,6 +125,7 @@ jobs:
             build/aom-cli-*/*-encode.log
             build/aom-cli-*/*-decode.log
             build/aom-roundtrip-*/summary.json
+            build/aom-inlines-*/summary.json
             build/aom-faults-*/summary.json
             build/aom-thread-faults-*/summary.json
             build/aom-vmaf-modes-*/summary.json

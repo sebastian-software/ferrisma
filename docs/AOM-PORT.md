@@ -1,9 +1,11 @@
 # Portable libaom port
 
 Status: standalone implementation and validation in progress. All 168 portable
-C translation units are imported for macOS ARM64 Debug and Release, with a raw
-Rust API. libavif still links the native libaom engine. Complete original-test
-correspondence, platform, and acceptance gates must pass before integration.
+C translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug
+and Release, with a raw Rust API. macOS pilot checks pass; Linux compilation
+and validation are in progress. libavif still links the native libaom engine.
+Complete original-test correspondence, platform, and acceptance gates must pass
+before integration.
 
 The immutable reference is libaom 3.15.2, tag `v3.15.2`, commit
 `af3dc9aadc793c1b00edc003e3fc19a44fdeb574`. The complete 1,520-file snapshot,
@@ -217,3 +219,24 @@ Native build evidence is written to `build/aom-native-{debug,release}`. The
 test corpus is cached in `build/deps/aom-test-data`; set
 `LIBAOM_TEST_DATA_PATH` to that absolute directory when running original tests.
 Downloaded fixtures and disposable builds are not source modifications.
+
+## Native Linux source checkpoint
+
+Both complete x86-64 profiles were generated on Ubuntu 24.04 with Clang/LLVM
+16.0.6, C2Rust 0.21.0, and the isolated native VMAF reference. The initial
+compile attempt stopped in the package-link setup before checking the codec;
+GNU pkg-config's `-pthread` spelling now maps explicitly to the pthread library.
+This source import is not Linux acceptance evidence.
+
+`tools/import_aom_linux.py` verifies every artifact Rust hash, the exact
+168-unit closure, required configuration, and generated header hashes before
+importing a profile. It appends the same optional inline wrappers as the current
+translator while preserving all 336 production bodies. The original artifact
+and imported manifest digests, reference configurations, and immutable CI run
+are recorded in [the import record](aom-linux-source-import.json).
+
+The Linux workflow's `compile` mode builds and checks committed candidates
+without rerunning translation. `generate` produces fresh profiles; `verify`
+reproduces committed profiles from the native source and headers. Fresh
+translation reproduction and the remaining Linux execution gates are still
+required before acceptance.
