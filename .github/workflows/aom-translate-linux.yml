@@ -67,6 +67,7 @@ jobs:
             python3 tools/transpile_aom.py --release --check
           fi
       - name: Compile both generated profiles and compare public codec output
+        id: consumers
         env:
           RUSTUP_TOOLCHAIN: nightly-2026-09-07
         run: |
@@ -86,17 +87,28 @@ jobs:
           python3 tools/check_aom_inlines.py
           python3 tools/check_aom_oracles.py --debug
           python3 tools/check_aom_oracles.py
-      - name: Compare native VMAF modes and single-allocation failures
+      - name: Compare native VMAF modes with the integer model
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |
           python3 tools/check_aom_vmaf.py --debug
           python3 tools/check_aom_vmaf.py
+      - name: Compare native VMAF modes with the float model
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+        run: |
           python3 tools/check_aom_vmaf.py --debug --model float
           python3 tools/check_aom_vmaf.py --model float
+      - name: Compare single-allocation failures
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+        run: |
           python3 tools/check_aom_faults.py --debug
           python3 tools/check_aom_faults.py
+      - name: Compare worker-creation failures
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+        run: |
           python3 tools/check_aom_faults.py --debug --thread-failures
           python3 tools/check_aom_faults.py --thread-failures
       - name: Preserve focused original API and error registrations
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |
           filter='AomImageTest.*:AomLeb128.*:DecodeAPI.*:EncodeAPI.Invalid*:FilmGrainTableIOTest.*:FilmGrainTableTest.*:MetadataTest.*:KeyValAPI/*.*:EncodeAPI.SizeAlignOverflow'
           python3 tools/run_aom_tests.py --debug --jobs 1 --shards 1 --filter "$filter"
@@ -104,6 +116,7 @@ jobs:
           python3 tools/run_aom_tests.py --jobs 1 --shards 1 --filter "$filter"
           python3 tools/run_aom_tests.py --rust --jobs 1 --shards 1 --filter "$filter"
       - name: Compare named record layouts in both profiles
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         env:
           RUSTUP_TOOLCHAIN: nightly-2026-09-07
         run: |
@@ -141,3 +154,5 @@ jobs:
             build/aom-faults-*/summary.json
             build/aom-thread-faults-*/summary.json
             build/aom-vmaf-modes-*/summary.json
+            build/aom-vmaf-modes-*/failure.json
+            build/aom-vmaf-modes-*/*.log

@@ -30,6 +30,8 @@ def main():
         raise SystemExit('The original VMAF model does not match the pinned source')
     work = ROOT / f'build/aom-vmaf-modes-{profile}-{args.model}'
     work.mkdir(parents=True, exist_ok=True)
+    for filename in ['summary.json', 'failure.json']:
+        (work / filename).unlink(missing_ok=True)
     modes = ['vmaf_with_preprocessing', 'vmaf_without_preprocessing', 'vmaf', 'vmaf_neg']
     records = []
     for depth in [8, 10, 12]:
@@ -37,6 +39,7 @@ def main():
         raw.write_bytes(pixels(128, 96, depth, '420', 1))
         for tune in modes:
             outputs, decoded = [], []
+            failures = []
             for label, directory in [('c', f'aom-native-{profile}'), ('rust', f'aom-rust-{profile}')]:
                 name = f'{depth}-{tune}-{label}'
                 target = work / f'{name}.ivf'
@@ -49,8 +52,18 @@ def main():
                 with (work / f'{name}.log').open('w') as log:
                     result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
                 if result.returncode:
-                    raise SystemExit(f'VMAF mode failed: {name}: inspect {work / (name + ".log")}')
+                    failures.append(dict(implementation=label, command=command, exit_code=result.returncode,
+                                         diagnostic=(work / f'{name}.log').read_text()))
+                    continue
                 outputs.append(target.read_bytes())
+            if failures:
+                (work / 'failure.json').write_text(json.dumps(dict(profile=profile, model=model_name,
+                    bitdepth=depth, tune=tune, failures=failures), indent=2) + '\n')
+                messages = '\n'.join(f'{value["implementation"]}: exit {value["exit_code"]}\n'
+                                     + value['diagnostic'] for value in failures)
+                raise SystemExit(f'VMAF mode failed: {depth}/{tune}/{args.model}\n{messages}')
+            for label, directory in [('c', f'aom-native-{profile}'), ('rust', f'aom-rust-{profile}')]:
+                name = f'{depth}-{tune}-{label}'
                 output = work / f'{name}.yuv'
                 with (work / f'{name}-decode.log').open('w') as log:
                     subprocess.run([str(ROOT / f'build/{directory}/aomdec'), '--rawvideo', '-o', output,
