@@ -253,6 +253,14 @@ and extreme cases pass in Debug and Release on macOS; all 18,729 registrations
 and the disabled speed case remain unchanged. Native Linux execution is
 pending. See [`aom-blend-d16-validation.json`](aom-blend-d16-validation.json).
 
+Five MSE and variance-summary subjects retain isolated C references in another
+40 original cases per profile. These template bodies compare MSE, SSE, sums,
+and variances; they were not all visible in the initial direct compiler
+inventory. Only the 15 reference call sites change in the compilation copy;
+subject parameters, assertions, dimensions, sample bounds, and disabled speed
+cases stay unchanged. Both macOS profiles pass; native Linux is pending. See
+[`aom-variance-mse-sum-validation.json`](aom-variance-mse-sum-validation.json).
+
 The original k-means classes register only SIMD implementations, leaving zero
 k-means cases in the generic reference inventory. A separate supplementary
 scalar matrix reuses their unchanged test bodies, random inputs, fourteen

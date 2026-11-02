@@ -1,0 +1,572 @@
+{
+  "status": "original MSE and variance summary comparisons passed in both macOS profiles",
+  "target": "aarch64-apple-darwin",
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "original_library_and_test_bodies_unchanged": true,
+  "original_registrations_unchanged": 18729,
+  "original_executed_cases_per_profile": 40,
+  "rust_subjects": 5,
+  "original_reference_binding": "Only the 15 physical scalar reference call sites are redirected to the isolated original C archive; all original subject parameters remain Rust.",
+  "assertion_scope": "Original MSE, SSE, sum, and variance random/minimum/maximum assertions and parameter matrices; original speed cases remain disabled.",
+  "full_standalone_acceptance": false,
+  "complete_dsp_role_review": false,
+  "native_linux_execution_pending": true,
+  "profiles": {
+    "debug": {
+      "profile": "debug",
+      "original_registrations": 18729,
+      "executed_original_cases": 40,
+      "executed_supplementary_cases": 0,
+      "supplementary_registrations": [],
+      "augmentation_sha256": null,
+      "baseline_augmentation_sha256": null,
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/variance_test.cc",
+      "original_source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "oracle_sites": {
+        "aom_mse_wxh_16bit_c": [
+          425,
+          457
+        ],
+        "aom_mse_16xh_16bit_c": [
+          532,
+          567,
+          591
+        ],
+        "aom_mse_wxh_16bit_highbd_c": [
+          1873,
+          1903
+        ],
+        "aom_get_var_sse_sum_8x8_quad_c": [
+          833,
+          871,
+          908,
+          949
+        ],
+        "aom_get_var_sse_sum_16x16_dual_c": [
+          1002,
+          1039,
+          1073,
+          1111
+        ]
+      },
+      "binding_copy_sha256": "10209b6fd21232af7a2be8001c65227aa5913416fae03e58e33cb3452efd0061",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "f9cca754f93af4e0cafcbdb69e8957a96ae4412986e62f5da349d1e2d052bcb6",
+        "profile": "debug",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2743,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+        "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+        "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2742,
+        "isolated_c_oracle_globals": 560,
+        "reviewed_rust_subjects": [
+          "aom_get_var_sse_sum_16x16_dual_c",
+          "aom_get_var_sse_sum_8x8_quad_c",
+          "aom_mse_16xh_16bit_c",
+          "aom_mse_wxh_16bit_c",
+          "aom_mse_wxh_16bit_highbd_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_get_var_sse_sum_16x16_dual_c",
+          "aom_get_var_sse_sum_8x8_quad_c",
+          "aom_mse_16xh_16bit_c",
+          "aom_mse_wxh_16bit_c",
+          "aom_mse_wxh_16bit_highbd_c"
+        ],
+        "map_sha256": "f1ec466463678abd1b8e60a47ce2cc83c3b1584286843f9e016f679f9b2bb6af"
+      },
+      "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+      "rust_archive_sha256": "c6efaa484839f6924cd782bf4c183d0ae5afcea1a575fb69ddd48ec1247949cf",
+      "cases": [
+        {
+          "name": "C/MseWxHTest.RefMse/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseWxHTest.RefMse/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseWxHTest.RefMse/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseWxHTest.RefMse/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/3",
+          "failed": false,
+          "skipped": false
+        }
+      ]
+    },
+    "release": {
+      "profile": "release",
+      "original_registrations": 18729,
+      "executed_original_cases": 40,
+      "executed_supplementary_cases": 0,
+      "supplementary_registrations": [],
+      "augmentation_sha256": null,
+      "baseline_augmentation_sha256": null,
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/variance_test.cc",
+      "original_source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "oracle_sites": {
+        "aom_mse_wxh_16bit_c": [
+          425,
+          457
+        ],
+        "aom_mse_16xh_16bit_c": [
+          532,
+          567,
+          591
+        ],
+        "aom_mse_wxh_16bit_highbd_c": [
+          1873,
+          1903
+        ],
+        "aom_get_var_sse_sum_8x8_quad_c": [
+          833,
+          871,
+          908,
+          949
+        ],
+        "aom_get_var_sse_sum_16x16_dual_c": [
+          1002,
+          1039,
+          1073,
+          1111
+        ]
+      },
+      "binding_copy_sha256": "10209b6fd21232af7a2be8001c65227aa5913416fae03e58e33cb3452efd0061",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "5a8c3e6e8ae1eb63dcde8e230d7326559e136d05cc51cd4200e0a45e9db51f9f",
+        "profile": "release",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2741,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+        "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+        "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2741,
+        "isolated_c_oracle_globals": 560,
+        "reviewed_rust_subjects": [
+          "aom_get_var_sse_sum_16x16_dual_c",
+          "aom_get_var_sse_sum_8x8_quad_c",
+          "aom_mse_16xh_16bit_c",
+          "aom_mse_wxh_16bit_c",
+          "aom_mse_wxh_16bit_highbd_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_get_var_sse_sum_16x16_dual_c",
+          "aom_get_var_sse_sum_8x8_quad_c",
+          "aom_mse_16xh_16bit_c",
+          "aom_mse_wxh_16bit_c",
+          "aom_mse_wxh_16bit_highbd_c"
+        ],
+        "map_sha256": "ea085e58da41105f319967dfa20765004fa4068fa22bbe599f6700f4e3604fce"
+      },
+      "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
+      "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+      "cases": [
+        {
+          "name": "C/MseWxHTest.RefMse/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseWxHTest.RefMse/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseWxHTest.RefMse/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseWxHTest.RefMse/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMse/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/Mse16xHTest.RefMseExtreme/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.RefMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MinSseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum8x8QuadTest.MaxMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.RefMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MinSseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/GetSseSum16x16DualTest.MaxMseSum/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/MseHBDWxHTest.RefMse/3",
+          "failed": false,
+          "skipped": false
+        }
+      ]
+    }
+  }
+}
