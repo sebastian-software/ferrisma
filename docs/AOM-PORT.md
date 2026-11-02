@@ -349,6 +349,21 @@ ADR 0045 defines the gate for making this dependency unconditional and removing
 the temporary feature. Default root integration remains pending standalone
 acceptance.
 
+The original C integration baseline can be rebuilt directly with
+`tools/build.py baseline --aom-reference-build build/aom-native-release --jobs 1`.
+Its separate `build/baseline-aom-reference` directory compiles the unchanged
+original libavif and test sources against the complete portable C AOM archive.
+The helper checks all generated headers, source-unit count, profile, and
+noncontracting flags and disables system AOM discovery. With `--debug`, select
+the matching `build/aom-native-debug` reference. AddressSanitizer requires its
+separately instrumented AOM closure rather than this ordinary reference option.
+A fresh Release build through this path passes all 64 registrations and
+9,473 ordered case identities against the Rust candidate, with ten exact
+AVIF/PNG comparisons. All 55 original C consumers link the selected portable
+archive and have no dynamic system-AOM fallback. The Rust candidate's 55 maps
+and runtime graphs pass again. See
+[`aom-reproducible-root-reference.json`](aom-reproducible-root-reference.json).
+
 The root candidate passes all 64 default registrations (9,473 GoogleTest
 cases) with both Debug and Release AOM, all 70 registrations with the complete
 supported feature set (9,555 cases), and all 64 AddressSanitizer registrations.

@@ -1,0 +1,1453 @@
+{
+  "status": "fresh original C baseline and Rust root candidate pass all original default cases and strict AOM end-to-end comparisons",
+  "target": "aarch64-apple-darwin",
+  "command": "python3 tools/build.py baseline --aom-reference-build <native-reference>/build/aom-native-release --native-dependency-root <pinned-dependency-checkout> --jobs 1",
+  "original_aom_reference_profile": {
+    "reference": "libaom 3.15.2 complete portable C",
+    "profile": "release",
+    "options": [
+      "-DAOM_TARGET_CPU=generic",
+      "-DCONFIG_TUNE_VMAF=1",
+      "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+      "-DENABLE_DOCS=OFF"
+    ],
+    "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
+    "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+    "library_translation_units": 168,
+    "generated_units": 3,
+    "original_test_inventories": {
+      "test_libaom": {
+        "registrations": 18729,
+        "sha256": "13cc902f2ad0e19052d0f426a2a87cf417977b1f5abb31aefec5857fde3eee63"
+      },
+      "test_aom_rc": {
+        "registrations": 38,
+        "sha256": "568d07125c22c06121b8969ef514133da00b0dc7200e57cac87a1af8a5e46d78"
+      },
+      "test_intra_pred_speed": {
+        "registrations": 38,
+        "sha256": "bf539430562220146be10d44199e806d5c6f573b0daf6492dfc5a92c401742fc"
+      }
+    },
+    "original_test_inputs": 568,
+    "config_sha256": "ef64f3b87c3cc954cd3f0449fc4eebd035cb0bc911fa9f189451cffa01c10a2c",
+    "transitive_runtime_dependencies": {
+      "libvmaf": "3.2.0"
+    }
+  },
+  "original_aom_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+  "original_libavif_compilation_inputs_sha256": {
+    "src/alpha.c": "17178aef49f93aebb010cecad255579ed4aa58d886ee6c9bbb96d2b7d90eb41c",
+    "src/avif.c": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
+    "src/colr.c": "7f0d673a7957d35950162defa7f97f5dc0876a003532107ca99b095084d4a08c",
+    "src/colrconvert.c": "a0782fe19c4acdaf677e364e52ea6db27fd41638e0de557aab3a55bb9f280e57",
+    "src/diag.c": "03b4bb027668435c30e8eb737ee12ce661d148586d238a42f766b3ce890e7604",
+    "src/exif.c": "05ad7782f2acbeac78a97f3d7f3aef4078c61629edef4df6f85130feeac8cbfa",
+    "src/gainmap.c": "8ffa5e626df0ea80fc99ab54d54c9a68b338b2f6e28e4a8fee97781e3711209e",
+    "src/io.c": "b0e08b3c6e683fce6dd13afff60a860909b19fc9ace9ebe659e2eee9b2ee78df",
+    "src/mem.c": "416b32415219b3753a30d3d8e68904587e396f996d1f4459ea31af86faab073a",
+    "src/obu.c": "cea86df7eb48d591cf85acbe94d4409950a514941a5d35fccc1ca549f2c1e03f",
+    "src/properties.c": "35cda729a6d430bfd2a656684ea38e5c8903834fe45af81c20f1db3394265f8b",
+    "src/rawdata.c": "0bfd2b38a5f1e653abe5f91c9a287788618307763b9c63fa9f8e263dd666316c",
+    "src/read.c": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
+    "src/reformat.c": "e5e6a62a0a53f4e5eeb8866c6b40e7d9cfb71d52dcb649626d8de2a12779f581",
+    "src/reformat_libsharpyuv.c": "00b49fb1a03f3164d31ba656d4285d37f04ef6082ad99bfebaeb463377028d06",
+    "src/reformat_libyuv.c": "b7fe62ad4356eb68b2fefc7af5276a85d98ca2b84d2a833b69fae531e3c7b187",
+    "src/sampletransform.c": "bd54548be80cfa963f2e5240f858c0a1f421ad4558de36c35b01ba94c6f8e599",
+    "src/scale.c": "6e968d8edaa3815ed2ecc329a5d65f3ae56820a4a39adfd371486d7b9aecb47b",
+    "src/stream.c": "23bc43bc6b5fcd7fc8dd8f50ea6418cdd028a3d6f088ea785ee90ba735947505",
+    "src/utils.c": "e7b542c1365b5ecdac49dfeed6ba40e17a4f0e7edf532dd653d367dde82d1970",
+    "src/write.c": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
+    "third_party/libyuv/source/scale.c": "7839fe2ceadcfe6a45e7014a499c8e6832b896a0ab2426ea0f9f03e1f2fdba20",
+    "third_party/libyuv/source/scale_common.c": "1c4551062504bd15170e9d93b1fd22cb61b1b7d5af16a6f0baec38db7bb90b0c",
+    "third_party/libyuv/source/scale_any.c": "f1ffd34bff19784e08721d1267466e9764232b6836aef52be2d9b28e3384d0a6",
+    "third_party/libyuv/source/row_common.c": "4d0865100908598d5767eeafd8fc16c10f50c7960131dfe230dbaa0aaf0cbd2e",
+    "third_party/libyuv/source/planar_functions.c": "ab2ca7fefc0db313691eda8e8cc4c25ffefa80f0bf855286f7d2335c1673c3f9",
+    "src/codec_dav1d.c": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
+    "src/codec_aom.c": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4"
+  },
+  "original_c_consumers": 55,
+  "original_c_consumer_link_commands_sha256": {
+    "avifenc": "f56ac31daac9f835f0001f3d1b199da539adbd3aa678bc8eedfb28f760bd8af7",
+    "avifdec": "50212b6aab14829016484f1f4f339d6afdee833d31288c640a1a3b7d1844856b",
+    "avifgainmaputil": "52182188368d80327a3c7fe8cd2c40055e4854b4bce347656d08396b9be89cbf",
+    "tests/aviftest": "2961f6f3425f0d392e8309f3cbb1f5847378ecfc9796d36dbefec1ffe4f3c380",
+    "tests/avifyuv": "bf5527c3cfd03d24288c02ff53ca654a1f854c9968b221829215b05c49e4f5d9",
+    "tests/avif16bittest": "dc3832fc50bf026c3b6940d19d32260795e44024b4b941ced1d76021952f55b3",
+    "tests/avifallocationtest": "4a8af248a3fd9b2e5add83992855beed124c175da0a0cb00cd1e409e7430ae93",
+    "tests/avifalphanoispetest": "4e55ea494820b1fd58eaddceabb304a8ad01112c91b257618dbd8a1c078c9a31",
+    "tests/avifalphapremtest": "f24f602e258a041afd8f6c032d94fa9b9d930e513998851b83c5e9f643a12841",
+    "tests/avifaltrtest": "8a94fddbe15447fa95847be19dd871f6d1aab617c031393fd3720ce0d4655450",
+    "tests/avifanimationtest": "bd37ae51f853db3d19f3bf4a75f3b74f54e8248f40893b9d8b8b56d713977484",
+    "tests/avifbasictest": "b15aa4b5771045dfb00a4392500f76e625d4e09759d1205bb4d73885e9bf6db2",
+    "tests/avifchangesettingtest": "3812c7379e9fd7a62c86e9053b22a34e9e4d43287c25b2b2e094335483db0e5d",
+    "tests/avifchildboxsizetest": "26c857bdac405fa538ce4fd8939202fb739b04da4aaa9357b251cf8c0594aff0",
+    "tests/avifcicptest": "8f46624f5d2964b26c4666850c639c91d46dafeee492f43ec4e8d581f980e874",
+    "tests/avifclaptest": "fbea58ade58f9c75649bbd13855863d757ed5abc182a01730d230fc33b56f875",
+    "tests/avifcllitest": "5750f81a257807c50110818ab8666b520b318b44d2706b1913c5f641197c3f2b",
+    "tests/avifcodectest": "5af5513a27b3b5a2a8b20766417b8b12d510ac90dd8d303cb3c64b68bc76b409",
+    "tests/avifcolrconverttest": "3738726dc18556960e1567401809cbac36c893395589562beaf9988d64e075d4",
+    "tests/avifcolrtest": "4a5c3c85520b819f781e7dc8e7604428e3bd69b96972b1ab548015c1f1d1081e",
+    "tests/avifdecodetest": "fe8a72e7cb89fd288f2db7929dd3028712a4a47da9b3a8e6f58367bfc217fcc6",
+    "tests/avifdimgtest": "abdc1fe066fa89dd482eb7285143bf0e8306848fe3386cf9644f057721374017",
+    "tests/avifencodetest": "4befa35f729e1a16906d54b79a19e8a00400c7c85e39425e5b16cdb4fe13c19a",
+    "tests/avifgainmaptest": "d040682a0cd177efaeb7de0dc371ae7bca8f7031927e1cd226a08f24c2552e63",
+    "tests/avifjpeggainmaptest": "d987e2594676e4cc5456641d57e9b7e3739fd24a1da803f6eb311c5452173a4a",
+    "tests/avifgridapitest": "0ad8c2cc08b23e14b618817732e668ff6a902c4446471661b4d014a7fd7d5bcd",
+    "tests/avifheadertest": "bf9193ff547b0e62fa3553b4eed26af6480a7ac431cff6aa69cdd6068c497474",
+    "tests/avifilocextenttest": "a81ce99ec5dc87306a2683cd16037fea4b8fdd4d78dc4d78b6dd9a539b939b6f",
+    "tests/avifimagetest": "eb7177efebfac9fdd16615b44e02766b73b6236235a6c77d45d80ac94a82d4e4",
+    "tests/avifincrtest": "e232696e91e0c675d5f596f5603b9be68202dec833f27c74b44216dfc7c1e99e",
+    "tests/avifiostatstest": "f9e804bf5b149a739619363841ba526447f5569fac5849690a81c8b712fb00fa",
+    "tests/avifkeyframetest": "5858833a556b80597ceffa355f140b80b8336105d81ac6223a43b03d37c58597",
+    "tests/aviflosslesstest": "f122f0f3cb57e8e96c639623dcf5f8d9261514d0d87805e3713c060145f61106",
+    "tests/avifmetadatatest": "fc541e3a52176543afe8d9ba1a700c6eb930df416fd85fd17459bc3c14528000",
+    "tests/avifopaquetest": "8ee9ee5a87c142c32a9b6494c5addb9f1540e1065299f5867d688fb40ffd152b",
+    "tests/avifpixitest": "4c6f339999a949ec7cbf8a55ae26da355d7a4d850faaf95aa842f269de428a8c",
+    "tests/avifpng16bittest": "281d329360b86ce911fc06aa97bb5e560be367493e99aad0d15d3c897827b1ee",
+    "tests/avifprogressivetest": "c37e24ff118aeafadc9612a314398b731e67631e1cc4ce6bb943fece9ceb3fc9",
+    "tests/avifpropertytest": "53b8f5c186472c365e8ee0feb860a26bf3305d9d6e064b54efe751ceb3ac1d9d",
+    "tests/avifpropinternaltest": "50f3e65ed79441c14f8f0d428aa9dc3bde534ffe634c286553fba71eb49641d5",
+    "tests/avifrangetest": "5a791b39a643eb6dcf4627bb317c7b2915f09db11ae340866a3b2ec83cc206a4",
+    "tests/avifreadimagetest": "8406dcf6b5104046bff11063ed9c6d8bf27cad4b203e747dde8acf2bdbceff30",
+    "tests/avifrgbtest": "6d891356eef14ee28ab70572ceae64ba41ca11f505b37a6f9636dd6309f2dc58",
+    "tests/avifrgbtoyuvtest": "704a764fadd33fb507e5e478b8cb5f03c6882db2a56d5946208b9447431afa56",
+    "tests/avifrgbtoyuvthreadingtest": "79253fb03bd11b25f943c67912e2662eaf6db144dadb83f402d8db6974b98287",
+    "tests/avifsampletransformtest": "15a46c1b3e4357011f2a8c0bb653270a2cf5125c933ff93a8c7c8604f51f5872",
+    "tests/avifscaletest": "0d2d6e0c4f7a743d774ea4054fdf0914ee5dfe38a94fb227f445e224e2636edf",
+    "tests/avifsize0test": "4bb4757b32d4c930766ab6256c2a17c0e1624e2eeaa256419ca3c48a0fde7465",
+    "tests/avifstreamtest": "f5dcf65e09e7bdb9065a1785151a86d3d5fb7961e0666e62fbf35f70877fd63a",
+    "tests/aviftilingtest": "79ec86768f74944ae2ade741972067502ce907a76f70031bcdf3d9d3d7d4be6f",
+    "tests/aviftransformtest": "933af24a39604ac22f170b1d9e7b736582ee30bb0e84af247186271e2e8cb822",
+    "tests/aviftunetest": "785039ffd1c50f86aa5740fcbeb320c83798d65ca7607d2214be1956214ead84",
+    "tests/avifutilstest": "96250439ddad4ee355b3e444a185bbb5ffaae5a52fd9cb8b251d1a59d141c9bb",
+    "tests/avify4mtest": "87aaf5be6f32e7d122c9bf71a5673a57da836d74a91b2c1682f838948a9d4510",
+    "tests/are_images_equal": "2756d1defa4df84893afdb7809db0a1f0138b1a0e9a0bba512a258fa506c4b84"
+  },
+  "native_aom_dynamic_fallback_absent": true,
+  "original_c_baseline_runtime_graph": {
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/avifenc": [
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/opt/homebrew/Cellar/jpeg-turbo/3.2.1/lib/libjpeg.8.3.2.dylib": [
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/opt/homebrew/Cellar/libpng/1.6.59/lib/libpng16.16.dylib": [
+      "/usr/lib/libz.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/opt/homebrew/Cellar/libvmaf/3.2.1/lib/libvmaf.3.dylib": [
+      "/usr/lib/libSystem.B.dylib",
+      "/usr/lib/libc++.1.dylib"
+    ],
+    "/opt/homebrew/Cellar/dav1d/1.5.4/lib/libdav1d.7.dylib": [
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/opt/homebrew/Cellar/webp/1.6.0/lib/libsharpyuv.0.1.2.dylib": [
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/avifdec": [
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/avifgainmaputil": [
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/aviftest": [
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifyuv": [
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avif16bittest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifallocationtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifalphanoispetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifalphapremtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifaltrtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifanimationtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifbasictest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifchangesettingtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifchildboxsizetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifcicptest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifclaptest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifcllitest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifcodectest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifcolrconverttest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifcolrtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifdecodetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifdimgtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifencodetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifgainmaptest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifjpeggainmaptest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifgridapitest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifheadertest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifilocextenttest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifimagetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifincrtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifiostatstest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifkeyframetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/aviflosslesstest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifmetadatatest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifopaquetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifpixitest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifpng16bittest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifprogressivetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifpropertytest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifpropinternaltest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifrangetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifreadimagetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifrgbtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifrgbtoyuvtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifrgbtoyuvthreadingtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifsampletransformtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifscaletest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifsize0test": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifstreamtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/aviftilingtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/aviftransformtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/aviftunetest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avifutilstest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/avify4mtest": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "/Users/sebastian/Workspace/libavif-rs-worktrees/aom-port-acceptance/build/baseline-aom-reference/tests/are_images_equal": [
+      "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/opt/homebrew/opt/jpeg-turbo/lib/libjpeg.8.dylib",
+      "/usr/lib/libxml2.2.dylib",
+      "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib",
+      "/opt/homebrew/opt/dav1d/lib/libdav1d.7.dylib",
+      "/opt/homebrew/opt/libvmaf/lib/libvmaf.3.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ]
+  },
+  "original_suite_parity": {
+    "ctest_registrations": 64,
+    "gtest_cases": 9473,
+    "tests": {
+      "aviftest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "avifyuv_limited": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "avifyuv_rgb": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "avif16bittest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          17
+        ],
+        "gtest_skipped": []
+      },
+      "avifallocationtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          11
+        ],
+        "gtest_skipped": []
+      },
+      "avifalphanoispetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifalphapremtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          3
+        ],
+        "gtest_skipped": []
+      },
+      "avifaltrtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          6
+        ],
+        "gtest_skipped": []
+      },
+      "avifanimationtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          11
+        ],
+        "gtest_skipped": []
+      },
+      "avifbasictest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          2
+        ],
+        "gtest_skipped": []
+      },
+      "avifchangesettingtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          8
+        ],
+        "gtest_skipped": [
+          "ChangeSettingTest.RAV1E (0 ms)",
+          "ChangeSettingTest.SVT (0 ms)"
+        ]
+      },
+      "avifchildboxsizetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          4
+        ],
+        "gtest_skipped": []
+      },
+      "avifcicptest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          32
+        ],
+        "gtest_skipped": [
+          "Reserved0Identity/CicpTest.EncodeDecode/4 (0 ms)"
+        ]
+      },
+      "avifclaptest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          21
+        ],
+        "gtest_skipped": []
+      },
+      "avifcllitest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifcodectest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          9
+        ],
+        "gtest_skipped": [
+          "All/CodecTest.EncodeDecode/2 (0 ms)",
+          "All/CodecTest.EncodeDecode/3 (0 ms)"
+        ]
+      },
+      "avifcolrconverttest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          10
+        ],
+        "gtest_skipped": []
+      },
+      "avifcolrtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          3
+        ],
+        "gtest_skipped": []
+      },
+      "avifdecodetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          8
+        ],
+        "gtest_skipped": []
+      },
+      "avifdimgtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          5
+        ],
+        "gtest_skipped": []
+      },
+      "avifencodetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifgainmaptest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          55
+        ],
+        "gtest_skipped": []
+      },
+      "avifjpeggainmaptest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          12
+        ],
+        "gtest_skipped": []
+      },
+      "avifgridapitest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          8
+        ],
+        "gtest_skipped": []
+      },
+      "avifheadertest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifilocextenttest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifimagetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          4
+        ],
+        "gtest_skipped": []
+      },
+      "avifincrtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          164
+        ],
+        "gtest_skipped": []
+      },
+      "avifiostatstest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          5
+        ],
+        "gtest_skipped": []
+      },
+      "avifkeyframetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "aviflosslesstest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          37
+        ],
+        "gtest_skipped": []
+      },
+      "avifmetadatatest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          46
+        ],
+        "gtest_skipped": []
+      },
+      "avifopaquetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifpixitest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          2
+        ],
+        "gtest_skipped": []
+      },
+      "avifpng16bittest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "avifprogressivetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          14
+        ],
+        "gtest_skipped": [
+          "ProgressiveTest.ResolutionChange (0 ms)",
+          "ProgressiveTest.ResolutionChangeWithAlpha (0 ms)"
+        ]
+      },
+      "avifpropertytest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          4
+        ],
+        "gtest_skipped": []
+      },
+      "avifpropinternaltest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          6
+        ],
+        "gtest_skipped": []
+      },
+      "avifrangetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          12
+        ],
+        "gtest_skipped": []
+      },
+      "avifreadimagetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          18
+        ],
+        "gtest_skipped": []
+      },
+      "avifrgbtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          62
+        ],
+        "gtest_skipped": []
+      },
+      "avifrgbtoyuvtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          116
+        ],
+        "gtest_skipped": []
+      },
+      "avifrgbtoyuvthreadingtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          8192
+        ],
+        "gtest_skipped": []
+      },
+      "avifsampletransformtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          43
+        ],
+        "gtest_skipped": []
+      },
+      "avifscaletest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          25
+        ],
+        "gtest_skipped": []
+      },
+      "avifsize0test": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          5
+        ],
+        "gtest_skipped": []
+      },
+      "avifstreamtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          4
+        ],
+        "gtest_skipped": []
+      },
+      "aviftilingtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          1
+        ],
+        "gtest_skipped": []
+      },
+      "aviftransformtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          5
+        ],
+        "gtest_skipped": []
+      },
+      "aviftunetest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          3
+        ],
+        "gtest_skipped": []
+      },
+      "avifutilstest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          4
+        ],
+        "gtest_skipped": []
+      },
+      "avify4mtest": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [
+          468
+        ],
+        "gtest_skipped": []
+      },
+      "test_cmd": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_animation": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_depth_extension": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_grid": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_icc_profile": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_lossless": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_metadata": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_progressive": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_stdin": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_targetsize": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_transform": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      },
+      "test_cmd_avifgainmaputil": {
+        "status": "run",
+        "skipped": false,
+        "gtest_cases": [],
+        "gtest_skipped": []
+      }
+    },
+    "gtest_case_identity": {
+      "exact_ordered_case_names_match": true,
+      "executed_cases": 9473,
+      "case_names_sha256_by_ctest_registration": {
+        "avif16bittest": "a153ae7c7d82e8b75868eef4ee7f60e021247314d66628ab48d6494683ac8de1",
+        "avifallocationtest": "9940d4e46cc3bd99e5d0206d0c1dce2630a529848fdc197c7e7ea88b13f95449",
+        "avifalphanoispetest": "6ad5c29a148a30edf6790a174797c208ef1ead77481f1f16d4334d31a99504d5",
+        "avifalphapremtest": "65ca2f714722ad290c6a6bccd7818732a3c6ef617e793cf31d0aeb89dcfa8584",
+        "avifaltrtest": "db0320313cd1e6efa78c69ab62e17eba678b2b0b7711222768b46e8b89e2bae9",
+        "avifanimationtest": "bd9028a61da65d8194b0917fefa8888ca63f0738f0ff5cdc86423ce0ede4f91b",
+        "avifbasictest": "45b5a4bc937f1538b208740b76e0b6acfc00b16c04255fd92ba73c1d01bc366b",
+        "avifchangesettingtest": "84b527ccd85f8904208117a5a21c8502fa293e0a6f85f6fe4c94a8eaab8d4639",
+        "avifchildboxsizetest": "86e8bee05500c039a690d404fde17bc98c25ffc033dc26da5cc2181575c8d381",
+        "avifcicptest": "05efab5632d782e7a8d98cea5f41df7676950188d22ede2dc7eeae6e70b8cfc5",
+        "avifclaptest": "63626d840502b30e5cff4d74dbffab57fd05d7508fdcf3128954eba774e8a9a0",
+        "avifcllitest": "d5bcc7ae4f87719f829df761589071265056be5ff4d149a27d17176b63faa5ef",
+        "avifcodectest": "b222c947742bef73ee19e900ef27413a0e7907d8cc12962b8f7c586604e019db",
+        "avifcolrconverttest": "d4e020dc779b861789efcf78d4c7814368d5a00105ccba3b7808e696cb37af77",
+        "avifcolrtest": "289e5f0a5fd51b7df5955fd3a0db85548a04b014d4f3dfc0b73e252a20b2d3da",
+        "avifdecodetest": "4343b3f8208957fb474546c29e1f69fc2c96a8334fd80b70d0bc57dd692c3719",
+        "avifdimgtest": "378308d6749aefc16df756ed49c8f233f1e3fbd97ed8cbdcf4455e81c9637c07",
+        "avifencodetest": "69fe24cc2d8dfdac1e8040fb0576b69cfca3e6cab57579a64d494eb21cff77db",
+        "avifgainmaptest": "4f9860807dcd40304befb98d3dc2c120037cce124ebc28719e52d7d7030f0d78",
+        "avifgridapitest": "4178e8bfa141865f59c4debbdbcfcad4ab6ecd47083908ad5a884d45c7852b4b",
+        "avifheadertest": "fb01596fb589f01494d14a428521120622af5b36340bb65bd636b53321b03932",
+        "avifilocextenttest": "45ef1426861800a36f11547b0e723be297a8f8ca8a64509033aeccf36d843fc4",
+        "avifimagetest": "bc7051bf8cab074cff618b35c0b9a94875ff362db838870b349c9c5b4198e82a",
+        "avifincrtest": "7d7129a5641cec5d701b6e367917e09e4611b03dfb47c2679421f846d00f20ec",
+        "avifiostatstest": "17a42a2e31e681503433c67717a14da0a0a7b993c1d61c5347dbd16bb5ad66a8",
+        "avifjpeggainmaptest": "5751f93d5715fba937e4f82e6cd5ce901fb572d3040b0c556dbec07381c1329e",
+        "avifkeyframetest": "73c4fe8f0210c3840f62eb233ed8e6f29eb66dae4839aae4419f89325c1b87fb",
+        "aviflosslesstest": "eca4077bea8256c11bda29597f8adc113b9b82f9097ca73006200cf7b7066149",
+        "avifmetadatatest": "f86fda83d222610d0480a0953b516d94ca3235f3f133eb3fc28c10b5b61a292d",
+        "avifopaquetest": "d9ebade3a4d6089acbe43c6bcf37508bef80f2343fa5aa8e02cc0e1f9ff53544",
+        "avifpixitest": "413b2e028206009638898cda38e7c42149483fb4d4f07568701c6f039f49d20b",
+        "avifpng16bittest": "f8ec27f26089f4d9dbbf29c3eb1d3ec5eeed3cea549dd62d57fd3d3dacf16d16",
+        "avifprogressivetest": "fc64e047a1cff94cfa51ec2eab39342bd5b24783c889c7920c6f083c85b4763f",
+        "avifpropertytest": "82773d92c1ec801d4df1c73892e048e469d2327b966fd98fa1eae0dd477088f5",
+        "avifpropinternaltest": "2cd5d81bded7394f4ab66034e5b5c7a76bf232049774336c4bd60724f6febb90",
+        "avifrangetest": "3e30730604a2a8998649217fc0460d9f12bc597bef8903ef94535b1495d2dcb9",
+        "avifreadimagetest": "313ee81028b13a18af80e6fff4247ae9c58509b9ff5c2343c915b7adb8673202",
+        "avifrgbtest": "455264d1e0858fad93e9126b69390357c0b271f268cebe44e147ce9b9d0a76b6",
+        "avifrgbtoyuvtest": "d64e9c41d7c8aae25ef8f1f820524856d897c2a1593eea3012dfa31b03ff13e9",
+        "avifrgbtoyuvthreadingtest": "7817e9a25e33a9c4cf088b639b50319ceb0648c961be46a80342439de6229cd5",
+        "avifsampletransformtest": "26bfe0763b86e653cafccc6d7774fd2bee19fffe7573b2d2910f53b89036e297",
+        "avifscaletest": "5d8f920eb18ad31edcc9d726c8b5698f3168f08ce8daf91e462c219c1914be95",
+        "avifsize0test": "3a8fbb82927b2857d1587563909027069c696d649eef96a255689bcecc7517c9",
+        "avifstreamtest": "5322826dbb49eb6aaed38e53a45b10361be995fcc333df509ea154c6ce089d1c",
+        "aviftest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "aviftilingtest": "d9fd639612bc2fab14ecfbba1c0b08a54d7368bd807b1f8942798797d2f536cb",
+        "aviftransformtest": "928935e2864d42199ed2e0bbff79612b40f5f43dd1b325960ffb66eec774a75c",
+        "aviftunetest": "ae60991fe66d0fe68120d331dda8f4314a4eea4399206aaf7abc203cf49e9f59",
+        "avifutilstest": "d3d1977ee72093cb31613ca7561d3d003505cfeabd2ccd283c1b86f053972f77",
+        "avify4mtest": "7c449b95314776d5b003bf17725ee22e77738add397c655d8af182d874cf76cc",
+        "avifyuv_limited": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "avifyuv_rgb": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_animation": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_avifgainmaputil": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_depth_extension": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_grid": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_icc_profile": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_lossless": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_metadata": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_progressive": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_stdin": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_targetsize": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_cmd_transform": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "baseline_complete_log_sha256": "aeac321055e6262c5ed4746a490b816fc841e2a57275e29c52b5908a8a153e30",
+      "port_complete_log_sha256": "b0c6bf46f5db823b69a2f69a0cb9ad2dedb0ae7da73d7531482eea97af75f3d8"
+    }
+  },
+  "exact_end_to_end": [
+    {
+      "fixture": "abc.png",
+      "options": [],
+      "avif_sha256": "013fbfa6de30e74514bd0494e81e0ac0e7e2bba1e77d857430cd3670edac26fc",
+      "c_png_sha256": "4edbee3fd89b34cd69bbc3e697bdce64b460de59c06d9b58c8b3f6ce00f5aed0",
+      "rust_png_sha256": "4edbee3fd89b34cd69bbc3e697bdce64b460de59c06d9b58c8b3f6ce00f5aed0",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "abc.png",
+      "options": [
+        "--depth",
+        "10",
+        "--yuv",
+        "420",
+        "--range",
+        "limited"
+      ],
+      "avif_sha256": "0308c47bfbfe53556f4ea6fd0da333130e8cb0312b42cd45fa13541b1d27ccb0",
+      "c_png_sha256": "d99320fd9dfdfa8fe37dc0497e1a532dd69165ba4093b2a05948449a8ccbb49f",
+      "rust_png_sha256": "d99320fd9dfdfa8fe37dc0497e1a532dd69165ba4093b2a05948449a8ccbb49f",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "abc.png",
+      "options": [
+        "--depth",
+        "12",
+        "--yuv",
+        "422"
+      ],
+      "avif_sha256": "7628c636479e425a6e06873373eb21aa77d91f731b806279765eba2c76a0443a",
+      "c_png_sha256": "c1d5d4445d53c3c254b4f4b0d67339ee83ea05832ed34b74079b45ad1803c4ef",
+      "rust_png_sha256": "c1d5d4445d53c3c254b4f4b0d67339ee83ea05832ed34b74079b45ad1803c4ef",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "abc.png",
+      "options": [
+        "--lossless"
+      ],
+      "avif_sha256": "185f1d72a77d614c79392c1d3e45cbda20e53df8bfa59731d7562984b6c48caa",
+      "c_png_sha256": "5dc833044ffe6930e9257fe470359c585fad0e51b32325f0fa0c3c9a9fad627c",
+      "rust_png_sha256": "5dc833044ffe6930e9257fe470359c585fad0e51b32325f0fa0c3c9a9fad627c",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "abc.png",
+      "options": [
+        "--premultiply"
+      ],
+      "avif_sha256": "cc7846221b2b93ce06f1ab302d1821d0018053041b41ea541a7a79181be8e03f",
+      "c_png_sha256": "d25db967e9839edb94e2410e995c1ffed557e751b63beeecc1aed171569f14da",
+      "rust_png_sha256": "d25db967e9839edb94e2410e995c1ffed557e751b63beeecc1aed171569f14da",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "abc.png",
+      "options": [
+        "--yuv",
+        "420",
+        "--sharpyuv"
+      ],
+      "avif_sha256": "1f74448406a680e8a365abee4e82d68b770df6fa2ba41360786aee7c271d1654",
+      "c_png_sha256": "4edbee3fd89b34cd69bbc3e697bdce64b460de59c06d9b58c8b3f6ce00f5aed0",
+      "rust_png_sha256": "4edbee3fd89b34cd69bbc3e697bdce64b460de59c06d9b58c8b3f6ce00f5aed0",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "abc.png",
+      "options": [
+        "--progressive"
+      ],
+      "avif_sha256": "4a83f1e2856d61b5940362bd3680d9217a3fe8d3ca5dc0316758486f873d9aea",
+      "c_png_sha256": "d59b49e8d99aa11fa364bdc3823104a10c2ef6e0f355c4b273e6eb2a5a5ca1a6",
+      "rust_png_sha256": "d59b49e8d99aa11fa364bdc3823104a10c2ef6e0f355c4b273e6eb2a5a5ca1a6",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "draw_points.png",
+      "options": [
+        "--irot",
+        "1",
+        "--imir",
+        "0"
+      ],
+      "avif_sha256": "7f6335b07ab332dbf0f6ff72cf387e13d9d30535e92aa2878977eb2f14bcfdc8",
+      "c_png_sha256": "16be546ac1bd57588082e2b25d5ae9e810e1c7d7affeaa47cbd1fd4453f6e78f",
+      "rust_png_sha256": "16be546ac1bd57588082e2b25d5ae9e810e1c7d7affeaa47cbd1fd4453f6e78f",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "ffffcc-gamma2.2.png",
+      "options": [
+        "--depth",
+        "12"
+      ],
+      "avif_sha256": "33054d5eb7cee9eb51c7a5c4d7ebced0e2b5d82be15e3c88d97cfb5e7d7072d7",
+      "c_png_sha256": "cb08b9c2fad62090fd401d448fa9e2d6762def629350b60142e953c74d4a78bb",
+      "rust_png_sha256": "cb08b9c2fad62090fd401d448fa9e2d6762def629350b60142e953c74d4a78bb",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    },
+    {
+      "fixture": "dog_exif_extended_xmp_icc.jpg",
+      "options": [],
+      "avif_sha256": "cc069cd8af127e12b30ea08f8bb6801164934fcfef4c0ff4455cad32624faaa7",
+      "c_png_sha256": "a02392087d6ed71396d55bc66467ff537937bf9341ec51b1f6789152ce609d08",
+      "rust_png_sha256": "a02392087d6ed71396d55bc66467ff537937bf9341ec51b1f6789152ce609d08",
+      "png_byte_equal": true,
+      "matches_noncontracting_c": null
+    }
+  ],
+  "rust_candidate_original_globals": 2741,
+  "rust_candidate_audited_consumers": 55,
+  "rust_candidate_native_default_engines_absent": true,
+  "rust_candidate_linkage_report_sha256": "5f46f2d5938e0200c5504510d3b5324c7df1371d98d15bbb37ce63d0474e863d",
+  "candidate_files_sha256": {
+    "tools/build.py": "5c640cf172dd96cbc657f945fd36db4baa0fdc75f89d74e6e42ac8fc97737279",
+    "tools/local-dependencies.cmake": "8ca2b8658ad190d181131427b530f4054ccf0463505482aef1a7d0e32dcc14d7",
+    "tools/compare_results.py": "e8201b7ebfce99de661ec6dfb8069ba1feb791a1784aba217c9e8ad1123cdb03"
+  },
+  "negative_preflight_probes": [
+    "Rust implementation rejects a native AOM reference selector",
+    "ordinary AOM reference rejects an ASan claim",
+    "Debug request rejects a Release AOM reference"
+  ],
+  "complete_standalone_aom_acceptance": false,
+  "root_default_engine_switched": false
+}

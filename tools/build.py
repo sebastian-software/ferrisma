@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Build the unchanged upstream consumers against C or the Rust archive."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import shlex
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCIES = {
@@ -43,6 +45,8 @@ def main():
     parser.add_argument("--fetch-deps", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--aom-candidate", action="store_true", help="Test the gated Rust AOM integration without changing the default engine")
+    parser.add_argument("--aom-reference-build", type=Path,
+                        help="Link the original C baseline to this complete pinned portable AOM reference")
     parser.add_argument("--native-dependency-root", type=Path, default=ROOT,
                         help="Read existing pinned test dependencies and optional engines from this checkout")
     parser.add_argument("--debug", action="store_true", help="Test unoptimized Rust with the same upstream Release configuration")
@@ -56,6 +60,24 @@ def main():
     args = parser.parse_args()
     if args.aom_candidate and args.implementation != 'port':
         parser.error('--aom-candidate requires the Rust port')
+    if args.aom_reference_build:
+        if args.implementation != 'baseline' or args.asan:
+            parser.error('--aom-reference-build requires a nonsanitized original C baseline; ASan needs a separately instrumented AOM reference')
+        args.aom_reference_build = args.aom_reference_build.resolve()
+        profile = 'debug' if args.debug else 'release'
+        reference = json.loads((args.aom_reference_build / 'reference-profile.json').read_text())
+        platform = 'macos' if sys.platform == 'darwin' else 'linux'
+        translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())
+        if (reference['profile'] != profile or reference['library_translation_units'] != 168
+                or '-ffp-contract=off' not in shlex.split(reference['c_flags'])
+                or not (args.aom_reference_build / 'libaom.a').is_file()):
+            raise SystemExit('The C baseline requires the complete noncontracting AOM reference in the matching profile')
+        from build_aom import library_entries
+        if len(library_entries(args.aom_reference_build)) != 168:
+            raise SystemExit('The original AOM reference archive does not have the declared complete source closure')
+        for name, expected in translation['generated_reference_headers'].items():
+            if hashlib.sha256((args.aom_reference_build / name).read_bytes()).hexdigest() != expected:
+                raise SystemExit(f'The original AOM reference header differs: {name}')
     dependency_root = args.native_dependency_root.resolve()
     os.environ['LIBAVIF_RS_NATIVE_DEPENDENCY_ROOT'] = str(dependency_root)
     if args.compiler_default_diagnostic and args.implementation != 'baseline':
@@ -66,7 +88,9 @@ def main():
                 ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv), ("avm", args.avm)] if enabled]
     if args.aom_candidate:
         features.append('port-aom-candidate')
-    suffix = ("-" + "-".join(features) if features else "") + ("-debug" if args.debug else "") + ("-asan-llvm16" if args.asan else "")
+    suffix = (("-" + "-".join(features) if features else "")
+              + ("-aom-reference" if args.aom_reference_build else "")
+              + ("-debug" if args.debug else "") + ("-asan-llvm16" if args.asan else ""))
     if args.compiler_default_diagnostic:
         suffix += '-compiler-default'
     numeric_flags = '' if args.compiler_default_diagnostic else '-ffp-contract=off'
@@ -91,6 +115,9 @@ def main():
     ]
     if args.aom_candidate:
         command += ['-DLIBAVIF_RS_AOM_IN_RUST=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
+    if args.aom_reference_build:
+        command += [f'-DLIBAVIF_RS_AOM_REFERENCE_BUILD={args.aom_reference_build}',
+                    '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
     if args.asan:
         prefix = Path(os.environ.get("LIBAVIF_RS_LLVM_PREFIX", str(ROOT / "build/toolchain/llvm@16/16.0.6_1")))
         if not (prefix / "bin/clang").is_file():

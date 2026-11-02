@@ -20,6 +20,15 @@ An explicit native dependency root may reuse pinned test dependencies and
 optional engines from another checkout without moving the tracked work there.
 Repository defaults continue to use the current checkout.
 
+Keep the original C integration reference reproducible through
+`tools/build.py baseline --aom-reference-build PATH`. Require the matching
+Debug/Release profile, all 168 original C units, the noncontracting numeric
+flags, and every generated header from the selected translation manifest.
+Use an explicit original archive with pinned public headers and retained VMAF;
+disable system AOM discovery. Keep its build separate from the existing native
+baseline and Rust candidate. The ordinary reference option does not accept
+ASan: that comparison requires the separately instrumented 168-unit closure.
+
 Remove this test feature and make Rust AOM unconditional after the complete
 Debug/Release standalone gates pass on native macOS ARM64 and GNU Linux
 x86-64, and the original root suites and strict AVIF/PNG comparisons pass with
