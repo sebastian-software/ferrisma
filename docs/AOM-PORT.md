@@ -1,11 +1,11 @@
 # Portable libaom port
 
-Status: standalone implementation and validation in progress. All 168 portable
-C translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug
-and Release, with a raw Rust API. macOS pilot checks pass; Linux compilation
-and validation are in progress. libavif still links the native libaom engine.
-Complete original-test correspondence, platform, and acceptance gates must pass
-before integration.
+Status: full standalone acceptance is in progress. All 168 portable C
+translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug and
+Release, with a raw Rust API and passing focused native comparisons. The
+explicit root candidate passes libavif Debug, Release, supported-feature, and
+AddressSanitizer suites. Default libavif builds still link native libaom while
+the complete original AOM suites and remaining correspondence gates run.
 
 The immutable reference is libaom 3.15.2, tag `v3.15.2`, commit
 `af3dc9aadc793c1b00edc003e3fc19a44fdeb574`. The complete 1,520-file snapshot,
@@ -133,7 +133,7 @@ Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
 execution, remaining header-inline and scalar DSP test correspondence, additional
 allocation/thread failure scenarios, broader sanitizer coverage, and
-root integration remain open.
+final default root integration remain open.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
 
@@ -332,9 +332,9 @@ Its unchanged body compares the Rust kernel with an isolated C reference in
 both macOS and native GNU Linux profiles, using the original checksum-verified
 bus sequence. The original video helper reuses one image buffer, so both
 pointers in this test refer to the second frame; distinct-frame coverage is
-not claimed. The speed case stays disabled and the original suite receives no additional execution
-credit. Fixture subsets have separate provenance records and cannot replace
-the full-corpus record. See [the optical-flow record](aom-optical-flow-validation.json).
+not claimed. The speed case stays disabled and the original suite receives no
+additional execution credit. Fixture subsets have separate provenance records
+and cannot replace the full-corpus record. See [the optical-flow record](aom-optical-flow-validation.json).
 
 ## Execution and acceptance
 
@@ -349,19 +349,27 @@ the temporary feature. Default root integration remains pending standalone
 acceptance.
 
 The root candidate passes all 64 default registrations (9,473 GoogleTest
-cases), all 70 registrations with the complete supported feature set (9,555
-cases), and all 64 AddressSanitizer registrations. The ASan C comparison also
-instruments all 168 original portable AOM units. Native VMAF remains outside
-instrumentation. All 2,741 original Release AOM globals are supplied by Rust;
-audits cover all 55 default and 59 full-feature original consumers and their
-non-system runtime dependencies. Two strict end-to-end matrices each match ten
-AVIF files and ten decoded PNGs, including explicit AOM decoder selection.
+cases) with both Debug and Release AOM, all 70 registrations with the complete
+supported feature set (9,555 cases), and all 64 AddressSanitizer registrations.
+Complete CTest logs establish identical ordered GoogleTest case names in all
+four configurations; truncated JUnit output alone supplies only counts. The
+comparison tool also rejects a changed case name with unchanged counts.
+Debug keeps AOM assertions enabled and Rust libraries unoptimized; the
+existing libavif translation and native libavif reference objects retain their
+original Release preprocessing. The ASan C comparison instruments all 168
+original portable AOM units. Native VMAF remains outside instrumentation.
+All 2,743 Debug and 2,741 Release AOM globals are supplied by Rust; audits cover
+all 55 default and 59 full-feature original consumers and their non-system
+runtime dependencies. Three strict end-to-end matrices each match ten AVIF
+files and ten decoded PNGs, including explicit AOM decoder selection in both
+profiles.
 The default dependency switch and complete standalone acceptance remain
 pending. See [the candidate validation](aom-root-candidate-validation.json).
 
 Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated
 corrections, narrow comparisons after each correction, and full-suite
-checkpoints. No existing consumer switches until standalone acceptance passes.
+checkpoints. Default consumer wiring switches only after standalone acceptance
+passes.
 The primary checkout stays clean on the remote default branch; tracked changes
 and commits belong to the task worktree.
 Limit local execution to two CPU-intensive processes at a time across all

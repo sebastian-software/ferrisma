@@ -94,6 +94,11 @@ validation (see [the libaom milestone](docs/AOM-PORT.md)). The plan records
 bit-exact reference checks, original-test correspondence,
 license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
 
+The temporary `port-aom-candidate` feature already connects the existing
+adapter to the Rust AOM crate for validation. It passes the original libavif
+Debug, Release, full-feature, and ASan suites. The default dependency switch
+remains gated on complete standalone AOM acceptance.
+
 ## License
 
 The upstream BSD-2-Clause license, authorship, and third-party notices are
