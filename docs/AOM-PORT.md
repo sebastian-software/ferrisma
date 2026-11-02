@@ -206,9 +206,11 @@ case per profile and no original-suite execution credit.
 
 ## Execution and acceptance
 
-Work proceeds in one checkout with a Solo profile, coherent commits, generated
+Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated
 corrections, narrow comparisons after each correction, and full-suite
 checkpoints. No existing consumer switches until standalone acceptance passes.
+The primary checkout stays clean on the remote default branch; tracked changes
+and commits belong to the task worktree.
 Limit local execution to two CPU-intensive processes at a time across all
 commands. The shard runner defaults to one worker so a C and a Rust run can
 share that budget; additional verification/build work waits for a slot.
