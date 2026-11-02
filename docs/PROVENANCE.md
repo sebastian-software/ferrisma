@@ -593,3 +593,20 @@ decode-error requests remain paired comparisons; aligned positive controls add
 every fixture/channel/unpremultiplication combination. Existing integer16 byte
 stores and float32 memcpy stores retain their odd-stride comparisons unchanged.
 No undefined source output is used as a Rust expected word.
+
+The canonical skcms profile and curve modules translate pinned skcms.cc
+302-325 and 355-1728, together with the reached public/internal header layouts
+and inline profile setters. The original skcms BSD notice is retained verbatim
+in [licenses/SKCMS-BSD-3-Clause.txt](../licenses/SKCMS-BSD-3-Clause.txt).
+Transfer-function and matrix carriers are shared translated dependencies;
+nonlinear fitting and color-transform integration remain separate work.
+
+`tools/oracle/skcms_parser.cc` observes the actual original public parser,
+profile constants and getters. `tools/oracle/skcms_parser_private.cc` includes
+pristine skcms.cc only in a separate test executable to call its actual private
+curve readers, evaluation, linear fitting and identity canonicalization.
+`tools/skcms_parser_reference.py` checks exact compile-command equivalence,
+source pins, archive bindings and whole-public-parser observations in both
+compilation contexts. It retains the complete request inventory, independent
+native captures and original-only arithmetic diagnostics. Ordinary Rust builds
+neither compile nor link these C++ observers.

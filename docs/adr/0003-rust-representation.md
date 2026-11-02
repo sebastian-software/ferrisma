@@ -1419,3 +1419,28 @@ float ConvertToExternal buffer exports retain the existing source unpremultiply
 option and independently export every extra plane. Failed complete-file decoding
 is observed before export without reading unwritten output. Direct output-stage
 callbacks and the public incremental API remain separate unported boundaries.
+
+### Borrowed skcms profiles and active curve storage
+
+The pinned skcms profile representation remains one canonical `#[repr(C)]`
+profile/curve family. A curve's seven-word parametric function starts after its
+32-bit count; the count is not its gamma word. The table branch retains its
+native pointer alignment, padding and two borrowed byte pointers. Explicit
+`MaybeUninit` storage preserves initialized inactive bytes without manufacturing
+values for source-indeterminate bytes. Whole-curve copies transfer raw
+representation bytes and pointer provenance, without cloning table payloads.
+
+ICC parsing retains the original profile-wide memset, individual field writes,
+short-circuit tag reads and partial errors. Raw pointer operations carry an
+explicit initialized-branch, reached-bounds and external-lifetime contract.
+GetTagByIndex keeps the source's literal `idx > tag_count` guard; a physically
+backed `idx == tag_count` request remains observable. Successful parsing does not
+create an owner for ICC bytes, curve tables or color grids. Immutable built-in
+profiles receive a narrowly scoped static wrapper; arbitrary borrowed profiles
+and curves do not gain a general Send/Sync promise.
+
+Scalar curve evaluation and linear fitting retain original float checkpoints,
+output-pointer aliases and write order. Their safety contracts include the
+source's reached signed arithmetic and float-to-integer domain. Positive
+nonrecovering diagnostics classify individual undefined-source requests; they do
+not justify rejecting defined requests merely because their table counts match.

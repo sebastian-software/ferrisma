@@ -46,6 +46,8 @@ mod chroma_stages;
 mod extra_channels;
 #[path = "parity/icc_codec.rs"]
 mod icc_codec;
+#[path = "parity/skcms_parser.rs"]
+mod skcms_parser;
 #[path = "parity/spot_color.rs"]
 mod spot_color;
 
@@ -797,6 +799,7 @@ fn observe(request: &str) -> String {
         kind if splines::handles(kind) => splines::observe(kind, &mut args),
         kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
+        kind if skcms_parser::handles(kind) => skcms_parser::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if extra_channels::handles(kind) => extra_channels::observe(kind, &mut args),
         kind if spot_color::handles(kind) => spot_color::observe(kind, &mut args),

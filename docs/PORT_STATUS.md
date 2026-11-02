@@ -1670,3 +1670,36 @@ captures and every positive diagnostic; no source routine, sanitizer, or old
 expected word changes. The original undefined stores receive no Rust output
 semantics. A separate sixth source-only group requires these exact diagnostics
 from the instrumented graph.
+
+### skcms ICC parser and directly reached curves
+
+The complete parser boundary translates profile/tag/curve carriers, public ICC
+parsing with A2B/B2A priorities, all reached curv/para/MFT1/MFT2/mAB/mBA readers,
+CICP, XYZ/CHAD/white-point getters, input-channel checks, built-in profiles and
+inline setters. Scalar curve evaluation, linear-prefix fitting and identity
+canonicalization preserve borrowed tables and partial output writes. This is a
+parser dependency for general color management; it does not complete nonlinear
+curve fitting, profile transforms, default JXL CMS orchestration or the public
+incremental decoder.
+
+Initial ordinary comparisons cover every one of the 88 pinned original ICC
+profiles, 5,001 generated LUT/curve/channel combinations, every original public
+priority request, 184,467 malformed/truncated structures, 34,920 direct curve
+reader failures/null guards, and 20,400 evaluation/fitting/alias/identity cases.
+Additional source-layout, static, getter, zeroing and same-count large-table
+controls bring the corpus to 247,790 defined requests in ten groups. All six
+complete local configurations pass: Debug, Release and Rust 1.85 against ordinary
+and nonrecovering ASan/UBSan originals. Each passes 543 tests, 328 differential
+groups and 1,280,569 exact comparisons, with zero failures or ignored tests.
+The independent audit also passes both graphs, verifies 11 public and four
+private live code addresses and actual source-object ownership, and retains all
+247,790 prior request/observation pairs exactly. Twelve independent original
+captures and moved/mutated borrowed ICC ownership tests pass. Native Linux/macOS
+CI and current-main integration remain separate acceptance gates.
+
+Nine original-only large-count probes positively diagnose source arithmetic UB:
+canonicalization's signed `2*N` at skcms.cc:1245, evaluation's out-of-range
+float-to-int at line 308, and 16-bit table evaluation's signed `2*lo` at line 318.
+Every exact request and diagnostic remains present; 74 defined controls use the
+same counts with reached index zero or the original canonicalization guard.
+They are paired comparisons, without a blanket exclusion of large tables.

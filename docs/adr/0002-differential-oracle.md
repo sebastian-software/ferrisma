@@ -450,3 +450,29 @@ byte-order memcpy stores, so their odd-stride requests remain defined and
 unchanged. No sanitizer flag or source algorithm is altered.
 
 Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
+
+The skcms parser observer calls public functions from the untouched original
+CMS archive. Private curve helpers use a separate executable that includes the
+complete pristine skcms.cc. Its compile command is copied from that actual
+archive object's command, replacing only the input translation unit and output
+object paths. Compiler, target, optimization, numeric settings and nonrecovering
+sanitizers stay identical. Link maps must bind public parser/getter symbols to
+the archive, retain the private original bodies in the separate helper, and
+exclude a duplicate archive skcms.cc object from that helper. Every public
+request is also compared in the pristine helper's whole-Parse compilation
+context, because private arithmetic can inline differently inside the parser.
+
+Profile observations include initialized fields and retained non-pointer curve
+words on failures, borrowed pointer relationships, native ABI layout, getter
+boundary behavior, explicit profile zeroing, static pointer identity and setter
+self-aliases. Original ICC files remain in the corpus alongside generated tag,
+LUT, priority, malformed and truncation cases. Large-count source-only requests
+require the exact original-file/line arithmetic diagnostic before any payload
+bounds error. Their same-count defined controls remain exact comparisons.
+No source, sanitizer option, existing case or expected source word is relaxed.
+
+Parser source-binding verification cross-checks each actual executable nm code
+address against its expected live object and text range. Mach-O dead symbols and
+unwind FDE rows cannot establish a binding. GNU local helper addresses must lie
+inside the directly linked pristine-include object's actual text extent. Exact
+optimization and nonrecovering sanitizer tokens are checked in both graphs.

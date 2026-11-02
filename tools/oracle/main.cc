@@ -510,6 +510,7 @@ bool FrameSequencesCommand(const std::string&,std::istringstream&,JxlMemoryManag
 bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool SkcmsParserCommand(const std::string&,std::istringstream&);
 bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -593,6 +594,7 @@ int main() {
       else if (NoiseRenderCommand(command, in, &mm)) {}
       else if (EPFCommand(command, in, &mm)) {}
       else if (PatchesCommand(command, in, &mm)) {}
+      else if (SkcmsParserCommand(command, in)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
       else if (ChromaImageCommand(command, in, &mm)) {}
       else if (ChromaStagesCommand(command, in, &mm)) {}
