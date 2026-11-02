@@ -209,6 +209,12 @@ def verify_writer_binding(build):
     with tempfile.TemporaryDirectory(prefix='frame-sequence-bindings-') as directory:
         directory=Path(directory);mapping=directory/'selected.map'
         command[command.index('-o')+1]=str(directory/'selected')
+        if sys.platform!='darwin':
+            # GNU --gc-sections discards this out-of-line definition after
+            # Clang inlines its pristine body into GetWriteToImage3FStage.
+            # Retain the exact original symbol only in this evidence relink;
+            # the active oracle and every compiled object remain unchanged.
+            command.append('-Wl,--undefined=_ZN3jxl40FrameSequenceOriginalWriteToImage3FStageEP22JxlMemoryManagerStructPNS_6Image3IfEE')
         command.append('-Wl,-map,'+str(mapping) if sys.platform=='darwin' else '-Wl,-Map,'+str(mapping))
         subprocess.run(command,cwd=build,check=True)
         contents=mapping.read_text()

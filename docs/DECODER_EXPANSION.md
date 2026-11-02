@@ -81,3 +81,25 @@ integration into main remain required. Chroma, broader extra channels, CMS/HDR,
 JPEG reconstruction, and the public incremental API remain open. The first-image
 and VarDCT milestone records describe the merged baseline; unmerged work does
 not change those claims.
+
+The subsequent internal extra-channel packet connects associated/subsampled
+alpha, independent channel depths, all source-defined extra-channel metadata,
+and ordered spot rendering, with genuine successes and original failure paths.
+Its complete-file scope uses bundle output and actual post-decode buffer
+conversions; direct output-stage callbacks remain part of step 11. The packet's
+focused/source evidence is recorded in PORT_STATUS.md. All six local full checks
+pass: 530 tests, 318 differential groups and 1,032,779 defined requests per
+configuration, with no failures or ignored tests. Native CI and integration
+remain required; this does not complete the overall decoder expansion or close
+the color/JPEG/public API steps.
+
+The geometry packet removes the internal sequence's orientation/intrinsic-size
+guards and admits every parsed YCbCr channel mode. It retains original stage
+order and applies orientation through the existing external converter. Genuine
+all-sampling JPEG files, original crop/reference/resampling/preview sequences,
+all eight orientations and independent output captures are recorded in
+PORT_STATUS.md. All six full local checks pass: 535 tests, 322 differential
+groups and 1,091,467 defined requests per configuration, with no failures or
+ignored tests. Its independent source audit retains all 55,488 previous geometry
+requests and adds 3,200 cross-feature observations. Native CI and integration
+into main remain required before closing the geometry milestone.
