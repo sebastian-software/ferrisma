@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-01
+- Updated: 2026-11-02
 
 The first phase translates libjxl into Rust while keeping the source and target
 easy to compare. Combining the port with algorithm, API, or performance changes
@@ -65,3 +65,17 @@ This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a
 specific source construct has no sound Rust representation. Compilation alone
 does not establish equivalence.
+
+The first complete VarDCT decode profile follows the original rendering test's
+NoGabNoEpfNoPatches configuration plus its Gaborish variant: XYB 4:4:4, sRGB,
+one final regular frame, no EPF, patches, splines, noise, previews, animation,
+references, cropping or resampling. Support actual DC/AC groups, default adaptive
+DC smoothing, all scalar inverse-transform strategies, coefficient widths,
+multiple AC passes and the existing full-resolution unassociated-alpha profile.
+Admit metadata and frame headers before unported branches become selectable.
+Use the existing simple pipeline and original HIGH_PRECISION=1 sRGB stage.
+Record full-file pixel/error evidence in VARDCT_IMAGE.md separately from the
+remaining general decoder and encoder work. Container wrapping is outside the
+raw entry point. Original level-10 encoder fixtures may call the actual internal
+header/one-shot boundary to obtain raw codestreams instead of the public API's
+mandatory container; no codestream framing algorithm is supplied by the fixture.

@@ -59,3 +59,29 @@ impl TfPq {
         f32::from_bits((magnitude.to_bits() & 0x7fffffff) | sign)
     }
 }
+
+/// Original high-precision scalar TF_SRGB::EncodedFromDisplay. The reference
+/// common.h selects JXL_HIGH_PRECISION=1, including FromLinearStage<OpRgb>.
+#[allow(clippy::excessive_precision)]
+pub fn srgb_encoded_from_display(value: f32) -> f32 {
+    let sign = value.to_bits() & 0x8000_0000;
+    let x = f32::from_bits(value.to_bits() & 0x7fff_ffff);
+    let p = [
+        -5.135152395e-04f32,
+        5.287254571e-03,
+        3.903842876e-01,
+        1.474205315,
+        7.352629620e-01,
+    ];
+    let q = [
+        1.004519624e-02f32,
+        3.036675394e-01,
+        1.340816930,
+        9.258482155e-01,
+        2.424867759e-02,
+    ];
+    let linear = x * 12.92;
+    let poly = rational(x.sqrt(), p.map(f32::to_bits), q.map(f32::to_bits));
+    let magnitude = if x > 0.0031308 { poly } else { linear };
+    f32::from_bits((magnitude.to_bits() & 0x7fff_ffff) | sign)
+}

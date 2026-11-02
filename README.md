@@ -12,6 +12,13 @@ error paths are compared with pinned libjxl, including cross-decoding in both
 directions. See the [first-image evidence](docs/FIRST_IMAGE.md). General codec
 configurations and the public C API remain unported.
 
+**The first complete VarDCT decode path is also implemented.** `decode_vardct`
+parses raw original codestreams through DC/AC groups, dequantization and scalar
+inverse transforms to exact sRGB float and integer pixels. Its admitted profile
+includes gray/RGB, 8/16-bit samples, optional full-resolution alpha, progressive
+AC passes and optional Gaborish. See [the VarDCT milestone](docs/VARDCT_IMAGE.md)
+for the precise configuration, source mapping, evidence and remaining scope.
+
 The port implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
 field visitors, size/preview/animation headers, ANS alias tables, and Huffman
 tree encoding and prefix decoding, entropy-stream parsing, hybrid integers,

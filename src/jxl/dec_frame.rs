@@ -1,13 +1,11 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-//! DecodeFrame/FrameDecoder from dec_frame.{h,cc}, restricted to the closed
-//! lossless Thunder frame profile. The original slow/simple pipeline is
-//! explicitly selected. General frame decoding/progressive output is absent.
-//! The complete fixed DecodeFile path parses global metadata and connects
-//! original integer buffer export without a caller-supplied configuration.
-//! A profile-admission check precedes unported branches; it is not a general
-//! decoder status claim. Within the admitted profile, all reached source
-//! checkpoints, section scheduling, owners, and error cleanup are retained.
+//! DecodeFrame/FrameDecoder from dec_frame.{h,cc}, with closed lossless Thunder
+//! and first VarDCT raw-codestream profiles. The original simple pipeline is
+//! explicitly selected. Private metadata/header admission excludes unported
+//! configurations before output initialization; it is not a general decoder
+//! status replacement. Admitted paths retain original section scheduling,
+//! DC/AC setup, scalar reconstruction, output and reader-close checkpoints.
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
 use super::dec_bit_reader::BitReader;
@@ -57,8 +55,8 @@ struct Section<'a> {
 // Only this constructor admits a parsed header into the fixed decoder. The
 // metadata owner is the private encoder configuration; callers cannot mutate
 // the admitted header or output-encoding state into an unported source path.
-struct LosslessHeader<'m>(FrameHeader<'m>);
-impl<'m> LosslessHeader<'m> {
+struct AdmittedHeader<'m>(FrameHeader<'m>);
+impl<'m> AdmittedHeader<'m> {
     fn admit(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
         if h.encoding != FrameEncoding::MODULAR
             || h.frame_type != FrameType::REGULAR
@@ -89,11 +87,38 @@ impl<'m> LosslessHeader<'m> {
         }
         Ok(Self(h))
     }
+    fn admit_vardct(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+        if h.encoding != FrameEncoding::VAR_DCT
+            || h.frame_type != FrameType::REGULAR
+            || h.nonserialized_is_preview
+            || !h.is_last
+            || h.can_be_referenced()
+            || h.color_transform != ColorTransform::XYB
+            || !h.chroma_subsampling.is_444()
+            || h.flags & !FLAG_SKIP_ADAPTIVE_DC_SMOOTHING != 0
+            || h.loop_filter.epf_iters != 0
+            || h.dc_level != 0
+            || h.upsampling != 1
+            || h.extra_channel_upsampling.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_upsampling.iter().any(|&up| up != 1)
+            || h.extra_channel_blending_info.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_blending_info
+                .iter()
+                .any(|blend| blend.mode != BlendMode::REPLACE)
+            || h.custom_size_or_origin
+            || h.blending_info.mode != BlendMode::REPLACE
+        {
+            return Err(StatusCode::Unsupported);
+        }
+        Ok(Self(h))
+    }
 }
 struct FrameDecoder<'s, 'm, 'p> {
     state: &'s mut PassesDecoderState<'m, 'p>,
     output: &'p RefCell<ImageBundle<'m>>,
-    header: LosslessHeader<'m>,
+    header: AdmittedHeader<'m>,
     dim: FrameDimensions,
     modular: ModularFrameDecoder,
     toc: Vec<TocEntry>,
@@ -135,6 +160,12 @@ impl FrameDecoder<'_, '_, '_> {
         shared.image_features.patches.clear();
         shared.image_features.splines.clear();
         shared.matrices.decode_dc(reader)?;
+        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+            shared.quantizer.decode(&shared.matrices, reader)?;
+            super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
+            shared.cmap.decode_dc(reader)?;
+            shared.ac_strategy.fill_invalid();
+        }
         let status = self
             .modular
             .decode_global_info(reader, &self.header.0, false);
@@ -144,6 +175,10 @@ impl FrameDecoder<'_, '_, '_> {
         status
     }
     fn process_dc_group(&mut self, g: usize, reader: &mut BitReader<'_>) -> Status {
+        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+            self.modular
+                .decode_var_dct_dc(&self.header.0, g, reader, self.state)?;
+        }
         let d = &self.dim;
         let rect = Rect::new(
             (g % d.xsize_dc_groups) * d.dc_group_dim,
@@ -164,13 +199,17 @@ impl FrameDecoder<'_, '_, '_> {
             false,
             None,
         )?;
+        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+            self.modular
+                .decode_ac_metadata(&self.header.0, g, reader, self.state)?;
+        }
         self.dc_groups[g] = 1;
         Ok(())
     }
     fn prepare_pipeline(&mut self) -> Status {
         // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
         // render_spotcolors=true, render_noise=true. Header admission proves
-        // feature/filter/transform/reference branches absent. One unassociated
+        // only the explicitly connected filter/transform branches are reachable. One unassociated
         // full-resolution alpha plane needs no additional processing stage.
         let mut builder = SimpleRenderPipelineBuilder::new(
             3 + self
@@ -181,12 +220,25 @@ impl FrameDecoder<'_, '_, '_> {
                 .m
                 .num_extra_channels as usize,
         );
+        if self.header.0.loop_filter.gab {
+            builder.add_stage(super::render_pipeline::stage_gaborish::get_gaborish_stage(
+                &self.header.0.loop_filter,
+            ))?;
+        }
         let info = &self.state.output_encoding_info;
         let tone = get_tone_mapping_stage(info);
         assert!(
             tone.is_none(),
             "closed metadata has equal source/desired intensity"
         );
+        if self.header.0.color_transform == ColorTransform::XYB {
+            builder.add_stage(Some(super::render_pipeline::stage_xyb::get_xyb_stage(info)))?;
+            // Admission proves sRGB output. This is the original
+            // FromLinearStage<OpRgb>, including its scalar approximation.
+            builder.add_stage(Some(
+                super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
+            ))?;
+        }
         // SAFETY: State is private to this fixed entry point. SetFromMetadata
         // leaves cms_set=false, so the actual factory invokes no foreign code
         // and creates no context with a foreign lifetime obligation.
@@ -222,15 +274,82 @@ impl FrameDecoder<'_, '_, '_> {
             self.group_caches.resize_with(size, GroupDecCache::default);
         }
         self.use_task_id = threads > tasks;
-        // UsesFullImage && (VarDCT || noise) is false in this profile.
+        // Noise is outside admission; VarDCT full-image output retains group input.
         if let Some(p) = &mut self.state.render_pipeline {
-            p.prepare_for_threads(size, false)?;
+            let use_group_ids =
+                self.modular.uses_full_image() && self.header.0.encoding == FrameEncoding::VAR_DCT;
+            p.prepare_for_threads(size, use_group_ids)?;
         }
         self.state
             .upsampler8x
             .as_mut()
             .unwrap()
             .prepare_for_threads(threads)
+    }
+    fn process_ac_global(&mut self, reader: &mut BitReader<'_>) -> Status {
+        if !self.finalized_dc {
+            return Err(StatusCode::GenericError);
+        }
+        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+            let used = self
+                .state
+                .used_acs
+                .load(std::sync::atomic::Ordering::SeqCst);
+            let shared = &mut self.state.shared_storage;
+            shared.matrices.decode(reader, Some(&self.modular))?;
+            shared.matrices.ensure_computed(used)?;
+            let bits = super::base::bits::ceil_log2_nonzero(self.dim.num_groups);
+            shared.num_histograms = 1 + reader.read_bits(bits) as usize;
+            self.state
+                .code
+                .resize_with(super::common::MAX_NUM_PASSES, Default::default);
+            self.state
+                .context_map
+                .resize_with(super::common::MAX_NUM_PASSES, Vec::new);
+            let mut max_bits = 0usize;
+            for pass in 0..self.header.0.passes.num_passes as usize {
+                let orders =
+                    super::fields::u32_coder::read(super::frame_header::ORDER_ENC, reader) as u16;
+                let start = pass * shared.coeff_order_size;
+                super::coeff_order::decode_coeff_orders(
+                    orders,
+                    used,
+                    &mut shared.coeff_orders[start..start + shared.coeff_order_size],
+                    reader,
+                )?;
+                let contexts =
+                    shared.num_histograms * shared.block_ctx_map.num_ac_contexts() as usize;
+                super::dec_ans::decode_histograms(
+                    reader,
+                    contexts,
+                    &mut self.state.code[pass],
+                    &mut self.state.context_map[pass],
+                    false,
+                )?;
+                self.state.context_map[pass].resize(contexts + 16, 0);
+                max_bits = max_bits.max(self.state.code[pass].max_num_bits);
+            }
+            max_bits += super::base::bits::ceil_log2_nonzero(self.header.0.passes.num_passes);
+            let kind = if max_bits < 16 {
+                super::dct_util::AcType::I16
+            } else {
+                super::dct_util::AcType::I32
+            };
+            let store = self.header.0.passes.num_passes > 1;
+            self.state.coefficients = Some(super::dct_util::AcImage::make(
+                kind,
+                if store {
+                    super::frame_dimensions::GROUP_DIM * super::frame_dimensions::GROUP_DIM
+                } else {
+                    0
+                },
+                if store { self.dim.num_groups } else { 0 },
+            )?);
+            if store {
+                self.state.coefficients.as_mut().unwrap().zero_fill();
+            }
+        }
+        Ok(())
     }
     fn process_ac_group(
         &mut self,
@@ -253,8 +372,45 @@ impl FrameDecoder<'_, '_, '_> {
             d.group_dim,
             d.group_dim,
         );
-        let mut ready = false;
+        let mut should_run_pipeline = true;
         let pass0 = self.passes[g] as usize;
+        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+            self.group_caches[thread].init_once(
+                self.header.0.passes.num_passes as usize,
+                self.state
+                    .used_acs
+                    .load(std::sync::atomic::Ordering::SeqCst) as usize,
+            )?;
+            let mut pass_readers: Vec<_> = (pass0..pass0 + count)
+                .map(|i| std::mem::take(&mut readers[indices[i]].reader))
+                .collect();
+            let group_state = super::dec_group::AcGroupDecoderState {
+                shared: &self.state.shared_storage,
+                code: &self.state.code,
+                context_map: &self.state.context_map,
+                coefficients: self.state.coefficients.as_mut().unwrap(),
+                x_dm_multiplier: self.state.x_dm_multiplier,
+                b_dm_multiplier: self.state.b_dm_multiplier,
+                quant_biases: &self.state.output_encoding_info.opsin_params.quant_biases,
+            };
+            let result = super::dec_group::decode_ac_group_pixels(
+                &self.header.0,
+                &mut pass_readers,
+                std::num::NonZeroUsize::new(count).unwrap(),
+                g,
+                group_state,
+                &mut self.group_caches[thread],
+                &mut input,
+                pass0,
+                false,
+                Some(&mut should_run_pipeline),
+            );
+            for (i, reader) in (pass0..pass0 + count).zip(pass_readers) {
+                readers[indices[i]].reader = reader;
+            }
+            result?;
+        }
+        let mut ready = false;
         for i in pass0..pass0 + count {
             let (min, max) = self.header.0.passes.get_downsampling_bracket(i);
             let mut pass_ready = true;
@@ -276,7 +432,7 @@ impl FrameDecoder<'_, '_, '_> {
             }
         }
         self.passes[g] = self.passes[g].wrapping_add(count as u8);
-        if !self.modular.uses_full_image() && ready {
+        if !self.modular.uses_full_image() && should_run_pipeline && ready {
             input.done()?;
         }
         Ok(())
@@ -383,12 +539,21 @@ impl FrameDecoder<'_, '_, '_> {
         }
         if !self.dc_groups.contains(&0) && !self.finalized_dc {
             self.prepare_pipeline()?;
-            // FinalizeDC: the adaptive VarDCT branch is excluded by the type.
+            if self.header.0.encoding == FrameEncoding::VAR_DCT
+                && self.header.0.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0
+            {
+                let shared = &mut self.state.shared_storage;
+                super::compressed_dc::adaptive_dc_smoothing(
+                    shared.quantizer.mul_dc(),
+                    &mut shared.dc_storage,
+                    &self.header.0.chroma_subsampling,
+                )?;
+            }
             self.finalized_dc = true;
             self.allocate_output()?;
         }
         if self.finalized_dc && ac_global != num && !self.decoded_ac_global {
-            // ProcessACGlobal: neither the VarDCT nor JPEG body is reached.
+            self.process_ac_global(&mut sections[ac_global].reader)?;
             self.decoded_ac_global = true;
             statuses[ac_global] = SectionStatus::Done;
         }
@@ -460,150 +625,165 @@ impl LosslessThunderConfig {
         output: &'p RefCell<ImageBundle<'m>>,
         copied_header: &mut Option<FrameHeader<'m>>,
     ) -> Status {
-        (|| {
-            let mut header = FrameHeader::new(Some(self.metadata()));
-            let modular = ModularFrameDecoder::new();
-            let mut reader = BitReader::new(bytes);
-            // InitFrame: header and TOC parsing precede profile admission.
-            state.shared_storage.matrices = DequantMatrices::default();
-            let initialized = (|| {
-                header.nonserialized_is_preview = false;
-                read_frame_header(&mut reader, &mut header)?;
-                let dim = header.to_frame_dimensions();
-                {
-                    let mut decoded = output.borrow_mut();
-                    *decoded.color_mut() = Image3::default();
-                    decoded.extra_channels_mut().clear();
-                    decoded.duration = header.animation_frame.duration;
-                }
-                if !header.nonserialized_is_preview
-                    && (header.is_last || header.animation_frame.duration > 0)
-                    && (header.frame_type == FrameType::REGULAR
-                        || header.frame_type == FrameType::SKIP_PROGRESSIVE)
-                {
-                    state.visible_frame_index = state.visible_frame_index.wrapping_add(1);
-                    state.nonvisible_frame_index = 0;
-                } else {
-                    state.nonvisible_frame_index = state.nonvisible_frame_index.wrapping_add(1);
-                }
-                let n = num_toc_entries(
-                    dim.num_groups,
-                    dim.num_dc_groups,
-                    header.passes.num_passes as usize,
-                );
-                let mut sizes = Vec::new();
-                let mut permutation = Vec::new();
-                read_toc(n, &mut reader, &mut sizes, &mut permutation)?;
-                let mut toc = vec![TocEntry::default(); n];
-                let mut sum = 0u64;
-                for i in 0..n {
-                    toc[i].size = sizes[i] as usize;
-                    let index = if permutation.is_empty() {
-                        i
-                    } else {
-                        permutation[i] as usize
-                    };
-                    toc[index].id = i;
-                    let next = sum.wrapping_add(toc[i].size as u64);
-                    if next < sum {
-                        return Err(StatusCode::GenericError);
-                    }
-                    sum = next;
-                }
-                if reader.total_bits_consumed() % 8 != 0 || toc.is_empty() {
-                    return Err(StatusCode::GenericError);
-                }
-                let begin = reader.total_bits_consumed() / 8;
-                if (begin as u64).wrapping_add(sum) < begin as u64 {
-                    return Err(StatusCode::GenericError);
-                }
-                Ok((dim, toc))
-            })();
-            let (dim, toc) = match initialized {
-                Ok(v) => v,
-                Err(e) => {
-                    let _ = reader.close();
-                    return Err(e);
-                }
-            };
-            let admitted = match LosslessHeader::admit(header) {
-                Ok(v) => v,
-                Err(e) => {
-                    let _ = reader.close();
-                    return Err(e);
-                }
-            };
-            let mut decoder = FrameDecoder {
-                state,
-                output,
-                header: admitted,
-                dim,
-                modular,
-                toc,
-                processed: Vec::new(),
-                passes: Vec::new(),
-                dc_groups: Vec::new(),
-                decoded_dc_global: false,
-                decoded_ac_global: false,
-                finalized_dc: true,
-                num_sections_done: 0,
-                is_finalized: true,
-                allocated: false,
-                group_caches: Vec::new(),
-                use_task_id: false,
-            };
-            if let Err(e) = decoder.init_output() {
-                let _ = reader.close();
-                return Err(e);
-            }
-            *copied_header = Some(decoder.header.0.clone());
-            if let Err(e) = reader.all_reads_within_bounds() {
-                let _ = reader.close();
-                return Err(e);
-            }
-            let header_bytes = reader.total_bits_consumed() / 8;
-            reader.close()?;
-            let mut processed_bytes = header_bytes;
-            let mut sections = Vec::new();
-            let mut pos = header_bytes;
-            let work = (|| {
-                for (index, entry) in decoder.toc.iter().enumerate() {
-                    let end = pos.wrapping_add(entry.size);
-                    if end > bytes.len() {
-                        return Err(StatusCode::GenericError);
-                    }
-                    sections.push(Section {
-                        reader: BitReader::new(&bytes[pos..end]),
-                        id: entry.id,
-                        index,
-                    });
-                    pos = end;
-                }
-                let mut statuses = vec![SectionStatus::Skipped; sections.len()];
-                decoder.process_sections(&mut sections, &mut statuses)?;
-                for (i, status) in statuses.iter().enumerate() {
-                    if *status != SectionStatus::Done {
-                        return Err(StatusCode::GenericError);
-                    }
-                    processed_bytes = processed_bytes.wrapping_add(decoder.toc[i].size);
-                }
-                Ok(())
-            })();
-            let mut close_ok = Ok(());
-            for section in sections.iter_mut().rev() {
-                // index is retained at its original physical-order checkpoint.
-                let _ = section.index;
-                if let Err(e) = section.reader.close() {
-                    close_ok = Err(e);
-                }
-            }
-            work?;
-            close_ok?;
-            decoder.finalize_frame()?;
-            output.borrow_mut().set_decoded_bytes(processed_bytes);
-            Ok(())
-        })()
+        decode_profile_frame_into(self.metadata(), bytes, state, output, copied_header, false)
     }
+}
+
+fn decode_profile_frame_into<'m, 'p>(
+    metadata: &'m super::image_metadata::CodecMetadata,
+    bytes: &[u8],
+    state: &mut PassesDecoderState<'m, 'p>,
+    output: &'p RefCell<ImageBundle<'m>>,
+    copied_header: &mut Option<FrameHeader<'m>>,
+    vardct: bool,
+) -> Status {
+    (|| {
+        let mut header = FrameHeader::new(Some(metadata));
+        let modular = ModularFrameDecoder::new();
+        let mut reader = BitReader::new(bytes);
+        // InitFrame: header and TOC parsing precede profile admission.
+        state.shared_storage.matrices = DequantMatrices::default();
+        let initialized = (|| {
+            header.nonserialized_is_preview = false;
+            read_frame_header(&mut reader, &mut header)?;
+            let dim = header.to_frame_dimensions();
+            {
+                let mut decoded = output.borrow_mut();
+                *decoded.color_mut() = Image3::default();
+                decoded.extra_channels_mut().clear();
+                decoded.duration = header.animation_frame.duration;
+            }
+            if !header.nonserialized_is_preview
+                && (header.is_last || header.animation_frame.duration > 0)
+                && (header.frame_type == FrameType::REGULAR
+                    || header.frame_type == FrameType::SKIP_PROGRESSIVE)
+            {
+                state.visible_frame_index = state.visible_frame_index.wrapping_add(1);
+                state.nonvisible_frame_index = 0;
+            } else {
+                state.nonvisible_frame_index = state.nonvisible_frame_index.wrapping_add(1);
+            }
+            let n = num_toc_entries(
+                dim.num_groups,
+                dim.num_dc_groups,
+                header.passes.num_passes as usize,
+            );
+            let mut sizes = Vec::new();
+            let mut permutation = Vec::new();
+            read_toc(n, &mut reader, &mut sizes, &mut permutation)?;
+            let mut toc = vec![TocEntry::default(); n];
+            let mut sum = 0u64;
+            for i in 0..n {
+                toc[i].size = sizes[i] as usize;
+                let index = if permutation.is_empty() {
+                    i
+                } else {
+                    permutation[i] as usize
+                };
+                toc[index].id = i;
+                let next = sum.wrapping_add(toc[i].size as u64);
+                if next < sum {
+                    return Err(StatusCode::GenericError);
+                }
+                sum = next;
+            }
+            if reader.total_bits_consumed() % 8 != 0 || toc.is_empty() {
+                return Err(StatusCode::GenericError);
+            }
+            let begin = reader.total_bits_consumed() / 8;
+            if (begin as u64).wrapping_add(sum) < begin as u64 {
+                return Err(StatusCode::GenericError);
+            }
+            Ok((dim, toc))
+        })();
+        let (dim, toc) = match initialized {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = reader.close();
+                return Err(e);
+            }
+        };
+        let admitted = match if vardct {
+            AdmittedHeader::admit_vardct(header)
+        } else {
+            AdmittedHeader::admit(header)
+        } {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = reader.close();
+                return Err(e);
+            }
+        };
+        let mut decoder = FrameDecoder {
+            state,
+            output,
+            header: admitted,
+            dim,
+            modular,
+            toc,
+            processed: Vec::new(),
+            passes: Vec::new(),
+            dc_groups: Vec::new(),
+            decoded_dc_global: false,
+            decoded_ac_global: false,
+            finalized_dc: true,
+            num_sections_done: 0,
+            is_finalized: true,
+            allocated: false,
+            group_caches: Vec::new(),
+            use_task_id: false,
+        };
+        if let Err(e) = decoder.init_output() {
+            let _ = reader.close();
+            return Err(e);
+        }
+        *copied_header = Some(decoder.header.0.clone());
+        if let Err(e) = reader.all_reads_within_bounds() {
+            let _ = reader.close();
+            return Err(e);
+        }
+        let header_bytes = reader.total_bits_consumed() / 8;
+        reader.close()?;
+        let mut processed_bytes = header_bytes;
+        let mut sections = Vec::new();
+        let mut pos = header_bytes;
+        let work = (|| {
+            for (index, entry) in decoder.toc.iter().enumerate() {
+                let end = pos.wrapping_add(entry.size);
+                if end > bytes.len() {
+                    return Err(StatusCode::GenericError);
+                }
+                sections.push(Section {
+                    reader: BitReader::new(&bytes[pos..end]),
+                    id: entry.id,
+                    index,
+                });
+                pos = end;
+            }
+            let mut statuses = vec![SectionStatus::Skipped; sections.len()];
+            decoder.process_sections(&mut sections, &mut statuses)?;
+            for (i, status) in statuses.iter().enumerate() {
+                if *status != SectionStatus::Done {
+                    return Err(StatusCode::GenericError);
+                }
+                processed_bytes = processed_bytes.wrapping_add(decoder.toc[i].size);
+            }
+            Ok(())
+        })();
+        let mut close_ok = Ok(());
+        for section in sections.iter_mut().rev() {
+            // index is retained at its original physical-order checkpoint.
+            let _ = section.index;
+            if let Err(e) = section.reader.close() {
+                close_ok = Err(e);
+            }
+        }
+        work?;
+        close_ok?;
+        decoder.finalize_frame()?;
+        output.borrow_mut().set_decoded_bytes(processed_bytes);
+        Ok(())
+    })()
 }
 
 /// Complete first-profile codestream result with owned metadata and integer
@@ -744,6 +924,222 @@ pub fn decode_lossless_thunder(bytes: &[u8]) -> LosslessThunderImageDecode {
         status,
         metadata: metadata.unwrap(),
         pixels,
+        reader_bits,
+        frame_size,
+        frame_decoded_bytes,
+    }
+}
+
+// Immutable metadata ownership keeps this first complete VarDCT profile closed
+// until its other original rendering/frame branches have been translated.
+struct VarDctConfig {
+    metadata: super::image_metadata::CodecMetadata,
+}
+impl VarDctConfig {
+    fn metadata(&self) -> &super::image_metadata::CodecMetadata {
+        &self.metadata
+    }
+    fn into_metadata(self) -> super::image_metadata::CodecMetadata {
+        self.metadata
+    }
+    fn admit_decoded_metadata(
+        owner: &mut Option<super::image_metadata::CodecMetadata>,
+    ) -> Option<Self> {
+        use super::color_encoding::RenderingIntent;
+        use super::image_metadata::ExtraChannel;
+        let m = &owner.as_ref()?.m;
+        if m.bit_depth.floating_point_sample
+            || ![8, 16].contains(&m.bit_depth.bits_per_sample)
+            || !m.xyb_encoded
+            || m.num_extra_channels as usize != m.extra_channel_info.len()
+            || m.extra_channel_info.len() > 1
+            || m.extra_channel_info.iter().any(|ec| {
+                ec.channel_type != ExtraChannel::ALPHA
+                    || ec.bit_depth.floating_point_sample
+                    || ec.bit_depth.bits_per_sample != m.bit_depth.bits_per_sample
+                    || ec.bit_depth.exponent_bits_per_sample != 0
+                    || ec.dim_shift != 0
+                    || ec.alpha_associated
+            })
+            || m.have_animation
+            || m.have_preview
+            || m.have_intrinsic_size
+            || m.orientation != 1
+            || m.color_encoding.want_icc()
+            || !m.color_encoding.is_srgb()
+            || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
+            || m.tone_mapping.intensity_target != 255.0
+            || m.tone_mapping.min_nits != 0.0
+            || m.tone_mapping.relative_to_max_display
+            || m.tone_mapping.linear_below != 0.0
+        {
+            return None;
+        }
+        Some(Self {
+            metadata: owner.take().unwrap(),
+        })
+    }
+    fn decode_frame_into<'m, 'p>(
+        &'m self,
+        bytes: &[u8],
+        state: &mut PassesDecoderState<'m, 'p>,
+        output: &'p RefCell<ImageBundle<'m>>,
+        header: &mut Option<FrameHeader<'m>>,
+    ) -> Status {
+        decode_profile_frame_into(self.metadata(), bytes, state, output, header, true)
+    }
+}
+
+/// Complete raw-codestream VarDCT result for the admitted sRGB XYB profile.
+/// Integer samples retain the source bit depth; float samples are interleaved
+/// sRGB color from the original image-bundle output stage, before quantization.
+/// General frames, EPF, effects, and container boxes remain outside admission.
+pub struct VarDctImageDecode {
+    pub status: Status,
+    pub metadata: super::image_metadata::CodecMetadata,
+    pub pixels: Vec<u8>,
+    pub float_pixels: Vec<f32>,
+    pub reader_bits: usize,
+    pub frame_size: (usize, usize),
+    pub frame_decoded_bytes: usize,
+}
+
+/// Parse a complete original VarDCT codestream and decode its DC/AC groups,
+/// dequantization, inverse transforms, optional Gaborish, XYB and sRGB output.
+/// The private admission boundary excludes still-unported codec configurations.
+pub fn decode_vardct(bytes: &[u8]) -> VarDctImageDecode {
+    use super::dec_external_image::convert_uint_to_buffer;
+    use super::fields::bundle;
+    use super::headers::read_size_header;
+    use super::image_metadata::{CodecMetadata, Orientation, read_image_metadata};
+    use super::types::JxlEndianness;
+    let mut metadata = Some(CodecMetadata::default());
+    let mut pixels = Vec::new();
+    let mut frame_size = (0, 0);
+    let mut frame_decoded_bytes = 0;
+    let mut reader = BitReader::new(bytes);
+    let parsed = (|| {
+        if reader.read_fixed_bits::<16>() != 0x0aff {
+            return Err(StatusCode::GenericError);
+        }
+        {
+            let m = metadata.as_mut().unwrap();
+            read_size_header(&mut reader, &mut m.size)?;
+            read_image_metadata(&mut reader, &mut m.m)?;
+            m.transform_data.nonserialized_xyb_encoded = m.m.xyb_encoded;
+            bundle::read(&mut reader, &mut m.transform_data)?;
+        }
+        Ok(())
+    })();
+    let config = if parsed.is_ok() {
+        VarDctConfig::admit_decoded_metadata(&mut metadata)
+    } else {
+        None
+    };
+    let output = config
+        .as_ref()
+        .map(|cfg| RefCell::new(ImageBundle::new(Some(&cfg.metadata().m))));
+    let body = (|| {
+        parsed?;
+        let cfg = config.as_ref().ok_or(StatusCode::Unsupported)?;
+        // These external owners keep the source decoder's pointer bindings
+        // live. Empty/default bundle construction allocates no pixel storage.
+        let preview = ImageBundle::new(Some(&cfg.metadata().m));
+        let output = output.as_ref().unwrap();
+        let mut state = PassesDecoderState::new();
+        state
+            .output_encoding_info
+            .set_from_metadata(cfg.metadata())?;
+        reader.jump_to_byte_boundary()?;
+        let mut header = None;
+        // The admitted final regular frame makes both original do/while
+        // continuation conditions false. No additional frame is skipped.
+        let start = reader.total_bits_consumed() / 8;
+        let frame_status = cfg.decode_frame_into(&bytes[start..], &mut state, output, &mut header);
+        {
+            let image = output.borrow();
+            frame_size = (image.color().xsize(), image.color().ysize());
+            frame_decoded_bytes = image.decoded_bytes();
+        }
+        frame_status?;
+        reader.skip_bits(frame_decoded_bytes.wrapping_mul(8));
+        if reader.total_bits_consumed() != bytes.len().wrapping_mul(8) {
+            return Err(StatusCode::GenericError);
+        }
+        if reader.all_reads_within_bounds().is_err() {
+            return Err(StatusCode::GenericError);
+        }
+        // CodecInOut::CheckMetadata's actual no-preview/one-frame path.
+        let m = cfg.metadata();
+        if m.m.bit_depth.bits_per_sample == 0 || m.m.color_encoding.icc().is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        if preview.xsize() != 0 {
+            preview.verify_metadata()?;
+        }
+        if !std::ptr::eq(preview.metadata().unwrap(), &m.m) {
+            return Err(StatusCode::GenericError);
+        }
+        let image = output.borrow();
+        image.verify_metadata()?;
+        if !std::ptr::eq(image.metadata().unwrap(), &m.m) {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(())
+    })();
+    let reader_bits = reader.total_bits_consumed();
+    let closed = reader.close();
+    let mut status = body.and(closed);
+    if status.is_ok() {
+        // The source decoder state and scoped reader close have completed
+        // before the caller invokes the original external conversion.
+        let cfg = config.as_ref().unwrap();
+        let m = cfg.metadata();
+        let n = m.m.color_encoding.channels() + usize::from(m.m.has_alpha());
+        let bits = m.m.bit_depth.bits_per_sample as usize;
+        status = (|| {
+            let stride = m
+                .xsize()
+                .checked_mul(n)
+                .and_then(|v| v.checked_mul(bits / 8))
+                .ok_or(StatusCode::GenericError)?;
+            let size = stride
+                .checked_mul(m.ysize())
+                .ok_or(StatusCode::GenericError)?;
+            pixels.resize(size, 0);
+            convert_uint_to_buffer(
+                &output.as_ref().unwrap().borrow(),
+                bits,
+                n,
+                JxlEndianness::NATIVE,
+                stride,
+                &mut pixels,
+                size,
+                Orientation::IDENTITY,
+                false,
+            )
+        })();
+    }
+    let mut float_pixels = Vec::new();
+    if status.is_ok() {
+        let image = output.as_ref().unwrap().borrow();
+        for y in 0..image.color().ysize() {
+            for x in 0..image.color().xsize() {
+                for c in 0..3 {
+                    float_pixels.push(image.color().plane(c).row(y)[x]);
+                }
+            }
+        }
+    }
+    drop(output);
+    if let Some(cfg) = config {
+        metadata = Some(cfg.into_metadata());
+    }
+    VarDctImageDecode {
+        status,
+        metadata: metadata.unwrap(),
+        pixels,
+        float_pixels,
         reader_bits,
         frame_size,
         frame_decoded_bytes,
