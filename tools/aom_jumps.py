@@ -3,6 +3,11 @@ import re
 
 from dav1d_storage import tokens
 
+NONLOCAL_CALL = re.compile(r'\b(?:_?setjmp|_?longjmp|__sigsetjmp|sigsetjmp|siglongjmp|__longjmp_chk)\s*\(')
+JUMP_CORRECTIONS = ('glibc-setjmp-aliases', 'scoped-nonlocal-error-targets',
+                    'typed-nonlocal-error-transfer', 'unwinding-codec-and-callback-abi',
+                    'system-and-vmaf-c-abi-declarations')
+
 
 def delimiters(lexemes):
     stack, pairs, owners = [], {}, {}
@@ -64,9 +69,12 @@ def ends_with_return(body):
     return False
 
 
-def map_jumps(text, ported_functions):
+def map_scopes(text):
     # Remove only the runtime declarations; all actual jump sites must be
     # recognized below. No direct libc nonlocal jump may survive the import.
+    # glibc's setjmp macro expands to _setjmp, which has the same scoped
+    # error-target role here. Normalize its declaration and direct call sites.
+    text, aliases = re.subn(r'\b_setjmp(?=\s*\()', 'setjmp', text)
     text = re.sub(r'    fn setjmp\([^;]+;\n', '', text)
     text = re.sub(r'    fn longjmp\([^;]+;\n', '', text)
     text, throws = re.subn(r'\blongjmp\(([^;]+)\);', r'crate::jump::raise(\1);', text)
@@ -142,8 +150,17 @@ None => {{{branch}}}
 }}'''
         text = text[:start] + replacement + text[end:]
         count += 1
-    if re.search(r'\b(?:setjmp|longjmp)\s*\(', text):
+    if NONLOCAL_CALL.search(text):
         raise SystemExit('Unmapped libc nonlocal error transfer')
+    return text, {name: value for name, value in {
+        'glibc-setjmp-aliases': aliases,
+        'scoped-nonlocal-error-targets': count,
+        'typed-nonlocal-error-transfer': throws,
+    }.items() if value}
+
+
+def map_jumps(text, ported_functions):
+    text, changes = map_scopes(text)
     # All translated frames, declarations, callbacks, and callback casts that
     # may carry a libaom error must permit unwinding. The calling convention and
     # machine representation remain C; foreign consumers are still unchanged.
@@ -162,9 +179,8 @@ None => {{{branch}}}
     text = re.sub(r'(?m)^    (?:pub )?fn (\w+)\([^;]+;\n', declaration, text)
     if native:
         text += '\nextern "C" {\n' + ''.join(native) + '}\n'
-    return text, {name: value for name, value in {
-        'scoped-nonlocal-error-targets': count,
-        'typed-nonlocal-error-transfer': throws,
+    changes.update({name: value for name, value in {
         'unwinding-codec-and-callback-abi': abi_count,
         'system-and-vmaf-c-abi-declarations': len(native),
-    }.items() if value}
+    }.items() if value})
+    return text, changes

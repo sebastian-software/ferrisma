@@ -40,10 +40,11 @@ jobs:
         run: |
           python3 tools/verify_upstream.py --tracked
           python3 tools/generate_licenses.py --check
+          python3 tests/ports/aom_jumps_test.py
           python3 tools/build_aom_vmaf.py --fetch
           echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
       - name: Check committed Rust types before building original consumers
-        if: inputs.mode == 'compile'
+        if: inputs.mode != 'generate'
         env:
           RUSTUP_TOOLCHAIN: nightly-2026-09-07
         run: |
@@ -160,7 +161,17 @@ jobs:
             build/aom-reference-*/summary.json
             build/aom-oracles-*/summary.json
             build/aom-faults-*/summary.json
+            build/aom-faults-*/failure.log
+            build/aom-faults-*/mismatch.json
             build/aom-thread-faults-*/summary.json
+            build/aom-thread-faults-*/failure.log
+            build/aom-thread-faults-*/mismatch.json
+            build/aom-native-*/tests-focused-*/*.log
+            build/aom-native-*/tests-focused-*/*.xml
+            build/aom-native-*/tests-focused-*/shard-*.json
+            build/aom-rust-*/tests-focused-*/*.log
+            build/aom-rust-*/tests-focused-*/*.xml
+            build/aom-rust-*/tests-focused-*/shard-*.json
             build/aom-vmaf-modes-*/summary.json
             build/aom-vmaf-modes-*/failure.json
             build/aom-vmaf-modes-*/*.log

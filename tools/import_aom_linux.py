@@ -7,6 +7,7 @@ from pathlib import Path
 
 from aom_inline_bridges import SUBJECTS, append_bridges
 from aom_corrections import control_va_list
+from aom_jumps import JUMP_CORRECTIONS, map_scopes
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,7 +17,10 @@ def main():
     parser.add_argument('--artifact', required=True, type=Path)
     parser.add_argument('--run-id', required=True, type=int)
     parser.add_argument('--check', action='store_true', help='Verify committed files against the transformed artifact')
+    parser.add_argument('--refresh', action='store_true', help='Update a verified existing import after compatibility-rule changes')
     args = parser.parse_args()
+    if args.check and args.refresh:
+        parser.error('--check and --refresh are mutually exclusive')
     artifact = args.artifact.resolve()
     original = json.loads((ROOT / 'docs/aom-reference-macos-debug.json').read_text())
     expected = {name.replace('<generated>/', 'generated/') for name in original['library_sources']}
@@ -25,6 +29,19 @@ def main():
         relative_manifest = Path(f'crates/aom/TRANSLATION-linux-{profile}.json')
         manifest_path = artifact / relative_manifest
         manifest = json.loads(manifest_path.read_text())
+        refresh_paths = set()
+        if args.refresh:
+            existing = json.loads((ROOT / relative_manifest).read_text())
+            if (existing['generated_reference_headers'] != manifest['generated_reference_headers']
+                    or [(u['source'], u['rust'], u['raw_sha256']) for u in existing['units']]
+                    != [(u['source'], u['rust'], u['raw_sha256']) for u in manifest['units']]):
+                raise SystemExit('Existing import does not match this original artifact')
+            for unit in existing['units']:
+                target = ROOT / unit['rust']
+                if hashlib.sha256(target.read_bytes()).hexdigest() != unit['rust_sha256']:
+                    raise SystemExit(f'Existing imported source was modified: {target}')
+                refresh_paths.add(Path(unit['rust']))
+            refresh_paths.add(relative_manifest)
         if (manifest['generation_target'] != 'x86_64-unknown-linux-gnu'
                 or manifest['preprocessing_profile'] != profile or len(manifest['units']) != 168):
             raise SystemExit('Unexpected native Linux translation profile')
@@ -42,8 +59,14 @@ def main():
                 raise SystemExit(f'Artifact translation hash differs: {target}')
             changes = dict(unit['corrections'])
             text, count = control_va_list(content.decode())
+            text, jump_changes = map_scopes(text)
+            # Keep the same correction order as a fresh raw-source import.
+            jumps = {name: changes.pop(name) for name in JUMP_CORRECTIONS if name in changes}
+            jumps.update(jump_changes)
+            changes.update((name, jumps[name]) for name in JUMP_CORRECTIONS if name in jumps)
             if count:
                 changes['sysv-array-decayed-control-va-list'] = count
+            if count or jump_changes:
                 corrected_units.append(str(target))
             production_sha256 = hashlib.sha256(text.encode()).hexdigest()
             text, names = append_bridges(text, emitted)
@@ -81,7 +104,7 @@ def main():
             target = ROOT / relative
             if args.check and not target.exists():
                 raise SystemExit(f'Missing imported profile: {relative}')
-            if target.exists() and target.read_bytes() != content:
+            if target.exists() and target.read_bytes() != content and relative not in refresh_paths:
                 raise SystemExit(f'Refusing to overwrite an existing different profile: {relative}')
         if not args.check:
             for relative, content in prepared.items():
@@ -96,7 +119,7 @@ def main():
                             corrected_production_bodies=corrected_units, optional_inline_wrappers=len(bridges)))
     record = dict(run_id=args.run_id, source_revision='af3dc9aadc793c1b00edc003e3fc19a44fdeb574',
                   status='native Linux source profiles generated; compilation and acceptance pending',
-                  artifact_transformation='Map the array-decayed control va_list callback type and append the same optional inline wrappers as the current translator',
+                  artifact_transformation='Map the array-decayed control va_list callback type and glibc _setjmp error targets, then append the same optional inline wrappers as the current translator',
                   native_reference_and_original_tests_preserved=True, profiles=records)
     record_path = ROOT / 'docs/aom-linux-source-import.json'
     content = json.dumps(record, indent=2) + '\n'

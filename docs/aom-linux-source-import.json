@@ -2,7 +2,7 @@
   "run_id": 41417830280,
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "status": "native Linux source profiles generated; compilation and acceptance pending",
-  "artifact_transformation": "Map the array-decayed control va_list callback type and append the same optional inline wrappers as the current translator",
+  "artifact_transformation": "Map the array-decayed control va_list callback type and glibc _setjmp error targets, then append the same optional inline wrappers as the current translator",
   "native_reference_and_original_tests_preserved": true,
   "profiles": [
     {
@@ -44,14 +44,21 @@
         }
       },
       "artifact_manifest_sha256": "1373bb9da84b2c576bef08095f8e9b7fcee0732a132b0468707194cfec928287",
-      "imported_manifest_sha256": "7e971b6afde4207254a80fcf2ea215292ef96ff731bc1dc9896ad6d1689b7e66",
+      "imported_manifest_sha256": "f775b96be412bdeb3a8a566d44cbcb44cf0bdd64553cb7f040f050f9c919bbeb",
       "production_bodies_unchanged": false,
       "corrected_production_bodies": [
         "crates/aom/src/linux/debug/aom/src/aom_codec.rs",
         "crates/aom/src/linux/debug/aom/src/aom_decoder.rs",
         "crates/aom/src/linux/debug/aom/src/aom_encoder.rs",
+        "crates/aom/src/linux/debug/aom_dsp/grain_table.rs",
+        "crates/aom/src/linux/debug/av1/common/thread_common.rs",
         "crates/aom/src/linux/debug/av1/av1_dx_iface.rs",
-        "crates/aom/src/linux/debug/av1/av1_cx_iface.rs"
+        "crates/aom/src/linux/debug/av1/decoder/decodeframe.rs",
+        "crates/aom/src/linux/debug/av1/decoder/decoder.rs",
+        "crates/aom/src/linux/debug/av1/av1_cx_iface.rs",
+        "crates/aom/src/linux/debug/av1/encoder/context_tree.rs",
+        "crates/aom/src/linux/debug/av1/encoder/encoder.rs",
+        "crates/aom/src/linux/debug/av1/encoder/ethread.rs"
       ],
       "optional_inline_wrappers": 12
     },
@@ -94,14 +101,21 @@
         }
       },
       "artifact_manifest_sha256": "a42e9839db9b5a7bc1e7505a5fc3a390ea62af61e6f318600c42d2c611cc1ff4",
-      "imported_manifest_sha256": "2b5a2458caa9b6a9e298d67a7c5a430988e64d4a5468071faca59c8f2beb7d2f",
+      "imported_manifest_sha256": "652dece31ca1ec4cf69c370bf256115dbb8e9227a37a7ff2b6445cbe17974c75",
       "production_bodies_unchanged": false,
       "corrected_production_bodies": [
         "crates/aom/src/linux/release/aom/src/aom_codec.rs",
         "crates/aom/src/linux/release/aom/src/aom_decoder.rs",
         "crates/aom/src/linux/release/aom/src/aom_encoder.rs",
+        "crates/aom/src/linux/release/aom_dsp/grain_table.rs",
+        "crates/aom/src/linux/release/av1/common/thread_common.rs",
         "crates/aom/src/linux/release/av1/av1_dx_iface.rs",
-        "crates/aom/src/linux/release/av1/av1_cx_iface.rs"
+        "crates/aom/src/linux/release/av1/decoder/decodeframe.rs",
+        "crates/aom/src/linux/release/av1/decoder/decoder.rs",
+        "crates/aom/src/linux/release/av1/av1_cx_iface.rs",
+        "crates/aom/src/linux/release/av1/encoder/context_tree.rs",
+        "crates/aom/src/linux/release/av1/encoder/encoder.rs",
+        "crates/aom/src/linux/release/av1/encoder/ethread.rs"
       ],
       "optional_inline_wrappers": 12
     }

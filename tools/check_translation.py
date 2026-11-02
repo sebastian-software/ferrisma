@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 import subprocess
 
+from aom_jumps import NONLOCAL_CALL
+
 ROOT = Path(__file__).resolve().parents[1]
 subprocess.run(["python3", str(ROOT / "tools/verify_upstream.py")], check=True)
 manifests = [ROOT / "TRANSLATION.json", *sorted((ROOT / "translations").glob("*.json")),
@@ -58,9 +60,15 @@ if (aom / 'TRANSLATION-macos-debug.json').exists():
         platform, profile = path.stem.removeprefix('TRANSLATION-').split('-')
         actual = []
         for unit in record['units']:
+            if NONLOCAL_CALL.search((ROOT / unit['rust']).read_text()):
+                raise SystemExit(f'Unmapped libc nonlocal error transfer: {unit["rust"]}')
             source = Path(unit['source'])
             prefix = 'upstream/aom' if source.is_relative_to('upstream/aom') else f'crates/aom/reference/{platform}/{profile}'
             actual.append(str(source.relative_to(prefix)))
+        for correction, expected_count in [('scoped-nonlocal-error-targets', 32),
+                                            ('typed-nonlocal-error-transfer', 1)]:
+            if sum(unit['corrections'].get(correction, 0) for unit in record['units']) != expected_count:
+                raise SystemExit(f'Incomplete libaom nonlocal error mapping: {path}: {correction}')
         if set(actual) != expected or len(actual) != len(expected):
             raise SystemExit(f'Incomplete portable libaom source closure: {path}')
         for name, digest in record['generated_reference_headers'].items():

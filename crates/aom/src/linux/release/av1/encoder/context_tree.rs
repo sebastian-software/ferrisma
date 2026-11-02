@@ -5544,10 +5544,8 @@ pub unsafe extern "C-unwind" fn av1_alloc_pmc(
             __saved_mask: __sigset_t { __val: [0; 16] },
         }; 1],
     };
-    if _setjmp((error.jmp).as_mut_ptr()) != 0 {
-        av1_free_pmc(ctx, av1_num_planes(cm));
-        return 0 as *mut PICK_MODE_CONTEXT;
-    }
+    loop {
+match crate::jump::value_scope(((error.jmp).as_mut_ptr()).cast(), || {
     error.setjmp = 1 as core::ffi::c_int;
     ::core::ptr::write_volatile(
         &raw mut ctx as *mut *mut PICK_MODE_CONTEXT,
@@ -5635,8 +5633,13 @@ pub unsafe extern "C-unwind" fn av1_alloc_pmc(
         }
     }
     av1_invalid_rd_stats(&raw mut (*ctx).rd_stats);
-    return ctx;
+    return ctx;}) {
+Some(value) => return value,
+None => {
+        av1_free_pmc(ctx, av1_num_planes(cm));
+        return 0 as *mut PICK_MODE_CONTEXT;}
 }
+}}
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_reset_pmc(mut ctx: *mut PICK_MODE_CONTEXT) {
     memset(
@@ -5951,5 +5954,4 @@ extern "C" {
         __c: core::ffi::c_int,
         __n: size_t,
     ) -> *mut core::ffi::c_void;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
 }

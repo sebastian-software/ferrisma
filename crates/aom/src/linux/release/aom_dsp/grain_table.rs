@@ -696,7 +696,8 @@ pub unsafe extern "C-unwind" fn aom_film_grain_table_read(
         return AOM_CODEC_ERROR;
     }
     (*error_info).setjmp = 1 as core::ffi::c_int;
-    if _setjmp(((*error_info).jmp).as_mut_ptr()) == 0 as core::ffi::c_int {
+    match crate::jump::scope((((*error_info).jmp).as_mut_ptr()).cast(), || {
+
         let mut magic: [core::ffi::c_char; 9] = [0; 9];
         if fread(
             magic.as_mut_ptr() as *mut core::ffi::c_void,
@@ -752,7 +753,11 @@ pub unsafe extern "C-unwind" fn aom_film_grain_table_read(
             prev_entry = entry;
             grain_table_entry_read(file, error_info, entry);
         }
-    }
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) | None => (),
+}
     fclose(file);
     (*error_info).setjmp = 0 as core::ffi::c_int;
     return (*error_info).error_code;
@@ -773,7 +778,8 @@ pub unsafe extern "C-unwind" fn aom_film_grain_table_write(
         return AOM_CODEC_ERROR;
     }
     (*error_info).setjmp = 1 as core::ffi::c_int;
-    if _setjmp(((*error_info).jmp).as_mut_ptr()) == 0 as core::ffi::c_int {
+    match crate::jump::scope((((*error_info).jmp).as_mut_ptr()).cast(), || {
+
         if fwrite(
             core::ptr::addr_of!(kFileMagic).cast::<core::ffi::c_char>() as *const core::ffi::c_void,
             8 as size_t,
@@ -793,7 +799,11 @@ pub unsafe extern "C-unwind" fn aom_film_grain_table_write(
             grain_table_entry_write(file, entry);
             entry = (*entry).next as *mut aom_film_grain_table_entry_t;
         }
-    }
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) | None => (),
+}
     fclose(file);
     (*error_info).setjmp = 0 as core::ffi::c_int;
     return (*error_info).error_code;
@@ -855,5 +865,4 @@ extern "C" {
         __s: *mut FILE,
     ) -> core::ffi::c_ulong;
     fn feof(__stream: *mut FILE) -> core::ffi::c_int;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
 }

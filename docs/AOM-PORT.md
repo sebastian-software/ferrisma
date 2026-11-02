@@ -304,6 +304,14 @@ oracles for six Rust subjects, and 12 exact integer-model VMAF scenarios. That
 run still fails on the original C float-model rejection described in ADR 0042;
 later allocation, thread, focused API, and ABI gates were not reached.
 
+The subsequent native Linux failure gates exposed an incomplete translation:
+glibc expands `setjmp` to `_setjmp`, which the original mapping rule missed.
+The generator now normalizes that spelling before mapping all 32 scoped error
+targets in each Linux profile. Structural validation rejects surviving libc
+nonlocal-jump calls and incorrect target/transfer counts. Alias regression
+checks and artifact reproduction pass; native Linux compilation and failure
+behavior must pass again before accepting the corrected candidate.
+
 GNU pkg-config's `-pthread` spelling maps explicitly to the pthread library.
 For glibc's array-decayed `va_list` control callback typedef, ADR 0040 maps the parameter
 to Rust's C-compatible `VaList`, consistently with its callback definitions
@@ -318,12 +326,17 @@ part of the native VMAF boundary, not an additional ported implementation.
 
 `tools/import_aom_linux.py` verifies every artifact Rust hash, the exact
 168-unit closure, required configuration, and generated header hashes before
-importing a profile. It applies the same narrow callback correction and optional
-inline wrappers as the current translator; the other 326 production bodies
-are unchanged. Its `--check` mode verifies the complete transformation against
+importing a profile. It applies the same callback correction, glibc error-target
+mapping, and optional inline wrappers as the current translator. Its `--check`
+mode verifies the complete transformation against
 the original artifact. The original artifact and imported manifest digests,
 changed units, reference configurations, and immutable CI run are recorded in
 [the import record](aom-linux-source-import.json).
+
+`--refresh` reapplies reviewed rules only after matching every existing source
+hash, raw artifact digest, and reference configuration. It updates recorded
+Rust units and manifests; different reference headers or API/module files
+remain errors.
 
 The Linux workflow's `compile` mode builds and checks committed candidates
 without rerunning translation. `generate` produces fresh profiles; `verify`

@@ -13183,11 +13183,8 @@ unsafe extern "C-unwind" fn tile_worker_hook(
     let mut cm: *mut AV1_COMMON = &raw mut (*pbi).common;
     let td: *mut ThreadData = (*thread_data).td as *mut ThreadData;
     let mut allow_update_cdf: uint8_t = 0;
-    if _setjmp(((*thread_data).error_info.jmp).as_mut_ptr()) != 0 {
-        (*thread_data).error_info.setjmp = 0 as core::ffi::c_int;
-        (*(*thread_data).td).dcb.corrupted = 1 as core::ffi::c_int;
-        return 0 as core::ffi::c_int;
-    }
+    loop {
+match crate::jump::value_scope((((*thread_data).error_info.jmp).as_mut_ptr()).cast(), || {
     (*thread_data).error_info.setjmp = 1 as core::ffi::c_int;
     allow_update_cdf = (if (*cm).tiles.large_scale != 0 {
         0 as core::ffi::c_int
@@ -13231,8 +13228,14 @@ unsafe extern "C-unwind" fn tile_worker_hook(
         decode_tile(pbi, td, tile_row, tile_col);
     }
     (*thread_data).error_info.setjmp = 0 as core::ffi::c_int;
-    return ((*td).dcb.corrupted == 0) as core::ffi::c_int;
+    return ((*td).dcb.corrupted == 0) as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        (*thread_data).error_info.setjmp = 0 as core::ffi::c_int;
+        (*(*thread_data).td).dcb.corrupted = 1 as core::ffi::c_int;
+        return 0 as core::ffi::c_int;}
 }
+}}
 #[inline]
 unsafe extern "C-unwind" fn get_max_row_mt_workers_per_tile(
     mut cm: *mut AV1_COMMON,
@@ -13501,16 +13504,8 @@ unsafe extern "C-unwind" fn row_mt_worker_hook(
     let mut allow_update_cdf: uint8_t = 0;
     let mut frame_row_mt_info: *mut AV1DecRowMTInfo = &raw mut (*pbi).frame_row_mt_info;
     (*td).dcb.corrupted = 0 as core::ffi::c_int;
-    if _setjmp(((*thread_data).error_info.jmp).as_mut_ptr()) != 0 {
-        (*thread_data).error_info.setjmp = 0 as core::ffi::c_int;
-        (*(*thread_data).td).dcb.corrupted = 1 as core::ffi::c_int;
-        pthread_mutex_lock((*pbi).row_mt_mutex_);
-        (*frame_row_mt_info).row_mt_exit = 1 as core::ffi::c_int;
-        pthread_cond_broadcast((*pbi).row_mt_cond_);
-        pthread_mutex_unlock((*pbi).row_mt_mutex_);
-        signal_decoding_done_for_erroneous_row(pbi, &raw mut (*(*thread_data).td).dcb.xd);
-        return 0 as core::ffi::c_int;
-    }
+    loop {
+match crate::jump::value_scope((((*thread_data).error_info.jmp).as_mut_ptr()).cast(), || {
     (*thread_data).error_info.setjmp = 1 as core::ffi::c_int;
     let mut cm: *mut AV1_COMMON = &raw mut (*pbi).common;
     allow_update_cdf = (if (*cm).tiles.large_scale != 0 {
@@ -13599,8 +13594,19 @@ unsafe extern "C-unwind" fn row_mt_worker_hook(
         pthread_mutex_unlock((*pbi).row_mt_mutex_);
     }
     (*thread_data).error_info.setjmp = 0 as core::ffi::c_int;
-    return ((*td).dcb.corrupted == 0) as core::ffi::c_int;
+    return ((*td).dcb.corrupted == 0) as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        (*thread_data).error_info.setjmp = 0 as core::ffi::c_int;
+        (*(*thread_data).td).dcb.corrupted = 1 as core::ffi::c_int;
+        pthread_mutex_lock((*pbi).row_mt_mutex_);
+        (*frame_row_mt_info).row_mt_exit = 1 as core::ffi::c_int;
+        pthread_cond_broadcast((*pbi).row_mt_cond_);
+        pthread_mutex_unlock((*pbi).row_mt_mutex_);
+        signal_decoding_done_for_erroneous_row(pbi, &raw mut (*(*thread_data).td).dcb.xd);
+        return 0 as core::ffi::c_int;}
 }
+}}
 unsafe extern "C-unwind" fn compare_tile_buffers(
     mut a: *const core::ffi::c_void,
     mut b: *const core::ffi::c_void,
@@ -17699,7 +17705,6 @@ extern "C" {
         __line: core::ffi::c_uint,
         __function: *const core::ffi::c_char,
     ) -> !;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
     fn qsort(
         __base: *mut core::ffi::c_void,
         __nmemb: size_t,

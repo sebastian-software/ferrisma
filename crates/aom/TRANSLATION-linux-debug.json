@@ -598,12 +598,14 @@
       "source": "upstream/aom/aom_dsp/grain_table.c",
       "rust": "crates/aom/src/linux/debug/aom_dsp/grain_table.rs",
       "raw_sha256": "049d380c800c9362579cab72fbf153e30f590cd39c8e9600234f19942956b80c",
-      "rust_sha256": "b1342386d71f423ba3e1431566f58855d0d4de143280f6c9ae9c13219cab5240",
-      "production_rust_sha256": "b1342386d71f423ba3e1431566f58855d0d4de143280f6c9ae9c13219cab5240",
+      "rust_sha256": "b01e5fe21980e699134e47462a26de6295fb3549036dfc76d817cc04e530b702",
+      "production_rust_sha256": "b01e5fe21980e699134e47462a26de6295fb3549036dfc76d817cc04e530b702",
       "corrections": {
         "static-raw-address": 2,
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 32,
+        "glibc-setjmp-aliases": 3,
+        "scoped-nonlocal-error-targets": 2,
         "unwinding-codec-and-callback-abi": 8,
         "system-and-vmaf-c-abi-declarations": 12
       }
@@ -1103,12 +1105,14 @@
       "source": "upstream/aom/av1/common/thread_common.c",
       "rust": "crates/aom/src/linux/debug/av1/common/thread_common.rs",
       "raw_sha256": "bcef0d91629804b4f5aa28bb38a4196be0b4de853db6963596e328e496cc7544",
-      "rust_sha256": "dcd2f8304b3c94c4a148a08b50b9f95f58505f7782083106b21d8bcb3a5efb96",
-      "production_rust_sha256": "dcd2f8304b3c94c4a148a08b50b9f95f58505f7782083106b21d8bcb3a5efb96",
+      "rust_sha256": "2a2f4306b969f8dc6a4a24d39457004e51d6f326236c108039353c73bd906a64",
+      "production_rust_sha256": "2a2f4306b969f8dc6a4a24d39457004e51d6f326236c108039353c73bd906a64",
       "corrections": {
         "raw-c-mutable-address": 57,
         "raw-c-assignment-temporary": 11,
         "original-c-record-field-alignment": 5,
+        "glibc-setjmp-aliases": 4,
+        "scoped-nonlocal-error-targets": 3,
         "unwinding-codec-and-callback-abi": 77,
         "system-and-vmaf-c-abi-declarations": 12
       }
@@ -1163,17 +1167,19 @@
       "source": "upstream/aom/av1/av1_dx_iface.c",
       "rust": "crates/aom/src/linux/debug/av1/av1_dx_iface.rs",
       "raw_sha256": "50321ab1fdd7ce764d4941be555167af4f07ed2377cbf63fe0bb37460e99538a",
-      "rust_sha256": "bb396b9696525ab53d70ee5e7d9ba3839f1802b56215cad2feeeaf9d39eb51f0",
-      "production_rust_sha256": "bb396b9696525ab53d70ee5e7d9ba3839f1802b56215cad2feeeaf9d39eb51f0",
+      "rust_sha256": "6c3b42b6d74faeef433c6690c8fbcc322717a034eb7da7efc783290bf7ef622e",
+      "production_rust_sha256": "6c3b42b6d74faeef433c6690c8fbcc322717a034eb7da7efc783290bf7ef622e",
       "corrections": {
         "static-raw-address": 2,
         "variadic-abi": 1,
         "raw-c-mutable-address": 104,
         "raw-c-static-address": 1,
         "original-c-record-field-alignment": 10,
+        "current-rust-variadic-argument-method": 45,
+        "glibc-setjmp-aliases": 2,
+        "scoped-nonlocal-error-targets": 1,
         "unwinding-codec-and-callback-abi": 176,
         "system-and-vmaf-c-abi-declarations": 8,
-        "current-rust-variadic-argument-method": 45,
         "sysv-array-decayed-control-va-list": 1
       }
     },
@@ -1181,8 +1187,8 @@
       "source": "upstream/aom/av1/decoder/decodeframe.c",
       "rust": "crates/aom/src/linux/debug/av1/decoder/decodeframe.rs",
       "raw_sha256": "95b58920d6389898e8aba4f37a07654f36fdd09f64afda27073d96d8af76fea7",
-      "rust_sha256": "c732a3576797498775123c9b393e0018e0528235c2d9b11a57993a40019ad117",
-      "production_rust_sha256": "44955ebd01a3918a0f8ee20a2ddf4d3bd41115ecca712ec131374990884a264a",
+      "rust_sha256": "33f55c1159112f0e22a3af65bdb9bf894448305d576f87afa4ede6202ed0d3dc",
+      "production_rust_sha256": "9e4b5d1d11b7330245eff1b230c3169406aae6c03584aade969a687110bfcdfa",
       "corrections": {
         "canonical-cfg-labels": 2,
         "static-raw-address": 12,
@@ -1191,6 +1197,8 @@
         "raw-c-assignment-temporary": 25,
         "original-c-record-field-alignment": 10,
         "original-c-object-alignment": 8,
+        "glibc-setjmp-aliases": 3,
+        "scoped-nonlocal-error-targets": 2,
         "unwinding-codec-and-callback-abi": 293,
         "system-and-vmaf-c-abi-declarations": 14,
         "optional-inline-test-bridge": 1
@@ -1215,11 +1223,13 @@
       "source": "upstream/aom/av1/decoder/decoder.c",
       "rust": "crates/aom/src/linux/debug/av1/decoder/decoder.rs",
       "raw_sha256": "9d1680a21c8302a55c3bfa737902fccfc3e16029f6d0c0bd18e12e9c30b5008b",
-      "rust_sha256": "3dad3b933bb3247bf91db35962698c8ed007c2161f48a13bac904a0e2b428472",
-      "production_rust_sha256": "3dad3b933bb3247bf91db35962698c8ed007c2161f48a13bac904a0e2b428472",
+      "rust_sha256": "f4b553ab0f66db6a76580fc05cf78b92ab40ee0082dca2bcb2dfe39daff9c9be",
+      "production_rust_sha256": "f4b553ab0f66db6a76580fc05cf78b92ab40ee0082dca2bcb2dfe39daff9c9be",
       "corrections": {
         "raw-c-mutable-address": 33,
         "original-c-record-field-alignment": 10,
+        "glibc-setjmp-aliases": 3,
+        "scoped-nonlocal-error-targets": 2,
         "unwinding-codec-and-callback-abi": 56,
         "system-and-vmaf-c-abi-declarations": 7
       }
@@ -1286,8 +1296,8 @@
       "source": "upstream/aom/av1/av1_cx_iface.c",
       "rust": "crates/aom/src/linux/debug/av1/av1_cx_iface.rs",
       "raw_sha256": "b8acbc345ad53db9a0a3a72320db031680c803be8809cc9b94ae78daf65a1da6",
-      "rust_sha256": "99c2df69d69464f14fc0a8bdaf5dfa6580b5e94af3b74d428f70ce8ca9adb93f",
-      "production_rust_sha256": "99c2df69d69464f14fc0a8bdaf5dfa6580b5e94af3b74d428f70ce8ca9adb93f",
+      "rust_sha256": "c0da181703d02e0d18164e02308d52900ead21b8e70809b223f30199d301c3d6",
+      "production_rust_sha256": "c0da181703d02e0d18164e02308d52900ead21b8e70809b223f30199d301c3d6",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,
@@ -1296,9 +1306,11 @@
         "raw-c-mutable-address": 585,
         "raw-c-static-address": 1,
         "original-c-record-field-alignment": 27,
+        "current-rust-variadic-argument-method": 167,
+        "glibc-setjmp-aliases": 8,
+        "scoped-nonlocal-error-targets": 7,
         "unwinding-codec-and-callback-abi": 469,
         "system-and-vmaf-c-abi-declarations": 13,
-        "current-rust-variadic-argument-method": 167,
         "sysv-array-decayed-control-va-list": 1
       }
     },
@@ -1466,12 +1478,14 @@
       "source": "upstream/aom/av1/encoder/context_tree.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/context_tree.rs",
       "raw_sha256": "6c8cd7cc9aef8dfce170d9f98b8a14ca58f802fe00995da8084ba60965267323",
-      "rust_sha256": "9584005d1cbc5836f8fa03fc748ac5e633ddf9ae908a23424aff14492729017d",
-      "production_rust_sha256": "9584005d1cbc5836f8fa03fc748ac5e633ddf9ae908a23424aff14492729017d",
+      "rust_sha256": "74f05125819603ecbdf48bcdfb907ea6bf1ecbdac3f9086acc8681340cf7594b",
+      "production_rust_sha256": "74f05125819603ecbdf48bcdfb907ea6bf1ecbdac3f9086acc8681340cf7594b",
       "corrections": {
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 14,
         "original-c-record-field-alignment": 27,
+        "glibc-setjmp-aliases": 2,
+        "scoped-nonlocal-error-targets": 1,
         "unwinding-codec-and-callback-abi": 57,
         "system-and-vmaf-c-abi-declarations": 4
       }
@@ -1499,9 +1513,9 @@
         "raw-c-mutable-address": 189,
         "raw-c-assignment-temporary": 4,
         "original-c-record-field-alignment": 27,
+        "c-boolean-integer-conversion": 2,
         "unwinding-codec-and-callback-abi": 182,
-        "system-and-vmaf-c-abi-declarations": 9,
-        "c-boolean-integer-conversion": 2
+        "system-and-vmaf-c-abi-declarations": 9
       }
     },
     {
@@ -1560,25 +1574,27 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 79,
         "original-c-record-field-alignment": 27,
+        "c-boolean-integer-conversion": 1,
         "unwinding-codec-and-callback-abi": 93,
-        "system-and-vmaf-c-abi-declarations": 5,
-        "c-boolean-integer-conversion": 1
+        "system-and-vmaf-c-abi-declarations": 5
       }
     },
     {
       "source": "upstream/aom/av1/encoder/encoder.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/encoder.rs",
       "raw_sha256": "715b297908d84cfad5eea29c607f2229e4f043b723d546b1f404425772c1e24b",
-      "rust_sha256": "380f06bf0ea2f894d397297db85a6ce4b61d778234b67ae23b524d12279e827e",
-      "production_rust_sha256": "380f06bf0ea2f894d397297db85a6ce4b61d778234b67ae23b524d12279e827e",
+      "rust_sha256": "af8e3756e6f772cb3951fa159c2a2908113efd2b6d5bf4768d408e249b915fd9",
+      "production_rust_sha256": "af8e3756e6f772cb3951fa159c2a2908113efd2b6d5bf4768d408e249b915fd9",
       "corrections": {
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 415,
         "raw-c-assignment-temporary": 3,
         "original-c-record-field-alignment": 27,
+        "c-boolean-integer-conversion": 2,
+        "glibc-setjmp-aliases": 4,
+        "scoped-nonlocal-error-targets": 3,
         "unwinding-codec-and-callback-abi": 1875,
-        "system-and-vmaf-c-abi-declarations": 13,
-        "c-boolean-integer-conversion": 2
+        "system-and-vmaf-c-abi-declarations": 13
       }
     },
     {
@@ -1616,14 +1632,16 @@
       "source": "upstream/aom/av1/encoder/ethread.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/ethread.rs",
       "raw_sha256": "a8ba4565f0712bd45d4d30627e5ae9db760e3a09ff6a57782cdf608a4f25605d",
-      "rust_sha256": "87e1d18ed84dffd67821c8682d456b9b437ae39de7928cb1c8e9811dfbd3fd36",
-      "production_rust_sha256": "87e1d18ed84dffd67821c8682d456b9b437ae39de7928cb1c8e9811dfbd3fd36",
+      "rust_sha256": "d95c6a401fc5a47b247c18288800e193419094f85a58b4ce86c3c5e5abe80d30",
+      "production_rust_sha256": "d95c6a401fc5a47b247c18288800e193419094f85a58b4ce86c3c5e5abe80d30",
       "corrections": {
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 387,
         "raw-c-assignment-temporary": 9,
         "original-c-record-field-alignment": 27,
         "original-c-object-alignment": 4,
+        "glibc-setjmp-aliases": 12,
+        "scoped-nonlocal-error-targets": 11,
         "unwinding-codec-and-callback-abi": 216,
         "system-and-vmaf-c-abi-declarations": 14
       }
@@ -1709,9 +1727,9 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 33,
         "original-c-record-field-alignment": 27,
+        "c-boolean-integer-conversion": 1,
         "unwinding-codec-and-callback-abi": 60,
-        "system-and-vmaf-c-abi-declarations": 2,
-        "c-boolean-integer-conversion": 1
+        "system-and-vmaf-c-abi-declarations": 2
       }
     },
     {
@@ -1885,9 +1903,9 @@
         "raw-c-mutable-address": 315,
         "raw-c-assignment-temporary": 44,
         "original-c-record-field-alignment": 27,
+        "c-boolean-integer-conversion": 2,
         "unwinding-codec-and-callback-abi": 255,
-        "system-and-vmaf-c-abi-declarations": 6,
-        "c-boolean-integer-conversion": 2
+        "system-and-vmaf-c-abi-declarations": 6
       }
     },
     {
@@ -1949,9 +1967,9 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 21,
         "original-c-record-field-alignment": 27,
+        "c-boolean-integer-conversion": 1,
         "unwinding-codec-and-callback-abi": 55,
-        "system-and-vmaf-c-abi-declarations": 2,
-        "c-boolean-integer-conversion": 1
+        "system-and-vmaf-c-abi-declarations": 2
       }
     },
     {
@@ -2035,10 +2053,10 @@
         "raw-c-assignment-temporary": 11,
         "original-c-record-field-alignment": 27,
         "original-c-object-alignment": 1,
-        "unwinding-codec-and-callback-abi": 187,
-        "system-and-vmaf-c-abi-declarations": 5,
         "c-boolean-integer-conversion": 2,
-        "packed-byte-enum-assignment-cast": 1
+        "packed-byte-enum-assignment-cast": 1,
+        "unwinding-codec-and-callback-abi": 187,
+        "system-and-vmaf-c-abi-declarations": 5
       }
     },
     {
@@ -2199,9 +2217,9 @@
         "raw-c-assignment-temporary": 2,
         "original-c-record-field-alignment": 27,
         "original-c-object-alignment": 2,
+        "name-static-float-compound-literals": 9,
         "unwinding-codec-and-callback-abi": 166,
-        "system-and-vmaf-c-abi-declarations": 8,
-        "name-static-float-compound-literals": 9
+        "system-and-vmaf-c-abi-declarations": 8
       }
     },
     {

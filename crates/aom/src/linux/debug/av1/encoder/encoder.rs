@@ -16507,11 +16507,8 @@ pub unsafe extern "C-unwind" fn av1_create_primary_compressor(
         0 as core::ffi::c_int,
         ::core::mem::size_of::<AV1_PRIMARY>() as size_t,
     );
-    if _setjmp(((*ppi).error.jmp).as_mut_ptr()) != 0 {
-        (*ppi).error.setjmp = 0 as core::ffi::c_int;
-        av1_remove_primary_compressor(ppi);
-        return 0 as *mut AV1_PRIMARY;
-    }
+    loop {
+match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
     (*ppi).error.setjmp = 1 as core::ffi::c_int;
     (*ppi).seq_params_locked = 0 as core::ffi::c_int;
     (*ppi).lap_enabled = (num_lap_buffers > 0 as core::ffi::c_int) as core::ffi::c_int;
@@ -19782,8 +19779,14 @@ pub unsafe extern "C-unwind" fn av1_create_primary_compressor(
         );
     }
     (*ppi).error.setjmp = 0 as core::ffi::c_int;
-    return ppi as *mut AV1_PRIMARY;
+    return ppi as *mut AV1_PRIMARY;}) {
+Some(value) => return value,
+None => {
+        (*ppi).error.setjmp = 0 as core::ffi::c_int;
+        av1_remove_primary_compressor(ppi);
+        return 0 as *mut AV1_PRIMARY;}
 }
+}}
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_create_compressor(
     mut ppi: *mut AV1_PRIMARY,
@@ -19815,11 +19818,8 @@ pub unsafe extern "C-unwind" fn av1_create_compressor(
         aom_free(cpi as *mut core::ffi::c_void);
         return 0 as *mut AV1_COMP;
     }
-    if _setjmp(((*(*cm).error).jmp).as_mut_ptr()) != 0 {
-        (*(*cm).error).setjmp = 0 as core::ffi::c_int;
-        av1_remove_compressor(cpi);
-        return 0 as *mut AV1_COMP;
-    }
+    loop {
+match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
     (*(*cm).error).setjmp = 1 as core::ffi::c_int;
     (*cpi).compressor_stage = stage;
     (*cpi).do_frame_data_update = true_0 != 0;
@@ -20201,8 +20201,14 @@ pub unsafe extern "C-unwind" fn av1_create_compressor(
     (*cpi).second_pass_log_stream = 0 as *mut FILE;
     (*cpi).use_ducky_encode = 0 as core::ffi::c_int;
     (*(*cm).error).setjmp = 0 as core::ffi::c_int;
-    return cpi as *mut AV1_COMP;
+    return cpi as *mut AV1_COMP;}) {
+Some(value) => return value,
+None => {
+        (*(*cm).error).setjmp = 0 as core::ffi::c_int;
+        av1_remove_compressor(cpi);
+        return 0 as *mut AV1_COMP;}
 }
+}}
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_remove_primary_compressor(mut ppi: *mut AV1_PRIMARY) {
     if ppi.is_null() {
@@ -24543,10 +24549,8 @@ pub unsafe extern "C-unwind" fn av1_get_compressed_data(
 ) -> core::ffi::c_int {
     let oxcf: *const AV1EncoderConfig = &raw mut (*cpi).oxcf;
     let cm: *mut AV1_COMMON = &raw mut (*cpi).common;
-    if _setjmp(((*(*cm).error).jmp).as_mut_ptr()) != 0 {
-        (*(*cm).error).setjmp = 0 as core::ffi::c_int;
-        return (*(*cm).error).error_code as core::ffi::c_int;
-    }
+    loop {
+match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
     (*(*cm).error).setjmp = 1 as core::ffi::c_int;
     if (*(*cpi).ppi).use_svc != 0 {
         av1_one_pass_cbr_svc_start_layer(cpi as *mut AV1_COMP);
@@ -24600,8 +24604,13 @@ pub unsafe extern "C-unwind" fn av1_get_compressed_data(
         );
     }
     (*(*cm).error).setjmp = 0 as core::ffi::c_int;
-    return AOM_CODEC_OK as core::ffi::c_int;
+    return AOM_CODEC_OK as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        (*(*cm).error).setjmp = 0 as core::ffi::c_int;
+        return (*(*cm).error).error_code as core::ffi::c_int;}
 }
+}}
 unsafe extern "C-unwind" fn scale_references_fpmt(
     mut cpi: *mut AV1_COMP,
     mut ref_buffers_used_map: *mut core::ffi::c_int,
@@ -44791,5 +44800,4 @@ extern "C" {
     fn pthread_mutex_lock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
     fn pthread_mutex_unlock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
     fn pthread_cond_destroy(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
 }

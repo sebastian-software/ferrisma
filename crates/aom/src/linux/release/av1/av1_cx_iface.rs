@@ -9142,15 +9142,9 @@ unsafe extern "C-unwind" fn encoder_set_config(
         while i < (*(*ctx).ppi).num_fp_contexts {
             let cpi: *mut AV1_COMP = (*(*ctx).ppi).parallel_cpi[i as usize];
             let enable_setjmp_error: *mut aom_internal_error_info = (*cpi).common.error;
-            if _setjmp(((*enable_setjmp_error).jmp).as_mut_ptr()) != 0 {
-                (*enable_setjmp_error).setjmp = 0 as core::ffi::c_int;
-                (*ctx).base.err_detail = if (*enable_setjmp_error).has_detail != 0 {
-                    ((*enable_setjmp_error).detail).as_mut_ptr()
-                } else {
-                    0 as *mut core::ffi::c_char
-                };
-                return (*enable_setjmp_error).error_code;
-            }
+            loop {
+match crate::jump::scope((((*enable_setjmp_error).jmp).as_mut_ptr()).cast(), || {
+
             (*enable_setjmp_error).setjmp = 1 as core::ffi::c_int;
             av1_change_config(cpi, &raw mut (*ctx).oxcf, is_sb_size_changed);
             let enable_setjmp_error_0: *mut aom_internal_error_info = (*cpi)
@@ -9158,28 +9152,48 @@ unsafe extern "C-unwind" fn encoder_set_config(
                 .error;
             (*enable_setjmp_error_0).setjmp = 0 as core::ffi::c_int;
             i += 1;
-        }
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) => break,
+None => {
+                (*enable_setjmp_error).setjmp = 0 as core::ffi::c_int;
+                (*ctx).base.err_detail = if (*enable_setjmp_error).has_detail != 0 {
+                    ((*enable_setjmp_error).detail).as_mut_ptr()
+                } else {
+                    0 as *mut core::ffi::c_char
+                };
+                return (*enable_setjmp_error).error_code;}
+}
+}}
         if !((*(*ctx).ppi).cpi_lap).is_null() {
             let cpi_0: *mut AV1_COMP = (*(*ctx).ppi).cpi_lap as *mut AV1_COMP;
             let enable_setjmp_error_1: *mut aom_internal_error_info = (*cpi_0)
                 .common
                 .error;
-            if _setjmp(((*enable_setjmp_error_1).jmp).as_mut_ptr()) != 0 {
-                (*enable_setjmp_error_1).setjmp = 0 as core::ffi::c_int;
-                (*ctx).base.err_detail = if (*enable_setjmp_error_1).has_detail != 0 {
-                    ((*enable_setjmp_error_1).detail).as_mut_ptr()
-                } else {
-                    0 as *mut core::ffi::c_char
-                };
-                return (*enable_setjmp_error_1).error_code;
-            }
+            loop {
+match crate::jump::scope((((*enable_setjmp_error_1).jmp).as_mut_ptr()).cast(), || {
+
             (*enable_setjmp_error_1).setjmp = 1 as core::ffi::c_int;
             av1_change_config(cpi_0, &raw mut (*ctx).oxcf, is_sb_size_changed);
             let enable_setjmp_error_2: *mut aom_internal_error_info = (*cpi_0)
                 .common
                 .error;
             (*enable_setjmp_error_2).setjmp = 0 as core::ffi::c_int;
-        }
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) => break,
+None => {
+                (*enable_setjmp_error_1).setjmp = 0 as core::ffi::c_int;
+                (*ctx).base.err_detail = if (*enable_setjmp_error_1).has_detail != 0 {
+                    ((*enable_setjmp_error_1).detail).as_mut_ptr()
+                } else {
+                    0 as *mut core::ffi::c_char
+                };
+                return (*enable_setjmp_error_1).error_code;}
+}
+}}
     }
     if force_key != 0 {
         (*ctx).next_frame_flags |= AOM_EFLAG_FORCE_KF as aom_enc_frame_flags_t;
@@ -9249,42 +9263,56 @@ unsafe extern "C-unwind" fn update_encoder_cfg(
     while i < (*(*ctx).ppi).num_fp_contexts {
         let cpi: *mut AV1_COMP = (*(*ctx).ppi).parallel_cpi[i as usize];
         let enable_setjmp_error: *mut aom_internal_error_info = (*cpi).common.error;
-        if _setjmp(((*enable_setjmp_error).jmp).as_mut_ptr()) != 0 {
+        loop {
+match crate::jump::scope((((*enable_setjmp_error).jmp).as_mut_ptr()).cast(), || {
+
+        (*enable_setjmp_error).setjmp = 1 as core::ffi::c_int;
+        av1_change_config(cpi, &raw mut (*ctx).oxcf, is_sb_size_changed);
+        let enable_setjmp_error_0: *mut aom_internal_error_info = (*cpi).common.error;
+        (*enable_setjmp_error_0).setjmp = 0 as core::ffi::c_int;
+        i += 1;
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) => break,
+None => {
             (*enable_setjmp_error).setjmp = 0 as core::ffi::c_int;
             (*ctx).base.err_detail = if (*enable_setjmp_error).has_detail != 0 {
                 ((*enable_setjmp_error).detail).as_mut_ptr()
             } else {
                 0 as *mut core::ffi::c_char
             };
-            return (*enable_setjmp_error).error_code;
-        }
-        (*enable_setjmp_error).setjmp = 1 as core::ffi::c_int;
-        av1_change_config(cpi, &raw mut (*ctx).oxcf, is_sb_size_changed);
-        let enable_setjmp_error_0: *mut aom_internal_error_info = (*cpi).common.error;
-        (*enable_setjmp_error_0).setjmp = 0 as core::ffi::c_int;
-        i += 1;
-    }
+            return (*enable_setjmp_error).error_code;}
+}
+}}
     if !((*(*ctx).ppi).cpi_lap).is_null() {
         let cpi_lap: *mut AV1_COMP = (*(*ctx).ppi).cpi_lap as *mut AV1_COMP;
         let enable_setjmp_error_1: *mut aom_internal_error_info = (*cpi_lap)
             .common
             .error;
-        if _setjmp(((*enable_setjmp_error_1).jmp).as_mut_ptr()) != 0 {
-            (*enable_setjmp_error_1).setjmp = 0 as core::ffi::c_int;
-            (*ctx).base.err_detail = if (*enable_setjmp_error_1).has_detail != 0 {
-                ((*enable_setjmp_error_1).detail).as_mut_ptr()
-            } else {
-                0 as *mut core::ffi::c_char
-            };
-            return (*enable_setjmp_error_1).error_code;
-        }
+        loop {
+match crate::jump::scope((((*enable_setjmp_error_1).jmp).as_mut_ptr()).cast(), || {
+
         (*enable_setjmp_error_1).setjmp = 1 as core::ffi::c_int;
         av1_change_config(cpi_lap, &raw mut (*ctx).oxcf, is_sb_size_changed);
         let enable_setjmp_error_2: *mut aom_internal_error_info = (*cpi_lap)
             .common
             .error;
         (*enable_setjmp_error_2).setjmp = 0 as core::ffi::c_int;
-    }
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) => break,
+None => {
+            (*enable_setjmp_error_1).setjmp = 0 as core::ffi::c_int;
+            (*ctx).base.err_detail = if (*enable_setjmp_error_1).has_detail != 0 {
+                ((*enable_setjmp_error_1).detail).as_mut_ptr()
+            } else {
+                0 as *mut core::ffi::c_char
+            };
+            return (*enable_setjmp_error_1).error_code;}
+}
+}}
     return AOM_CODEC_OK;
 }
 unsafe extern "C-unwind" fn update_extra_cfg(
@@ -11306,14 +11334,8 @@ unsafe extern "C-unwind" fn encoder_encode(
         .wrapping_div(::core::mem::size_of::<aom_codec_cx_pkt>() as usize)
         as core::ffi::c_uint;
     let mut flags: aom_enc_frame_flags_t = enc_flags;
-    if _setjmp(((*ppi).error.jmp).as_mut_ptr()) != 0 {
-        (*ppi).error.setjmp = 0 as core::ffi::c_int;
-        ::core::ptr::write_volatile(
-            &raw mut res as *mut aom_codec_err_t,
-            update_error_state(ctx, &raw mut (*ppi).error),
-        );
-        return res;
-    }
+    loop {
+match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
     (*ppi).error.setjmp = 1 as core::ffi::c_int;
     if (*ppi).use_svc != 0
         && (*(*ppi).cpi).svc.use_flexible_mode == 0 as core::ffi::c_int
@@ -12057,8 +12079,17 @@ unsafe extern "C-unwind" fn encoder_encode(
         }
     }
     (*ppi).error.setjmp = 0 as core::ffi::c_int;
-    return res;
+    return res;}) {
+Some(value) => return value,
+None => {
+        (*ppi).error.setjmp = 0 as core::ffi::c_int;
+        ::core::ptr::write_volatile(
+            &raw mut res as *mut aom_codec_err_t,
+            update_error_state(ctx, &raw mut (*ppi).error),
+        );
+        return res;}
 }
+}}
 unsafe extern "C-unwind" fn encoder_get_cxdata(
     mut ctx: *mut aom_codec_alg_priv_t,
     mut iter: *mut aom_codec_iter_t,
@@ -12846,15 +12877,9 @@ unsafe extern "C-unwind" fn ctrl_set_svc_params(
             (*ctx).oxcf.rc_cfg.target_bandwidth = (*oxcf).rc_cfg.target_bandwidth;
             set_primary_rc_buffer_sizes(oxcf, ppi);
             let enable_setjmp_error: *mut aom_internal_error_info = (*cpi).common.error;
-            if _setjmp(((*enable_setjmp_error).jmp).as_mut_ptr()) != 0 {
-                (*enable_setjmp_error).setjmp = 0 as core::ffi::c_int;
-                (*ctx).base.err_detail = if (*enable_setjmp_error).has_detail != 0 {
-                    ((*enable_setjmp_error).detail).as_mut_ptr()
-                } else {
-                    0 as *mut core::ffi::c_char
-                };
-                return (*enable_setjmp_error).error_code;
-            }
+            loop {
+match crate::jump::scope((((*enable_setjmp_error).jmp).as_mut_ptr()).cast(), || {
+
             (*enable_setjmp_error).setjmp = 1 as core::ffi::c_int;
             av1_update_layer_context_change_config(
                 cpi as *mut AV1_COMP,
@@ -12865,7 +12890,20 @@ unsafe extern "C-unwind" fn ctrl_set_svc_params(
                 .error;
             (*enable_setjmp_error_0).setjmp = 0 as core::ffi::c_int;
             check_reset_rc_flag(cpi);
-        } else {
+crate::jump::Scope::Done
+}) {
+Some(crate::jump::Scope::Returned(value)) => return value,
+Some(crate::jump::Scope::Done) => break,
+None => {
+                (*enable_setjmp_error).setjmp = 0 as core::ffi::c_int;
+                (*ctx).base.err_detail = if (*enable_setjmp_error).has_detail != 0 {
+                    ((*enable_setjmp_error).detail).as_mut_ptr()
+                } else {
+                    0 as *mut core::ffi::c_char
+                };
+                return (*enable_setjmp_error).error_code;}
+}
+}} else {
             (*cpi).oxcf.rc_cfg.target_bandwidth = target_bandwidth;
             (*ctx).oxcf.rc_cfg.target_bandwidth = (*cpi).oxcf.rc_cfg.target_bandwidth;
             let seq_params_0: *mut SequenceHeader = &raw mut (*ppi).seq_params;
@@ -12875,23 +12913,26 @@ unsafe extern "C-unwind" fn ctrl_set_svc_params(
             let enable_setjmp_error_1: *mut aom_internal_error_info = (*cpi)
                 .common
                 .error;
-            if _setjmp(((*enable_setjmp_error_1).jmp).as_mut_ptr()) != 0 {
-                (*enable_setjmp_error_1).setjmp = 0 as core::ffi::c_int;
-                (*ctx).base.err_detail = if (*enable_setjmp_error_1).has_detail != 0 {
-                    ((*enable_setjmp_error_1).detail).as_mut_ptr()
-                } else {
-                    0 as *mut core::ffi::c_char
-                };
-                return (*enable_setjmp_error_1).error_code;
-            }
+            loop {
+match crate::jump::value_scope((((*enable_setjmp_error_1).jmp).as_mut_ptr()).cast(), || {
             (*enable_setjmp_error_1).setjmp = 1 as core::ffi::c_int;
             av1_init_layer_context(cpi as *mut AV1_COMP);
             let enable_setjmp_error_2: *mut aom_internal_error_info = (*cpi)
                 .common
                 .error;
             (*enable_setjmp_error_2).setjmp = 0 as core::ffi::c_int;
-            return update_encoder_cfg(ctx);
-        }
+            return update_encoder_cfg(ctx);}) {
+Some(value) => return value,
+None => {
+                (*enable_setjmp_error_1).setjmp = 0 as core::ffi::c_int;
+                (*ctx).base.err_detail = if (*enable_setjmp_error_1).has_detail != 0 {
+                    ((*enable_setjmp_error_1).detail).as_mut_ptr()
+                } else {
+                    0 as *mut core::ffi::c_char
+                };
+                return (*enable_setjmp_error_1).error_code;}
+}
+}}
     } else if (*ppi).seq_params_locked == 0 {
         return update_encoder_cfg(ctx)
     }
@@ -17783,7 +17824,6 @@ static INIT_ARRAY: [unsafe extern "C-unwind" fn(); 1] = [run_static_initializers
 
 extern "C" {
     fn log2(__x: core::ffi::c_double) -> core::ffi::c_double;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
     fn malloc(__size: size_t) -> *mut core::ffi::c_void;
     fn free(__ptr: *mut core::ffi::c_void);
     fn memcpy(

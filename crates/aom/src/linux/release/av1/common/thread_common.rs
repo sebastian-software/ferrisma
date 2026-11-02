@@ -2283,18 +2283,8 @@ unsafe extern "C-unwind" fn loop_filter_row_worker(
     let mut cur_job_info: *mut AV1LfMTInfo = 0 as *mut AV1LfMTInfo;
     let mut job_mutex_: *mut pthread_mutex_t = (*lf_sync).job_mutex;
     let error_info: *mut aom_internal_error_info = &raw mut (*lf_data).error_info;
-    if _setjmp(((*error_info).jmp).as_mut_ptr()) != 0 {
-        (*error_info).setjmp = 0 as core::ffi::c_int;
-        pthread_mutex_lock(job_mutex_);
-        (*lf_sync).lf_mt_exit = true_0 != 0;
-        pthread_mutex_unlock(job_mutex_);
-        av1_set_vert_loop_filter_done(
-            (*lf_data).cm as *mut AV1_COMMON,
-            lf_sync,
-            MAX_MIB_SIZE_LOG2,
-        );
-        return 0 as core::ffi::c_int;
-    }
+    loop {
+match crate::jump::value_scope((((*error_info).jmp).as_mut_ptr()).cast(), || {
     (*error_info).setjmp = 1 as core::ffi::c_int;
     loop {
         cur_job_info = get_lf_job_info(lf_sync);
@@ -2319,8 +2309,21 @@ unsafe extern "C-unwind" fn loop_filter_row_worker(
         );
     }
     (*error_info).setjmp = 0 as core::ffi::c_int;
-    return 1 as core::ffi::c_int;
+    return 1 as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        (*error_info).setjmp = 0 as core::ffi::c_int;
+        pthread_mutex_lock(job_mutex_);
+        (*lf_sync).lf_mt_exit = true_0 != 0;
+        pthread_mutex_unlock(job_mutex_);
+        av1_set_vert_loop_filter_done(
+            (*lf_data).cm as *mut AV1_COMMON,
+            lf_sync,
+            MAX_MIB_SIZE_LOG2,
+        );
+        return 0 as core::ffi::c_int;}
 }
+}}
 unsafe extern "C-unwind" fn loop_filter_rows_mt(
     mut frame: *mut YV12_BUFFER_CONFIG,
     mut cm: *mut AV1_COMMON,
@@ -3003,14 +3006,8 @@ unsafe extern "C-unwind" fn loop_restoration_row_worker(
     let mut plane_w: core::ffi::c_int = 0;
     let mut job_mutex_: *mut pthread_mutex_t = (*lr_sync).job_mutex;
     let error_info: *mut aom_internal_error_info = &raw mut (*lrworkerdata).error_info;
-    if _setjmp(((*error_info).jmp).as_mut_ptr()) != 0 {
-        (*error_info).setjmp = 0 as core::ffi::c_int;
-        pthread_mutex_lock(job_mutex_);
-        (*lr_sync).lr_mt_exit = true_0 != 0;
-        pthread_mutex_unlock(job_mutex_);
-        set_loop_restoration_done(lr_sync, ((*lr_ctxt).ctxt).as_mut_ptr());
-        return 0 as core::ffi::c_int;
-    }
+    loop {
+match crate::jump::value_scope((((*error_info).jmp).as_mut_ptr()).cast(), || {
     (*error_info).setjmp = 1 as core::ffi::c_int;
     static mut copy_funs: [copy_fun; 3] = unsafe {
         [
@@ -3150,8 +3147,17 @@ unsafe extern "C-unwind" fn loop_restoration_row_worker(
         }
     }
     (*error_info).setjmp = 0 as core::ffi::c_int;
-    return 1 as core::ffi::c_int;
+    return 1 as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        (*error_info).setjmp = 0 as core::ffi::c_int;
+        pthread_mutex_lock(job_mutex_);
+        (*lr_sync).lr_mt_exit = true_0 != 0;
+        pthread_mutex_unlock(job_mutex_);
+        set_loop_restoration_done(lr_sync, ((*lr_ctxt).ctxt).as_mut_ptr());
+        return 0 as core::ffi::c_int;}
 }
+}}
 #[inline]
 unsafe extern "C-unwind" fn sync_lr_workers(
     workers: *mut AVxWorker,
@@ -3417,14 +3423,8 @@ unsafe extern "C-unwind" fn cdef_sb_row_worker_hook(
         - 1 as core::ffi::c_int) / MI_SIZE_64X64;
     let mut job_mutex_: *mut pthread_mutex_t = (*cdef_sync).mutex_;
     let error_info: *mut aom_internal_error_info = &raw mut (*cdef_worker).error_info;
-    if _setjmp(((*error_info).jmp).as_mut_ptr()) != 0 {
-        (*error_info).setjmp = 0 as core::ffi::c_int;
-        pthread_mutex_lock(job_mutex_);
-        (*cdef_sync).cdef_mt_exit = true_0 != 0;
-        pthread_mutex_unlock(job_mutex_);
-        set_cdef_init_fb_row_done(cdef_sync, nvfb);
-        return 0 as core::ffi::c_int;
-    }
+    loop {
+match crate::jump::value_scope((((*error_info).jmp).as_mut_ptr()).cast(), || {
     (*error_info).setjmp = 1 as core::ffi::c_int;
     let mut cur_fbr: core::ffi::c_int = 0;
     let num_planes: core::ffi::c_int = av1_num_planes(cm) as core::ffi::c_int;
@@ -3469,8 +3469,17 @@ unsafe extern "C-unwind" fn cdef_sb_row_worker_hook(
         }
     }
     (*error_info).setjmp = 0 as core::ffi::c_int;
-    return 1 as core::ffi::c_int;
+    return 1 as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        (*error_info).setjmp = 0 as core::ffi::c_int;
+        pthread_mutex_lock(job_mutex_);
+        (*cdef_sync).cdef_mt_exit = true_0 != 0;
+        pthread_mutex_unlock(job_mutex_);
+        set_cdef_init_fb_row_done(cdef_sync, nvfb);
+        return 0 as core::ffi::c_int;}
 }
+}}
 unsafe extern "C-unwind" fn prepare_cdef_frame_workers(
     cm: *mut AV1_COMMON,
     mut xd: *mut MACROBLOCKD,
@@ -3902,5 +3911,4 @@ extern "C" {
         __cond: *mut pthread_cond_t,
         __mutex: *mut pthread_mutex_t,
     ) -> core::ffi::c_int;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
 }

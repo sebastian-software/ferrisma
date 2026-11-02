@@ -5753,5 +5753,29 @@
   ],
   "ci_conclusion": "failure",
   "ci_failure": "Supplementary float-model encoding assumed success, but the unchanged original C codec rejects the model; diagnosed separately in ADR 0042",
-  "artifact_id": 13136854347
+  "artifact_id": 13136854347,
+  "candidate_error_mapping": {
+    "debug": {
+      "translation_manifest_sha256": "f775b96be412bdeb3a8a566d44cbcb44cf0bdd64553cb7f040f050f9c919bbeb",
+      "corrections": {
+        "glibc-setjmp-aliases": 41,
+        "scoped-nonlocal-error-targets": 32,
+        "typed-nonlocal-error-transfer": 1
+      },
+      "source_artifact_run": 41417830280,
+      "reproduced_from_original_artifact": true,
+      "native_compilation_and_failure_behavior_pending": true
+    },
+    "release": {
+      "translation_manifest_sha256": "652dece31ca1ec4cf69c370bf256115dbb8e9227a37a7ff2b6445cbe17974c75",
+      "corrections": {
+        "glibc-setjmp-aliases": 41,
+        "scoped-nonlocal-error-targets": 32,
+        "typed-nonlocal-error-transfer": 1
+      },
+      "source_artifact_run": 41417830280,
+      "reproduced_from_original_artifact": true,
+      "native_compilation_and_failure_behavior_pending": true
+    }
+  }
 }

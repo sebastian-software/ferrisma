@@ -3762,10 +3762,8 @@ unsafe extern "C-unwind" fn ctrl_set_reference(
         let error: *mut aom_internal_error_info = (*(*frame_worker_data).pbi)
             .common
             .error;
-        if _setjmp(((*error).jmp).as_mut_ptr()) != 0 {
-            (*error).setjmp = 0 as core::ffi::c_int;
-            return (*error).error_code;
-        }
+        loop {
+match crate::jump::value_scope((((*error).jmp).as_mut_ptr()).cast(), || {
         (*error).setjmp = 1 as core::ffi::c_int;
         av1_set_reference_dec(
             &raw mut (*(*frame_worker_data).pbi).common,
@@ -3774,8 +3772,13 @@ unsafe extern "C-unwind" fn ctrl_set_reference(
             &raw mut sd,
         );
         (*error).setjmp = 0 as core::ffi::c_int;
-        return AOM_CODEC_OK;
-    } else {
+        return AOM_CODEC_OK;}) {
+Some(value) => return value,
+None => {
+            (*error).setjmp = 0 as core::ffi::c_int;
+            return (*error).error_code;}
+}
+}} else {
         return AOM_CODEC_INVALID_PARAM
     };
 }
@@ -5902,7 +5905,6 @@ extern "C" {
         __format: *const core::ffi::c_char,
         ...
     ) -> core::ffi::c_int;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
     fn pthread_mutex_init(
         __mutex: *mut pthread_mutex_t,
         __mutexattr: *const pthread_mutexattr_t,

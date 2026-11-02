@@ -2113,11 +2113,8 @@ pub unsafe extern "C-unwind" fn av1_decoder_create(pool: *mut BufferPool) -> *mu
     let cm: *mut AV1_COMMON = &raw mut (*pbi).common;
     (*cm).seq_params = &raw mut (*pbi).seq_params;
     (*cm).error = &raw mut (*pbi).error;
-    if _setjmp(((*pbi).error.jmp).as_mut_ptr()) != 0 {
-        (*pbi).error.setjmp = 0 as core::ffi::c_int;
-        av1_decoder_remove(pbi);
-        return 0 as *mut AV1Decoder;
-    }
+    loop {
+match crate::jump::value_scope((((*pbi).error.jmp).as_mut_ptr()).cast(), || {
     (*pbi).error.setjmp = 1 as core::ffi::c_int;
     if (*(*cm).error).setjmp != 0 {} else {
         __assert_fail(
@@ -2227,8 +2224,14 @@ pub unsafe extern "C-unwind" fn av1_decoder_create(pool: *mut BufferPool) -> *mu
         .expect("non-null function pointer")(&raw mut (*pbi).lf_worker);
     (*pbi).lf_worker.thread_name = b"aom lf worker\0" as *const u8
         as *const core::ffi::c_char;
-    return pbi as *mut AV1Decoder;
+    return pbi as *mut AV1Decoder;}) {
+Some(value) => return value,
+None => {
+        (*pbi).error.setjmp = 0 as core::ffi::c_int;
+        av1_decoder_remove(pbi);
+        return 0 as *mut AV1Decoder;}
 }
+}}
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_dealloc_dec_jobs(mut tile_mt_info: *mut AV1DecTileMTData) {
     if !tile_mt_info.is_null() {
@@ -2628,23 +2631,8 @@ pub unsafe extern "C-unwind" fn av1_receive_compressed_data(
         (*pbi).error.error_code = AOM_CODEC_MEM_ERROR;
         return 1 as core::ffi::c_int;
     }
-    if _setjmp(((*pbi).error.jmp).as_mut_ptr()) != 0 {
-        let winterface: *const AVxWorkerInterface = aom_get_worker_interface()
-            as *const AVxWorkerInterface;
-        let mut i: core::ffi::c_int = 0;
-        (*pbi).error.setjmp = 0 as core::ffi::c_int;
-        ((*winterface).sync).expect("non-null function pointer")(&raw mut (*pbi).lf_worker);
-        i = 0 as core::ffi::c_int;
-        while i < (*pbi).num_workers {
-            ((*winterface).sync)
-                .expect(
-                    "non-null function pointer",
-                )(&raw mut *((*pbi).tile_workers).offset(i as isize));
-            i += 1;
-        }
-        release_current_frame(pbi);
-        return -(1 as core::ffi::c_int);
-    }
+    loop {
+match crate::jump::value_scope((((*pbi).error.jmp).as_mut_ptr()).cast(), || {
     (*pbi).error.setjmp = 1 as core::ffi::c_int;
     let mut frame_decoded: core::ffi::c_int = aom_decode_frame_from_obus(
         pbi as *mut AV1Decoder,
@@ -2698,8 +2686,26 @@ pub unsafe extern "C-unwind" fn av1_receive_compressed_data(
         }
     }
     (*pbi).error.setjmp = 0 as core::ffi::c_int;
-    return 0 as core::ffi::c_int;
+    return 0 as core::ffi::c_int;}) {
+Some(value) => return value,
+None => {
+        let winterface: *const AVxWorkerInterface = aom_get_worker_interface()
+            as *const AVxWorkerInterface;
+        let mut i: core::ffi::c_int = 0;
+        (*pbi).error.setjmp = 0 as core::ffi::c_int;
+        ((*winterface).sync).expect("non-null function pointer")(&raw mut (*pbi).lf_worker);
+        i = 0 as core::ffi::c_int;
+        while i < (*pbi).num_workers {
+            ((*winterface).sync)
+                .expect(
+                    "non-null function pointer",
+                )(&raw mut *((*pbi).tile_workers).offset(i as isize));
+            i += 1;
+        }
+        release_current_frame(pbi);
+        return -(1 as core::ffi::c_int);}
 }
+}}
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_get_raw_frame(
     mut pbi: *mut AV1Decoder,
@@ -2745,5 +2751,4 @@ extern "C" {
     fn pthread_mutex_lock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
     fn pthread_mutex_unlock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
     fn pthread_cond_destroy(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
-    fn _setjmp(__env: *mut __jmp_buf_tag) -> core::ffi::c_int;
 }
