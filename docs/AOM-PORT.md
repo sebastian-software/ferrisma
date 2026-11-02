@@ -198,8 +198,20 @@ Another 243 original IntraBC convolution cases pass in each profile against
 isolated C oracles for six Rust horizontal, vertical, and 2D kernels at
 8/10/12 bits. Only twelve reviewed oracle call sites change in the disposable
 test compilation copy; original parameters, unequal source strides, assertions,
-and all 18,729 registrations remain intact. Other 2D and compound convolution
-roles still require review.
+and all 18,729 registrations remain intact.
+
+The remaining single-reference 2D and compound convolution roles now have
+independent C oracles as well. Two 2D subjects pass 162 unchanged original
+cases per profile, including `VmafPreprocessing`. Eight compound subjects pass
+264 more cases per profile, preserving all original subpixel, filter, weight,
+intermediate-buffer, and final-pixel assertions. Only six 2D and ten compound
+reference sites change in the disposable compilation copies. Original
+small-block early returns in the VMAF cases remain unchanged. Both macOS
+profiles pass; native GNU Linux execution is pending. Together with the
+horizontal, vertical, copy, and IntraBC cases, this establishes independent
+references for 22 Rust subjects across 912 original convolution cases per
+profile. Other DSP roles remain open. See
+[`aom-convolution-validation.json`](aom-convolution-validation.json).
 
 The original k-means classes register only SIMD implementations, leaving zero
 k-means cases in the generic reference inventory. A separate supplementary
