@@ -89,8 +89,9 @@ was changed; see [ADR 0024](docs/adr/0024-use-noncontracting-c-references-for-po
 
 The [dependency porting plan](docs/NATIVE-PORTS.md) defines separate mechanical
 Rust crates in a shared workspace. Portable SharpYUV and dav1d are implemented;
-libaom has complete macOS standalone source profiles under validation (see
-[the libaom milestone](docs/AOM-PORT.md)). The plan records bit-exact reference checks, original-test correspondence,
+libaom has complete macOS and GNU Linux standalone source profiles under
+validation (see [the libaom milestone](docs/AOM-PORT.md)). The plan records
+bit-exact reference checks, original-test correspondence,
 license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
 
 ## License

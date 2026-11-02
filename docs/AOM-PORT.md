@@ -238,19 +238,23 @@ test corpus is cached in `build/deps/aom-test-data`; set
 `LIBAOM_TEST_DATA_PATH` to that absolute directory when running original tests.
 Downloaded fixtures and disposable builds are not source modifications.
 
-## Native Linux source checkpoint
+## Native Linux checkpoint
 
 Both complete x86-64 profiles were generated on Ubuntu 24.04 with Clang/LLVM
-16.0.6, C2Rust 0.21.0, and the isolated native VMAF reference. The initial
-compile attempt stopped in the package-link setup before checking the codec;
-GNU pkg-config's `-pthread` spelling now maps explicitly to the pthread library.
-The following compile identified one repeated type mismatch in glibc's
-array-decayed `va_list` control callback typedef. ADR 0040 maps that parameter
+16.0.6, C2Rust 0.21.0, and the isolated native VMAF reference. Debug and Release
+compile, and the original `aomenc`, `aomdec`, and `test_libaom` consumers link
+against each Rust archive. Each profile passes 12 exact public API round trips
+and 14 CLI scenarios: 12 exact streams/pixel outputs and two matching original
+control-sequence rejections. Five nonlocal-error runtime tests and both raw
+Rust API examples also pass. These scoped results are preserved in
+[the Linux checkpoint](aom-linux-validation-results.json). Full standalone
+acceptance and root Linux support remain open.
+
+GNU pkg-config's `-pthread` spelling maps explicitly to the pthread library.
+For glibc's array-decayed `va_list` control callback typedef, ADR 0040 maps the parameter
 to Rust's C-compatible `VaList`, consistently with its callback definitions
 and dispatcher. The correction affects five units per profile, is inventoried
-and generated, and leaves all C inputs unchanged. Native Linux compilation
-and execution are still required. This source import is not Linux acceptance
-evidence.
+and generated, and leaves all C inputs unchanged.
 
 The retained native VMAF archive includes libsvm's `svm.cpp`. Its generated
 pkg-config file omits the C++ standard library; original C++ consumers get
