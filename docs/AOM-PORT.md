@@ -155,6 +155,15 @@ binding inventory. This bounded review does not establish correspondence for
 all included template bodies or indirect calls. See
 [`aom-header-role-review.json`](aom-header-role-review.json).
 
+The extended compiler inventory also inspects included original C++ test
+helpers and dependent lookup candidates. All 149 compilation inputs and 223
+original source/header hashes are checked. It identifies 41 production-header
+functions; the additional `av1_use_intra_edge_upsample` binding selects input
+upsampling in `DrPredTest::SetParams` and keeps its native fixture role.
+The extended review remains a static superset, including potentially unused
+bodies, and assigns no runtime coverage. See
+[`aom-included-header-role-review.json`](aom-included-header-role-review.json).
+
 Upstream builds `av1/ratectrl_rtc.cc` into the separate `aom_av1_rc` library,
 which it does not install. That optional wrapper is outside the selected
 168-C-unit libaom archive and is not a root libavif runtime dependency. The
