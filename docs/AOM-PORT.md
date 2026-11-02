@@ -129,6 +129,15 @@ root integration remain open.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
 
+The compiler-based [direct binding inventory](aom-test-bindings-macos-release.json)
+inspects 149 original C++ compilation inputs under the selected Release
+configuration. It finds direct references to 881 original codec globals and
+40 production header inline functions. Timer helpers, native oracle/setup
+helpers, and actual inline test subjects require distinct role review. A name
+match in translated source is recorded as such; it is not execution coverage.
+References inside included C++ helper bodies and indirect calls need their
+own review beyond this direct-reference inventory.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
