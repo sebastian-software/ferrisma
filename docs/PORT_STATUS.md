@@ -1743,3 +1743,18 @@ zero failures or ignored tests. Linux runs 536 tests per configuration; macOS
 runs 535. The verified source is merged through [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32),
 and the README geometry milestone is checked. Color management/HDR, original
 JPEG reconstruction and the public incremental decoder remain open.
+
+## Incremental decoder state ownership preparation
+
+Frame-owned fields and the temporary codec-state borrow are represented
+separately. All 17 owned frame fields retain their order and values, with no new
+allocation or callback. Reversing the declared field projections and constructor
+split recovers the prior complete module byte for byte after formatting. The
+candidate passes all six complete local configurations: Debug, Release and
+Rust 1.85 against ordinary and nonrecovering ASan/UBSan originals. Each runs
+535 tests, 322 differential groups and 1,091,467 exact defined comparisons,
+with zero failures or ignored tests. The lifecycle, extra-channel and geometry
+source audits also pass. Native CI acceptance remains pending.
+This prepares retained incremental state without implementing a public
+decoder object, input processing, events, or callbacks. The public decoder
+checklist item remains open.

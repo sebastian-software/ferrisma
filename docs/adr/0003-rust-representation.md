@@ -1428,3 +1428,13 @@ applies the requested original orientation; keep-orientation selects identity
 at that boundary. Oriented dimensions come from the original metadata helpers.
 All parsed YCbCr modes use the existing per-channel horizontal/vertical stage
 order; no normalization or replacement chroma interpolation is added.
+
+Frame-owned decoder fields stay in `FrameDecoderStorage`, in their original
+field and destruction order. The `FrameDecoder` processing view borrows that
+owner and `PassesDecoderState` separately. This represents the original retained
+frame object and codec-state pointer without retaining an exclusive Rust borrow
+of codec state between processing scopes. The mapping adds no allocation, clone,
+reset, shared-mutation wrapper, or algorithm change. Existing whole-frame calls
+use one scope; the incremental API must end the scope before exposing either
+owner to another API call or callback. Owned vector allocations and render
+references retain their existing identities.
