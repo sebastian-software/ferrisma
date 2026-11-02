@@ -258,9 +258,8 @@ registration, assertion, input matrix, or disabled flag changes. See
 The high-bit-depth d16 blend-mask fixture originally passes the same scalar
 function in both parameter slots. Its first slot now resolves to the isolated
 C reference while its second slot remains Rust. Both unchanged original random
-and extreme cases pass in Debug and Release on macOS; all 18,729 registrations
-and the disabled speed case remain unchanged. Native Linux execution is
-pending. See [`aom-blend-d16-validation.json`](aom-blend-d16-validation.json).
+and extreme cases pass in Debug and Release on macOS and native GNU Linux;
+all 18,729 registrations and the disabled speed case remain unchanged. See [`aom-blend-d16-validation.json`](aom-blend-d16-validation.json).
 
 Five MSE and variance-summary subjects retain isolated C references in another
 40 original cases per profile. These template bodies compare MSE, SSE, sums,
