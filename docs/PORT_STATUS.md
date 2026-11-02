@@ -6,13 +6,25 @@ global metadata/frame parsing, actual DC/AC groups, dequantization, all scalar
 inverse transforms, optional Gaborish, XYB conversion and high-precision sRGB
 output. The admitted profile supports gray/RGB, 8/16-bit samples, one optional
 full-resolution unassociated alpha channel, multiple AC passes and DC/AC groups.
-Scalar EPF and noise/spline effects are connected for this profile. Patch
-components are translated; complete reference-frame integration, general frames,
-containers and public APIs remain separate work.
+Scalar EPF and noise/spline effects are connected for this profile. The internal
+sequence decoder also connects patches, general NONE/XYB Modular frames,
+reference/DC frames, blending, animation, previews and the admitted YCbCr/chroma
+paths. General orientation, broader extra channels, ICC/default CMS, JPEG
+reconstruction, containers and public APIs remain separate work.
 See [VARDCT_IMAGE.md](VARDCT_IMAGE.md) for the complete configuration and evidence.
 The lossless encoder/decoder profile and its existing corpus remain unchanged.
 There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
 [upstream.json](../upstream.json).
+
+The first six decoder expansion steps are merged into `main` through
+[PR #30](https://github.com/sebastian-software/libjxl-rs/pull/30). Its
+[native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41493531478)
+passes all six ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations
+on both Linux and macOS: 307 differential groups and 926,392 exact defined
+requests per configuration, with zero failures or ignored tests. Linux runs
+514 tests per configuration; macOS runs 513. The independent original-source
+audits and retained lifecycle corpus also pass. The remaining decoder scope is
+tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
 ## Source mapping
 
@@ -1016,16 +1028,16 @@ products too. A local binary32 multiply now retains reciprocal-first on x86,
 with ARM's original compound assignments unchanged. Both complete original
 native oracle captures agree for the existing signaling/quiet normalization
 requests: each channel's six written words retain the first filter payload.
-Complete native ordinary/instrumented Rust differential gates remain required.
+The complete native ordinary/instrumented Rust gates now pass in the combined
+acceptance run linked above.
 The temporary focused
 executables retain the actual original fixture observation bodies and dedicated
 stage, linked against the complete original ordinary static archives. UBSan
 instruments that focused fixture/stage, not those ordinary archive members.
 Link maps bind the original factory and ProcessRow to the dedicated stage
 object. Emulated ASan is unavailable; it is not counted as a passing gate.
-Native hosted CI must validate the complete Linux ASan/UBSan graph and MSRV
-before merge. The complete ordinary/sanitized macOS runs in the evidence table
-remain separate, fully instrumented reference gates.
+The complete Linux ASan/UBSan graph and MSRV now pass native hosted CI. The
+ordinary/sanitized macOS runs remain separate, fully instrumented reference gates.
 
 ### Scalar XYB render boundary follow-up
 
@@ -1371,8 +1383,9 @@ Native x86_64 Linux validation exposed ordinary/ASan operand-order drift in the
 isolated DequantLane observer. ADR 0002 records the scoped reference configuration
 and independent default-optimization audit. One captured native x86 regression
 complements the ARM-only capture; both targets now run 425 tests, the same 246
-differential groups and 868,587 requests. Replacement native CI remains required
-before integration; the earlier failed runs are retained in the PR history.
+differential groups and 868,587 requests. The corrected implementation passes
+the combined native gates linked above and is merged; earlier failed runs remain
+in the PR history.
 
 ## Decoder effects integration
 
@@ -1381,7 +1394,7 @@ noise parsing/input generation/convolution/application, and spline parsing/cache
 construction/rendering. It retains the existing gray/RGB, 8/16-bit,
 full-resolution unassociated alpha, progressive AC and group configurations.
 Patch components and shared reference-owner binding are translated; complete-file
-saved-reference/frame orchestration remains open. See
+saved-reference/frame orchestration is connected by the sequence boundary below. See
 [DECODER_EXPANSION.md](DECODER_EXPANSION.md) for the full remaining decoder scope.
 
 Successful original-file comparisons cover 114 EPF files, 140 noise files and
@@ -1394,9 +1407,8 @@ integer samples and color float words. Source mappings and selected numeric
 reference configurations remain in the living ADRs. Both full local commands
 (`tools/check.py --msrv` and `tools/check.py --sanitizers --msrv`) passed all
 six configurations, each with 462 tests, 272 differential groups and 893,729
-exact requests, with zero failed or ignored tests. Native CI and integration
-into `main` remain required; component evidence alone does not prove this
-expanded image boundary.
+exact requests, with zero failed or ignored tests. The combined native run linked
+above now verifies this expanded image boundary, which is merged into `main`.
 
 ## Scalar patches, blending, and alpha
 
@@ -1405,7 +1417,8 @@ partial failure state, interval-tree construction, row lookup, reference masks,
 and clipped blending/rendering. PatchInterval sorting uses the already translated
 libc++ non-arithmetic sort, preserving tied-element ordering in tree arrays.
 The scalar alpha and blending dependencies and both borrowed/shared patch stages
-are translated too. Complete-file reference-frame orchestration remains separate.
+are translated too. Complete-file reference-frame orchestration is connected by
+the sequence boundary below.
 
 Eight differential groups add 5,526 exact original requests. The corpus includes
 real entropy streams, truncation/mutation/reuse, complete initialized tree arrays,
@@ -1437,10 +1450,12 @@ it explicitly leaves native Linux confirmation pending. Both full corrected
 local gates also passed: all six ordinary/ASan/UBSan Debug, Release and Rust 1.85
 configurations completed 439 tests, 257 parity tests, 874,065 exact defined
 requests and all 72 original-only probes, with no failures or ignored tests.
-Native census, final native Rust CI and hosted integration remain required.
+The native census, final native Rust CI and main integration are now complete
+in the combined acceptance run linked above.
 No original source or sanitizer changes, unsafe operation, assembly,
 relaxed float comparison or changed old defined case is used. The README patch
-checkbox remains open until complete-file reference orchestration is connected.
+checkbox is checked after the complete-file reference orchestration and native
+acceptance were merged into `main`.
 
 ## Scalar spline decoding and rendering
 
@@ -1590,8 +1605,8 @@ formatting, source/notices, documentation links and all three independent source
 audits pass. All six full local configurations also pass: each runs 513 tests,
 307 differential groups and 926,392 exact defined requests, plus all 72 explicit
 original-only boundary probes, with no failures or ignored tests. This union
-includes the ICC command-codec prerequisite. Native Linux/macOS CI and integration
-into `main` remain required before delivery. General orientation,
+includes the ICC command-codec prerequisite. Native Linux/macOS CI now passes
+with the counts recorded above, and the union is merged into `main`. General orientation,
 ICC/CMS parsing, broader sampling/extra channels, JPEG reconstruction and the
 public progressive decoder API remain open.
 
@@ -1649,5 +1664,8 @@ no source or sanitizer is changed and no prior defined request is discarded.
 The internal sequence decoder still uses its existing bundle/DC writers. This
 leaf does not complete the public incremental API, container parsing, direct
 public callback registration, or custom allocator propagation through unrelated
-codec owners. Native cross-platform and complete check results are recorded
-separately from the component boundary.
+codec owners. All six complete local configurations pass: Debug, Release and Rust 1.85
+against ordinary and nonrecovering ASan/UBSan originals. Each runs 523 tests,
+316 differential groups and 930,396 exact defined comparisons, with zero
+failures or ignored tests. The independent binding/native-capture/source-domain
+audit also passes. Native Linux/macOS CI remains an integration gate.

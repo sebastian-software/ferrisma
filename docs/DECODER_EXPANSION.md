@@ -56,28 +56,34 @@ custom allocators/runners, the low-memory pipeline, and full-library release
 acceptance remain separate checklist items. Dependencies reached by the decoder
 work must still be translated before exposing the corresponding decoder path.
 
-## Current batch
+## Current integration
 
-The first batch translates the EPF, noise, patch, and spline scalar boundaries
-and connects EPF/noise/splines to the first complete VarDCT profile. Local
-complete-file evidence includes 305 successful original files and 4,582 error
-observations, with combined filters, progressive passes, grayscale/RGB and alpha.
-Both full local checks, including Rust 1.85 and ordinary/ASan/UBSan originals,
-pass 466 tests, 275 differential groups and 893,681 exact defined requests per
-configuration, plus all 72 explicit original-only boundary probes. The corrected alpha/patch component has passed native Linux and macOS CI, including the independently confirmed 48 undefined original tree boundaries. Native combined CI and integration into `main` remain required.
+The first six steps are merged into `main` through
+[PR #30](https://github.com/sebastian-software/libjxl-rs/pull/30). The internal
+sequence decoder connects EPF/noise/patch/spline rendering, general NONE/XYB
+Modular and VarDCT frames, shared reference/DC state, blending, animation and
+previews. It also connects the admitted sRGB YCbCr/chroma configurations.
 
-The next integration connects one retained state across reference/DC frames,
-blending, animation, previews, and NONE/XYB Modular and VarDCT frames. Its seven
-lifecycle groups retain 2,592 exact original requests, including the original
-1,814-request inventory, resampling and multigroup cases, genuine DC3/DC4 writer
-fixtures, and 156 positive-patch/truncated/mutated observations. A genuine
-112-byte patch codestream reconstructs all 36,864 input words exactly.
+The final [native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41493531478)
+passes Debug, Release and Rust 1.85 against ordinary and ASan/UBSan originals on
+both Linux and macOS. Each configuration passes 307 differential groups and
+926,392 exact defined requests, with zero failures or ignored tests. Linux runs
+514 tests per configuration; macOS runs 513. The complete local gates, source
+binding audits, all prior lifecycle requests and original-only probes also pass.
 
-With the verified alpha/patch prerequisite, all six local complete checks pass
-494 tests, 294 differential groups and 907,035 exact defined requests each,
-alongside the 72 source-only probes. The independent source audit repeats all
-2,592 lifecycle requests under that combined configuration. Native CI and
-integration into main remain required. Chroma, broader extra channels, CMS/HDR,
-JPEG reconstruction, and the public incremental API remain open. The first-image
-and VarDCT milestone records describe the merged baseline; unmerged work does
-not change those claims.
+The retained lifecycle corpus contains 2,592 exact requests, including its
+original 1,814-request inventory, resampling/multigroup cases, genuine DC3/DC4
+writer fixtures and 156 positive-patch/truncated/mutated observations. A genuine
+112-byte patch codestream reconstructs all 36,864 input words exactly. The
+independent source audit repeats the full lifecycle corpus under both original
+graphs. Detailed source mappings and component evidence remain in
+[PORT_STATUS.md](PORT_STATUS.md).
+
+Steps seven through eleven remain open. Broader extra channels and complete
+geometry/orientation are prepared in
+[PR #31](https://github.com/sebastian-software/libjxl-rs/pull/31) and
+[PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32); their native
+acceptance and main integration remain separate gates. ICC/default CMS and HDR,
+original JPEG reconstruction, and the public incremental decoder/container API
+still require implementation and acceptance. The fixed first-image and VarDCT
+profile records retain their existing, narrower admission contracts.
