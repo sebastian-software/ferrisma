@@ -1419,3 +1419,12 @@ float ConvertToExternal buffer exports retain the existing source unpremultiply
 option and independently export every extra plane. Failed complete-file decoding
 is observed before export without reading unwritten output. Direct output-stage
 callbacks and the public incremental API remain separate unported boundaries.
+
+Sequence orientation and intrinsic size remain properties of the single immutable
+metadata owner borrowed by bundles, frame headers and retained reference state.
+Removing the sequence-specific orientation/intrinsic admission guards does not
+rotate stored planes or rewrite internal geometry. Existing ConvertToExternal
+applies the requested original orientation; keep-orientation selects identity
+at that boundary. Oriented dimensions come from the original metadata helpers.
+All parsed YCbCr modes use the existing per-channel horizontal/vertical stage
+order; no normalization or replacement chroma interpolation is added.

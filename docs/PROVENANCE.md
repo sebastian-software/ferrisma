@@ -593,3 +593,19 @@ decode-error requests remain paired comparisons; aligned positive controls add
 every fixture/channel/unpremultiplication combination. Existing integer16 byte
 stores and float32 memcpy stores retain their odd-stride comparisons unchanged.
 No undefined source output is used as a Rust expected word.
+
+The complete geometry corpus stores 128 genuine JPEG inputs and their actual
+pinned public JPEG-encoder outputs, plus 20 original-encoder sequence
+recipes. The manifest records cjpeg version/options, deterministic source pixels,
+separate component scan script, byte hashes and actual original encoder/header
+observations. Default validation reproduces JPEG XL directly from stored JPEG
+inputs and does not require cjpeg. Orientation/intrinsic variants use the actual
+WriteCodestreamHeaders implementation; a zero-change header control and unchanged
+frame-payload comparison prevent replacement serialization in the adapter.
+
+The geometry export observer calls actual DecodeFrame and ConvertToExternal,
+retaining persistent shared state across all source frames. It performs no image
+arithmetic. Independently captured RGBA buffers include unchanged seeded row
+padding and trailing guards. The source audit binds those entry points to their
+pristine source objects, retains both original graphs' full observations and
+checks that diagnostic relinking changes no active binary or compiled object.
