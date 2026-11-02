@@ -123,3 +123,21 @@ ones keep exact parity, and 888 aligned Float16 controls are added. The separate
 `tools/extra_half_boundaries.py` audit records every ordinary observation and
 requires each actual nonrecovering UBSan diagnostic. The C++ source and existing
 integer16/float32 odd-stride requests remain unchanged.
+
+### Complete sequence geometry
+
+`decoder-geometry-fixtures.json` records 128 actual public JPEG encoder outputs
+from all 64 component-sampling input triples at odd/tiny dimensions, 20 genuine
+reference/crop/resampling/preview/extra-channel sequences, and eight original metadata-writer
+orientation variants. JPEG source inputs, byte hashes, encoder/header observations
+and cjpeg pixel/options/scan recipes are retained. Default audits use stored JPEG
+inputs; cjpeg is not a build dependency. Distinct input factor triples may be
+canonicalized to the same effective chroma shifts by the original encoder.
+
+`decoder-geometry.requests` lists the 148 source base files. The native manifest
+adds all eight oriented variants and excludes the two preview files from the
+non-preview export adapter, leaving 154 independent RGBA8 captures. Each capture
+contains complete oriented output rows with 16 bytes of untouched 0xa5 padding
+and a seven-byte trailing guard. `tools/decoder_geometry_reference.py` reproduces
+every source fixture and capture, verifies actual original bindings and repeats
+all 58,688 defined complete-file/error/export requests under both original graphs.

@@ -82,11 +82,7 @@ impl<'m> AdmittedHeader<'m> {
                 h.color_transform,
                 ColorTransform::NONE | ColorTransform::XYB | ColorTransform::YCBCR
             )
-            || !(h.chroma_subsampling.is_444()
-                || (h.color_transform == ColorTransform::YCBCR
-                    && (h.chroma_subsampling.is_420()
-                        || h.chroma_subsampling.is_422()
-                        || h.chroma_subsampling.is_440())))
+            || !(h.chroma_subsampling.is_444() || h.color_transform == ColorTransform::YCBCR)
             || h.extra_channel_upsampling.len()
                 != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
             || h.extra_channel_blending_info.len()
@@ -1269,10 +1265,11 @@ pub struct SequenceFrameDecode<'m> {
 /// The shared-state loop around the original DecodeFrame/InitFrame boundary.
 /// Metadata is supplied once and borrowed unchanged by all frames. The output
 /// and every retained pipeline writer share one bundle allocation owner.
-/// This boundary admits sRGB NONE/XYB frames and YCbCr 4:4:4/4:2:2/4:2:0/4:4:0,
+/// This boundary admits sRGB NONE/XYB frames and every parsed YCbCr channel mode,
 /// references, DC frames, animation and previews, including source early/late
 /// extra-channel and main spatial upsampling, associated/subsampled alpha,
-/// and all source-defined extra-channel types.
+/// and all source-defined extra-channel types. Orientation/intrinsic metadata
+/// stays attached to the bundle; external conversion applies orientation.
 /// Other color configurations remain separate boundaries.
 pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
@@ -1285,8 +1282,6 @@ impl<'m> SequenceDecoder<'m> {
         let m = &metadata.m;
         if !(1..=32).contains(&m.bit_depth.bits_per_sample)
             || m.num_extra_channels as usize != m.extra_channel_info.len()
-            || m.have_intrinsic_size
-            || m.orientation != 1
             || m.color_encoding.want_icc()
             || !m.color_encoding.is_srgb()
             || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE

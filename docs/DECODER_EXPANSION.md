@@ -90,10 +90,19 @@ also verifies 111 genuine complete files, 12 rejected-type fixtures and all
 15,315 new defined observations. All 888 original half-stride probes remain
 accounted for, including 528 positive original misalignment diagnostics.
 
-Steps seven and nine through eleven remain open. Complete geometry/orientation
-is prepared in [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32);
-its native acceptance and main integration remain separate gates. ICC/default
-CMS and HDR, original JPEG reconstruction, and the public incremental
-decoder/container API still require implementation and acceptance. Direct
+Step seven is merged through [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32).
+The sequence decoder connects every parsed YCbCr channel mode, source cropping
+and resampling, and external orientation conversion. Its [native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41505031128)
+passes all six configurations on Linux and macOS, each with 322 differential
+groups and 1,091,467 exact defined requests, with zero failures or ignored tests.
+Linux runs 536 tests per configuration; macOS runs 535. Both source audits
+reproduce 128 genuine JPEG encodings, 20 sequence encodings, eight orientation
+writes and 154 independent captures, and retain every one of the 58,688 geometry
+requests. All 55,488 prior requests remain present with 3,200 cross-feature cases.
+The merged runtime, fixtures, observers and CI are identical to the tested source;
+the main merge updates only the checklist and acceptance documentation.
+
+Steps nine through eleven remain open: ICC/default CMS and HDR, original JPEG
+reconstruction, and the public incremental decoder/container API. Direct
 output-stage callbacks remain part of step eleven. The fixed first-image and
 VarDCT profile records retain their existing, narrower admission contracts.
