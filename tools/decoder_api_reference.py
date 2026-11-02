@@ -5,10 +5,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import runpy
 import shlex
 import subprocess
+from skcms_binding import live_bindings
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -42,6 +44,7 @@ def main():
     before = {}
     commands = {}
     public_symbols = {}
+    bindings = {}
     for graph in ('oracle', 'oracle-asan'):
         build = ROOT / 'target' / graph
         entries = json.loads((build / 'compile_commands.json').read_text())
@@ -50,15 +53,33 @@ def main():
             raise RuntimeError('Original decoder observer compilation missing')
         entry = matches[0]
         flags = entry.get('arguments') or shlex.split(entry['command'])
-        instrumented = '-fsanitize=address,undefined' in flags
-        if instrumented != (graph == 'oracle-asan'):
-            raise RuntimeError('Original graph instrumentation changed')
-        if instrumented and '-fno-sanitize-recover=all' not in flags:
-            raise RuntimeError('Original nonrecovering sanitizer configuration missing')
-        if any(flag.startswith('-fno-sanitize=') or flag in ('-O0', '-ffast-math') for flag in flags):
-            raise RuntimeError('Unexpected observer compiler override')
+        original, = [row for row in entries if Path(row['file']).resolve() ==
+                     ROOT / 'upstream/libjxl/lib/jxl/decode.cc']
+        for compilation in (entry, original):
+            options = compilation.get('arguments') or shlex.split(compilation['command'])
+            expected = ['-fsanitize=address,undefined', '-fno-sanitize-recover=all'] if graph == 'oracle-asan' else []
+            if [option for option in options if 'sanitize' in option] != expected:
+                raise RuntimeError('Original nonrecovering sanitizer configuration changed')
+            if [option for option in options if option.startswith('-O')] != ['-O3'] or '-DNDEBUG' not in options:
+                raise RuntimeError('Original source/observer optimization configuration changed')
+            if any(option.startswith(('-ffast-math', '-ffp-contract', '-ffp-model',
+                                      '-funsafe-math', '-fno-signed-zeros')) for option in options):
+                raise RuntimeError('Unexpected source/observer numeric override')
         commands[graph] = flags
-        for path in [build / 'jxl_oracle', build / 'compile_commands.json', *[
+        for fragment in selected:
+            source = ROOT / 'upstream/libjxl' / fragment['path']
+            text = source.read_text()
+            start = text.index(fragment['start'])
+            body = text[start:text.index(fragment['end'], start)] + '\n'
+            notice = ''.join(text.splitlines(keepends=True)[:5])
+            line = text[:start].count('\n') + 1
+            expected = notice + f'#line {line} {json.dumps(str(source))}\n' + body
+            if (build / 'generated' / fragment['output']).read_text() != expected:
+                raise RuntimeError('Compiled generated helper differs from exact original source')
+        for path in [build / 'jxl_oracle', build / 'compile_commands.json',
+                     build / 'CMakeFiles/jxl_oracle.dir/link.txt',
+                     build / 'CMakeFiles/jxl_oracle.dir/decoder_api.cc.o',
+                     build / 'upstream/lib/libjxl-internal.a', *[
                 build / 'generated' / f['output'] for f in selected]]:
             before[str(path)] = sha(path)
         symbols = subprocess.check_output(['nm', '-C', str(build / 'jxl_oracle')], text=True)
@@ -67,6 +88,19 @@ def main():
         if len(matches) != 1:
             raise RuntimeError('Actual public archive signature symbol missing')
         public_symbols[graph] = matches[0]
+        directory = args.output / graph
+        directory.mkdir()
+        link = shlex.split((build / 'CMakeFiles/jxl_oracle.dir/link.txt').read_text())
+        binary, mapping = directory / 'public-bound', directory / 'public.map'
+        link[link.index('-o') + 1] = str(binary)
+        link.append(('-Wl,-map,' if platform.system() == 'Darwin' else '-Wl,-Map,') + str(mapping))
+        with (directory / 'link.log').open('w') as log:
+            subprocess.run(link, cwd=build, stdout=log, stderr=subprocess.STDOUT, check=True)
+        bindings[graph] = live_bindings(binary, mapping, {
+            'JxlSignatureCheck': (r'_?JxlSignatureCheck',
+                                 r'libjxl-internal\.a(?:\[\d+\])?\((?:.*/)?decode\.cc\.o\)$'),
+            'DecoderApiCommand': (r'_+Z17DecoderApiCommand[^.]*', r'(?:^|/)decoder_api\.cc\.o$'),
+        })
     environment = dict(os.environ, JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'),
                        JXL_DECODER_API_REQUEST_CAPTURE=str(capture),
                        CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2')
@@ -78,6 +112,8 @@ def main():
     kinds = {line.split()[0] for line in requests}
     if kinds != {'da-constants', 'da-bounds', 'da-signature', 'da-box'}:
         raise RuntimeError('Incomplete actual Rust-generated request corpus')
+    if len(requests) != 92452:
+        raise RuntimeError('Retained decoder-helper request inventory changed')
     previous = None
     observations = {}
     for graph in ('oracle', 'oracle-asan'):
@@ -96,6 +132,7 @@ def main():
     report = {'requests': len(requests), 'requests_sha256': sha(capture),
               'ordinary_asan_exact': True, 'source_fragments': selected,
               'compile_commands': commands, 'public_signature_symbols': public_symbols,
+              'live_source_bindings': bindings,
               'observations': observations,
               'unchanged_active_artifacts': before}
     (args.output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')

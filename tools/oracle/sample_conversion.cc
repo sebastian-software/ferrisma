@@ -104,3 +104,5 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "float_output.inc"
 #include "whole_image.inc"
 #include "vardct_image.inc"
+
+#include "modular_image.inc"

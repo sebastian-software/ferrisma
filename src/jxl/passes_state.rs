@@ -22,11 +22,30 @@ use super::noise::NoiseParams;
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
 use super::splines::Splines;
+use std::cell::RefCell;
+use std::rc::Rc;
+pub type SharedDcFrames = Rc<RefCell<[Image3<f32>; 4]>>;
+pub type SharedReferenceFrames<'a> = Rc<RefCell<[ReferenceFrame<'a>; 4]>>;
+/// A source DC pointer borrows either direct storage or a retained array slot.
+/// The guard keeps the selected slot alive without a self-reference or copy.
+pub enum DcImage<'a> {
+    Storage(&'a Image3<f32>),
+    Frame(std::cell::Ref<'a, Image3<f32>>),
+}
+impl std::ops::Deref for DcImage<'_> {
+    type Target = Image3<f32>;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Storage(image) => image,
+            Self::Frame(image) => image,
+        }
+    }
+}
 #[derive(Default)]
 pub struct ImageFeatures<'a> {
-    pub noise_params: NoiseParams,
-    pub patches: PatchDictionary,
-    pub splines: Splines<'a>,
+    pub noise_params: Rc<RefCell<NoiseParams>>,
+    pub patches: Rc<RefCell<PatchDictionary>>,
+    pub splines: Rc<RefCell<Splines<'a>>>,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DcSource {
@@ -50,8 +69,8 @@ pub struct PassesSharedState<'a> {
     pub dc_storage: Image3<f32>,
     pub dc_source: DcSource,
     pub block_ctx_map: BlockCtxMap,
-    pub dc_frames: [Image3<f32>; 4],
-    pub reference_frames: [ReferenceFrame<'a>; 4],
+    pub dc_frames: SharedDcFrames,
+    pub reference_frames: SharedReferenceFrames<'a>,
     pub num_histograms: usize,
 }
 impl Default for PassesSharedState<'_> {
@@ -100,22 +119,29 @@ impl<'a> PassesSharedState<'a> {
             dc_storage,
             dc_source,
             block_ctx_map,
-            dc_frames,
-            reference_frames,
+            dc_frames: Rc::new(RefCell::new(dc_frames)),
+            reference_frames: Rc::new(RefCell::new(reference_frames)),
             num_histograms,
         }
     }
     pub fn have_memory_manager(&self) -> bool {
         self.memory_manager_present
     }
-    pub fn dc(&self) -> &Image3<f32> {
+    pub fn dc(&self) -> DcImage<'_> {
         match self.dc_source {
-            DcSource::Storage => &self.dc_storage,
-            DcSource::Frame(i) => &self.dc_frames[i],
+            DcSource::Storage => DcImage::Storage(&self.dc_storage),
+            DcSource::Frame(i) => {
+                DcImage::Frame(std::cell::Ref::map(self.dc_frames.borrow(), |frames| {
+                    &frames[i]
+                }))
+            }
         }
     }
     pub fn bind_own_reference_frames(&mut self) {
-        self.image_features.patches.bind_own_reference_frames();
+        self.image_features
+            .patches
+            .borrow_mut()
+            .bind_own_reference_frames();
     }
 }
 

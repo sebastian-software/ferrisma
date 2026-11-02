@@ -33,7 +33,7 @@ fn shared(out: &mut String, s: &PassesSharedState<'_>, quant_pixels: bool) {
         " S {} {} {} {}",
         u32::from(s.metadata.is_some()),
         u32::from(matches!(
-            s.image_features.patches.reference_frame_binding(),
+            s.image_features.patches.borrow().reference_frame_binding(),
             Some(ReferenceFrameBinding::SharedState)
         )),
         s.coeff_order_size,
@@ -47,7 +47,7 @@ fn shared(out: &mut String, s: &PassesSharedState<'_>, quant_pixels: bool) {
     shared_primitives::plane(out, &s.cmap.ytox_map);
     shared_primitives::plane(out, &s.cmap.ytob_map);
     if s.cmap.ytox_map.xsize() != 0 {
-        shared_primitives::corr(out, s.cmap.base());
+        shared_primitives::corr(out, &s.cmap.base());
     }
     shared_primitives::plane(out, &s.quant_dc);
     if quant_pixels {
@@ -66,7 +66,7 @@ fn shared(out: &mut String, s: &PassesSharedState<'_>, quant_pixels: bool) {
     for c in 0..3 {
         shared_primitives::plane(out, s.dc_storage.plane(c));
     }
-    for f in &s.dc_frames {
+    for f in s.dc_frames.borrow().iter() {
         for c in 0..3 {
             shared_primitives::plane(out, f.plane(c));
         }
@@ -136,7 +136,7 @@ fn state(out: &mut String, s: &PassesDecoderState<'_, '_>) {
         s.b_dm_multiplier.to_bits()
     )
     .unwrap();
-    shared_primitives::plane(out, &s.sigma);
+    shared_primitives::plane(out, &s.sigma.borrow());
     write!(out, " {} {}", s.width, s.height).unwrap();
     output(out, &s.main_output);
     write!(out, " {}", s.extra_output.len()).unwrap();
@@ -166,7 +166,7 @@ fn state(out: &mut String, s: &PassesDecoderState<'_, '_>) {
         .unwrap();
     }
     write!(out, " {}", u32::from(s.render_pipeline.is_some())).unwrap();
-    shared_primitives::observe_bundle(out, &s.frame_storage_for_referencing);
+    shared_primitives::observe_bundle(out, &s.frame_storage_for_referencing.borrow());
     output_encoding::observation(out, &s.output_encoding_info);
     write!(out, " C {}", s.shared_storage.coeff_order_size).unwrap();
     orders(out, &s.shared_storage.coeff_orders);
@@ -256,7 +256,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         s.coeff_orders = (0..seed).map(|i| (i * 17 + 3) as u32).collect();
         for i in 0..4 {
             if mask & (1 << i) != 0 {
-                s.dc_frames[i] = Image3::create(i + 1, 2).unwrap();
+                s.dc_frames.borrow_mut()[i] = Image3::create(i + 1, 2).unwrap();
             }
         }
         let mut out = String::new();
@@ -340,7 +340,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     s.shared_storage.coeff_orders = vec![3, 5, 7];
     s.code = (0..2).map(|_| ANSCode::default()).collect();
     s.context_map = vec![vec![1, 2], vec![3]];
-    s.sigma = Plane::create(3, 2).unwrap();
+    *s.sigma.borrow_mut() = Plane::create(3, 2).unwrap();
     let mut out = String::new();
     state(&mut out, &s);
     for _ in 0..repeats {

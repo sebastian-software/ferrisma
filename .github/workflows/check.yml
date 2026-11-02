@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   port:
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -35,12 +38,62 @@ jobs:
           sudo apt-get install -y libc++-dev libc++abi-dev
       - name: Check the mechanical port
         run: python3 tools/check.py --sanitizers --msrv
-      - name: Check the ordinary Linux reference
-        if: always() && runner.os == 'Linux'
+      - name: Check the ordinary reference
+        if: always()
         run: python3 tools/check.py --msrv
       - name: Record native Linux scalar diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/scalar_diagnostics.py
-      - name: Audit the EPF numeric reference configuration
+      - name: Audit the decoder numeric reference configurations
+        if: always()
+        run: |
+          python3 tools/epf_reference.py
+          python3 tools/noise_reference.py
+          python3 tools/alpha_reference.py
+          python3 tools/decoder_api_reference.py --output target/decoder-api-acceptance
+      - name: Audit complete chroma images and retained frame lifecycles
+        if: always()
+        run: |
+          python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
+          python3 tools/chroma_image_reference.py --output target/chroma-image-acceptance
+          python3 tools/frame_sequences.py --output target/lifecycle-acceptance
+      - name: Retain complete decoder source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: decoder-source-${{ matrix.os }}
+          path: |
+            target/chroma-acceptance
+            !target/chroma-acceptance/**/jxl_oracle
+            !target/chroma-acceptance/**/*.o
+            target/chroma-image-acceptance
+            target/lifecycle-acceptance
+            target/decoder-api-acceptance
+          if-no-files-found: error
+      - name: Audit complete extra-channel source bindings and stride boundaries
+        if: always()
+        run: python3 tools/extra_channels_reference.py --output target/extra-channels-reference
+      - name: Retain complete extra-channel source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: extra-channels-reference-${{ runner.os }}
+          path: target/extra-channels-reference
+          if-no-files-found: error
+          retention-days: 7
+      - name: Record native alpha configuration diagnostics
         if: always() && runner.os == 'Linux'
-        run: python3 tools/epf_reference.py
+        run: python3 tools/alpha_diagnostics.py
+      - name: Census every original patch-tree boundary
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/patches_boundaries.py
+      - name: Retain native alpha diagnostic evidence
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: alpha-diagnostics-${{ runner.os }}
+          path: |
+            target/alpha-diagnostics.json
+            target/patches-boundaries.json
+          if-no-files-found: error
+          retention-days: 7

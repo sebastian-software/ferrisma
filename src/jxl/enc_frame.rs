@@ -362,7 +362,7 @@ pub struct LosslessThunderFrame<'a> {
     cparams: CompressParams<'static>,
     config: &'a LosslessThunderConfig,
 }
-impl LosslessThunderFrame<'_> {
+impl<'a> LosslessThunderFrame<'a> {
     pub fn header(&self) -> &FrameHeader<'_> {
         &self.header
     }
@@ -375,10 +375,10 @@ impl LosslessThunderFrame<'_> {
     pub fn quantizer(&self) -> &Quantizer {
         &self.state.shared.quantizer
     }
-    pub fn fields(&self) -> &PassesSharedState<'_> {
+    pub fn fields(&self) -> &PassesSharedState<'a> {
         &self.state.shared
     }
-    pub fn state(&self) -> &PassesEncoderState<'_> {
+    pub fn state(&self) -> &PassesEncoderState<'a> {
         &self.state
     }
     /// ComputeEncodingData's metadata/dimensions/patch binding and reached
@@ -480,11 +480,11 @@ impl LosslessThunderFrame<'_> {
         self.prepare_modular_with_extra_channels(&color, &extra_channels)?;
         self.compute_modular_tokens()?;
         self.header.update_flag(
-            self.state.shared.image_features.patches.has_any(),
+            self.state.shared.image_features.patches.borrow().has_any(),
             super::frame_header::FLAG_PATCHES,
         );
         self.header.update_flag(
-            self.state.shared.image_features.splines.has_any(),
+            self.state.shared.image_features.splines.borrow().has_any(),
             super::frame_header::FLAG_SPLINES,
         );
         self.encode_groups(codes, aux)

@@ -25,7 +25,9 @@ use super::render_pipeline::render_pipeline_stage::RenderPipelineStage;
 use super::render_pipeline::simple_render_pipeline::SimpleRenderPipeline;
 use super::render_pipeline::stage_upsampling::get_upsampling_stage;
 use super::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
+use std::cell::RefCell;
 use std::ffi::c_void;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub const SIGMA_BORDER: usize = 1;
@@ -257,7 +259,7 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub context_map: Vec<Vec<u8>>,
     pub x_dm_multiplier: f32,
     pub b_dm_multiplier: f32,
-    pub sigma: Plane<f32>,
+    pub sigma: Rc<RefCell<Plane<f32>>>,
     pub width: usize,
     pub height: usize,
     pub main_output: ImageOutput,
@@ -270,7 +272,7 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub used_acs: AtomicU32,
     pub coefficients: Option<Box<AcImage>>,
     pub render_pipeline: Option<Box<SimpleRenderPipeline<'pipeline>>>,
-    pub frame_storage_for_referencing: ImageBundle<'a>,
+    pub frame_storage_for_referencing: Rc<RefCell<ImageBundle<'a>>>,
     pub output_encoding_info: OutputEncodingInfo,
 }
 impl Default for PassesDecoderState<'_, '_> {
@@ -288,7 +290,7 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
             context_map: Vec::new(),
             x_dm_multiplier: 0.0,
             b_dm_multiplier: 0.0,
-            sigma: Plane::default(),
+            sigma: Rc::new(RefCell::new(Plane::default())),
             width: 0,
             height: 0,
             main_output: ImageOutput::default(),
@@ -301,7 +303,7 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
             used_acs: AtomicU32::new(0),
             coefficients: Some(Box::new(AcImage::empty(AcType::I32))),
             render_pipeline: None,
-            frame_storage_for_referencing: ImageBundle::new(None),
+            frame_storage_for_referencing: Rc::new(RefCell::new(ImageBundle::new(None))),
             output_encoding_info: OutputEncodingInfo::default(),
         }
     }
@@ -335,7 +337,7 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
         );
         if header.loop_filter.epf_iters > 0 {
             let dim = &self.shared().frame_dim;
-            self.sigma = Plane::create(
+            *self.sigma.borrow_mut() = Plane::create(
                 dim.xsize_blocks.wrapping_add(2 * SIGMA_PADDING),
                 dim.ysize_blocks.wrapping_add(2 * SIGMA_PADDING),
             )?;
