@@ -180,6 +180,13 @@ unchanged, all registrations preserved, and both sides' ownership checked in
 the link map. This is original tolerance-based coverage, not a bitwise floating
 point comparison. Disabled speed cases remain disabled.
 
+Another 243 original IntraBC convolution cases pass in each profile against
+isolated C oracles for six Rust horizontal, vertical, and 2D kernels at
+8/10/12 bits. Only twelve reviewed oracle call sites change in the disposable
+test compilation copy; original parameters, unequal source strides, assertions,
+and all 18,729 registrations remain intact. Other 2D and compound convolution
+roles still require review.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
@@ -230,6 +237,8 @@ python3 tools/check_aom_oracles.py --debug
 python3 tools/check_aom_oracles.py
 python3 tools/check_aom_oracles.py --debug --suite softmax
 python3 tools/check_aom_oracles.py --suite softmax
+python3 tools/check_aom_oracles.py --debug --suite intrabc
+python3 tools/check_aom_oracles.py --suite intrabc
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug

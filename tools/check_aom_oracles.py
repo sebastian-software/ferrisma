@@ -40,6 +40,17 @@ SUITES = {
                     filter='C/FastSoftmaxTest.RandomValues/*', cases=2,
                     headers=['av1/encoder/ml.h']),
 }
+INTRABC_SITES = {
+    'av1_convolve_x_sr_intrabc_c': [467, 495],
+    'av1_highbd_convolve_x_sr_intrabc_c': [681, 710],
+    'av1_convolve_y_sr_intrabc_c': [890, 913],
+    'av1_highbd_convolve_y_sr_intrabc_c': [1084, 1109],
+    'av1_convolve_2d_sr_intrabc_c': [1514, 1544],
+    'av1_highbd_convolve_2d_sr_intrabc_c': [1801, 1835],
+}
+SUITES['intrabc'] = dict(source=SOURCE, sites=INTRABC_SITES, subjects=list(INTRABC_SITES),
+    filter='C/AV1Convolve*IntraBCTest.RunTest/*', cases=243,
+    headers=['config/av1_rtcd.h', 'config/aom_dsp_rtcd.h'])
 
 
 def audit_map(path, symbols, rust_archive, oracle_archive, subjects, oracles):
