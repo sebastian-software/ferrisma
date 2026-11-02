@@ -117,6 +117,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
 | `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
+| `decode.cc` signature/container-header helpers, constants in `lib/include/jxl/decode.h` | `decode.rs`, signature bytes in `common.rs` | Complete OutOfBounds, InitialBasicInfoSizeHint, ReadSignature, JxlSignatureCheck and ParseBoxHeader; public incremental decoder state/events and C ABI entry points remain separate |
 | `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete tag/command tables, endian access, unsigned bounds checks, initial/adaptive header prediction, linear byte prediction and ICC ANS contexts |
 | `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete shuffle, bounded base-128 varint, preamble validation and ICC command decoding with exact partial output; streaming ICCReader entropy/checkpoint ownership and whole-file ICC admission remain separate |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
@@ -1424,3 +1425,37 @@ header checkpoint and the full logical-position/history domain. Focused
 comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
 Rust 1.85 configurations, including the three standalone regressions.
 Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
+
+
+## Decoder signature and container-header helpers
+
+The complete pinned signature and box-header helpers retain source minimum-byte
+checks, unsigned size arithmetic, unbounded/extended box sizes, file-position
+overflow errors, and exact output-parameter mutation on incomplete headers.
+Public signature/status values follow decode.h and the existing transparent-u32
+public-type convention. These Rust helpers do not expose a partial decoder
+state machine or claim the public C ABI is complete.
+
+The independent observer compiles five exact, hash-checked fragments from the
+pinned decode.cc through the existing source extractor. It also calls the actual
+public JxlSignatureCheck from the original archive. The corpus exhausts every
+two-byte signature and varies container prefixes, output seeds, every box-header
+byte, truncation, offsets and overflow. Three standalone regressions retain
+independent original captures of partial assignments, signature prefixes and
+file-position wrap. tools/decoder_api_reference.py audits the complete actual
+Rust-generated corpus against both original graphs and checks source hashes,
+public symbols, instrumentation and unchanged active artifacts.
+
+All six focused ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations
+pass four differential groups with 92,452 exact requests and three standalone
+regressions each, with no failures or ignored tests. The independent source audit
+also confirms all 92,452 actual Rust-generated requests agree between both
+original graphs. A separate cold review found no source-defined discrepancy.
+All six full repository configurations also pass: each runs 456 tests,
+265 differential groups and 986,631 exact requests, with no failures or ignored
+tests. Native CI and integration into `main` remain required. The 32-bit
+size-narrowing branch is source-reviewed but requires
+its own native target evidence; the current acceptance matrix is 64-bit Linux
+and macOS. Container sequencing, compressed boxes, incremental events, callbacks
+and progressive pixel output remain decoder work. The README public-decoder and
+container checkboxes remain open.

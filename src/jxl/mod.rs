@@ -30,6 +30,7 @@ pub mod dec_patch_dictionary;
 pub mod dec_transforms;
 pub mod dec_xyb;
 pub mod dec_xyb_scalar;
+pub mod decode;
 pub mod enc_ans;
 mod enc_ans_histogram;
 pub mod enc_ans_params;

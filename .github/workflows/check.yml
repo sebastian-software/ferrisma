@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, feat/decoder-icc-codec]
+    branches: [main, feat/decoder-api]
   pull_request:
 
 permissions:

@@ -1158,3 +1158,17 @@ results. Width-four prediction retains original unsigned wrapping. Invalid raw
 pointer, zero shuffle-width and overlapping-container caller preconditions do
 not receive invented codec semantics. Streaming ICCReader ownership remains a
 separate boundary.
+
+
+Decoder API framing helpers retain caller-owned output parameters. ParseBoxHeader
+writes header_size=8 on an incomplete initial header without changing the type
+or box size. An incomplete extended header retains the decoded type, box_size=1,
+and header_size=16. Later validation errors retain the completed header outputs.
+Use explicit usize wrapping for source size_t additions; checked slice access
+follows the original overflow/range guard. Signature failure leaves the input
+position unchanged, including an incomplete container candidate whose available
+bytes already differ from the final signature. Borrowed slices replace raw
+input pointer/length pairs without copying bytes or introducing unsafe code.
+The source's separate JxlDecoderStatus values are not internal StatusCode errors.
+Transparent-u32 public values follow the existing pixel-format descriptor mapping;
+this component does not yet export C ABI entry points or a decoder object.
