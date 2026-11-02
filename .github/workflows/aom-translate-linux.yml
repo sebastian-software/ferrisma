@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Generate, reproduce, or compile committed profiles
+        description: Generate, reproduce, compile, or generate optional macro subjects
         type: choice
-        options: [generate, verify, compile]
+        options: [generate, verify, compile, macros]
         default: generate
 
 permissions:
@@ -56,7 +56,7 @@ jobs:
           python3 tools/build_aom.py --debug
           python3 tools/build_aom.py
       - name: Translate both complete native Linux source profiles
-        if: inputs.mode != 'compile'
+        if: inputs.mode == 'generate' || inputs.mode == 'verify'
         env:
           RUST_BACKTRACE: "1"
         run: |
@@ -67,8 +67,14 @@ jobs:
             python3 tools/transpile_aom.py --check
             python3 tools/transpile_aom.py --release --check
           fi
+      - name: Generate optional original macro subjects
+        if: inputs.mode == 'macros'
+        run: |
+          python3 tools/transpile_aom_macros.py
+          python3 tools/transpile_aom_macros.py --release
       - name: Compile both generated profiles and compare public codec output
         id: consumers
+        if: inputs.mode != 'macros'
         env:
           RUSTUP_TOOLCHAIN: nightly-2026-09-07
         run: |
@@ -142,7 +148,11 @@ jobs:
             crates/aom/src/api-linux-*.rs
             crates/aom/TRANSLATION-linux-*.json
             crates/aom/reference/linux/
+            crates/aom/src/macros-linux-*.rs
+            translations/aom-macros-linux-*.json
+            build/aom-macro-translate/*/transpile.log
             build/aom-translate/*/transpile.log
+            build/aom-translate/*/expected/
             build/aom-generated/
             build/aom-native-*/reference-profile.json
             build/aom-native-*/library-compile-commands.json

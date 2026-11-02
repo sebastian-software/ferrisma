@@ -161,6 +161,12 @@ production body hash. Remaining inline roles, macro subjects such as `OD_DIVU_SM
 helper calls, and scalar self-comparisons stay open. Fixture and oracle uses
 of the scan helper in other original test inputs retain their native bindings.
 
+The optional `OD_DIVU_SMALL` subject is generated from a tiny C wrapper around
+the original `odintrin.h` macro (ADR 0043). Both macOS preprocessing profiles
+reproduce with C2Rust; native Linux generation, crate wiring, and execution of
+the two original division cases remain pending. These helper units are outside
+the 168-unit production closure and receive no execution credit from generation.
+
 Six convolution subjects now use independent C oracles in 243 existing
 parameterized cases per profile (ADR 0041). A separate complete original C
 archive has every defined codec global and its relocations renamed, preserving
