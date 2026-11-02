@@ -117,11 +117,13 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
 | `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
+| `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete tag/command tables, endian access, unsigned bounds checks, initial/adaptive header prediction, linear byte prediction and ICC ANS contexts |
+| `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete shuffle, bounded base-128 varint, preamble validation and ICC command decoding with exact partial output; streaming ICCReader entropy/checkpoint ownership and whole-file ICC admission remain separate |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
-| `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
+| `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, transferred output ownership, WithInitialSpace, clear, push_back and checked append reached by ICC decoding; other container operations unported |
 | `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation using Rust allocator and source scalar row sizing; custom C callbacks unported |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
@@ -1400,3 +1402,25 @@ original compiler-dependent NaN operand ambiguity and ownership mapping. No old
 cases, expected words, source pins, sanitizer flags, or original archive options
 change. Complete-file EPF admission and image evidence are a separate integration
 milestone, so the README's EPF checkbox remains open here.
+
+
+## ICC profile command decoding
+
+The complete common-helper and UnpredictICC boundary adds five differential
+groups and 12,247 exact original requests. These cover every byte-pair context
+class, tag/endian access, adaptive header prediction, preceding-history loads,
+unsigned overflow checks, all tenth-byte varint forms, nonrectangular shuffles,
+every tag/command byte and prediction flag, command errors and initialized output
+prefixes. Four sRGB/linear ICC profiles and 45 arbitrary byte buffers pass through
+the actual original PredictICC function; their genuine command streams are then
+decoded, truncated and mutated against both implementations. Three standalone
+regressions retain independent original captures for tenth-byte overflow,
+nonrectangular shuffling and partial output with the nonempty-result guard.
+
+The observer compiles pristine icc_codec.cc and calls the original common helpers
+and predictor. Source bodies, numeric options, dependencies and sanitizer
+coverage remain unchanged. A fresh source review retained the fallible allocated
+header checkpoint and the full logical-position/history domain. Focused
+comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
+Rust 1.85 configurations, including the three standalone regressions.
+Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native Linux and macOS CI are still required. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
