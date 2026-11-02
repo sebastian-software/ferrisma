@@ -607,7 +607,7 @@
         "glibc-setjmp-aliases": 3,
         "scoped-nonlocal-error-targets": 2,
         "unwinding-codec-and-callback-abi": 8,
-        "system-and-vmaf-c-abi-declarations": 12
+        "system-and-vmaf-c-abi-declarations": 11
       }
     },
     {
@@ -1114,7 +1114,7 @@
         "glibc-setjmp-aliases": 4,
         "scoped-nonlocal-error-targets": 3,
         "unwinding-codec-and-callback-abi": 77,
-        "system-and-vmaf-c-abi-declarations": 12
+        "system-and-vmaf-c-abi-declarations": 11
       }
     },
     {
@@ -1179,7 +1179,7 @@
         "glibc-setjmp-aliases": 2,
         "scoped-nonlocal-error-targets": 1,
         "unwinding-codec-and-callback-abi": 176,
-        "system-and-vmaf-c-abi-declarations": 8,
+        "system-and-vmaf-c-abi-declarations": 7,
         "sysv-array-decayed-control-va-list": 1
       }
     },
@@ -1200,7 +1200,7 @@
         "glibc-setjmp-aliases": 3,
         "scoped-nonlocal-error-targets": 2,
         "unwinding-codec-and-callback-abi": 293,
-        "system-and-vmaf-c-abi-declarations": 14,
+        "system-and-vmaf-c-abi-declarations": 13,
         "optional-inline-test-bridge": 1
       }
     },
@@ -1231,7 +1231,7 @@
         "glibc-setjmp-aliases": 3,
         "scoped-nonlocal-error-targets": 2,
         "unwinding-codec-and-callback-abi": 56,
-        "system-and-vmaf-c-abi-declarations": 7
+        "system-and-vmaf-c-abi-declarations": 6
       }
     },
     {
@@ -1310,7 +1310,7 @@
         "glibc-setjmp-aliases": 8,
         "scoped-nonlocal-error-targets": 7,
         "unwinding-codec-and-callback-abi": 469,
-        "system-and-vmaf-c-abi-declarations": 13,
+        "system-and-vmaf-c-abi-declarations": 12,
         "sysv-array-decayed-control-va-list": 1
       }
     },
@@ -1487,7 +1487,7 @@
         "glibc-setjmp-aliases": 2,
         "scoped-nonlocal-error-targets": 1,
         "unwinding-codec-and-callback-abi": 57,
-        "system-and-vmaf-c-abi-declarations": 4
+        "system-and-vmaf-c-abi-declarations": 3
       }
     },
     {
@@ -1594,7 +1594,7 @@
         "glibc-setjmp-aliases": 4,
         "scoped-nonlocal-error-targets": 3,
         "unwinding-codec-and-callback-abi": 1875,
-        "system-and-vmaf-c-abi-declarations": 13
+        "system-and-vmaf-c-abi-declarations": 12
       }
     },
     {
@@ -1643,7 +1643,7 @@
         "glibc-setjmp-aliases": 12,
         "scoped-nonlocal-error-targets": 11,
         "unwinding-codec-and-callback-abi": 216,
-        "system-and-vmaf-c-abi-declarations": 14
+        "system-and-vmaf-c-abi-declarations": 13
       }
     },
     {

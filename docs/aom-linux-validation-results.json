@@ -9039,7 +9039,7 @@
   "ci_failure": "Rust Debug encoder aborts at allocation failure 3 and pthread-create failure 1; native C passes all 62 focused API cases, while Rust aborts before writing case XML. The source left glibc _setjmp targets unmapped; corrected candidate awaits native runtime validation.",
   "candidate_error_mapping": {
     "debug": {
-      "translation_manifest_sha256": "f775b96be412bdeb3a8a566d44cbcb44cf0bdd64553cb7f040f050f9c919bbeb",
+      "translation_manifest_sha256": "5d7c5696109ced72a18a67f00f222e31751fdd99e95a0405f5d1f3bc7c0c1202",
       "corrections": {
         "glibc-setjmp-aliases": 41,
         "scoped-nonlocal-error-targets": 32,
@@ -9047,10 +9047,14 @@
       },
       "source_artifact_run": 41417830280,
       "reproduced_from_original_artifact": true,
-      "native_compilation_and_failure_behavior_pending": true
+      "native_compilation_and_failure_behavior_pending": true,
+      "native_type_checks_passed_ci_run": 41460252346,
+      "fresh_native_debug_unit_text_matches_ci_run": 41460252346,
+      "fresh_native_manifest_reproduction_pending": true,
+      "removed_native_declarations_reconciled": true
     },
     "release": {
-      "translation_manifest_sha256": "652dece31ca1ec4cf69c370bf256115dbb8e9227a37a7ff2b6445cbe17974c75",
+      "translation_manifest_sha256": "b88fb5f8bd1a12b5966c3b49dbeaad6e79c6543ea7e79dccb0a4fc16ed246667",
       "corrections": {
         "glibc-setjmp-aliases": 41,
         "scoped-nonlocal-error-targets": 32,
@@ -9058,7 +9062,11 @@
       },
       "source_artifact_run": 41417830280,
       "reproduced_from_original_artifact": true,
-      "native_compilation_and_failure_behavior_pending": true
+      "native_compilation_and_failure_behavior_pending": true,
+      "native_type_checks_passed_ci_run": 41460252346,
+      "fresh_native_debug_unit_text_matches_ci_run": 41460252346,
+      "fresh_native_manifest_reproduction_pending": true,
+      "removed_native_declarations_reconciled": true
     }
   }
 }

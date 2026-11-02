@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 
 from aom_inline_bridges import SUBJECTS, append_bridges
 from aom_corrections import control_va_list
@@ -59,10 +60,19 @@ def main():
                 raise SystemExit(f'Artifact translation hash differs: {target}')
             changes = dict(unit['corrections'])
             text, count = control_va_list(content.decode())
+            removed_native_declarations = len(re.findall(r'    fn _setjmp\([^;]+;\n', text))
             text, jump_changes = map_scopes(text)
             # Keep the same correction order as a fresh raw-source import.
             jumps = {name: changes.pop(name) for name in JUMP_CORRECTIONS if name in changes}
             jumps.update(jump_changes)
+            if removed_native_declarations:
+                remaining = jumps['system-and-vmaf-c-abi-declarations'] - removed_native_declarations
+                if remaining < 0:
+                    raise SystemExit('Removed more glibc declarations than the artifact recorded')
+                if remaining:
+                    jumps['system-and-vmaf-c-abi-declarations'] = remaining
+                else:
+                    jumps.pop('system-and-vmaf-c-abi-declarations')
             changes.update((name, jumps[name]) for name in JUMP_CORRECTIONS if name in jumps)
             if count:
                 changes['sysv-array-decayed-control-va-list'] = count

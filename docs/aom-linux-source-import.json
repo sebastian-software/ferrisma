@@ -44,7 +44,7 @@
         }
       },
       "artifact_manifest_sha256": "1373bb9da84b2c576bef08095f8e9b7fcee0732a132b0468707194cfec928287",
-      "imported_manifest_sha256": "f775b96be412bdeb3a8a566d44cbcb44cf0bdd64553cb7f040f050f9c919bbeb",
+      "imported_manifest_sha256": "5d7c5696109ced72a18a67f00f222e31751fdd99e95a0405f5d1f3bc7c0c1202",
       "production_bodies_unchanged": false,
       "corrected_production_bodies": [
         "crates/aom/src/linux/debug/aom/src/aom_codec.rs",
@@ -101,7 +101,7 @@
         }
       },
       "artifact_manifest_sha256": "a42e9839db9b5a7bc1e7505a5fc3a390ea62af61e6f318600c42d2c611cc1ff4",
-      "imported_manifest_sha256": "652dece31ca1ec4cf69c370bf256115dbb8e9227a37a7ff2b6445cbe17974c75",
+      "imported_manifest_sha256": "b88fb5f8bd1a12b5966c3b49dbeaad6e79c6543ea7e79dccb0a4fc16ed246667",
       "production_bodies_unchanged": false,
       "corrected_production_bodies": [
         "crates/aom/src/linux/release/aom/src/aom_codec.rs",
