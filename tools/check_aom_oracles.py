@@ -139,6 +139,13 @@ SUITES['variance-mse-sum'] = dict(source='test/variance_test.cc',
     filter=':'.join(f'C/{name}.*' for name in ['MseWxHTest', 'Mse16xHTest',
         'MseHBDWxHTest', 'GetSseSum8x8QuadTest', 'GetSseSum16x16DualTest']),
     cases=40, headers=['config/aom_dsp_rtcd.h'])
+SUITES['satd'] = dict(source='test/avg_test.cc',
+    sites={'aom_satd_c': [1004, 1005, 1006, 1007],
+           'aom_satd_lp_c': [1116, 1117, 1118, 1119]},
+    subjects=['aom_satd_c', 'aom_satd_lp_c'], identifier_oracles=True,
+    paired_reference_parameters=True,
+    filter='C/SatdTest.*:C/SatdLpTest.*', cases=32,
+    headers=['config/aom_dsp_rtcd.h'])
 SUITES['warp-affine'] = dict(source='test/warp_filter_test_util.cc',
     sites={'av1_warp_affine_c': [265]}, subjects=['av1_warp_affine_c'],
     subject_source='test/warp_filter_test.cc',
@@ -201,6 +208,20 @@ def compilation_copy(text, source_name, augmentation):
     # A UTF-8 signature must remain at byte zero when inserting diagnostics.
     signature = '\ufeff' if text.startswith('\ufeff') else ''
     return signature + f'#line 1 "{source_name}"\n' + text[len(signature):] + augmentation
+
+
+def reference_parameter_positions(original, sites):
+    """Select only the first address in each reviewed identical-function pair."""
+    lines = original.splitlines(keepends=True)
+    positions = set()
+    for name, numbers in sites.items():
+        for number in numbers:
+            line = lines[number - 1]
+            pair = re.search(r'&(' + re.escape(name) + r'),\s*&' + re.escape(name) + r'\b', line)
+            if pair is None or len(re.findall(r'\b' + re.escape(name) + r'\b', line)) != 2:
+                raise SystemExit(f'Original reference/subject parameter pair changed: {name}:{number}')
+            positions.add(sum(map(len, lines[:number - 1])) + pair.start(1))
+    return positions
 
 
 def audit_map(path, symbols, rust_archive, oracle_archive, subjects, oracles):
@@ -277,9 +298,12 @@ def main():
     augmentation = supplementary_registrations(original, args.suite, PREFIX) if suite.get('supplementary') else ''
     baseline_augmentation = supplementary_registrations(original, args.suite) if augmentation else ''
     lexemes, replacements, sites = tokens(original), [], {name: [] for name in oracle_sites}
+    paired_positions = (reference_parameter_positions(original, oracle_sites)
+                        if suite.get('paired_reference_parameters') else None)
     for index, token in enumerate(lexemes[:-1]):
         line = original.count('\n', 0, token.start()) + 1 if token[0] in oracle_sites else 0
         if (token[0] in oracle_sites and line in oracle_sites[token[0]]
+                and (paired_positions is None or token.start() in paired_positions)
                 and (lexemes[index + 1][0] == '(' or suite.get('identifier_oracles'))):
             sites[token[0]].append(line)
             replacements.append((token.start(), token.end(), PREFIX + token[0]))

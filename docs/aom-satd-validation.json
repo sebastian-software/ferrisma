@@ -1,0 +1,456 @@
+{
+  "status": "original SATD comparisons passed in both macOS profiles",
+  "target": "aarch64-apple-darwin",
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "original_library_and_test_bodies_unchanged": true,
+  "original_registrations_unchanged": 18729,
+  "original_executed_cases_per_profile": 32,
+  "rust_subjects": 2,
+  "original_reference_binding": "Only the first address in each of eight original identical-function parameter pairs binds the isolated C reference; all second addresses remain Rust subjects.",
+  "pair_guard": "Each reviewed line must contain exactly the original two identical addresses. The first address is selected by its physical token position. A changed original subject address is rejected.",
+  "changed_parameter_pair_negative_probe_passed": true,
+  "assertion_scope": "Original minimum/maximum values, fixed random goldens, and match assertions; four original lengths per scalar function and original disabled speed flags retained.",
+  "full_standalone_acceptance": false,
+  "complete_dsp_role_review": false,
+  "native_linux_execution_pending": true,
+  "profiles": {
+    "debug": {
+      "profile": "debug",
+      "original_registrations": 18729,
+      "executed_original_cases": 32,
+      "executed_supplementary_cases": 0,
+      "supplementary_registrations": [],
+      "augmentation_sha256": null,
+      "baseline_augmentation_sha256": null,
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/avg_test.cc",
+      "original_source_sha256": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+      "oracle_sites": {
+        "aom_satd_c": [
+          1004,
+          1005,
+          1006,
+          1007
+        ],
+        "aom_satd_lp_c": [
+          1116,
+          1117,
+          1118,
+          1119
+        ]
+      },
+      "binding_copy_sha256": "7ad85f27ed6fc7f284f4fd12dcdc0058f9d9c9b326c641e220a5917ce4c586cb",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "f9cca754f93af4e0cafcbdb69e8957a96ae4412986e62f5da349d1e2d052bcb6",
+        "profile": "debug",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2743,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+        "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+        "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2742,
+        "isolated_c_oracle_globals": 22,
+        "reviewed_rust_subjects": [
+          "aom_satd_c",
+          "aom_satd_lp_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_satd_c",
+          "aom_satd_lp_c"
+        ],
+        "map_sha256": "252b93f542ce65d1cc0d84838c80d6af6348274760c9ff8f10c2c4332ffce606"
+      },
+      "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+      "rust_archive_sha256": "c6efaa484839f6924cd782bf4c183d0ae5afcea1a575fb69ddd48ec1247949cf",
+      "cases": [
+        {
+          "name": "C/SatdTest.MinValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MinValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MinValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MinValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/3",
+          "failed": false,
+          "skipped": false
+        }
+      ]
+    },
+    "release": {
+      "profile": "release",
+      "original_registrations": 18729,
+      "executed_original_cases": 32,
+      "executed_supplementary_cases": 0,
+      "supplementary_registrations": [],
+      "augmentation_sha256": null,
+      "baseline_augmentation_sha256": null,
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/avg_test.cc",
+      "original_source_sha256": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+      "oracle_sites": {
+        "aom_satd_c": [
+          1004,
+          1005,
+          1006,
+          1007
+        ],
+        "aom_satd_lp_c": [
+          1116,
+          1117,
+          1118,
+          1119
+        ]
+      },
+      "binding_copy_sha256": "7ad85f27ed6fc7f284f4fd12dcdc0058f9d9c9b326c641e220a5917ce4c586cb",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "5a8c3e6e8ae1eb63dcde8e230d7326559e136d05cc51cd4200e0a45e9db51f9f",
+        "profile": "release",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2741,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+        "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+        "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2741,
+        "isolated_c_oracle_globals": 22,
+        "reviewed_rust_subjects": [
+          "aom_satd_c",
+          "aom_satd_lp_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_satd_c",
+          "aom_satd_lp_c"
+        ],
+        "map_sha256": "76eeb7273cf2c06dce738ba9084cc087cda64d92aacb0626124e74e07f1cb666"
+      },
+      "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
+      "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+      "cases": [
+        {
+          "name": "C/SatdTest.MinValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MinValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MinValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MinValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.MaxValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Random/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdTest.Match/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MinValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.MaxValue/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Random/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "C/SatdLpTest.Match/3",
+          "failed": false,
+          "skipped": false
+        }
+      ]
+    }
+  }
+}

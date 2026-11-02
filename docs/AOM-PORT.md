@@ -261,6 +261,14 @@ subject parameters, assertions, dimensions, sample bounds, and disabled speed
 cases stay unchanged. Both macOS profiles pass; native Linux is pending. See
 [`aom-variance-mse-sum-validation.json`](aom-variance-mse-sum-validation.json).
 
+Both SATD functions also use separate C reference and Rust subject parameter
+slots in 32 original cases per profile. The eight original identical-function
+pairs are checked before selecting only their first addresses. Minimum/maximum
+expectations, fixed random goldens, match assertions, lengths, and disabled
+speed cases stay unchanged. Both macOS profiles pass; a changed original
+parameter pair is rejected before compilation. Native Linux is pending. See
+[`aom-satd-validation.json`](aom-satd-validation.json).
+
 The original k-means classes register only SIMD implementations, leaving zero
 k-means cases in the generic reference inventory. A separate supplementary
 scalar matrix reuses their unchanged test bodies, random inputs, fourteen
