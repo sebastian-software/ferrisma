@@ -52,6 +52,11 @@
       "export": "port_aom_inline_av1_is_dv_valid"
     },
     {
+      "function": "get_default_scan",
+      "source": "upstream/aom/av1/decoder/decodetxb.c",
+      "export": "port_aom_inline_get_default_scan"
+    },
+    {
       "function": "aom_get_qmlevel",
       "source": "upstream/aom/av1/encoder/av1_quantize.c",
       "export": "port_aom_inline_aom_get_qmlevel"
@@ -1197,14 +1202,15 @@
       "source": "upstream/aom/av1/decoder/decodetxb.c",
       "rust": "crates/aom/src/linux/release/av1/decoder/decodetxb.rs",
       "raw_sha256": "f3b326c852b948b85f44f37ac8a9e92552d78f5b8dd741847a5e7443a3b6fa4f",
-      "rust_sha256": "969065542fc7756aea0f2837c77f1d43682eb8b9a42e221584779ec7297a604b",
+      "rust_sha256": "9b488c21fc4a1c062add30dad3640b7f3c2b45668ded61b23b591a14a00e2953",
       "production_rust_sha256": "969065542fc7756aea0f2837c77f1d43682eb8b9a42e221584779ec7297a604b",
       "corrections": {
         "raw-c-mutable-address": 11,
         "raw-c-assignment-temporary": 3,
         "original-c-record-field-alignment": 6,
         "unwinding-codec-and-callback-abi": 53,
-        "system-and-vmaf-c-abi-declarations": 1
+        "system-and-vmaf-c-abi-declarations": 1,
+        "optional-inline-test-bridge": 1
       }
     },
     {

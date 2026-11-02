@@ -4425,3 +4425,12 @@ extern "C" {
         __n: size_t,
     ) -> *mut core::ffi::c_void;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_get_default_scan(
+    tx_size: TX_SIZE,
+    tx_type: TX_TYPE,
+) -> *const SCAN_ORDER {
+    get_default_scan(tx_size, tx_type)
+}

@@ -102,16 +102,16 @@ def main():
         if any(value['failed'] or value['skipped'] for value in cases):
             raise SystemExit('An original inline-subject assertion failed or skipped')
         records.append(cases)
-    if records[0] != records[1] or len(records[0]) != 12:
+    if records[0] != records[1] or len(records[0]) != 13:
         raise SystemExit('Original/Rust inline-subject execution inventories differ')
-    report = dict(profile=profile, original_registrations=len(reference_names), executed_original_cases=12,
-                  original_cases_and_assertions_unchanged=True, optional_rust_bridge_exports=10,
+    report = dict(profile=profile, original_registrations=len(reference_names), executed_original_cases=13,
+                  original_cases_and_assertions_unchanged=True, optional_rust_bridge_exports=11,
                   original_inline_subjects_execute_rust=True, native_reference_and_fixture_helpers_retained=True,
                   complete_inline_role_review=False, subjects=subjects, cases=records[1],
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                   map_sha256=hashlib.sha256(link_map.read_bytes()).hexdigest())
     (work / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
-    print('12 original cases exercise 10 Rust inline subjects; all 18,729 registrations preserved')
+    print('13 original cases exercise 11 Rust inline subjects; all 18,729 registrations preserved')
 
 
 if __name__ == '__main__':

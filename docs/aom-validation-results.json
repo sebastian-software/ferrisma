@@ -1252,7 +1252,7 @@
         "excluded_count": 1423,
         "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
-      "translation_manifest_sha256": "ba3746b6b62087ed3978d14260c2ac73d4fcb67a394872b12efa5c203b8aa4c6",
+      "translation_manifest_sha256": "4f4a96f02cde0f90aa708632990bb3bc440ca44fa3d01c0610ccf8b671a09e56",
       "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
       "rust_archive_sha256": "603bd67357ea71de21f8222eea712b98f50ba6234ba22955579ef8fc7292af25",
       "raw_api_example_passed": true,
@@ -1663,9 +1663,9 @@
       "original_inline_subjects": {
         "profile": "debug",
         "original_registrations": 18729,
-        "executed_original_cases": 12,
+        "executed_original_cases": 13,
         "original_cases_and_assertions_unchanged": true,
-        "optional_rust_bridge_exports": 10,
+        "optional_rust_bridge_exports": 11,
         "original_inline_subjects_execute_rust": true,
         "native_reference_and_fixture_helpers_retained": true,
         "complete_inline_role_review": false,
@@ -1735,6 +1735,15 @@
             ],
             "forced_include_sha256": "f064c606f6d7d845da669b25f3d813930b834bbac7a3e095e23ad9d9135d4e9f",
             "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/scan_test.cc",
+            "source_sha256": "922698cbf72ee6ff90ce6fc632e2753c882b962d9cdd0338e1e9033a13241b9b",
+            "functions": [
+              "get_default_scan"
+            ],
+            "forced_include_sha256": "19075effc545cc9e4485263c179e944cc5c8dda5b51d5e9aaddd631ee6d6e44f",
+            "assertions_and_cases_unchanged": true
           }
         ],
         "cases": [
@@ -1788,6 +1797,13 @@
             "skipped": false
           },
           {
+            "name": "Av1ScanTest.Dependency",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
             "name": "AV1.TestBitIO",
             "status": "run",
             "result": "completed",
@@ -1823,8 +1839,8 @@
             "skipped": false
           }
         ],
-        "rust_archive_sha256": "ed926f426262db33779aadc4c662cca7fd55e539affcbea627bfdfcfb4199135",
-        "map_sha256": "c1a356ec0b431f0baf5591e4d6a37a430c8e1b27a4778921a0055b290bb2ed29"
+        "rust_archive_sha256": "8dc88b5e57ef91a1ffbf969597f96b206bca2222e131a20bcb8ffdee93a8857f",
+        "map_sha256": "5727c7de75ed425d96071de68c8f79b09cb026d0df7e6653c17bdfec7b80f6e8"
       },
       "translation_manifest_sha256_before_optional_bridges": "cc86c06c84b4b80e95666afecc94b3df8105443ed5311a84e2f1c3c87b23d331",
       "production_bodies_unchanged_by_optional_bridges": true,
@@ -3106,7 +3122,8 @@
             "skipped": false
           }
         ]
-      }
+      },
+      "production_bodies_unchanged_by_scan_bridge": true
     },
     "release": {
       "aom-cli": {
@@ -4317,7 +4334,7 @@
         "excluded_count": 1423,
         "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
-      "translation_manifest_sha256": "3121028cf5c71c1438e3156644d21f7e29287be77f506d7282851ff6e6605fe6",
+      "translation_manifest_sha256": "7a401b48d1107814c43c0ee863bcb0ef544c08808f276492f398301a000f912f",
       "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
       "rust_archive_sha256": "31bdc814535ec2a6fd12190f5a92142ba4e2246510a3ed790b23e8b836525ceb",
       "raw_api_example_passed": true,
@@ -4769,9 +4786,9 @@
       "original_inline_subjects": {
         "profile": "release",
         "original_registrations": 18729,
-        "executed_original_cases": 12,
+        "executed_original_cases": 13,
         "original_cases_and_assertions_unchanged": true,
-        "optional_rust_bridge_exports": 10,
+        "optional_rust_bridge_exports": 11,
         "original_inline_subjects_execute_rust": true,
         "native_reference_and_fixture_helpers_retained": true,
         "complete_inline_role_review": false,
@@ -4841,6 +4858,15 @@
             ],
             "forced_include_sha256": "f064c606f6d7d845da669b25f3d813930b834bbac7a3e095e23ad9d9135d4e9f",
             "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/scan_test.cc",
+            "source_sha256": "922698cbf72ee6ff90ce6fc632e2753c882b962d9cdd0338e1e9033a13241b9b",
+            "functions": [
+              "get_default_scan"
+            ],
+            "forced_include_sha256": "19075effc545cc9e4485263c179e944cc5c8dda5b51d5e9aaddd631ee6d6e44f",
+            "assertions_and_cases_unchanged": true
           }
         ],
         "cases": [
@@ -4894,6 +4920,13 @@
             "skipped": false
           },
           {
+            "name": "Av1ScanTest.Dependency",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
             "name": "AV1.TestBitIO",
             "status": "run",
             "result": "completed",
@@ -4929,8 +4962,8 @@
             "skipped": false
           }
         ],
-        "rust_archive_sha256": "247c0434bd1bb4fa5dc56586ca08f14a7e18defeac1c60914a0af881f524109f",
-        "map_sha256": "5858a886505f81e2b5555b1c75b75a038cf946b7a20878273b9ee11c99b66dc3"
+        "rust_archive_sha256": "d64eeabdb2da1d8f6fe99963d1739aae6732969cc95cc0a1ba3b80c54c388109",
+        "map_sha256": "0aef5b0d70f72ef5f605e61eddf92f23f16279f55e5394fa3cfa9cececa5f3ec"
       },
       "translation_manifest_sha256_before_optional_bridges": "646058753c64cebc8efcd6dfa91a9fd1070d77a6b83458d4c8d6ff0c49116008",
       "production_bodies_unchanged_by_optional_bridges": true,
@@ -6212,7 +6245,8 @@
             "skipped": false
           }
         ]
-      }
+      },
+      "production_bodies_unchanged_by_scan_bridge": true
     }
   },
   "open_gates": [
