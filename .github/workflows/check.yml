@@ -54,6 +54,14 @@ jobs:
           python3 tools/noise_reference.py
           python3 tools/alpha_reference.py
           python3 tools/skcms_reference.py --output target/skcms-acceptance
+      - name: Diagnose temporary skcms source numeric configurations
+        if: always() && runner.os == 'Linux'
+        run: >-
+          python3 tools/skcms_matrix_source_configs.py
+          --baseline-diagnostics target/skcms-matrix-diagnostics
+          --full-transfer target/skcms-acceptance/transfer.requests
+          --full-matrix target/skcms-acceptance/matrix.requests
+          --output target/skcms-source-configs
       - name: Audit complete chroma images and retained frame lifecycles
         if: always()
         run: |
@@ -73,6 +81,7 @@ jobs:
             target/lifecycle-acceptance
             target/skcms-acceptance
             target/skcms-matrix-diagnostics
+            target/skcms-source-configs
           if-no-files-found: error
       - name: Audit complete extra-channel source bindings and stride boundaries
         if: always()
