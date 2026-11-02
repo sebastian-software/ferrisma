@@ -56,11 +56,22 @@ SUITES['kmeans'] = dict(source='test/av1_k_means_test.cc',
     sites={'av1_calc_indices_dim1_c': [94, 109], 'av1_calc_indices_dim2_c': [200, 215]},
     subjects=['av1_calc_indices_dim1_c', 'av1_calc_indices_dim2_c'],
     filter='PortScalar/AV1KmeansTest*.CheckOutput/*', cases=28,
-    headers=['config/av1_rtcd.h'], supplementary=True, identifier_oracles=True)
+    headers=['config/av1_rtcd.h'], supplementary=True, identifier_oracles=True,
+    added_registrations=56, added_disabled=28)
+SUITES['nn-predict'] = dict(source='test/av1_nn_predict_test.cc',
+    sites={'av1_nn_predict_c': [118, 155]}, subjects=['av1_nn_predict_c'],
+    filter='PortScalar/NnPredictTest.RandomValues/*', cases=1,
+    headers=['config/av1_rtcd.h'], supplementary=True,
+    added_registrations=2, added_disabled=1)
 
 
-def supplementary_registrations(original):
+def supplementary_registrations(original, suite):
     """Reuse the original SIMD-only matrix for a separate scalar comparison."""
+    if suite == 'nn-predict':
+        return ('\nnamespace {\nINSTANTIATE_TEST_SUITE_P(PortScalar, NnPredictTest,\n'
+                '  ::testing::Values(av1_nn_predict_c));\n}\n')
+    if suite != 'kmeans':
+        raise SystemExit(f'Unreviewed supplementary scalar matrix: {suite}')
     matrix = re.search(r'const BLOCK_SIZE kValidBlockSize\[\] = \{(.*?)\};', original, re.S)
     if not matrix or len(re.findall(r'\bBLOCK_\w+', matrix[1])) != 14:
         raise SystemExit('Original k-means block-size matrix changed')
@@ -113,7 +124,7 @@ def main():
         raise SystemExit(f'Modified original test source: {source_name}')
     entry = next(value for value in entries if Path(value['file']) == source)
     original = source.read_text()
-    augmentation = supplementary_registrations(original) if suite.get('supplementary') else ''
+    augmentation = supplementary_registrations(original, args.suite) if suite.get('supplementary') else ''
     lexemes, replacements, sites = tokens(original), [], {name: [] for name in oracle_sites}
     for index, token in enumerate(lexemes[:-1]):
         line = original.count('\n', 0, token.start()) + 1 if token[0] in oracle_sites else 0
@@ -171,7 +182,8 @@ def main():
     added = [name for name in registered if name.startswith('PortScalar/')] if augmentation else []
     if [name for name in registered if name not in added] != names:
         raise SystemExit('Independent oracle binding changed original registrations, order, or parameters')
-    if augmentation and (len(added) != 56 or sum('DISABLED_' in name for name in added) != 28):
+    if augmentation and (len(added) != suite['added_registrations']
+                         or sum('DISABLED_' in name for name in added) != suite['added_disabled']):
         raise SystemExit('Supplementary scalar registrations do not match the original matrix/disabled flags')
     baseline = build / 'test_libaom'
     if augmentation:

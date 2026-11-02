@@ -196,6 +196,13 @@ speed bodies remain disabled. Both profiles pass. The original 18,729
 registrations remain present and in order; the added `PortScalar/` cases are
 counted separately and do not inflate original-suite execution totals.
 
+Neural-network prediction has the same original SIMD-only registration gap.
+A supplementary scalar registration runs the unchanged `RandomValues` body
+against an isolated C oracle: all 17 original network shapes and 10,000
+iterations per shape, with the original `1e-3` threshold. Debug and Release
+pass; the speed body remains disabled. This adds one executed supplementary
+case per profile and no original-suite execution credit.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
@@ -250,6 +257,8 @@ python3 tools/check_aom_oracles.py --debug --suite intrabc
 python3 tools/check_aom_oracles.py --suite intrabc
 python3 tools/check_aom_oracles.py --debug --suite kmeans
 python3 tools/check_aom_oracles.py --suite kmeans
+python3 tools/check_aom_oracles.py --debug --suite nn-predict
+python3 tools/check_aom_oracles.py --suite nn-predict
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug

@@ -4879,6 +4879,61 @@
             "skipped": false
           }
         ]
+      },
+      "supplementary_c_nn_prediction_oracles": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 1,
+        "supplementary_registrations": [
+          "PortScalar/NnPredictTest.RandomValues/0",
+          "PortScalar/NnPredictTest.DISABLED_Speed/0"
+        ],
+        "augmentation_sha256": "69f35019ac7bed389f526e54d18a14a41aea4f75e516b2b073d2eef58b116db8",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_nn_predict_test.cc",
+        "original_source_sha256": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+        "oracle_sites": {
+          "av1_nn_predict_c": [
+            118,
+            155
+          ]
+        },
+        "binding_copy_sha256": "a08fbf950caf6edcf416e6f5e8d9594bc4e66b7a5bca7d61163df5e3681c619d",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "152082b78a0e1dd63999f20e3a3ae8a949b4958462ec9f985cc7838c4849a8dc",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+          "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+          "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2742,
+          "isolated_c_oracle_globals": 4,
+          "reviewed_rust_subjects": [
+            "av1_nn_predict_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_nn_predict_c"
+          ],
+          "map_sha256": "7bdf41a437b589fb6a9f15da5ee19dd4e3fd0fbbfbc18a0129776d0625ded810"
+        },
+        "rust_archive_sha256": "7a773ef04d9fea0f33dd40fd991eb5b02ca9b240b2e5d913a1d6f364029ad232",
+        "cases": [
+          {
+            "name": "PortScalar/NnPredictTest.RandomValues/0",
+            "failed": false,
+            "skipped": false
+          }
+        ]
       }
     },
     "release": {
@@ -9740,6 +9795,61 @@
           },
           {
             "name": "PortScalar/AV1KmeansTest2.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "supplementary_c_nn_prediction_oracles": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 1,
+        "supplementary_registrations": [
+          "PortScalar/NnPredictTest.RandomValues/0",
+          "PortScalar/NnPredictTest.DISABLED_Speed/0"
+        ],
+        "augmentation_sha256": "69f35019ac7bed389f526e54d18a14a41aea4f75e516b2b073d2eef58b116db8",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_nn_predict_test.cc",
+        "original_source_sha256": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+        "oracle_sites": {
+          "av1_nn_predict_c": [
+            118,
+            155
+          ]
+        },
+        "binding_copy_sha256": "a08fbf950caf6edcf416e6f5e8d9594bc4e66b7a5bca7d61163df5e3681c619d",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "14d1477646c6a1703c44f772ab12b106d0e87ade3cdae6ad42b52ba8165f6a60",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+          "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+          "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 4,
+          "reviewed_rust_subjects": [
+            "av1_nn_predict_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_nn_predict_c"
+          ],
+          "map_sha256": "2c83fbb0f9a4da322d5444b2201b8c98a69496b9abe3c6635644ed7943275044"
+        },
+        "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+        "cases": [
+          {
+            "name": "PortScalar/NnPredictTest.RandomValues/0",
             "failed": false,
             "skipped": false
           }
