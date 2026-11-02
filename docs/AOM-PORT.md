@@ -119,7 +119,8 @@ Supplemental comparisons in each profile preserve exact output:
   runtime. That supplementary macOS build uses Clang 16.0.6 and original Release
   preprocessing. Native VMAF remains uninstrumented. ThreadSanitizer and broader
   fault/fixture coverage are still open.
-- The 38 original C++ rate-control tests pass in both Release executables. The
+- The 38 original C++ rate-control tests pass in both Debug and Release
+  executables, with identical executed case inventories and no dynamic skips. The
   original C++ wrapper remains native; this is consumer/integration evidence,
   not a claim to have ported that wrapper.
 - All original global definitions resolve to Rust codec codegen objects:

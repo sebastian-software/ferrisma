@@ -3272,6 +3272,20 @@
             "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461"
           }
         ]
+      },
+      "original_cpp_rate_control": {
+        "executed_per_implementation": 38,
+        "failures": 0,
+        "errors": 0,
+        "dynamic_skips": 0,
+        "original_wrapper_remains_native": true,
+        "same_original_case_inventory": true,
+        "case_inventory_sha256": "1313abe8e6755db1c6e05b507350057649753195f78a6a932579cd8f5d0de4ed",
+        "result_xml_sha256": {
+          "native": "6a9764cf1afb80a9a33c68581cfa875fc269d59ccb3682ebe0693fed5cb8b0ef",
+          "rust": "0e8d4aebcaef3bfcd6ffd1e2ae48ef0ecd64e437d63670939d656e1ae0d7343c"
+        },
+        "scheduling": "Elapsed XML times include paused execution and are not performance measurements"
       }
     },
     "release": {
