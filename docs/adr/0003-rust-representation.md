@@ -1178,3 +1178,33 @@ borrowed by the simple decoder; its original GetInputBuffers call has no additio
 side effect. Convolution retains all 24 neighbor additions and scalar Highway
 rounding. Application retains original LUT interpolation, sign-bit clamp, color
 correlation and store order under the selected source configuration in ADR 0002.
+
+
+Scalar FromLinearStage and ToLinearStage factories copy only their selected
+operation state. PQ captures the original intensity target; HLG captures the
+source-selected intensity and luminances in HlgOOTF; gamma captures inverse_gamma
+or its reciprocal at construction. Later mutations of OutputEncodingInfo do not
+change the existing stage. Each scalar row loads RGB together, applies the
+original operation order, then stores RGB together. Extras remain ignored and
+horizontal guards run before row access. The legacy sRGB stage/factory and
+existing PQ/sRGB encoding helper bodies remain unchanged.
+
+The general FromLinear factory preserves the source's nullable release return
+for an invalid target. Its source JXL_DEBUG_ABORT programmer-error branch maps
+to a Rust debug assertion; it does not become a codec status. The ToLinear
+factory instead returns an initialized identity operation for an invalid target,
+as in the original. Uninstantiated private template default constructors are not
+introduced as public Rust APIs.
+
+HLG and BT709 double constexpr expressions convert to binary32 at their original
+Set sites. HLG's kA product promotes the original binary32 kInvLog2e constant to
+double before its final conversion. Both vector alternatives are expressed
+before selection, including masked low-input FastLog2f/FastPowf calculations.
+The original FastLog2f explicitly leaves selected negative/NaN approximations
+undefined. This excludes claims about a selected HLG OOTF with negative or NaN
+luminance, raw HLG encoding of NaNs, or selected gamma/BT709 powers of NaNs. It does not exclude valid
+negative inputs selected by the original gamma/BT709 low branches, mirrored HLG
+transfer inputs, or negative HLG channels with positive total luminance; exact
+original cases cover those boundaries. Scalar Highway integer reduction and
+conversion semantics remain those of the existing FastPow helpers. No new
+numeric configuration, unsafe code, or dependency is introduced.

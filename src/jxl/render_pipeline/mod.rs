@@ -9,6 +9,7 @@ pub mod stage_gaborish;
 pub mod stage_noise;
 pub mod stage_patches;
 pub mod stage_splines;
+pub mod stage_to_linear;
 pub mod stage_tone_mapping;
 pub mod stage_upsampling;
 pub mod stage_xyb;

@@ -3,7 +3,7 @@
 //! The scalar FromLinearStage<OpRgb> specialization in stage_from_linear.cc,
 //! with the original high-precision TF_SRGB from cms/transfer_functions-inl.h.
 //! The separate original FastLinearToSRGB helper is translated as well.
-//! Other transfer-function specializations are separate port boundaries.
+//! Complete scalar general factory and all six original transfer operations.
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };
@@ -72,4 +72,120 @@ impl RenderPipelineStage for SrgbFromLinearStage {
 
 pub fn get_srgb_from_linear_stage() -> Box<dyn RenderPipelineStage> {
     Box::new(SrgbFromLinearStage)
+}
+
+// Each source Op constructor copies only the state used by that specialization.
+enum Op {
+    Linear,
+    Rgb,
+    Pq(crate::jxl::cms::transfer_functions_scalar::TfPq),
+    Hlg(crate::jxl::cms::tone_mapping_scalar::HlgOotf),
+    Rec709,
+    Gamma(f32),
+}
+impl Op {
+    fn transform(&self, rgb: &mut [f32; 3]) {
+        use crate::jxl::cms::transfer_functions_scalar::{Tf709, TfHlg, srgb_encoded_from_display};
+        match self {
+            Self::Linear => {}
+            Self::Rgb => {
+                for value in rgb {
+                    *value = srgb_encoded_from_display(*value);
+                }
+            }
+            Self::Pq(pq) => {
+                for value in rgb {
+                    *value = pq.encoded_from_display(*value);
+                }
+            }
+            Self::Hlg(ootf) => {
+                ootf.apply(rgb);
+                for value in rgb {
+                    *value = TfHlg::encoded_from_display(*value);
+                }
+            }
+            Self::Rec709 => {
+                for value in rgb {
+                    *value = Tf709::encoded_from_display(*value);
+                }
+            }
+            Self::Gamma(inverse_gamma) => {
+                for value in rgb {
+                    let below = *value <= 1e-5f32;
+                    let power = crate::jxl::base::fast_math::fast_powf(*value, *inverse_gamma);
+                    *value = if below { 0.0 } else { power };
+                }
+            }
+        }
+    }
+}
+
+/// Complete scalar FromLinearStage. Operation state is copied by the factory.
+pub struct FromLinearStage {
+    op: Op,
+}
+impl RenderPipelineStage for FromLinearStage {
+    fn settings(&self) -> Settings {
+        Settings::default()
+    }
+    fn get_channel_mode(&self, c: usize) -> Mode {
+        if c < 3 { Mode::InPlace } else { Mode::Ignored }
+    }
+    fn get_name(&self) -> &str {
+        "FromLinear"
+    }
+    fn process_row(
+        &mut self,
+        input: &RowInfo,
+        _output: &RowInfo,
+        buffers: &mut RowBuffers<'_>,
+        left: usize,
+        right: usize,
+        width: usize,
+        _x: usize,
+        _y: usize,
+        _thread: usize,
+    ) -> Status {
+        if left != 0 || right != 0 {
+            return Err(StatusCode::GenericError);
+        }
+        let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
+        for x in 0..width {
+            let mut rgb = std::array::from_fn(|c| buffers.row(rows[c])[x]);
+            self.op.transform(&mut rgb);
+            for c in 0..3 {
+                buffers.row_mut(rows[c])[x] = rgb[c];
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Source invalid encodings are programmer errors: debug abort, release null.
+pub fn get_from_linear_stage(
+    info: &crate::jxl::dec_xyb::OutputEncodingInfo,
+) -> Option<Box<dyn RenderPipelineStage>> {
+    use crate::jxl::cms::tone_mapping_scalar::HlgOotf;
+    use crate::jxl::cms::transfer_functions_scalar::TfPq;
+    let tf = info.color_encoding.tf();
+    let op = if tf.is_linear() {
+        Op::Linear
+    } else if tf.is_srgb() {
+        Op::Rgb
+    } else if tf.is_pq() {
+        Op::Pq(TfPq::new(info.orig_intensity_target))
+    } else if tf.is_hlg() {
+        Op::Hlg(HlgOotf::to_scene_light(
+            info.desired_intensity_target,
+            info.luminances,
+        ))
+    } else if tf.is709() {
+        Op::Rec709
+    } else if tf.have_gamma || tf.is_dci() {
+        Op::Gamma(info.inverse_gamma)
+    } else {
+        debug_assert!(false, "Invalid target encoding");
+        return None;
+    };
+    Some(Box::new(FromLinearStage { op }))
 }

@@ -498,3 +498,9 @@ pins remain unchanged. The two captured combined-effects raw files and all their
 original integer/color-float outputs are documented in
 [tests/data/README.md](../tests/data/README.md); they were generated and observed
 through actual original entry points independently of Rust.
+
+Additional decoder-effects x86_64 float captures come from both actual native
+original graphs in CI run 41440766024. Each graph agrees on all 72 words for each
+unchanged input file. They preserve independent source outputs instead of using
+Rust results as golden data; the original AArch64 captures are retained. See the
+fixture README for the native job and selection rule.

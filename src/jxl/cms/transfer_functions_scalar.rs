@@ -3,7 +3,7 @@
 //! One-lane TF_PQ from cms/transfer_functions-inl.h and its degree-four
 //! EvalRationalPolynomial from base/rational_polynomial-inl.h. Keep exact float
 //! words, operation order, sign restoration, and matching x86 HWY_FENCE sites.
-//! Other specialized transfer functions remain unported.
+//! Includes complete one-lane TF_HLG and TF_709 input/output operations.
 use crate::jxl::base::hwy_scalar::mul_add;
 fn fence() {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -83,5 +83,97 @@ pub fn srgb_encoded_from_display(value: f32) -> f32 {
     let linear = x * 12.92;
     let poly = rational(x.sqrt(), p.map(f32::to_bits), q.map(f32::to_bits));
     let magnitude = if x > 0.0031308 { poly } else { linear };
+    f32::from_bits((magnitude.to_bits() & 0x7fff_ffff) | sign)
+}
+
+/// Hybrid Log-Gamma from TF_HLG. Double constexpr expressions round only at Set.
+pub struct TfHlg;
+impl TfHlg {
+    pub fn encoded_from_display(x: f32) -> f32 {
+        use super::transfer_functions::TfHlgBase as Base;
+        let sign = x.to_bits() & 0x8000_0000;
+        let x = f32::from_bits(x.to_bits() & 0x7fff_ffff);
+        let below = x <= Base::INV12 as f32;
+        let low = (3.0 * x).sqrt();
+        // kInvLog2e in common.h is float; its product with kA is double.
+        let high = mul_add(
+            (Base::A * f64::from(f32::from_bits(0x3f317218))) as f32,
+            crate::jxl::base::fast_math::fast_log2f(mul_add(12.0, x, -Base::B as f32)),
+            Base::C as f32,
+        );
+        let magnitude = if below { low } else { high };
+        f32::from_bits((magnitude.to_bits() & 0x7fff_ffff) | sign)
+    }
+    pub fn display_from_encoded(x: f32) -> f32 {
+        use super::transfer_functions::TfHlgBase as Base;
+        let sign = x.to_bits() & 0x8000_0000;
+        let x = f32::from_bits(x.to_bits() & 0x7fff_ffff);
+        let below = x <= 0.5;
+        let low = x * (x * (1.0f64 / 3.0) as f32);
+        let high = mul_add(
+            crate::jxl::base::fast_math::fast_pow2f(x * 8.067285659607931f64 as f32),
+            0.003639807079052639f64 as f32,
+            (Base::B * Base::INV12) as f32,
+        );
+        let magnitude = if below { low } else { high };
+        f32::from_bits((magnitude.to_bits() & 0x7fff_ffff) | sign)
+    }
+}
+
+/// BT.709 from TF_709; alternatives are evaluated before the vector selection.
+pub struct Tf709;
+impl Tf709 {
+    pub fn encoded_from_display(x: f32) -> f32 {
+        let low = 4.5 * x;
+        let high = mul_add(
+            1.099f64 as f32,
+            crate::jxl::base::fast_math::fast_powf(x, 0.45f64 as f32),
+            -0.099f64 as f32,
+        );
+        if x <= 0.018f64 as f32 { low } else { high }
+    }
+    pub fn display_from_encoded(x: f32) -> f32 {
+        let low = (1.0f64 / 4.5) as f32 * x;
+        let high = crate::jxl::base::fast_math::fast_powf(
+            mul_add(
+                x,
+                (1.0f64 / 1.099) as f32,
+                (0.099f64 * (1.0 / 1.099)) as f32,
+            ),
+            (1.0f64 / 0.45) as f32,
+        );
+        if x < 0.081f64 as f32 { low } else { high }
+    }
+    pub fn encoded_from_display_f64(x: f64) -> f64 {
+        if x < 0.018 {
+            4.5 * x
+        } else {
+            crate::jxl::base::float::mul_add_f64(1.099, x.powf(0.45), -0.099)
+        }
+    }
+}
+
+/// Complete scalar TF_SRGB::DisplayFromEncoded from transfer_functions-inl.h.
+#[allow(clippy::excessive_precision)]
+pub fn srgb_display_from_encoded(value: f32) -> f32 {
+    let sign = value.to_bits() & 0x8000_0000;
+    let x = f32::from_bits(value.to_bits() & 0x7fff_ffff);
+    let p = [
+        2.200248328e-04f32,
+        1.043637593e-02,
+        1.624820318e-01,
+        7.961564959e-01,
+        8.210152774e-01,
+    ];
+    let q = [
+        2.631846970e-01f32,
+        1.076976492,
+        4.987528350e-01,
+        -5.512498495e-02,
+        6.521209011e-03,
+    ];
+    let linear = x * (1.0f32 / 12.92f32);
+    let poly = rational(x, p.map(f32::to_bits), q.map(f32::to_bits));
+    let magnitude = if x > 0.04045f32 { poly } else { linear };
     f32::from_bits((magnitude.to_bits() & 0x7fff_ffff) | sign)
 }

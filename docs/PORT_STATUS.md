@@ -68,7 +68,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, and decoded-byte accessors; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages; pixel-buffer output/callback stage and remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
-| `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
+| `render_pipeline/stage_from_linear.h`, `.cc`, `render_pipeline/stage_to_linear.h`, `.cc` | `render_pipeline/stage_from_linear.rs`, `render_pipeline/stage_to_linear.rs` | Complete scalar factory-reached Linear/sRGB/PQ/HLG/BT709/gamma/DCI conversion stages, copied operation state, row guards and load-transform-store order; legacy sRGB factory retained; general HDR/CMS and ICC whole-file integration remains separate |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
@@ -118,7 +118,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
-| `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
+| `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ, TF_HLG, TF_709 and TF_SRGB input/output algorithms, TF_709 double encoding overload, and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; alternate SIMD targets remain separate |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
@@ -1444,3 +1444,16 @@ original compiler-dependent NaN operand ambiguity and ownership mapping. No old
 cases, expected words, source pins, sanitizer flags, or original archive options
 change. Complete-file EPF admission and image evidence are a separate integration
 milestone, so the README's EPF checkbox remains open here.
+
+
+## Scalar color transfer stages
+
+The complete scalar FromLinear/ToLinear packet adds 11 differential groups with
+10,360 exact original requests and seven standalone tests. It covers every
+factory-selected operation, copied construction state, row guards, repeated
+stage calls, ignored extra channels, and actual multigroup simple pipelines.
+Existing PQ/sRGB encoding helpers and the legacy sRGB stage retain their bodies.
+Both full local checks, including Rust 1.85, pass all six ordinary/ASan/UBSan
+Debug, Release and MSRV configurations: 480 tests, 283 groups and 904,089 exact
+requests each, with no failures or ignored tests. Native CI and complete-file
+HDR/ICC/color-profile integration remain separate acceptance gates.

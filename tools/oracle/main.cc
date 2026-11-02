@@ -504,6 +504,10 @@ bool PatchesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool EPFCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool ToLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool FromLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
 int main() {
   try {
     JxlMemoryManager mm;
@@ -577,6 +581,8 @@ int main() {
       else if (NoiseRenderCommand(command, in, &mm)) {}
       else if (EPFCommand(command, in, &mm)) {}
       else if (PatchesCommand(command, in, &mm)) {}
+      else if (ToLinearCommand(command, in, &mm)) {}
+      else if (FromLinearCommand(command, in, &mm)) {}
       else if (SplinesCommand(command, in, &mm)) {}
       else if (ACGroupSymbolsCommand(command, in, &mm)) {}
       else if (BlockContextCommand(command, in, &mm)) {}
