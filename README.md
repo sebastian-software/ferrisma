@@ -19,44 +19,89 @@ includes gray/RGB, 8/16-bit samples, optional full-resolution alpha, progressive
 AC passes and optional Gaborish. See [the VarDCT milestone](docs/VARDCT_IMAGE.md)
 for the precise configuration, source mapping, evidence and remaining scope.
 
-The port implements bit I/O, byte-order/bit helpers, enum and primitive field coding,
-field visitors, size/preview/animation headers, ANS alias tables, and Huffman
-tree encoding and prefix decoding, entropy-stream parsing, hybrid integers,
-LZ77 decoding/token generation, histogram normalization/clustering, hybrid
-strategy selection, context-map output, complete entropy-stream encoding, and
-ICC profile generation with its scalar color-math dependencies, color bundles,
-image metadata, custom transform data, complete codestream-header output,
-frame headers, frame geometry, filter parameter bundles, permutation streams,
-section tables with group offsets, aligned image/channel storage, and modular
-transform parameter bundles, the existing scalar reversible color transforms,
-and modular predictors with weighted state and reference properties. Modular
-decision trees now include serialization, parsing, static-branch filtering,
-flat-tree lookup, lookup tables, and group-header bundles. Given-tree residual
-encoding and channel decoding now connect samples through real entropy streams.
-Palette lookup/inversion and scalar Squeeze encoding/decoding now run through
-the original transform dispatch and reverse stack traversal.
-Forward palettes include the original lossless selection and RGB lossy
-iterations/dithering, with the reference sort order retained for tied colors.
-The original modular image decoder now reads standalone streams with local or
-global entropy tables and applies their transformations. The generic modular
-encoder includes original sample collection, quantization, tree learning, and
-entropy output. Standalone streams require caller-supplied dimensions and bit
-depth. Encoder parameter state, original header preparation, progressive setup,
-stream indexing, and modular sample conversion are translated. Modular frame
-stream owners now prepare grouped channels, select local transforms, construct
-shared trees/tokens, and write global or local entropy streams. The fixed
-configuration connects input conversion, padding, shared-state construction,
-frame/group output, image metadata, and byte ownership. General encoder and
-decoder orchestration remain unported. Rendering includes the original simple
-pipeline and float image/bundle write stages. Modular group decoding now feeds
-that pipeline through the original conversion and full-image finalization
-operations. The complete fixed path connects those components to global
-codestream parsing, original frame scheduling, and integer buffer export.
-Frame transform selection includes original costs, palette/compaction decisions,
-rollback, and tree merging. The [first-image milestone](docs/FIRST_IMAGE.md)
-defines their integration gate. The Rust library has no external crate
-dependencies and does not compile or link C/C++. A separate executable built
-from the original C++ source verifies the translated boundaries.
+## Port checklist
+
+This checklist tracks the mechanical port of the core codec, public C API and
+thread runners. Checked items are implemented and verified for the scope stated
+below. Open items can already contain translated components; their complete
+integration or acceptance gates remain unfinished. The detailed source mapping
+and evidence live in [PORT_STATUS.md](docs/PORT_STATUS.md).
+
+Keep checked items aligned with validated work on `main`. Update this checklist
+in the PR that delivers each milestone, together with its source mapping and
+validation evidence. Split partial milestones into smaller items as needed;
+the items vary in size and do not represent equal amounts of work.
+
+### Completed foundations and image paths
+
+- [x] Pin the original source and dependencies, retain license/provenance records,
+  and maintain [living ADRs](docs/adr/README.md).
+- [x] Port bit I/O and the documented field-coding, metadata, frame-header,
+  geometry and section-table boundaries.
+- [x] Port the documented scalar entropy boundaries: ANS/Huffman and prefix
+  coding, hybrid integers, LZ77, histograms and context maps.
+- [x] Encode and decode standalone Modular streams with caller-supplied dimensions
+  and bit depth, including predictors, learned trees, RCT, palettes and Squeeze.
+- [x] Encode and decode complete raw codestreams for the fixed lossless Thunder
+  profile: 8/16-bit gray/RGB and optional full-resolution unassociated alpha.
+  See [the first-image milestone](docs/FIRST_IMAGE.md).
+- [x] Connect VarDCT DC/AC globals, metadata, group scheduling, progressive AC
+  accumulation, dequantization and all 27 scalar inverse-transform strategies.
+- [x] Decode complete raw codestreams for the first VarDCT profile: 8/16-bit
+  gray/RGB, optional full-resolution unassociated alpha, multiple DC/AC groups,
+  progressive AC and optional Gaborish. See [the profile and evidence](docs/VARDCT_IMAGE.md).
+- [x] Connect the original simple rendering pipeline, scalar Gaborish/XYB/sRGB
+  stages and pixel-buffer export for the admitted image profiles.
+- [x] Generate ICC profiles and serialize the documented color-encoding fields.
+- [x] Compare translated boundaries with ordinary and ASan/UBSan original C++
+  references in Debug, Release and Rust 1.85, with native Linux/macOS CI.
+  Ordinary Rust builds have no external crate dependencies and do not compile
+  or link C/C++.
+
+### Remaining decoder work
+
+- [ ] Port EPF rendering kernels and integrate them into complete-file decoding;
+  sigma generation is already translated.
+- [ ] Complete noise decoding and rendering.
+- [ ] Complete patch decoding and rendering.
+- [ ] Complete spline decoding and rendering.
+- [ ] Expand complete-file Modular decoding beyond the fixed Thunder profile.
+- [ ] Support reference/DC frames, blending, animation and previews.
+- [ ] Connect chroma subsampling, cropping, resampling and orientation in general
+  complete-image decoding.
+- [ ] Support associated/subsampled alpha and the remaining extra-channel types.
+- [ ] Connect alternate color profiles and HDR/tone-mapping paths beyond the
+  admitted sRGB profiles.
+- [ ] Reconstruct original JPEG bitstreams and restore their metadata.
+- [ ] Port the public decoder API, including incremental input, events, callbacks
+  and progressive output.
+
+### Remaining encoder work
+
+- [ ] Complete the VarDCT encoder, including strategy selection, perceptual
+  quantization, coefficient-order orchestration and progressive coefficient splitting.
+- [ ] Complete general Modular image/frame encoding beyond the fixed Thunder profile.
+- [ ] Support JPEG input and lossless JPEG recompression encoding.
+- [ ] Port the public encoder API, queued frames, input callbacks and output
+  processors.
+
+### Shared runtime and full-port acceptance
+
+- [ ] Complete the remaining core helpers and source boundaries listed in
+  [the source mapping](docs/PORT_STATUS.md).
+- [ ] Read and write JPEG XL containers and their boxes.
+- [ ] Resolve default CMS backend and ICC parsing integration.
+- [ ] Complete custom allocators, thread runners and the low-memory rendering pipeline.
+- [ ] Translate the remaining original SIMD target specializations and dispatch.
+- [ ] Pass the full upstream-derived test inventory and codec conformance corpus,
+  including image samples, metadata, frame sequences, JPEG reconstruction,
+  encoder bitstreams and public API transitions.
+- [ ] Complete fuzzing, applicable sanitizer gates and the supported platform/CPU matrix.
+- [ ] Measure performance and memory use and complete release validation.
+
+Tools, examples, plugins and third-party library ports are separate boundaries
+under the [porting contract](docs/PORTING.md). Redesign and additional
+optimization follow the mechanical port.
 
 ## Build and verify
 
