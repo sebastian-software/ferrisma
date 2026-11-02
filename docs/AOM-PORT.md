@@ -252,6 +252,12 @@ and generated, and leaves all C inputs unchanged. Native Linux compilation
 and execution are still required. This source import is not Linux acceptance
 evidence.
 
+The retained native VMAF archive includes libsvm's `svm.cpp`. Its generated
+pkg-config file omits the C++ standard library; original C++ consumers get
+that dependency from their linker driver. The Rust package and C comparison
+callers explicitly retain libc++ on macOS and libstdc++ on GNU Linux. This is
+part of the native VMAF boundary, not an additional ported implementation.
+
 `tools/import_aom_linux.py` verifies every artifact Rust hash, the exact
 168-unit closure, required configuration, and generated header hashes before
 importing a profile. It applies the same narrow callback correction and optional

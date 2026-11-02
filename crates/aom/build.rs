@@ -20,4 +20,12 @@ fn main() {
             panic!("Unmapped libvmaf linker argument: {argument}");
         }
     }
+    // The retained native VMAF archive contains libsvm's C++ implementation.
+    // Its pkg-config file does not name the C++ standard library. C++ drivers
+    // provide it implicitly; Rust and C consumers must retain it explicitly.
+    match std::env::var("CARGO_CFG_TARGET_OS").as_deref() {
+        Ok("linux") => println!("cargo:rustc-link-lib=stdc++"),
+        Ok("macos") => println!("cargo:rustc-link-lib=c++"),
+        _ => {}
+    }
 }

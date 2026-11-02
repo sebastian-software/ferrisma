@@ -5,10 +5,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 
 from aom_sanitizer import instrumented_libraries
+from aom_vmaf import link_flags
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,7 +23,7 @@ def main():
     profile = 'debug' if args.debug else 'release'
     work = ROOT / (f'build/aom-roundtrip-{profile}' + ('-asan' if args.asan else ''))
     work.mkdir(parents=True, exist_ok=True)
-    vmaf = shlex.split(subprocess.check_output(['pkg-config', '--libs', 'libvmaf'], text=True))
+    vmaf = link_flags()
     source = ROOT / 'tests/ports/aom_roundtrip.c'
     reference, candidate = ROOT / f'build/aom-native-{profile}/libaom.a', ROOT / f'target/{profile}/libaom.a'
     compiler, environment, runtime = os.environ.get('CC', 'cc'), os.environ.copy(), []

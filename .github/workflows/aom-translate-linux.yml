@@ -49,6 +49,7 @@ jobs:
         run: |
           cargo check -p libavif-aom --locked
           cargo check -p libavif-aom --locked --release
+          cargo run -p libavif-aom --example raw_api --locked
       - name: Build both original portable profiles
         run: |
           python3 tools/build_aom.py --debug

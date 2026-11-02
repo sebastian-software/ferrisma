@@ -6,13 +6,13 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import subprocess
 import sys
 
 from build_aom import library_entries
 from aom_sanitizer import instrumented_libraries
+from aom_vmaf import link_flags
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,7 +66,7 @@ def main():
         target = extracted / member
         target.write_bytes(subprocess.check_output(['ar', '-p', archive, member]))
         rust.append(target)
-    native = shlex.split(subprocess.check_output(['pkg-config', '--libs', 'libvmaf'], text=True))
+    native = link_flags()
     native += ['-lm', '-lpthread', *(['-lresolv', '-liconv'] if darwin else ['-ldl', '-lrt', '-lutil'])]
     source = ROOT / ('tests/ports/aom_thread_faults.c' if args.thread_failures else 'tests/ports/aom_faults.c')
     caller = work / 'caller.o'
