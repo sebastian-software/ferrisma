@@ -530,3 +530,66 @@ semantics. Exact parity retains all 360 other blend requests, including 72
 zero-width cases. Direct zero-count alpha calls have non-null backing. See the
 [living oracle decision](adr/0002-differential-oracle.md) for the configuration
 and its review triggers.
+
+The YCbCr/chroma component translates the complete scalar stages/factories in
+`render_pipeline/stage_ycbcr.{h,cc}` and
+`render_pipeline/stage_chroma_upsampling.{h,cc}`, including original channel
+order, coefficients, interpolation, borders, shifts and argument guards.
+Highway scalar double-promotion/product-narrowing and ordered binary32 additions
+retain the selected target mappings recorded in ADRs 0002 and 0003. Only the
+already established native Linux x86_64 pristine stage wrappers use scoped O0;
+AArch64 remains bound to the untouched optimized original archive. The durable
+5,562-request component audit retains all exceptional words and every finite
+comparison against both unchanged defaults.
+
+The sequence integration follows `dec_cache.cc::PreparePipeline`: each channel's
+horizontal then vertical chroma stages precede filters, and YCbCr conversion
+occupies the original color checkpoint before blending/post-color reference
+writes. Reconstruction and group buffers retain their existing source-derived
+subsampling dimensions and traversal. Existing lifecycle owners and retained
+reference identities remain unchanged.
+
+`tools/oracle/chroma_image.cc` supplies only fixture orchestration around real
+`jpeg/enc_jpeg_data.cc::ParseJPG`, public `encode.cc` entry points and production
+header readers. Twenty-five static baseline JPEG inputs are recompressed into
+raw JXL with actual JxlEncoderAddJPEGFrame calls; no container or JPEG metadata
+is stored. Both original graphs independently reproduce every wire byte and
+every initialized planar float sample. The source audit verifies actual parser,
+public encoder, PreparePipeline and selected chroma factory symbol bindings,
+retains all complete/partial observations and leaves active objects unchanged.
+The fixture manifest and [fixture README](../tests/data/README.md) record input
+recipes, sampling, dimensions, tool version and byte hashes. These captures
+establish the bounded internal sequence path, not JPEG reconstruction or the
+public incremental decoder API.
+
+The extra-channel integration follows the actual metadata admission and channel
+paths in image_metadata.{h,cc}, dec_modular.cc, frame_header.cc and
+DecFrame/PreparePipeline. Scalar SpotColorStage/factories are translated directly
+from render_pipeline/stage_spot.{h,cc}; their immutable coefficient borrow and
+selected native Linux scalar operation boundaries retain the reviewed source
+configuration in ADRs 0002 and 0003. The original archive and all other target
+settings remain unchanged. Source-defined depth, selection, black, CFA, thermal
+and optional channels receive no new display transformation.
+
+`tools/oracle/extra_channels.cc` supplies only fixture input/orchestration around
+actual original header writers, EncodeFrame/DecodeFrame and external buffer
+conversion functions. Its 1x1 mixed-sampling controls preserve genuine entropy
+payloads and verify exact zero-change source-writer reproduction. Malformed enum
+fixtures mutate actual encoder files and use the original parser to identify the
+reached rejected type; no replacement metadata parser supplies their status.
+`tools/extra_channels_reference.py` verifies the real source symbol bindings,
+source/dependency pins and fixture hashes, and retains independent ordinary and
+ASan/UBSan native captures of every initialized final color/extra-channel word.
+The dyadic all-plane sample capture is generated from original exports before
+any Rust comparison. Error observations use existing reached-write coverage to
+exclude source-indeterminate storage, preserving every initialized retained
+reference/output sample, metadata field and reader checkpoint.
+
+The Float16 external converter's original typed scanline store requires aligned
+row pointers. A separate actual-source census retains every initially introduced
+odd-stride fixture, ordinary capture and positive native UBSan diagnostic, with
+precise per-request classification in the fixture TSV. Defined single-row and
+decode-error requests remain paired comparisons; aligned positive controls add
+every fixture/channel/unpremultiplication combination. Existing integer16 byte
+stores and float32 memcpy stores retain their odd-stride comparisons unchanged.
+No undefined source output is used as a Rust expected word.

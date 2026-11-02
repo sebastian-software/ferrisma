@@ -1228,7 +1228,8 @@ does not replace an earlier source failure with a later cleanup result. Preview
 reference dependencies, saved-slot masks, DC selection and overwritten reference
 slots retain the source checkpoints. Main spatial upsampling and early/late
 extra-channel upsampling follow PreparePipeline order around patches, splines,
-noise and reference writes. Chroma conversion/subsampling, ICC, spot colors,
+noise and reference writes. The connected YCbCr/chroma boundary is described
+below. ICC, spot colors,
 broader extra-channel metadata, external output layouts and public progressive
 API orchestration remain outside this admission boundary.
 
@@ -1318,3 +1319,103 @@ The original zero-width aliased memcpy boundary is exercised separately by
 oracle subprocesses, with explicit sanitizer evidence and no claimed source
 pixel semantics, including the source-derived tree-rendering boundaries recorded
 in ADR 0002. Rust's empty owned temporary remains safe to represent.
+
+
+YCbCr and horizontal/vertical chroma upsampling keep stack row descriptors,
+source channel order, the original 3/4–1/4 interpolation, shift/border settings,
+and the YCbCr no-extra-span guard before any input mutation. Preserve the
+Highway scalar double-promotion/product/narrowing checkpoints and separate
+binary32 additions rather than contracting them. Both complete native AArch64
+optimized original objects keep YCbCr's addend first and horizontal chroma's
+current value first. The vertical stage keeps the neighbor product first in
+its top-row sum and the current value first in its bottom-row sum. Out-of-line
+addition boundaries retain those observed operand destinations without changing
+association or finite arithmetic. The established ARM mapping and every ARM
+captured word remain unchanged. On Linux x86_64 the selected pristine -O0
+original objects instead retain the narrowed product first in YCbCr, the
+neighbor product first in horizontal interpolation, and the neighbor product
+first in both vertical sums. Target-scoped binary32 addition boundaries map
+those original operands; double promotion, product narrowing, and addition
+rounding stay separate. ADR 0002 records why this target alone selects the
+dedicated original stage objects, leaving the archives unchanged.
+
+The standalone native Linux capture uses the existing original request 44,
+physical row 3, coordinate 38 (lane 6). The caller's original input pattern
+values[(c*7+y*3+x)%9] gives (Cb,Y,Cr) = (0x7fc98765,0x7fa12345,0x3f800000),
+the same tuple as the retained ARM capture's third sample. Both native original
+Linux -O0 graphs return 0x7fc98765 for G/B at output fields 549/906; ARM keeps
+its captured 0x7fe12345 words. These two target-specific expectations come from
+independent original output, not assembly inference or Rust results. A second
+Linux capture retains the original horizontal request 1154, output row 2 words
+1920 through 1933, including competing NaN neighbors. Exact exceptional-word
+comparisons remain required on each native target; review these mappings when
+the source, compiler, target, or instrumentation changes.
+
+Complete-file YCbCr admission retains the same simple-pipeline implementation.
+Per-channel horizontal then vertical chroma stages precede Gaborish and EPF,
+and YCbCr conversion occupies PreparePipeline's original color-transform
+checkpoint after DC/pre-color reference writes and before blending/post-color
+reference writes. Pipeline input shifts are the original reverse accumulation
+of stage shifts; group buffers use the original ceil-divided channel sizes.
+Coefficient reconstruction retains its existing source HShift/VShift traversal
+and aligned-block checks. No image or reference owner is copied for this path.
+
+The sequence boundary admits source sRGB YCbCr 4:4:4, 4:2:2, 4:2:0 and 4:4:0,
+including source grayscale JPEG metadata. Existing NONE/XYB admissions and all
+metadata constraints remain unchanged. Genuine baseline JPEG files pass through
+original ParseJPG and JxlEncoderAddJPEGFrame with container and JPEG-metadata
+storage disabled. Their already quantized samples are compared to original
+decoded samples, not the pre-JPEG input pattern. Typed header observations
+retain actual padding, block/group dimensions and channel shifts. Complete and
+partial/error snapshots use the existing reached-write coverage machinery;
+new Rust-only captures retain every source-initialized planar float word.
+This does not provide JPEG reconstruction, ICC parsing, arbitrary sampling,
+or the public progressive decoder API.
+
+ICC command decoding retains the original fallible PaddedBytes header append
+before inspecting the decoded output size, including zero-size output. Temporary
+array views borrow that allocated header; they do not replace its allocation
+checkpoint. The reached WithInitialSpace, clear, push_back and append operations
+retain their original size/growth/status order. No decoded prefix is discarded
+on a command or varint error.
+
+Linear ICC prediction keeps the logical current position separate from physical
+history backing. The source's width-four DecodeUint32 guard uses that logical
+position; only the preceding words need physical backing. Safe checked loads
+therefore do not require a slice extending to the current position. Width-one
+and width-two promoted integer formulas narrow at the original byte/word
+boundaries; explicit modulo-u32 arithmetic followed by narrowing preserves those
+results. Width-four prediction retains original unsigned wrapping. Invalid raw
+pointer, zero shuffle-width and overlapping-container caller preconditions do
+not receive invented codec semantics. Streaming ICCReader ownership remains a
+separate boundary.
+
+Spot-color stages retain a borrow of the original four-coefficient array rather
+than snapshotting it. The ordinary factory borrows `[f32; 4]`, matching immutable
+frame metadata in the reached decoder pipeline; the `Cell<f32>` array factory
+permits safe writes to that same external pointee between calls. Alpha scale is
+read once after the extra-span guard, while each color coefficient is read at
+the original channel/x loop point. No metadata owner is cloned or redesigned.
+The source's `size_t` channel-offset addition wraps explicitly; wrapped RGB
+aliases are query-only because processing them would violate the original
+`JXL_RESTRICT` row-pointer precondition. RGB arithmetic uses the existing target
+scalar multiply/add mapping, with exact operand-word coverage against the actual
+original stage rather than a new interpolation formula.
+
+The internal sequence decoder borrows parsed immutable metadata for its complete
+lifetime. Remove its single-alpha, depth-matching, association and dimension-shift
+admission constraints only at that boundary; the existing fixed profiles retain
+their original admission. Each spot stage borrows the same metadata coefficient
+array and is inserted after blending and post-color reference storage, before
+linear output conversion, as in PreparePipeline. Reference storage therefore
+retains pre-spot color. Source-defined non-rendered channels pass unchanged to
+bundle output through the existing modular channel/dimension and early/late
+upsampling algorithms; metadata does not invent a rendering rule for them.
+
+Associated alpha remains associated in bundle output. First-alpha metadata
+selection determines its association and export plane even when other channels
+precede it or a second alpha has a different association. Explicit integer and
+float ConvertToExternal buffer exports retain the existing source unpremultiply
+option and independently export every extra plane. Failed complete-file decoding
+is observed before export without reading unwritten output. Direct output-stage
+callbacks and the public incremental API remain separate unported boundaries.

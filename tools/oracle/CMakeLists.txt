@@ -51,6 +51,20 @@ endforeach()
 # the archive supplies the remaining original objects, without replacement code.
 add_subdirectory("${UPSTREAM}" upstream EXCLUDE_FROM_ALL)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Native Linux x86_64 ordinary/ASan O3, no-unroll and O1 objects choose different
+  # competing NaN operands. Pristine isolated O0 stages agree on every retained
+  # request, and all finite inputs match both unchanged archive graphs.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_source_files_properties(chroma_ycbcr_stage.cc chroma_upsampling_stage.cc
+      PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")
+  endif()
+  set_source_files_properties(spot_color.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_property(SOURCE spot_color.cc APPEND PROPERTY COMPILE_OPTIONS -O0)
+  endif()
+  set_source_files_properties(icc_codec.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
+  set_source_files_properties(chroma_image.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
+  set_source_files_properties(chroma_stages.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
   set_source_files_properties(blending_stage.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Keep Quantizer's original constructor/recomputation calls across plain and
   # sanitized builds. Inlining folds *1 into a raw copy only in the plain build,
@@ -71,7 +85,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle extra_channels.cc spot_color.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.

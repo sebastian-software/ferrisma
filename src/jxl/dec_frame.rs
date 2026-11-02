@@ -80,9 +80,13 @@ impl<'m> AdmittedHeader<'m> {
         if !matches!(h.encoding, FrameEncoding::MODULAR | FrameEncoding::VAR_DCT)
             || !matches!(
                 h.color_transform,
-                ColorTransform::NONE | ColorTransform::XYB
+                ColorTransform::NONE | ColorTransform::XYB | ColorTransform::YCBCR
             )
-            || !h.chroma_subsampling.is_444()
+            || !(h.chroma_subsampling.is_444()
+                || (h.color_transform == ColorTransform::YCBCR
+                    && (h.chroma_subsampling.is_420()
+                        || h.chroma_subsampling.is_422()
+                        || h.chroma_subsampling.is_440())))
             || h.extra_channel_upsampling.len()
                 != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
             || h.extra_channel_blending_info.len()
@@ -528,8 +532,7 @@ impl FrameDecoder<'_, '_, '_> {
         }
         // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
         // render_spotcolors=true, render_noise=true. Header admission proves
-        // only the explicitly connected filter/transform branches are reachable. One unassociated
-        // full-resolution alpha plane needs no additional processing stage.
+        // only the explicitly connected filter/transform branches are reachable.
         let num_c = 3 + self
             .header
             .0
@@ -540,6 +543,20 @@ impl FrameDecoder<'_, '_, '_> {
         let render_noise = self.header.0.flags & super::frame_header::FLAG_NOISE != 0;
         let mut builder =
             SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        if !self.header.0.chroma_subsampling.is_444() {
+            for c in 0..3 {
+                if self.header.0.chroma_subsampling.h_shift(c) != 0 {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(c, true),
+                    ))?;
+                }
+                if self.header.0.chroma_subsampling.v_shift(c) != 0 {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(c, false),
+                    ))?;
+                }
+            }
+        }
         if self.header.0.loop_filter.gab {
             builder.add_stage(super::render_pipeline::stage_gaborish::get_gaborish_stage(
                 &self.header.0.loop_filter,
@@ -681,7 +698,9 @@ impl FrameDecoder<'_, '_, '_> {
             "closed metadata has equal source/desired intensity"
         );
         let mut linear = false;
-        if self.header.0.color_transform == ColorTransform::XYB {
+        if self.header.0.color_transform == ColorTransform::YCBCR {
+            builder.add_stage(Some(super::render_pipeline::stage_ycbcr::get_ycbcr_stage()))?;
+        } else if self.header.0.color_transform == ColorTransform::XYB {
             builder.add_stage(Some(super::render_pipeline::stage_xyb::get_xyb_stage(info)))?;
             linear = true;
         }
@@ -721,6 +740,24 @@ impl FrameDecoder<'_, '_, '_> {
                 &self.write_trace,
                 FrameWriteTarget::ReferenceStorage,
             )))?;
+        }
+        // dec_cache.cc retains coefficients in the immutable metadata owner.
+        // The reference writer above observes color before spot rendering.
+        for (ec, eci) in self
+            .header
+            .0
+            .nonserialized_metadata
+            .unwrap()
+            .m
+            .extra_channel_info
+            .iter()
+            .enumerate()
+        {
+            if eci.channel_type == super::image_metadata::ExtraChannel::SPOT_COLOR {
+                builder.add_stage(Some(
+                    super::render_pipeline::stage_spot::get_spot_color_stage(ec, &eci.spot_color),
+                ))?;
+            }
         }
         if linear {
             // Admission proves sRGB output. This is the original
@@ -1232,9 +1269,11 @@ pub struct SequenceFrameDecode<'m> {
 /// The shared-state loop around the original DecodeFrame/InitFrame boundary.
 /// Metadata is supplied once and borrowed unchanged by all frames. The output
 /// and every retained pipeline writer share one bundle allocation owner.
-/// This boundary admits sRGB NONE/XYB frames, references, DC frames, animation
-/// and previews, including source early/late extra-channel and main spatial
-/// upsampling. Chroma, other color, and broader extra-channel paths remain gaps.
+/// This boundary admits sRGB NONE/XYB frames and YCbCr 4:4:4/4:2:2/4:2:0/4:4:0,
+/// references, DC frames, animation and previews, including source early/late
+/// extra-channel and main spatial upsampling, associated/subsampled alpha,
+/// and all source-defined extra-channel types.
+/// Other color configurations remain separate boundaries.
 pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
     output: Rc<RefCell<ImageBundle<'m>>>,
@@ -1243,19 +1282,9 @@ pub struct SequenceDecoder<'m> {
 impl<'m> SequenceDecoder<'m> {
     pub fn new(metadata: &'m super::image_metadata::CodecMetadata) -> Result<Self, StatusCode> {
         use super::color_encoding::RenderingIntent;
-        use super::image_metadata::ExtraChannel;
         let m = &metadata.m;
         if !(1..=32).contains(&m.bit_depth.bits_per_sample)
             || m.num_extra_channels as usize != m.extra_channel_info.len()
-            || m.extra_channel_info.len() > 1
-            || m.extra_channel_info.iter().any(|ec| {
-                ec.channel_type != ExtraChannel::ALPHA
-                    || ec.bit_depth.floating_point_sample != m.bit_depth.floating_point_sample
-                    || ec.bit_depth.bits_per_sample != m.bit_depth.bits_per_sample
-                    || ec.bit_depth.exponent_bits_per_sample != m.bit_depth.exponent_bits_per_sample
-                    || ec.dim_shift != 0
-                    || ec.alpha_associated
-            })
             || m.have_intrinsic_size
             || m.orientation != 1
             || m.color_encoding.want_icc()

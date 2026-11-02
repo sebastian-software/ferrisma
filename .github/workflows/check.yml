@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, feat/decoder-lifecycle]
+    branches: [main, feat/decoder-extra-channels]
   pull_request:
 
 permissions:
@@ -47,6 +47,17 @@ jobs:
           python3 tools/epf_reference.py
           python3 tools/noise_reference.py
           python3 tools/alpha_reference.py
+      - name: Audit complete extra-channel source bindings and stride boundaries
+        if: always()
+        run: python3 tools/extra_channels_reference.py --output target/extra-channels-reference
+      - name: Retain complete extra-channel source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: extra-channels-reference-${{ runner.os }}
+          path: target/extra-channels-reference
+          if-no-files-found: error
+          retention-days: 7
       - name: Record native alpha configuration diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/alpha_diagnostics.py

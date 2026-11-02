@@ -65,6 +65,8 @@ pub mod frame_dimensions;
 pub mod frame_header;
 pub mod headers;
 pub mod huffman_table;
+pub mod icc_codec;
+pub mod icc_codec_common;
 pub mod image;
 pub mod image_bundle;
 pub mod image_metadata;

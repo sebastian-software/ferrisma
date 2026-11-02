@@ -1,7 +1,7 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Ported from `lib/jxl/padded_bytes.h`, for the BitWriter storage boundary.
+//! Ported from `lib/jxl/padded_bytes.h`, for BitWriter and ICC command storage.
 //! Additional initialization and the Rust allocator are documented in ADR 0003.
 
 use super::base::status::{Status, StatusCode};
@@ -15,6 +15,37 @@ pub struct PaddedBytes {
 }
 
 impl PaddedBytes {
+    pub fn with_initial_space(size: usize) -> Result<Self, StatusCode> {
+        let mut result = Self {
+            size,
+            ..Self::default()
+        };
+        result.reserve(size)?;
+        Ok(result)
+    }
+    pub fn clear(&mut self) {
+        self.resize(0).expect("resizing to zero cannot allocate");
+    }
+    pub fn push_back(&mut self, value: u8) -> Status {
+        if self.size == self.capacity {
+            self.reserve(self.capacity.wrapping_add(1))?;
+        }
+        let pos = self.size;
+        self.bytes_mut()[pos] = value;
+        self.size += 1;
+        Ok(())
+    }
+    pub fn append(&mut self, bytes: &[u8]) -> Status {
+        if !bytes.is_empty() {
+            let pos = self.size;
+            let size = pos
+                .checked_add(bytes.len())
+                .ok_or(StatusCode::GenericError)?;
+            self.resize(size)?;
+            self.bytes_mut()[pos..size].copy_from_slice(bytes);
+        }
+        Ok(())
+    }
     pub fn as_slice(&self) -> &[u8] {
         &self.bytes()[..self.size]
     }

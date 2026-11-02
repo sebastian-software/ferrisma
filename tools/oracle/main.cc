@@ -504,10 +504,15 @@ bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool PatchesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool EPFCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool ExtraChannelsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool SpotCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool FrameSequencesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool ChromaImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool BlendingStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 int main() {
@@ -581,11 +586,16 @@ int main() {
       else if (DequantCommand(command, in, &mm)) {}
       else if (GroupScheduleCommand(command, in, &mm)) {}
       else if (VarDCTDCCommand(command, in, &mm)) {}
+      else if (ExtraChannelsCommand(command, in, &mm)) {}
+      else if (SpotCommand(command, in, &mm)) {}
       else if (FrameSequencesCommand(command, in, &mm)) {}
       else if (RetainedFrameOwnersCommand(command, in, &mm)) {}
       else if (NoiseRenderCommand(command, in, &mm)) {}
       else if (EPFCommand(command, in, &mm)) {}
       else if (PatchesCommand(command, in, &mm)) {}
+      else if (IccCodecCommand(command, in, &mm)) {}
+      else if (ChromaImageCommand(command, in, &mm)) {}
+      else if (ChromaStagesCommand(command, in, &mm)) {}
       else if (BlendingStageCommand(command, in, &mm)) {}
       else if (SplinesCommand(command, in, &mm)) {}
       else if (ACGroupSymbolsCommand(command, in, &mm)) {}

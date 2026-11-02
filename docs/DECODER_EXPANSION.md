@@ -81,3 +81,14 @@ integration into main remain required. Chroma, broader extra channels, CMS/HDR,
 JPEG reconstruction, and the public incremental API remain open. The first-image
 and VarDCT milestone records describe the merged baseline; unmerged work does
 not change those claims.
+
+The subsequent internal extra-channel packet connects associated/subsampled
+alpha, independent channel depths, all source-defined extra-channel metadata,
+and ordered spot rendering, with genuine successes and original failure paths.
+Its complete-file scope uses bundle output and actual post-decode buffer
+conversions; direct output-stage callbacks remain part of step 11. The packet's
+focused/source evidence is recorded in PORT_STATUS.md. All six local full checks
+pass: 530 tests, 318 differential groups and 1,032,779 defined requests per
+configuration, with no failures or ignored tests. Native CI and integration
+remain required; this does not complete the overall decoder expansion or close
+the color/JPEG/public API steps.
