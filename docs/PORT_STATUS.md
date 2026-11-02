@@ -1343,3 +1343,10 @@ groups exercise deferred full-image pipeline storage. Four frozen source-derived
 fixture files let ordinary Rust tests decode captured original files without
 C++ at runtime. Full validation commands and platform results are recorded in
 this milestone and the integration PRs.
+
+Native x86_64 Linux validation exposed ordinary/ASan operand-order drift in the
+isolated DequantLane observer. ADR 0002 records the scoped reference configuration
+and independent default-optimization audit. One captured native x86 regression
+complements the ARM-only capture; both targets now run 425 tests, the same 246
+differential groups and 868,587 requests. Replacement native CI remains required
+before integration; the earlier failed runs are retained in the PR history.

@@ -145,6 +145,9 @@ def main():
                          ("ComputeQuantTable",))
         instructions(directory / "CMakeFiles/jxl_oracle.dir/sample_conversion.cc.o",
                      ("GamutMap",))
+    if os.uname().machine == "x86_64":
+        from dequant_reference import audit
+        audit()
     for profile in ("debug", "release"):
         for candidate in sorted((ROOT / "target" / profile / "deps").glob("parity-*")):
             if candidate.is_file() and candidate.open("rb").read(4) == b"\x7fELF":

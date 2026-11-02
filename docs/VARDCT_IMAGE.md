@@ -68,13 +68,15 @@ and 868,587 exact requests per configuration. Required commands are
 `python3 tools/check.py --sanitizers --msrv`, each in Debug, Release and Rust
 1.85, followed by native Linux/macOS CI on the integrated PR tree.
 Both complete local commands pass on native ARM64 macOS with zero failed or
-ignored tests. The ARM64-only captured smoothing regression is additional to
-the shared corpus. Native x86_64 therefore runs 424 tests with the same 246
-differential groups and request count. Hosted validation is recorded in the
-integration PRs.
+ignored tests. Architecture-specific captures complement the shared corpus: ARM64
+retains the smoothing capture and x86_64 the dequantization capture. Both native
+targets therefore run 425 tests with the same 246 differential groups and
+request count. Hosted validation is recorded in the integration PRs.
 
 The original compressed-DC observer's scoped numerical configuration is recorded
-in [ADR 0002](adr/0002-differential-oracle.md). Source algorithms, source pins,
-existing numeric flags, sanitizers and previous expected values remain intact.
+in [ADR 0002](adr/0002-differential-oracle.md), together with the isolated
+x86_64 Linux dequantization observer and its finite-baseline audit. Source
+algorithms, source pins, existing numeric flags, sanitizers and previous expected
+values remain intact.
 SIMD, performance, general codec conformance and a complete encoder are separate
 acceptance gates.
