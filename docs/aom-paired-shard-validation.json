@@ -37,7 +37,7 @@
   "read_only_reference_and_resume_validation": {
     "runner_sha256": "bdb6c6d4e469c11a75db6e4518b93b02c0d3d9c8a853b9b561fa9451c8af279c",
     "consumer_builder_sha256": "f0edf4a868e25b3873bf39955e4b10b7f158048fcd62e9dd138d6ef822800e1c",
-    "symbol_audit_tool_sha256": "bacf89d17870a4317ab31ea0c5d152b9b3020b63a20d78938474fe5796841284",
+    "symbol_audit_tool_sha256": "058e61dd73fe00016269e6c8d57e810bd35374e6a282f675f73160aef42b65fe",
     "original_fixture_files_rehashed": 568,
     "verified_fixture_metadata_sha256": "ab88e2e620f5b8140e924ffaa514de66e609e2692af470be69323c0d1ebc9d6c",
     "original_reference_sources_objects_and_executables_not_rebuilt": true,
@@ -113,7 +113,8 @@
           "rust_definition_scope": "Every original codec global in all Rust codec codegen members; compiler metadata excluded",
           "header_inline_test_coverage_proven": false,
           "native_vmaf_retained": true
-        }
+        },
+        "mismatched_preprocessing_profile_rejected_by_symbol_audit": true
       },
       "debug": {
         "summary": {
@@ -184,7 +185,8 @@
           "rust_definition_scope": "Every original codec global in all Rust codec codegen members; compiler metadata excluded",
           "header_inline_test_coverage_proven": false,
           "native_vmaf_retained": true
-        }
+        },
+        "mismatched_preprocessing_profile_rejected_by_symbol_audit": true
       }
     }
   }

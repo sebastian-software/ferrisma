@@ -85,6 +85,12 @@ def main():
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
     original = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
+    platform = 'macos' if sys.platform == 'darwin' else 'linux'
+    translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())
+    if (json.loads((original / 'reference-profile.json').read_text())['profile'] != profile
+            or hashlib.sha256((original / 'config/aom_config.h').read_bytes()).hexdigest()
+            != translation['generated_reference_headers']['config/aom_config.h']):
+        raise SystemExit('The native reference and Rust preprocessing differ')
     output = ROOT / f'build/aom-rust-{profile}'
     reference_archive, rust_archive = original / 'libaom.a', ROOT / f'target/{profile}/libaom.a'
     reference = definitions(reference_archive)
