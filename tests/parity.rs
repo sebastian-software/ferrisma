@@ -27,6 +27,9 @@ mod jpeg_writer;
 #[path = "parity/splines.rs"]
 mod splines;
 
+#[path = "parity/icc_codec.rs"]
+mod icc_codec;
+
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
 
@@ -753,6 +756,7 @@ fn observe(request: &str) -> String {
         kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
         kind if jpeg_writer::handles(kind) => jpeg_writer::observe(kind, &mut args),
         kind if splines::handles(kind) => splines::observe(kind, &mut args),
+        kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),

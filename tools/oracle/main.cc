@@ -502,6 +502,7 @@ bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 
 bool JpegWriterCommand(const std::string&,std::istringstream&);
 bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 int main() {
   try {
@@ -551,6 +552,7 @@ int main() {
       else if (QuantizerCommand(command, in, &mm)) {}
       else if (JpegWriterCommand(command, in)) {}
       else if (SplinesCommand(command, in, &mm)) {}
+      else if (IccCodecCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}
