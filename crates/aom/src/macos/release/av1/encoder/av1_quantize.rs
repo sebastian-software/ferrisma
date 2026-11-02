@@ -7813,3 +7813,23 @@ extern "C" {
         __len: size_t,
     ) -> *mut core::ffi::c_void;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_aom_get_qmlevel(
+    qindex: core::ffi::c_int,
+    first: core::ffi::c_int,
+    last: core::ffi::c_int,
+) -> core::ffi::c_int {
+    aom_get_qmlevel(qindex, first, last)
+}
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_aom_get_qmlevel_allintra(
+    qindex: core::ffi::c_int,
+    first: core::ffi::c_int,
+    last: core::ffi::c_int,
+) -> core::ffi::c_int {
+    aom_get_qmlevel_allintra(qindex, first, last)
+}

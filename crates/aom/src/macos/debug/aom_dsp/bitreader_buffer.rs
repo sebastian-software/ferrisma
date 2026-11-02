@@ -251,3 +251,9 @@ pub unsafe extern "C-unwind" fn aom_rb_read_signed_primitive_refsubexpfin(
     return (aom_rb_read_primitive_refsubexpfin(rb, scaled_n, k, ref_0 as uint16_t)
         as core::ffi::c_int - n as core::ffi::c_int + 1 as core::ffi::c_int) as int16_t;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_get_msb(n: core::ffi::c_uint) -> core::ffi::c_int {
+    get_msb(n)
+}

@@ -260,3 +260,13 @@ pub unsafe extern "C-unwind" fn aom_count_signed_primitive_refsubexpfin(
         v as uint16_t,
     );
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_aom_write(
+    w: *mut aom_writer,
+    bit: core::ffi::c_int,
+    probability: core::ffi::c_int,
+) {
+    aom_write(w, bit, probability)
+}

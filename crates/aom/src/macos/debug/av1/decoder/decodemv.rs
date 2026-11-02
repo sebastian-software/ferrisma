@@ -7671,3 +7671,23 @@ extern "C" {
         __len: size_t,
     ) -> *mut core::ffi::c_void;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_aom_ceil_log2(n: core::ffi::c_int) -> core::ffi::c_int {
+    aom_ceil_log2(n)
+}
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_av1_is_dv_valid(
+    dv: MV,
+    cm: *const AV1_COMMON,
+    xd: *const MACROBLOCKD,
+    mi_row: core::ffi::c_int,
+    mi_col: core::ffi::c_int,
+    bsize: BLOCK_SIZE,
+    mib_size_log2: core::ffi::c_int,
+) -> core::ffi::c_int {
+    av1_is_dv_valid(dv, cm, xd, mi_row, mi_col, bsize, mib_size_log2)
+}

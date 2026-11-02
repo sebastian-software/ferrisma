@@ -18,6 +18,10 @@ for path in manifests:
             raise SystemExit(f"Missing translation input/output in {path.name}: {unit}")
         if hashlib.sha256(target.read_bytes()).hexdigest() != unit["rust_sha256"]:
             raise SystemExit(f"Translated file differs from its manifest: {target}")
+        if 'production_rust_sha256' in unit:
+            production = target.read_text().split('\n#[cfg(feature = "port-test-bridges")]', 1)[0]
+            if hashlib.sha256(production.encode()).hexdigest() != unit['production_rust_sha256']:
+                raise SystemExit(f'Production translation body differs from its manifest: {target}')
         sources.add(source.resolve())
         outputs.add(target.resolve())
 expected = set((ROOT / "upstream/libavif/src").glob("*.c"))

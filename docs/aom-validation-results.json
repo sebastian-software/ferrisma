@@ -1252,7 +1252,7 @@
         "excluded_count": 1423,
         "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
-      "translation_manifest_sha256": "cc86c06c84b4b80e95666afecc94b3df8105443ed5311a84e2f1c3c87b23d331",
+      "translation_manifest_sha256": "ba3746b6b62087ed3978d14260c2ac73d4fcb67a394872b12efa5c203b8aa4c6",
       "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
       "rust_archive_sha256": "603bd67357ea71de21f8222eea712b98f50ba6234ba22955579ef8fc7292af25",
       "raw_api_example_passed": true,
@@ -1659,7 +1659,175 @@
         "archives_only": false,
         "header_inline_test_coverage_proven": false,
         "native_vmaf_retained": true
-      }
+      },
+      "original_inline_subjects": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 12,
+        "original_cases_and_assertions_unchanged": true,
+        "optional_rust_bridge_exports": 10,
+        "original_inline_subjects_execute_rust": true,
+        "native_reference_and_fixture_helpers_retained": true,
+        "complete_inline_role_review": false,
+        "subjects": [
+          {
+            "source": "test/aom_mem_test.cc",
+            "source_sha256": "c6834e1983a3e2f901732c07b867ecc15ae09eec50107c2b9e4d3ada9113d833",
+            "functions": [
+              "aom_memset16"
+            ],
+            "forced_include_sha256": "88e6e9db7cf161a4bd43654c23a8865693dbb76d29ed6a64ba377455a11fd9ca",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/log2_test.cc",
+            "source_sha256": "bce8b609436f5fb406887cb08f4ab38e5167a67e6fe3b5dc1deba1517b10a876",
+            "functions": [
+              "get_msb",
+              "aom_ceil_log2"
+            ],
+            "forced_include_sha256": "6a15945e0f3a4a75bfc4b19f21e3e11432373b06e54a05f2bb2e56e8731d2116",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/av1_get_qmlevel_test.cc",
+            "source_sha256": "e5b0f03f2ffecc7ddaf90a9d9c382fde3d919bfdb0726c55ce912909031a4d60",
+            "functions": [
+              "aom_get_qmlevel",
+              "aom_get_qmlevel_allintra"
+            ],
+            "forced_include_sha256": "e0a26b55d8a80050bfdbd34dcfc175d1e28f660381123e4411202be8fba47f9d",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/intrabc_test.cc",
+            "source_sha256": "8f92be7ae33a30cebb38d0b94e812618f3aee864e9d0f0ad2ddec30e88bad18e",
+            "functions": [
+              "av1_is_dv_valid"
+            ],
+            "forced_include_sha256": "6efdfedaabe8cbcc30c1190cab39eb30874c63c6c80091edfdee80e54c6f6bfb",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/block_test.cc",
+            "source_sha256": "4dba5e367699a391fd580f0f2b3117a2618fd7ef51830590adfd1042dbadc740",
+            "functions": [
+              "get_partition_subsize"
+            ],
+            "forced_include_sha256": "d8ff45077efd94cc8dc4635ba3be8a6beb3b42e33315862aa5a27261c7c6effc",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/av1_common_int_test.cc",
+            "source_sha256": "bba847dfe54a3c95aff96267fd4a45b22b5347be67c95e828539505dbde0acfb",
+            "functions": [
+              "get_tx_size"
+            ],
+            "forced_include_sha256": "e2c2a46af819c2d2beea52f775986e35dc70c379c18dd690daaf48b6cade7b84",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/boolcoder_test.cc",
+            "source_sha256": "15ce69ec3e052a922dfd11d6ffb82b63905a6f7a7243ea05983f2e3e699547f7",
+            "functions": [
+              "aom_read_",
+              "aom_write"
+            ],
+            "forced_include_sha256": "f064c606f6d7d845da669b25f3d813930b834bbac7a3e095e23ad9d9135d4e9f",
+            "assertions_and_cases_unchanged": true
+          }
+        ],
+        "cases": [
+          {
+            "name": "BlockdTest.GetPartitionSubsize",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "Log2Test.GetMsb",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "Log2Test.AomCeilLog2",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AomMemTest.Overflow",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AomMemTest.NullParams",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1CommonInt.TestGetTxSize",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "IntrabcTest.DvValidation",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1.TestBitIO",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1.TestTell",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1.TestHasOverflowed",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "GetQmLevelTest.Regular",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "GetQmLevelTest.AllIntra",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          }
+        ],
+        "rust_archive_sha256": "ed926f426262db33779aadc4c662cca7fd55e539affcbea627bfdfcfb4199135",
+        "map_sha256": "c1a356ec0b431f0baf5591e4d6a37a430c8e1b27a4778921a0055b290bb2ed29"
+      },
+      "translation_manifest_sha256_before_optional_bridges": "cc86c06c84b4b80e95666afecc94b3df8105443ed5311a84e2f1c3c87b23d331",
+      "production_bodies_unchanged_by_optional_bridges": true
     },
     "release": {
       "aom-cli": {
@@ -2870,7 +3038,7 @@
         "excluded_count": 1423,
         "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
-      "translation_manifest_sha256": "646058753c64cebc8efcd6dfa91a9fd1070d77a6b83458d4c8d6ff0c49116008",
+      "translation_manifest_sha256": "3121028cf5c71c1438e3156644d21f7e29287be77f506d7282851ff6e6605fe6",
       "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
       "rust_archive_sha256": "31bdc814535ec2a6fd12190f5a92142ba4e2246510a3ed790b23e8b836525ceb",
       "raw_api_example_passed": true,
@@ -3318,7 +3486,175 @@
         "archives_only": false,
         "header_inline_test_coverage_proven": false,
         "native_vmaf_retained": true
-      }
+      },
+      "original_inline_subjects": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 12,
+        "original_cases_and_assertions_unchanged": true,
+        "optional_rust_bridge_exports": 10,
+        "original_inline_subjects_execute_rust": true,
+        "native_reference_and_fixture_helpers_retained": true,
+        "complete_inline_role_review": false,
+        "subjects": [
+          {
+            "source": "test/aom_mem_test.cc",
+            "source_sha256": "c6834e1983a3e2f901732c07b867ecc15ae09eec50107c2b9e4d3ada9113d833",
+            "functions": [
+              "aom_memset16"
+            ],
+            "forced_include_sha256": "88e6e9db7cf161a4bd43654c23a8865693dbb76d29ed6a64ba377455a11fd9ca",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/log2_test.cc",
+            "source_sha256": "bce8b609436f5fb406887cb08f4ab38e5167a67e6fe3b5dc1deba1517b10a876",
+            "functions": [
+              "get_msb",
+              "aom_ceil_log2"
+            ],
+            "forced_include_sha256": "6a15945e0f3a4a75bfc4b19f21e3e11432373b06e54a05f2bb2e56e8731d2116",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/av1_get_qmlevel_test.cc",
+            "source_sha256": "e5b0f03f2ffecc7ddaf90a9d9c382fde3d919bfdb0726c55ce912909031a4d60",
+            "functions": [
+              "aom_get_qmlevel",
+              "aom_get_qmlevel_allintra"
+            ],
+            "forced_include_sha256": "e0a26b55d8a80050bfdbd34dcfc175d1e28f660381123e4411202be8fba47f9d",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/intrabc_test.cc",
+            "source_sha256": "8f92be7ae33a30cebb38d0b94e812618f3aee864e9d0f0ad2ddec30e88bad18e",
+            "functions": [
+              "av1_is_dv_valid"
+            ],
+            "forced_include_sha256": "6efdfedaabe8cbcc30c1190cab39eb30874c63c6c80091edfdee80e54c6f6bfb",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/block_test.cc",
+            "source_sha256": "4dba5e367699a391fd580f0f2b3117a2618fd7ef51830590adfd1042dbadc740",
+            "functions": [
+              "get_partition_subsize"
+            ],
+            "forced_include_sha256": "d8ff45077efd94cc8dc4635ba3be8a6beb3b42e33315862aa5a27261c7c6effc",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/av1_common_int_test.cc",
+            "source_sha256": "bba847dfe54a3c95aff96267fd4a45b22b5347be67c95e828539505dbde0acfb",
+            "functions": [
+              "get_tx_size"
+            ],
+            "forced_include_sha256": "e2c2a46af819c2d2beea52f775986e35dc70c379c18dd690daaf48b6cade7b84",
+            "assertions_and_cases_unchanged": true
+          },
+          {
+            "source": "test/boolcoder_test.cc",
+            "source_sha256": "15ce69ec3e052a922dfd11d6ffb82b63905a6f7a7243ea05983f2e3e699547f7",
+            "functions": [
+              "aom_read_",
+              "aom_write"
+            ],
+            "forced_include_sha256": "f064c606f6d7d845da669b25f3d813930b834bbac7a3e095e23ad9d9135d4e9f",
+            "assertions_and_cases_unchanged": true
+          }
+        ],
+        "cases": [
+          {
+            "name": "BlockdTest.GetPartitionSubsize",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "Log2Test.GetMsb",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "Log2Test.AomCeilLog2",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AomMemTest.Overflow",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AomMemTest.NullParams",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1CommonInt.TestGetTxSize",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "IntrabcTest.DvValidation",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1.TestBitIO",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1.TestTell",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "AV1.TestHasOverflowed",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "GetQmLevelTest.Regular",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "GetQmLevelTest.AllIntra",
+            "status": "run",
+            "result": "completed",
+            "failed": false,
+            "skipped": false
+          }
+        ],
+        "rust_archive_sha256": "247c0434bd1bb4fa5dc56586ca08f14a7e18defeac1c60914a0af881f524109f",
+        "map_sha256": "5858a886505f81e2b5555b1c75b75a038cf946b7a20878273b9ee11c99b66dc3"
+      },
+      "translation_manifest_sha256_before_optional_bridges": "646058753c64cebc8efcd6dfa91a9fd1070d77a6b83458d4c8d6ff0c49116008",
+      "production_bodies_unchanged_by_optional_bridges": true
     }
   },
   "open_gates": [
@@ -3684,5 +4020,10 @@
         }
       ]
     }
+  },
+  "local_execution_budget": {
+    "max_cpu_intensive_processes": 2,
+    "original_codec_thread_parameters_preserved": true,
+    "shard_runner_default_workers": 1
   }
 }

@@ -90,6 +90,16 @@ def main():
     for unit in manifest['units']:
         rust_names.update(re.findall(r'\bfn (\w+)\(', (ROOT / unit['rust']).read_text()))
     source_root = ROOT / 'build/aom-native-source'
+    source_hashes = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files']
+    verified_paths = set()
+
+    def verify_original(path):
+        path = Path(path)
+        if path.is_relative_to(source_root) and path not in verified_paths:
+            name = str(path.relative_to(source_root))
+            if hashlib.sha256(path.read_bytes()).hexdigest() != source_hashes[name]:
+                raise ValueError(f'Modified original correspondence input: {name}')
+            verified_paths.add(path)
     entries = [entry for entry in json.loads((build / 'compile_commands.json').read_text())
                if Path(entry['file']).is_relative_to(source_root / 'test') and entry['file'].endswith('.cc')
                and ('/test_aom_' in entry['output'] or '/test_libaom.' in entry['output'])]
@@ -100,6 +110,7 @@ def main():
     index, reports = create(0, 0), []
     for entry in entries:
         source = Path(entry['file'])
+        verify_original(source)
         flags = compiler_flags(entry)
         resource = subprocess.check_output([flags[0], '-print-resource-dir'], text=True).strip()
         arguments = [*flags[1:], '-resource-dir=' + resource, '-working-directory=' + entry['directory']]
@@ -140,6 +151,7 @@ def main():
                         return 2
                     key = (name, definition_file, kind)
                     declaration_path = Path(definition_file)
+                    verify_original(declaration_path)
                     declaration = (str(declaration_path.relative_to(source_root))
                                    if declaration_path.is_relative_to(source_root)
                                    else '<generated>/' + str(declaration_path.relative_to(build)))

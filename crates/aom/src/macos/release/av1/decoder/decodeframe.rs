@@ -15594,3 +15594,12 @@ extern "C" {
     fn pthread_mutex_lock(_: *mut pthread_mutex_t) -> core::ffi::c_int;
     fn pthread_mutex_unlock(_: *mut pthread_mutex_t) -> core::ffi::c_int;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_get_partition_subsize(
+    bsize: BLOCK_SIZE,
+    partition: PARTITION_TYPE,
+) -> BLOCK_SIZE {
+    get_partition_subsize(bsize, partition)
+}

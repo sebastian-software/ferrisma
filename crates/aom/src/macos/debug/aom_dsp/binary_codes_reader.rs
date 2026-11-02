@@ -167,3 +167,12 @@ pub unsafe extern "C-unwind" fn aom_read_primitive_refsubexpfin_(
 ) -> uint16_t {
     return inv_recenter_finite_nonneg(n, ref_0, read_primitive_subexpfin_(r, n, k));
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_aom_read_(
+    r: *mut aom_reader,
+    prob: core::ffi::c_int,
+) -> core::ffi::c_int {
+    aom_read_(r, prob)
+}

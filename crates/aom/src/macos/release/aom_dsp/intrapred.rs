@@ -7331,3 +7331,13 @@ extern "C" {
         __len: size_t,
     ) -> *mut core::ffi::c_void;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_aom_memset16(
+    dest: *mut core::ffi::c_void,
+    val: core::ffi::c_int,
+    length: size_t,
+) -> *mut core::ffi::c_void {
+    aom_memset16(dest, val, length)
+}

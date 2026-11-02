@@ -138,11 +138,27 @@ match in translated source is recorded as such; it is not execution coverage.
 References inside included C++ helper bodies and indirect calls need their
 own review beyond this direct-reference inventory.
 
+Ten reviewed inline test subjects now have optional generated Rust exports
+under `port-test-bridges` (ADR 0039). Seven original C++ inputs are recompiled
+with forced includes that redirect those subjects while retaining native
+reference and fixture helpers. All 18,729 registrations remain identical;
+12 original cases pass against C and Rust in each profile. The default
+production translation bodies are byte-for-byte unchanged, verified by
+separate `production_rust_sha256` entries in the translation manifests.
+Both profiles reproduce with fresh alignment/layout extraction after this
+addition. Remaining inline roles and scalar self-comparisons stay open.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
 corrections, narrow comparisons after each correction, and full-suite
 checkpoints. No existing consumer switches until standalone acceptance passes.
+Limit local execution to two CPU-intensive processes at a time across all
+commands. The shard runner defaults to one worker so a C and a Rust run can
+share that budget; additional verification/build work waits for a slot.
+Preserve original encoder/decoder thread parameters. A multithreaded codec test
+can use several CPU cores inside one process. Scheduling limits are separate
+from test cases, assertions, numerical references, and preprocessing profiles.
 
 1. Verify complete source/license hashes, the archive's exact source closure,
    generated headers, configurations, and original test inventories.
@@ -176,6 +192,8 @@ python3 tools/build_aom_consumers.py --debug
 python3 tools/build_aom_consumers.py
 python3 tools/check_aom_linkage.py --debug
 python3 tools/check_aom_linkage.py
+python3 tools/check_aom_inlines.py --debug
+python3 tools/check_aom_inlines.py
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug

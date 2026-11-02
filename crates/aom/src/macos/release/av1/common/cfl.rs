@@ -4748,3 +4748,12 @@ extern "C" {
         __len: size_t,
     ) -> *mut core::ffi::c_void;
 }
+
+#[cfg(feature = "port-test-bridges")]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn port_aom_inline_get_tx_size(
+    width: core::ffi::c_int,
+    height: core::ffi::c_int,
+) -> TX_SIZE {
+    get_tx_size(width, height)
+}
