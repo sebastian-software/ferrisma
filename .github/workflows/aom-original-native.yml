@@ -60,6 +60,7 @@ jobs:
           python3 tools/build_aom_consumers.py --only test_libaom --only test_aom_rc --only test_intra_pred_speed
           python3 tools/check_aom_linkage.py --debug
           python3 tools/check_aom_linkage.py
+          python3 tools/review_aom_scalar_roles.py --check
       - name: Check named record layouts on the native macOS SDK
         if: inputs.runner == 'macos-26'
         run: |

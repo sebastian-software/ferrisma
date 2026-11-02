@@ -1,0 +1,544 @@
+{
+  "scope": "All selected C++ inputs with a scalar _c global in the direct compiler inventory; physical template bodies reviewed in the original source",
+  "original_source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "original_registrations": 18729,
+  "original_case_names_sha256": "69c2c6f9cfdad3f8724291de2ce64c55ce87ca8879fc8b0e32b5d678deb23e43",
+  "distinct_original_inputs": 36,
+  "zero_registration_inputs": 16,
+  "original_source_and_assertions_unchanged": true,
+  "static_review_assigns_no_execution_credit": true,
+  "complete_runtime_or_indirect_coverage_claimed": false,
+  "registration_counts_exclude_helper_cases_registered_by_other_inputs": true,
+  "native_cpp_reference_fixture_and_timing_helpers_retained": true,
+  "sources": [
+    {
+      "source": "test/av1_scale_test.cc",
+      "source_sha256": "56e49b521d7ac0ba15b1b527d3b86df8514f517eb6f619d866d7c635231112ec",
+      "direct_scalar_bindings_sha256": "113a0cd9e1fbb8ff5eb3f3e0a13ce5608305718cedc13d88c3f5a29933e6e520",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/cfl_test.cc",
+      "source_sha256": "c95febab330b782a9427b0132011c7735631259f71f4b74c178a80d18735554c",
+      "direct_scalar_bindings_sha256": "da77fcf658e649f5347acfdb7098d9858e0b90498f4f41fcef479b189767c517",
+      "scalar_globals_in_direct_inventory": 9,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "direct_scalar_bindings_sha256": "ef89694bdeedd7d25d5f612fa7c48f22c673f1f0e19552859ae5fce6cb9111d4",
+      "scalar_globals_in_direct_inventory": 5,
+      "registered_test_classes": [
+        "C/ConvolveScale2DTest",
+        "C/HighbdConvolveTest",
+        "C/LowbdConvolveTest",
+        "HighbdConvolveTest",
+        "LowbdConvolveTest"
+      ],
+      "original_registrations": 284,
+      "original_active_registrations": 207,
+      "original_disabled_registrations": 77,
+      "original_case_names_sha256": "afdd1b23c7b4165361f099cca165bf809226e69a4122697e129be4419822df2f",
+      "reviewed_assertion_strategy": "The unscaled subjects use the original independent C++ subpixel-filter arithmetic and guard checks. The scaled subject uses the isolated C oracle in scaled-convolution."
+    },
+    {
+      "source": "test/hiprec_convolve_test_util.cc",
+      "source_sha256": "a2a30dc98ed0aa294542ed1404a982862ca28cc8cad645818a569002282c2ae5",
+      "direct_scalar_bindings_sha256": "17c0acb106ab93a28e49561f60196bc9e9e1f017f13e4b4dd66f1ee981df348e",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/selfguided_filter_test.cc",
+      "source_sha256": "41e2dcdd7834d4a1daf60ee3d652ae58a951f8c1c9bfcc6e4bbf9ecdbf9bf3c5",
+      "direct_scalar_bindings_sha256": "d9abc8fa3b7274a21717b2ebad9e16af1da3e511ca60999f96f45e14448e7cee",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/cnn_test.cc",
+      "source_sha256": "1364441d5b08b53bdc781f9d918d4a3ad3bf85ed16eca9008896c0117c31c0ed",
+      "direct_scalar_bindings_sha256": "db8ff743b884246564ca6ffb6934bc48d881b752b0d2cff310f726d20c58ce48",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [
+        "CNNTest"
+      ],
+      "original_registrations": 15,
+      "original_active_registrations": 15,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "9628b13c1240c634a60abb864f44055a0f70985203bfe7f8bc9632ea56ecca6c",
+      "reviewed_assertion_strategy": "The 15 CNNTest cases retain original fixed expected arrays, output dimensions, tolerances, and worker parameters. The SIMD CNNConvolveTest class has no generic registration."
+    },
+    {
+      "source": "test/dr_prediction_test.cc",
+      "source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "direct_scalar_bindings_sha256": "5ba1e5f47ee5f0f7e8215882d242f8ee8ca2848a8c5303b890a20bee2c69863b",
+      "scalar_globals_in_direct_inventory": 6,
+      "registered_test_classes": [
+        "C/HighbdDrPredTest",
+        "C/LowbdDrPredTest"
+      ],
+      "original_registrations": 36,
+      "original_active_registrations": 24,
+      "original_disabled_registrations": 12,
+      "original_case_names_sha256": "92663adc373073012d708d3e609484264ed13a9241cf2cf01d6a4a06437c7c85",
+      "reviewed_assertion_strategy": "The original C parameter matrices have null subject slots: SaturatedValues copies the reference and OperationCheck returns early. These original passes receive no independent comparison credit. The separate directional-prediction matrix compares C with Rust."
+    },
+    {
+      "source": "test/av1_convolve_test.cc",
+      "source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+      "direct_scalar_bindings_sha256": "19cac5aa30a0448edc73cd8c3c0df10be53a935a65728b669ecc99e34e965a4f",
+      "scalar_globals_in_direct_inventory": 22,
+      "registered_test_classes": [
+        "AV1ConvolveParametersTest",
+        "C/AV1Convolve2DCompoundTest",
+        "C/AV1Convolve2DCopyCompoundTest",
+        "C/AV1Convolve2DCopyHighbdCompoundTest",
+        "C/AV1Convolve2DHighbdCompoundTest",
+        "C/AV1Convolve2DHighbdIntraBCTest",
+        "C/AV1Convolve2DHighbdTest",
+        "C/AV1Convolve2DIntraBCTest",
+        "C/AV1Convolve2DTest",
+        "C/AV1ConvolveCopyHighbdTest",
+        "C/AV1ConvolveCopyTest",
+        "C/AV1ConvolveXCompoundTest",
+        "C/AV1ConvolveXHighbdCompoundTest",
+        "C/AV1ConvolveXHighbdIntraBCTest",
+        "C/AV1ConvolveXHighbdTest",
+        "C/AV1ConvolveXIntraBCTest",
+        "C/AV1ConvolveXTest",
+        "C/AV1ConvolveYCompoundTest",
+        "C/AV1ConvolveYHighbdCompoundTest",
+        "C/AV1ConvolveYHighbdIntraBCTest",
+        "C/AV1ConvolveYHighbdTest",
+        "C/AV1ConvolveYIntraBCTest",
+        "C/AV1ConvolveYTest"
+      ],
+      "original_registrations": 1425,
+      "original_active_registrations": 917,
+      "original_disabled_registrations": 508,
+      "original_case_names_sha256": "942111058901792912058f90eac89b88548b0ddfda2ed0f030cd7cfd6ca8065c",
+      "reviewed_assertion_strategy": "All 912 original scalar algorithm comparisons use the convolution, intrabc, convolution-2d, and compound C-oracle bindings. Five additional original cases verify parameter construction and function identity."
+    },
+    {
+      "source": "test/av1_fwd_txfm1d_test.cc",
+      "source_sha256": "44586326cf7d5bf9d544dfc0b1fadcdd812bff4616476ae03a4009c76169c609",
+      "direct_scalar_bindings_sha256": "39a6b7f3b78fa9e98e63364ced55ebe6e1992cc4d63f246d37c72354545ccef2",
+      "scalar_globals_in_direct_inventory": 4,
+      "registered_test_classes": [
+        "av1_fwd_txfm1d"
+      ],
+      "original_registrations": 3,
+      "original_active_registrations": 3,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "580ab9a1a6e697e9b85f3efc7bcef50c0dd22c25bbe161dd498af3a0cc7a2e61",
+      "reviewed_assertion_strategy": "Accuracy uses the independent C++ floating-point reference transform; cosine data uses native C++ math. The round_shift assertions use the separately generated Rust inline export."
+    },
+    {
+      "source": "test/av1_k_means_test.cc",
+      "source_sha256": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+      "direct_scalar_bindings_sha256": "0db6166c1735f03ff37cda67168ae8f5355bfb743dd3b051cfdb180738cb3fa8",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/av1_nn_predict_test.cc",
+      "source_sha256": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+      "direct_scalar_bindings_sha256": "319f3408c8ed16f1e7bd4f9205f78a7dfea65703c48728a98c8612a8b8ff9997",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/av1_round_shift_array_test.cc",
+      "source_sha256": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+      "direct_scalar_bindings_sha256": "fb22eb979811aed86fac7e779aec203db4df834d6c8e02773b182187867bec02",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/av1_softmax_test.cc",
+      "source_sha256": "6e5ae88e36b371dc95b3becd178980c6342ac5f64183e6f8f412a16dd389e4b3",
+      "direct_scalar_bindings_sha256": "dafde201bb29da29e6c7ee273421caf563a1f4082cf297f241f62d05281e78b4",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [
+        "C/FastSoftmaxTest"
+      ],
+      "original_registrations": 4,
+      "original_active_registrations": 2,
+      "original_disabled_registrations": 2,
+      "original_case_names_sha256": "aaa0d64541733f876e7bc5dc4f15f6b85e3e4441f5374418656e4e03942c4d15",
+      "reviewed_assertion_strategy": "Both original cases use the isolated C softmax oracle and retain original tolerances, including the anchor case."
+    },
+    {
+      "source": "test/av1_wedge_utils_test.cc",
+      "source_sha256": "ba016d8a32bf6227480891148ae3ab7c35d76cc5554d70e13c8e7db39d85fc98",
+      "direct_scalar_bindings_sha256": "ad7830975fd9ef6aae03494daba70c3e9fc15472697154574a6c51acc2cbe584",
+      "scalar_globals_in_direct_inventory": 4,
+      "registered_test_classes": [
+        "WedgeUtilsSSEFuncTest"
+      ],
+      "original_registrations": 2,
+      "original_active_registrations": 2,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "273172fae5604766706163d4df9e3efd3a43e5677a8ab0726d93953861187a3c",
+      "reviewed_assertion_strategy": "Both generic functional cases retain independent C++ residual-blending and sum-of-squares arithmetic. SIMD equivalence classes have no generic registrations."
+    },
+    {
+      "source": "test/avg_test.cc",
+      "source_sha256": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+      "direct_scalar_bindings_sha256": "45e835bb2f679920709c151aed1ed81ec0f44767dce68de981f9c677f2ee8a93",
+      "scalar_globals_in_direct_inventory": 7,
+      "registered_test_classes": [
+        "C/AverageTest8bpp",
+        "C/AverageTestHbd",
+        "C/AvgTest8bpp_avg_8x8_quad",
+        "C/SatdLpTest",
+        "C/SatdTest"
+      ],
+      "original_registrations": 80,
+      "original_active_registrations": 63,
+      "original_disabled_registrations": 17,
+      "original_case_names_sha256": "7c0fb114a0634eadb3dfbf6e6d2ffcb18d2eabc64b1db8691e3d82ce92bc5446",
+      "reviewed_assertion_strategy": "Original ReferenceAverage arithmetic supplies independent average expectations. SATD minimum/maximum and random cases retain original constants; all 32 SATD cases additionally keep C in the first parameter slot and Rust in the second through satd. Average timing calls and the redundant expected_c comparison remain Rust-bound and receive no separate independent-reference credit."
+    },
+    {
+      "source": "test/blend_a64_mask_1d_test.cc",
+      "source_sha256": "e81d8b62daad11234bffee46e7ddbee68873c626b929fd534227322293ca98bf",
+      "direct_scalar_bindings_sha256": "424e99da7e58cd51148b9dce1d02edd04e98c9c171d65330d29e475453bb79d6",
+      "scalar_globals_in_direct_inventory": 6,
+      "registered_test_classes": [
+        "C/BlendA64Mask1DTest8B",
+        "C/BlendA64Mask1DTestHBD"
+      ],
+      "original_registrations": 8,
+      "original_active_registrations": 8,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "69964a72e49420d07ef117675abeca54a4f840509470a841ec9bfeecd3b28b01",
+      "reviewed_assertion_strategy": "The eight original horizontal/vertical mask comparisons use the isolated two-dimensional C oracle through blend-mask-1d."
+    },
+    {
+      "source": "test/blend_a64_mask_test.cc",
+      "source_sha256": "381f6cbee1f0ce67e6fd36027bc367a08eeaaef0e841c2710b3f8acf597c39f1",
+      "direct_scalar_bindings_sha256": "ed512148db1dc1cc54397325a1943afce0b4a406d893e4eccbf6102a31f839c5",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [
+        "C/BlendA64MaskTestHBD_d16"
+      ],
+      "original_registrations": 3,
+      "original_active_registrations": 2,
+      "original_disabled_registrations": 1,
+      "original_case_names_sha256": "b0f708374423e380d5f671d42f2ff7aa116e1b1b9bbf5efc846491dfe78a7f80",
+      "reviewed_assertion_strategy": "Only the high-bit-depth d16 class is registered generically. Its first parameter binds the isolated C oracle and its second remains Rust through blend-mask-d16."
+    },
+    {
+      "source": "test/comp_mask_pred_test.cc",
+      "source_sha256": "370176487a84088a04fc244764c6496900c86c56a0216b0ce22c078b3be0a6d7",
+      "direct_scalar_bindings_sha256": "2e72740d8564686d786e8ce693f40c33f79acb3da96ee8614aaf123ef6ad4db2",
+      "scalar_globals_in_direct_inventory": 6,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/disflow_test.cc",
+      "source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "direct_scalar_bindings_sha256": "59d19904a434df9694fbbb5f38d7d073fc93a5426294244bb89406652b33b527",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "direct_scalar_bindings_sha256": "6884b49bcf9eb81b2dcb088ecce41ae3c59f126675a754eb56be87dbe91bfc06",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/fft_test.cc",
+      "source_sha256": "db291017746a4057d6e90d0b6940747fcbacfceec7eba61fe097d3ebfaa0141b",
+      "direct_scalar_bindings_sha256": "c7bae1ea516c85b651263817f85edde15c921d3c93393e8292b5040c3d8de991",
+      "scalar_globals_in_direct_inventory": 10,
+      "registered_test_classes": [
+        "C/FFT2DTest",
+        "C/IFFT2DTest"
+      ],
+      "original_registrations": 20,
+      "original_active_registrations": 20,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "e402f8c9251d092319a3f888fd5a66f878b863f45fe120535b0d566c18526af5",
+      "reviewed_assertion_strategy": "Correctness retains original independent C++ Fourier-transform arithmetic. The original active Benchmark cases remain active and are not treated as independent correctness comparisons."
+    },
+    {
+      "source": "test/frame_resize_test.cc",
+      "source_sha256": "1c342a29e3e78c9a3b7514a1d7dd8344370a770ec8232009ddb120fe839f9d79",
+      "direct_scalar_bindings_sha256": "178660d6a51ab0d5a3f271b892499c42676172bf3845e3c222eb138aab8adfa4",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/fwht4x4_test.cc",
+      "source_sha256": "837812b2d1fe97a835b582f550c845339a4734f3a9288f986748a7d9eaf88ed2",
+      "direct_scalar_bindings_sha256": "845b960c376ccd138e37dd77f31cbd1feadb7f7629a2d880b964243daec76f27",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [
+        "C/Trans4x4WHT"
+      ],
+      "original_registrations": 10,
+      "original_active_registrations": 8,
+      "original_disabled_registrations": 2,
+      "original_case_names_sha256": "ef24874a5334452278255182e31ac431e5fd5e89240c74e707cc7dd3e42da0b8",
+      "reviewed_assertion_strategy": "The original forward/inverse transform and coefficient checks retain native C++ reference arithmetic and original round-trip/error assertions, including the original dynamic-skip behavior."
+    },
+    {
+      "source": "test/hadamard_test.cc",
+      "source_sha256": "a157992295a6ce7af18dbf4943b4f75bdbeb2b7fc11da0151030b0d54d8d09b2",
+      "direct_scalar_bindings_sha256": "061c1b5211dfab552462d07d8740c5f82ff33104eee7f10111b5c8255077f23a",
+      "scalar_globals_in_direct_inventory": 10,
+      "registered_test_classes": [
+        "C/HadamardHighbdTest",
+        "C/HadamardLowbdLP8x8DualTest",
+        "C/HadamardLowbdLPTest",
+        "C/HadamardLowbdTest"
+      ],
+      "original_registrations": 34,
+      "original_active_registrations": 24,
+      "original_disabled_registrations": 10,
+      "original_case_names_sha256": "e424781de7bec367e8cd53632d1fb501a8f36790d8689c161902a16f05bb8b10",
+      "reviewed_assertion_strategy": "The original C++ reference Hadamard calculations supply expected coefficients; generic scalar parameter functions resolve to Rust."
+    },
+    {
+      "source": "test/horver_correlation_test.cc",
+      "source_sha256": "dfd123783413ea6cd6bf1a7d407bb38bd51585acd9663ff475aeb2f7a0a6c873",
+      "direct_scalar_bindings_sha256": "d0a85827f3bc3ec801d6af03bdeb3ec0231a9d33aea6ae10e6ce306843b34768",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/minmax_test.cc",
+      "source_sha256": "e6924520d38aee2faad11c256244451712a03655cbdb58d75fe6d521776c7913",
+      "direct_scalar_bindings_sha256": "4153dfa8196889661968095a6ab73ac8463dfda2fbf0739f3eba1b22cb9e3685",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [
+        "C/HBDMinMaxTest",
+        "C/MinMaxTest"
+      ],
+      "original_registrations": 8,
+      "original_active_registrations": 8,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "48cbfc5c954109fe29dfe4f9874ab6533c34a99e7ee9342713b6a4b2fbfb15e4",
+      "reviewed_assertion_strategy": "Native C++ minimum/maximum loops supply expected values independently of the Rust parameter functions."
+    },
+    {
+      "source": "test/model_rd_test.cc",
+      "source_sha256": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+      "direct_scalar_bindings_sha256": "9671c30e12f775a10a53107f1cb215a899583201e8087f543174a7f87c866376",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/pickrst_test.cc",
+      "source_sha256": "5dc3cc6da0189deb6cb604d9af069170ae3db698cac6e1094d0e9f4483841c88",
+      "direct_scalar_bindings_sha256": "81ddf52b6b2194db77c85e18e69fbf2383135fd63337f49a3f6e6ffec3c16508",
+      "scalar_globals_in_direct_inventory": 4,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/reconinter_test.cc",
+      "source_sha256": "7088e47b40a38f5b7645dff73fb5a152f840d7d7b7b0bf3a940c05b159952387",
+      "direct_scalar_bindings_sha256": "34c5081c677780ef89d607c19d84e7d428c161238bb48a86bbf3ea0ddf66f06b",
+      "scalar_globals_in_direct_inventory": 3,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/sad_test.cc",
+      "source_sha256": "32341fbd96f0cda46376bf871907da718da78c0bef4cd7f4887ee26741c2b038",
+      "direct_scalar_bindings_sha256": "6a88c77ec24d01d37dd15c10e9ace67331992e80143f9ed1d0769b4a55a221f6",
+      "scalar_globals_in_direct_inventory": 226,
+      "registered_test_classes": [
+        "C/SADSkipTest",
+        "C/SADSkipx4Test",
+        "C/SADTest",
+        "C/SADavgTest",
+        "C/SADx3Test",
+        "C/SADx4Test"
+      ],
+      "original_registrations": 2880,
+      "original_active_registrations": 2496,
+      "original_disabled_registrations": 384,
+      "original_case_names_sha256": "99143672f35acfcb9fe18f9b563df42c51f512b6712cd3d83c5372c558ab99e4",
+      "reviewed_assertion_strategy": "Original ReferenceSAD, ReferenceSADSkip, ReferenceSADavg, and multidestination loops compute expected absolute differences in C++; scalar parameter functions resolve to Rust."
+    },
+    {
+      "source": "test/subtract_test.cc",
+      "source_sha256": "2b4d2fdf0ad5bcab219e93815bf6618a128bfe4145d1921383479e77d5f5a1e7",
+      "direct_scalar_bindings_sha256": "a2fd21872724865d7cb86619d24a94d5a7d63ad1e8bb92243544f287e9942eac",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [
+        "C/AV1SubtractBlockTest"
+      ],
+      "original_registrations": 32,
+      "original_active_registrations": 16,
+      "original_disabled_registrations": 16,
+      "original_case_names_sha256": "210426e7e67e10cdb1a8d5b8b67727a8e1ca52c8adceeeaf8451c25567899766",
+      "reviewed_assertion_strategy": "Original CheckResult compares the Rust output with direct C++ source-minus-predictor arithmetic. Original speed cases remain disabled."
+    },
+    {
+      "source": "test/sum_squares_test.cc",
+      "source_sha256": "d158f560f1ce0d33afbf5a6800bf26c609c3402a36fc5387bef968c1591e18c4",
+      "direct_scalar_bindings_sha256": "fd900e46fed4c33983fb2ffb639fccda9e4700a1c69ea26cd13c2744e30f9ac5",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "Original SIMD-only parameter classes have no generic registrations. Any supplementary scalar execution is recorded separately and receives zero original-case credit."
+    },
+    {
+      "source": "test/variance_test.cc",
+      "source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "direct_scalar_bindings_sha256": "c9372bd8daf39171b0a7592a619490cc46efd0546b1b900529833a984d1c322a",
+      "scalar_globals_in_direct_inventory": 374,
+      "registered_test_classes": [
+        "C/AvxHBDMseTest",
+        "C/AvxHBDObmcSubpelVarianceTest",
+        "C/AvxHBDSubpelAvgVarianceTest",
+        "C/AvxHBDSubpelVarianceTest",
+        "C/AvxHBDVarianceTest",
+        "C/AvxMseTest",
+        "C/AvxObmcSubpelVarianceTest",
+        "C/AvxSubpelAvgVarianceTest",
+        "C/AvxSubpelVarianceTest",
+        "C/AvxVarianceTest",
+        "C/GetSseSum16x16DualTest",
+        "C/GetSseSum8x8QuadTest",
+        "C/Mse16xHTest",
+        "C/MseHBDWxHTest",
+        "C/MseWxHTest",
+        "C/SumOfSquaresTest"
+      ],
+      "original_registrations": 1162,
+      "original_active_registrations": 866,
+      "original_disabled_registrations": 296,
+      "original_case_names_sha256": "a9a7ae1f455217d414d1d77cfee4ccaa142158e64b622f809b3c988331414373",
+      "reviewed_assertion_strategy": "Most subjects retain independent C++ variance/subpixel/OBMC arithmetic or known sums. All 40 MSE and quad/dual sum comparisons use the five isolated C oracles in variance-mse-sum. AVX2-only variance-statistic classes are outside the generic registration set."
+    },
+    {
+      "source": "test/warp_filter_test.cc",
+      "source_sha256": "499b3b554ede1d21b16b142755eb0eb2491d730fbeff7c870d348a261abc5ae3",
+      "direct_scalar_bindings_sha256": "7cf267f174376b40e65f5c9dd462d9a0d07d0e98dfd08169b75fb38bb4260f8f",
+      "scalar_globals_in_direct_inventory": 1,
+      "registered_test_classes": [
+        "C/AV1WarpFilterTest"
+      ],
+      "original_registrations": 160,
+      "original_active_registrations": 80,
+      "original_disabled_registrations": 80,
+      "original_case_names_sha256": "6c6b038ff3f693596eb1fa497b6b9a5486f717c69b6f5ee7fedb5eae837db9fd",
+      "reviewed_assertion_strategy": "The 80 original affine-warp cases retain their separate original helper object and use the isolated C reference through warp-affine."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "direct_scalar_bindings_sha256": "c4f6cbff67329873e617ee5f3648d78e8fa483e2ef7d1b696276c62846936748",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [],
+      "original_registrations": 0,
+      "original_active_registrations": 0,
+      "original_disabled_registrations": 0,
+      "original_case_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reviewed_assertion_strategy": "This helper defines the original affine-warp comparison body registered by warp_filter_test.cc. The low-bit-depth oracle is isolated C; the high-bit-depth helper has no generic registration."
+    },
+    {
+      "source": "test/wiener_test.cc",
+      "source_sha256": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+      "direct_scalar_bindings_sha256": "d87721a435ff12b036a24a966b15173a15d73a6cc86c3fb0120e72538204a74c",
+      "scalar_globals_in_direct_inventory": 2,
+      "registered_test_classes": [
+        "C/WienerTest",
+        "C/WienerTestHighbd",
+        "SearchWienerTest"
+      ],
+      "original_registrations": 19,
+      "original_active_registrations": 15,
+      "original_disabled_registrations": 4,
+      "original_case_names_sha256": "bf972444c75e8580b5372c259f750d0943396ac8ac2ea65ba639e2ba529ad32f",
+      "reviewed_assertion_strategy": "The generic parameter is the original independent optimized C++ statistics helper. The production av1_compute_stats functions resolve to Rust on the other side of the assertions. Original tested window sizes use C++ arithmetic; native expected-value helpers remain native. SearchWienerTest retains its original regression cases."
+    }
+  ]
+}

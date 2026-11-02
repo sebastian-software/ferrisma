@@ -164,6 +164,15 @@ The extended review remains a static superset, including potentially unused
 bodies, and assigns no runtime coverage. See
 [`aom-included-header-role-review.json`](aom-included-header-role-review.json).
 
+The finite scalar review covers all 36 original C++ inputs with a `_c` global
+in the direct inventory, including physical template bodies missed by that
+initial inventory. It classifies independent C++ arithmetic, separate C
+oracles, original redundant comparisons, and the 16 SIMD-only inputs with no
+generic registrations. Case-name hashes and disabled counts are checked
+against all 18,729 original registrations. The static review assigns no pass
+or runtime-coverage credit. See
+[`aom-scalar-role-review.json`](aom-scalar-role-review.json).
+
 Upstream builds `av1/ratectrl_rtc.cc` into the separate `aom_av1_rc` library,
 which it does not install. That optional wrapper is outside the selected
 168-C-unit libaom archive and is not a root libavif runtime dependency. The

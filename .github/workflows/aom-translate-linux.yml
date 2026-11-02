@@ -62,6 +62,7 @@ jobs:
         run: |
           python3 tools/build_aom.py --debug
           python3 tools/build_aom.py
+          python3 tools/review_aom_scalar_roles.py --check
       - name: Translate both complete native Linux source profiles
         if: inputs.mode == 'generate' || inputs.mode == 'verify'
         env:
