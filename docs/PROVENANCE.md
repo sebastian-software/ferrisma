@@ -561,3 +561,35 @@ The fixture manifest and [fixture README](../tests/data/README.md) record input
 recipes, sampling, dimensions, tool version and byte hashes. These captures
 establish the bounded internal sequence path, not JPEG reconstruction or the
 public incremental decoder API.
+
+The extra-channel integration follows the actual metadata admission and channel
+paths in image_metadata.{h,cc}, dec_modular.cc, frame_header.cc and
+DecFrame/PreparePipeline. Scalar SpotColorStage/factories are translated directly
+from render_pipeline/stage_spot.{h,cc}; their immutable coefficient borrow and
+selected native Linux scalar operation boundaries retain the reviewed source
+configuration in ADRs 0002 and 0003. The original archive and all other target
+settings remain unchanged. Source-defined depth, selection, black, CFA, thermal
+and optional channels receive no new display transformation.
+
+`tools/oracle/extra_channels.cc` supplies only fixture input/orchestration around
+actual original header writers, EncodeFrame/DecodeFrame and external buffer
+conversion functions. Its 1x1 mixed-sampling controls preserve genuine entropy
+payloads and verify exact zero-change source-writer reproduction. Malformed enum
+fixtures mutate actual encoder files and use the original parser to identify the
+reached rejected type; no replacement metadata parser supplies their status.
+`tools/extra_channels_reference.py` verifies the real source symbol bindings,
+source/dependency pins and fixture hashes, and retains independent ordinary and
+ASan/UBSan native captures of every initialized final color/extra-channel word.
+The dyadic all-plane sample capture is generated from original exports before
+any Rust comparison. Error observations use existing reached-write coverage to
+exclude source-indeterminate storage, preserving every initialized retained
+reference/output sample, metadata field and reader checkpoint.
+
+The Float16 external converter's original typed scanline store requires aligned
+row pointers. A separate actual-source census retains every initially introduced
+odd-stride fixture, ordinary capture and positive native UBSan diagnostic, with
+precise per-request classification in the fixture TSV. Defined single-row and
+decode-error requests remain paired comparisons; aligned positive controls add
+every fixture/channel/unpremultiplication combination. Existing integer16 byte
+stores and float32 memcpy stores retain their odd-stride comparisons unchanged.
+No undefined source output is used as a Rust expected word.

@@ -9,7 +9,8 @@ full-resolution unassociated alpha channel, multiple AC passes and DC/AC groups.
 Scalar EPF and noise/spline effects are connected for this profile. The internal
 sequence decoder also connects patches, general NONE/XYB Modular frames,
 reference/DC frames, blending, animation, previews and the admitted YCbCr/chroma
-paths. General orientation, broader extra channels, ICC/default CMS, JPEG
+paths. Associated/subsampled alpha and every source-defined extra-channel type are
+connected at this internal boundary. General orientation, ICC/default CMS, JPEG
 reconstruction, containers and public APIs remain separate work.
 See [VARDCT_IMAGE.md](VARDCT_IMAGE.md) for the complete configuration and evidence.
 The lossless encoder/decoder profile and its existing corpus remain unchanged.
@@ -1564,7 +1565,7 @@ and 153 retaining initialized output pixels. These focused results do not
 replace the required complete repository gates.
 
 The connected YCbCr/chroma extension is described below. This internal lifecycle
-boundary still excludes ICC/default CMS parsing, spot colors, broader extra-channel metadata, arbitrary
+boundary still excludes ICC/default CMS parsing and arbitrary
 external layouts, JPEG reconstruction and the public progressive C API. Its
 focused checks do not complete the general decoder milestone or establish the
 remaining complete-codec acceptance gates.
@@ -1606,7 +1607,7 @@ audits pass. All six full local configurations also pass: each runs 513 tests,
 original-only boundary probes, with no failures or ignored tests. This union
 includes the ICC command-codec prerequisite. Native Linux/macOS CI now passes
 with the counts recorded above, and the union is merged into `main`. General orientation,
-ICC/CMS parsing, broader sampling/extra channels, JPEG reconstruction and the
+ICC/CMS parsing, broader sampling, JPEG reconstruction and the
 public progressive decoder API remain open.
 
 ## ICC profile command decoding
@@ -1629,3 +1630,63 @@ header checkpoint and the full logical-position/history domain. Focused
 comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
 Rust 1.85 configurations, including the three standalone regressions.
 Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
+
+## Associated alpha and remaining extra channels in complete sequences
+
+The internal sequence boundary now admits associated/subsampled alpha, independent
+extra-channel bit depths, multiple alpha/spot channels, and the source-defined
+depth, selection-mask, black, CFA, thermal and optional channels. The existing
+fixed Thunder/Modular/VarDCT profiles keep their original admission. Metadata
+parsing retains actual source enum/dimension/depth rejection statuses. Existing
+modular dimensions, global/local group scheduling, early/late upsampling and
+blending algorithms carry each plane without assigning new rendering semantics
+to source-defined non-rendered channels.
+
+The complete scalar spot-color stage is reused with its independently reviewed
+native numeric configuration. PreparePipeline inserts each spot in metadata
+order after blending and post-color reference storage. Coefficients remain a
+borrow of the immutable metadata owner; retained reference pixels precede spot
+rendering. Bundle output retains associated alpha. Actual ConvertToExternal
+buffer exports compare requested unpremultiplication both ways, first-alpha
+selection, integer/float16/float32 output and every independent extra plane,
+including untouched output padding.
+
+There are 111 genuine original encoder/header-writer fixtures: 69 complete source
+successes and 42 explicit original failures, including odd-sized Modular EC
+resampling and pre-transform reference consumption. No encoded stream is assumed
+to decode successfully. Twelve source-selected malformed type fixtures retain
+reserved/unknown/invalid enum errors and initialized partial metadata. Five
+new differential groups retain 222 complete-file/metadata observations, 3,912
+source exports, 11,157 truncation/corruption/later-reference observations and 24
+rejected-type observations, plus reproduction of every genuine fixture byte.
+Two ordinary Rust tests retain an independent native all-plane dyadic capture
+and moved decoder/reference/metadata lifetimes. All 91,072 spot-component
+requests, 2,592 lifecycle requests, 1,548 chroma image requests and 5,562 chroma
+component requests remain required controls. The independent source audit
+repeats all 15,315 defined requests with exact results from both original graphs.
+All six focused configurations and all six complete local ordinary/ASan/UBSan
+Debug, Release and Rust 1.85 checks pass. Each complete configuration runs 530
+tests, 318 differential groups and 1,032,779 defined comparisons, with no
+failures or ignored tests. The 888 half-stride source-only probes and 72 inherited
+patch-boundary probes remain present. Native [run 41494057418](https://github.com/sebastian-software/libjxl-rs/actions/runs/41494057418)
+now passes all six configurations on Linux and macOS with those same group and
+request counts: Linux runs 531 tests per configuration; macOS runs 530. Both
+native source audits verify the actual bindings, all 111 complete files, the
+12 rejected-type fixtures and every half-stride probe. The accepted source is
+merged into `main`, and the README extra-channel milestone is checked. This
+internal bundle/output-conversion scope does not implement
+direct output-stage callbacks, arbitrary color profiles or the public decoder.
+
+The initial odd-stride Float16 export fixtures positively expose the original
+Span<hwy::float16_t> row-store alignment precondition. All 888 padding-three
+requests remain in an independent original-only census: 528 actually reach
+nonrecovering UBSan span.h:59 misalignment diagnostics; 360 single-row or earlier
+decode-error requests retain their original exact comparisons. All 888 aligned
+padding-four Float16 controls are added, giving 15,315 defined differential
+observations without weakening any prior case. Integer16 stores use byte stores
+and Float32 uses byte-order memcpy stores, so their existing odd-stride cases
+remain in parity unchanged. `tools/extra_half_boundaries.py` retains ordinary
+captures and every positive diagnostic; no source routine, sanitizer, or old
+expected word changes. The original undefined stores receive no Rust output
+semantics. A separate sixth source-only group requires these exact diagnostics
+from the instrumented graph.

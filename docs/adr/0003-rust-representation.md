@@ -1389,3 +1389,33 @@ results. Width-four prediction retains original unsigned wrapping. Invalid raw
 pointer, zero shuffle-width and overlapping-container caller preconditions do
 not receive invented codec semantics. Streaming ICCReader ownership remains a
 separate boundary.
+
+Spot-color stages retain a borrow of the original four-coefficient array rather
+than snapshotting it. The ordinary factory borrows `[f32; 4]`, matching immutable
+frame metadata in the reached decoder pipeline; the `Cell<f32>` array factory
+permits safe writes to that same external pointee between calls. Alpha scale is
+read once after the extra-span guard, while each color coefficient is read at
+the original channel/x loop point. No metadata owner is cloned or redesigned.
+The source's `size_t` channel-offset addition wraps explicitly; wrapped RGB
+aliases are query-only because processing them would violate the original
+`JXL_RESTRICT` row-pointer precondition. RGB arithmetic uses the existing target
+scalar multiply/add mapping, with exact operand-word coverage against the actual
+original stage rather than a new interpolation formula.
+
+The internal sequence decoder borrows parsed immutable metadata for its complete
+lifetime. Remove its single-alpha, depth-matching, association and dimension-shift
+admission constraints only at that boundary; the existing fixed profiles retain
+their original admission. Each spot stage borrows the same metadata coefficient
+array and is inserted after blending and post-color reference storage, before
+linear output conversion, as in PreparePipeline. Reference storage therefore
+retains pre-spot color. Source-defined non-rendered channels pass unchanged to
+bundle output through the existing modular channel/dimension and early/late
+upsampling algorithms; metadata does not invent a rendering rule for them.
+
+Associated alpha remains associated in bundle output. First-alpha metadata
+selection determines its association and export plane even when other channels
+precede it or a second alpha has a different association. Explicit integer and
+float ConvertToExternal buffer exports retain the existing source unpremultiply
+option and independently export every extra plane. Failed complete-file decoding
+is observed before export without reading unwritten output. Direct output-stage
+callbacks and the public incremental API remain separate unported boundaries.

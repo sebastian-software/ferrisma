@@ -58,6 +58,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     set_source_files_properties(chroma_ycbcr_stage.cc chroma_upsampling_stage.cc
       PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")
   endif()
+  set_source_files_properties(spot_color.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_property(SOURCE spot_color.cc APPEND PROPERTY COMPILE_OPTIONS -O0)
+  endif()
   set_source_files_properties(icc_codec.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(chroma_image.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(chroma_stages.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
@@ -81,7 +85,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle extra_channels.cc spot_color.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.

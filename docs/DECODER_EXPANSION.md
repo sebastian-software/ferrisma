@@ -79,11 +79,21 @@ independent source audit repeats the full lifecycle corpus under both original
 graphs. Detailed source mappings and component evidence remain in
 [PORT_STATUS.md](PORT_STATUS.md).
 
-Steps seven through eleven remain open. Broader extra channels and complete
-geometry/orientation are prepared in
-[PR #31](https://github.com/sebastian-software/libjxl-rs/pull/31) and
-[PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32); their native
-acceptance and main integration remain separate gates. ICC/default CMS and HDR,
-original JPEG reconstruction, and the public incremental decoder/container API
-still require implementation and acceptance. The fixed first-image and VarDCT
-profile records retain their existing, narrower admission contracts.
+Step eight is merged through [PR #31](https://github.com/sebastian-software/libjxl-rs/pull/31).
+It connects associated/subsampled alpha, independent channel depths, every
+source-defined extra-channel type and ordered spot rendering at the internal
+sequence boundary. The [native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41494057418)
+passes all six configurations on Linux and macOS: 318 differential groups and
+1,032,779 exact defined requests each, with zero failures or ignored tests.
+Linux runs 531 tests per configuration; macOS runs 530. The independent audit
+also verifies 111 genuine complete files, 12 rejected-type fixtures and all
+15,315 new defined observations. All 888 original half-stride probes remain
+accounted for, including 528 positive original misalignment diagnostics.
+
+Steps seven and nine through eleven remain open. Complete geometry/orientation
+is prepared in [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32);
+its native acceptance and main integration remain separate gates. ICC/default
+CMS and HDR, original JPEG reconstruction, and the public incremental
+decoder/container API still require implementation and acceptance. Direct
+output-stage callbacks remain part of step eleven. The fixed first-image and
+VarDCT profile records retain their existing, narrower admission contracts.

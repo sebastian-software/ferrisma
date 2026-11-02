@@ -42,8 +42,12 @@ mod blending_stage;
 mod chroma_image;
 #[path = "parity/chroma_stages.rs"]
 mod chroma_stages;
+#[path = "parity/extra_channels.rs"]
+mod extra_channels;
 #[path = "parity/icc_codec.rs"]
 mod icc_codec;
+#[path = "parity/spot_color.rs"]
+mod spot_color;
 
 #[path = "parity/splines.rs"]
 mod splines;
@@ -794,6 +798,8 @@ fn observe(request: &str) -> String {
         kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
+        kind if extra_channels::handles(kind) => extra_channels::observe(kind, &mut args),
+        kind if spot_color::handles(kind) => spot_color::observe(kind, &mut args),
         kind if chroma_image::handles(kind) => chroma_image::observe(kind, &mut args),
         kind if patches::handles(kind) => patches::observe(kind, &mut args),
         kind if noise_render::handles(kind) => noise_render::observe(kind, &mut args),
