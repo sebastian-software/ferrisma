@@ -5,6 +5,24 @@ from aom_jumps import delimiters
 from dav1d_storage import tokens
 
 
+def control_va_list(text):
+    # glibc's array va_list decays in the C callback typedef. Rust's VaList
+    # already implements that parameter ABI; keep it consistent with the
+    # translated callback definitions instead of casting function pointers.
+    pattern = (r'(pub type aom_codec_control_fn_t = Option<\s*'
+               r'unsafe extern "C-unwind" fn\(\s*\*mut aom_codec_alg_priv_t,\s*)'
+               r'\*mut __va_list_tag(,\s*\) -> aom_codec_err_t,\s*>;)')
+    if re.search(pattern, text):
+        record = (r'pub struct __va_list_tag \{\s*pub gp_offset: core::ffi::c_uint,\s*'
+                  r'pub fp_offset: core::ffi::c_uint,\s*'
+                  r'pub overflow_arg_area: \*mut core::ffi::c_void,\s*'
+                  r'pub reg_save_area: \*mut core::ffi::c_void,\s*\}')
+        if (not re.search(record, text) or ('pub type __builtin_va_list =' in text
+                and 'pub type __builtin_va_list = [__va_list_tag; 1];' not in text)):
+            raise SystemExit('Unexpected array-decayed libaom control va_list representation')
+    return re.subn(pattern, r"\1core::ffi::VaList<'_>\2", text)
+
+
 def cast_calls(text, pattern, target):
     replacements = []
     for match in re.finditer(pattern, text):
@@ -74,4 +92,7 @@ def compatibility(text):
         if not re.search(r'pub type BLOCK_SIZE = (?:uint8_t|core::ffi::c_uchar);', text):
             raise SystemExit('Narrow packed enum arithmetic requires the original uint8_t type')
         changes['packed-byte-enum-assignment-cast'] = count
+    text, count = control_va_list(text)
+    if count:
+        changes['sysv-array-decayed-control-va-list'] = count
     return text, changes

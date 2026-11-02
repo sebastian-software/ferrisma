@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Import checked native Linux CI profiles without changing production bodies."""
+"""Import checked native Linux CI profiles with inventoried compatibility rules."""
 import argparse
 import hashlib
 import json
 from pathlib import Path
 
 from aom_inline_bridges import SUBJECTS, append_bridges
+from aom_corrections import control_va_list
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--artifact', required=True, type=Path)
     parser.add_argument('--run-id', required=True, type=int)
+    parser.add_argument('--check', action='store_true', help='Verify committed files against the transformed artifact')
     args = parser.parse_args()
     artifact = args.artifact.resolve()
     original = json.loads((ROOT / 'docs/aom-reference-macos-debug.json').read_text())
@@ -28,7 +30,7 @@ def main():
             raise SystemExit('Unexpected native Linux translation profile')
         if manifest.get('optional_inline_test_bridges'):
             raise SystemExit('This importer expects profiles generated before optional inline bridges')
-        closure, prepared, units, emitted, bridges = [], {}, [], set(), []
+        closure, prepared, units, emitted, bridges, corrected_units = [], {}, [], set(), [], []
         for unit in manifest['units']:
             source, target = Path(unit['source']), Path(unit['rust'])
             prefix = Path('upstream/aom') if source.is_relative_to('upstream/aom') else Path(f'crates/aom/reference/linux/{profile}')
@@ -38,14 +40,19 @@ def main():
             content = (artifact / target).read_bytes()
             if hashlib.sha256(content).hexdigest() != unit['rust_sha256']:
                 raise SystemExit(f'Artifact translation hash differs: {target}')
-            text, names = append_bridges(content.decode(), emitted)
             changes = dict(unit['corrections'])
+            text, count = control_va_list(content.decode())
+            if count:
+                changes['sysv-array-decayed-control-va-list'] = count
+                corrected_units.append(str(target))
+            production_sha256 = hashlib.sha256(text.encode()).hexdigest()
+            text, names = append_bridges(text, emitted)
             if names:
                 changes['optional-inline-test-bridge'] = len(names)
             bridges += [dict(function=name, source=str(source), export='port_aom_inline_' + name) for name in names]
             units.append(dict(source=str(source), rust=str(target), raw_sha256=unit['raw_sha256'],
                               rust_sha256=hashlib.sha256(text.encode()).hexdigest(),
-                              production_rust_sha256=unit['rust_sha256'], corrections=changes))
+                              production_rust_sha256=production_sha256, corrections=changes))
             prepared[target] = text.encode()
         if set(closure) != expected or len(closure) != len(expected):
             raise SystemExit('Linux profile changed the complete original archive closure')
@@ -72,23 +79,33 @@ def main():
         prepared[relative_manifest] = (json.dumps(result, indent=2) + '\n').encode()
         for relative, content in prepared.items():
             target = ROOT / relative
+            if args.check and not target.exists():
+                raise SystemExit(f'Missing imported profile: {relative}')
             if target.exists() and target.read_bytes() != content:
                 raise SystemExit(f'Refusing to overwrite an existing different profile: {relative}')
-        for relative, content in prepared.items():
-            target = ROOT / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(content)
+        if not args.check:
+            for relative, content in prepared.items():
+                target = ROOT / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(content)
         reference_record = json.loads((artifact / f'build/aom-native-{profile}/reference-profile.json').read_text())
         records.append(dict(profile=profile, native_reference=reference_record,
                             artifact_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                             imported_manifest_sha256=hashlib.sha256(prepared[relative_manifest]).hexdigest(),
-                            production_bodies_unchanged=True, optional_inline_wrappers=len(bridges)))
+                            production_bodies_unchanged=not corrected_units,
+                            corrected_production_bodies=corrected_units, optional_inline_wrappers=len(bridges)))
     record = dict(run_id=args.run_id, source_revision='af3dc9aadc793c1b00edc003e3fc19a44fdeb574',
                   status='native Linux source profiles generated; compilation and acceptance pending',
-                  artifact_transformation='Append the same optional inline wrappers as the current translator',
+                  artifact_transformation='Map the array-decayed control va_list callback type and append the same optional inline wrappers as the current translator',
                   native_reference_and_original_tests_preserved=True, profiles=records)
-    (ROOT / 'docs/aom-linux-source-import.json').write_text(json.dumps(record, indent=2) + '\n')
-    print('Imported both complete native Linux profiles; all 336 production bodies are unchanged')
+    record_path = ROOT / 'docs/aom-linux-source-import.json'
+    content = json.dumps(record, indent=2) + '\n'
+    if args.check:
+        if record_path.read_text() != content:
+            raise SystemExit('Linux source import provenance differs')
+    else:
+        record_path.write_text(content)
+    print('Verified both complete native Linux profiles, compatibility corrections, and optional inline wrappers')
 
 
 if __name__ == '__main__':

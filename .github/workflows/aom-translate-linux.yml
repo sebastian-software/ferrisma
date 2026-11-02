@@ -42,6 +42,13 @@ jobs:
           python3 tools/generate_licenses.py --check
           python3 tools/build_aom_vmaf.py --fetch
           echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
+      - name: Check committed Rust types before building original consumers
+        if: inputs.mode == 'compile'
+        env:
+          RUSTUP_TOOLCHAIN: nightly-2026-09-07
+        run: |
+          cargo check -p libavif-aom --locked
+          cargo check -p libavif-aom --locked --release
       - name: Build both original portable profiles
         run: |
           python3 tools/build_aom.py --debug

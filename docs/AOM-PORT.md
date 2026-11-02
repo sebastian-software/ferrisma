@@ -226,14 +226,22 @@ Both complete x86-64 profiles were generated on Ubuntu 24.04 with Clang/LLVM
 16.0.6, C2Rust 0.21.0, and the isolated native VMAF reference. The initial
 compile attempt stopped in the package-link setup before checking the codec;
 GNU pkg-config's `-pthread` spelling now maps explicitly to the pthread library.
-This source import is not Linux acceptance evidence.
+The following compile identified one repeated type mismatch in glibc's
+array-decayed `va_list` control callback typedef. ADR 0040 maps that parameter
+to Rust's C-compatible `VaList`, consistently with its callback definitions
+and dispatcher. The correction affects five units per profile, is inventoried
+and generated, and leaves all C inputs unchanged. Native Linux compilation
+and execution are still required. This source import is not Linux acceptance
+evidence.
 
 `tools/import_aom_linux.py` verifies every artifact Rust hash, the exact
 168-unit closure, required configuration, and generated header hashes before
-importing a profile. It appends the same optional inline wrappers as the current
-translator while preserving all 336 production bodies. The original artifact
-and imported manifest digests, reference configurations, and immutable CI run
-are recorded in [the import record](aom-linux-source-import.json).
+importing a profile. It applies the same narrow callback correction and optional
+inline wrappers as the current translator; the other 326 production bodies
+are unchanged. Its `--check` mode verifies the complete transformation against
+the original artifact. The original artifact and imported manifest digests,
+changed units, reference configurations, and immutable CI run are recorded in
+[the import record](aom-linux-source-import.json).
 
 The Linux workflow's `compile` mode builds and checks committed candidates
 without rerunning translation. `generate` produces fresh profiles; `verify`

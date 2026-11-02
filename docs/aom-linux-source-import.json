@@ -2,7 +2,7 @@
   "run_id": 41417830280,
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "status": "native Linux source profiles generated; compilation and acceptance pending",
-  "artifact_transformation": "Append the same optional inline wrappers as the current translator",
+  "artifact_transformation": "Map the array-decayed control va_list callback type and append the same optional inline wrappers as the current translator",
   "native_reference_and_original_tests_preserved": true,
   "profiles": [
     {
@@ -44,8 +44,15 @@
         }
       },
       "artifact_manifest_sha256": "1373bb9da84b2c576bef08095f8e9b7fcee0732a132b0468707194cfec928287",
-      "imported_manifest_sha256": "3a96db1618f5adfc97cea5e4955608fcc9f87e332050bf5b375a42c30d512efa",
-      "production_bodies_unchanged": true,
+      "imported_manifest_sha256": "cfbf33f103970c46c4c62db6b21fb01ae7107c5871c6063ac1c241c7b456c2b0",
+      "production_bodies_unchanged": false,
+      "corrected_production_bodies": [
+        "crates/aom/src/linux/debug/aom/src/aom_codec.rs",
+        "crates/aom/src/linux/debug/aom/src/aom_decoder.rs",
+        "crates/aom/src/linux/debug/aom/src/aom_encoder.rs",
+        "crates/aom/src/linux/debug/av1/av1_dx_iface.rs",
+        "crates/aom/src/linux/debug/av1/av1_cx_iface.rs"
+      ],
       "optional_inline_wrappers": 10
     },
     {
@@ -87,8 +94,15 @@
         }
       },
       "artifact_manifest_sha256": "a42e9839db9b5a7bc1e7505a5fc3a390ea62af61e6f318600c42d2c611cc1ff4",
-      "imported_manifest_sha256": "bb35454d9a6e8de7e962eae81006433e7628ebd9a45284e765701db852b9eba1",
-      "production_bodies_unchanged": true,
+      "imported_manifest_sha256": "45a973dd0d40dbc51bce7b537a483d6bf822a637322c7ddcef91e35c9182f863",
+      "production_bodies_unchanged": false,
+      "corrected_production_bodies": [
+        "crates/aom/src/linux/release/aom/src/aom_codec.rs",
+        "crates/aom/src/linux/release/aom/src/aom_decoder.rs",
+        "crates/aom/src/linux/release/aom/src/aom_encoder.rs",
+        "crates/aom/src/linux/release/av1/av1_dx_iface.rs",
+        "crates/aom/src/linux/release/av1/av1_cx_iface.rs"
+      ],
       "optional_inline_wrappers": 10
     }
   ]

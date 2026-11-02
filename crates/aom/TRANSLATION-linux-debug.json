@@ -116,37 +116,40 @@
       "source": "upstream/aom/aom/src/aom_codec.c",
       "rust": "crates/aom/src/linux/debug/aom/src/aom_codec.rs",
       "raw_sha256": "a2e3daabe2246b3173e1bf589952a34befa1d5df07150cc7f48ad821c5b9f515",
-      "rust_sha256": "4703e156208d87b2d530705198cb848fb3c2c4c05b114be46a47c0f4c24f50ea",
-      "production_rust_sha256": "4703e156208d87b2d530705198cb848fb3c2c4c05b114be46a47c0f4c24f50ea",
+      "rust_sha256": "9904e0a554d78eca41a23fa6cca6b9cfb4173d6a2d7490fd6b945d2aea577e8c",
+      "production_rust_sha256": "9904e0a554d78eca41a23fa6cca6b9cfb4173d6a2d7490fd6b945d2aea577e8c",
       "corrections": {
         "variadic-abi": 1,
         "current-rust-variadic-list": 7,
         "typed-nonlocal-error-transfer": 1,
         "unwinding-codec-and-callback-abi": 35,
-        "system-and-vmaf-c-abi-declarations": 2
+        "system-and-vmaf-c-abi-declarations": 2,
+        "sysv-array-decayed-control-va-list": 1
       }
     },
     {
       "source": "upstream/aom/aom/src/aom_decoder.c",
       "rust": "crates/aom/src/linux/debug/aom/src/aom_decoder.rs",
       "raw_sha256": "d663fb0e3c7bc373db3a25a6077544e580641cbff736cde43bc891c5c3ab5e47",
-      "rust_sha256": "9c65ff1cda4fe647a9def23d4fb7abfa75328a457e986293a4baa8a216d571f7",
-      "production_rust_sha256": "9c65ff1cda4fe647a9def23d4fb7abfa75328a457e986293a4baa8a216d571f7",
+      "rust_sha256": "2bdb84e9db48514edec64515d9799c155f7e7111445a39b313d65f0bfa3e116a",
+      "production_rust_sha256": "2bdb84e9db48514edec64515d9799c155f7e7111445a39b313d65f0bfa3e116a",
       "corrections": {
         "unwinding-codec-and-callback-abi": 24,
-        "system-and-vmaf-c-abi-declarations": 1
+        "system-and-vmaf-c-abi-declarations": 1,
+        "sysv-array-decayed-control-va-list": 1
       }
     },
     {
       "source": "upstream/aom/aom/src/aom_encoder.c",
       "rust": "crates/aom/src/linux/debug/aom/src/aom_encoder.rs",
       "raw_sha256": "a5a67d2075633bb2a8959d4fc484dbe43c9bd1284041d960930d3a061c6bc79b",
-      "rust_sha256": "3ee04524d967795ecfb42108b268326152314727d5857f830ad839035f881fe2",
-      "production_rust_sha256": "3ee04524d967795ecfb42108b268326152314727d5857f830ad839035f881fe2",
+      "rust_sha256": "79ab92268780e247eec65774351b7004023f353a51e799f1a28a18a4c437409e",
+      "production_rust_sha256": "79ab92268780e247eec65774351b7004023f353a51e799f1a28a18a4c437409e",
       "corrections": {
         "raw-c-mutable-address": 2,
         "unwinding-codec-and-callback-abi": 28,
-        "system-and-vmaf-c-abi-declarations": 4
+        "system-and-vmaf-c-abi-declarations": 4,
+        "sysv-array-decayed-control-va-list": 1
       }
     },
     {
@@ -1149,8 +1152,8 @@
       "source": "upstream/aom/av1/av1_dx_iface.c",
       "rust": "crates/aom/src/linux/debug/av1/av1_dx_iface.rs",
       "raw_sha256": "50321ab1fdd7ce764d4941be555167af4f07ed2377cbf63fe0bb37460e99538a",
-      "rust_sha256": "3d5ad70d902fd8bbb3a6c14deba361b80008fa7aa7604c956669aea1eeb07233",
-      "production_rust_sha256": "3d5ad70d902fd8bbb3a6c14deba361b80008fa7aa7604c956669aea1eeb07233",
+      "rust_sha256": "bb396b9696525ab53d70ee5e7d9ba3839f1802b56215cad2feeeaf9d39eb51f0",
+      "production_rust_sha256": "bb396b9696525ab53d70ee5e7d9ba3839f1802b56215cad2feeeaf9d39eb51f0",
       "corrections": {
         "static-raw-address": 2,
         "variadic-abi": 1,
@@ -1159,7 +1162,8 @@
         "original-c-record-field-alignment": 10,
         "unwinding-codec-and-callback-abi": 176,
         "system-and-vmaf-c-abi-declarations": 8,
-        "current-rust-variadic-argument-method": 45
+        "current-rust-variadic-argument-method": 45,
+        "sysv-array-decayed-control-va-list": 1
       }
     },
     {
@@ -1270,8 +1274,8 @@
       "source": "upstream/aom/av1/av1_cx_iface.c",
       "rust": "crates/aom/src/linux/debug/av1/av1_cx_iface.rs",
       "raw_sha256": "b8acbc345ad53db9a0a3a72320db031680c803be8809cc9b94ae78daf65a1da6",
-      "rust_sha256": "b069acbcf2365ed7b6a9f6737e0a2faa8f92d337b485a8508c6f72ae79132628",
-      "production_rust_sha256": "b069acbcf2365ed7b6a9f6737e0a2faa8f92d337b485a8508c6f72ae79132628",
+      "rust_sha256": "99c2df69d69464f14fc0a8bdaf5dfa6580b5e94af3b74d428f70ce8ca9adb93f",
+      "production_rust_sha256": "99c2df69d69464f14fc0a8bdaf5dfa6580b5e94af3b74d428f70ce8ca9adb93f",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,
@@ -1282,7 +1286,8 @@
         "original-c-record-field-alignment": 27,
         "unwinding-codec-and-callback-abi": 469,
         "system-and-vmaf-c-abi-declarations": 13,
-        "current-rust-variadic-argument-method": 167
+        "current-rust-variadic-argument-method": 167,
+        "sysv-array-decayed-control-va-list": 1
       }
     },
     {

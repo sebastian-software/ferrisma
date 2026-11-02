@@ -1123,7 +1123,7 @@ pub struct aom_codec_ctrl_fn_map {
 pub type aom_codec_control_fn_t = Option<
     unsafe extern "C-unwind" fn(
         *mut aom_codec_alg_priv_t,
-        *mut __va_list_tag,
+        core::ffi::VaList<'_>,
     ) -> aom_codec_err_t,
 >;
 pub type aom_codec_destroy_fn_t = Option<
