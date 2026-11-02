@@ -68,6 +68,8 @@ jobs:
           cargo test -p libavif-aom --locked
           cargo run -p libavif-aom --example raw_api --locked
           cargo run -p libavif-aom --example raw_api --locked --release
+          python3 tools/check_aom_linkage.py --debug --archives-only
+          python3 tools/check_aom_linkage.py --archives-only
       - name: Compare native VMAF modes and single-allocation failures
         run: |
           python3 tools/check_aom_vmaf.py --debug
@@ -108,6 +110,7 @@ jobs:
             build/aom-native-*/test_*-inventory.json
             build/aom-vmaf/reference-profile.json
             build/aom-rust-*/linkage.json
+            build/aom-rust-*/symbol-audit.json
             build/aom-native-*/tests-focused-*/summary.json
             build/aom-rust-*/tests-focused-*/summary.json
             build/aom-abi-*/summary.json

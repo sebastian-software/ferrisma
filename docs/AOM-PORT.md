@@ -115,6 +115,11 @@ Supplemental comparisons in each profile preserve exact output:
 - The 38 original C++ rate-control tests pass in both Release executables. The
   original C++ wrapper remains native; this is consumer/integration evidence,
   not a claim to have ported that wrapper.
+- All original global definitions resolve to Rust codec codegen objects:
+  2,743 globals (2,707 functions) in Debug and 2,741 globals (2,705 functions)
+  in Release. Detailed macOS map audits cover five Debug and ten Release
+  consumers, with no original codec objects or globals supplied outside Rust.
+  This ownership audit does not establish header-inline test coverage.
 
 Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
@@ -160,6 +165,8 @@ python3 tools/transpile_aom.py
 python3 tools/transpile_aom.py --release
 python3 tools/build_aom_consumers.py --debug
 python3 tools/build_aom_consumers.py
+python3 tools/check_aom_linkage.py --debug
+python3 tools/check_aom_linkage.py
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug

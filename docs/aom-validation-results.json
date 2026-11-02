@@ -1610,6 +1610,55 @@
             }
           }
         ]
+      },
+      "symbol_ownership": {
+        "profile": "debug",
+        "original_global_definitions": 2743,
+        "original_global_functions": 2707,
+        "missing_original_globals": [],
+        "original_globals_outside_rust": [],
+        "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+        "rust_archive_sha256": "7a773ef04d9fea0f33dd40fd991eb5b02ca9b240b2e5d913a1d6f364029ad232",
+        "consumers": [
+          {
+            "executable": "aomdec",
+            "checked_original_globals": 2738,
+            "map_sha256": "5eb213c5f09e8b9c0bba8e0f740d80d38ab00a07ad2c1f9abd5638e1f428ca1d",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "aomenc",
+            "checked_original_globals": 2738,
+            "map_sha256": "dec740b5c2272d736a172542e84cad8628b971ffa463d637dc36e6e305503e88",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "test_aom_rc",
+            "checked_original_globals": 2738,
+            "map_sha256": "84ce18c410a479b51ec9543ebf90758d05edce4be586e44d661cc69365f383af",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "test_intra_pred_speed",
+            "checked_original_globals": 2732,
+            "map_sha256": "11a9ca0be4a75e5c89601669a7fe512e9d339fb98df26031d66af040abe1ceef",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "test_libaom",
+            "checked_original_globals": 2742,
+            "map_sha256": "d2bdb2c6814f7dbdca2bf5c09d6b6dcce85d39eaa1a9a56a6a3cfa3adee87b21",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          }
+        ],
+        "archives_only": false,
+        "header_inline_test_coverage_proven": false,
+        "native_vmaf_retained": true
       }
     },
     "release": {
@@ -3185,6 +3234,90 @@
         "failures": 0,
         "original_wrapper_remains_native": true,
         "same_original_case_inventory": true
+      },
+      "symbol_ownership": {
+        "profile": "release",
+        "original_global_definitions": 2741,
+        "original_global_functions": 2705,
+        "missing_original_globals": [],
+        "original_globals_outside_rust": [],
+        "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+        "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+        "consumers": [
+          {
+            "executable": "aomdec",
+            "checked_original_globals": 2741,
+            "map_sha256": "0a76845f1b6fafff31cf7bc31d83d6158e4a488264b1e1ae7a7de126fd1fc315",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "aomenc",
+            "checked_original_globals": 2741,
+            "map_sha256": "9e719b6481909be8e149620f25d8af781ac21f65a4c767b0e125d16e3577520b",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "decode_to_md5",
+            "checked_original_globals": 2741,
+            "map_sha256": "fbda53ecfee2915a01ef99b49c36b1a7a08b555fcadcd0b0285e2d15e103c75c",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "lossless_encoder",
+            "checked_original_globals": 2741,
+            "map_sha256": "5303c1ebf3d984a7f2cdf21644fd27c3bdf0b14d7784c86b987e1e83e694ea3f",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "simple_decoder",
+            "checked_original_globals": 2741,
+            "map_sha256": "8b42aa5cc2c53429da093618d697617035d913fdaf00e4df4aac9754ed13edfc",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "simple_encoder",
+            "checked_original_globals": 2741,
+            "map_sha256": "60d5a695b2e9f2117b0ee120a5a12d2e089f9bf0755d3c125cd8ebc2e7fabda3",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "test_aom_rc",
+            "checked_original_globals": 2741,
+            "map_sha256": "f33952f75bceb88ec7d5319c499c389346c71f6c94dbc2caa5de37db8d24e98a",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "test_intra_pred_speed",
+            "checked_original_globals": 2741,
+            "map_sha256": "102310491cd02ce42dc5d401431f6b040bfb3a974d5e186026ec91991a1adb38",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "test_libaom",
+            "checked_original_globals": 2741,
+            "map_sha256": "7c47ff9b2a42412e56dbd14724b537b8e87e36d0a0ff50c18bc6e126fb647f09",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          },
+          {
+            "executable": "twopass_encoder",
+            "checked_original_globals": 2741,
+            "map_sha256": "dedf4399d9f2883d693278fe1c14ba9030e524f1b0c498ace129bf450bd0424f",
+            "original_codec_objects_loaded": 0,
+            "original_globals_outside_rust": 0
+          }
+        ],
+        "archives_only": false,
+        "header_inline_test_coverage_proven": false,
+        "native_vmaf_retained": true
       }
     }
   },
@@ -3194,9 +3327,9 @@
     "Original C++ wrapper/test infrastructure boundary",
     "Additional allocation and thread failure scenarios; sanitizer checks",
     "Native GNU Linux x86-64 generation and validation",
-    "Symbol/link-map audit",
     "Root libavif integration and original suites",
-    "Additional VMAF model/configuration scenarios; float models require float extractors"
+    "Additional VMAF model/configuration scenarios; float models require float extractors",
+    "Extend detailed link-map ownership checks to native Linux consumers"
   ],
   "address_sanitizer": {
     "target": "aarch64-apple-darwin",
