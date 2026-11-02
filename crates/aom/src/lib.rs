@@ -13,23 +13,32 @@
 #[cfg(panic = "abort")]
 compile_error!("libaom's mapped nonlocal error handling requires panic=unwind");
 
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-compile_error!("The initial libaom translation profile targets macOS ARM64");
+#[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"),
+              all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))))]
+compile_error!("The libaom translation profiles target macOS ARM64 and GNU Linux x86-64");
 
 #[macro_use]
 extern crate c2rust_bitfields;
 
 mod platform;
 mod jump;
-#[cfg(debug_assertions)]
+#[cfg(all(target_os = "macos", debug_assertions))]
 include!("modules-macos-debug.rs");
-#[cfg(not(debug_assertions))]
+#[cfg(all(target_os = "macos", not(debug_assertions)))]
 include!("modules-macos-release.rs");
+#[cfg(all(target_os = "linux", debug_assertions))]
+include!("modules-linux-debug.rs");
+#[cfg(all(target_os = "linux", not(debug_assertions)))]
+include!("modules-linux-release.rs");
 
 /// Raw original API with one nominal Rust representation for public records.
 pub mod raw {
-    #[cfg(debug_assertions)]
+    #[cfg(all(target_os = "macos", debug_assertions))]
     include!("api-macos-debug.rs");
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(target_os = "macos", not(debug_assertions)))]
     include!("api-macos-release.rs");
+    #[cfg(all(target_os = "linux", debug_assertions))]
+    include!("api-linux-debug.rs");
+    #[cfg(all(target_os = "linux", not(debug_assertions)))]
+    include!("api-linux-release.rs");
 }
