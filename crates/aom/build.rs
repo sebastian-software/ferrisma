@@ -13,6 +13,9 @@ fn main() {
             println!("cargo:rustc-link-search=native={path}");
         } else if let Some(name) = argument.strip_prefix("-l") {
             println!("cargo:rustc-link-lib={name}");
+        } else if argument == "-pthread" {
+            // pkg-config uses the compiler-driver spelling on GNU Linux.
+            println!("cargo:rustc-link-lib=pthread");
         } else {
             panic!("Unmapped libvmaf linker argument: {argument}");
         }
