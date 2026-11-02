@@ -247,12 +247,12 @@ profile. Other DSP roles remain open. See
 [`aom-convolution-validation.json`](aom-convolution-validation.json).
 
 Six more Rust subjects now retain independent C reference bindings in 101
-unchanged original cases per macOS profile: 13 scaled-convolution cases,
-eight one-dimensional mask cases, and 80 affine-warp cases. The warp helper
+unchanged original cases per profile on macOS and native GNU Linux: 13
+scaled-convolution cases, eight one-dimensional mask cases, and 80 affine-warp
+cases. The warp helper
 body and its original parameter registrations live in separate C++ objects;
 both external references and final definition ownership are checked. No
-registration, assertion, input matrix, or disabled flag changes. Native GNU
-execution is pending. See
+registration, assertion, input matrix, or disabled flag changes. See
 [`aom-scaling-mask-warp-validation.json`](aom-scaling-mask-warp-validation.json).
 
 The high-bit-depth d16 blend-mask fixture originally passes the same scalar
@@ -267,7 +267,7 @@ Five MSE and variance-summary subjects retain isolated C references in another
 and variances; they were not all visible in the initial direct compiler
 inventory. Only the 15 reference call sites change in the compilation copy;
 subject parameters, assertions, dimensions, sample bounds, and disabled speed
-cases stay unchanged. Both macOS profiles pass; native Linux is pending. See
+cases stay unchanged. Both profiles pass on macOS and native GNU Linux. See
 [`aom-variance-mse-sum-validation.json`](aom-variance-mse-sum-validation.json).
 
 Both SATD functions also use separate C reference and Rust subject parameter
@@ -275,7 +275,8 @@ slots in 32 original cases per profile. The eight original identical-function
 pairs are checked before selecting only their first addresses. Minimum/maximum
 expectations, fixed random goldens, match assertions, lengths, and disabled
 speed cases stay unchanged. Both macOS profiles pass; a changed original
-parameter pair is rejected before compilation. Native Linux is pending. See
+parameter pair is rejected before compilation. Both native GNU Linux profiles
+also pass. See
 [`aom-satd-validation.json`](aom-satd-validation.json).
 
 The original k-means classes register only SIMD implementations, leaving zero

@@ -1,5 +1,5 @@
 {
-  "status": "original scaled convolution, 1D masks, and affine warp passed against isolated C references in both macOS profiles",
+  "status": "original scaling-mask-warp comparisons passed on macOS ARM64 and native GNU Linux x86-64 in both profiles",
   "target": "aarch64-apple-darwin",
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "original_comparisons_per_profile": 101,
@@ -11,7 +11,7 @@
   "full_original_suite_acceptance": false,
   "complete_dsp_role_review": false,
   "root_default_integration": false,
-  "native_linux_execution_pending": true,
+  "native_linux_execution_pending": false,
   "profiles": {
     "debug": {
       "scaled-convolution": {
@@ -1345,5 +1345,1343 @@
         }
       }
     }
-  }
+  },
+  "native_linux_profiles": {
+    "debug": {
+      "scaled-convolution": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 13,
+        "executed_supplementary_cases": 0,
+        "supplementary_registrations": [],
+        "augmentation_sha256": null,
+        "baseline_augmentation_sha256": null,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/convolve_test.cc",
+        "original_source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+        "oracle_sites": {
+          "aom_scaled_2d_c": [
+            1117
+          ]
+        },
+        "binding_copy_sha256": "efb87dfa7ee0f89891a8e3c087c81970a1d51643aa31e67c7012afe73ebbb112",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "bf6e4a04303436c4a093106be13d62d4e7202940eaff5e053db411e46d7478df",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "6dfe02dfe180abc7574e7b80f45b2c6e731e53549d095819023c3be19dfd4d91",
+          "archive_sha256": "13ceadcde78598145fd539cad37cb5b22a3607d62c80cda0c1eeb8ff59daebe6",
+          "rename_map_sha256": "1da641cac2d6f8e789812a307cac15085eb31b2e8fc051083e198a244c24263a",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2743,
+          "isolated_c_oracle_globals": 7,
+          "reviewed_rust_subjects": [
+            "aom_scaled_2d_c"
+          ],
+          "reviewed_c_oracles": [
+            "aom_scaled_2d_c"
+          ],
+          "map_sha256": "5abcf2a19c25fb55841680d304969628113a971902dab18c5c28d3755c5062ba"
+        },
+        "translation_manifest_sha256": "36d4715b42e88053336c418b26344d7516516f201e3021bbd17b6f9cd8a790da",
+        "rust_archive_sha256": "44bb5dae0247cc8deac79c37e5248f47fb8ca844664d87749bbbbb0dbe818b71",
+        "cases": [
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/12",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "blend-mask-1d": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 8,
+        "executed_supplementary_cases": 0,
+        "supplementary_registrations": [],
+        "augmentation_sha256": null,
+        "baseline_augmentation_sha256": null,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/blend_a64_mask_1d_test.cc",
+        "original_source_sha256": "e81d8b62daad11234bffee46e7ddbee68873c626b929fd534227322293ca98bf",
+        "oracle_sites": {
+          "aom_blend_a64_mask_c": [
+            177,
+            192
+          ],
+          "aom_highbd_blend_a64_mask_c": [
+            296,
+            311
+          ]
+        },
+        "binding_copy_sha256": "4ae3151c9e87c46968a9bbe60f53b86e401b95ce95bf559b5c6fe2838c54c35e",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "bf6e4a04303436c4a093106be13d62d4e7202940eaff5e053db411e46d7478df",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "6dfe02dfe180abc7574e7b80f45b2c6e731e53549d095819023c3be19dfd4d91",
+          "archive_sha256": "13ceadcde78598145fd539cad37cb5b22a3607d62c80cda0c1eeb8ff59daebe6",
+          "rename_map_sha256": "1da641cac2d6f8e789812a307cac15085eb31b2e8fc051083e198a244c24263a",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2743,
+          "isolated_c_oracle_globals": 4,
+          "reviewed_rust_subjects": [
+            "aom_blend_a64_hmask_c",
+            "aom_blend_a64_vmask_c",
+            "aom_highbd_blend_a64_hmask_c",
+            "aom_highbd_blend_a64_vmask_c"
+          ],
+          "reviewed_c_oracles": [
+            "aom_blend_a64_mask_c",
+            "aom_highbd_blend_a64_mask_c"
+          ],
+          "map_sha256": "e2c86e9cf56c804a3bda991b43cf93b3d3729ab1f7a4f06e86e1422c8cd2f064"
+        },
+        "translation_manifest_sha256": "36d4715b42e88053336c418b26344d7516516f201e3021bbd17b6f9cd8a790da",
+        "rust_archive_sha256": "44bb5dae0247cc8deac79c37e5248f47fb8ca844664d87749bbbbb0dbe818b71",
+        "cases": [
+          {
+            "name": "C/BlendA64Mask1DTest8B.RandomValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTest8B.RandomValues/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTest8B.ExtremeValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTest8B.ExtremeValues/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.RandomValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.RandomValues/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.ExtremeValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.ExtremeValues/1",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "warp-affine": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 80,
+        "executed_supplementary_cases": 0,
+        "supplementary_registrations": [],
+        "augmentation_sha256": null,
+        "baseline_augmentation_sha256": null,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/warp_filter_test_util.cc",
+        "original_source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+        "oracle_sites": {
+          "av1_warp_affine_c": [
+            265
+          ]
+        },
+        "binding_copy_sha256": "362c81a3109a6cab345615685813e36a057becc3d7baee6de940d761dde27f25",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "bf6e4a04303436c4a093106be13d62d4e7202940eaff5e053db411e46d7478df",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "6dfe02dfe180abc7574e7b80f45b2c6e731e53549d095819023c3be19dfd4d91",
+          "archive_sha256": "13ceadcde78598145fd539cad37cb5b22a3607d62c80cda0c1eeb8ff59daebe6",
+          "rename_map_sha256": "1da641cac2d6f8e789812a307cac15085eb31b2e8fc051083e198a244c24263a",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2743,
+          "isolated_c_oracle_globals": 8,
+          "reviewed_rust_subjects": [
+            "av1_warp_affine_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_warp_affine_c"
+          ],
+          "map_sha256": "107d661f84fe63c0bb6362ddc996d1b8b0d0c94fb8abdc722a0bdb9c6e8942ba"
+        },
+        "translation_manifest_sha256": "36d4715b42e88053336c418b26344d7516516f201e3021bbd17b6f9cd8a790da",
+        "rust_archive_sha256": "44bb5dae0247cc8deac79c37e5248f47fb8ca844664d87749bbbbb0dbe818b71",
+        "cases": [
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/54",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/55",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/56",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/57",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/58",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/59",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/60",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/61",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/62",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/63",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/64",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/65",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/66",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/67",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/68",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/69",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/70",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/71",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/72",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/73",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/74",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/75",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/76",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/77",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/78",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/79",
+            "failed": false,
+            "skipped": false
+          }
+        ],
+        "separate_subject_binding": {
+          "source": "test/warp_filter_test.cc",
+          "source_sha256": "499b3b554ede1d21b16b142755eb0eb2491d730fbeff7c870d348a261abc5ae3",
+          "original_object_sha256": "c287f52cdaa4407f875864cc85935a5657da8d8049f171dc338056ff005a184d",
+          "unchanged_original_registration_object": true
+        }
+      }
+    },
+    "release": {
+      "scaled-convolution": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 13,
+        "executed_supplementary_cases": 0,
+        "supplementary_registrations": [],
+        "augmentation_sha256": null,
+        "baseline_augmentation_sha256": null,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/convolve_test.cc",
+        "original_source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+        "oracle_sites": {
+          "aom_scaled_2d_c": [
+            1117
+          ]
+        },
+        "binding_copy_sha256": "efb87dfa7ee0f89891a8e3c087c81970a1d51643aa31e67c7012afe73ebbb112",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "72a2e36d1584f07010d4e5df66363f4a86bcb6716199c1516688955c81477794",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "f4e512fd92cdd96f66958b3afe210a4657f3f7601e42cf6cb6cbbf1f600b48d1",
+          "archive_sha256": "741a0a532b8d3bf85ebc1612914d76844fa1afe40e7ef2cdde9f138e32b712d8",
+          "rename_map_sha256": "88e1b9ced522184e52591f404772724fa93f13fafa07e0d78d96a37d73f34fc4",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 7,
+          "reviewed_rust_subjects": [
+            "aom_scaled_2d_c"
+          ],
+          "reviewed_c_oracles": [
+            "aom_scaled_2d_c"
+          ],
+          "map_sha256": "44e4b67f1f35231255f2a8c696477f0d1fa74eb0d602f2fdc5b406d179784410"
+        },
+        "translation_manifest_sha256": "d86f0b5ed1ce66e1182da605745c3e38ee1f1a7cfa80805ed609722806a790a5",
+        "rust_archive_sha256": "188f5942a559d9ca639e42755d2f5620b08617fb3871e6d4626e00ee1830f4c4",
+        "cases": [
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/ConvolveScale2DTest.Correctness/12",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "blend-mask-1d": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 8,
+        "executed_supplementary_cases": 0,
+        "supplementary_registrations": [],
+        "augmentation_sha256": null,
+        "baseline_augmentation_sha256": null,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/blend_a64_mask_1d_test.cc",
+        "original_source_sha256": "e81d8b62daad11234bffee46e7ddbee68873c626b929fd534227322293ca98bf",
+        "oracle_sites": {
+          "aom_blend_a64_mask_c": [
+            177,
+            192
+          ],
+          "aom_highbd_blend_a64_mask_c": [
+            296,
+            311
+          ]
+        },
+        "binding_copy_sha256": "4ae3151c9e87c46968a9bbe60f53b86e401b95ce95bf559b5c6fe2838c54c35e",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "72a2e36d1584f07010d4e5df66363f4a86bcb6716199c1516688955c81477794",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "f4e512fd92cdd96f66958b3afe210a4657f3f7601e42cf6cb6cbbf1f600b48d1",
+          "archive_sha256": "741a0a532b8d3bf85ebc1612914d76844fa1afe40e7ef2cdde9f138e32b712d8",
+          "rename_map_sha256": "88e1b9ced522184e52591f404772724fa93f13fafa07e0d78d96a37d73f34fc4",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 4,
+          "reviewed_rust_subjects": [
+            "aom_blend_a64_hmask_c",
+            "aom_blend_a64_vmask_c",
+            "aom_highbd_blend_a64_hmask_c",
+            "aom_highbd_blend_a64_vmask_c"
+          ],
+          "reviewed_c_oracles": [
+            "aom_blend_a64_mask_c",
+            "aom_highbd_blend_a64_mask_c"
+          ],
+          "map_sha256": "e6e414bc7c723d64fc8f2b158b8e4d5d5a1e0d7e5cc40da7cc4b1af57403d61c"
+        },
+        "translation_manifest_sha256": "d86f0b5ed1ce66e1182da605745c3e38ee1f1a7cfa80805ed609722806a790a5",
+        "rust_archive_sha256": "188f5942a559d9ca639e42755d2f5620b08617fb3871e6d4626e00ee1830f4c4",
+        "cases": [
+          {
+            "name": "C/BlendA64Mask1DTest8B.RandomValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTest8B.RandomValues/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTest8B.ExtremeValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTest8B.ExtremeValues/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.RandomValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.RandomValues/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.ExtremeValues/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/BlendA64Mask1DTestHBD.ExtremeValues/1",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "warp-affine": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 80,
+        "executed_supplementary_cases": 0,
+        "supplementary_registrations": [],
+        "augmentation_sha256": null,
+        "baseline_augmentation_sha256": null,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/warp_filter_test_util.cc",
+        "original_source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+        "oracle_sites": {
+          "av1_warp_affine_c": [
+            265
+          ]
+        },
+        "binding_copy_sha256": "362c81a3109a6cab345615685813e36a057becc3d7baee6de940d761dde27f25",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "72a2e36d1584f07010d4e5df66363f4a86bcb6716199c1516688955c81477794",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "f4e512fd92cdd96f66958b3afe210a4657f3f7601e42cf6cb6cbbf1f600b48d1",
+          "archive_sha256": "741a0a532b8d3bf85ebc1612914d76844fa1afe40e7ef2cdde9f138e32b712d8",
+          "rename_map_sha256": "88e1b9ced522184e52591f404772724fa93f13fafa07e0d78d96a37d73f34fc4",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 8,
+          "reviewed_rust_subjects": [
+            "av1_warp_affine_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_warp_affine_c"
+          ],
+          "map_sha256": "d5b96c852be59a8597c9abd99ab30f104009525d08d2bc0df2340b8da4d18821"
+        },
+        "translation_manifest_sha256": "d86f0b5ed1ce66e1182da605745c3e38ee1f1a7cfa80805ed609722806a790a5",
+        "rust_archive_sha256": "188f5942a559d9ca639e42755d2f5620b08617fb3871e6d4626e00ee1830f4c4",
+        "cases": [
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/54",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/55",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/56",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/57",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/58",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/59",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/60",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/61",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/62",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/63",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/64",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/65",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/66",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/67",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/68",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/69",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/70",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/71",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/72",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/73",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/74",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/75",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/76",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/77",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/78",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1WarpFilterTest.CheckOutput/79",
+            "failed": false,
+            "skipped": false
+          }
+        ],
+        "separate_subject_binding": {
+          "source": "test/warp_filter_test.cc",
+          "source_sha256": "499b3b554ede1d21b16b142755eb0eb2491d730fbeff7c870d348a261abc5ae3",
+          "original_object_sha256": "8b33747585bd049c2a48eee6d5f320e84200eefd826f34b1d5f6c92be8e8add9",
+          "unchanged_original_registration_object": true
+        }
+      }
+    }
+  },
+  "native_linux_target": "x86_64-unknown-linux-gnu",
+  "native_linux_execution_run": 41516843146,
+  "native_linux_execution_commit": "9137322e905faa766380f4b04c04ea249f473df0",
+  "native_linux_execution_url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41516843146"
 }
