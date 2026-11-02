@@ -63,16 +63,16 @@ the items vary in size and do not represent equal amounts of work.
 The [decoder expansion plan](docs/DECODER_EXPANSION.md) records the delivery
 sequence and acceptance gates for this work.
 
-- [ ] Port EPF rendering kernels and integrate them into complete-file decoding;
+- [x] Port EPF rendering kernels and integrate them into complete-file decoding;
   sigma generation is already translated.
-- [ ] Complete noise decoding and rendering.
-- [ ] Complete patch decoding and rendering.
-- [ ] Complete spline decoding and rendering.
-- [ ] Expand complete-file Modular decoding beyond the fixed Thunder profile.
-- [ ] Support reference/DC frames, blending, animation and previews.
+- [x] Complete noise decoding and rendering.
+- [x] Complete patch decoding and rendering.
+- [x] Complete spline decoding and rendering.
+- [x] Expand complete-file Modular decoding beyond the fixed Thunder profile.
+- [x] Support reference/DC frames, blending, animation and previews.
 - [ ] Connect chroma subsampling, cropping, resampling and orientation in general
   complete-image decoding.
-- [ ] Support associated/subsampled alpha and the remaining extra-channel types.
+- [x] Support associated/subsampled alpha and the remaining extra-channel types.
 - [ ] Connect alternate color profiles and HDR/tone-mapping paths beyond the
   admitted sRGB profiles.
 - [ ] Reconstruct original JPEG bitstreams and restore their metadata.
