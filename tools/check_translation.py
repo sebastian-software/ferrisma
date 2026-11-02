@@ -66,9 +66,10 @@ if (aom / 'TRANSLATION-macos-debug.json').exists():
             prefix = 'upstream/aom' if source.is_relative_to('upstream/aom') else f'crates/aom/reference/{platform}/{profile}'
             actual.append(str(source.relative_to(prefix)))
         for correction, expected_count in [('scoped-nonlocal-error-targets', 32),
-                                            ('typed-nonlocal-error-transfer', 1)]:
+                                            ('typed-nonlocal-error-transfer', 1),
+                                            ('unaligned-external-highbd-validation-load', 1)]:
             if sum(unit['corrections'].get(correction, 0) for unit in record['units']) != expected_count:
-                raise SystemExit(f'Incomplete libaom nonlocal error mapping: {path}: {correction}')
+                raise SystemExit(f'Incomplete libaom translation correction: {path}: {correction}')
         if set(actual) != expected or len(actual) != len(expected):
             raise SystemExit(f'Incomplete portable libaom source closure: {path}')
         for name, digest in record['generated_reference_headers'].items():

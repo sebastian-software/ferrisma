@@ -8812,7 +8812,7 @@ unsafe extern "C-unwind" fn validate_img(
             while i < ph {
                 let mut j: core::ffi::c_uint = 0 as core::ffi::c_uint;
                 while j < pw {
-                    if *src.offset(j as isize) as core::ffi::c_int >= max_val {
+                    if core::ptr::read_unaligned(src.offset(j as isize)) as core::ffi::c_int >= max_val {
                         (*ctx).base.err_detail = b"Input pixel value out of range for encoder bit depth\0"
                             as *const u8 as *const core::ffi::c_char;
                         return AOM_CODEC_INVALID_PARAM;

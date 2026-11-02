@@ -45,6 +45,28 @@ def cast_calls(text, pattern, target):
     return text, len(replacements)
 
 
+def unaligned_highbd_input(text):
+    marker = 'unsafe extern "C-unwind" fn validate_img('
+    if marker not in text:
+        return text, 0
+    functions = list(re.finditer(r'^unsafe extern "C-unwind" fn validate_img\([\s\S]*?^}',
+                                text, re.M))
+    if len(functions) != 1:
+        raise SystemExit('Unexpected original high-bit-depth input validator')
+    function = functions[0]
+    body = function[0]
+    load = '*src.offset(j as isize)'
+    if (body.count(load) != 1 or
+            not re.search(r'let mut src: \*const core::ffi::c_ushort = \(\*img\)\.planes\[plane as usize\]', body) or
+            'extra_cfg.validate_hbd_input' not in body or
+            f'if {load} as core::ffi::c_int >= max_val' not in body):
+        raise SystemExit('Unexpected original external high-bit-depth sample load')
+    # Original byte-array fixtures need not have unsigned-short alignment.
+    # Retain the supported hosts' native-endian load without forming a reference.
+    body = body.replace(load, 'core::ptr::read_unaligned(src.offset(j as isize))')
+    return text[:function.start()] + body + text[function.end():], 1
+
+
 def compatibility(text):
     changes = {}
     text, count = re.subn(r'\.arg::<', '.next_arg::<', text)
@@ -95,4 +117,7 @@ def compatibility(text):
     text, count = control_va_list(text)
     if count:
         changes['sysv-array-decayed-control-va-list'] = count
+    text, count = unaligned_highbd_input(text)
+    if count:
+        changes['unaligned-external-highbd-validation-load'] = count
     return text, changes

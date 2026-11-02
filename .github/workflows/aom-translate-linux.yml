@@ -96,6 +96,8 @@ jobs:
           python3 tools/build_aom_consumers.py --only aomenc --only aomdec --only test_libaom
           python3 tools/check_aom_roundtrip.py --debug
           python3 tools/check_aom_roundtrip.py
+          python3 tools/check_aom_unaligned_input.py --debug
+          python3 tools/check_aom_unaligned_input.py
           python3 tools/check_aom_cli.py --debug
           python3 tools/check_aom_cli.py
           cargo test -p libavif-aom --locked

@@ -1276,8 +1276,8 @@
       "source": "upstream/aom/av1/av1_cx_iface.c",
       "rust": "crates/aom/src/linux/release/av1/av1_cx_iface.rs",
       "raw_sha256": "2b27f7dcc40675457ebe757bece0df3da7055cdbe4af1172fd7e51d5869077c7",
-      "rust_sha256": "ccfff3355d450b3bb242f793a7d7314eb56a4b72f61f2370f1e0d6bb86949539",
-      "production_rust_sha256": "ccfff3355d450b3bb242f793a7d7314eb56a4b72f61f2370f1e0d6bb86949539",
+      "rust_sha256": "400f25957b1e17caf37258cee215c62835d35ee26141dda38db9fae5fc10a988",
+      "production_rust_sha256": "400f25957b1e17caf37258cee215c62835d35ee26141dda38db9fae5fc10a988",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,
@@ -1291,7 +1291,8 @@
         "unwinding-codec-and-callback-abi": 469,
         "system-and-vmaf-c-abi-declarations": 11,
         "current-rust-variadic-argument-method": 167,
-        "sysv-array-decayed-control-va-list": 1
+        "sysv-array-decayed-control-va-list": 1,
+        "unaligned-external-highbd-validation-load": 1
       }
     },
     {

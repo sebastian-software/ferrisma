@@ -63,6 +63,12 @@ jobs:
           python3 tools/check_aom_linkage.py --debug
           python3 tools/check_aom_linkage.py
           python3 tools/review_aom_scalar_roles.py --check
+      - name: Check byte-aligned input and unchanged original high-bit-depth cases
+        run: |
+          python3 tools/check_aom_unaligned_input.py --debug
+          python3 tools/check_aom_unaligned_input.py
+          python3 tools/run_aom_paired_shard.py --debug --shards 1 --index 0 --filter 'HighbdEncodeSmallWidthHeight.*'
+          python3 tools/run_aom_paired_shard.py --shards 1 --index 0 --filter 'HighbdEncodeSmallWidthHeight.*'
       - name: Check named record layouts on the native macOS SDK
         if: startsWith(inputs.runner, 'macos-')
         run: |
@@ -89,6 +95,8 @@ jobs:
             build/aom-rust-*/linkage.json
             build/aom-rust-*/symbol-audit.json
             build/aom-abi-*/summary.json
+            build/aom-unaligned-input-*/summary.json
+            build/aom-paired-*-test_libaom-focused-*/
   paired:
     needs: build
     runs-on: ${{ inputs.runner }}

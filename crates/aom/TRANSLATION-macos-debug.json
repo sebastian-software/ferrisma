@@ -1372,8 +1372,8 @@
       "source": "upstream/aom/av1/av1_cx_iface.c",
       "rust": "crates/aom/src/macos/debug/av1/av1_cx_iface.rs",
       "raw_sha256": "01b10a619ed62afea4e38455b478256c55328ba8e96046707bd162df5595426f",
-      "rust_sha256": "2bf34658086745494f1311a81e13115be3d35f5d8cdb3cbe104f539880633184",
-      "production_rust_sha256": "2bf34658086745494f1311a81e13115be3d35f5d8cdb3cbe104f539880633184",
+      "rust_sha256": "788c58b5b4b2d2d3fe6d9a713a5ab60fa5e3d739cf6dbac2fc7f1fcc5826eb66",
+      "production_rust_sha256": "788c58b5b4b2d2d3fe6d9a713a5ab60fa5e3d739cf6dbac2fc7f1fcc5826eb66",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,
@@ -1387,7 +1387,8 @@
         "scoped-nonlocal-error-targets": 7,
         "unwinding-codec-and-callback-abi": 473,
         "system-and-vmaf-c-abi-declarations": 11,
-        "current-rust-variadic-argument-method": 167
+        "current-rust-variadic-argument-method": 167,
+        "unaligned-external-highbd-validation-load": 1
       }
     },
     {
