@@ -87,6 +87,50 @@ impl RowBuffers<'_> {
         };
         &planes[row.channel].row(row.y)[row.x..]
     }
+    /// Borrow three nonoverlapping source row spans at the same time. Their
+    /// storage, channel, and physical row offsets may differ. As for the
+    /// source restricted pointers, all three spans must be disjoint.
+    pub fn three_rows_mut(&mut self, rows: [Row; 3], length: usize) -> [&mut [f32]; 3] {
+        let requests = rows.map(|r| (r.storage, r.channel, r.y, r.x));
+        let mut order = [0, 1, 2];
+        order.sort_by_key(|&i| {
+            let (storage, channel, y, x) = requests[i];
+            (usize::from(storage == RowStorage::Output), channel, y, x)
+        });
+        let mut result: [Option<&mut [f32]>; 3] = std::array::from_fn(|_| None);
+        for (storage, planes) in [
+            (RowStorage::Input, &mut *self.input),
+            (RowStorage::Output, &mut *self.output),
+        ] {
+            for (channel, plane) in planes.iter_mut().enumerate() {
+                let stride = plane.pixels_per_row() as usize;
+                let height = plane.ysize();
+                let mut tail = plane.pixels_mut().unwrap_or(&mut []);
+                let mut previous_end = 0;
+                for &i in &order {
+                    let (s, c, y, x) = requests[i];
+                    if s != storage || c != channel {
+                        continue;
+                    }
+                    assert!(y < height && x.checked_add(length).is_some_and(|end| end <= stride));
+                    let start = y
+                        .checked_mul(stride)
+                        .and_then(|v| v.checked_add(x))
+                        .unwrap();
+                    assert!(
+                        start >= previous_end,
+                        "restricted row spans must not overlap"
+                    );
+                    let (_, rest) = tail.split_at_mut(start - previous_end);
+                    let (span, rest) = rest.split_at_mut(length);
+                    result[i] = Some(span);
+                    tail = rest;
+                    previous_end = start + length;
+                }
+            }
+        }
+        result.map(|r| r.expect("row owner must exist"))
+    }
     pub fn row_mut(&mut self, row: Row) -> &mut [f32] {
         let planes = match row.storage {
             RowStorage::Input => &mut *self.input,

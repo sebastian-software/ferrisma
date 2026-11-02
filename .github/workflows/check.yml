@@ -59,3 +59,7 @@ jobs:
             !target/chroma-acceptance/**/jxl_oracle
             !target/chroma-acceptance/**/*.o
           if-no-files-found: error
+
+      - name: Audit the EPF numeric reference configuration
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/epf_reference.py

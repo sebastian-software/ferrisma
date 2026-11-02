@@ -476,6 +476,8 @@ bool ModularFrameDecoderCommand(const std::string& command,std::istringstream& i
 bool RenderPipelineCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool ModularGroupsCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool EPFCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool GaborishStageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool UpsamplingCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool OutputEncodingCommand(const std::string& command,std::istringstream& in);
@@ -499,6 +501,8 @@ bool GroupScheduleCommand(const std::string&,std::istringstream&,JxlMemoryManage
 bool DequantCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 int main() {
   try {
@@ -546,6 +550,7 @@ int main() {
       else if (DctCommand(command, in)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (QuantizerCommand(command, in, &mm)) {}
+      else if (SplinesCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}
@@ -555,6 +560,8 @@ int main() {
       else if (RenderPipelineCommand(command, in, &mm)) {}
       else if (ModularGroupsCommand(command, in, &mm)) {}
       else if (ChromaStagesCommand(command, in, &mm)) {}
+
+      else if (EPFCommand(command, in, &mm)) {}
       else if (GaborishStageCommand(command, in, &mm)) {}
       else if (UpsamplingCommand(command, in, &mm)) {}
       else if (OutputEncodingCommand(command, in)) {}

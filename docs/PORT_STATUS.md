@@ -74,7 +74,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
-| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
+| `dec_patch_dictionary.h`, `noise.h` | `dec_patch_dictionary.rs`, `noise.rs` | Feature/reference storage, constructors, patch Clear/HasAny/same-owner SetShared and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; first VarDCT frame/group integration connected; general frame profiles remain separate |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
@@ -85,14 +85,16 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
-| `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
+| `render_pipeline/stage_splines.h`, `.cc` | `render_pipeline/stage_splines.rs` | Complete scalar stage/factories with borrowed or shared cache identity and safe disjoint row spans; complete-file integration remains separate |
+| `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
 | `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and null-pool row traversal |
-| `epf.cc` (`ComputeSigma`) | `epf.rs` | Complete block sigma generation and mirrored borders; EPF rendering kernels remain unported |
-| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
+| `render_pipeline/stage_epf.h`, `.cc` | `render_pipeline/stage_epf.rs` | Complete scalar EPF0/EPF1/EPF2 stages, Weight, factories, borrowed/shared sigma, and original simple-pipeline scheduling; complete-file integration remains separate |
+| `epf.cc` (`ComputeSigma`) | `epf.rs` | Complete block sigma generation and mirrored borders; scalar filtering stages are mapped separately |
+| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels mapped separately |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
@@ -1392,7 +1394,61 @@ selection evidence and Rust operand mapping, including actual original Linux
 capture provenance for two target-specific YCbCr words and a horizontal row.
 All six replacement ordinary/ASan/UBSan Debug, Release and Rust 1.85 checks
 passed 432 tests, 251 differential groups and 874,149 exact requests each,
-with no failures or ignored tests. Native replacement CI, including the selected
-reference audit on both platforms, remains required before integration.
+with no failures or ignored tests. Native replacement run 41453588220 passed
+on both platforms, including their selected-reference audits. Linux completed
+all six configurations with 433 tests (one additional native capture), the same
+251 groups and 874,149 requests. macOS completed its three instrumented
+configurations with 432 tests and the same groups/requests. Combining this
+component with the merged EPF/spline components remains an integration gate.
 Complete-file YCbCr and chroma-profile admission
 belong to the decoder integration milestone.
+
+## Scalar spline decoding and rendering
+
+The complete scalar spline boundary adds four differential groups and 6,253
+exact original requests: 259 quantize/dequantize cases, 129 curve/cache/render
+cases, 5,862 genuine original entropy-stream cases, and three repeated-decode
+sequences. The cache corpus asserts that every color and sigma coefficient
+position survives quantization. It compares the actual stage on extended rows,
+including unsigned wrapped left coordinates, as well as cache index order and
+all initialized pixels. Entropy cases cover starting-point and control-point
+limits, coefficient limits, truncation, damaged streams and partial state.
+
+Four standalone tests retain an independently captured original stream, its
+duplicate-point guard, disjoint three-row storage access and overlap rejection.
+The ordinary and fully ASan/UBSan original scalar objects retain their existing
+default optimized compilation; no new numeric compiler option or sanitizer
+suppression is introduced. Ownership and source-defined input limits are recorded
+in ADR 0003. Complete-file feature admission and cross-feature image evidence
+remain a separate integration gate, so the README spline checkbox stays open.
+
+Native component CI run 41440159908 passed on Linux and macOS: each applicable
+configuration completed 433 tests, 250 differential groups and 874,840 exact
+requests with no failures or ignored tests. Combining the spline component with
+the merged EPF component also passes all six local ordinary/ASan/UBSan Debug,
+Release and Rust 1.85 configurations: 441 tests, 256 groups and 881,932 requests
+each. Native CI run 41447097097 passed on the combined branch: Linux completed
+all six configurations and macOS completed all three instrumented configurations,
+with the same counts and no failures or ignored tests. The component is now
+integrated with EPF; complete-file spline integration remains separate.
+
+## Scalar EPF filtering
+
+The complete scalar EPF stage boundary adds six differential groups and 7,092
+exact original requests: 12 factory observations, 144 original simple-pipeline
+sequences, 3,672 mixed/exceptional rows, 1,728 active finite rows, 288 signed-zero,
+subnormal and cancellation rows, and 1,248 independently varied filter-parameter
+rows. Two native regressions retain independently captured original finite pixels,
+live shared sigma updates, competing NaN payloads, and unquieted skipped pixels.
+
+The selected ordinary and fully ASan/UBSan original graphs agree on all 6,936
+row observations. The durable `tools/epf_reference.py` audit additionally requires
+all 4,152 finite-arithmetic rows to match both untouched default optimized archive
+objects and verifies real factory bindings. The new isolated pristine stage
+observation unit alone uses scoped `-O0`; ADRs 0002 and 0003 record the demonstrated
+original compiler-dependent NaN operand ambiguity and ownership mapping. No old
+cases, expected words, source pins, sanitizer flags, or original archive options
+change. Complete-file EPF admission and image evidence are a separate integration
+milestone, so the README's EPF checkbox remains open here.
+
+The chroma branch combined with the merged EPF and spline boundaries passes all six ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations: 448 tests, 261 differential groups and 887,494 exact requests each, with no failures or ignored tests. The combined EPF and chroma numeric audits also pass; the chroma audit retains all 5,562 observations and all 4,592 finite/default comparisons. Native combined CI remains required.

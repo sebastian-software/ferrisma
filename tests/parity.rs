@@ -21,6 +21,9 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/splines.rs"]
+mod splines;
+
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
 
@@ -100,6 +103,9 @@ mod modular_pixels;
 
 #[path = "parity/chroma_stages.rs"]
 mod chroma_stages;
+
+#[path = "parity/epf.rs"]
+mod epf;
 #[path = "parity/gaborish_stage.rs"]
 mod gaborish_stage;
 
@@ -745,6 +751,7 @@ fn observe(request: &str) -> String {
         kind if quant_ac::handles(kind) => quant_ac::observe(kind, &mut args),
         kind if quant_storage::handles(kind) => quant_storage::observe(kind, &mut args),
         kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
+        kind if splines::handles(kind) => splines::observe(kind, &mut args),
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),
@@ -758,6 +765,8 @@ fn observe(request: &str) -> String {
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
+
+        kind if epf::handles(kind) => epf::observe(kind, &mut args),
         kind if gaborish_stage::handles(kind) => gaborish_stage::observe(kind, &mut args),
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),

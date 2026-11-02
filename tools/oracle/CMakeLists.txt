@@ -70,7 +70,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle splines.cc main.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc epf.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
@@ -83,7 +83,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
       PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")
   endif()
   set_source_files_properties(chroma_stages.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
+
+  set_source_files_properties(splines.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Match the original GetBlock class hierarchy in this traversal observer.
+  # Ordinary and instrumented O3 EPF stages select different NaN payloads.
+  # Retain pristine Highway scalar operator boundaries in this new TU only.
+  set_source_files_properties(epf.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti;-fno-access-control")
   set_source_files_properties(group_render.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(group_schedule.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
