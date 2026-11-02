@@ -1,0 +1,91 @@
+{
+  "generator": "tools/generate_jpeg_writer_fixtures.py",
+  "cjpeg_version": "libjpeg-turbo version 3.2.1 (build 20261026)",
+  "cjpeg_sha256": "99ec26a3a0d11e9ac925fa4cdfbda8b56660591d57a61e47ee7d7657f0611f69",
+  "pixel_recipe": "((x*37+y*71+x*y*3+c*83)^((x<<2)+y*5))%256",
+  "files": {
+    "baseline.jpg": {
+      "width": 17,
+      "height": 9,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "90",
+        "-sample",
+        "1x1,1x1,1x1"
+      ],
+      "input_sha256": "7e5ab43fa90eaf0474f7b61dac35d32cb52a311c140b344a158c7443fa87de08",
+      "bytes": 990,
+      "sha256": "6938901d1832a0b1da311f8d80e1a8a82e6efa89465ae1f7fff92482095eb227"
+    },
+    "progressive.jpg": {
+      "width": 65,
+      "height": 33,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "90",
+        "-sample",
+        "2x2,1x1,1x1",
+        "-progressive"
+      ],
+      "input_sha256": "bbee2d1c8385167e76d6ad847497392f4f553c7d16b8895f69f0c3eda34aef0c",
+      "bytes": 2455,
+      "sha256": "a49e0677cd32f551778afaea9b501523624462b4c58e27d1d8ec626b61c00a91"
+    },
+    "restarts.jpg": {
+      "width": 65,
+      "height": 33,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "90",
+        "-sample",
+        "2x1,1x1,1x1",
+        "-restart",
+        "1B"
+      ],
+      "input_sha256": "bbee2d1c8385167e76d6ad847497392f4f553c7d16b8895f69f0c3eda34aef0c",
+      "bytes": 3236,
+      "sha256": "39f3deec90eb06a22bebdc86da92e3deca40a56655ad055f57485866bc00ab13"
+    },
+    "gray.jpg": {
+      "width": 17,
+      "height": 9,
+      "channels": 1,
+      "options": [
+        "-quality",
+        "90",
+        "-grayscale"
+      ],
+      "input_sha256": "44ef7151f963062427f12cecfe84329041998840196e9b504443a01d40d9b767",
+      "bytes": 479,
+      "sha256": "0e46ba1111665b085ebe91d6f5e0c87fdac65a556e03264feea035e6b620ce3f"
+    }
+  },
+  "copied_from_commit": "71e353827499a0dba9d95833854d1b347ff54065",
+  "copied_from_path": "tests/data/jpeg-writer",
+  "source_capture": {
+    "pin": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
+    "original_functions": [
+      "jxl::jpeg::ReadJpeg(kReadAll)",
+      "jxl::Bundle::Write",
+      "jxl::Bundle::Read",
+      "jxl::jpeg::SetJPEGDataFromICC"
+    ],
+    "adapter": "tools/oracle/jpeg_metadata.cc",
+    "gray_bundle_prefix_bits": 3,
+    "gray_bundle_bits": 1844,
+    "captures": {
+      "gray.fields.txt": "5d8c940d3ae74075cb98c9a65195883193b47f00e25543a9dc7943c34483b22a",
+      "gray.bundle.hex": "0255ae824141f1ccfab18e92e277953c428349f0714068fc296b33fcdc4c1841"
+    }
+  },
+  "source_undefined_domain": {
+    "boundary": "Bundle::CanEncode(JPEGData)",
+    "condition": "A reached Huffman slot 4 accesses dc_ok[4] before the accumulated two-bit encoding error is returned. Other reached Huffman/scan table indices must cover the source bool[4] arrays.",
+    "source_location": "lib/jxl/jpeg/jpeg_data.cc:415:13",
+    "replay": "python3 tools/jpeg_metadata_reference.py --output /tmp/jpeg-metadata-reference",
+    "probe_preservation": "Exact successful CanEncode status, full owner snapshot, fixture slot assignment and full owner snapshot are compared across both graphs and retained before the final diagnosed call."
+  }
+}

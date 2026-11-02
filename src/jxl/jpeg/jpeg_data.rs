@@ -3,8 +3,9 @@
 
 //! Parsed JPEG data storage from lib/jxl/jpeg/jpeg_data.h. Coefficient/marker
 //! storage owns its vectors. Source-indeterminate scalar/array storage receives
-//! safe initialization with no extra source meaning. JPEG parsing, field
-//! serialization, MCU calculation, and reconstruction remain unported.
+//! safe initialization with no extra source meaning. JPEG parsing,
+//! MCU calculation and reconstruction remain unported. Metadata bundle fields
+//! are implemented in the adjacent jpeg_data_fields module.
 
 use crate::jxl::frame_dimensions::DCT_BLOCK_SIZE;
 pub const MAX_COMPONENTS: usize = 4;

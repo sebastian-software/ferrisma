@@ -1158,3 +1158,32 @@ results. Width-four prediction retains original unsigned wrapping. Invalid raw
 pointer, zero shuffle-width and overlapping-container caller preconditions do
 not receive invented codec semantics. Streaming ICCReader ownership remains a
 separate boundary.
+
+
+### JPEG reconstruction metadata fields
+
+The JPEG metadata bundle implements the existing Fields visitor contract on the
+same JpegData owner. Source enum object representation becomes the existing raw
+AppMarkerType wrapper, retaining assignment before enum validation. All vector
+resizes preserve old entries and source value-initialized new entries; byte
+payloads, quant values and coefficients not serialized by VisitFields stay in
+the same owner. Genuine parsed scan fixtures seed only the source-indeterminate
+unused scan-component entries before observing the full owner representation.
+
+Delta-encoded block indices are mutated in place before each visit and restored
+only after that visit succeeds. Explicit modulo-u32 subtraction/addition matches
+the C++ unsigned conversion of last_block_idx+1. The source's different reset
+and extra-zero-run upper-bound comparisons remain distinct. Padding bits append
+to existing storage while tail/intermarker allocations occur only after the
+final table-definition validation. ICC byte injection writes directly into the
+existing marker allocations and retains completed writes on a later error.
+The source fixture reserves real backing for a zero-length ICC vector before
+zero-byte memcpy calls, preserving its logical size and byte contents.
+
+The table-order validation retains original reached-index preconditions. The
+source CanEncode visitor accumulates bit-range errors, so an out-of-range
+Huffman slot can access bool[4] before reporting its error; the source sanitizer
+probe establishes this undefined domain. Safe Rust bounds checks do not invent
+a codec status for that source-undefined call. General DecodeJPEGData remains
+absent until its genuine Brotli streaming dependency is translated. Revisit this
+mapping for the complete metadata payload/coefficients and public decoder API.

@@ -488,3 +488,16 @@ required evidence for this mapping. MULSS products preserve separate rounding
 without executing the source's folded double promotions.
 The original source, oracle settings, global Highway helpers, existing cases,
 expected words, and AArch64 arithmetic remain unchanged.
+
+
+The complete JPEG metadata Fields implementation and ICC marker-byte injection
+are derived from `lib/jxl/jpeg/jpeg_data.cc`. `tools/oracle/jpeg_metadata.cc`
+invokes the original archive's JPEGData virtual visitor, ReadJpeg, Bundle
+operations and SetJPEGDataFromICC; it supplies no JPEG or metadata algorithm.
+`tests/data/jpeg-metadata/provenance.json` records four genuine cjpeg files copied
+byte-for-byte from commit `71e353827499a0dba9d95833854d1b347ff54065`, their original
+encoder options and pixel-input hashes, and separately captured original gray
+fields/bundle bytes. The source-only capture script validates those bytes against
+both complete reference graphs and records actual binary/symbol/source evidence.
+The fixtures do not make cjpeg a Rust build or test dependency. The unported
+Brotli decoder remains an explicit dependency boundary rather than an FFI fallback.

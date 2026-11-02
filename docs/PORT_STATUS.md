@@ -85,7 +85,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
 | `render_pipeline/stage_splines.h`, `.cc` | `render_pipeline/stage_splines.rs` | Complete scalar stage/factories with borrowed or shared cache identity and safe disjoint row spans; complete-file integration remains separate |
 | `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above |
-| `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
+| `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and reconstruction unported |
+| `jpeg/jpeg_data.cc`: complete `VisitFields` and `SetJPEGDataFromICC` | `jpeg/jpeg_data_fields.rs` | Complete metadata bundle field order, component/marker/table validation, delta-coded reset/zero-run indices, postponed buffer sizes, padding bits and ICC byte injection; Brotli `DecodeJPEGData`, full JPEG parsing and complete reconstruction remain separate |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
@@ -1424,3 +1425,40 @@ header checkpoint and the full logical-position/history domain. Focused
 comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
 Rust 1.85 configurations, including the three standalone regressions.
 Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
+
+## JPEG reconstruction metadata bundle
+
+The complete `JPEGData::VisitFields` and `SetJPEGDataFromICC` source boundaries
+retain field ordering, all distributions and defaults, checks, partially mutated
+delta indices, initialized owner contents, delayed allocations and ICC writes
+before an error. Existing visitors handle encoding and reading; the production
+crate adds no dependency, unsafe operation or C/C++ build requirement.
+
+Five differential groups cover 7,715 exact requests: genuine baseline, grayscale,
+progressive and restart JPEG metadata; every byte truncation; deterministic
+mutations; all serialized fields and component-ID forms; malformed marker/table
+and scan metadata; reset/zero-run boundaries; and live ICC owner writes. Three
+standalone regressions retain original unaligned bundle bytes, initialized state
+at a truncated read and an ICC error after a completed marker write. Focused
+Debug, Release and Rust 1.85 checks compare both ordinary and fully ASan/UBSan
+original graphs. All six configurations pass with five groups, 7,715 exact
+requests and three standalone regressions each, with no failures or ignored
+tests. All six full repository configurations also pass: each runs 457 tests,
+266 differential groups and 901,894 exact requests, with no failures or ignored
+tests. Native Linux/macOS CI and integration into `main` remain required.
+
+`tools/jpeg_metadata_reference.py` independently captures real original
+`ReadJpeg`, `Bundle::Write` and `Bundle::Read` observations and checks the pinned
+source, fixture hashes, original symbol bindings, instrumentation and saved
+source bytes. Both graphs agree on 11,852 source-only requests, including
+11,787 truncated-read errors and exact complete owner snapshots. Its separate source-undefined probe positively diagnoses a reached
+Huffman slot 4 at pristine `jpeg_data.cc:415` before `CanEncode` can report its
+accumulated two-bit range error. Such reached out-of-bounds table indices have no
+assigned codec result; defined aliases, malformed streams and partial errors
+remain compared exactly. No compiler option, sanitizer, old case or expected
+word changes.
+
+The Brotli-dependent `DecodeJPEGData` boundary remains absent. Its streaming
+Brotli decoder, marker payload reconstruction, JPEG coefficient reconstruction
+and whole-file integration still need separate ports and evidence. The README's
+JPEG reconstruction checkbox stays unchecked.
