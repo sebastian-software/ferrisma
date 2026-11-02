@@ -1114,6 +1114,23 @@ optimized original objects keep YCbCr's addend first and horizontal chroma's
 current value first. The vertical stage keeps the neighbor product first in
 its top-row sum and the current value first in its bottom-row sum. Out-of-line
 addition boundaries retain those observed operand destinations without changing
-association, finite arithmetic, or the original archive's compiler options.
-Exact exceptional-word comparisons remain required on each native target; review
-these mappings when the source, compiler, target, or instrumentation changes.
+association or finite arithmetic. The established ARM mapping and every ARM
+captured word remain unchanged. On Linux x86_64 the selected pristine -O0
+original objects instead retain the narrowed product first in YCbCr, the
+neighbor product first in horizontal interpolation, and the neighbor product
+first in both vertical sums. Target-scoped binary32 addition boundaries map
+those original operands; double promotion, product narrowing, and addition
+rounding stay separate. ADR 0002 records why this target alone selects the
+dedicated original stage objects, leaving the archives unchanged.
+
+The standalone native Linux capture uses the existing original request 44,
+physical row 3, coordinate 38 (lane 6). The caller's original input pattern
+values[(c*7+y*3+x)%9] gives (Cb,Y,Cr) = (0x7fc98765,0x7fa12345,0x3f800000),
+the same tuple as the retained ARM capture's third sample. Both native original
+Linux -O0 graphs return 0x7fc98765 for G/B at output fields 549/906; ARM keeps
+its captured 0x7fe12345 words. These two target-specific expectations come from
+independent original output, not assembly inference or Rust results. A second
+Linux capture retains the original horizontal request 1154, output row 2 words
+1920 through 1933, including competing NaN neighbors. Exact exceptional-word
+comparisons remain required on each native target; review these mappings when
+the source, compiler, target, or instrumentation changes.

@@ -22,9 +22,17 @@ fn promote(a: f32) -> f64 {
 fn product(a: f64, b: f64) -> f32 {
     (a * b) as f32
 }
-// Both complete native ARM original objects keep the addend first.
+// Selected original Linux x86_64 operands retain the narrowed product first;
+// the established ARM mapping keeps the addend first. Preserve both rounding sites.
 fn ma(a: f32, b: f32, c: f32) -> f32 {
-    add(c, product(promote(a), promote(b)))
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        add(product(promote(a), promote(b)), c)
+    }
+    #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+    {
+        add(c, product(promote(a), promote(b)))
+    }
 }
 pub struct YCbCrStage;
 impl RenderPipelineStage for YCbCrStage {

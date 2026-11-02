@@ -28,6 +28,18 @@ fn mul(a: f32, b: f32) -> f32 {
 fn ma(a: f32, b: f32, c: f32) -> f32 {
     add(mul(a, b), c)
 }
+// The selected original Linux x86_64 keeps the neighbor product first; the
+// established ARM mapping keeps the current value first. Retain NaN operand order.
+fn neighbor_add(neighbor: f32, current: f32) -> f32 {
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        add(neighbor, current)
+    }
+    #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+    {
+        add(current, neighbor)
+    }
+}
 pub struct HorizontalChromaUpsamplingStage {
     channel: usize,
 }
@@ -56,9 +68,9 @@ impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
             let current = mul(buffers.row(row.offset(x))[0], 0.75);
             let prev = buffers.row(row.offset(x - 1))[0];
             let next = buffers.row(row.offset(x + 1))[0];
-            // Both original scalar objects retain current-first additions.
-            let l = add(current, mul(0.25, prev));
-            let r = add(current, mul(0.25, next));
+            // Keep the selected original target-specific addition operands.
+            let l = neighbor_add(mul(0.25, prev), current);
+            let r = neighbor_add(mul(0.25, next), current);
             buffers.row_mut(out.offset(x * 2))[0] = l;
             buffers.row_mut(out.offset(x * 2 + 1))[0] = r;
         }
@@ -103,7 +115,7 @@ impl RenderPipelineStage for VerticalChromaUpsamplingStage {
             let scaled = mul(im, 0.75);
             buffers.row_mut(out0.offset(x))[0] = ma(it, 0.25, scaled);
             // Original top and bottom stores keep distinct addition operands.
-            buffers.row_mut(out1.offset(x))[0] = add(scaled, mul(ib, 0.25));
+            buffers.row_mut(out1.offset(x))[0] = neighbor_add(mul(ib, 0.25), scaled);
         }
         Ok(())
     }

@@ -331,3 +331,44 @@ fn chroma_competing_special_float_pairs_keep_original_operand_words() {
     }
     compare_chroma(cases);
 }
+
+#[test]
+fn chroma_finite_subnormal_cancellation_and_signed_zero_rows_match_original() {
+    let mut patterns = vec![
+        [
+            0, 0x80000000, 1, 0x80000001, 2, 0x80000002, 3, 0x80000003, 0,
+        ],
+        [
+            0x007fffff, 0x807fffff, 0x00800000, 0x80800000, 0x00800001, 0x80800001, 1, 0x80000001,
+            0,
+        ],
+        [1.0f32, -1.0, 0.5, -0.5, 0.0, -0.0, 1.0, -0.5, 0.5].map(f32::to_bits),
+        [
+            0x7f7fffff, 0xff7fffff, 0x3f800000, 0xbf800000, 0, 0x80000000, 1, 0x80000001,
+            0x00800000,
+        ],
+    ];
+    patterns.extend([0, 0x80000000, 1, 0x80000001].map(|word| [word; 9]));
+    let mut cases = Vec::new();
+    for t in 0..3 {
+        for c in 0..5 {
+            for values in &patterns {
+                for (left, right, width, origin) in [
+                    (0, 0, 0, 0),
+                    (0, 0, 1, 3),
+                    (0, 0, 7, 0),
+                    (1, 2, 0, 3),
+                    (2, 3, 8, 1),
+                    (10, 7, 33, 0),
+                ] {
+                    let mut request = format!("cs-row {t} {c} {left} {right} {width} {origin}");
+                    for word in values {
+                        write!(request, " {word}").unwrap();
+                    }
+                    cases.push(request);
+                }
+            }
+        }
+    }
+    compare_chroma(cases);
+}

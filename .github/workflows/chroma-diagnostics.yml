@@ -42,6 +42,8 @@ jobs:
           cmake --build target/oracle-asan --target jxl_oracle --parallel 2
       - name: Compare default source graphs and isolated candidates
         run: python3 tools/chroma_reference.py
+      - name: Audit selected original stages against both untouched defaults
+        run: python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
       - name: Preserve exact original observations and compile evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -49,6 +51,9 @@ jobs:
           name: chroma-reference-${{ matrix.os }}
           path: |
             target/chroma-reference
+            target/chroma-acceptance
             !target/chroma-reference/**/jxl_oracle
             !target/chroma-reference/**/*.o
+            !target/chroma-acceptance/**/jxl_oracle
+            !target/chroma-acceptance/**/*.o
           if-no-files-found: error

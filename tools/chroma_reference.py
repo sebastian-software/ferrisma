@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Diagnose native original chroma compiler drift without changing active graphs.
+"""Diagnose or audit native original chroma without changing active graphs.
 
 The baseline is each unchanged archive-backed oracle. Candidate binaries link
 pristine stage translation units compiled with the exact archive commands plus
 one explicitly reported optimization candidate. All sanitizer options remain.
+Audit mode verifies the platform-scoped factory binding and selected graph.
 This script records evidence; it does not select or install a new reference.
 """
 import argparse
@@ -21,6 +22,8 @@ import subprocess
 ROOT = Path(__file__).resolve().parent.parent
 SOURCES = ('stage_ycbcr.cc', 'stage_chroma_upsampling.cc')
 FACTORIES = ('jxl::GetYCbCrStage(', 'jxl::GetChromaUpsamplingStage(')
+WRAPPERS = ('chroma_ycbcr_stage.cc', 'chroma_upsampling_stage.cc')
+IS_SELECTED_O0 = platform.system() == 'Linux' and platform.machine().lower() in ('x86_64', 'amd64')
 OPTIONS = {'no-unroll': ['-fno-unroll-loops'], 'O1': ['-O1'], 'O0': ['-O0']}
 GEOMETRY = [(0, 0, 0, 0), (0, 0, 1, 3), (0, 0, 7, 0),
             (1, 2, 0, 3), (2, 3, 8, 1), (10, 7, 33, 0)]
@@ -121,6 +124,64 @@ def symbols(path):
     return subprocess.check_output(['nm', '-C', str(path)], text=True)
 
 
+def original_link(build, directory, objects):
+    link = shlex.split((build / 'CMakeFiles/jxl_oracle.dir/link.txt').read_text())
+    selected = {f'CMakeFiles/jxl_oracle.dir/{name}.o' for name in WRAPPERS}
+    # Remove only the new selected wrappers; every old observer/library/linker
+    # option remains byte-for-byte identical to the established graph.
+    link = [arg for arg in link if arg not in selected]
+    link[1:1] = list(map(str, objects))
+    binary = directory / 'jxl_oracle'
+    link[link.index('-o') + 1] = str(binary)
+    link.insert(1, ('-Wl,-Map,' if platform.system() == 'Linux' else '-Wl,-map,') + str(directory / 'link.map'))
+    return link, binary
+
+
+def default_binary(build, directory):
+    directory.mkdir()
+    link, binary = original_link(build, directory, [])
+    with (directory / 'build.log').open('w') as log:
+        run(link, build, log)
+    (directory / 'commands.json').write_text(json.dumps({'link': link}, indent=2) + '\n')
+    return binary
+
+
+def selected_binding(build, directory):
+    entries = json.loads((build / 'compile_commands.json').read_text())
+    result = {'kind': 'isolated-O0' if IS_SELECTED_O0 else 'unchanged-archive'}
+    link = shlex.split((build / 'CMakeFiles/jxl_oracle.dir/link.txt').read_text())
+    for wrapper, source, factory in zip(WRAPPERS, SOURCES, FACTORIES):
+        entry, = [e for e in entries if Path(e['file']).resolve() == ROOT / 'tools/oracle' / wrapper]
+        command = entry.get('arguments') or shlex.split(entry['command'])
+        if command.count('-O0') != int(IS_SELECTED_O0):
+            raise RuntimeError('Selected chroma wrapper optimization changed')
+        if ('-fsanitize=address,undefined' in command) != (build.name == 'oracle-asan'):
+            raise RuntimeError('Selected chroma wrapper sanitizer options changed')
+        relative = f'CMakeFiles/jxl_oracle.dir/{wrapper}.o'
+        if link.count(relative) != 1:
+            raise RuntimeError('Selected wrapper link binding changed')
+        obj = build / relative
+        observed = symbols(obj)
+        if IS_SELECTED_O0:
+            if ' T ' + factory not in observed or 'ProcessRow(' not in observed:
+                raise RuntimeError('Selected wrapper no longer defines the real stage/factory')
+        else:
+            if factory in observed:
+                raise RuntimeError('Non-Linux-x86 factory must remain in original archive')
+            original, = [e for e in entries if Path(e['file']).resolve() == ROOT / 'upstream/libjxl/lib/jxl/render_pipeline' / source]
+            original_command = original.get('arguments') or shlex.split(original['command'])
+            if '-O3' not in original_command or '-O0' in original_command:
+                raise RuntimeError('Unchanged archive optimization changed')
+            original_object = Path(original['directory']) / original_command[original_command.index('-o') + 1]
+            archive_symbols = symbols(original_object)
+            if ' T ' + factory not in archive_symbols:
+                raise RuntimeError('Original archive no longer defines the actual factory')
+            (directory / (source + '.archive.symbols.txt')).write_text(archive_symbols)
+        (directory / (wrapper + '.symbols.txt')).write_text(observed)
+        result[wrapper] = {'object_sha256': sha(obj), 'wrapper_sha256': sha(ROOT / 'tools/oracle' / wrapper), 'command': command}
+    return result
+
+
 def compile_candidate(build, directory, options):
     entries = json.loads((build / 'compile_commands.json').read_text())
     observer, = [e for e in entries if Path(e['file']).resolve() ==
@@ -161,11 +222,7 @@ def compile_candidate(build, directory, options):
                     subprocess.run(['objdump', '-d', '-C', str(obj)], stdout=output, check=True)
             objects.append(str(obj))
             commands.append(command)
-        link = shlex.split((build / 'CMakeFiles/jxl_oracle.dir/link.txt').read_text())
-        link[1:1] = objects
-        binary = directory / 'jxl_oracle'
-        link[link.index('-o') + 1] = str(binary)
-        link.insert(1, ('-Wl,-Map,' if platform.system() == 'Linux' else '-Wl,-map,') + str(directory / 'link.map'))
+        link, binary = original_link(build, directory, objects)
         run(link, build, log)
     (directory / 'commands.json').write_text(json.dumps({'compile': commands, 'link': link}, indent=2) + '\n')
     return binary
@@ -212,6 +269,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT / 'target/chroma-reference')
     parser.add_argument('--candidates', nargs='+', choices=OPTIONS, default=list(OPTIONS))
     parser.add_argument('--emit-only', action='store_true')
+    parser.add_argument('--audit', action='store_true', help='Require selected original stages to agree, including finite/default equivalence')
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -243,15 +301,20 @@ def main():
         compiler = (source_entry.get('arguments') or shlex.split(source_entry['command']))[0]
         archive = build / 'upstream/lib/libjxl-internal.a'
         metadata = {'compiler_version': subprocess.check_output([compiler, '--version'], text=True),
-                    'default_binary_sha256': before,
+                    'selected_binary_sha256': before,
                     'archive_sha256': sha(archive),
                     'observer_sha256': sha(build / 'CMakeFiles/jxl_oracle.dir/chroma_stages.cc.o'),
                     'compile_database_sha256': sha(build / 'compile_commands.json')}
         (directory / 'compile_commands.json').write_bytes((build / 'compile_commands.json').read_bytes())
         (directory / 'link.txt').write_bytes((build / 'CMakeFiles/jxl_oracle.dir/link.txt').read_bytes())
         print(f'{graph}: observing unchanged default archive', flush=True)
-        observe(binary, cases, directory / 'default.txt.gz')
-        for name in args.candidates:
+        baseline = default_binary(build, directory / 'default')
+        metadata['default_binary_sha256'] = sha(baseline)
+        observe(baseline, cases, directory / 'default.txt.gz')
+        if args.audit:
+            metadata['selected_binding'] = selected_binding(build, directory)
+            observe(binary, cases, directory / 'selected.txt.gz')
+        for name in (['O0'] if args.audit else args.candidates):
             candidate = directory / name
             candidate.mkdir()
             print(f'{graph}: compiling and observing pristine {name} candidate', flush=True)
@@ -265,13 +328,29 @@ def main():
         result = report['comparisons'][name]
         print(f'{name}: {result["mismatches"]} mismatching requests {result["by_group"]}', flush=True)
     record('default ordinary-vs-asan', 'oracle/default.txt.gz', 'oracle-asan/default.txt.gz')
-    for name in args.candidates:
+    for name in (['O0'] if args.audit else args.candidates):
         record(name + ' ordinary-vs-asan', f'oracle/{name}/observations.txt.gz', f'oracle-asan/{name}/observations.txt.gz')
         for graph in ('oracle', 'oracle-asan'):
             for baseline in ('oracle', 'oracle-asan'):
                 record(f'{name} {graph} finite-vs-{baseline}', f'{graph}/{name}/observations.txt.gz', f'{baseline}/default.txt.gz', True)
+    if args.audit:
+        record('selected ordinary-vs-asan', 'oracle/selected.txt.gz', 'oracle-asan/selected.txt.gz')
+        for graph in ('oracle', 'oracle-asan'):
+            if IS_SELECTED_O0:
+                record(f'selected {graph} vs-independent-O0', f'{graph}/selected.txt.gz', f'{graph}/O0/observations.txt.gz')
+            else:
+                record(f'selected {graph} all-vs-default', f'{graph}/selected.txt.gz', f'{graph}/default.txt.gz')
+            for baseline in ('oracle', 'oracle-asan'):
+                record(f'selected {graph} finite-vs-{baseline}', f'{graph}/selected.txt.gz', f'{baseline}/default.txt.gz', True)
+        failures = [name for name, result in report['comparisons'].items()
+                    if name != 'default ordinary-vs-asan' and result['mismatches']]
+        report['audit_passed'] = not failures
+    else:
+        failures = []
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(f'Evidence saved to {output}; active graphs and reference selection unchanged', flush=True)
+    if failures:
+        raise RuntimeError('Selected chroma acceptance failed: ' + ', '.join(failures))
 
 
 if __name__ == '__main__':

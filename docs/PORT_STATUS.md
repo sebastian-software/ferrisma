@@ -1355,7 +1355,7 @@ before integration; the earlier failed runs are retained in the PR history.
 
 ## Scalar chroma upsampling and YCbCr conversion
 
-The complete scalar stage boundary adds four differential groups and 4,842 exact
+The initial scalar stage boundary adds four differential groups and 4,842 exact
 original requests: 18 factory/settings/lifecycle observations, 3,330 direct rows,
 480 original simple-pipeline sequences, and 1,014 ordered special-float pairs.
 The row cases retain every initialized input/output sample, error-before-mutation
@@ -1366,12 +1366,33 @@ edges, group boundaries, reversed input groups, repeated passes, and YCbCr after
 chroma upsampling. Two standalone regressions retain original captured finite
 pixels, exceptional words, and source guard/mutation order.
 
-Both complete ordinary and ASan/UBSan native ARM original graphs match the focused
-Rust Debug, Release, and 1.85 configurations exactly. The factories and kernels
-remain in the untouched original archive at its existing optimized configuration;
-no C++ algorithm or compiler flag changes are needed. ADR 0003 records the
-observed scalar addition destinations. Both full local checks, each with Debug,
+Both complete ordinary and ASan/UBSan native ARM original graphs matched the
+focused Rust Debug, Release, and 1.85 configurations exactly. Both initial full
+local checks, each with Debug,
 Release and Rust 1.85, passed 431 tests, 250 differential groups and 873,429 exact
-requests per configuration, with zero failed or ignored tests. Native CI remains
-required before integration. Complete-file YCbCr and chroma-profile admission
+requests per configuration, with zero failed or ignored tests.
+
+Native Linux x86_64 diagnostics exposed 181 ordinary/instrumented original
+disagreements, including 104 simple pipelines. The complete retained corpus now
+has five groups and 5,562 requests, adding 720 finite subnormal, cancellation,
+and signed-zero rows without changing any earlier request or ARM captured word.
+Linux x86_64 alone selects pristine stage_ycbcr.cc and
+stage_chroma_upsampling.cc through dedicated -O0 translation units, including
+their real factories for complete-file callers. Independent original -O0
+objects agree on every request; all 4,592 finite requests also agree with both
+unchanged optimized archives. Other platforms retain the original archive
+binding because native ARM -O0 would change 182 exceptional observations.
+All sanitizer settings and original archives stay unchanged.
+
+tools/chroma_reference.py --audit verifies the selected factory binding and
+the complete selected/default equivalence required by each platform. The native
+diagnostic workflow retains the untouched defaults, independent candidate
+outputs, compiler commands, symbols, and hashes. ADRs 0002 and 0003 record the
+selection evidence and Rust operand mapping, including actual original Linux
+capture provenance for two target-specific YCbCr words and a horizontal row.
+All six replacement ordinary/ASan/UBSan Debug, Release and Rust 1.85 checks
+passed 432 tests, 251 differential groups and 874,149 exact requests each,
+with no failures or ignored tests. Native replacement CI, including the selected
+reference audit on both platforms, remains required before integration.
+Complete-file YCbCr and chroma-profile admission
 belong to the decoder integration milestone.

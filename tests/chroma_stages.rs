@@ -175,6 +175,17 @@ fn original_chroma_row_words_and_ycbcr_guard_preserve_mutation_order() {
             [0x7fe12345, 0xffe54321, 0x7fe12345],
             [0x7fe12345, 0xffe54321, 0x7fe12345],
         ];
+        // Native Linux selected original O0 request44, row coordinate38/lane6
+        // has the identical (Cb,Y,Cr) tuple (7fc98765,7fa12345,3f800000).
+        // Both original graphs record G/B words549/906 as 7fc98765.
+        // Keep every ARM capture above; only these competing x86 operands differ.
+        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+        let yc = {
+            let mut native = yc;
+            native[1][2] = 0x7fc98765;
+            native[2][2] = 0x7fc98765;
+            native
+        };
         let horizontal = [
             0xbea00000, 0xbe800000, 0x3e800000, 0x3f200000, 0x3f600000, 0x3f400000,
         ];
@@ -229,4 +240,80 @@ fn original_chroma_row_words_and_ycbcr_guard_preserve_mutation_order() {
             }
         }
     }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn original_native_x86_chroma_neighbor_products_keep_competing_nan_words() {
+    use jxl::jxl::image::Plane;
+    use jxl::jxl::render_pipeline::render_pipeline_stage::{Row, RowBuffers, RowStorage};
+    // Actual native Linux O0 original request1154, channel0 output row2,
+    // words1920..1933. Both ordinary and ASan graphs agree on every word.
+    let values = [
+        0x7fa12345, 0xffa54321, 0x7fc98765, 0xffc43210, 0x7f800000, 0xff800000, 0x3f000000,
+        0x3f800000, 0x80000000,
+    ]
+    .map(f32::from_bits);
+    let len = OFFSET + 19;
+    let mut input: Vec<_> = (0..5)
+        .map(|c| {
+            let mut p = Plane::<f32>::create(len, 7).unwrap();
+            for y in 0..7 {
+                for x in 0..len {
+                    p.row_mut(y)[x] = values[(c * 7 + y * 3 + x) % 9];
+                }
+            }
+            p
+        })
+        .collect();
+    let mut output: Vec<_> = (0..5)
+        .map(|_| Plane::<f32>::create(len, 5).unwrap())
+        .collect();
+    let ir = (0..5)
+        .map(|channel| {
+            vec![Row {
+                storage: RowStorage::Input,
+                channel,
+                y: 3,
+                x: 0,
+            }]
+        })
+        .collect();
+    let or = (0..5)
+        .map(|channel| {
+            vec![Row {
+                storage: RowStorage::Output,
+                channel,
+                y: 2,
+                x: 0,
+            }]
+        })
+        .collect();
+    get_chroma_upsampling_stage(0, true)
+        .process_row(
+            &ir,
+            &or,
+            &mut RowBuffers {
+                input: &mut input,
+                output: &mut output,
+            },
+            0,
+            0,
+            7,
+            23,
+            41,
+            17,
+        )
+        .unwrap();
+    let expected = [
+        0xffc00000, 0xff800000, 0xff800000, 0x3f200000, 0x3f600000, 0x3f400000, 0x3e800000,
+        0x7fe12345, 0x7fe12345, 0xffe54321, 0x7fe12345, 0x7fc98765, 0xffe54321, 0xffc43210,
+    ];
+    assert_eq!(
+        output[0].row(2)[OFFSET..OFFSET + 14]
+            .iter()
+            .map(|v| v.to_bits())
+            .collect::<Vec<_>>(),
+        expected
+    );
 }
