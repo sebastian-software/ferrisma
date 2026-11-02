@@ -66,7 +66,18 @@ Both full local checks, including Rust 1.85 and ordinary/ASan/UBSan originals,
 pass 466 tests, 275 differential groups and 893,681 exact defined requests per
 configuration, plus all 72 explicit original-only boundary probes. The corrected alpha/patch component has passed native Linux and macOS CI, including the independently confirmed 48 undefined original tree boundaries. Native combined CI and integration into `main` remain required.
 
-Positive complete-file patches still need reference-frame orchestration. General
-Modular profiles and the remaining steps above remain open. The first-image and
-VarDCT milestone records describe the merged baseline; unmerged work does not
-change those claims.
+The next integration connects one retained state across reference/DC frames,
+blending, animation, previews, and NONE/XYB Modular and VarDCT frames. Its seven
+lifecycle groups retain 2,592 exact original requests, including the original
+1,814-request inventory, resampling and multigroup cases, genuine DC3/DC4 writer
+fixtures, and 156 positive-patch/truncated/mutated observations. A genuine
+112-byte patch codestream reconstructs all 36,864 input words exactly.
+
+With the verified alpha/patch prerequisite, all six local complete checks pass
+494 tests, 294 differential groups and 907,035 exact defined requests each,
+alongside the 72 source-only probes. The independent source audit repeats all
+2,592 lifecycle requests under that combined configuration. Native CI and
+integration into main remain required. Chroma, broader extra channels, CMS/HDR,
+JPEG reconstruction, and the public incremental API remain open. The first-image
+and VarDCT milestone records describe the merged baseline; unmerged work does
+not change those claims.
