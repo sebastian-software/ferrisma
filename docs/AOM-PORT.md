@@ -216,6 +216,16 @@ Preserve original encoder/decoder thread parameters. A multithreaded codec test
 can use several CPU cores inside one process. Scheduling limits are separate
 from test cases, assertions, numerical references, and preprocessing profiles.
 
+`tools/run_aom_paired_shard.py` runs one unchanged GoogleTest shard first with
+the C binary and then with its Rust consumer. It checks binary and configuration
+hashes, original registrations, the Rust ownership audit, and matching executed
+case/skip inventories. Collection requires every shard, rejects duplicate,
+missing, unexpected, or failing cases, and checks the full active inventory.
+The runner passes a two-shard check of the 62 original focused macOS Debug
+cases and rejects missing shards and edited execution records; this verifies
+the runner, not the full main suite. See
+[`aom-paired-shard-validation.json`](aom-paired-shard-validation.json).
+
 1. Verify complete source/license hashes, the archive's exact source closure,
    generated headers, configurations, and original test inventories.
 2. Prove the representative image/API and encoder/decoder state/error boundary.
