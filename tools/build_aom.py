@@ -13,6 +13,25 @@ from build_dav1d import copy_inputs
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_names(listing):
+    names, suite = [], None
+    for line in listing.splitlines():
+        name = line.split('#', 1)[0].strip()
+        if not name:
+            continue
+        if not line.startswith('  '):
+            if not name.endswith('.'):
+                raise SystemExit(f'Unexpected GoogleTest inventory line: {name}')
+            suite = name
+        else:
+            if suite is None:
+                raise SystemExit('Test registration without suite')
+            names.append(suite + name)
+    if len(set(names)) != len(names):
+        raise SystemExit('Duplicate original GoogleTest names')
+    return names
+
+
 def library_entries(build):
     line = next(line for line in (build / 'build.ninja').read_text().splitlines()
                 if line.startswith('build libaom.a:'))
@@ -64,8 +83,13 @@ def main():
     for name in ['test_libaom', 'test_aom_rc', 'test_intra_pred_speed']:
         listing = subprocess.check_output([build / name, '--gtest_list_tests'], text=True)
         (build / f'{name}-inventory.txt').write_text(listing)
-        inventories[name] = dict(registrations=sum(line.startswith('  ') for line in listing.splitlines()),
-                                 sha256=hashlib.sha256(listing.encode()).hexdigest())
+        names = test_names(listing)
+        normalized = json.dumps(names, separators=(',', ':'))
+        inventories[name] = dict(registrations=len(names),
+                                 names_sha256=hashlib.sha256(normalized.encode()).hexdigest(),
+                                 upstream_disabled=sum(any(part.startswith('DISABLED_') for part in
+                                     item.replace('.', '/').split('/')) for item in names))
+        (build / f'{name}-inventory.json').write_text(json.dumps(names, indent=2) + '\n')
     data_commands = subprocess.check_output(['ninja', '-C', build, '-t', 'commands', 'testdata'], text=True)
     data = {}
     for command in data_commands.splitlines():
