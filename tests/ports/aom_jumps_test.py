@@ -5,6 +5,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 from aom_jumps import NONLOCAL_CALL, map_scopes
+from import_aom_linux import merge_jump_corrections
 
 
 class JumpSpellingTest(unittest.TestCase):
@@ -35,6 +36,18 @@ pub unsafe extern "C" fn example(target: *mut Buffer) -> core::ffi::c_int {
     def test_unreviewed_signal_saving_variant_is_rejected(self):
         with self.assertRaisesRegex(SystemExit, 'Unmapped libc nonlocal error transfer'):
             map_scopes('pub unsafe fn example() { __sigsetjmp(target, 1); }')
+
+    def test_import_preserves_generation_stage_order_before_compatibility(self):
+        original = {'raw-c-mutable-address': 1, 'unwinding-codec-and-callback-abi': 2,
+                    'system-and-vmaf-c-abi-declarations': 4,
+                    'current-rust-variadic-argument-method': 1}
+        changes = merge_jump_corrections(original, {'glibc-setjmp-aliases': 2,
+                                         'scoped-nonlocal-error-targets': 1}, 1)
+        self.assertEqual(list(changes), ['raw-c-mutable-address', 'glibc-setjmp-aliases',
+            'scoped-nonlocal-error-targets', 'unwinding-codec-and-callback-abi',
+            'system-and-vmaf-c-abi-declarations', 'current-rust-variadic-argument-method'])
+        self.assertEqual(changes['system-and-vmaf-c-abi-declarations'], 3)
+        self.assertEqual(original['system-and-vmaf-c-abi-declarations'], 4)
 
 
 if __name__ == '__main__':

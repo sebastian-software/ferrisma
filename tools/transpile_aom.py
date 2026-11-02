@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Reproduce libaom's complete generic C archive with C2Rust 0.21.0."""
 import argparse
+import difflib
 import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -19,6 +21,19 @@ from transpile_dav1d import corrected
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / 'crates/aom'
+
+
+def compare_generated(path, content, work):
+    actual = path.read_text()
+    if actual == content:
+        return
+    expected = work / 'expected' / path.relative_to(ROOT)
+    expected.parent.mkdir(parents=True, exist_ok=True)
+    expected.write_text(content)
+    diff = ''.join(itertools.islice(difflib.unified_diff(actual.splitlines(keepends=True),
+        content.splitlines(keepends=True), fromfile=str(path.relative_to(ROOT)),
+        tofile='regenerated/' + str(path.relative_to(ROOT))), 100))
+    raise SystemExit(f'Generated translation differs: {path}\n{diff}\nExpected output saved to {expected}')
 
 
 def main():
@@ -133,8 +148,7 @@ def main():
         target = CRATE / f'src/{platform}/{profile}' / relative.with_suffix('.rs')
         target.parent.mkdir(parents=True, exist_ok=True)
         if args.check:
-            if target.read_text() != text:
-                raise SystemExit(f'Translation differs: {target}')
+            compare_generated(target, text, work)
         else:
             target.write_text(text)
         module = '__'.join(relative.with_suffix('').parts)
@@ -156,8 +170,7 @@ def main():
             generated_reference_headers=reference_files, optional_inline_test_bridges=bridge_inventory,
             units=units), indent=2) + '\n')]:
         if args.check:
-            if path.read_text() != content:
-                raise SystemExit(f'Inventory differs: {path}')
+            compare_generated(path, content, work)
         else:
             path.write_text(content)
 

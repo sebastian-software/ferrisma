@@ -9039,7 +9039,7 @@
   "ci_failure": "Rust Debug encoder aborts at allocation failure 3 and pthread-create failure 1; native C passes all 62 focused API cases, while Rust aborts before writing case XML. The source left glibc _setjmp targets unmapped; corrected candidate awaits native runtime validation.",
   "candidate_error_mapping": {
     "debug": {
-      "translation_manifest_sha256": "5d7c5696109ced72a18a67f00f222e31751fdd99e95a0405f5d1f3bc7c0c1202",
+      "translation_manifest_sha256": "36d4715b42e88053336c418b26344d7516516f201e3021bbd17b6f9cd8a790da",
       "corrections": {
         "glibc-setjmp-aliases": 41,
         "scoped-nonlocal-error-targets": 32,
@@ -9049,12 +9049,13 @@
       "reproduced_from_original_artifact": true,
       "native_compilation_and_failure_behavior_pending": true,
       "native_type_checks_passed_ci_run": 41460252346,
-      "fresh_native_debug_unit_text_matches_ci_run": 41460252346,
+      "fresh_native_debug_unit_text_matches_ci_run": 41465110092,
       "fresh_native_manifest_reproduction_pending": true,
-      "removed_native_declarations_reconciled": true
+      "removed_native_declarations_reconciled": true,
+      "correction_stage_order_reconciled": true
     },
     "release": {
-      "translation_manifest_sha256": "b88fb5f8bd1a12b5966c3b49dbeaad6e79c6543ea7e79dccb0a4fc16ed246667",
+      "translation_manifest_sha256": "d86f0b5ed1ce66e1182da605745c3e38ee1f1a7cfa80805ed609722806a790a5",
       "corrections": {
         "glibc-setjmp-aliases": 41,
         "scoped-nonlocal-error-targets": 32,
@@ -9064,9 +9065,10 @@
       "reproduced_from_original_artifact": true,
       "native_compilation_and_failure_behavior_pending": true,
       "native_type_checks_passed_ci_run": 41460252346,
-      "fresh_native_debug_unit_text_matches_ci_run": 41460252346,
+      "fresh_native_debug_unit_text_matches_ci_run": 41465110092,
       "fresh_native_manifest_reproduction_pending": true,
-      "removed_native_declarations_reconciled": true
+      "removed_native_declarations_reconciled": true,
+      "correction_stage_order_reconciled": true
     }
   }
 }

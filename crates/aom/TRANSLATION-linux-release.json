@@ -1155,11 +1155,11 @@
         "raw-c-mutable-address": 104,
         "raw-c-static-address": 1,
         "original-c-record-field-alignment": 10,
-        "current-rust-variadic-argument-method": 45,
         "glibc-setjmp-aliases": 2,
         "scoped-nonlocal-error-targets": 1,
         "unwinding-codec-and-callback-abi": 176,
         "system-and-vmaf-c-abi-declarations": 6,
+        "current-rust-variadic-argument-method": 45,
         "sysv-array-decayed-control-va-list": 1
       }
     },
@@ -1286,11 +1286,11 @@
         "raw-c-mutable-address": 585,
         "raw-c-static-address": 1,
         "original-c-record-field-alignment": 27,
-        "current-rust-variadic-argument-method": 167,
         "glibc-setjmp-aliases": 8,
         "scoped-nonlocal-error-targets": 7,
         "unwinding-codec-and-callback-abi": 469,
         "system-and-vmaf-c-abi-declarations": 11,
+        "current-rust-variadic-argument-method": 167,
         "sysv-array-decayed-control-va-list": 1
       }
     },
@@ -1491,9 +1491,9 @@
         "raw-c-mutable-address": 189,
         "raw-c-assignment-temporary": 4,
         "original-c-record-field-alignment": 27,
-        "c-boolean-integer-conversion": 2,
         "unwinding-codec-and-callback-abi": 182,
-        "system-and-vmaf-c-abi-declarations": 8
+        "system-and-vmaf-c-abi-declarations": 8,
+        "c-boolean-integer-conversion": 2
       }
     },
     {
@@ -1552,9 +1552,9 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 79,
         "original-c-record-field-alignment": 27,
-        "c-boolean-integer-conversion": 1,
         "unwinding-codec-and-callback-abi": 93,
-        "system-and-vmaf-c-abi-declarations": 4
+        "system-and-vmaf-c-abi-declarations": 4,
+        "c-boolean-integer-conversion": 1
       }
     },
     {
@@ -1568,11 +1568,11 @@
         "raw-c-mutable-address": 414,
         "raw-c-assignment-temporary": 3,
         "original-c-record-field-alignment": 27,
-        "c-boolean-integer-conversion": 2,
         "glibc-setjmp-aliases": 4,
         "scoped-nonlocal-error-targets": 3,
         "unwinding-codec-and-callback-abi": 1874,
-        "system-and-vmaf-c-abi-declarations": 11
+        "system-and-vmaf-c-abi-declarations": 11,
+        "c-boolean-integer-conversion": 2
       }
     },
     {
@@ -1705,9 +1705,9 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 33,
         "original-c-record-field-alignment": 27,
-        "c-boolean-integer-conversion": 1,
         "unwinding-codec-and-callback-abi": 60,
-        "system-and-vmaf-c-abi-declarations": 1
+        "system-and-vmaf-c-abi-declarations": 1,
+        "c-boolean-integer-conversion": 1
       }
     },
     {
@@ -1879,9 +1879,9 @@
         "raw-c-mutable-address": 315,
         "raw-c-assignment-temporary": 44,
         "original-c-record-field-alignment": 27,
-        "c-boolean-integer-conversion": 2,
         "unwinding-codec-and-callback-abi": 251,
-        "system-and-vmaf-c-abi-declarations": 5
+        "system-and-vmaf-c-abi-declarations": 5,
+        "c-boolean-integer-conversion": 2
       }
     },
     {
@@ -1943,9 +1943,9 @@
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 21,
         "original-c-record-field-alignment": 27,
-        "c-boolean-integer-conversion": 1,
         "unwinding-codec-and-callback-abi": 55,
-        "system-and-vmaf-c-abi-declarations": 1
+        "system-and-vmaf-c-abi-declarations": 1,
+        "c-boolean-integer-conversion": 1
       }
     },
     {
@@ -2029,10 +2029,10 @@
         "raw-c-assignment-temporary": 11,
         "original-c-record-field-alignment": 27,
         "original-c-object-alignment": 1,
-        "c-boolean-integer-conversion": 2,
-        "packed-byte-enum-assignment-cast": 1,
         "unwinding-codec-and-callback-abi": 185,
-        "system-and-vmaf-c-abi-declarations": 4
+        "system-and-vmaf-c-abi-declarations": 4,
+        "c-boolean-integer-conversion": 2,
+        "packed-byte-enum-assignment-cast": 1
       }
     },
     {
@@ -2192,9 +2192,9 @@
         "raw-c-assignment-temporary": 2,
         "original-c-record-field-alignment": 27,
         "original-c-object-alignment": 2,
-        "name-static-float-compound-literals": 9,
         "unwinding-codec-and-callback-abi": 164,
-        "system-and-vmaf-c-abi-declarations": 7
+        "system-and-vmaf-c-abi-declarations": 7,
+        "name-static-float-compound-literals": 9
       }
     },
     {

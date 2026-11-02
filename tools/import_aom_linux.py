@@ -13,6 +13,33 @@ from aom_jumps import JUMP_CORRECTIONS, map_scopes
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def merge_jump_corrections(original, jump_changes, removed_native_declarations):
+    changes = dict(original)
+    jumps = {name: changes.pop(name) for name in JUMP_CORRECTIONS if name in changes}
+    jumps.update(jump_changes)
+    if removed_native_declarations:
+        remaining = jumps['system-and-vmaf-c-abi-declarations'] - removed_native_declarations
+        if remaining < 0:
+            raise SystemExit('Removed more glibc declarations than the artifact recorded')
+        if remaining:
+            jumps['system-and-vmaf-c-abi-declarations'] = remaining
+        else:
+            jumps.pop('system-and-vmaf-c-abi-declarations')
+    # Preserve the jump stage's original position before compatibility
+    # corrections, as well as the order within that stage.
+    ordered, inserted = {}, False
+    for name in original:
+        if name in JUMP_CORRECTIONS:
+            if not inserted:
+                ordered.update((key, jumps[key]) for key in JUMP_CORRECTIONS if key in jumps)
+                inserted = True
+        else:
+            ordered[name] = changes[name]
+    if not inserted:
+        ordered.update((key, jumps[key]) for key in JUMP_CORRECTIONS if key in jumps)
+    return ordered
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--artifact', required=True, type=Path)
@@ -58,22 +85,10 @@ def main():
             content = (artifact / target).read_bytes()
             if hashlib.sha256(content).hexdigest() != unit['rust_sha256']:
                 raise SystemExit(f'Artifact translation hash differs: {target}')
-            changes = dict(unit['corrections'])
             text, count = control_va_list(content.decode())
             removed_native_declarations = len(re.findall(r'    fn _setjmp\([^;]+;\n', text))
             text, jump_changes = map_scopes(text)
-            # Keep the same correction order as a fresh raw-source import.
-            jumps = {name: changes.pop(name) for name in JUMP_CORRECTIONS if name in changes}
-            jumps.update(jump_changes)
-            if removed_native_declarations:
-                remaining = jumps['system-and-vmaf-c-abi-declarations'] - removed_native_declarations
-                if remaining < 0:
-                    raise SystemExit('Removed more glibc declarations than the artifact recorded')
-                if remaining:
-                    jumps['system-and-vmaf-c-abi-declarations'] = remaining
-                else:
-                    jumps.pop('system-and-vmaf-c-abi-declarations')
-            changes.update((name, jumps[name]) for name in JUMP_CORRECTIONS if name in jumps)
+            changes = merge_jump_corrections(unit['corrections'], jump_changes, removed_native_declarations)
             if count:
                 changes['sysv-array-decayed-control-va-list'] = count
             if count or jump_changes:
