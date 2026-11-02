@@ -256,6 +256,14 @@ Rust API examples also pass. These scoped results are preserved in
 [the Linux checkpoint](aom-linux-validation-results.json). Full standalone
 acceptance and root Linux support remain open.
 
+A fresh translation check also reproduces all 336 committed Rust units across
+the two profiles. GNU link-map audits pass for all original codec globals in
+the selected consumers. Each profile passes 13 unchanged original cases through
+11 Rust inline subjects, 243 original convolution cases with isolated C
+oracles for six Rust subjects, and 12 exact integer-model VMAF scenarios. That
+run still fails on the original C float-model rejection described in ADR 0042;
+later allocation, thread, focused API, and ABI gates were not reached.
+
 GNU pkg-config's `-pthread` spelling maps explicitly to the pthread library.
 For glibc's array-decayed `va_list` control callback typedef, ADR 0040 maps the parameter
 to Rust's C-compatible `VaList`, consistently with its callback definitions
