@@ -2,6 +2,7 @@
 """Run unchanged original libaom registrations with explicit shard inventories."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,7 +30,8 @@ def main():
     reference_names = test_names((original / 'test_libaom-inventory.txt').read_text())
     if names != reference_names:
         raise SystemExit('Candidate changed original test names, order, or parameters')
-    output = build / ('tests' if args.filter == '*' else 'tests-focused')
+    suffix = 'tests' if args.filter == '*' else 'tests-focused-' + hashlib.sha256(args.filter.encode()).hexdigest()[:12]
+    output = build / suffix
     output.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
     environment['LIBAOM_TEST_DATA_PATH'] = str(ROOT / 'build/deps/aom-test-data')
@@ -70,6 +72,20 @@ def main():
                    skipped=sum(bool(case['skipped']) for case in executed),
                    unsuccessful_shards=[r['shard'] for r in records if r['exit_code']],
                    original_tests_unchanged=True, shard_count=args.shards)
+    if args.rust:
+        reference = original / suffix
+        native_summary = json.loads((reference / 'summary.json').read_text())
+        native_cases = [case for index in range(native_summary['shard_count'])
+                        for case in json.loads((reference / f'shard-{index}.json').read_text())['cases']
+                        if case['status'] == 'run']
+        native_names = sorted(case['name'] for case in native_cases)
+        rust_names = sorted(case['name'] for case in executed)
+        if native_names != rust_names or native_summary['failures'] or native_summary['unsuccessful_shards']:
+            raise SystemExit('Rust execution does not match a passing original case inventory')
+        if sorted(case['name'] for case in native_cases if case['skipped']) != sorted(
+                case['name'] for case in executed if case['skipped']):
+            raise SystemExit('Original and Rust dynamic skip inventories differ')
+        summary['matches_original_executed_inventory'] = True
     (output / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(json.dumps(summary, indent=2))
     if missing or summary['failures'] or summary['unsuccessful_shards']:

@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Relink original libaom tests/apps/examples with the Rust codec archive."""
+import argparse
+import json
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import sys
+
+from build_aom import library_entries
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--only', action='append', help='Build a named original consumer first')
+    args = parser.parse_args()
+    profile = 'debug' if args.debug else 'release'
+    build = ROOT / f'build/aom-native-{profile}'
+    output = ROOT / f'build/aom-rust-{profile}'
+    output.mkdir(parents=True, exist_ok=True)
+    cargo = ['cargo', 'build', '-p', 'libavif-aom', '--locked']
+    if not args.debug:
+        cargo.append('--release')
+    subprocess.run(cargo, check=True)
+    archive = ROOT / f'target/{profile}/libaom.a'
+    library_sources = {Path(entry['file']) for entry in library_entries(build)}
+    compiled_sources = {str(Path(entry['output']).relative_to(build)): Path(entry['file'])
+                        for entry in json.loads((build / 'compile_commands.json').read_text())}
+    executables = re.findall(r'^build ([^ :]+): C(?:XX)?_EXECUTABLE_LINKER',
+                             (build / 'build.ninja').read_text(), re.M)
+    if args.only:
+        if set(args.only) - set(executables):
+            raise SystemExit('Unknown original consumer requested')
+        executables = [name for name in executables if name in args.only]
+    linkage = []
+    for executable in executables:
+        commands = subprocess.check_output(['ninja', '-C', build, '-t', 'commands', executable], text=True)
+        command = shlex.split(commands.splitlines()[-1])
+        if command[:2] == [':', '&&'] and command[-2:] == ['&&', ':']:
+            command = command[2:-2]
+        if any(token in [':', '&&', '||', ';'] for token in command):
+            raise SystemExit(f'Unmapped original link command wrapper: {executable}')
+        overlaps = [token for token in command if compiled_sources.get(token) in library_sources]
+        # Upstream compiles args_helper.c and arg_defs.c into both codec and app
+        # object targets. C archives select only one copy; Rust codegen units
+        # can combine these definitions with other codec functions. Retain the
+        # Rust implementations and remove only identical-source app copies.
+        for token in overlaps:
+            source = compiled_sources[token]
+            if source.relative_to(ROOT / 'build/aom-native-source').as_posix() not in [
+                    'common/args_helper.c', 'av1/arg_defs.c']:
+                raise SystemExit(f'Unreviewed app/codec source overlap: {token}')
+            command.remove(token)
+        target = output / executable
+        command[command.index('-o') + 1] = str(target)
+        replacements = 0
+        for i, token in enumerate(command):
+            if token == 'libaom.a':
+                command[i] = str(archive)
+                replacements += 1
+        if replacements != 1:
+            raise SystemExit(f'Expected one explicit codec replacement: {executable}: {replacements}')
+        if any(token == 'libaom.a' or token.startswith('-laom') for token in command):
+            raise SystemExit('Original codec library remains in candidate link command')
+        link_map = output / f'{executable}.map'
+        command.append(f'-Wl,-map,{link_map}' if sys.platform == 'darwin' else f'-Wl,-Map,{link_map}')
+        subprocess.run(command, cwd=build, check=True)
+        linkage.append(dict(executable=executable, codec_replacements=replacements,
+                            unchanged_original_test_objects=True,
+                            identical_source_app_objects_replaced=overlaps, command=command))
+        print(f'Relinked original {executable} with the Rust codec', flush=True)
+    (output / 'linkage.json').write_text(json.dumps(linkage, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    main()

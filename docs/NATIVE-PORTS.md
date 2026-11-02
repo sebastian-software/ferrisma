@@ -2,7 +2,7 @@
 
 Status: portable SharpYUV and dav1d are implemented and integrated. See
 [SharpYUV validation](SHARPYUV-VALIDATION.md) and the
-[dav1d port and validation](DAV1D-PORT.md). the [libaom milestone](AOM-PORT.md) is in progress.
+[dav1d port and validation](DAV1D-PORT.md). The [libaom milestone](AOM-PORT.md) is in progress.
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
@@ -302,9 +302,10 @@ full-library completion claims remain blocked until the selected closure is
 explicitly implemented and tested.
 
 Detailed contracts for later optional libraries will be prepared before their
-implementation. SharpYUV and dav1d are implemented; the next detailed contract
-must pin libaom's complete selected portable source and original test closure
-before translation.
+implementation. SharpYUV and dav1d are implemented. The libaom contract pins the
+complete portable 3.15.2 archive and original test closure in `AOM-PORT.md`;
+standalone validation is in progress. Its VMAF modes remain enabled with native
+libvmaf, whose separate port follows libaom.
 
 ## Evidence for each milestone
 
@@ -313,9 +314,9 @@ needs its own pinned upstream source, native baseline, original test harness,
 and applicable differential and ABI checks. Compilation or a passing libavif
 subset alone cannot establish complete dependency parity.
 
-Apply the concrete SharpYUV gates above to its first milestone. Declare equally
-explicit references and case inventories for libaom before expanding its
-translation. The dav1d milestone records these in `DAV1D-PORT.md`. Existing
+Apply the concrete SharpYUV gates above to its first milestone. The libaom
+references and case inventories are recorded in `AOM-PORT.md`; the dav1d
+milestone records its evidence in `DAV1D-PORT.md`. Existing
 validation limitations, including root platform coverage and compiler-default
 RGB diagnostics, remain recorded in
 [VALIDATION.md](VALIDATION.md).

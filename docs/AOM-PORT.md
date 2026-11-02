@@ -1,8 +1,9 @@
 # Portable libaom port
 
-Status: implementation in progress. libavif still links the native libaom
-engine. Source preparation and the native reference are available; translation,
-test correspondence, and acceptance must pass before integration.
+Status: standalone implementation and validation in progress. All 168 portable
+C translation units are imported for macOS ARM64 Debug and Release, with a raw
+Rust API. libavif still links the native libaom engine. Complete original-test
+correspondence, platform, and acceptance gates must pass before integration.
 
 The immutable reference is libaom 3.15.2, tag `v3.15.2`, commit
 `af3dc9aadc793c1b00edc003e3fc19a44fdeb574`. The complete 1,520-file snapshot,
@@ -28,6 +29,10 @@ separate mechanical port and versioned model inputs require their own
 contract. Do not silently disable VMAF modes to make that dependency disappear.
 The installed package reports libvmaf 3.2.0 through pkg-config despite its
 Homebrew package directory being 3.2.1; record both when comparing artifacts.
+For isolated builds, `tools/build_aom_vmaf.py --fetch` builds native VMAF tag
+`v3.2.1`, commit `f85a853692a8c730d0270cd733c8bb30b5b93b7c`, with scalar
+extractors and built-in models. That tag's own Meson project reports 3.2.0.
+This dependency bootstrap is not a VMAF Rust port.
 
 The library archive contains 168 C translation units, including three generated
 configuration/no-op units and four bundled fastfeat/vector units. Bundled
@@ -40,6 +45,8 @@ infrastructure and account for their implementation scope explicitly.
 The initial macOS ARM64 Debug build registers 18,729 main-suite tests, 38
 rate-control wrapper tests, and 38 intra-prediction speed tests. Registrations
 include upstream-disabled tests; these counts are not executed-pass counts.
+The main suite has 1,501 upstream-disabled and 17,228 active registrations;
+all 38 intra-prediction speed registrations are upstream-disabled.
 Preserve original names, parameters, assertions, disabled status, fixtures,
 and expected output. Separate scalar-code coverage from architecture-specific
 tests excluded by the declared generic configuration.
@@ -50,6 +57,45 @@ records SHA-256 and byte sizes. Do not regenerate goldens. Preserve failed and
 skipped inventories, and account separately for header-only C/C++ algorithms
 compiled into the test consumer. Linking a test executable alone does not prove
 that every original assertion exercises Rust.
+
+`tools/build_aom_consumers.py` relinks unchanged original test, app, and example
+objects against the Rust archive. Upstream compiles `common/args_helper.c` and
+`av1/arg_defs.c` into both the library and app object targets. The bridge removes
+only those source-identical app copies so their functions and data resolve to
+Rust in both profiles. It rejects other production-source overlaps and records
+the exact link command and map for each consumer.
+
+## Current macOS pilot evidence
+
+Both complete generated profiles reproduce from the pinned translation inputs.
+The raw API example initializes the encoder, allocates/frees an image, and
+destroys the encoder in Debug and Release. Five runtime tests exercise the
+typed nonlocal-error mapping described in ADR 0036.
+
+The focused original suites execute the same 62 cases in each C and Rust
+profile, covering images, LEB128, decoder/encoder errors, film-grain tables,
+metadata, key/value controls, and allocation-size overflow. None fail or skip.
+These are focused checks, not full-suite acceptance.
+
+Supplemental comparisons in each profile preserve exact output:
+
+- Twelve public API round trips cover 8/10/12-bit 4:2:0, 4:2:2, 4:4:4, and
+  monochrome, odd dimensions, three frames, two threads, packet metadata,
+  decoded planes, draining, and destruction.
+- Twelve CLI encode/decode cases cover intra/inter, good-quality, multithreaded,
+  and lossless paths. Two additional 12-bit non-4:2:0 CLI configurations preserve
+  the original control-sequence rejection and diagnostic. The direct API round
+  trips cover successful encoding of those formats independently.
+- Named record size, alignment, and field-offset probes compare every selected
+  translation unit against Clang. Anonymous records and bitfield offsets are
+  explicitly excluded from that check's scope.
+
+Durable results and remaining gates are recorded in
+[`aom-validation-results.json`](aom-validation-results.json). Full-suite
+execution, header-inline and scalar DSP test correspondence, allocation/thread
+failures, sanitizer coverage, Linux profiles, and root integration remain open.
+Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
+must not be counted as Rust implementation coverage.
 
 ## Execution and acceptance
 
@@ -83,6 +129,18 @@ python3 tools/generate_licenses.py --check
 python3 tools/build_aom.py --debug
 python3 tools/build_aom.py
 python3 tools/fetch_aom_test_data.py
+python3 tools/transpile_aom.py
+python3 tools/transpile_aom.py --release
+python3 tools/build_aom_consumers.py --debug
+python3 tools/build_aom_consumers.py
+python3 tools/check_aom_abi.py
+python3 tools/check_aom_abi.py --release
+python3 tools/check_aom_cli.py --debug
+python3 tools/check_aom_cli.py
+python3 tools/check_aom_roundtrip.py --debug
+python3 tools/check_aom_roundtrip.py
+python3 tools/run_aom_tests.py
+python3 tools/run_aom_tests.py --rust
 ```
 
 Native build evidence is written to `build/aom-native-{debug,release}`. The
