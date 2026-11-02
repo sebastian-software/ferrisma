@@ -1256,7 +1256,31 @@
       "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
       "rust_archive_sha256": "603bd67357ea71de21f8222eea712b98f50ba6234ba22955579ef8fc7292af25",
       "raw_api_example_passed": true,
-      "complete_import_reproduced": true
+      "complete_import_reproduced": true,
+      "allocation_failures": {
+        "profile": "debug",
+        "target": "macOS ARM64",
+        "hooks": [
+          "malloc",
+          "calloc",
+          "realloc",
+          "free"
+        ],
+        "single_threaded": true,
+        "paired_scenarios": 306,
+        "original_translation_units": 168,
+        "rewritten_rust_codegen_objects": 257,
+        "source_sha256": "f6fa06bd1e035def498bf5f605f8f1e434b4a398ccb040ec5172115b34485012",
+        "input_sha256": "ab8ccf9674e053548f6cb09eb1dd42f8a19a78bf9993bd82cdb9f38197467e55",
+        "native_vmaf_unhooked": true,
+        "rust_runtime_and_unwind_payload_unhooked": true,
+        "failure_points": {
+          "encoder": 270,
+          "decoder": 34
+        },
+        "mismatches": 0,
+        "outstanding_codec_allocations": 0
+      }
     },
     "release": {
       "aom-cli": {
@@ -2461,20 +2485,48 @@
         }
       ],
       "named_record_abi": {
-        "status": "pending"
+        "record_instances": 18157,
+        "checks": 204684,
+        "differences": [],
+        "excluded_count": 1423,
+        "excluded_scope": "Anonymous records; field offsets for anonymous fields and bitfields"
       },
       "translation_manifest_sha256": "646058753c64cebc8efcd6dfa91a9fd1070d77a6b83458d4c8d6ff0c49116008",
       "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
       "rust_archive_sha256": "31bdc814535ec2a6fd12190f5a92142ba4e2246510a3ed790b23e8b836525ceb",
       "raw_api_example_passed": true,
-      "complete_import_reproduced": true
+      "complete_import_reproduced": true,
+      "allocation_failures": {
+        "profile": "release",
+        "target": "macOS ARM64",
+        "hooks": [
+          "malloc",
+          "calloc",
+          "realloc",
+          "free"
+        ],
+        "single_threaded": true,
+        "paired_scenarios": 306,
+        "original_translation_units": 168,
+        "rewritten_rust_codegen_objects": 17,
+        "source_sha256": "f6fa06bd1e035def498bf5f605f8f1e434b4a398ccb040ec5172115b34485012",
+        "input_sha256": "ab8ccf9674e053548f6cb09eb1dd42f8a19a78bf9993bd82cdb9f38197467e55",
+        "native_vmaf_unhooked": true,
+        "rust_runtime_and_unwind_payload_unhooked": true,
+        "failure_points": {
+          "encoder": 270,
+          "decoder": 34
+        },
+        "mismatches": 0,
+        "outstanding_codec_allocations": 0
+      }
     }
   },
   "open_gates": [
     "Full native/Rust main-suite execution in both profiles",
     "Review original header-inline and scalar DSP test correspondence",
     "Original C++ wrapper/test infrastructure boundary",
-    "Allocation and thread failure parity; sanitizer checks",
+    "Additional allocation and thread failure scenarios; sanitizer checks",
     "Native GNU Linux x86-64 generation and validation",
     "Symbol/link-map audit",
     "Root libavif integration and original suites",

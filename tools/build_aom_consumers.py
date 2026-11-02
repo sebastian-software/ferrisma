@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Relink original libaom tests/apps/examples with the Rust codec archive."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -36,7 +37,9 @@ def main():
         if set(args.only) - set(executables):
             raise SystemExit('Unknown original consumer requested')
         executables = [name for name in executables if name in args.only]
-    linkage = []
+    record_path = output / 'linkage.json'
+    linkage = {item['executable']: item for item in json.loads(record_path.read_text())} if record_path.exists() else {}
+    archive_sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
     for executable in executables:
         commands = subprocess.check_output(['ninja', '-C', build, '-t', 'commands', executable], text=True)
         command = shlex.split(commands.splitlines()[-1])
@@ -69,11 +72,13 @@ def main():
         link_map = output / f'{executable}.map'
         command.append(f'-Wl,-map,{link_map}' if sys.platform == 'darwin' else f'-Wl,-Map,{link_map}')
         subprocess.run(command, cwd=build, check=True)
-        linkage.append(dict(executable=executable, codec_replacements=replacements,
+        linkage[executable] = dict(executable=executable, codec_replacements=replacements,
+                            rust_archive_sha256=archive_sha256,
+                            executable_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),
                             unchanged_original_test_objects=True,
-                            identical_source_app_objects_replaced=overlaps, command=command))
+                            identical_source_app_objects_replaced=overlaps, command=command)
         print(f'Relinked original {executable} with the Rust codec', flush=True)
-    (output / 'linkage.json').write_text(json.dumps(linkage, indent=2) + '\n')
+    record_path.write_text(json.dumps([linkage[name] for name in sorted(linkage)], indent=2) + '\n')
 
 
 if __name__ == '__main__':

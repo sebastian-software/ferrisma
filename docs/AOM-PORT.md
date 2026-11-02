@@ -89,11 +89,19 @@ Supplemental comparisons in each profile preserve exact output:
 - Named record size, alignment, and field-offset probes compare every selected
   translation unit against Clang. Anonymous records and bitfield offsets are
   explicitly excluded from that check's scope.
+- Single-allocation failure sweeps run 306 paired scenarios per profile:
+  270 encoder allocation failures, 34 decoder allocation failures, and two
+  successful baselines. Initialization, controls, encode/decode, diagnostics,
+  destruction, allocation counts, and outstanding codec allocations match.
+  All observed allocations are released. Only codec object references to
+  malloc/calloc/realloc/free are hooked; native VMAF, Rust runtime allocations,
+  and the unwind payload allocation remain outside this single-threaded check.
 
 Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
-execution, header-inline and scalar DSP test correspondence, allocation/thread
-failures, sanitizer coverage, Linux profiles, and root integration remain open.
+execution, header-inline and scalar DSP test correspondence, additional
+allocation/thread failure scenarios, sanitizer coverage, Linux profiles, and
+root integration remain open.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
 
@@ -139,6 +147,8 @@ python3 tools/check_aom_cli.py --debug
 python3 tools/check_aom_cli.py
 python3 tools/check_aom_roundtrip.py --debug
 python3 tools/check_aom_roundtrip.py
+python3 tools/check_aom_faults.py --debug
+python3 tools/check_aom_faults.py
 python3 tools/run_aom_tests.py
 python3 tools/run_aom_tests.py --rust
 ```
