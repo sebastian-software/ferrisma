@@ -87,6 +87,8 @@ jobs:
           python3 tools/check_aom_inlines.py
           python3 tools/check_aom_oracles.py --debug
           python3 tools/check_aom_oracles.py
+          python3 tools/check_aom_oracles.py --debug --suite softmax
+          python3 tools/check_aom_oracles.py --suite softmax
       - name: Compare native VMAF modes with the integer model
         if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |

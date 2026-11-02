@@ -172,6 +172,14 @@ link maps verify the six subjects belong to Rust and their oracles to isolated
 C objects. This covers horizontal, vertical, and copy kernels at 8/10/12 bits.
 Other DSP roles and scalar self-comparisons still require review.
 
+The same isolated archive also supplies `av1_nn_softmax` for the reference call
+in the two original `C/FastSoftmaxTest.RandomValues` cases. The anchor call to
+`av1_nn_softmax` and the `av1_nn_fast_softmax_16_c` parameter remain Rust
+subjects. Debug and Release pass with original inputs and numerical thresholds
+unchanged, all registrations preserved, and both sides' ownership checked in
+the link map. This is original tolerance-based coverage, not a bitwise floating
+point comparison. Disabled speed cases remain disabled.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
@@ -220,6 +228,8 @@ python3 tools/check_aom_inlines.py --debug
 python3 tools/check_aom_inlines.py
 python3 tools/check_aom_oracles.py --debug
 python3 tools/check_aom_oracles.py
+python3 tools/check_aom_oracles.py --debug --suite softmax
+python3 tools/check_aom_oracles.py --suite softmax
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug

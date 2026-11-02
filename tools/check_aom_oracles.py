@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preserve original convolution assertions with separate C oracle/Rust subjects."""
+"""Preserve original assertions with separate C oracles and Rust subjects."""
 import argparse
 import hashlib
 import json
@@ -30,9 +30,19 @@ SITES = {
 }
 FILTER = ':'.join(f'C/AV1Convolve{name}Test.RunTest/*' for name in
                   ['X', 'XHighbd', 'Y', 'YHighbd', 'Copy', 'CopyHighbd'])
+SUITES = {
+    'convolution': dict(source=SOURCE, sites=SITES, subjects=list(SITES), filter=FILTER, cases=243,
+                        headers=['config/av1_rtcd.h', 'config/aom_dsp_rtcd.h']),
+    # RunSoftmaxTest's reference stays C. AnchorSoftmax16Fn and the fast
+    # parameter remain Rust subjects, including the original anchor case.
+    'softmax': dict(source='test/av1_softmax_test.cc', sites={'av1_nn_softmax': [64]},
+                    subjects=['av1_nn_softmax', 'av1_nn_fast_softmax_16_c'],
+                    filter='C/FastSoftmaxTest.RandomValues/*', cases=2,
+                    headers=['av1/encoder/ml.h']),
+}
 
 
-def audit_map(path, symbols, rust_archive, oracle_archive):
+def audit_map(path, symbols, rust_archive, oracle_archive, subjects, oracles):
     loaded, oracle_loaded = set(), set()
     owners, _ = consumer_owners(path)
     for name, owner in owners.items():
@@ -44,52 +54,59 @@ def audit_map(path, symbols, rust_archive, oracle_archive):
             if not owner.startswith(str(oracle_archive) + '('):
                 raise SystemExit(f'Oracle global supplied outside isolated C: {name}: {owner}')
             oracle_loaded.add(name[len(PREFIX):])
-    if not set(SITES) <= loaded or not set(SITES) <= oracle_loaded:
+    if not set(subjects) <= loaded or not set(oracles) <= oracle_loaded:
         raise SystemExit('The original subject and independent C oracle are not both loaded')
     return dict(rust_original_globals=len(loaded), isolated_c_oracle_globals=len(oracle_loaded),
-                reviewed_subject_and_oracle_functions=sorted(SITES),
+                reviewed_rust_subjects=sorted(subjects), reviewed_c_oracles=sorted(oracles),
                 map_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--suite', choices=SUITES, default='convolution')
     args = parser.parse_args()
+    suite = SUITES[args.suite]
+    source_name, oracle_sites = suite['source'], suite['sites']
     profile = 'debug' if args.debug else 'release'
     build = ROOT / f'build/aom-native-{profile}'
-    work = ROOT / f'build/aom-oracles-{profile}'
+    suffix = '' if args.suite == 'convolution' else '-' + args.suite
+    work = ROOT / f'build/aom-oracles-{profile}{suffix}'
     work.mkdir(parents=True, exist_ok=True)
     archive = ROOT / f'target/{profile}/libaom.a'
     oracle, symbols, oracle_record = reference_archive(profile)
     entries = json.loads((build / 'compile_commands.json').read_text())
     source_root = ROOT / 'build/aom-native-source'
-    source = source_root / SOURCE
-    source_hash = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files'][SOURCE]
+    source = source_root / source_name
+    source_hash = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files'][source_name]
     if hashlib.sha256(source.read_bytes()).hexdigest() != source_hash:
-        raise SystemExit('Modified original convolution test source')
+        raise SystemExit(f'Modified original test source: {source_name}')
     entry = next(value for value in entries if Path(value['file']) == source)
     original = source.read_text()
-    lexemes, replacements, sites = tokens(original), [], {name: [] for name in SITES}
+    lexemes, replacements, sites = tokens(original), [], {name: [] for name in oracle_sites}
     for index, token in enumerate(lexemes[:-1]):
-        if token[0] in SITES and lexemes[index + 1][0] == '(':
-            sites[token[0]].append(original.count('\n', 0, token.start()) + 1)
+        line = original.count('\n', 0, token.start()) + 1 if token[0] in oracle_sites else 0
+        if token[0] in oracle_sites and line in oracle_sites[token[0]] and lexemes[index + 1][0] == '(':
+            sites[token[0]].append(line)
             replacements.append((token.start(), token.end(), PREFIX + token[0]))
-    if sites != SITES:
+    if sites != oracle_sites:
         raise SystemExit(f'Original oracle call sites changed: {sites}')
     text = original
     for start, end, name in reversed(replacements):
         text = text[:start] + name + text[end:]
     include = work / 'oracles.h'
-    include.write_text('#include "config/av1_rtcd.h"\n#include "config/aom_dsp_rtcd.h"\nextern "C" {\n'
-                       + ''.join(f'decltype({name}) {PREFIX}{name};\n' for name in SITES) + '}\n')
-    copied = work / 'av1_convolve_test.cc'
-    copied.write_text(f'#line 1 "{SOURCE}"\n' + text)
-    output = work / 'av1_convolve_test.cc.o'
+    include.write_text(''.join(f'#include "{name}"\n' for name in suite['headers']) + 'extern "C" {\n'
+                       + ''.join(f'decltype({name}) {PREFIX}{name};\n' for name in oracle_sites) + '}\n')
+    copied = work / source.name
+    copied.write_text(f'#line 1 "{source_name}"\n' + text)
+    output = work / (source.name + '.o')
     subprocess.run([*compiler_flags(entry), '-include', include, '-c', copied, '-o', output],
                    cwd=entry['directory'], check=True)
     undefined = {line.split()[-1] for line in subprocess.check_output(['nm', '-u', output], text=True).splitlines() if line.split()}
     decoration = '_' if sys.platform == 'darwin' else ''
-    if not {decoration + prefix + name for prefix in ['', PREFIX] for name in SITES} <= undefined:
+    expected = {decoration + name for name in suite['subjects']}
+    expected.update(decoration + PREFIX + name for name in oracle_sites)
+    if not expected <= undefined:
         raise SystemExit('Original parameterized subjects and isolated C oracles must both remain external')
     commands = subprocess.check_output(['ninja', '-C', build, '-t', 'commands', 'test_libaom'], text=True)
     command = shlex.split(commands.splitlines()[-1])
@@ -115,7 +132,7 @@ def main():
     link_map = work / 'test_libaom.map'
     command.append(f'-Wl,-map,{link_map}' if sys.platform == 'darwin' else f'-Wl,-Map,{link_map},--cref')
     subprocess.run(command, cwd=build, check=True)
-    ownership = audit_map(link_map, symbols, archive, oracle)
+    ownership = audit_map(link_map, symbols, archive, oracle, suite['subjects'], oracle_sites)
     names = test_names((build / 'test_libaom-inventory.txt').read_text())
     if test_names(subprocess.check_output([executable, '--gtest_list_tests'], text=True)) != names:
         raise SystemExit('Independent oracle binding changed original registrations, order, or parameters')
@@ -124,7 +141,7 @@ def main():
     for label, binary in [('c', build / 'test_libaom'), ('rust', executable)]:
         xml = work / f'{label}.xml'
         with (work / f'{label}.log').open('w') as log:
-            subprocess.run([binary, f'--gtest_filter={FILTER}', f'--gtest_output=xml:{xml}'],
+            subprocess.run([binary, f'--gtest_filter={suite["filter"]}', f'--gtest_output=xml:{xml}'],
                            cwd=build, env=environment, stdout=log, stderr=subprocess.STDOUT, check=True)
         cases = [dict(name=case.attrib['classname'] + '.' + case.attrib['name'],
                       failed=bool(case.findall('failure')), skipped=bool(case.findall('skipped')))
@@ -132,16 +149,16 @@ def main():
         if any(case['failed'] or case['skipped'] for case in cases):
             raise SystemExit('An original independent-oracle assertion failed or skipped')
         results.append(cases)
-    if results[0] != results[1] or len(results[1]) != 243:
+    if results[0] != results[1] or len(results[1]) != suite['cases']:
         raise SystemExit('Original independent-oracle execution inventories differ')
     record = dict(profile=profile, original_registrations=len(names), executed_original_cases=len(results[1]),
                   original_assertions_parameters_and_disabled_flags_unchanged=True,
-                  original_source=SOURCE, original_source_sha256=source_hash, oracle_sites=SITES,
+                  original_source=source_name, original_source_sha256=source_hash, oracle_sites=oracle_sites,
                   binding_copy_sha256=hashlib.sha256(copied.read_bytes()).hexdigest(),
                   complete_dsp_role_review=False, reference_archive=oracle_record, ownership=ownership,
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), cases=results[1])
     (work / 'summary.json').write_text(json.dumps(record, indent=2) + '\n')
-    print('243 original convolution cases compare six Rust subjects with isolated C oracles')
+    print(f'{len(results[1])} original {args.suite} cases compare {len(suite["subjects"])} Rust subjects with isolated C oracles')
 
 
 if __name__ == '__main__':
