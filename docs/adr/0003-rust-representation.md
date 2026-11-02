@@ -1128,6 +1128,14 @@ subtraction and foreground-first additions; replacing it with a negated product
 changes exceptional words. ARM retains its source contraction. Local arithmetic
 call boundaries preserve those choices across Rust optimization. The selected
 pristine configuration and its finite/default audit are recorded in ADR 0002.
+PerformMulBlending also passes its literal background-first product through the
+existing out-of-line binary32 multiplication boundary. Native Linux ordinary
+Debug matched the selected source, while Rust Release commuted competing NaN
+operands in the clamped 1,536-pixel request. Retain the same request and every
+expected word; the call boundary preserves source operand order without changing
+the clamp, multiplication, rounding, or loop. Native replacement parity remains
+the acceptance gate.
 The original zero-width aliased memcpy boundary is exercised separately by
 oracle subprocesses, with explicit sanitizer evidence and no claimed source
-pixel semantics. Rust's empty owned temporary remains safe to represent.
+pixel semantics, including the source-derived tree-rendering boundaries recorded
+in ADR 0002. Rust's empty owned temporary remains safe to represent.

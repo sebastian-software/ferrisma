@@ -299,5 +299,26 @@ report that exact diagnostic. ARM and ordinary executions are retained as
 platform observations; successful execution does not establish defined pixel
 semantics. These requests have no C++/Rust pixel comparison. The remaining 360
 blend requests, including 72 zero-width cases, retain exact parity, and direct
-zero-count alpha calls use non-null backing. No source fix, sanitizer suppression,
-blanket filter or silently skipped request is introduced.
+zero-count alpha calls use non-null backing.
+
+The tree corpus also retains every one of its original 1,728 requests. A native
+Linux instrumented run exposed the same alpha.cc:70 boundary during actual
+AddOneRow/stage rendering. Original decoded positions, reference rectangles and
+blendings independently predict exactly 48 aliased zero-size calls: one extra
+channel with modes 5/6, or three extra channels with modes 3/4, render modes 1/2,
+and the x=8 zero-width geometry, across all three prefixes and both association
+settings. Preserve the other 1,680 requests byte-for-byte in exact parity, and
+execute these 48 in individual original-only subprocesses alongside the previous
+24 probes. A recognized diagnostic must be the complete non-recovering
+alpha.cc:70 null-argument report; reject other stderr or failures.
+
+tools/patches_boundaries.py extracts the actual Rust fixture generator, obtains
+its entropy streams from the original encoder, and independently derives the
+boundary set from original decoded metadata. It executes all 1,728 requests
+separately in both original graphs and saves full stdout, stderr, statuses and
+source-trigger evidence. Native Linux instrumentation must establish precisely
+the predicted 48 diagnosed requests; successful ARM executions do not confirm
+their pixel semantics. The prediction remains distinct from native confirmation
+until that census completes. Every defined ordinary/instrumented observation
+must remain exact. No source fix, sanitizer suppression, blanket filter or
+silently skipped request is introduced.

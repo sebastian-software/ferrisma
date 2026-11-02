@@ -47,11 +47,16 @@ jobs:
       - name: Record native alpha configuration diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/alpha_diagnostics.py
+      - name: Census every original patch-tree boundary
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/patches_boundaries.py
       - name: Retain native alpha diagnostic evidence
         if: always() && runner.os == 'Linux'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: alpha-diagnostics-${{ runner.os }}
-          path: target/alpha-diagnostics.json
+          path: |
+            target/alpha-diagnostics.json
+            target/patches-boundaries.json
           if-no-files-found: error
           retention-days: 7

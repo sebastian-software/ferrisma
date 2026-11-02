@@ -128,12 +128,16 @@ pub fn perform_alpha_weighted_add(
 }
 pub fn perform_mul_blending(bg: &[f32], fg: &[f32], out: &mut [f32], n: usize, clamp: bool) {
     for x in 0..n {
-        out[x] = bg[x]
-            * if clamp {
+        // Keep the selected original's literal background-first product across
+        // Rust optimization, including competing NaN operands after Clamp.
+        out[x] = mul(
+            bg[x],
+            if clamp {
                 clamp_f32(fg[x], 0.0, 1.0)
             } else {
                 fg[x]
-            };
+            },
+        );
     }
 }
 // The selected pristine alpha TU retains scalar expression order and std::max's

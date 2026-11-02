@@ -518,8 +518,7 @@ fn chunks(cases: Vec<String>) {
     println!("{} C++/Rust differential cases matched", cases.len());
 }
 
-#[test]
-fn patches_real_entropy_tree_rows_clipping_and_stage() {
+fn patch_tree_cases() -> Vec<(String, bool)> {
     let mut cases = Vec::new();
     for n in [0, 1, 3] {
         for mode in 0..8 {
@@ -530,13 +529,40 @@ fn patches_real_entropy_tree_rows_clipping_and_stage() {
                         for (x, width, l, r) in
                             [(0, 14, 0, 0), (3, 5, 0, 0), (3, 5, 2, 3), (8, 0, 0, 0)]
                         {
-                            cases.push(read(n, assoc, render, x, width, l, r, prefix, &bytes));
+                            // Original decoded blendings repeat these modes and
+                            // alpha selections for each generated position.
+                            // A zero-width AddOneRow at x=8 reaches patches:
+                            // its strict left-edge check retains the zero-size
+                            // clipped call. Weighted-add on its selected alpha
+                            // aliases fg/fga and calls memcpy(null,bg,0).
+                            let aliased_weighted = (1..=n).any(|j| {
+                                let ec_mode = (mode + j as u32) % 8;
+                                let alpha = if n > 1 && j % 2 != 0 { 2.min(n - 1) } else { 0 };
+                                ec_mode >= 6 && alpha == j - 1
+                            });
+                            let source_undefined =
+                                render != 0 && (x, width, l, r) == (8, 0, 0, 0) && aliased_weighted;
+                            cases.push((
+                                read(n, assoc, render, x, width, l, r, prefix, &bytes),
+                                source_undefined,
+                            ));
                         }
                     }
                 }
             }
         }
     }
+    assert_eq!(cases.len(), 1728);
+    assert_eq!(cases.iter().filter(|(_, undefined)| *undefined).count(), 48);
+    cases
+}
+
+#[test]
+fn patches_real_entropy_tree_rows_clipping_and_stage() {
+    let cases = patch_tree_cases()
+        .into_iter()
+        .filter_map(|(request, undefined)| (!undefined).then_some(request))
+        .collect();
     chunks(cases);
 }
 #[test]
@@ -697,7 +723,13 @@ fn patches_all_blends_alpha_aliases_and_float_words() {
 
 #[test]
 fn patches_original_zero_width_alias_memcpy_undefined_boundary() {
-    let (_, cases) = patch_blend_cases();
+    let (_, mut cases) = patch_blend_cases();
+    cases.extend(
+        patch_tree_cases()
+            .into_iter()
+            .filter_map(|(request, undefined)| undefined.then_some(request)),
+    );
+    assert_eq!(cases.len(), 72);
     let instrumented = original_observations(&["patch-sanitizers".into()])[0] == "1";
     let oracle = std::env::var_os("JXL_CPP_ORACLE")
         .map(PathBuf::from)
@@ -717,15 +749,25 @@ fn patches_original_zero_width_alias_memcpy_undefined_boundary() {
             .wait_with_output()
             .expect("observe original UB boundary");
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let null_memcpy = stderr.contains("alpha.cc:70:")
-            && stderr.contains("null pointer passed as argument 1")
-            && stderr.contains("UndefinedBehaviorSanitizer");
+        let diagnostic: Vec<_> = stderr.lines().filter(|line| !line.is_empty()).collect();
+        let null_memcpy = diagnostic.len() == 3
+            && diagnostic[0].contains("alpha.cc:70:")
+            && diagnostic[0].ends_with(
+                "runtime error: null pointer passed as argument 1, which is declared to never be null",
+            )
+            && diagnostic[1].ends_with("note: nonnull attribute specified here")
+            && diagnostic[2].contains("SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior ")
+            && diagnostic[2].trim_end().ends_with("alpha.cc:70:12");
         if null_memcpy {
+            assert!(
+                !output.status.success(),
+                "original non-recovering sanitizer returned success: {stderr}"
+            );
             diagnosed += 1;
             println!("Original undefined zero-width alias request: {request}\n{stderr}");
         } else {
             assert!(
-                output.status.success(),
+                output.status.success() && stderr.is_empty(),
                 "unexpected original UB probe failure: {stderr}"
             );
         }
@@ -739,8 +781,9 @@ fn patches_original_zero_width_alias_memcpy_undefined_boundary() {
         // a successful execution on another graph does not define this call.
     }
     println!(
-        "24 original undefined boundary probes exercised; {diagnosed} diagnosed; \
-              360 defined blend requests (72 zero-width) remain exact parity"
+        "72 original undefined boundary probes exercised (24 blend, 48 tree); \
+              {diagnosed} diagnosed; 360 defined blend and 1680 defined tree \
+              requests remain exact parity"
     );
 }
 

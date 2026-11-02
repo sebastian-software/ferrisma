@@ -1361,7 +1361,7 @@ libc++ non-arithmetic sort, preserving tied-element ordering in tree arrays.
 The scalar alpha and blending dependencies and both borrowed/shared patch stages
 are translated too. Complete-file reference-frame orchestration remains separate.
 
-Ten differential groups compare 5,526 defined original requests. The corpus
+Ten differential groups compare 5,478 defined original requests. The corpus
 includes real entropy streams, truncation/mutation/reuse, complete initialized
 tree arrays, row/stage rendering, every blending mode, alpha aliases and
 exceptional floats. Ninety padded-coordinate stage cases preserve size_t wrapping
@@ -1372,10 +1372,20 @@ retain captured original streams, alpha comparison behavior and the independent
 color/alpha reference regression.
 
 The original blend corpus remains fully accounted for: 360 exact defined requests
-include 72 zero-width cases; another test positively executes all 24 original
-zero-width alias requests whose memcpy destination is null. Linux instrumentation
-must diagnose `alpha.cc:70`; ordinary/ARM observations do not define those pixel
-words. Direct zero-count alpha kernels retain non-null backing.
+include 72 zero-width cases. The tree corpus retains all 1,728 old requests,
+with 1,680 defined cases still compared exactly. Original decoded metadata
+predicts 48 additional zero-size aliased weighted-add calls during tree/stage
+rendering. Another test explicitly executes all 72 original-only probes (24
+blend and 48 tree). Native Linux instrumentation must diagnose precisely
+`alpha.cc:70`; ordinary/ARM observations do not define those pixel words. The
+independent tools/patches_boundaries.py census executes every tree request in
+both original graphs, preserves exact diagnostics and rejects any unpredicted
+failure. The 48-case prediction awaits that actual native census. Direct
+zero-count alpha kernels retain non-null backing.
+
+The defined tree cases retain 384 of the original 432 zero-width requests,
+including 240 rendered zero-width calls. Only the 48 predicted aliased calls
+move to explicit probes; all 72 defined zero-width direct blend cases remain.
 
 The alpha reference audit compares 1,944 actual fixture requests between selected
 ordinary and fully ASan/UBSan graphs and checks all 1,632 finite requests against
@@ -1385,10 +1395,20 @@ and no-inline configuration, with strict FP additionally on x86_64 Linux.
 ARM retains source contraction; strict FP there changes finite words. The
 [native source experiment](https://github.com/sebastian-software/libjxl-rs/actions/runs/41446120185)
 records the accepted x86 strict-O0 configuration and rejected candidates. Both
-full local gates pass Debug, Release and Rust 1.85 against ordinary and fully
-ASan/UBSan original graphs: each of six configurations completes 439 tests, 257
-parity groups, 874,113 defined requests and all 24 explicit original-only probes
-with no failures or ignored tests. Final native Rust CI and hosted integration
-remain required beyond the source-only experiment. No original source or sanitizer changes, unsafe operation, assembly,
+initial local ARM gates passed Debug, Release and Rust 1.85 but included the
+48 subsequently identified undefined tree observations; their apparent ARM
+success does not establish pixel parity. The corrected multiply operation keeps
+the source's background-first product through the existing binary32 call
+boundary, retaining all old exceptional requests. All six corrected local ARM
+focused configurations (ordinary/ASan × Debug/Release/Rust 1.85) pass 11 parity
+tests with 5,478 exact defined requests, all 72 original-only probes and all
+three standalone regressions. The local independent census executes all 1,728
+tree requests in both graphs with no diagnostics and exact defined observations;
+it explicitly leaves native Linux confirmation pending. Both full corrected
+local gates also passed: all six ordinary/ASan/UBSan Debug, Release and Rust 1.85
+configurations completed 439 tests, 257 parity tests, 874,065 exact defined
+requests and all 72 original-only probes, with no failures or ignored tests.
+Native census, final native Rust CI and hosted integration remain required.
+No original source or sanitizer changes, unsafe operation, assembly,
 relaxed float comparison or changed old defined case is used. The README patch
 checkbox remains open until complete-file reference orchestration is connected.
