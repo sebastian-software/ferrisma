@@ -511,6 +511,7 @@ bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemory
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool DecoderGeometryCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool OutputStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -595,6 +596,7 @@ int main() {
       else if (EPFCommand(command, in, &mm)) {}
       else if (PatchesCommand(command, in, &mm)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
+      else if (DecoderGeometryCommand(command, in, &mm)) {}
       else if (ChromaImageCommand(command, in, &mm)) {}
       else if (OutputStageCommand(command, in, &mm)) {}
       else if (ChromaStagesCommand(command, in, &mm)) {}

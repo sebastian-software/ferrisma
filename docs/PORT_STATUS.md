@@ -10,8 +10,9 @@ Scalar EPF and noise/spline effects are connected for this profile. The internal
 sequence decoder also connects patches, general NONE/XYB Modular frames,
 reference/DC frames, blending, animation, previews and the admitted YCbCr/chroma
 paths. Associated/subsampled alpha and every source-defined extra-channel type are
-connected at this internal boundary. General orientation, ICC/default CMS, JPEG
-reconstruction, containers and public APIs remain separate work.
+connected at this internal boundary. Complete geometry/orientation is connected
+through the verified source boundary below. ICC/default CMS, JPEG reconstruction,
+containers and public APIs remain separate work.
 See [VARDCT_IMAGE.md](VARDCT_IMAGE.md) for the complete configuration and evidence.
 The lossless encoder/decoder profile and its existing corpus remain unchanged.
 There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
@@ -1665,12 +1666,20 @@ no source or sanitizer is changed and no prior defined request is discarded.
 The internal sequence decoder still uses its existing bundle/DC writers. This
 leaf does not complete the public incremental API, container parsing, direct
 public callback registration, or custom allocator propagation through unrelated
-codec owners. All six complete local configurations pass: Debug, Release and Rust 1.85
-against ordinary and nonrecovering ASan/UBSan originals after integration with
+codec owners. The pre-geometry union passed all six local configurations:
+Debug, Release and Rust 1.85 against ordinary and nonrecovering ASan/UBSan
+originals after integration with
 the accepted extra-channel implementation. Each runs 540 tests, 327 differential
 groups and 1,036,783 exact defined comparisons, with zero failures or ignored
 tests. The independent output-stage, extra-channel and retained frame-lifecycle
-source audits also pass. Native Linux/macOS CI remains an integration gate.
+source audits also pass. Native [run 41517918249](https://github.com/sebastian-software/libjxl-rs/actions/runs/41517918249)
+passes all six configurations and source audits on both Linux and macOS for
+this source tree: Linux runs 541 tests per configuration; macOS runs 540.
+The geometry union passes all six complete local configurations with 545
+tests, 331 differential groups and 1,095,471 exact defined requests each, with
+zero failures or ignored tests. The output-stage, lifecycle, extra-channel and
+geometry source audits all pass. Fresh native acceptance of this union remains
+pending.
 
 ## Associated alpha and remaining extra channels in complete sequences
 
@@ -1731,3 +1740,55 @@ captures and every positive diagnostic; no source routine, sanitizer, or old
 expected word changes. The original undefined stores receive no Rust output
 semantics. A separate sixth source-only group requires these exact diagnostics
 from the instrumented graph.
+
+## Complete sequence geometry and orientation
+
+The sequence boundary now accepts every parsed YCbCr channel mode and retains
+orientation/intrinsic-size metadata without adding a pixel transform inside the
+decoder. Existing per-channel horizontal/vertical chroma stages, source crop and
+blend scheduling, spatial resampling and external orientation conversion retain
+their original algorithms. Fixed Thunder/Modular/VarDCT profile admission stays
+unchanged. General color management and direct output-stage callbacks remain
+separate boundaries.
+
+The genuine JPEG corpus includes all 64 triples of 1x1/2x2/2x1/1x2 input sampling
+factors at 13x11 and 1x1, using separate sequential component scans. The actual
+pinned public JPEG encoder reproduces all 128 stored JPEG XL payloads. Original
+canonicalization can map different JPEG inputs to the same effective shifts;
+these are 64 input triples, not 64 distinct effective frame layouts. Twenty
+additional actual encoder sequences retain cropping/blending, reference overwrite,
+animation, main/alpha resampling, multigroup edges and previews. Eight of
+those sequences additionally combine every orientation with associated and
+subsampled alpha, all source-defined extra-channel types, mixed sampling,
+independent float alpha, multiple alpha/spot channels, filters and references.
+
+The actual original global metadata writer produces all eight orientations with
+alternating explicit/absent intrinsic size. Its zero-change control reproduces
+the exact original header, and every rewrite preserves the complete frame
+payload byte for byte. Differential groups compare 1,184 successful complete
+files, 37,376 integer/half/float buffer exports and 20,128 truncation/corruption
+observations. Output coverage includes one through four channels, keep-orientation
+both ways, every byte-order option and aligned row padding. Source previews use
+the existing explicit preview DecodeFrame path; this export observer receives
+non-preview files. Every complete positive request must succeed in the original.
+
+A separate ordinary Rust test checks 154 RGBA buffers captured independently from
+both original graphs, including all eight oriented dimensions, untouched padding
+and trailing guard bytes. The source audit reproduces fixture bytes and those
+captures, verifies actual metadata/frame/output and selected chroma symbol
+bindings, and repeats the full 58,688-request corpus with unchanged original
+objects and active binaries. All previous 55,488 geometry requests remain in
+that corpus, with 3,200 additional cross-feature observations.
+
+With the verified extra-channel prerequisite, all six full local checks pass:
+535 tests, 322 differential groups and 1,091,467 exact defined requests per
+configuration, with no failures or ignored tests. Debug, Release and Rust 1.85
+each compare against ordinary and ASan/UBSan originals. The separate source
+audit reproduces all 128 JPEG encodings, 20 sequence encodings, eight metadata
+rewrites and 154 native captures under both original graphs. Native [run 41505031128](https://github.com/sebastian-software/libjxl-rs/actions/runs/41505031128)
+now passes all six configurations and every source audit on Linux and macOS.
+Each configuration retains 322 groups and 1,091,467 exact defined requests, with
+zero failures or ignored tests. Linux runs 536 tests per configuration; macOS
+runs 535. The verified source is merged through [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32),
+and the README geometry milestone is checked. Color management/HDR, original
+JPEG reconstruction and the public incremental decoder remain open.

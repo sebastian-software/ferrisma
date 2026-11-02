@@ -70,7 +70,7 @@ sequence and acceptance gates for this work.
 - [x] Complete spline decoding and rendering.
 - [x] Expand complete-file Modular decoding beyond the fixed Thunder profile.
 - [x] Support reference/DC frames, blending, animation and previews.
-- [ ] Connect chroma subsampling, cropping, resampling and orientation in general
+- [x] Connect chroma subsampling, cropping, resampling and orientation in general
   complete-image decoding.
 - [x] Support associated/subsampled alpha and the remaining extra-channel types.
 - [ ] Connect alternate color profiles and HDR/tone-mapping paths beyond the
