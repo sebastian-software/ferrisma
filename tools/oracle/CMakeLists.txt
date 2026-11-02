@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(libjxl_rust_oracle LANGUAGES C CXX)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # The Rust palette sort follows the recorded libc++ specialization. Select
 # that same standard library explicitly on Linux instead of silently using
@@ -69,20 +70,28 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc vardct_dc.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle main.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Match the original GetBlock class hierarchy in this traversal observer.
+  set_source_files_properties(group_render.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
+  set_source_files_properties(group_schedule.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    # Native x86 ordinary/ASan objects choose different competing NaN payloads
+    # in the B correlation sum. Retain pristine scalar operator boundaries in
+    # this isolated observer; original decoder objects and sanitizers stay intact.
+    set_source_files_properties(dequant.cc PROPERTIES COMPILE_OPTIONS -O0)
+  endif()
+  # Pristine scalar compressed_dc.cc supplies the actual public DC symbols.
+  # Keep its operand order reproducible with every sanitizer still active;
+  # neither the original archive nor any earlier adapter changes flags.
+  set_source_files_properties(vardct_dc.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-access-control;-fno-rtti")
   # Unrolling makes the ordinary AArch64 identity object use FMSUB while
   # ASan keeps FMADD with a negative scale, changing a NaN sign. Retain its
   # original loop shape in this new TU; contraction, O3 and sanitizers stay on.
   set_source_files_properties(dct.cc PROPERTIES COMPILE_OPTIONS -fno-unroll-loops)
-  # Retain pristine scalar DC operator order across ordinary and sanitized
-  # graphs; optimized originals commute competing NaN operands differently.
-  # This adapter includes compressed_dc.cc and supplies its actual public
-  # symbols to complete image decoding; the original archive stays unchanged.
-  set_source_files_properties(vardct_dc.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-access-control;-fno-rtti")
   # Observe quantization cache masks and offsets without changing declarations.
   set_source_files_properties(quant_ac.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control")
   # Match upstream's no-RTTI build when deriving fixture pipeline stages.

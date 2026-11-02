@@ -236,3 +236,22 @@ unit for complete decoder observations too; an isolated observer alone does not
 establish whole-image parity. The original archive and earlier fixture flags
 remain unchanged. This preserves a reproducible source configuration without
 claiming performance parity. Revisit after source/compiler/target changes.
+
+Native x86_64 Linux dequantization exposed a second configuration-dependent
+operand order in the new isolated DequantLane observer. In the same mode-4
+request, the ordinary original B[56] is 0x7fc12345 while ASan/UBSan is
+0xffc98765. Both original graphs choose 0xffe98765 for X[7], unlike the native
+ARM64 residual-first observation. These are independent captures from run
+41410474499; changing Rust alone cannot reproduce both B observations.
+
+On x86_64 Linux, compile only dequant.cc with -O0, keeping its hash-checked
+pristine scalar bodies, every sanitizer, all earlier adapters and actual decoder
+archive objects unchanged. Native x86 correlation sums retain prediction-first
+addition through an out-of-line binary32 boundary; ARM mappings stay unchanged.
+The complete exact corpus remains mandatory. The Linux diagnostics additionally
+recompile that identical adapter at its default -O3 and relink against the same
+remaining objects without mutating the tested graph. Compare all 448 finite
+requests against each default graph and require the selected ordinary/ASan
+objects to agree on all 546 finite/exceptional requests. Assembly inspection is
+supporting evidence; native CI is the acceptance gate. Review this scoped
+configuration again after source, compiler, target or instrumentation changes.

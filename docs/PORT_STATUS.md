@@ -58,7 +58,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
-| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, general preparation, VarDCT cache initialization, output lifecycle, and custom runners unported |
+| `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
 | `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; general/progressive frame APIs, JPEG, and VarDCT orchestration unported |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
@@ -75,7 +75,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; VarDCT frame/group integration remains unported |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
 | `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
-| `dec_group.cc` (`DecodeACVarBlock`) | `dec_group.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; group scheduling/dequantization/pixel integration unported |
+| `dec_group.cc` (`DecodeACVarBlock`, `GetBlockFromBitstream`, `DecodeGroupImpl`), `quantizer-inl.h` | `dec_group.rs`, `dec_group_render.rs`, `quantizer_inl.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; GetBlockFromBitstream, per-pass entropy/row scheduling, reached AC-group wrapper and final ANS checks are ported; scalar dequantization/traversal is in dec_group_render.rs; full image integration remains separate |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata; frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -1329,3 +1329,34 @@ The full ordinary and ASan/UBSan checks, each with Debug, Release and Rust 1.85,
 run 408 tests, 233 differential groups, and 857,548 requests per configuration.
 The numerical reference configuration is recorded in ADRs 0002 and 0003;
 complete hosted native-platform evidence belongs to this slice's PR.
+
+## VarDCT group scheduling and scalar rendering
+
+GroupDecCache::InitOnce now allocates the original typed scratch owners and
+per-pass nonzero rows. GetBlockFromBitstream retains histogram selectors,
+channel/pass order, subsampling skips, predictor rows, packed orders, shifts
+and partial coefficient state. The reached non-DC-preview pixel wrapper creates
+real entropy readers, runs the source traversal and checks every final ANS state.
+
+AdjustQuantBias, DequantLane/DequantBlock and the original pixel traversal
+connect all 27 strategies and both coefficient widths to existing DC composition
+and TransformToPixels. Draw/accumulation modes, zeroing, absolute group offsets,
+callback order and partial failures retain the source behavior. Borrowed state
+and typed cache splits keep coefficient owners, nonzero rows, shared fields and
+pipeline input disjoint. JPEG reconstruction and complete frame setup remain
+separate boundaries.
+
+Eight differential groups add 1,004 exact requests (190 scheduling and 814 bias,
+dequantization and pixel traversal) and two native regressions. Source-derived
+traversal observers use hash-checked bodies in isolated test namespaces, so they
+do not replace the complete original decoder's archive object. Full native
+ARM64 ordinary and ASan/UBSan checks run 418 tests, 241 differential groups and
+858,552 requests in each Debug, Release and Rust 1.85 configuration.
+
+Native x86_64 Linux CI identified differing original ordinary/ASan competing-NaN
+payloads in the isolated DequantLane observer. ADR 0002 records its scoped
+numerical configuration and required finite-baseline audit. A native x86 capture
+regression complements the ARM-only capture, making the completed slice's native
+Linux count 418 tests with the same 241 groups and 858,552 differential requests.
+The earlier failed runs remain visible; replacement native CI must pass before
+integration.

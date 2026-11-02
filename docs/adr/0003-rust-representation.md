@@ -1087,3 +1087,14 @@ all finite observations also match both default optimized source graphs.
 DequantDC preserves quant bucket assignment, inverse scales, signed plane reads,
 CfL arithmetic and original output writes. ComputeSigma retains source shifted
 coordinates, border copies, and ordered std::min behavior for NaNs and ties.
+
+AC group cache owners expose aligned typed scratch slices through disjoint
+borrows. A borrowed group-state view separates shared fields/code/orders from
+mutable coefficient storage and pipeline input. Physical section readers move
+into the original per-pass scheduling order and move back before propagating
+an error, retaining their close obligations and exact partially consumed state.
+Neither reader state nor complete storage owners are cloned to hide aliasing.
+Dequantization preserves unsigned source bit operations, scalar multiplication,
+ordered CfL additions and coefficient-width narrowing. Source-derived traversal
+fixtures compare initialized pipeline pixels, owners, callback order and partial
+state for every strategy, both widths and draw/accumulation modes.
