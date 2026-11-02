@@ -13,7 +13,7 @@ from build_aom import library_entries
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def definitions(archive, codec_members_only=False):
+def definitions(archive, codec_members_only=False, only_symbols=None):
     result, member = {}, None
     inputs = [archive]
     if codec_members_only:
@@ -42,6 +42,8 @@ def definitions(archive, codec_members_only=False):
             if not name.startswith('_'):
                 raise SystemExit(f'Unexpected Darwin global name: {name}')
             name = name[1:]
+        if only_symbols is not None and name not in only_symbols:
+            continue
         if name in result:
             raise SystemExit(f'Duplicate defined global: {name}')
         result[name] = dict(kind=kind, member=member)
@@ -84,7 +86,11 @@ def main():
     original = ROOT / f'build/aom-native-{profile}'
     output = ROOT / f'build/aom-rust-{profile}'
     reference_archive, rust_archive = original / 'libaom.a', ROOT / f'target/{profile}/libaom.a'
-    reference, candidate = definitions(reference_archive), definitions(rust_archive, codec_members_only=True)
+    reference = definitions(reference_archive)
+    # ELF codegen members repeat coalescible compiler metadata such as
+    # __rustc_debug_gdb_scripts_section__. Audit every required original codec
+    # name strictly, rather than treating Rust debugger helpers as codec APIs.
+    candidate = definitions(rust_archive, codec_members_only=True, only_symbols=set(reference))
     missing = sorted(reference.keys() - candidate.keys())
     if missing:
         raise SystemExit('Missing original globals: ' + ', '.join(missing))
@@ -125,6 +131,7 @@ def main():
                   original_archive_sha256=hashlib.sha256(reference_archive.read_bytes()).hexdigest(),
                   rust_archive_sha256=hashlib.sha256(rust_archive.read_bytes()).hexdigest(),
                   consumers=consumers, archives_only=args.archives_only,
+                  rust_definition_scope='Every original codec global in all Rust codec codegen members; compiler metadata excluded',
                   header_inline_test_coverage_proven=False, native_vmaf_retained=True)
     (output / 'symbol-audit.json').write_text(json.dumps(report, indent=2) + '\n')
     print(f'{len(reference)} original globals resolve to Rust codec objects; {len(consumers)} consumer maps audited')
