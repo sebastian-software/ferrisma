@@ -157,7 +157,7 @@ production translation bodies are byte-for-byte unchanged, verified by
 separate `production_rust_sha256` entries in the translation manifests.
 Both profiles reproduced with fresh alignment/layout extraction for the first
 ten wrappers. The additional scan and rounding wrappers preserve every
-production body hash. Remaining inline roles, macro subjects such as `OD_DIVU_SMALL`, indirect
+production body hash. Remaining inline roles, other macro subjects, indirect
 helper calls, and scalar self-comparisons stay open. Fixture and oracle uses
 of the scan helper in other original test inputs retain their native bindings.
 
@@ -167,9 +167,10 @@ reproduce with C2Rust, and the matching Linux subjects are generated natively
 with the same pinned compiler. The two unchanged original division cases pass
 against the Rust macro and Rust constant table in macOS Debug and Release,
 preserving every original loop, assertion, and all 18,729 registrations. Their
-expected values still use native C++ unsigned division. Native Linux execution
-remains pending. These optional helper units are outside the 168-unit production
-closure; generation alone receives no execution credit. Results and native
+expected values still use native C++ unsigned division. Both cases also pass
+natively on GNU Linux x86-64 in Debug and Release. These optional helper units
+are outside the 168-unit production closure; generation alone receives no
+execution credit. Results and native
 Linux generation provenance are in
 [`aom-macro-validation.json`](aom-macro-validation.json).
 
