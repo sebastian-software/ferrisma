@@ -3,9 +3,12 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import shlex
 import subprocess
 
+from aom_vmaf import link_flags
 from build_aom_vmaf import REVISION
 from check_aom_cli import pixels
 
@@ -14,12 +17,36 @@ MODELS = {
     'float': ('vmaf_float_v0.6.1.json', '26573aa333346f1109226e7283969e8b3581119a1ab7f18897767351dd963ff8'),
     'integer': ('vmaf_v0.6.1.json', '5950d61fa1f861bd45d8149d80539ed9f3376cfc2495b8f0fa8e9f57cb131ee3'),
 }
+FLOAT_REJECTION = b'Fatal error: Failed to load feature extractors from VMAF model.\n'
+
+
+def native_float_contract(model, work):
+    """Distinguish libaom's invalid boolean text from unavailable extractors."""
+    source = ROOT / 'tests/ports/aom_vmaf_model.c'
+    executable = work / 'native-model-probe'
+    cflags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'libvmaf'], text=True))
+    command = [os.environ.get('CC', 'clang'), '-std=c99', *cflags, str(source),
+               *link_flags(), '-o', str(executable)]
+    subprocess.run(command, check=True)
+    records = []
+    for option in [None, '1', 'true']:
+        result = subprocess.run([str(executable), str(model)] + ([] if option is None else [option]),
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        value = json.loads(result.stdout)
+        expected = value['invalid_argument'] if option == '1' else 0
+        if value['features'] != expected or value['invalid_argument'] >= 0 or result.stderr:
+            raise SystemExit(f'Unexpected native VMAF float-model contract: {option}: {value}')
+        records.append(dict(motion_force_zero=option, **value))
+    return dict(source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+                command=command, cases=records, float_extractors_available=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--model', choices=MODELS, default='integer')
+    parser.add_argument('--native-bin-dir', type=Path, help='Original apps linked to an isolated native VMAF')
+    parser.add_argument('--rust-bin-dir', type=Path, help='Rust apps linked to the same isolated native VMAF')
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
     source = ROOT / 'build/deps/vmaf'
@@ -32,6 +59,9 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     for filename in ['summary.json', 'failure.json']:
         (work / filename).unlink(missing_ok=True)
+    consumers = [('c', args.native_bin_dir or ROOT / f'build/aom-native-{profile}'),
+                 ('rust', args.rust_bin_dir or ROOT / f'build/aom-rust-{profile}')]
+    float_contract = native_float_contract(model, work) if args.model == 'float' else None
     modes = ['vmaf_with_preprocessing', 'vmaf_without_preprocessing', 'vmaf', 'vmaf_neg']
     records = []
     for depth in [8, 10, 12]:
@@ -40,10 +70,11 @@ def main():
         for tune in modes:
             outputs, decoded = [], []
             failures = []
-            for label, directory in [('c', f'aom-native-{profile}'), ('rust', f'aom-rust-{profile}')]:
+            for label, directory in consumers:
                 name = f'{depth}-{tune}-{label}'
                 target = work / f'{name}.ivf'
-                command = [str(ROOT / f'build/{directory}/aomenc'), '--quiet', '--width=128', '--height=96',
+                target.unlink(missing_ok=True)
+                command = [str(directory / 'aomenc'), '--quiet', '--width=128', '--height=96',
                            '--limit=1', '--passes=1', '--usage=0', '--cpu-used=6', '--threads=1',
                            '--end-usage=q', '--cq-level=28', '--ivf', '--lag-in-frames=0',
                            f'--bit-depth={depth}', f'--input-bit-depth={depth}',
@@ -56,17 +87,29 @@ def main():
                                          diagnostic=(work / f'{name}.log').read_text()))
                     continue
                 outputs.append(target.read_bytes())
+            if args.model == 'float' and len(failures) == 2 and all(
+                    value['exit_code'] == 1 and value['diagnostic'].encode() == FLOAT_REJECTION
+                    for value in failures):
+                records.append(dict(bitdepth=depth, tune=tune, exact_original_rejection=True,
+                                    exit_code=1, diagnostic=FLOAT_REJECTION.decode(),
+                                    input_sha256=hashlib.sha256(raw.read_bytes()).hexdigest()))
+                print(f'Exact original float-model rejection: {depth}/{tune}', flush=True)
+                continue
+            if args.model == 'float' and not failures:
+                (work / 'failure.json').write_text(json.dumps(dict(profile=profile, model=model_name,
+                    bitdepth=depth, tune=tune, unexpected_acceptance=True), indent=2) + '\n')
+                raise SystemExit('Both codecs unexpectedly accepted the pinned float-model scenario')
             if failures:
                 (work / 'failure.json').write_text(json.dumps(dict(profile=profile, model=model_name,
                     bitdepth=depth, tune=tune, failures=failures), indent=2) + '\n')
                 messages = '\n'.join(f'{value["implementation"]}: exit {value["exit_code"]}\n'
                                      + value['diagnostic'] for value in failures)
                 raise SystemExit(f'VMAF mode failed: {depth}/{tune}/{args.model}\n{messages}')
-            for label, directory in [('c', f'aom-native-{profile}'), ('rust', f'aom-rust-{profile}')]:
+            for label, directory in consumers:
                 name = f'{depth}-{tune}-{label}'
                 output = work / f'{name}.yuv'
                 with (work / f'{name}-decode.log').open('w') as log:
-                    subprocess.run([str(ROOT / f'build/{directory}/aomdec'), '--rawvideo', '-o', output,
+                    subprocess.run([str(directory / 'aomdec'), '--rawvideo', '-o', output,
                                     work / f'{depth}-{tune}-c.ivf'], stdout=log, stderr=subprocess.STDOUT, check=True)
                 decoded.append(output.read_bytes())
             if outputs[0] != outputs[1] or decoded[0] != decoded[1] or len(decoded[0]) != raw.stat().st_size:
@@ -78,8 +121,8 @@ def main():
             print(f'Exact native-VMAF mode: {depth}/{tune}', flush=True)
     # Preserve the original process-level failure for an unusable model path.
     errors = []
-    for label, directory in [('c', f'aom-native-{profile}'), ('rust', f'aom-rust-{profile}')]:
-        command = [str(ROOT / f'build/{directory}/aomenc'), '--quiet', '--width=128', '--height=96',
+    for label, directory in consumers:
+        command = [str(directory / 'aomenc'), '--quiet', '--width=128', '--height=96',
                    '--limit=1', '--passes=1', '--cpu-used=6', '--threads=1', '--ivf', '--lag-in-frames=0',
                    '--tune=vmaf', f'--vmaf-model-path={work / "absent-model.json"}',
                    '-o', str(work / f'absent-model-{label}.ivf'), str(work / '8.yuv')]
@@ -92,6 +135,9 @@ def main():
                   vmaf_tag='v3.2.1', vmaf_revision=REVISION,
                   pkg_config_version=subprocess.check_output(['pkg-config', '--modversion', 'libvmaf'], text=True).strip(),
                   native_vmaf_retained=True, vmaf_rust_port=False,
+                  native_float_contract=float_contract,
+                  successful_stream_cases=len(records) if args.model == 'integer' else 0,
+                  exact_original_rejection_cases=len(records) if args.model == 'float' else 0,
                   missing_model_exact_failure=True, missing_model_exit_code=errors[0][0], cases=records)
     (work / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
 

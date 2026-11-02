@@ -101,9 +101,14 @@ Supplemental comparisons in each profile preserve exact output:
 - All four VMAF-dependent tuning modes produce identical streams and decoded
   planes for 8/10/12-bit input, with the pinned `vmaf_v0.6.1.json` integer model:
   12 cases per profile. An absent model preserves the original fatal diagnostic
-  and process exit. The Homebrew VMAF build lacks float extractors; float-model
-  execution is a separate check for the isolated source-built VMAF profile,
-  which explicitly enables those extractors.
+  and process exit. The isolated source-built VMAF profile enables float
+  extractors, but the original libaom rejects the pinned float model because it
+  passes `"1"` for a boolean option that requires `"true"` or `"false"`. Both
+  profiles preserve the exact fatal diagnostic and exit code in all twelve
+  float-model scenarios. A direct native dependency probe verifies the model
+  loads without the overload, rejects `"1"` with `-EINVAL`, and accepts `"true"`.
+  These are rejection cases, not successful stream coverage; ADR 0042 records
+  why the mechanical port preserves this original integration defect.
 - Eight paired worker-creation scenarios per profile cover successful baselines
   and each of three `pthread_create` failures in both encoder and decoder,
   with four configured threads and row multithreading. Error state,
