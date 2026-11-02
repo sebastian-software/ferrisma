@@ -384,6 +384,71 @@ Rust parity remains a separate gate. This configuration makes no performance
 claim and must be reviewed after source, compiler, target, or instrumentation
 changes.
 
+The pristine scalar SpotColorStage observation unit uses scoped `-O0` only on
+Linux x86-64. Native ordinary and ASan/UBSan `-O3` original objects disagreed on
+3,074 of the existing 91,072 requests, including different RGB NaN payloads
+within one row. Both the active observation unit and untouched archive objects
+demonstrated that disagreement. Native independently compiled pristine `-O0`
+objects agreed on every request and matched both default graphs on all 34,946
+finite-input and 368 no-arithmetic observations. The finite-input corpus retains
+overflow/cancellation results; no-arithmetic cases retain raw exceptional words
+through factory queries, rejected extra spans and empty valid rows.
+
+`tools/spot_reference.py --audit --output <new-directory>` retains all actual
+Rust-generated requests, actual factory/row link maps, default-archive and
+independent selected objects, complete output words, and source/object hashes.
+It requires ordinary/ASan agreement and every finite/no-arithmetic cross-default
+comparison. The original archive, other units, sanitizer flags and ARM scalar
+contraction keep their existing configuration. No strict-FP option is needed
+for Spot. The dedicated native diagnostic workflow additionally runs Debug,
+Release and Rust 1.85 against both selected graphs; those Rust results remain
+a distinct acceptance gate from the original-source configuration audit.
+
+The selected native source audit passed, while the original Rust Release build
+still failed the exceptional-sample and repeated-row groups in both source
+graphs. Debug and Rust 1.85 passed all five groups and four native regressions.
+For the existing request `spot-sample 0 0 2143363909 2143363909 2143363909 0
+4290917462 0`, both selected source graphs and independently rebuilt pristine
+`-O0` graphs return RGB word `2143363909`; optimized Rust returned `4290917462`.
+Linux x86-64 therefore retains each source multiplication and final addition
+through a separate binary32 function boundary. The subtraction and literal
+operand tree stay unchanged; ARM and other targets retain their existing
+contraction mapping. No request or expected word changes.
+
+Native Rust acceptance requires the complete unchanged corpus in Debug,
+Release and Rust 1.85 against both selected source graphs after this mapping.
+The diagnostic workflow explicitly enables Bash pipeline failure propagation
+while collecting every configuration's log. A successful source audit or overall
+workflow conclusion alone is insufficient: verify all six actual test results
+and exact request counts before the full local gates or integration.
+
+Complete extra-channel fixtures call actual WriteCodestreamHeaders, EncodeFrame,
+DecodeFrame, ConvertToExternal and ConvertChannelsToExternal. The selected
+Spot/alpha public symbols serve these complete-file callers too. The independent
+source audit verifies their link bindings and every source/dependency pin,
+reproduces complete fixture bytes, retains actual native final-word captures,
+and compares all complete/partial observations across ordinary and ASan/UBSan
+graphs without changing active objects. Mixed per-channel sampling fixtures
+rewrite only the original frame header/TOC on genuine 1x1 payloads; a zero-change
+writer control reproduces original bytes and every channel's modular dimensions
+remain 1x1. Reserved, unknown and invalid types use explicit finite bit mutations
+of a genuine optional-channel file, selected by the actual source metadata
+parser; their rejected type, status, consumption and initialized partial metadata
+are observed rather than assigning those values new semantics.
+
+Float16 ConvertChannelsToExternal stores scanlines through a typed
+Span<hwy::float16_t>, requiring every row pointer to retain two-byte alignment.
+The new padding-three export fixtures expose a real undefined source store on
+row one, rather than codec rejection. Preserve all 888 original requests in an
+independent original-only census, positively require the 528 actually reached
+nonrecovering span.h:59 UBSan misalignment diagnostics, and retain the 360 defined
+single-row/decode-error requests in exact parity. Add aligned padding-four
+controls for every fixture, channel count and unpremultiplication choice. Keep
+ordinary captures for all original requests without assigning semantics to
+undefined writes. Uint16 output uses StoreLE16 byte stores and Float32 uses
+byte-order memcpy stores, so their odd-stride requests remain defined and
+unchanged. No sanitizer flag or source algorithm is altered.
+
 Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
 
 

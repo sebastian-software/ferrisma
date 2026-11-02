@@ -81,3 +81,45 @@ symbol bindings, and compares 1,548 complete/header/truncated/mutated/trailing
 observations between both source graphs. Existing stage exceptional/finite
 acceptance and lifecycle sequences remain independent controls. Strict native
 Linux/macOS validation is required for an integration tree.
+
+### Complete extra-channel files
+
+`extra-channel-*.jxl` files are genuine pinned-original EncodeFrame outputs or
+original frame-header/TOC-writer controls. `extra-channels.requests` freezes all
+111 source-generation requests, `extra-channels.decode-statuses` records their
+69 source successes and 42 genuine source errors, and
+`extra-channels-fixtures.json` records each request, byte hash, actual writer
+observation and source revision. The tests reproduce source bytes independently
+and retain failures as actual decoder-status/partial-state cases.
+
+Fixtures cover every defined extra-channel type, independent integer/float
+depths, associated/unassociated and multiple alpha planes, early/late spatial
+upsampling, dimension shifts 0..3, per-channel mixed sampling, odd/tiny/group
+boundaries, spot order, binary names, signed/extreme spot coefficients, filters,
+patches and pre-/post-color references. Mixed per-channel factors reuse genuine
+1x1 payloads with unchanged modular dimensions and exact original-writer controls.
+The 12 `extra-channel-rejected-*.jxl` files deliberately mutate a genuine optional
+channel file; actual source metadata parsing identifies the rejected enum and
+its partial state. Their source mutation requests/proofs remain in the manifest
+and `extra-channels-rejections.requests`.
+
+`extra-channel-all-types-dyadic.float-pixels` contains every initialized planar
+output word from an independently executed pristine native source export: first
+RGB interleaved in y/x/channel order, then each complete extra plane in metadata
+order, all as little-endian binary32 words. The input uses exactly representable
+dyadic samples/coefficients so the capture has no target-dependent contraction
+ambiguity. `tools/extra_channel_fixtures.py` regenerates through the real source
+encoder and refuses changes to existing fixture/capture bytes.
+`tools/extra_channels_reference.py --output <new-directory>` independently
+reproduces both original graphs, verifies actual source bindings, retains native
+captures and all 15,315 complete/partial/export observations. Direct output-stage
+callbacks and the public incremental decoder API remain separate work.
+
+`extra-channels-half-strides.tsv` freezes the actual original sanitizer census
+for all 888 initially introduced odd-stride Float16 requests: 528 positively
+reached span.h:59 misaligned stores and 360 defined single-row/decode-error
+requests. Each original request remains in the source-only census, all defined
+ones keep exact parity, and 888 aligned Float16 controls are added. The separate
+`tools/extra_half_boundaries.py` audit records every ordinary observation and
+requires each actual nonrecovering UBSan diagnostic. The C++ source and existing
+integer16/float32 odd-stride requests remain unchanged.

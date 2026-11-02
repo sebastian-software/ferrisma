@@ -504,6 +504,8 @@ bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool PatchesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool EPFCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool ExtraChannelsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool SpotCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool FrameSequencesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -585,6 +587,8 @@ int main() {
       else if (DequantCommand(command, in, &mm)) {}
       else if (GroupScheduleCommand(command, in, &mm)) {}
       else if (VarDCTDCCommand(command, in, &mm)) {}
+      else if (ExtraChannelsCommand(command, in, &mm)) {}
+      else if (SpotCommand(command, in, &mm)) {}
       else if (FrameSequencesCommand(command, in, &mm)) {}
       else if (RetainedFrameOwnersCommand(command, in, &mm)) {}
       else if (NoiseRenderCommand(command, in, &mm)) {}

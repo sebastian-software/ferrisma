@@ -72,7 +72,7 @@ sequence and acceptance gates for this work.
 - [x] Support reference/DC frames, blending, animation and previews.
 - [ ] Connect chroma subsampling, cropping, resampling and orientation in general
   complete-image decoding.
-- [ ] Support associated/subsampled alpha and the remaining extra-channel types.
+- [x] Support associated/subsampled alpha and the remaining extra-channel types.
 - [ ] Connect alternate color profiles and HDR/tone-mapping paths beyond the
   admitted sRGB profiles.
 - [ ] Reconstruct original JPEG bitstreams and restore their metadata.
