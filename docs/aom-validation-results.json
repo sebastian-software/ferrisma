@@ -1827,7 +1827,1286 @@
         "map_sha256": "c1a356ec0b431f0baf5591e4d6a37a430c8e1b27a4778921a0055b290bb2ed29"
       },
       "translation_manifest_sha256_before_optional_bridges": "cc86c06c84b4b80e95666afecc94b3df8105443ed5311a84e2f1c3c87b23d331",
-      "production_bodies_unchanged_by_optional_bridges": true
+      "production_bodies_unchanged_by_optional_bridges": true,
+      "independent-c-oracles": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 243,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_convolve_test.cc",
+        "original_source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+        "oracle_sites": {
+          "av1_convolve_x_sr_c": [
+            361,
+            388
+          ],
+          "av1_highbd_convolve_x_sr_c": [
+            577,
+            604
+          ],
+          "av1_convolve_y_sr_c": [
+            794,
+            815
+          ],
+          "av1_highbd_convolve_y_sr_c": [
+            991,
+            1012
+          ],
+          "aom_convolve_copy_c": [
+            1166
+          ],
+          "aom_highbd_convolve_copy_c": [
+            1212
+          ]
+        },
+        "binding_copy_sha256": "27066e7b9fba99f7e83d0e3d07bab3cc87a1cceb9b0e54d3d914e31726e08b59",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "152082b78a0e1dd63999f20e3a3ae8a949b4958462ec9f985cc7838c4849a8dc",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+          "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+          "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2742,
+          "isolated_c_oracle_globals": 35,
+          "reviewed_subject_and_oracle_functions": [
+            "aom_convolve_copy_c",
+            "aom_highbd_convolve_copy_c",
+            "av1_convolve_x_sr_c",
+            "av1_convolve_y_sr_c",
+            "av1_highbd_convolve_x_sr_c",
+            "av1_highbd_convolve_y_sr_c"
+          ],
+          "map_sha256": "af4d3ec6177b9829dcd63f8bdb1ebf819d9c6dae492bcc30003b8190b7d868fa"
+        },
+        "rust_archive_sha256": "7a773ef04d9fea0f33dd40fd991eb5b02ca9b240b2e5d913a1d6f364029ad232",
+        "cases": [
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      }
     },
     "release": {
       "aom-cli": {
@@ -3654,7 +4933,1286 @@
         "map_sha256": "5858a886505f81e2b5555b1c75b75a038cf946b7a20878273b9ee11c99b66dc3"
       },
       "translation_manifest_sha256_before_optional_bridges": "646058753c64cebc8efcd6dfa91a9fd1070d77a6b83458d4c8d6ff0c49116008",
-      "production_bodies_unchanged_by_optional_bridges": true
+      "production_bodies_unchanged_by_optional_bridges": true,
+      "independent-c-oracles": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 243,
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_convolve_test.cc",
+        "original_source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+        "oracle_sites": {
+          "av1_convolve_x_sr_c": [
+            361,
+            388
+          ],
+          "av1_highbd_convolve_x_sr_c": [
+            577,
+            604
+          ],
+          "av1_convolve_y_sr_c": [
+            794,
+            815
+          ],
+          "av1_highbd_convolve_y_sr_c": [
+            991,
+            1012
+          ],
+          "aom_convolve_copy_c": [
+            1166
+          ],
+          "aom_highbd_convolve_copy_c": [
+            1212
+          ]
+        },
+        "binding_copy_sha256": "27066e7b9fba99f7e83d0e3d07bab3cc87a1cceb9b0e54d3d914e31726e08b59",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "14d1477646c6a1703c44f772ab12b106d0e87ade3cdae6ad42b52ba8165f6a60",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+          "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+          "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 35,
+          "reviewed_subject_and_oracle_functions": [
+            "aom_convolve_copy_c",
+            "aom_highbd_convolve_copy_c",
+            "av1_convolve_x_sr_c",
+            "av1_convolve_y_sr_c",
+            "av1_highbd_convolve_x_sr_c",
+            "av1_highbd_convolve_y_sr_c"
+          ],
+          "map_sha256": "e2cec8c61ef4fd7de29a4b191b25a0999759af361a72d4265752f2f1fa9ad033"
+        },
+        "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+        "cases": [
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveXHighbdTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveYHighbdTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "C/AV1ConvolveCopyHighbdTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      }
     }
   },
   "open_gates": [

@@ -83,6 +83,8 @@ jobs:
           python3 tools/check_aom_linkage.py --archives-only
           python3 tools/check_aom_inlines.py --debug
           python3 tools/check_aom_inlines.py
+          python3 tools/check_aom_oracles.py --debug
+          python3 tools/check_aom_oracles.py
       - name: Compare native VMAF modes and single-allocation failures
         run: |
           python3 tools/check_aom_vmaf.py --debug
@@ -133,6 +135,8 @@ jobs:
             build/aom-cli-*/*-decode.log
             build/aom-roundtrip-*/summary.json
             build/aom-inlines-*/summary.json
+            build/aom-reference-*/summary.json
+            build/aom-oracles-*/summary.json
             build/aom-faults-*/summary.json
             build/aom-thread-faults-*/summary.json
             build/aom-vmaf-modes-*/summary.json

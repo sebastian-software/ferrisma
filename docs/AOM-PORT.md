@@ -150,6 +150,18 @@ separate `production_rust_sha256` entries in the translation manifests.
 Both profiles reproduce with fresh alignment/layout extraction after this
 addition. Remaining inline roles and scalar self-comparisons stay open.
 
+Six convolution subjects now use independent C oracles in 243 existing
+parameterized cases per profile (ADR 0041). A separate complete original C
+archive has every defined codec global and its relocations renamed, preserving
+all 168 object members, instructions, and data; its symbol index is rebuilt.
+Ten reviewed oracle call sites are redirected in a disposable compilation copy
+of `test/av1_convolve_test.cc`. Subject parameters keep their Rust bindings.
+The original assertions, inputs, disabled flags, and all 18,729 registrations
+are preserved. Both Debug and Release pass against the unchanged C baseline;
+link maps verify the six subjects belong to Rust and their oracles to isolated
+C objects. This covers horizontal, vertical, and copy kernels at 8/10/12 bits.
+Other DSP roles and scalar self-comparisons still require review.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
@@ -196,6 +208,8 @@ python3 tools/check_aom_linkage.py --debug
 python3 tools/check_aom_linkage.py
 python3 tools/check_aom_inlines.py --debug
 python3 tools/check_aom_inlines.py
+python3 tools/check_aom_oracles.py --debug
+python3 tools/check_aom_oracles.py
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug
