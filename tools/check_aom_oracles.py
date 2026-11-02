@@ -94,10 +94,31 @@ SUITES['directional-prediction'] = dict(source='test/dr_prediction_test.cc',
     filter='PortScalar/*DrPredTest.SaturatedValues/*:PortScalar/*DrPredTest.OperationCheck/*', cases=24,
     headers=['config/av1_rtcd.h', 'av1/common/reconintra.h'], supplementary=True,
     added_registrations=36, added_disabled=12)
+SUITES['round-shift-array'] = dict(source='test/av1_round_shift_array_test.cc',
+    sites={'av1_round_shift_array_c': [70, 89]}, subjects=['av1_round_shift_array_c'],
+    filter='PortScalar/AV1CompRoundShiftTest.CheckOutput/*', cases=171,
+    headers=['config/av1_rtcd.h'], supplementary=True, identifier_oracles=True,
+    added_registrations=342, added_disabled=171)
+SUITES['cubic-rd'] = dict(source='test/model_rd_test.cc',
+    sites={'av1_interp_cubic_rate_dist_c': [70, 95]}, subjects=['av1_interp_cubic_rate_dist_c'],
+    filter='PortScalar/InterpCubicTest.CheckOutput/*', cases=1,
+    headers=['config/av1_rtcd.h'], supplementary=True,
+    added_registrations=2, added_disabled=1)
 
 
 def supplementary_registrations(original, suite, reference_prefix=''):
     """Reuse original parameter matrices and bodies for a separate scalar comparison."""
+    if suite == 'round-shift-array':
+        bits = re.search(r'const int kValidBitCheck\[\] = \{(.*?)\};', original, re.S)
+        if not bits or list(map(int, re.findall(r'-?\d+', bits[1]))) != list(range(-4, 5)):
+            raise SystemExit('Original round-shift bit matrix changed')
+        return ('\nnamespace AV1CompRoundShift {\nconst int kPortScalarBitCheck[] = {' + bits[1] + '};\n'
+                'INSTANTIATE_TEST_SUITE_P(PortScalar, AV1CompRoundShiftTest,\n'
+                '  ::testing::Combine(::testing::Values(&av1_round_shift_array_c),\n'
+                '    ::testing::ValuesIn(txsize_to_bsize), ::testing::ValuesIn(kPortScalarBitCheck)));\n}\n')
+    if suite == 'cubic-rd':
+        return ('\nnamespace {\nINSTANTIATE_TEST_SUITE_P(PortScalar, InterpCubicTest,\n'
+                '  ::testing::Values(av1_interp_cubic_rate_dist_c));\n}\n')
     if suite == 'directional-prediction':
         result = '\nnamespace {\n'
         for name, expected in [('LowbdDrPredTest', 3), ('HighbdDrPredTest', 9)]:

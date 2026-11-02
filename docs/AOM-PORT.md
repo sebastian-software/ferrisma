@@ -228,6 +228,17 @@ registrations remain unchanged and in order; these additions receive no
 original-suite execution credit. Native Linux execution remains pending. See
 [`aom-directional-prediction-validation.json`](aom-directional-prediction-validation.json).
 
+Two more SIMD-only test classes now have separate scalar registrations.
+Array rounding reuses all 19 original `txsize_to_bsize` entries and all nine
+original bit values from -4 through 4, including zero. Its 171 supplementary
+cases pass with exact original assertions against an isolated C oracle.
+Cubic rate-distortion interpolation reuses the original 10,000 random
+iterations and exact equality assertions in one supplementary case. Both
+profiles pass; the 172 added speed registrations remain disabled. Original
+test bodies, input generation, and all 18,729 original registrations remain
+unchanged. Native Linux execution remains pending. See
+[`aom-scalar-rounding-model-validation.json`](aom-scalar-rounding-model-validation.json).
+
 ## Execution and acceptance
 
 Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated
@@ -410,7 +421,9 @@ remain errors.
 The Linux workflow's `compile` mode builds and checks committed candidates
 without rerunning translation. `generate` produces fresh profiles; `verify`
 reproduces committed profiles from the native source and headers. `macros`
-generates the optional original macro subjects separately. Full original-suite
+generates the optional original macro subjects separately. `dsp` checks only
+the separate supplementary scalar matrices, without claiming the other
+execution or source-reproduction gates. Full original-suite
 execution, remaining subject/oracle correspondence, and broader validation
 remain required before standalone acceptance.
 

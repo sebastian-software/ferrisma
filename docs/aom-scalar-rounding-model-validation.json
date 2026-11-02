@@ -1,0 +1,2625 @@
+{
+  "status": "supplementary scalar array rounding and cubic interpolation passed in both macOS profiles; native Linux execution pending",
+  "target": "aarch64-apple-darwin",
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "oracle_runner_sha256": "788bd8fc319dd80bee18d49bc3e32d567588a393bf1a8d9d58a87f2dfe07f9f5",
+  "original_execution_credit": 0,
+  "full_suite_acceptance": false,
+  "original_cpp_test_bodies_unchanged": true,
+  "original_round_shift_matrix": "All 19 original txsize_to_bsize entries and all nine original bit values -4 through 4",
+  "original_cubic_matrix": "All 10000 original iterations with unchanged random inputs and exact equality assertions",
+  "profiles": {
+    "debug": {
+      "round-shift-array": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 171,
+        "supplementary_registrations": [
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/0",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/1",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/2",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/3",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/4",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/5",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/6",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/7",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/8",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/9",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/10",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/11",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/12",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/13",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/14",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/15",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/16",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/17",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/18",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/19",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/20",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/21",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/22",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/23",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/24",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/25",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/26",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/27",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/28",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/29",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/30",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/31",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/32",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/33",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/34",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/35",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/36",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/37",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/38",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/39",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/40",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/41",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/42",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/43",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/44",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/45",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/46",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/47",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/48",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/49",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/50",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/51",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/52",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/53",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/54",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/55",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/56",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/57",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/58",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/59",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/60",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/61",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/62",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/63",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/64",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/65",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/66",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/67",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/68",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/69",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/70",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/71",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/72",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/73",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/74",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/75",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/76",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/77",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/78",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/79",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/80",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/81",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/82",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/83",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/84",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/85",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/86",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/87",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/88",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/89",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/90",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/91",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/92",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/93",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/94",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/95",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/96",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/97",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/98",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/99",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/100",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/101",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/102",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/103",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/104",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/105",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/106",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/107",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/108",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/109",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/110",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/111",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/112",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/113",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/114",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/115",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/116",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/117",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/118",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/119",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/120",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/121",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/122",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/123",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/124",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/125",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/126",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/127",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/128",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/129",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/130",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/131",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/132",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/133",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/134",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/135",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/136",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/137",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/138",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/139",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/140",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/141",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/142",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/143",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/144",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/145",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/146",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/147",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/148",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/149",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/150",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/151",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/152",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/153",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/154",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/155",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/156",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/157",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/158",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/159",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/160",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/161",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/162",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/163",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/164",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/165",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/166",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/167",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/168",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/169",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/170",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/0",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/1",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/2",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/3",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/4",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/5",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/6",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/7",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/8",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/9",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/10",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/11",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/12",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/13",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/14",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/15",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/16",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/17",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/18",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/19",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/20",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/21",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/22",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/23",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/24",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/25",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/26",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/27",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/28",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/29",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/30",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/31",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/32",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/33",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/34",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/35",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/36",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/37",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/38",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/39",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/40",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/41",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/42",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/43",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/44",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/45",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/46",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/47",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/48",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/49",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/50",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/51",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/52",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/53",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/54",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/55",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/56",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/57",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/58",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/59",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/60",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/61",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/62",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/63",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/64",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/65",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/66",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/67",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/68",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/69",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/70",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/71",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/72",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/73",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/74",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/75",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/76",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/77",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/78",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/79",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/80",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/81",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/82",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/83",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/84",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/85",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/86",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/87",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/88",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/89",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/90",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/91",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/92",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/93",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/94",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/95",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/96",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/97",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/98",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/99",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/100",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/101",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/102",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/103",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/104",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/105",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/106",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/107",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/108",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/109",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/110",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/111",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/112",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/113",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/114",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/115",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/116",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/117",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/118",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/119",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/120",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/121",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/122",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/123",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/124",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/125",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/126",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/127",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/128",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/129",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/130",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/131",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/132",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/133",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/134",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/135",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/136",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/137",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/138",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/139",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/140",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/141",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/142",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/143",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/144",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/145",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/146",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/147",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/148",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/149",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/150",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/151",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/152",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/153",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/154",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/155",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/156",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/157",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/158",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/159",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/160",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/161",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/162",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/163",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/164",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/165",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/166",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/167",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/168",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/169",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/170"
+        ],
+        "augmentation_sha256": "25d0ab9e0c58e9cc84848930e66a2a64ce2577b6d9a6bd106628bfebedef2574",
+        "baseline_augmentation_sha256": "25d0ab9e0c58e9cc84848930e66a2a64ce2577b6d9a6bd106628bfebedef2574",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_round_shift_array_test.cc",
+        "original_source_sha256": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+        "oracle_sites": {
+          "av1_round_shift_array_c": [
+            70,
+            89
+          ]
+        },
+        "binding_copy_sha256": "6366f56a8446ba54dfbf1ff7f9e29203bcb291487c706f7d9dc522229e14e766",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "f9cca754f93af4e0cafcbdb69e8957a96ae4412986e62f5da349d1e2d052bcb6",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+          "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+          "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2742,
+          "isolated_c_oracle_globals": 6,
+          "reviewed_rust_subjects": [
+            "av1_round_shift_array_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_round_shift_array_c"
+          ],
+          "map_sha256": "c68547e78f5c97fbe4c31f599b97274f542ea11807b6860dc71f84d8e108aa34"
+        },
+        "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+        "rust_archive_sha256": "c6efaa484839f6924cd782bf4c183d0ae5afcea1a575fb69ddd48ec1247949cf",
+        "cases": [
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/54",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/55",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/56",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/57",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/58",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/59",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/60",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/61",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/62",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/63",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/64",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/65",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/66",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/67",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/68",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/69",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/70",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/71",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/72",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/73",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/74",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/75",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/76",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/77",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/78",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/79",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/80",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/81",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/82",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/83",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/84",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/85",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/86",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/87",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/88",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/89",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/90",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/91",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/92",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/93",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/94",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/95",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/96",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/97",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/98",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/99",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/100",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/101",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/102",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/103",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/104",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/105",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/106",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/107",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/108",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/109",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/110",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/111",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/112",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/113",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/114",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/115",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/116",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/117",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/118",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/119",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/120",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/121",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/122",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/123",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/124",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/125",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/126",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/127",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/128",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/129",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/130",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/131",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/132",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/133",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/134",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/135",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/136",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/137",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/138",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/139",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/140",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/141",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/142",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/143",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/144",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/145",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/146",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/147",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/148",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/149",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/150",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/151",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/152",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/153",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/154",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/155",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/156",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/157",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/158",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/159",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/160",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/161",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/162",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/163",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/164",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/165",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/166",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/167",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/168",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/169",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/170",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "cubic-rd": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 1,
+        "supplementary_registrations": [
+          "PortScalar/InterpCubicTest.CheckOutput/0",
+          "PortScalar/InterpCubicTest.DISABLED_Speed/0"
+        ],
+        "augmentation_sha256": "47d40161939c3827c246734413cdac2b364a238572a86d20cb3a1a8f2ee11ad1",
+        "baseline_augmentation_sha256": "47d40161939c3827c246734413cdac2b364a238572a86d20cb3a1a8f2ee11ad1",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/model_rd_test.cc",
+        "original_source_sha256": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+        "oracle_sites": {
+          "av1_interp_cubic_rate_dist_c": [
+            70,
+            95
+          ]
+        },
+        "binding_copy_sha256": "5bee8f0303775b5695eb224eb1a6efa4a32885729521db0b1f7e44b05af11428",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "f9cca754f93af4e0cafcbdb69e8957a96ae4412986e62f5da349d1e2d052bcb6",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+          "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+          "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2742,
+          "isolated_c_oracle_globals": 2656,
+          "reviewed_rust_subjects": [
+            "av1_interp_cubic_rate_dist_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_interp_cubic_rate_dist_c"
+          ],
+          "map_sha256": "2142f32419df3e03317c7d394f6b2f9d05d06b65ef124a56480b843459c310bf"
+        },
+        "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+        "rust_archive_sha256": "c6efaa484839f6924cd782bf4c183d0ae5afcea1a575fb69ddd48ec1247949cf",
+        "cases": [
+          {
+            "name": "PortScalar/InterpCubicTest.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      }
+    },
+    "release": {
+      "round-shift-array": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 171,
+        "supplementary_registrations": [
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/0",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/1",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/2",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/3",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/4",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/5",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/6",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/7",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/8",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/9",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/10",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/11",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/12",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/13",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/14",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/15",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/16",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/17",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/18",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/19",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/20",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/21",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/22",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/23",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/24",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/25",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/26",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/27",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/28",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/29",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/30",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/31",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/32",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/33",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/34",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/35",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/36",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/37",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/38",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/39",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/40",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/41",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/42",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/43",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/44",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/45",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/46",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/47",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/48",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/49",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/50",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/51",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/52",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/53",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/54",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/55",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/56",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/57",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/58",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/59",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/60",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/61",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/62",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/63",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/64",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/65",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/66",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/67",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/68",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/69",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/70",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/71",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/72",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/73",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/74",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/75",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/76",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/77",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/78",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/79",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/80",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/81",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/82",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/83",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/84",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/85",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/86",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/87",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/88",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/89",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/90",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/91",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/92",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/93",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/94",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/95",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/96",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/97",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/98",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/99",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/100",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/101",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/102",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/103",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/104",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/105",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/106",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/107",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/108",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/109",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/110",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/111",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/112",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/113",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/114",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/115",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/116",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/117",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/118",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/119",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/120",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/121",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/122",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/123",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/124",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/125",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/126",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/127",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/128",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/129",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/130",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/131",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/132",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/133",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/134",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/135",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/136",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/137",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/138",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/139",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/140",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/141",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/142",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/143",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/144",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/145",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/146",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/147",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/148",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/149",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/150",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/151",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/152",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/153",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/154",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/155",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/156",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/157",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/158",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/159",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/160",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/161",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/162",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/163",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/164",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/165",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/166",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/167",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/168",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/169",
+          "PortScalar/AV1CompRoundShiftTest.CheckOutput/170",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/0",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/1",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/2",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/3",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/4",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/5",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/6",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/7",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/8",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/9",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/10",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/11",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/12",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/13",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/14",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/15",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/16",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/17",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/18",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/19",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/20",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/21",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/22",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/23",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/24",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/25",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/26",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/27",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/28",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/29",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/30",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/31",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/32",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/33",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/34",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/35",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/36",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/37",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/38",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/39",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/40",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/41",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/42",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/43",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/44",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/45",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/46",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/47",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/48",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/49",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/50",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/51",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/52",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/53",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/54",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/55",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/56",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/57",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/58",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/59",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/60",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/61",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/62",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/63",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/64",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/65",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/66",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/67",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/68",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/69",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/70",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/71",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/72",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/73",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/74",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/75",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/76",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/77",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/78",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/79",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/80",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/81",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/82",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/83",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/84",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/85",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/86",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/87",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/88",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/89",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/90",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/91",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/92",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/93",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/94",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/95",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/96",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/97",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/98",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/99",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/100",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/101",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/102",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/103",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/104",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/105",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/106",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/107",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/108",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/109",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/110",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/111",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/112",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/113",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/114",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/115",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/116",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/117",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/118",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/119",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/120",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/121",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/122",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/123",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/124",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/125",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/126",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/127",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/128",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/129",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/130",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/131",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/132",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/133",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/134",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/135",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/136",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/137",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/138",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/139",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/140",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/141",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/142",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/143",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/144",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/145",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/146",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/147",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/148",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/149",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/150",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/151",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/152",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/153",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/154",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/155",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/156",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/157",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/158",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/159",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/160",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/161",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/162",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/163",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/164",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/165",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/166",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/167",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/168",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/169",
+          "PortScalar/AV1CompRoundShiftTest.DISABLED_Speed/170"
+        ],
+        "augmentation_sha256": "25d0ab9e0c58e9cc84848930e66a2a64ce2577b6d9a6bd106628bfebedef2574",
+        "baseline_augmentation_sha256": "25d0ab9e0c58e9cc84848930e66a2a64ce2577b6d9a6bd106628bfebedef2574",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_round_shift_array_test.cc",
+        "original_source_sha256": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+        "oracle_sites": {
+          "av1_round_shift_array_c": [
+            70,
+            89
+          ]
+        },
+        "binding_copy_sha256": "6366f56a8446ba54dfbf1ff7f9e29203bcb291487c706f7d9dc522229e14e766",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "5a8c3e6e8ae1eb63dcde8e230d7326559e136d05cc51cd4200e0a45e9db51f9f",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+          "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+          "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 6,
+          "reviewed_rust_subjects": [
+            "av1_round_shift_array_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_round_shift_array_c"
+          ],
+          "map_sha256": "608e7f2e9ff02bc07bf913c6d22ff960e13e508a32955643e51dfa21161172a3"
+        },
+        "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
+        "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+        "cases": [
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/14",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/15",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/16",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/17",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/18",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/19",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/20",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/21",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/22",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/23",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/24",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/25",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/26",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/27",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/28",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/29",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/30",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/31",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/32",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/33",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/34",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/35",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/36",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/37",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/38",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/39",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/40",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/41",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/42",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/43",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/44",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/45",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/46",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/47",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/48",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/49",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/50",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/51",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/52",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/53",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/54",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/55",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/56",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/57",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/58",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/59",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/60",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/61",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/62",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/63",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/64",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/65",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/66",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/67",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/68",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/69",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/70",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/71",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/72",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/73",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/74",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/75",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/76",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/77",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/78",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/79",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/80",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/81",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/82",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/83",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/84",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/85",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/86",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/87",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/88",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/89",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/90",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/91",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/92",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/93",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/94",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/95",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/96",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/97",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/98",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/99",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/100",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/101",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/102",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/103",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/104",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/105",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/106",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/107",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/108",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/109",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/110",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/111",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/112",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/113",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/114",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/115",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/116",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/117",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/118",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/119",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/120",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/121",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/122",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/123",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/124",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/125",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/126",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/127",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/128",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/129",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/130",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/131",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/132",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/133",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/134",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/135",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/136",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/137",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/138",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/139",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/140",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/141",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/142",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/143",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/144",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/145",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/146",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/147",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/148",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/149",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/150",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/151",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/152",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/153",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/154",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/155",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/156",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/157",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/158",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/159",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/160",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/161",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/162",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/163",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/164",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/165",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/166",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/167",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/168",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/169",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1CompRoundShiftTest.CheckOutput/170",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "cubic-rd": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 1,
+        "supplementary_registrations": [
+          "PortScalar/InterpCubicTest.CheckOutput/0",
+          "PortScalar/InterpCubicTest.DISABLED_Speed/0"
+        ],
+        "augmentation_sha256": "47d40161939c3827c246734413cdac2b364a238572a86d20cb3a1a8f2ee11ad1",
+        "baseline_augmentation_sha256": "47d40161939c3827c246734413cdac2b364a238572a86d20cb3a1a8f2ee11ad1",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/model_rd_test.cc",
+        "original_source_sha256": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+        "oracle_sites": {
+          "av1_interp_cubic_rate_dist_c": [
+            70,
+            95
+          ]
+        },
+        "binding_copy_sha256": "5bee8f0303775b5695eb224eb1a6efa4a32885729521db0b1f7e44b05af11428",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "5a8c3e6e8ae1eb63dcde8e230d7326559e136d05cc51cd4200e0a45e9db51f9f",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+          "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+          "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 2654,
+          "reviewed_rust_subjects": [
+            "av1_interp_cubic_rate_dist_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_interp_cubic_rate_dist_c"
+          ],
+          "map_sha256": "530ac927af1b851abe2d4e60eb377537547812ec085aa8f9e78cf69434f29c26"
+        },
+        "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
+        "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+        "cases": [
+          {
+            "name": "PortScalar/InterpCubicTest.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      }
+    }
+  }
+}
