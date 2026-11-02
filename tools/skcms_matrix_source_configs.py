@@ -219,12 +219,15 @@ def main():
     report['full_baseline_source_differences'] = differences(
         full_requests, full_baseline_rows['oracle'], full_baseline_rows['oracle-asan'],
         output / 'full-baseline-differences.json.gz')
-    # Reproduce the rejected O3/strict control, then diagnose the two distinct
-    # O0 candidates. Never select or activate a reference configuration here.
+    # Retain the O3/strict and O0 controls, then isolate the original inline
+    # and loop-unroll boundaries without changing optimization level. Never
+    # select or activate a reference configuration here.
     for name, optimization, options in [
             ('o3-strict', '-O3', ['-ffp-model=strict']),
             ('o0-strict', '-O0', ['-ffp-model=strict']),
-            ('o0-plain', '-O0', [])]:
+            ('o0-plain', '-O0', []),
+            ('o3-noinline', '-O3', ['-fno-inline-functions']),
+            ('o3-noinline-no-unroll', '-O3', ['-fno-inline-functions', '-fno-unroll-loops'])]:
         rows, full_rows = {}, {}
         item = {'graphs': {}}
         for graph in ['oracle', 'oracle-asan']:
