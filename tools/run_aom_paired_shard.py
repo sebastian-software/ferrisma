@@ -42,7 +42,7 @@ def execute(binary, label, args, work, native):
     xml = work / f'shard-{args.index}-{label}.xml'
     xml.unlink(missing_ok=True)
     environment = dict(os.environ, GTEST_TOTAL_SHARDS=str(args.shards), GTEST_SHARD_INDEX=str(args.index),
-                       LIBAOM_TEST_DATA_PATH=str(ROOT / 'build/deps/aom-test-data'))
+                       LIBAOM_TEST_DATA_PATH=str(args.fixtures))
     command = [str(binary), '--gtest_filter=' + args.filter, '--gtest_output=xml:' + str(xml)]
     with (work / f'shard-{args.index}-{label}.log').open('w') as log:
         result = subprocess.run(command, cwd=native, env=environment, stdout=log, stderr=subprocess.STDOUT)
@@ -75,15 +75,28 @@ def main():
     parser.add_argument('--shards', type=int, default=32)
     parser.add_argument('--index', type=int)
     parser.add_argument('--collect', action='store_true')
+    parser.add_argument('--resume', action='store_true', help='Reuse only an identical, passing paired shard')
     parser.add_argument('--filter', default='*')
     parser.add_argument('--output-dir', type=Path)
+    parser.add_argument('--reference-build', type=Path, help='Read an existing native reference without modifying it')
+    parser.add_argument('--fixtures', type=Path, default=ROOT / 'build/deps/aom-test-data')
     args = parser.parse_args()
     if args.shards < 1 or (not args.collect and (args.index is None or not 0 <= args.index < args.shards)):
         parser.error('Provide a positive shard count and one valid index, or use --collect')
     if args.collect and args.index is not None:
         parser.error('--collect and --index are mutually exclusive')
+    if args.collect and args.resume:
+        parser.error('--collect and --resume are mutually exclusive')
     profile = 'debug' if args.debug else 'release'
-    native, rust = ROOT / f'build/aom-native-{profile}', ROOT / f'build/aom-rust-{profile}'
+    native = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
+    rust = ROOT / f'build/aom-rust-{profile}'
+    args.fixtures = args.fixtures.resolve()
+    platform = 'macos' if sys.platform == 'darwin' else 'linux'
+    manifest = ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'
+    translation = json.loads(manifest.read_text())
+    if (json.loads((native / 'reference-profile.json').read_text())['profile'] != profile
+            or digest(native / 'config/aom_config.h') != translation['generated_reference_headers']['config/aom_config.h']):
+        raise SystemExit('The native reference and Rust preprocessing differ')
     suffix = '' if args.filter == '*' else '-focused-' + hashlib.sha256(args.filter.encode()).hexdigest()[:12]
     work = (args.output_dir or ROOT / f'build/aom-paired-{profile}-{args.program}{suffix}').resolve()
     work.mkdir(parents=True, exist_ok=True)
@@ -106,9 +119,9 @@ def main():
             or owners['original_codec_objects_loaded'] or owners['original_globals_outside_rust']
             or linkage['rust_archive_sha256'] != audit['rust_archive_sha256']):
         raise SystemExit('Rust consumer is missing a passing codec symbol-ownership audit')
-    fixtures_sha256 = None
+    fixtures_sha256, fixture_metadata = None, None
     if args.program == 'test_libaom' and args.filter == '*':
-        fixtures = ROOT / 'build/deps/aom-test-data'
+        fixtures = args.fixtures
         metadata = work / 'fixtures.json' if args.collect else fixtures / 'verified-inputs.json'
         verified = json.loads(metadata.read_text())['files']
         required = json.loads((native / 'test-data.json').read_text())
@@ -120,23 +133,34 @@ def main():
             raise SystemExit('The complete original selected fixture inventory is not verified/present')
         fixtures_sha256 = hashlib.sha256(json.dumps(verified, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
         if not args.collect:
-            (work / 'fixtures.json').write_bytes(metadata.read_bytes())
-    platform = 'macos' if sys.platform == 'darwin' else 'linux'
+            fixture_metadata = metadata.read_bytes()
     identity = dict(profile=profile, program=args.program, shards=args.shards, filter=args.filter,
                     c_executable_sha256=digest(binaries['c']), rust_executable_sha256=rust_digest,
                     original_inventory_sha256=hashlib.sha256(json.dumps(names, separators=(',', ':')).encode()).hexdigest(),
                     config_sha256=digest(native / 'config/aom_config.h'),
-                    translation_manifest_sha256=digest(ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'),
+                    translation_manifest_sha256=digest(manifest),
                     verified_fixtures_sha256=fixtures_sha256,
                     rust_archive_sha256=linkage['rust_archive_sha256'])
     if not args.collect:
-        (work / f'shard-{args.index}.json').unlink(missing_ok=True)
+        path = work / f'shard-{args.index}.json'
+        expected_shard = expected[args.index::args.shards]
+        if args.resume and path.exists():
+            record = json.loads(path.read_text())
+            if (record['identity'] != identity or record['index'] != args.index
+                    or not record['valid'] or not passing_pair(record)
+                    or [case['name'] for case in record['results']['c']['cases']] != expected_shard):
+                raise SystemExit('Existing shard does not match the passing original execution contract; retained without changes')
+            print(f'Reused verified {profile}/{args.program} shard {args.index + 1}/{args.shards}', flush=True)
+            return
+        if fixture_metadata is not None:
+            (work / 'fixtures.json').write_bytes(fixture_metadata)
+        path.unlink(missing_ok=True)
         record = dict(identity=identity, index=args.index, results={})
         for label, binary in binaries.items():
             record['results'][label] = execute(binary, label, args, work, native)
         c, candidate = record['results']['c'], record['results']['rust']
-        record['valid'] = passing_pair(record)
-        (work / f'shard-{args.index}.json').write_text(json.dumps(record, indent=2) + '\n')
+        record['valid'] = passing_pair(record) and [case['name'] for case in c['cases']] == expected_shard
+        path.write_text(json.dumps(record, indent=2) + '\n')
         print(f'{profile}/{args.program} shard {args.index + 1}/{args.shards}: '
               f'C={len(c["cases"])}, Rust={len(candidate["cases"])}, valid={record["valid"]}', flush=True)
         if not record['valid']:

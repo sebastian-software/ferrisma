@@ -81,9 +81,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--archives-only', action='store_true')
+    parser.add_argument('--reference-build', type=Path, help='Read an existing native reference without modifying it')
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
-    original = ROOT / f'build/aom-native-{profile}'
+    original = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
     output = ROOT / f'build/aom-rust-{profile}'
     reference_archive, rust_archive = original / 'libaom.a', ROOT / f'target/{profile}/libaom.a'
     reference = definitions(reference_archive)

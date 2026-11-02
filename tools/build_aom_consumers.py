@@ -18,9 +18,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--only', action='append', help='Build a named original consumer first')
+    parser.add_argument('--reference-build', type=Path, help='Read an existing native reference without modifying it')
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
-    build = ROOT / f'build/aom-native-{profile}'
+    build = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
+    platform = 'macos' if sys.platform == 'darwin' else 'linux'
+    manifest = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())
+    if json.loads((build / 'reference-profile.json').read_text())['profile'] != profile:
+        raise SystemExit('The native reference and Rust profile differ')
+    for name, expected in manifest['generated_reference_headers'].items():
+        if hashlib.sha256((build / name).read_bytes()).hexdigest() != expected:
+            raise SystemExit(f'The native reference and Rust preprocessing differ: {name}')
     output = ROOT / f'build/aom-rust-{profile}'
     output.mkdir(parents=True, exist_ok=True)
     cargo = ['cargo', 'build', '-p', 'libavif-aom', '--locked']
@@ -29,8 +37,11 @@ def main():
     subprocess.run(cargo, check=True)
     archive = ROOT / f'target/{profile}/libaom.a'
     library_sources = {Path(entry['file']) for entry in library_entries(build)}
+    entries = json.loads((build / 'compile_commands.json').read_text())
     compiled_sources = {str((Path(entry['directory']) / entry['output']).relative_to(build)): Path(entry['file'])
-                        for entry in json.loads((build / 'compile_commands.json').read_text())}
+                        for entry in entries}
+    source_root = next(source.parents[1] for source in compiled_sources.values()
+                       if source.as_posix().endswith('/common/args_helper.c'))
     executables = re.findall(r'^build ([^ :]+): C(?:XX)?_EXECUTABLE_LINKER',
                              (build / 'build.ninja').read_text(), re.M)
     if args.only:
@@ -54,7 +65,7 @@ def main():
         # Rust implementations and remove only identical-source app copies.
         for token in overlaps:
             source = compiled_sources[token]
-            if source.relative_to(ROOT / 'build/aom-native-source').as_posix() not in [
+            if source.relative_to(source_root).as_posix() not in [
                     'common/args_helper.c', 'av1/arg_defs.c']:
                 raise SystemExit(f'Unreviewed app/codec source overlap: {token}')
             command.remove(token)

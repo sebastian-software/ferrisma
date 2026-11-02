@@ -235,10 +235,23 @@ the C binary and then with its Rust consumer. It checks binary and configuration
 hashes, original registrations, the Rust ownership audit, and matching executed
 case/skip inventories. Collection requires every shard, rejects duplicate,
 missing, unexpected, or failing cases, and checks the full active inventory.
-The runner passes a two-shard check of the 62 original focused macOS Debug
-cases and rejects missing shards and edited execution records; this verifies
-the runner, not the full main suite. See
+The runner passes two-shard checks of the 62 original focused macOS cases in
+both profiles and rejects missing shards and edited execution records. Optional
+`--resume` reuses a shard only when its complete binary/configuration/fixture
+identity, passing C/Rust results, and exact original shard assignment match.
+An invalid record is retained and rejected. Collection still requires every
+original active selected case. This verifies the runner, not the complete main
+suite. Evidence is in
 [`aom-paired-shard-validation.json`](aom-paired-shard-validation.json).
+
+The consumer builder, symbol audit, and paired runner accept an explicit
+`--reference-build` so a task worktree can reuse native reference sources,
+objects, and executables without rebuilding them. The builder checks every
+generated reference header against the selected translation manifest; the
+runner rejects a different preprocessing profile/configuration. Rust libraries,
+candidate consumers, and reports stay in the task worktree. The runner's
+`--fixtures` option selects an existing verified corpus without copying it.
+The current local corpus has been rehashed against all 568 original inputs.
 
 The manual `aom-original-linux.yml` workflow prepares both profiles once and
 shares the audited binaries with 32 paired main-suite shards per profile.
