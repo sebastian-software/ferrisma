@@ -2,7 +2,7 @@
 
 Status: portable SharpYUV and dav1d are implemented and integrated. See
 [SharpYUV validation](SHARPYUV-VALIDATION.md) and the
-[dav1d port and validation](DAV1D-PORT.md). libaom is the next milestone.
+[dav1d port and validation](DAV1D-PORT.md). the [libaom milestone](AOM-PORT.md) is in progress.
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
