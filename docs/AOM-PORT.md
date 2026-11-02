@@ -441,6 +441,15 @@ against that runner's SDK. Local execution remains limited to two CPU-intensive
 processes. ADR 0044 records this scheduling decision; a complete passing run
 on either hosted platform is still pending.
 
+The hosted `macos-26` build now passes both original profiles and verifies
+18,207 Debug / 18,157 Release named record instances with 204,984 / 204,684
+layout checks and no differences. All original globals resolve to Rust in
+all three original consumers per profile. The six published consumer hashes,
+ARM64 Mach-O headers, generated configuration, and original case-name hashes
+were checked against the downloaded artifact. These build and ABI checks
+receive no full-suite execution credit. See
+[`aom-hosted-macos-build-validation.json`](aom-hosted-macos-build-validation.json).
+
 1. Verify complete source/license hashes, the archive's exact source closure,
    generated headers, configurations, and original test inventories.
 2. Prove the representative image/API and encoder/decoder state/error boundary.
