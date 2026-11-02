@@ -36,7 +36,7 @@ jobs:
           build/aom-tools/bin/python -m pip install meson==1.7.2
       - name: Verify source and build the retained native VMAF reference
         run: |
-          python3 tools/verify_upstream.py
+          python3 tools/verify_upstream.py --tracked
           python3 tools/generate_licenses.py --check
           python3 tools/build_aom_vmaf.py --fetch
           echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
