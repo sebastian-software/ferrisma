@@ -3,8 +3,9 @@
 
 //! Parsed JPEG data storage from lib/jxl/jpeg/jpeg_data.h. Coefficient/marker
 //! storage owns its vectors. Source-indeterminate scalar/array storage receives
-//! safe initialization with no extra source meaning. JPEG parsing, field
-//! serialization, MCU calculation, and reconstruction remain unported.
+//! safe initialization with no extra source meaning. JPEG parsing and field
+//! serialization remain unported. MCU geometry follows the complete
+//! JPEGData::CalculateMcuSize boundary in jpeg_data.cc.
 
 use crate::jxl::frame_dimensions::DCT_BLOCK_SIZE;
 pub const MAX_COMPONENTS: usize = 4;
@@ -15,6 +16,12 @@ pub const JPEG_HUFFMAN_ALPHABET_SIZE: usize = 256;
 pub const JPEG_DC_ALPHABET_SIZE: usize = 12;
 pub const MAX_DHT_MARKERS: usize = 512;
 pub const MAX_DIM_PIXELS: usize = 65535;
+pub const JPEG_NATURAL_ORDER: [usize; 80] = [
+    0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20,
+    13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59,
+    52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63,
+    63, 63, 63, 63, 63, 63,
+];
 #[derive(Clone)]
 pub struct JpegQuantTable {
     pub values: [i32; DCT_BLOCK_SIZE],
@@ -121,4 +128,23 @@ pub struct JpegData {
     pub tail_data: Vec<u8>,
     pub has_zero_padding_bit: bool,
     pub padding_bits: Vec<u8>,
+}
+impl JpegData {
+    pub fn calculate_mcu_size(&self, scan: &JpegScanInfo) -> (i32, i32) {
+        let interleaved = scan.num_components > 1;
+        let base = &self.components[scan.components[0].comp_idx as usize];
+        let h_group = if interleaved { 1 } else { base.h_samp_factor };
+        let v_group = if interleaved { 1 } else { base.v_samp_factor };
+        let mut max_h = 1;
+        let mut max_v = 1;
+        for c in &self.components {
+            max_h = c.h_samp_factor.max(max_h);
+            max_v = c.v_samp_factor.max(max_v);
+        }
+        let div_ceil = |a: i32, b: i32| (a + b - 1) / b;
+        (
+            div_ceil(self.width * h_group, 8 * max_h),
+            div_ceil(self.height * v_group, 8 * max_v),
+        )
+    }
 }

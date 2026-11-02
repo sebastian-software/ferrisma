@@ -1139,3 +1139,21 @@ The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
 one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
 original reference configuration in ADR 0002; other target specializations remain
 separate work.
+
+JPEG reconstruction writing retains borrowed marker/tail payloads and owned
+bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
+storage with a separate active prefix length; output callbacks receive None for
+a null source pointer and Some(empty) for retained allocated empty storage.
+The pinned short-write loop decreases length without advancing its pointer;
+the Rust callback lifecycle preserves that behavior rather than repairing it.
+Callback overreporting remains a source programmer-precondition violation.
+The queue is passed alongside a mutable bit-writer borrow instead of storing an
+owner-relative output pointer. Current AC Huffman and padding pointers become
+indices into their existing stable owners; no Huffman tables or JPEG data are
+cloned to resolve borrows. Source-indeterminate storage gets safe initialization
+without assigning meaning to otherwise undefined reads. Variable shifts promote
+coeff_t operands to i32 before shifting, narrowing only at original int16_t
+assignments; source-defined Al16..31 structures remain accepted. The sequential
+extra-zero-run counter likewise retains promoted subtraction followed by int16_t
+narrowing. These standalone writer domains are wider than JPEGData field
+serialization and do not establish validity of an encoded JPEG file.

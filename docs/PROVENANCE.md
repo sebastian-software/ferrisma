@@ -488,3 +488,13 @@ required evidence for this mapping. MULSS products preserve separate rounding
 without executing the source's folded double promotions.
 The original source, oracle settings, global Highway helpers, existing cases,
 expected words, and AArch64 arithmetic remain unchanged.
+
+The JPEG reconstruction writer translates the complete pinned
+jpeg/dec_jpeg_data_writer.cc and its chunk/state headers, plus
+JPEGData::CalculateMcuSize. The oracle calls the actual archive ReadJpeg,
+WriteJpeg and MCU functions; it contains no substitute entropy writer or JPEG
+parser. Deterministic fixture images are encoded by the recorded cjpeg tool,
+then parsed and reconstructed through the original entry points. Generated
+JPEGs, pixel recipe, command options and hashes are recorded under
+[tests/data/jpeg-writer](../tests/data/jpeg-writer/README.md). C++ and cjpeg
+remain explicit test/fixture tools and are not Rust build/runtime dependencies.

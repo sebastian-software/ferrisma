@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/decoder-jpeg-writer]
   pull_request:
 
 permissions:

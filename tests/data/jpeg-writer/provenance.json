@@ -1,0 +1,95 @@
+{
+  "generator": "tools/generate_jpeg_writer_fixtures.py",
+  "cjpeg_version": "libjpeg-turbo version 3.2.1 (build 20261026)",
+  "cjpeg_sha256": "99ec26a3a0d11e9ac925fa4cdfbda8b56660591d57a61e47ee7d7657f0611f69",
+  "pixel_recipe": "((x*37+y*71+x*y*3+c*83)^((x<<2)+y*5))%256",
+  "files": {
+    "baseline.jpg": {
+      "width": 17,
+      "height": 9,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "90",
+        "-sample",
+        "1x1,1x1,1x1"
+      ],
+      "input_sha256": "7e5ab43fa90eaf0474f7b61dac35d32cb52a311c140b344a158c7443fa87de08",
+      "bytes": 990,
+      "sha256": "6938901d1832a0b1da311f8d80e1a8a82e6efa89465ae1f7fff92482095eb227"
+    },
+    "progressive.jpg": {
+      "width": 65,
+      "height": 33,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "90",
+        "-sample",
+        "2x2,1x1,1x1",
+        "-progressive"
+      ],
+      "input_sha256": "bbee2d1c8385167e76d6ad847497392f4f553c7d16b8895f69f0c3eda34aef0c",
+      "bytes": 2455,
+      "sha256": "a49e0677cd32f551778afaea9b501523624462b4c58e27d1d8ec626b61c00a91"
+    },
+    "restarts.jpg": {
+      "width": 65,
+      "height": 33,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "90",
+        "-sample",
+        "2x1,1x1,1x1",
+        "-restart",
+        "1B"
+      ],
+      "input_sha256": "bbee2d1c8385167e76d6ad847497392f4f553c7d16b8895f69f0c3eda34aef0c",
+      "bytes": 3236,
+      "sha256": "39f3deec90eb06a22bebdc86da92e3deca40a56655ad055f57485866bc00ab13"
+    },
+    "gray.jpg": {
+      "width": 17,
+      "height": 9,
+      "channels": 1,
+      "options": [
+        "-quality",
+        "90",
+        "-grayscale"
+      ],
+      "input_sha256": "44ef7151f963062427f12cecfe84329041998840196e9b504443a01d40d9b767",
+      "bytes": 479,
+      "sha256": "0e46ba1111665b085ebe91d6f5e0c87fdac65a556e03264feea035e6b620ce3f"
+    },
+    "chunked-baseline.jpg": {
+      "width": 257,
+      "height": 129,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "96",
+        "-sample",
+        "1x1,1x1,1x1"
+      ],
+      "input_sha256": "2bb721a2768343b12eeb390e779de1ce55c873a59dcf3a07ba02eab667d91002",
+      "bytes": 83459,
+      "sha256": "fb65f7e176ddb2e35e4f772328a46918f9094fb4e445860217b1f9f06e3431d5"
+    },
+    "large-progressive.jpg": {
+      "width": 257,
+      "height": 129,
+      "channels": 3,
+      "options": [
+        "-quality",
+        "96",
+        "-sample",
+        "2x2,1x1,1x1",
+        "-progressive"
+      ],
+      "input_sha256": "2bb721a2768343b12eeb390e779de1ce55c873a59dcf3a07ba02eab667d91002",
+      "bytes": 35264,
+      "sha256": "81545135a2d082ea467e035f52f85788dda5b3f42cf6e3ae62ccda6bb6409845"
+    }
+  }
+}

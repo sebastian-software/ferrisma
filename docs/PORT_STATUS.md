@@ -85,7 +85,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
 | `render_pipeline/stage_splines.h`, `.cc` | `render_pipeline/stage_splines.rs` | Complete scalar stage/factories with borrowed or shared cache identity and safe disjoint row spans; complete-file integration remains separate |
 | `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above |
-| `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
+| `jpeg/jpeg_data.h`, CalculateMcuSize in `.cc`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, complete MCU geometry, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and field serialization unported |
+| `jpeg/dec_jpeg_data_writer.h`, `.cc`, `dec_jpeg_output_chunk.h`, `dec_jpeg_serialization_state.h` | `jpeg/dec_jpeg_data_writer.rs`, `jpeg/dec_jpeg_output_chunk.rs`, `jpeg/dec_jpeg_serialization_state.rs` | Complete WriteJpeg marker/Huffman/quantization serialization, sequential/progressive/refinement scan writing, restarts, padding, chunk ownership and output callback lifecycle; compressed reconstruction metadata and complete-file coefficient integration remain open |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
@@ -1400,3 +1401,36 @@ original compiler-dependent NaN operand ambiguity and ownership mapping. No old
 cases, expected words, source pins, sanitizer flags, or original archive options
 change. Complete-file EPF admission and image evidence are a separate integration
 milestone, so the README's EPF checkbox remains open here.
+
+
+## JPEG bitstream writing
+
+The complete pinned WriteJpeg boundary adds five differential groups with 940
+exact requests and three independent source-captured native regressions. Six
+actual cjpeg files exercise baseline/progressive scans, grayscale and RGB,
+subsampling, restart markers, bit stuffing and multiple 16,384-byte bit-writer
+chunks. The actual original ReadJpeg supplies their quantization, Huffman,
+coefficient, scan and marker data; the writer reproduces each input byte-for-byte.
+The [fixture provenance](../tests/data/jpeg-writer/README.md) records the generator,
+options, original image data recipe and every file hash.
+
+The corpus retains every callback offer, accepted count, null pointer distinction
+and output byte, including short successful and failed writes. It covers all 256
+marker values, table and metadata errors, explicit padding and malformed but
+source-defined structure inputs. A cold review caught C++ int promotion for
+Al16..31 and int16_t compound-assignment narrowing after many extra zero runs;
+independent ordinary/instrumented source experiments confirmed both domains.
+The corrections preserve those exact requests and the original algorithms.
+A reversible prefix representation avoids duplicating large callback offers in
+the test protocol; every byte remains present literally or as a previously
+observed exact prefix. Earlier independent literal captures reconstruct exactly.
+
+All six focused ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations
+pass the 940 requests and three native regressions. Complete ordinary and
+ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration
+completes 449 tests, 261 differential groups and 882,872 exact requests, with no
+failures or ignored tests. Native Linux/macOS CI and integration with the latest
+main remain required. No source body, numeric option, dependency or sanitizer coverage
+changes. Brotli reconstruction metadata decoding, JPEGData field serialization,
+and whole-file coefficient/reconstruction integration remain open; the README
+JPEG reconstruction milestone stays unchecked.
