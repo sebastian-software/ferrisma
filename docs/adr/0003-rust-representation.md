@@ -1126,3 +1126,16 @@ to either input or output storage; overlap is a source programmer-precondition
 violation and is rejected. Extended left-row positions preserve the source's
 unsigned wrapping before its signed drawing calculations. No new unsafe code,
 external dependency or altered reference compilation is required.
+
+The scalar EPF stages retain the original filter copy, neighbor/SAD accumulation
+order, high-precision reciprocal and scalar Highway multiplication checkpoints.
+Signed extended-row coordinates convert to block indices at the original source
+points. Sigma binding is either an immutable borrowed plane or the same
+`Rc<RefCell<Plane<f32>>>` owner retained by the decoder. Each row call borrows that
+owner immutably and releases it before return; sigma generation requires an
+exclusive borrow between stage calls. No sigma snapshot or self-reference is
+created, and subsequent source-owner writes remain visible to the existing stage.
+The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
+one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
+original reference configuration in ADR 0002; other target specializations remain
+separate work.

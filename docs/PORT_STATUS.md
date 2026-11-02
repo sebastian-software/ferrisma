@@ -90,8 +90,9 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
 | `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and null-pool row traversal |
-| `epf.cc` (`ComputeSigma`) | `epf.rs` | Complete block sigma generation and mirrored borders; EPF rendering kernels remain unported |
-| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels unported |
+| `render_pipeline/stage_epf.h`, `.cc` | `render_pipeline/stage_epf.rs` | Complete scalar EPF0/EPF1/EPF2 stages, Weight, factories, borrowed/shared sigma, and original simple-pipeline scheduling; complete-file integration remains separate |
+| `epf.cc` (`ComputeSigma`) | `epf.rs` | Complete block sigma generation and mirrored borders; scalar filtering stages are mapped separately |
+| `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, EPF kernels mapped separately |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
@@ -1370,3 +1371,29 @@ default optimized compilation; no new numeric compiler option or sanitizer
 suppression is introduced. Ownership and source-defined input limits are recorded
 in ADR 0003. Complete-file feature admission and cross-feature image evidence
 remain a separate integration gate, so the README spline checkbox stays open.
+
+Native component CI run 41440159908 passed on Linux and macOS: each applicable
+configuration completed 433 tests, 250 differential groups and 874,840 exact
+requests with no failures or ignored tests. Combining the spline component with
+the merged EPF component also passes all six local ordinary/ASan/UBSan Debug,
+Release and Rust 1.85 configurations: 441 tests, 256 groups and 881,932 requests
+each. Native CI for that combined branch remains the final integration gate.
+
+## Scalar EPF filtering
+
+The complete scalar EPF stage boundary adds six differential groups and 7,092
+exact original requests: 12 factory observations, 144 original simple-pipeline
+sequences, 3,672 mixed/exceptional rows, 1,728 active finite rows, 288 signed-zero,
+subnormal and cancellation rows, and 1,248 independently varied filter-parameter
+rows. Two native regressions retain independently captured original finite pixels,
+live shared sigma updates, competing NaN payloads, and unquieted skipped pixels.
+
+The selected ordinary and fully ASan/UBSan original graphs agree on all 6,936
+row observations. The durable `tools/epf_reference.py` audit additionally requires
+all 4,152 finite-arithmetic rows to match both untouched default optimized archive
+objects and verifies real factory bindings. The new isolated pristine stage
+observation unit alone uses scoped `-O0`; ADRs 0002 and 0003 record the demonstrated
+original compiler-dependent NaN operand ambiguity and ownership mapping. No old
+cases, expected words, source pins, sanitizer flags, or original archive options
+change. Complete-file EPF admission and image evidence are a separate integration
+milestone, so the README's EPF checkbox remains open here.

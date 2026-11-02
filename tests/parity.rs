@@ -101,6 +101,8 @@ mod modular_groups;
 #[path = "parity/modular_pixels.rs"]
 mod modular_pixels;
 
+#[path = "parity/epf.rs"]
+mod epf;
 #[path = "parity/gaborish_stage.rs"]
 mod gaborish_stage;
 
@@ -759,6 +761,7 @@ fn observe(request: &str) -> String {
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
+        kind if epf::handles(kind) => epf::observe(kind, &mut args),
         kind if gaborish_stage::handles(kind) => gaborish_stage::observe(kind, &mut args),
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),

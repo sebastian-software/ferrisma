@@ -255,3 +255,22 @@ requests against each default graph and require the selected ordinary/ASan
 objects to agree on all 546 finite/exceptional requests. Assembly inspection is
 supporting evidence; native CI is the acceptance gate. Review this scoped
 configuration again after source, compiler, target or instrumentation changes.
+
+
+Compile the pristine scalar EPF stage in its dedicated `epf.cc` observation unit
+at scoped `-O0`, with every sanitizer active. Native ARM default optimized ordinary
+and instrumented archive objects disagree on 107 of 3,672 identical row requests.
+For request 1,299, pass one output word 61 is `0x7fe54321` ordinarily and
+`0x7fc98765` under ASan/UBSan. A Rust operand mapping cannot reproduce both
+objects simultaneously. The selected unit supplies the real public factories
+and stage methods, including for complete-file observations; source routines and
+the original archive remain unchanged.
+
+The durable EPF reference audit relinks the exact adapter against each untouched
+default archive, retaining every original compiler and sanitizer argument and
+using temporary objects only. It verifies original factory bindings, requires all
+4,152 finite-arithmetic rows to match both default graphs, and requires all 6,936
+selected rows to agree between ordinary and instrumented graphs. Keep exceptional
+float words exact and revisit this configuration with source/compiler/target or
+instrumentation changes. This is a reproducible numeric reference configuration,
+not performance evidence.
