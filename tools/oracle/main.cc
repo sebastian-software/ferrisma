@@ -491,6 +491,12 @@ bool ACGroupSymbolsCommand(const std::string&,std::istringstream&,JxlMemoryManag
 bool BlockContextCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool WholeImageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
+bool GroupScheduleCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool DequantCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
 int main() {
   try {
     JxlMemoryManager mm;
@@ -536,6 +542,9 @@ int main() {
       else if (QuantStorageCommand(command, in)) {}
       else if (DctCommand(command, in)) {}
       else if (VarDCTDCCommand(command, in, &mm)) {}
+      else if (GroupRenderCommand(command, in, &mm)) {}
+      else if (DequantCommand(command, in, &mm)) {}
+      else if (GroupScheduleCommand(command, in, &mm)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (QuantizerCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}

@@ -19,5 +19,47 @@
     "end": "\n\n// Structs used by DecodeGroupImpl",
     "sha256": "bc0f7688d79f9e9c587f8177cd5270c6c3248ce8ad4c739eac23dbea9ec821e3",
     "output": "original_decode_ac_var_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "class GetBlock {",
+    "end": "\n\n// Controls whether DecodeGroupImpl",
+    "sha256": "fc4d8e65d4ffa066d3401a4978d875ea6fa726ec0878c607304a68de9157e30a",
+    "output": "original_get_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "struct GetBlockFromBitstream : public GetBlock {",
+    "end": "\n\nstruct GetBlockFromEncoder",
+    "sha256": "7c37c7d001e229c55464b414e2bc7797f6592840fa63acbce3a850743cd68f53",
+    "output": "original_get_block_from_bitstream.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "template <ACType ac_type>\nvoid DequantLane(",
+    "end": "\n\nStatus DecodeGroupImpl",
+    "sha256": "2453a5e6796ed63f05f92c6f553d8082f2c5451b0550a5e3835f7ea03da34664",
+    "output": "original_dequant_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "class GetBlock {",
+    "end": "\n\n}  // namespace jxl\n#endif",
+    "sha256": "96661569daacff879be6cee42da78164478c2ae89ab2f46094c90cb0cbcc6b13",
+    "output": "original_group_get_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "void Transpose8x8InPlace(int32_t* JXL_RESTRICT block)",
+    "end": "\n\ntemplate <ACType ac_type>\nvoid DequantLane(",
+    "sha256": "a4a1bb71deef8cfeeeb76a2557286e2409cfd9569666eb82e813de2fede0c7da",
+    "output": "original_group_transpose.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "Status DecodeGroupImpl(",
+    "end": "\n\n// NOLINTNEXTLINE(google-readability-namespace-comments)",
+    "sha256": "76e1c80895d8bb7c00b7c3c1fb77e7f7266cdbec0718974bc4f7a796c13821bb",
+    "output": "original_decode_group_impl.inc"
   }
 ]

@@ -3,7 +3,7 @@
 //! PixelCallback/ImageOutput and PassesDecoderState storage/constructor/Init
 //! from dec_cache.h, plus complete null-pool InitForAC from dec_cache.cc.
 //! Pipeline storage admits the original simple implementation; general pipeline
-//! preparation, VarDCT cache initialization, and custom runners remain unported.
+//! preparation and custom runners remain unported.
 //! Source-indeterminate scalar storage is initialized safely, without source
 //! meaning until assigned. Callback/output pointers remain non-owning carriers.
 use super::ac_strategy::NUM_VALID_STRATEGIES;
@@ -30,9 +30,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub const SIGMA_BORDER: usize = 1;
 pub const SIGMA_PADDING: usize = 2;
-/// Complete GroupDecCache constructor storage and InitDCBufferOnce. VarDCT's
-/// InitOnce and interpreted scratch bindings remain absent. Indeterminate
-/// source pointers have no native binding until that method is translated.
+/// GroupDecCache constructor, InitOnce, and InitDCBufferOnce. Scratch pointer
+/// bindings are owner-relative sample offsets, rebound after each initializer.
 #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), repr(align(64)))]
 #[cfg_attr(not(any(target_arch = "x86", target_arch = "x86_64")), repr(align(16)))]
 pub struct GroupDecCache {
@@ -63,7 +62,81 @@ impl Default for GroupDecCache {
         }
     }
 }
+/// Disjoint typed views of the source cache's three aligned allocation owners.
+/// Nzero images are borrowed separately while entropy decoding uses these buffers.
+pub struct GroupDecBuffers<'a> {
+    pub block: &'a mut [f32],
+    pub scratch: &'a mut [f32],
+    pub qblock: &'a mut [i32],
+    pub qblock16: &'a mut [i16],
+}
 impl GroupDecCache {
+    pub fn init_once(&mut self, num_passes: usize, used_acs: usize) -> Status {
+        for i in 0..num_passes {
+            if self.num_nzeroes[i].xsize() == 0 {
+                let dim = super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
+                self.num_nzeroes[i] = Image3::create(dim, dim)?;
+            }
+        }
+        let mut max_block_area = 0;
+        for o in 0..NUM_VALID_STRATEGIES {
+            let acs = super::ac_strategy::AcStrategy::from_raw_strategy(
+                super::ac_strategy::AcStrategyType(u32::from(o)),
+            );
+            if (used_acs & (1usize << o)) == 0 {
+                continue;
+            }
+            let area = acs.covered_blocks_x() * acs.covered_blocks_y() * DCT_BLOCK_SIZE;
+            max_block_area = max_block_area.max(area);
+        }
+        if max_block_area > self.max_block_area {
+            // Preserve assignment before the three allocation/failure points.
+            self.max_block_area = max_block_area;
+            self.float_memory = Some(AlignedMemory::create(self.max_block_area * 7 * 4, 0)?);
+            self.int32_memory = Some(AlignedMemory::create(self.max_block_area * 3 * 4, 0)?);
+            self.int16_memory = Some(AlignedMemory::create(self.max_block_area * 3 * 2, 0)?);
+        }
+        self.dec_group_block = self.float_memory.as_ref().map(|_| 0);
+        self.scratch_space = self.float_memory.as_ref().map(|_| self.max_block_area * 3);
+        self.dec_group_qblock = self.int32_memory.as_ref().map(|_| 0);
+        self.dec_group_qblock16 = self.int16_memory.as_ref().map(|_| 0);
+        Ok(())
+    }
+    pub fn split_buffers(&mut self) -> (GroupDecBuffers<'_>, &mut [Image3<i32>; MAX_NUM_PASSES]) {
+        fn floats(memory: &mut Option<AlignedMemory>) -> &mut [f32] {
+            let Some(memory) = memory else { return &mut [] };
+            let bytes = memory.bytes_mut();
+            // SAFETY: AlignedMemory supplies 128-byte aligned initialized bytes;
+            // InitOnce allocates whole f32 slots, every bit pattern is valid,
+            // and this exclusive owner borrow prevents aliases during the view.
+            unsafe { std::slice::from_raw_parts_mut(bytes.as_mut_ptr().cast(), bytes.len() / 4) }
+        }
+        fn ints(memory: &mut Option<AlignedMemory>) -> &mut [i32] {
+            let Some(memory) = memory else { return &mut [] };
+            let bytes = memory.bytes_mut();
+            // SAFETY: Same exclusive initialized aligned-owner proof as floats;
+            // InitOnce allocates whole i32 slots and all bit patterns are valid.
+            unsafe { std::slice::from_raw_parts_mut(bytes.as_mut_ptr().cast(), bytes.len() / 4) }
+        }
+        fn shorts(memory: &mut Option<AlignedMemory>) -> &mut [i16] {
+            let Some(memory) = memory else { return &mut [] };
+            let bytes = memory.bytes_mut();
+            // SAFETY: Same owner/alignment/initialization proof; InitOnce allocates
+            // whole i16 slots and no other view of this owner can coexist.
+            unsafe { std::slice::from_raw_parts_mut(bytes.as_mut_ptr().cast(), bytes.len() / 2) }
+        }
+        let float = floats(&mut self.float_memory);
+        let (block, scratch) = float.split_at_mut(self.max_block_area * 3);
+        (
+            GroupDecBuffers {
+                block,
+                scratch,
+                qblock: ints(&mut self.int32_memory),
+                qblock16: shorts(&mut self.int16_memory),
+            },
+            &mut self.num_nzeroes,
+        )
+    }
     pub fn init_dc_buffer_once(&mut self) -> Status {
         if self.dc_buffer.xsize() == 0 {
             let dim = super::frame_dimensions::GROUP_DIM_IN_BLOCKS;

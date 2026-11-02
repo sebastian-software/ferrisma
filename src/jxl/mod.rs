@@ -84,3 +84,6 @@ pub mod types;
 
 pub mod compressed_dc;
 pub mod epf;
+
+pub mod dec_group_render;
+pub mod quantizer_inl;

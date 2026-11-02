@@ -167,6 +167,11 @@ impl<T: Sample> Plane<T> {
             .as_ref()
             .map(|memory| self.row_at(0, memory.bytes().len()))
     }
+    /// Complete initialized sample storage under an exclusive owner borrow.
+    pub fn pixels_mut(&mut self) -> Option<&mut [T]> {
+        let length = self.base.bytes.as_ref()?.bytes().len();
+        Some(self.row_at_mut(0, length))
+    }
     pub(crate) fn have_memory_manager(&self) -> bool {
         self.base.bytes.is_some()
     }
