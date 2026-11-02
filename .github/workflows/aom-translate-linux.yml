@@ -68,6 +68,14 @@ jobs:
           cargo test -p libavif-aom --locked
           cargo run -p libavif-aom --example raw_api --locked
           cargo run -p libavif-aom --example raw_api --locked --release
+      - name: Compare native VMAF modes and single-allocation failures
+        run: |
+          python3 tools/check_aom_vmaf.py --debug
+          python3 tools/check_aom_vmaf.py
+          python3 tools/check_aom_vmaf.py --debug --model float
+          python3 tools/check_aom_vmaf.py --model float
+          python3 tools/check_aom_faults.py --debug
+          python3 tools/check_aom_faults.py
       - name: Preserve focused original API and error registrations
         run: |
           filter='AomImageTest.*:AomLeb128.*:DecodeAPI.*:EncodeAPI.Invalid*:FilmGrainTableIOTest.*:FilmGrainTableTest.*:MetadataTest.*:KeyValAPI/*.*:EncodeAPI.SizeAlignOverflow'
@@ -105,3 +113,5 @@ jobs:
             build/aom-cli-*/*-encode.log
             build/aom-cli-*/*-decode.log
             build/aom-roundtrip-*/summary.json
+            build/aom-faults-*/summary.json
+            build/aom-vmaf-modes-*/summary.json

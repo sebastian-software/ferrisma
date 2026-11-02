@@ -96,6 +96,12 @@ Supplemental comparisons in each profile preserve exact output:
   All observed allocations are released. Only codec object references to
   malloc/calloc/realloc/free are hooked; native VMAF, Rust runtime allocations,
   and the unwind payload allocation remain outside this single-threaded check.
+- All four VMAF-dependent tuning modes produce identical streams and decoded
+  planes for 8/10/12-bit input, with the pinned `vmaf_v0.6.1.json` integer model:
+  12 cases per profile. An absent model preserves the original fatal diagnostic
+  and process exit. The Homebrew VMAF build lacks float extractors; float-model
+  execution is a separate check for the isolated source-built VMAF profile,
+  which explicitly enables those extractors.
 
 Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
@@ -149,6 +155,8 @@ python3 tools/check_aom_roundtrip.py --debug
 python3 tools/check_aom_roundtrip.py
 python3 tools/check_aom_faults.py --debug
 python3 tools/check_aom_faults.py
+python3 tools/check_aom_vmaf.py --debug
+python3 tools/check_aom_vmaf.py
 python3 tools/run_aom_tests.py
 python3 tools/run_aom_tests.py --rust
 ```

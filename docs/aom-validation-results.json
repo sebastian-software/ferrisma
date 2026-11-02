@@ -1280,6 +1280,140 @@
         },
         "mismatches": 0,
         "outstanding_codec_allocations": 0
+      },
+      "native_vmaf_modes": {
+        "profile": "debug",
+        "model": "model/vmaf_v0.6.1.json",
+        "model_sha256": "5950d61fa1f861bd45d8149d80539ed9f3376cfc2495b8f0fa8e9f57cb131ee3",
+        "vmaf_tag": "v3.2.1",
+        "vmaf_revision": "f85a853692a8c730d0270cd733c8bb30b5b93b7c",
+        "pkg_config_version": "3.2.0",
+        "native_vmaf_retained": true,
+        "vmaf_rust_port": false,
+        "missing_model_exact_failure": true,
+        "missing_model_exit_code": 1,
+        "cases": [
+          {
+            "bitdepth": 8,
+            "tune": "vmaf_with_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9180,
+            "encoded_sha256": "8284d2b45852fb4b29f7a04369eee73f3ea7a93f3dcfa80b6dfe9d35d5d26a3b",
+            "decoded_sha256": "906670d2862301c79be1868aa35cdc1ba3998d6a11b1be4c0c282d67e903d583"
+          },
+          {
+            "bitdepth": 8,
+            "tune": "vmaf_without_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9006,
+            "encoded_sha256": "d3955057cc39dea5c6c75eee18581093105de97df22d604a58ddeca27b50bef2",
+            "decoded_sha256": "2bec1341a5bd48a286eeae63873e946f6a9d56d4a37c4986dfc2da1f5b715143"
+          },
+          {
+            "bitdepth": 8,
+            "tune": "vmaf",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9064,
+            "encoded_sha256": "5f47647f6897b71d2369be6fad05f2b7c16aeb0bbe2603f7d7d1cf6a30e11907",
+            "decoded_sha256": "f60d76f255b97f2e23b7b7151390d92e508bbcab0f7a805c269b2f6592c457c7"
+          },
+          {
+            "bitdepth": 8,
+            "tune": "vmaf_neg",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9007,
+            "encoded_sha256": "bbcd78550adb600f863b7e2dd5517dc9a1e88b9dce83b2036ebdc3914424330a",
+            "decoded_sha256": "46d5ec9a179b91ea1f8cc7c112770f96577c7d453b3f09acc098c3d412cf50d7"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf_with_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7830,
+            "encoded_sha256": "b00e2968171252952ea1f8b9fd8cbd8d394c03341636c428ab1d9b03f4aa4b9d",
+            "decoded_sha256": "45d37708bce8d8452022ddb92bcf160a0976f63bfab057f11c6b9cc5b2733f83"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf_without_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7249,
+            "encoded_sha256": "4bdc5ee88e0a680d87912673d27aea2bf017b94b3600ba36517f1874c67ae524",
+            "decoded_sha256": "5ba94bc5b590a386a5f9aba7813700190a057bbcde31ffe17da533fe09813afc"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7321,
+            "encoded_sha256": "6b40e1f1a88a263af4428e467b56b6d7a3ad3adaf54d638941fdec43c1fe7605",
+            "decoded_sha256": "820aae864e515f46632e4cdc7abd1250c5474d7c3be90026618c1846ae5ba100"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf_neg",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7257,
+            "encoded_sha256": "e125205e0acc8d59fd689bc198a6f9f19b22dfdf3a894660a7d62408006fb653",
+            "decoded_sha256": "03c2f3ca1a39912405b70d75297ef157123e1bc1068427975a51f2eb30a50294"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf_with_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 2060,
+            "encoded_sha256": "5fd625159489bab6e3e3fb9301204375329366e53b4d6785f19b199f959cb379",
+            "decoded_sha256": "60cfbdf20838f054392d9f406f5de23fb9f3f742a0f0fac5b46e0ac955055f8a"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf_without_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 1868,
+            "encoded_sha256": "9bc6f6bc4b792c0d71f4ce3b738b685d5c1bfc037efcda2c156a075bd0714a71",
+            "decoded_sha256": "241b3c86a6640d24cad08f93e6b7c8341724fac1d2931ada5cbe97b00d8b4ab6"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 1863,
+            "encoded_sha256": "7aa4a51b684f42ac9ade4f03d8fc8be6c67a5a068e5f982aafc40cdc3023ce0c",
+            "decoded_sha256": "8e102dd0ae66da56aecb1acd259e2ea2b4cc1d041b07cbadb19fe28ec9416739"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf_neg",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 1877,
+            "encoded_sha256": "cba27778d71c26f6f29b255b8df2215eb7c344f092782b0b377481582dafc687",
+            "decoded_sha256": "6842fab532aec1427b14a1e6efb7f91a44a75136a5becd90a50a590fcc61dc56"
+          }
+        ]
       }
     },
     "release": {
@@ -2519,6 +2653,140 @@
         },
         "mismatches": 0,
         "outstanding_codec_allocations": 0
+      },
+      "native_vmaf_modes": {
+        "profile": "release",
+        "model": "model/vmaf_v0.6.1.json",
+        "model_sha256": "5950d61fa1f861bd45d8149d80539ed9f3376cfc2495b8f0fa8e9f57cb131ee3",
+        "vmaf_tag": "v3.2.1",
+        "vmaf_revision": "f85a853692a8c730d0270cd733c8bb30b5b93b7c",
+        "pkg_config_version": "3.2.0",
+        "native_vmaf_retained": true,
+        "vmaf_rust_port": false,
+        "missing_model_exact_failure": true,
+        "missing_model_exit_code": 1,
+        "cases": [
+          {
+            "bitdepth": 8,
+            "tune": "vmaf_with_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9180,
+            "encoded_sha256": "8284d2b45852fb4b29f7a04369eee73f3ea7a93f3dcfa80b6dfe9d35d5d26a3b",
+            "decoded_sha256": "906670d2862301c79be1868aa35cdc1ba3998d6a11b1be4c0c282d67e903d583"
+          },
+          {
+            "bitdepth": 8,
+            "tune": "vmaf_without_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9006,
+            "encoded_sha256": "d3955057cc39dea5c6c75eee18581093105de97df22d604a58ddeca27b50bef2",
+            "decoded_sha256": "2bec1341a5bd48a286eeae63873e946f6a9d56d4a37c4986dfc2da1f5b715143"
+          },
+          {
+            "bitdepth": 8,
+            "tune": "vmaf",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9064,
+            "encoded_sha256": "5f47647f6897b71d2369be6fad05f2b7c16aeb0bbe2603f7d7d1cf6a30e11907",
+            "decoded_sha256": "f60d76f255b97f2e23b7b7151390d92e508bbcab0f7a805c269b2f6592c457c7"
+          },
+          {
+            "bitdepth": 8,
+            "tune": "vmaf_neg",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "5138440eaacb2f114f0644d99a9084b1ec7ac09533716dc5ac6e710668a674fb",
+            "encoded_bytes": 9007,
+            "encoded_sha256": "bbcd78550adb600f863b7e2dd5517dc9a1e88b9dce83b2036ebdc3914424330a",
+            "decoded_sha256": "46d5ec9a179b91ea1f8cc7c112770f96577c7d453b3f09acc098c3d412cf50d7"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf_with_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7830,
+            "encoded_sha256": "b00e2968171252952ea1f8b9fd8cbd8d394c03341636c428ab1d9b03f4aa4b9d",
+            "decoded_sha256": "45d37708bce8d8452022ddb92bcf160a0976f63bfab057f11c6b9cc5b2733f83"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf_without_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7249,
+            "encoded_sha256": "4bdc5ee88e0a680d87912673d27aea2bf017b94b3600ba36517f1874c67ae524",
+            "decoded_sha256": "5ba94bc5b590a386a5f9aba7813700190a057bbcde31ffe17da533fe09813afc"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7321,
+            "encoded_sha256": "6b40e1f1a88a263af4428e467b56b6d7a3ad3adaf54d638941fdec43c1fe7605",
+            "decoded_sha256": "820aae864e515f46632e4cdc7abd1250c5474d7c3be90026618c1846ae5ba100"
+          },
+          {
+            "bitdepth": 10,
+            "tune": "vmaf_neg",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "e0e831ddc4102db91b9769bae7f69e7d69deed3f3ae72d4b6377f4cb14060515",
+            "encoded_bytes": 7257,
+            "encoded_sha256": "e125205e0acc8d59fd689bc198a6f9f19b22dfdf3a894660a7d62408006fb653",
+            "decoded_sha256": "03c2f3ca1a39912405b70d75297ef157123e1bc1068427975a51f2eb30a50294"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf_with_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 2060,
+            "encoded_sha256": "5fd625159489bab6e3e3fb9301204375329366e53b4d6785f19b199f959cb379",
+            "decoded_sha256": "60cfbdf20838f054392d9f406f5de23fb9f3f742a0f0fac5b46e0ac955055f8a"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf_without_preprocessing",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 1868,
+            "encoded_sha256": "9bc6f6bc4b792c0d71f4ce3b738b685d5c1bfc037efcda2c156a075bd0714a71",
+            "decoded_sha256": "241b3c86a6640d24cad08f93e6b7c8341724fac1d2931ada5cbe97b00d8b4ab6"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 1863,
+            "encoded_sha256": "7aa4a51b684f42ac9ade4f03d8fc8be6c67a5a068e5f982aafc40cdc3023ce0c",
+            "decoded_sha256": "8e102dd0ae66da56aecb1acd259e2ea2b4cc1d041b07cbadb19fe28ec9416739"
+          },
+          {
+            "bitdepth": 12,
+            "tune": "vmaf_neg",
+            "frames": 1,
+            "exact": true,
+            "input_sha256": "401d85e4360b95d8937848de0563be157dc6f91b9f2b4dd6b441517e7a38e461",
+            "encoded_bytes": 1877,
+            "encoded_sha256": "cba27778d71c26f6f29b255b8df2215eb7c344f092782b0b377481582dafc687",
+            "decoded_sha256": "6842fab532aec1427b14a1e6efb7f91a44a75136a5becd90a50a590fcc61dc56"
+          }
+        ]
       }
     }
   },
@@ -2530,6 +2798,6 @@
     "Native GNU Linux x86-64 generation and validation",
     "Symbol/link-map audit",
     "Root libavif integration and original suites",
-    "VMAF-mode differential validation with versioned models"
+    "Additional VMAF model/configuration scenarios; float models require float extractors"
   ]
 }
