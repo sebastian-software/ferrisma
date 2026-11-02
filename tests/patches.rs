@@ -100,3 +100,26 @@ fn selected_original_alpha_max_retains_comparison_result() {
     assert_eq!(g[0].to_bits(), 0x32000000);
     assert_eq!(b[0].to_bits(), 0x32800000);
 }
+
+#[test]
+fn independent_background_alpha_retains_first_nan_product_operand() {
+    // Actual original BlendingStage green sample: color background reference0,
+    // alpha background reference1, foreground Pixel8 at native ARM offset24.
+    // The pristine scalar alpha TU observes +0x7fc12345 for the green result.
+    // The differential corpus retains all four output words and both offsets.
+    let bg = [0x80000000, 0x7fc12345, 0xff800000, 0xffc23456].map(f32::from_bits);
+    let fg = [0x80000000, 0x7fc12345, 0xff800000, 0].map(f32::from_bits);
+    let mut r = [0.0];
+    let mut g = [0.0];
+    let mut b = [0.0];
+    let mut a = [0.0];
+    jxl::jxl::alpha::perform_alpha_blending_rgba(
+        [&bg[0..1], &bg[1..2], &bg[2..3], &bg[3..4]],
+        [&fg[0..1], &fg[1..2], &fg[2..3], &fg[3..4]],
+        &mut [&mut r, &mut g, &mut b, &mut a],
+        1,
+        false,
+        true,
+    );
+    assert_eq!(g[0].to_bits(), 0x7fc12345);
+}

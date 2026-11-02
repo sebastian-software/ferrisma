@@ -1178,3 +1178,21 @@ borrowed by the simple decoder; its original GetInputBuffers call has no additio
 side effect. Convolution retains all 24 neighbor additions and scalar Highway
 rounding. Application retains original LUT interpolation, sign-bit clamp, color
 correlation and store order under the selected source configuration in ADR 0002.
+
+Alpha's unassociated color term preserves `(bg * bga) * (1 - fga)` in that
+source operand order. Native x86 retains `1 - ((1 - fga) * (1 - bga))` as a
+subtraction and foreground-first additions; replacing it with a negated product
+changes exceptional words. ARM retains its source contraction. Local arithmetic
+call boundaries preserve those choices across Rust optimization. The selected
+pristine configuration and its finite/default audit are recorded in ADR 0002.
+PerformMulBlending also passes its literal background-first product through the
+existing out-of-line binary32 multiplication boundary. Native Linux ordinary
+Debug matched the selected source, while Rust Release commuted competing NaN
+operands in the clamped 1,536-pixel request. Retain the same request and every
+expected word; the call boundary preserves source operand order without changing
+the clamp, multiplication, rounding, or loop. Native replacement parity remains
+the acceptance gate.
+The original zero-width aliased memcpy boundary is exercised separately by
+oracle subprocesses, with explicit sanitizer evidence and no claimed source
+pixel semantics, including the source-derived tree-rendering boundaries recorded
+in ADR 0002. Rust's empty owned temporary remains safe to represent.

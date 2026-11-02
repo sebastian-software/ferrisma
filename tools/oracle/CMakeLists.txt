@@ -76,10 +76,17 @@ add_executable(jxl_oracle main.cc splines.cc alpha.cc patches.cc epf.cc noise_re
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Match the original GetBlock class hierarchy in this traversal observer.
-  # Keep the pristine noise stage operator order stable across ordinary and
-  # sanitized objects. Only this isolated stage TU uses scoped -O0.
   set_source_files_properties(splines.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
-  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS -fno-inline-functions)
+  # Native original alpha expressions commute exceptional operands differently
+  # across optimized/instrumented graphs. O0 preserves their scalar boundaries;
+  # native x86 additionally requires strict FP to retain the source subtraction
+  # and ADDSS destinations. ARM keeps its original contraction: strict FP changes
+  # finite words there. The pristine TU supplies all actual public alpha symbols,
+  # with every sanitizer active. tools/alpha_reference.py audits both defaults.
+  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-inline-functions")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_property(SOURCE alpha.cc APPEND PROPERTY COMPILE_OPTIONS -ffp-model=strict)
+  endif()
   set_source_files_properties(patches.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   set_source_files_properties(epf.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti;-fno-access-control")
   set_source_files_properties(noise_stage.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")

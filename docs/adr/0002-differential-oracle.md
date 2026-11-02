@@ -274,23 +274,72 @@ float words exact and revisit this configuration with source/compiler/target or
 instrumentation changes. This is a reproducible numeric reference configuration,
 not performance evidence.
 
-Observe pristine `alpha.cc` through a dedicated translation unit with scoped
-`-fno-inline-functions`, retaining default optimization, arithmetic contraction
-and all sanitizer flags. Native ARM's optimized ordinary Premultiply/Unpremultiply
-std::max lowers to FMAXNM and propagates signaling NaNs, while the fully
-instrumented object uses ordered comparisons and selects SMALL_ALPHA. The same
-actual-original request produces `0xffe98765` ordinarily and zero under ASan in
-the first color sample. Both selected objects retain the original std::max
-call/comparison and agree without a Rust assembly workaround.
+Observe pristine `alpha.cc` through its dedicated translation unit with scoped
+`-O0 -fno-inline-functions`. On native x86_64 Linux, additionally use
+`-ffp-model=strict`; retain the original contraction configuration on ARM.
+All six actual public alpha symbols, including complete-file calls, bind to
+this exact source unit. Source bodies, archive flags and sanitizers stay intact.
 
-The selected unit supplies all six actual public alpha functions; whole-file
-calls use the same object. `tools/alpha_reference.py` verifies those bindings,
-requires all 1,920 selected fixture observations to agree, and checks all 1,632
-finite observations against both untouched default archive graphs. Temporary
-relinking removes only the selected object, so the unchanged archive supplies
-the default alpha routines. No original source, archive flag, earlier observer,
-sanitizer or old expected word changes. Revisit this reference configuration with
-source/compiler/target/instrumentation changes; it is not a performance claim.
+The earlier no-inline configuration retained ARM std::max's original comparison
+instead of optimized FMAXNM, but native Linux still exposed competing NaN drift.
+Neither disabling unrolling nor O1 stabilized its ordinary/instrumented graphs;
+O0 alone retained twelve mismatched requests. Actual strict-O0 native source
+objects agree on all 1,928 diagnostic requests, and all 1,632 finite requests
+match both untouched optimized graphs in
+[native run 41446120185](https://github.com/sebastian-software/libjxl-rs/actions/runs/41446120185).
+Strict-O3 still differs on 68 requests. Native disassembly confirms that strict-O0
+retains the literal outer subtraction in new alpha and foreground-first addition;
+non-strict O0 can negate the product and add one, changing a NaN sign. This source
+configuration resolves an observed ambiguity rather than defining NaN bits.
+
+ARM's selected O0 source objects also preserve every finite default word.
+Applying strict FP there changes 272 finite requests by disabling source FMA
+contraction, so that configuration is excluded on ARM. Rust retains the selected
+source contraction on ARM and literal separately rounded operations on x86.
+Local out-of-line arithmetic boundaries retain operand order without assembly,
+NaN bit rewriting or additional target-feature assumptions.
+
+`tools/alpha_reference.py` verifies the exact target configuration and all public
+symbol bindings. It requires 1,944 selected finite/exceptional observations to
+agree across ordinary and fully ASan/UBSan graphs, including 24 independent RGBA,
+weighted-add and multiply requests with competing operands. All 1,632 finite
+requests must match both untouched default archive graphs. Temporary relinking
+removes only the selected object. The separate diagnostic retains actual native
+object disassembly, binding maps, exact requests and word deltas; candidates never
+replace active source objects. Revisit after source/compiler/target/instrumentation
+changes. This establishes numeric parity, without a performance claim.
+
+A separate original-source boundary probe preserves all 24 zero-width blending
+requests whose aliased extra-channel weighted-add calls memcpy with a null
+temporary destination at `alpha.cc:70`. Native Linux UBSan diagnoses that call
+even when the byte count is zero. Each instrumented Linux probe must positively
+report that exact diagnostic. ARM and ordinary executions are retained as
+platform observations; successful execution does not establish defined pixel
+semantics. These requests have no C++/Rust pixel comparison. The remaining 360
+blend requests, including 72 zero-width cases, retain exact parity, and direct
+zero-count alpha calls use non-null backing.
+
+The tree corpus also retains every one of its original 1,728 requests. A native
+Linux instrumented run exposed the same alpha.cc:70 boundary during actual
+AddOneRow/stage rendering. Original decoded positions, reference rectangles and
+blendings independently predict exactly 48 aliased zero-size calls: one extra
+channel with modes 5/6, or three extra channels with modes 3/4, render modes 1/2,
+and the x=8 zero-width geometry, across all three prefixes and both association
+settings. Preserve the other 1,680 requests byte-for-byte in exact parity, and
+execute these 48 in individual original-only subprocesses alongside the previous
+24 probes. A recognized diagnostic must be the complete non-recovering
+alpha.cc:70 null-argument report; reject other stderr or failures.
+
+tools/patches_boundaries.py extracts the actual Rust fixture generator, obtains
+its entropy streams from the original encoder, and independently derives the
+boundary set from original decoded metadata. It executes all 1,728 requests
+separately in both original graphs and saves full stdout, stderr, statuses and
+source-trigger evidence. Native Linux instrumentation must establish precisely
+the predicted 48 diagnosed requests; successful ARM executions do not confirm
+their pixel semantics. The prediction remains distinct from native confirmation
+until that census completes. Every defined ordinary/instrumented observation
+must remain exact. No source fix, sanitizer suppression, blanket filter or
+silently skipped request is introduced.
 
 The dedicated pristine `noise_stage.cc` unit uses scoped `-O0`, retaining every
 sanitizer. Native ARM optimized ordinary and ASan/UBSan stages disagree on 66 of
@@ -304,3 +353,5 @@ All 504 finite-input rows must match both default graphs and all 1,134 selected
 rows must agree. Exact exceptional words remain mandatory; no old comparison,
 expected word, sanitizer or source algorithm changes. Review the configuration
 with source/compiler/target changes. This establishes no performance parity.
+
+Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
