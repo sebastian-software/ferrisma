@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--rust', action='store_true')
-    parser.add_argument('--jobs', type=int, default=4)
+    parser.add_argument('--jobs', type=int, default=1)
     parser.add_argument('--shards', type=int, default=32)
     parser.add_argument('--filter', default='*')
     args = parser.parse_args()
