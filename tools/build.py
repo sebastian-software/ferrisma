@@ -16,16 +16,16 @@ DEPENDENCIES = {
 
 def run(command, **kwargs):
     environment = kwargs.setdefault("env", os.environ.copy())
-    local = ROOT / "build/deps/pkgconfig"
+    local = Path(environment.get("LIBAVIF_RS_NATIVE_DEPENDENCY_ROOT", ROOT)) / "build/deps/pkgconfig"
     if local.is_dir():
         existing = environment.get("PKG_CONFIG_PATH", "")
         environment["PKG_CONFIG_PATH"] = existing + (":" if existing else "") + str(local)
     subprocess.run([str(arg) for arg in command], cwd=ROOT, check=True, **kwargs)
 
 
-def dependencies(fetch):
+def dependencies(fetch, dependency_root=ROOT):
     for name, (url, revision) in DEPENDENCIES.items():
-        path = ROOT / "build/deps" / name
+        path = dependency_root / "build/deps" / name
         if not path.exists():
             if not fetch:
                 raise SystemExit(f"Missing {name}; run with --fetch-deps to download the pinned test dependencies")
@@ -42,6 +42,9 @@ def main():
     parser.add_argument("implementation", choices=["baseline", "port"])
     parser.add_argument("--fetch-deps", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--aom-candidate", action="store_true", help="Test the gated Rust AOM integration without changing the default engine")
+    parser.add_argument("--native-dependency-root", type=Path, default=ROOT,
+                        help="Read existing pinned test dependencies and optional engines from this checkout")
     parser.add_argument("--debug", action="store_true", help="Test unoptimized Rust with the same upstream Release configuration")
     parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
     parser.add_argument("--compiler-default-diagnostic", action="store_true",
@@ -51,12 +54,18 @@ def main():
     for feature in ["libgav1", "rav1e", "svt", "libyuv", "avm"]:
         parser.add_argument("--" + feature, action="store_true")
     args = parser.parse_args()
+    if args.aom_candidate and args.implementation != 'port':
+        parser.error('--aom-candidate requires the Rust port')
+    dependency_root = args.native_dependency_root.resolve()
+    os.environ['LIBAVIF_RS_NATIVE_DEPENDENCY_ROOT'] = str(dependency_root)
     if args.compiler_default_diagnostic and args.implementation != 'baseline':
         parser.error('Compiler-default diagnostics apply only to the original C baseline')
     run(["python3", ROOT / "tools/verify_upstream.py"])
-    dependencies(args.fetch_deps)
+    dependencies(args.fetch_deps, dependency_root)
     features = [name for name, enabled in [("mini", args.mini), ("extended-pixi", args.extended_pixi),
                 ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv), ("avm", args.avm)] if enabled]
+    if args.aom_candidate:
+        features.append('port-aom-candidate')
     suffix = ("-" + "-".join(features) if features else "") + ("-debug" if args.debug else "") + ("-asan-llvm16" if args.asan else "")
     if args.compiler_default_diagnostic:
         suffix += '-compiler-default'
@@ -69,8 +78,9 @@ def main():
         "-DBUILD_SHARED_LIBS=OFF", "-DAVIF_BUILD_TESTS=ON", "-DAVIF_BUILD_APPS=ON",
         "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=SYSTEM", f"-DAVIF_LIBYUV={'SYSTEM' if args.libyuv else 'OFF'}",
         "-DAVIF_LIBSHARPYUV=SYSTEM", "-DAVIF_LIBXML2=SYSTEM", "-DAVIF_GTEST=LOCAL",
-        f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={ROOT}/build/deps/googletest",
-        f"-DFETCHCONTENT_SOURCE_DIR_LIBARGPARSE={ROOT}/build/deps/libargparse",
+        f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={dependency_root}/build/deps/googletest",
+        f"-DFETCHCONTENT_SOURCE_DIR_LIBARGPARSE={dependency_root}/build/deps/libargparse",
+        f"-DLIBAVIF_RS_NATIVE_DEPENDENCY_ROOT={dependency_root}",
         f"-DAVIF_ENABLE_EXPERIMENTAL_MINI={'ON' if args.mini else 'OFF'}",
         f"-DAVIF_ENABLE_EXPERIMENTAL_EXTENDED_PIXI={'ON' if args.extended_pixi else 'OFF'}",
         f"-DAVIF_CODEC_LIBGAV1={'SYSTEM' if args.libgav1 else 'OFF'}",
@@ -79,6 +89,8 @@ def main():
         f"-DAVIF_CODEC_AVM={'SYSTEM' if args.avm else 'OFF'}",
         f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
+    if args.aom_candidate:
+        command += ['-DLIBAVIF_RS_AOM_IN_RUST=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
     if args.asan:
         prefix = Path(os.environ.get("LIBAVIF_RS_LLVM_PREFIX", str(ROOT / "build/toolchain/llvm@16/16.0.6_1")))
         if not (prefix / "bin/clang").is_file():
@@ -107,6 +119,11 @@ def main():
             cargo += ["--features", ",".join(features)]
         environment = os.environ.copy()
         target = ROOT / "target"
+        if args.aom_candidate:
+            # Keep the immutable archives used by running standalone shards.
+            variant = '-'.join(name for name in features if name != 'port-aom-candidate')
+            target = ROOT / ('build/aom-root-cargo-target' + ('-' + variant if variant else ''))
+            environment['CARGO_TARGET_DIR'] = str(target)
         if args.asan:
             target = target / "asan"
             environment["CARGO_TARGET_DIR"] = str(target)

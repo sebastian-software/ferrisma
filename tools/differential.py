@@ -38,11 +38,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, default=ROOT / "build/baseline")
     parser.add_argument("--port", type=Path, default=ROOT / "build/port")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "build/differential")
+    parser.add_argument('--decoder-codec', help='Select the same explicit original decoder on both sides')
     parser.add_argument("--diagnose-float", action="store_true",
                         help="Diagnose PNG mismatches against a separate C oracle with FP contraction disabled")
     args = parser.parse_args()
-    work = ROOT / "build/differential"
+    work = args.output_dir.resolve()
     work.mkdir(parents=True, exist_ok=True)
+    (work / 'summary.json').unlink(missing_ok=True)
     data = ROOT / "upstream/libavif/tests/data"
     report = []
     fixtures = [
@@ -65,7 +68,7 @@ def main():
             commands = [
                 [build / "avifenc", "--speed", "10", "--jobs", "1", "--codec", "aom",
                  "--creation-time", "1", "--modification-time", "1", *options, data / fixture, encoded],
-                [build / "avifdec", "--jobs", "1", encoded, decoded],
+                [build / "avifdec", "--jobs", "1", *(['--codec', args.decoder_codec] if args.decoder_codec else []), encoded, decoded],
             ]
             for command in commands:
                 subprocess.run([str(arg) for arg in command], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

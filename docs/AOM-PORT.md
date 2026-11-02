@@ -297,6 +297,27 @@ the full-corpus record. See [the optical-flow record](aom-optical-flow-validatio
 
 ## Execution and acceptance
 
+The temporary root feature `port-aom-candidate` links the existing adapter to
+the workspace Rust engine without changing its translated body. The matching
+`tools/build.py port --aom-candidate --jobs 1` path disables system AOM discovery
+for the original CMake consumers and keeps their Cargo artifacts separate from
+standalone shards. `tools/check_aom_root_linkage.py` checks every original AOM
+global, every original consumer map, and non-system runtime dependencies.
+ADR 0045 defines the gate for making this dependency unconditional and removing
+the temporary feature. Default root integration remains pending standalone
+acceptance.
+
+The root candidate passes all 64 default registrations (9,473 GoogleTest
+cases), all 70 registrations with the complete supported feature set (9,555
+cases), and all 64 AddressSanitizer registrations. The ASan C comparison also
+instruments all 168 original portable AOM units. Native VMAF remains outside
+instrumentation. All 2,741 original Release AOM globals are supplied by Rust;
+audits cover all 55 default and 59 full-feature original consumers and their
+non-system runtime dependencies. Two strict end-to-end matrices each match ten
+AVIF files and ten decoded PNGs, including explicit AOM decoder selection.
+The default dependency switch and complete standalone acceptance remain
+pending. See [the candidate validation](aom-root-candidate-validation.json).
+
 Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated
 corrections, narrow comparisons after each correction, and full-suite
 checkpoints. No existing consumer switches until standalone acceptance passes.

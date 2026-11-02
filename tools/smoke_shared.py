@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Exercise the Rust dylib's C ABI, initialization, decode, encode, and cleanup."""
 import ctypes as C
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-library = C.CDLL(str(ROOT / "target/release/libavif.dylib"))
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--library', type=Path, default=ROOT / 'target/release/libavif.dylib')
+args = parser.parse_args()
+library = C.CDLL(str(args.library.resolve()))
 
 
 class RWData(C.Structure):

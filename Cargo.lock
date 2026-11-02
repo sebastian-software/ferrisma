@@ -42,6 +42,7 @@ dependencies = [
 name = "libavif-rs"
 version = "0.1.0"
 dependencies = [
+ "libavif-aom",
  "libavif-dav1d",
  "libavif-sharpyuv",
  "libc",

@@ -2,13 +2,19 @@ use std::process::Command;
 
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(libavif_rs_asan)");
-    let mut packages = vec!["aom"];
+    let mut packages = vec![];
+    if std::env::var_os("CARGO_FEATURE_PORT_AOM_CANDIDATE").is_none() {
+        packages.push("aom");
+    }
     for (feature, package) in [("RAV1E", "rav1e"), ("SVT", "SvtAv1Enc")] {
         if std::env::var_os(format!("CARGO_FEATURE_{feature}")).is_some() {
             packages.push(package);
         }
     }
-    let root = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let root = std::path::PathBuf::from(
+        std::env::var_os("LIBAVIF_RS_NATIVE_DEPENDENCY_ROOT")
+            .unwrap_or_else(|| std::env::var_os("CARGO_MANIFEST_DIR").unwrap()),
+    );
     if std::env::var_os("CARGO_FEATURE_AVM").is_some() {
         let path = root.join("build/deps/avm-build");
         if path.join("libavm.dylib").exists() {
@@ -67,5 +73,6 @@ fn main() {
         }
     }
     println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
+    println!("cargo:rerun-if-env-changed=LIBAVIF_RS_NATIVE_DEPENDENCY_ROOT");
     println!("cargo:rerun-if-changed=build.rs");
 }
