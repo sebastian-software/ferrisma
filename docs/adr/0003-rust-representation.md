@@ -1104,3 +1104,25 @@ pinned common.h defaults JXL_HIGH_PRECISION to 1. Retain its degree-four rationa
 polynomials, square-root and sign restoration; FastLinearToSRGB is a separately
 translated helper and has its own exact corpus. No approximate replacement or
 float tolerance is used to make complete-file results pass.
+
+Spline decoding owns its deserialized vectors and selects their committed data
+through an owner-relative flag and explicit span lengths. Borrowed SetData views
+retain their external lifetime. A failed repeated Decode preserves the source's
+old committed span lengths and partial new storage. Source spans that became
+invalid after vector reallocation are not recreated as dangling Rust references;
+only their still-defined lengths are observed until the source lifecycle becomes
+valid again. Quantization control points must remain finite and round into i32,
+and reached signed arithmetic must be representable, as required by the original
+routines. Defined coefficient clamps, budget checks and partial errors retain
+their original order.
+
+Spline caches retain the original curve, continuous-IDCT, segment population and
+scanline-index algorithms. Typed owned vectors replace aligned index storage;
+borrowed/shared stage variants retain the same cache owner rather than a copy.
+The shared variant borrows its `Rc<RefCell<Splines>>` only for each row call.
+Three restricted row pointers become disjoint mutable spans obtained through
+safe storage/channel/offset ordering and split_at_mut. Valid spans can belong
+to either input or output storage; overlap is a source programmer-precondition
+violation and is rejected. Extended left-row positions preserve the source's
+unsigned wrapping before its signed drawing calculations. No new unsafe code,
+external dependency or altered reference compilation is required.

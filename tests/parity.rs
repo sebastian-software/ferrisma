@@ -21,6 +21,9 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/splines.rs"]
+mod splines;
+
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
 
@@ -743,6 +746,7 @@ fn observe(request: &str) -> String {
         kind if quant_ac::handles(kind) => quant_ac::observe(kind, &mut args),
         kind if quant_storage::handles(kind) => quant_storage::observe(kind, &mut args),
         kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
+        kind if splines::handles(kind) => splines::observe(kind, &mut args),
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),

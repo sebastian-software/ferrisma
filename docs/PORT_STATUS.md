@@ -72,7 +72,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
-| `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Feature/reference storage, constructors, spline Clear/getters, patch Clear/HasAny/same-owner SetShared, and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
+| `dec_patch_dictionary.h`, `noise.h` | `dec_patch_dictionary.rs`, `noise.rs` | Feature/reference storage, constructors, patch Clear/HasAny/same-owner SetShared and noise Clear/HasAny; nonempty patch-tree construction, parsing/rendering and remaining operations unported |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; first VarDCT frame/group integration connected; general frame profiles remain separate |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
@@ -83,7 +83,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
-| `splines.h` | `splines.rs` | Point comparison, quantized storage/default/copy, and borrowed SplineDataView; spline quantization, entropy, and rendering unported |
+| `render_pipeline/stage_splines.h`, `.cc` | `render_pipeline/stage_splines.rs` | Complete scalar stage/factories with borrowed or shared cache identity and safe disjoint row spans; complete-file integration remains separate |
+| `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
@@ -1350,3 +1351,22 @@ and independent default-optimization audit. One captured native x86 regression
 complements the ARM-only capture; both targets now run 425 tests, the same 246
 differential groups and 868,587 requests. Replacement native CI remains required
 before integration; the earlier failed runs are retained in the PR history.
+
+## Scalar spline decoding and rendering
+
+The complete scalar spline boundary adds four differential groups and 6,253
+exact original requests: 259 quantize/dequantize cases, 129 curve/cache/render
+cases, 5,862 genuine original entropy-stream cases, and three repeated-decode
+sequences. The cache corpus asserts that every color and sigma coefficient
+position survives quantization. It compares the actual stage on extended rows,
+including unsigned wrapped left coordinates, as well as cache index order and
+all initialized pixels. Entropy cases cover starting-point and control-point
+limits, coefficient limits, truncation, damaged streams and partial state.
+
+Four standalone tests retain an independently captured original stream, its
+duplicate-point guard, disjoint three-row storage access and overlap rejection.
+The ordinary and fully ASan/UBSan original scalar objects retain their existing
+default optimized compilation; no new numeric compiler option or sanitizer
+suppression is introduced. Ownership and source-defined input limits are recorded
+in ADR 0003. Complete-file feature admission and cross-feature image evidence
+remain a separate integration gate, so the README spline checkbox stays open.
