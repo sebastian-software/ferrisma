@@ -36,3 +36,9 @@ references, disabled flags, or expected outputs. Preserve the earlier 32-shard
 workflow and its diagnostics; partial or superseded execution receives no full
 acceptance credit. A timeout or any missing/failing shard remains a failed
 gate. This scheduling decision does not approve the final root integration.
+
+Keep only the latest dav1d and SharpYUV workflow per ref while intermediate
+AOM commits are published. Cancel superseded runs of those unchanged original
+checks instead of accumulating old macOS jobs; preserve the newest full check.
+Do not apply this ref-only concurrency group to the AOM acceptance workflow,
+because its independent native platforms must be able to run at the same time.
