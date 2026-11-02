@@ -226,6 +226,18 @@ cases and rejects missing shards and edited execution records; this verifies
 the runner, not the full main suite. See
 [`aom-paired-shard-validation.json`](aom-paired-shard-validation.json).
 
+The manual `aom-original-linux.yml` workflow prepares both profiles once and
+shares the audited binaries with 32 paired main-suite shards per profile.
+It also preserves the 38 rate-control registrations and all 38 upstream-disabled
+intra-prediction speed registrations in each profile. At most two paired test
+jobs run concurrently. Every main-suite job fetches and verifies all 568
+selected original fixtures. Separate collection requires identical binary,
+configuration, translation, and fixture identities across the complete run;
+upstream-disabled speed cases remain disabled and receive no execution credit.
+This workflow is prepared for full native Linux acceptance; it has not yet
+established a passing full-suite result. The remaining subject/oracle role
+review is an additional gate even after full-suite execution passes.
+
 1. Verify complete source/license hashes, the archive's exact source closure,
    generated headers, configurations, and original test inventories.
 2. Prove the representative image/API and encoder/decoder state/error boundary.
