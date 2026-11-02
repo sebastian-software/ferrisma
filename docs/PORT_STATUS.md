@@ -68,6 +68,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
+| `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete original scalar YCbCr stage/factories, full-range BT.601 constants, source color-channel order, no-extra-span guard, and in-place RGB stores; complete-file profile admission and SIMD remain separate |
+| `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete original scalar horizontal/vertical stages and factory, 3/4–1/4 interpolation, signed extra spans, channel selection, source borders/shifts and interleaved/two-row output; original simple-pipeline coverage includes odd dimensions and subsampled input sizes; complete-file integration and SIMD remain separate |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
@@ -1350,3 +1352,26 @@ and independent default-optimization audit. One captured native x86 regression
 complements the ARM-only capture; both targets now run 425 tests, the same 246
 differential groups and 868,587 requests. Replacement native CI remains required
 before integration; the earlier failed runs are retained in the PR history.
+
+## Scalar chroma upsampling and YCbCr conversion
+
+The complete scalar stage boundary adds four differential groups and 4,842 exact
+original requests: 18 factory/settings/lifecycle observations, 3,330 direct rows,
+480 original simple-pipeline sequences, and 1,014 ordered special-float pairs.
+The row cases retain every initialized input/output sample, error-before-mutation
+behavior, signed extra spans, noncontiguous row views, ignored channels, signed
+zeros, subnormals, infinities, and competing quiet/signaling NaN payloads. Pipeline
+cases cover odd dimensions, each channel's horizontal/vertical shifts, mirrored
+edges, group boundaries, reversed input groups, repeated passes, and YCbCr after
+chroma upsampling. Two standalone regressions retain original captured finite
+pixels, exceptional words, and source guard/mutation order.
+
+Both complete ordinary and ASan/UBSan native ARM original graphs match the focused
+Rust Debug, Release, and 1.85 configurations exactly. The factories and kernels
+remain in the untouched original archive at its existing optimized configuration;
+no C++ algorithm or compiler flag changes are needed. ADR 0003 records the
+observed scalar addition destinations. Both full local checks, each with Debug,
+Release and Rust 1.85, passed 431 tests, 250 differential groups and 873,429 exact
+requests per configuration, with zero failed or ignored tests. Native CI remains
+required before integration. Complete-file YCbCr and chroma-profile admission
+belong to the decoder integration milestone.

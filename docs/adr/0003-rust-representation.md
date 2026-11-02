@@ -1104,3 +1104,16 @@ pinned common.h defaults JXL_HIGH_PRECISION to 1. Retain its degree-four rationa
 polynomials, square-root and sign restoration; FastLinearToSRGB is a separately
 translated helper and has its own exact corpus. No approximate replacement or
 float tolerance is used to make complete-file results pass.
+
+YCbCr and horizontal/vertical chroma upsampling keep stack row descriptors,
+source channel order, the original 3/4–1/4 interpolation, shift/border settings,
+and the YCbCr no-extra-span guard before any input mutation. Preserve the
+Highway scalar double-promotion/product/narrowing checkpoints and separate
+binary32 additions rather than contracting them. Both complete native AArch64
+optimized original objects keep YCbCr's addend first and horizontal chroma's
+current value first. The vertical stage keeps the neighbor product first in
+its top-row sum and the current value first in its bottom-row sum. Out-of-line
+addition boundaries retain those observed operand destinations without changing
+association, finite arithmetic, or the original archive's compiler options.
+Exact exceptional-word comparisons remain required on each native target; review
+these mappings when the source, compiler, target, or instrumentation changes.
