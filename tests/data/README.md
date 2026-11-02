@@ -20,3 +20,64 @@ gray-alpha16 uses the native little-endian 16-bit words.
 
 No C++ executable is needed to run `tests/vardct_image.rs`. Broader generated
 original-file comparisons remain in the opt-in differential suite.
+
+## Captured decoder effects
+
+`effects_rgb_alpha8` and `effects_gray_alpha16` were captured independently from
+original `vd-encode-splines` and `vd-decode` calls on 2026-11-02. Their matching
+`.jxl`, `.pixels`, and `.f32le` files retain the same pinned source/license as
+above. Both are raw level-10 3x8 files, effort 7, distance 1, progressive AC,
+Gaborish, EPF=3, nonzero manual noise and one genuine custom spline. Input samples
+are `(i * 113 + i * i * 17) & 65535`, using their high byte at eight bits.
+The adapter supplies parameters to the original header/one-shot encoder and
+original spline quantization; it implements no framing or codec algorithm.
+
+Manual noise LUT values are 0.005 through 0.04 in steps of 0.005. The spline's
+four control points are `(1,1)`, `(0.3*w,0.8*h)`, `(0.6*w,0.2*h)` and `(w,h)`.
+Its X/Y/B DC coefficients are 0.02/0.3/0.5, its X AC coefficient 1 is 0.1, and
+its sigma coefficients 0/1 are 2.0/0.5; other coefficients are zero. The original
+quantizer uses adjustment zero and CfL ratios zero/one. See the actual adapter
+for source float rounding. The original decoder uses the selected scalar
+reference configuration in ADR 0002.
+
+`.pixels` contains interleaved original gray/alpha or RGBA integer samples,
+with little-endian 16-bit words. `.f32le` contains all three interleaved original
+color float words as little-endian u32 bytes. `tests/decoder_effects.rs` compares
+both without compiling, linking or invoking C++. Broader generated effects and
+error comparisons remain in the opt-in differential suite.
+
+The additional `.x86_64.f32le` files were independently captured from both native
+x86_64 original graphs in [CI run 41440766024](https://github.com/sebastian-software/libjxl-rs/actions/runs/41440766024),
+job 125261745194. The ordinary and ASan/UBSan originals agree on every captured
+word for each unchanged `.jxl` file. Their values were printed by the original
+`vd-decode` entry point, independently of Rust's failed comparison. The existing
+AArch64 captures remain unchanged. The standalone test selects the exact native
+capture: source contraction differs across these CPU targets, as allowed by the
+porting contract. Integer captures are shared; no float tolerance is used.
+
+## JPEG-derived YCbCr and chroma fixtures
+
+`ycbcr-jpeg-fixtures.json` records 25 genuine baseline JPEG files and their raw
+JXL codestreams: 4:4:4, 4:2:2, 4:2:0, 4:4:0 and grayscale at 65x33, 1x1, 9x7,
+257x3 and 3x257. RGB8 source samples follow
+`(x*17 + y*23 + c*61 + (x*y)%47)%256`, written as binary P6 PPM. The recorded
+libjpeg-turbo cjpeg version encodes quality 90, precision 8, integer DCT and
+baseline JPEG; sampling is `1x1,1x1,1x1`, `2x1,1x1,1x1`, `2x2,1x1,1x1` or
+`1x2,1x1,1x1`, with `-grayscale` for the final variant. Validation uses the stored
+JPEGs and does not require cjpeg or ImageMagick.
+
+The pristine pinned parser independently reports actual JPEG sampling. Public
+JxlEncoderUseContainer(false), JxlEncoderStoreJPEGMetadata(false), effort 3 and
+JxlEncoderAddJPEGFrame produce the stored raw codestreams, with every API status
+successful. Every `.float-pixels` file contains all source-initialized RGB words
+in planar channel/y/x order as little-endian binary32. These are independently
+captured from matching ordinary and ASan/UBSan AArch64 original graphs; the
+already quantized JPEG samples are never compared to pre-JPEG RGB as a golden.
+The manifest retains original writer observations and JPEG/JXL/pixel hashes.
+
+`tools/chroma_image_reference.py` repeats the genuine original encoder calls,
+checks each exact codestream and captured pixel word, verifies actual original
+symbol bindings, and compares 1,548 complete/header/truncated/mutated/trailing
+observations between both source graphs. Existing stage exceptional/finite
+acceptance and lifecycle sequences remain independent controls. Strict native
+Linux/macOS validation is required for an integration tree.

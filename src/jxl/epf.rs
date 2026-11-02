@@ -20,6 +20,7 @@ pub fn compute_sigma(
         return Err(StatusCode::GenericError);
     }
     let quant_scale = state.shared().quantizer.scale();
+    let mut sigma_plane = state.sigma.borrow_mut();
     for by in 0..rect.ysize() {
         for bx in 0..rect.xsize() {
             let acs = state.shared().ac_strategy.const_rect_row(rect, by).get(bx);
@@ -35,13 +36,13 @@ pub fn compute_sigma(
                         state.shared().epf_sharpness.row(rect.y0() + by + iy)[rect.x0() + bx + ix];
                     let sigma = sigma_quant * filter.epf_sharp_lut[usize::from(sharpness)];
                     let sigma = if sigma < -1e-4 { sigma } else { -1e-4 };
-                    state.sigma.row_mut(rect.y0() + by + iy + SIGMA_PADDING)
+                    sigma_plane.row_mut(rect.y0() + by + iy + SIGMA_PADDING)
                         [rect.x0() + bx + ix + SIGMA_PADDING] = 1.0 / sigma;
                 }
             }
             if bx + rect.x0() == 0 {
                 for iy in 0..acs.covered_blocks_y() {
-                    let row = state.sigma.row_mut(rect.y0() + by + iy + SIGMA_PADDING);
+                    let row = sigma_plane.row_mut(rect.y0() + by + iy + SIGMA_PADDING);
                     for i in 0..SIGMA_BORDER {
                         row[SIGMA_PADDING - 1 - i] = row[SIGMA_PADDING + i];
                     }
@@ -49,7 +50,7 @@ pub fn compute_sigma(
             }
             if bx + rect.x0() + llf_x == state.shared().frame_dim.xsize_blocks {
                 for iy in 0..acs.covered_blocks_y() {
-                    let row = state.sigma.row_mut(rect.y0() + by + iy + SIGMA_PADDING);
+                    let row = sigma_plane.row_mut(rect.y0() + by + iy + SIGMA_PADDING);
                     let p = rect.x0() + SIGMA_PADDING + bx + llf_x;
                     for i in 0..SIGMA_BORDER {
                         row[p + i] = row[p - 1 - i];
@@ -71,19 +72,18 @@ pub fn compute_sigma(
             if by + rect.y0() == 0 {
                 for iy in 0..SIGMA_BORDER {
                     for x in start..end {
-                        let value = state.sigma.row(rect.y0() + by + SIGMA_PADDING + iy)[x];
-                        state.sigma.row_mut(rect.y0() + by + SIGMA_PADDING - 1 - iy)[x] = value;
+                        let value = sigma_plane.row(rect.y0() + by + SIGMA_PADDING + iy)[x];
+                        sigma_plane.row_mut(rect.y0() + by + SIGMA_PADDING - 1 - iy)[x] = value;
                     }
                 }
             }
             if by + rect.y0() + acs.covered_blocks_y() == state.shared().frame_dim.ysize_blocks {
                 for iy in 0..SIGMA_BORDER {
                     for x in start..end {
-                        let value = state
-                            .sigma
+                        let value = sigma_plane
                             .row(rect.y0() + by + acs.covered_blocks_y() + SIGMA_PADDING - 1 - iy)
                             [x];
-                        state.sigma.row_mut(
+                        sigma_plane.row_mut(
                             rect.y0() + by + acs.covered_blocks_y() + SIGMA_PADDING + iy,
                         )[x] = value;
                     }

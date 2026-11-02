@@ -91,8 +91,8 @@ fn state(out: &mut String, s: &PassesDecoderState<'_, '_>) {
     plane(out, &p.cmap.ytox_map);
     plane(out, &p.cmap.ytob_map);
     strategy(out, &p.ac_strategy);
-    if s.sigma.xsize() != 0 {
-        plane(out, &s.sigma);
+    if s.sigma.borrow().xsize() != 0 {
+        plane(out, &s.sigma.borrow());
     }
 }
 fn float(args: &mut std::str::SplitWhitespace<'_>) -> f32 {
@@ -239,8 +239,9 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         s.shared_storage.ac_strategy.fill_invalid();
         s.used_acs.store(0x8000_0000, Ordering::SeqCst);
         if epf != 0 {
-            s.sigma = Plane::create(dim.xsize_blocks + 4, dim.ysize_blocks + 4).unwrap();
-            fill_image(-17.0, &mut s.sigma);
+            *s.sigma.borrow_mut() =
+                Plane::create(dim.xsize_blocks + 4, dim.ysize_blocks + 4).unwrap();
+            fill_image(-17.0, &mut s.sigma.borrow_mut());
         }
         let mut d = ModularFrameDecoder::new();
         d.init(&dim);

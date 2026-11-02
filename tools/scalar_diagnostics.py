@@ -92,6 +92,19 @@ def main():
                 "tm-color 4 0 1148846080 0 1132396544 1046066128 1060575065 "
                 "1033100696 2147483648 2141266757 2143913829 0\n"
             ), text=True)
+            for capture in ("effects_rgb_alpha8", "effects_gray_alpha16"):
+                fixture = ROOT / "tests/data" / (capture + ".jxl")
+                if fixture.is_file():
+                    result = run(original, input="vd-decode " + fixture.read_bytes().hex() + "\n",
+                                 text=True, capture_output=True)
+                    fields = result.stdout.split()
+                    if not fields or fields[0] != "0" or "R" not in fields:
+                        raise RuntimeError("Original effects capture failed: " + result.stdout)
+                    float_start = fields.index("R") + 1
+                    if len(fields) - float_start != 72:
+                        raise RuntimeError("Original effects capture word count changed")
+                    print(f"original native effects {original.parent.name} {capture} words:",
+                          " ".join(fields[float_start:]), flush=True)
             if (ROOT / "src/jxl/render_pipeline/stage_gaborish.rs").is_file():
                 request = (
                     "gab-row 1 1038867968 1031462862 1038867968 1031462862 "

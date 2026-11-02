@@ -217,6 +217,18 @@ impl<T: Sample> Plane<T> {
     pub fn shrink_to(&mut self, xsize: usize, ysize: usize) -> Status {
         self.base.shrink_to(xsize, ysize)
     }
+    /// PlaneBase's default move: transfer allocation ownership and retain the
+    /// source scalar header. The source C++ raw address remains a nonowning
+    /// alias; this Rust owner deliberately exposes no duplicate storage view.
+    pub(crate) fn move_from(&mut self, source: &mut Self) {
+        self.base.xsize = source.base.xsize;
+        self.base.ysize = source.base.ysize;
+        self.base.orig_xsize = source.base.orig_xsize;
+        self.base.orig_ysize = source.base.orig_ysize;
+        self.base.bytes_per_row = source.base.bytes_per_row;
+        self.base.bytes = source.base.bytes.take();
+        self.base.sizeof_t = source.base.sizeof_t;
+    }
     pub fn swap(&mut self, other: &mut Self) {
         self.base.swap(&mut other.base);
     }
@@ -273,6 +285,12 @@ impl<T: Sample> Image3<T> {
         assert!(c < 3 && y < self.ysize());
         let stride = self.planes[0].bytes_per_row();
         self.planes[c].row_at_mut(y.wrapping_mul(stride), stride)
+    }
+    /// Original Image3 move assignment, including the retained source headers.
+    pub(crate) fn move_from(&mut self, source: &mut Self) {
+        for c in 0..3 {
+            self.planes[c].move_from(&mut source.planes[c]);
+        }
     }
     pub fn swap(&mut self, other: &mut Self) {
         for c in 0..3 {

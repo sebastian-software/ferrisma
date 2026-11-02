@@ -21,11 +21,35 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/retained_frame_owners.rs"]
+mod retained_frame_owners;
+
+#[path = "parity/noise_render.rs"]
+mod noise_render;
+
+#[path = "parity/frame_sequences.rs"]
+mod frame_sequences;
+
+#[path = "parity/decoder_effects.rs"]
+mod decoder_effects;
+
+#[path = "parity/patches.rs"]
+mod patches;
+
+#[path = "parity/blending_stage.rs"]
+mod blending_stage;
+#[path = "parity/chroma_image.rs"]
+mod chroma_image;
+#[path = "parity/chroma_stages.rs"]
+mod chroma_stages;
+#[path = "parity/icc_codec.rs"]
+mod icc_codec;
+
 #[path = "parity/splines.rs"]
 mod splines;
 
-#[path = "parity/icc_codec.rs"]
-mod icc_codec;
+#[path = "parity/epf.rs"]
+mod epf;
 
 #[path = "parity/ac_group_symbols.rs"]
 mod ac_group_symbols;
@@ -104,11 +128,6 @@ mod modular_groups;
 #[path = "parity/modular_pixels.rs"]
 mod modular_pixels;
 
-#[path = "parity/chroma_stages.rs"]
-mod chroma_stages;
-
-#[path = "parity/epf.rs"]
-mod epf;
 #[path = "parity/gaborish_stage.rs"]
 mod gaborish_stage;
 
@@ -754,12 +773,14 @@ fn observe(request: &str) -> String {
         kind if quant_ac::handles(kind) => quant_ac::observe(kind, &mut args),
         kind if quant_storage::handles(kind) => quant_storage::observe(kind, &mut args),
         kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
-        kind if splines::handles(kind) => splines::observe(kind, &mut args),
-        kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),
         kind if frame_buffers::handles(kind) => frame_buffers::observe(kind, &mut args),
+        kind if frame_sequences::handles(kind) => frame_sequences::observe(kind, &mut args),
+        kind if retained_frame_owners::handles(kind) => {
+            retained_frame_owners::observe(kind, &mut args)
+        }
         kind if shared_primitives::handles(kind) => shared_primitives::observe(kind, &mut args),
         kind if modular_frame_decoder::handles(kind) => {
             modular_frame_decoder::observe(kind, &mut args)
@@ -768,9 +789,14 @@ fn observe(request: &str) -> String {
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
-        kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
-
         kind if epf::handles(kind) => epf::observe(kind, &mut args),
+        kind if splines::handles(kind) => splines::observe(kind, &mut args),
+        kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
+        kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
+        kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
+        kind if chroma_image::handles(kind) => chroma_image::observe(kind, &mut args),
+        kind if patches::handles(kind) => patches::observe(kind, &mut args),
+        kind if noise_render::handles(kind) => noise_render::observe(kind, &mut args),
         kind if gaborish_stage::handles(kind) => gaborish_stage::observe(kind, &mut args),
         kind if upsampling::handles(kind) => upsampling::observe(kind, &mut args),
         kind if output_encoding::handles(kind) => output_encoding::observe(kind, &mut args),
@@ -785,6 +811,7 @@ fn observe(request: &str) -> String {
         kind if group_schedule::handles(kind) => group_schedule::observe(kind, &mut args),
         kind if group_render::handles(kind) => group_render::observe(kind, &mut args),
         kind if dequant::handles(kind) => dequant::observe(kind, &mut args),
+        kind if modular_image::handles(kind) => modular_image::observe(kind, &mut args),
         kind if vardct_image::handles(kind) => vardct_image::observe(kind, &mut args),
         kind if whole_image::handles(kind) => whole_image::observe(kind, &mut args),
         kind if sample_conversion::handles(kind) => sample_conversion::observe(kind, &mut args),
@@ -1200,3 +1227,6 @@ mod dequant;
 
 #[path = "parity/group_render.rs"]
 mod group_render;
+
+#[path = "parity/modular_image.rs"]
+mod modular_image;

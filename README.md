@@ -60,6 +60,9 @@ the items vary in size and do not represent equal amounts of work.
 
 ### Remaining decoder work
 
+The [decoder expansion plan](docs/DECODER_EXPANSION.md) records the delivery
+sequence and acceptance gates for this work.
+
 - [ ] Port EPF rendering kernels and integrate them into complete-file decoding;
   sigma generation is already translated.
 - [ ] Complete noise decoding and rendering.

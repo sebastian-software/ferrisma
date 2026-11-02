@@ -1,7 +1,8 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! DecodeFrame/FrameDecoder from dec_frame.{h,cc}, with closed lossless Thunder
-//! and first VarDCT raw-codestream profiles. The original simple pipeline is
+//! and first VarDCT raw-codestream profiles plus an admitted shared-state
+//! sequence boundary. The original simple pipeline is
 //! explicitly selected. Private metadata/header admission excludes unported
 //! configurations before output initialization; it is not a general decoder
 //! status replacement. Admitted paths retain original section scheduling,
@@ -27,6 +28,7 @@ use super::render_pipeline::stage_cms::get_cms_stage;
 use super::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
 use super::toc::{num_toc_entries, read_toc};
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct LosslessThunderFrameDecode<'m> {
     pub status: Status,
@@ -52,11 +54,48 @@ struct Section<'a> {
     index: usize,
 }
 
-// Only this constructor admits a parsed header into the fixed decoder. The
-// metadata owner is the private encoder configuration; callers cannot mutate
-// the admitted header or output-encoding state into an unported source path.
-struct AdmittedHeader<'m>(FrameHeader<'m>);
+enum FrameOutput<'p, 'm> {
+    Borrowed(&'p RefCell<ImageBundle<'m>>),
+    Owned(Rc<RefCell<ImageBundle<'m>>>),
+}
+impl<'m> std::ops::Deref for FrameOutput<'_, 'm> {
+    type Target = RefCell<ImageBundle<'m>>;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(output) => output,
+            Self::Owned(output) => output,
+        }
+    }
+}
+
+// Admission owns each parsed header and bounds the implemented source paths.
+// Fixed configurations own their metadata; sequential metadata is borrowed
+// immutably for the decoder lifetime. Decoder/output state remains private.
+struct AdmittedHeader<'m>(Rc<FrameHeader<'m>>);
 impl<'m> AdmittedHeader<'m> {
+    // FrameHeader::VisitFields reads the complete U64 flag field. The original
+    // decoder tests individual known bits and accepts reserved bits unchanged;
+    // rejecting those here would precede its output initialization and errors.
+    fn admit_sequence(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+        if !matches!(h.encoding, FrameEncoding::MODULAR | FrameEncoding::VAR_DCT)
+            || !matches!(
+                h.color_transform,
+                ColorTransform::NONE | ColorTransform::XYB | ColorTransform::YCBCR
+            )
+            || !(h.chroma_subsampling.is_444()
+                || (h.color_transform == ColorTransform::YCBCR
+                    && (h.chroma_subsampling.is_420()
+                        || h.chroma_subsampling.is_422()
+                        || h.chroma_subsampling.is_440())))
+            || h.extra_channel_upsampling.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_blending_info.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+        {
+            return Err(StatusCode::Unsupported);
+        }
+        Ok(Self(Rc::new(h)))
+    }
     fn admit(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
         if h.encoding != FrameEncoding::MODULAR
             || h.frame_type != FrameType::REGULAR
@@ -85,18 +124,25 @@ impl<'m> AdmittedHeader<'m> {
         {
             return Err(StatusCode::Unsupported);
         }
-        Ok(Self(h))
+        Ok(Self(Rc::new(h)))
     }
-    fn admit_vardct(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
-        if h.encoding != FrameEncoding::VAR_DCT
+    fn admit_modular(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+        if h.encoding != FrameEncoding::MODULAR
             || h.frame_type != FrameType::REGULAR
             || h.nonserialized_is_preview
             || !h.is_last
             || h.can_be_referenced()
-            || h.color_transform != ColorTransform::XYB
+            || !matches!(
+                h.color_transform,
+                ColorTransform::NONE | ColorTransform::XYB
+            )
             || !h.chroma_subsampling.is_444()
-            || h.flags & !FLAG_SKIP_ADAPTIVE_DC_SMOOTHING != 0
-            || h.loop_filter.epf_iters != 0
+            || h.flags
+                & !(FLAG_SKIP_ADAPTIVE_DC_SMOOTHING
+                    | super::frame_header::FLAG_NOISE
+                    | super::frame_header::FLAG_SPLINES
+                    | super::frame_header::FLAG_PATCHES)
+                != 0
             || h.dc_level != 0
             || h.upsampling != 1
             || h.extra_channel_upsampling.len()
@@ -112,12 +158,220 @@ impl<'m> AdmittedHeader<'m> {
         {
             return Err(StatusCode::Unsupported);
         }
-        Ok(Self(h))
+        Ok(Self(Rc::new(h)))
+    }
+    fn admit_vardct(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+        if h.encoding != FrameEncoding::VAR_DCT
+            || h.frame_type != FrameType::REGULAR
+            || h.nonserialized_is_preview
+            || !h.is_last
+            || h.can_be_referenced()
+            || h.color_transform != ColorTransform::XYB
+            || !h.chroma_subsampling.is_444()
+            || h.flags
+                & !(FLAG_SKIP_ADAPTIVE_DC_SMOOTHING
+                    | super::frame_header::FLAG_NOISE
+                    | super::frame_header::FLAG_SPLINES
+                    | super::frame_header::FLAG_PATCHES)
+                != 0
+            || h.dc_level != 0
+            || h.upsampling != 1
+            || h.extra_channel_upsampling.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_upsampling.iter().any(|&up| up != 1)
+            || h.extra_channel_blending_info.len()
+                != h.nonserialized_metadata.unwrap().m.num_extra_channels as usize
+            || h.extra_channel_blending_info
+                .iter()
+                .any(|blend| blend.mode != BlendMode::REPLACE)
+            || h.custom_size_or_origin
+            || h.blending_info.mode != BlendMode::REPLACE
+        {
+            return Err(StatusCode::Unsupported);
+        }
+        Ok(Self(Rc::new(h)))
+    }
+}
+#[derive(Clone, Copy)]
+pub enum FrameWriteTarget {
+    Output,
+    ReferenceStorage,
+}
+/// Retained writer checkpoints, recorded only when a caller requests a
+/// DecodeFrame trace. Clear/allocation starts a new coverage generation; row
+/// events identify the source-defined sample spans, including error prefixes.
+#[derive(Clone)]
+pub enum FrameWriteEvent {
+    BundleClear {
+        target: FrameWriteTarget,
+    },
+    BundleAllocate {
+        target: FrameWriteTarget,
+        sizes: Vec<(usize, usize)>,
+    },
+    BundleRow {
+        target: FrameWriteTarget,
+        channel: usize,
+        x: usize,
+        y: usize,
+        width: usize,
+    },
+    BundleMoveToReference {
+        slot: usize,
+    },
+    Allocate {
+        slot: usize,
+        width: usize,
+        height: usize,
+    },
+    Row {
+        slot: usize,
+        x: usize,
+        y: usize,
+        width: usize,
+    },
+}
+type FrameWriteTrace = Rc<RefCell<Vec<FrameWriteEvent>>>;
+struct TracedDcWriter<'a> {
+    original: super::render_pipeline::render_pipeline_stage::WriteToImage3FStage<'a>,
+    events: FrameWriteTrace,
+    slot: usize,
+}
+impl super::render_pipeline::render_pipeline_stage::RenderPipelineStage for TracedDcWriter<'_> {
+    fn settings(&self) -> super::render_pipeline::render_pipeline_stage::Settings {
+        self.original.settings()
+    }
+    fn set_input_sizes(&mut self, sizes: &[(usize, usize)]) -> Status {
+        self.original.set_input_sizes(sizes)?;
+        self.events.borrow_mut().push(FrameWriteEvent::Allocate {
+            slot: self.slot,
+            width: sizes[0].0,
+            height: sizes[0].1,
+        });
+        Ok(())
+    }
+    fn process_row(
+        &mut self,
+        input: &super::render_pipeline::render_pipeline_stage::RowInfo,
+        output: &super::render_pipeline::render_pipeline_stage::RowInfo,
+        buffers: &mut super::render_pipeline::render_pipeline_stage::RowBuffers<'_>,
+        left: usize,
+        right: usize,
+        width: usize,
+        x: usize,
+        y: usize,
+        thread: usize,
+    ) -> Status {
+        self.original
+            .process_row(input, output, buffers, left, right, width, x, y, thread)?;
+        self.events.borrow_mut().push(FrameWriteEvent::Row {
+            slot: self.slot,
+            x,
+            y,
+            width,
+        });
+        Ok(())
+    }
+    fn get_channel_mode(
+        &self,
+        channel: usize,
+    ) -> super::render_pipeline::render_pipeline_stage::RenderPipelineChannelMode {
+        self.original.get_channel_mode(channel)
+    }
+    fn get_name(&self) -> &str {
+        self.original.get_name()
+    }
+}
+struct TracedBundleWriter<'a> {
+    original: Box<dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage + 'a>,
+    events: FrameWriteTrace,
+    target: FrameWriteTarget,
+    sizes: Vec<(usize, usize)>,
+}
+impl super::render_pipeline::render_pipeline_stage::RenderPipelineStage for TracedBundleWriter<'_> {
+    fn settings(&self) -> super::render_pipeline::render_pipeline_stage::Settings {
+        self.original.settings()
+    }
+    fn set_input_sizes(&mut self, sizes: &[(usize, usize)]) -> Status {
+        self.original.set_input_sizes(sizes)?;
+        self.sizes = sizes.to_vec();
+        self.events
+            .borrow_mut()
+            .push(FrameWriteEvent::BundleAllocate {
+                target: self.target,
+                sizes: sizes.to_vec(),
+            });
+        Ok(())
+    }
+    fn process_row(
+        &mut self,
+        input: &super::render_pipeline::render_pipeline_stage::RowInfo,
+        output: &super::render_pipeline::render_pipeline_stage::RowInfo,
+        buffers: &mut super::render_pipeline::render_pipeline_stage::RowBuffers<'_>,
+        left: usize,
+        right: usize,
+        width: usize,
+        x: usize,
+        y: usize,
+        thread: usize,
+    ) -> Status {
+        let status = self
+            .original
+            .process_row(input, output, buffers, left, right, width, x, y, thread);
+        // The original checks padding before its three color memcpy calls,
+        // then checks/copies extra planes in order. Preserve that partial
+        // mutation even if an extra-plane width guard returns an error.
+        if left == 0 && right == 0 {
+            for channel in 0..self.sizes.len() {
+                if channel >= 3 && self.sizes[channel].0 < x.wrapping_add(width) {
+                    break;
+                }
+                self.events.borrow_mut().push(FrameWriteEvent::BundleRow {
+                    target: self.target,
+                    channel,
+                    x,
+                    y,
+                    width,
+                });
+            }
+        }
+        status
+    }
+    fn get_channel_mode(
+        &self,
+        c: usize,
+    ) -> super::render_pipeline::render_pipeline_stage::RenderPipelineChannelMode {
+        self.original.get_channel_mode(c)
+    }
+    fn get_name(&self) -> &str {
+        self.original.get_name()
+    }
+    fn is_initialized(&self) -> Status {
+        self.original.is_initialized()
+    }
+    fn prepare_for_threads(&mut self, n: usize) -> Status {
+        self.original.prepare_for_threads(n)
+    }
+}
+fn trace_bundle_writer<'a>(
+    original: Box<dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage + 'a>,
+    events: &Option<FrameWriteTrace>,
+    target: FrameWriteTarget,
+) -> Box<dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage + 'a> {
+    if let Some(events) = events {
+        Box::new(TracedBundleWriter {
+            original,
+            events: events.clone(),
+            target,
+            sizes: Vec::new(),
+        })
+    } else {
+        original
     }
 }
 struct FrameDecoder<'s, 'm, 'p> {
     state: &'s mut PassesDecoderState<'m, 'p>,
-    output: &'p RefCell<ImageBundle<'m>>,
+    output: FrameOutput<'p, 'm>,
     header: AdmittedHeader<'m>,
     dim: FrameDimensions,
     modular: ModularFrameDecoder,
@@ -133,6 +387,7 @@ struct FrameDecoder<'s, 'm, 'p> {
     allocated: bool,
     group_caches: Vec<GroupDecCache>,
     use_task_id: bool,
+    write_trace: Option<FrameWriteTrace>,
 }
 impl FrameDecoder<'_, '_, '_> {
     fn init_output(&mut self) -> Status {
@@ -157,14 +412,66 @@ impl FrameDecoder<'_, '_, '_> {
     }
     fn process_dc_global(&mut self, reader: &mut BitReader<'_>) -> Status {
         let shared = &mut self.state.shared_storage;
-        shared.image_features.patches.clear();
-        shared.image_features.splines.clear();
+        if self.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
+            let mut uses_extra_channels = false;
+            shared.image_features.patches.borrow_mut().decode(
+                reader,
+                self.dim.xsize_padded,
+                self.dim.ysize_padded,
+                self.header
+                    .0
+                    .nonserialized_metadata
+                    .unwrap()
+                    .m
+                    .num_extra_channels as usize,
+                &mut uses_extra_channels,
+                &shared.reference_frames.borrow(),
+            )?;
+            if self.header.0.upsampling != 1
+                && self
+                    .header
+                    .0
+                    .extra_channel_upsampling
+                    .iter()
+                    .any(|&up| up != self.header.0.upsampling)
+            {
+                return Err(StatusCode::GenericError);
+            }
+        } else {
+            shared.image_features.patches.borrow_mut().clear();
+        }
+        shared.image_features.splines.borrow_mut().clear();
+        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+            shared
+                .image_features
+                .splines
+                .borrow_mut()
+                .decode(reader, self.dim.xsize * self.dim.ysize)?;
+        }
+        if self.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
+            super::dec_noise::decode_noise(
+                reader,
+                &mut shared.image_features.noise_params.borrow_mut(),
+            )?;
+        }
         shared.matrices.decode_dc(reader)?;
         if self.header.0.encoding == FrameEncoding::VAR_DCT {
             shared.quantizer.decode(&shared.matrices, reader)?;
             super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
             shared.cmap.decode_dc(reader)?;
             shared.ac_strategy.fill_invalid();
+        }
+        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+            let shared = self.state.shared();
+            shared
+                .image_features
+                .splines
+                .borrow_mut()
+                .initialize_draw_cache(
+                    self.dim.xsize_upsampled,
+                    self.dim.ysize_upsampled,
+                    &shared.cmap.base(),
+                )?;
         }
         let status = self
             .modular
@@ -175,7 +482,9 @@ impl FrameDecoder<'_, '_, '_> {
         status
     }
     fn process_dc_group(&mut self, g: usize, reader: &mut BitReader<'_>) -> Status {
-        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+        if self.header.0.encoding == FrameEncoding::VAR_DCT
+            && self.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
+        {
             self.modular
                 .decode_var_dct_dc(&self.header.0, g, reader, self.state)?;
         }
@@ -202,28 +511,186 @@ impl FrameDecoder<'_, '_, '_> {
         if self.header.0.encoding == FrameEncoding::VAR_DCT {
             self.modular
                 .decode_ac_metadata(&self.header.0, g, reader, self.state)?;
+        } else if self.header.0.loop_filter.epf_iters > 0 {
+            super::image_ops::fill_image(
+                super::epf::INV_SIGMA_NUM / self.header.0.loop_filter.epf_sigma_for_modular,
+                &mut self.state.sigma.borrow_mut(),
+            );
         }
         self.dc_groups[g] = 1;
         Ok(())
     }
     fn prepare_pipeline(&mut self) -> Status {
+        if self.header.0.can_be_referenced() {
+            if let Some(events) = &self.write_trace {
+                events.borrow_mut().push(FrameWriteEvent::BundleClear {
+                    target: FrameWriteTarget::ReferenceStorage,
+                });
+            }
+            *self.state.frame_storage_for_referencing.borrow_mut() =
+                ImageBundle::new(Some(&self.header.0.nonserialized_metadata.unwrap().m));
+        }
         // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
         // render_spotcolors=true, render_noise=true. Header admission proves
         // only the explicitly connected filter/transform branches are reachable. One unassociated
         // full-resolution alpha plane needs no additional processing stage.
-        let mut builder = SimpleRenderPipelineBuilder::new(
-            3 + self
-                .header
-                .0
-                .nonserialized_metadata
-                .unwrap()
-                .m
-                .num_extra_channels as usize,
-        );
+        let num_c = 3 + self
+            .header
+            .0
+            .nonserialized_metadata
+            .unwrap()
+            .m
+            .num_extra_channels as usize;
+        let render_noise = self.header.0.flags & super::frame_header::FLAG_NOISE != 0;
+        let mut builder =
+            SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        if !self.header.0.chroma_subsampling.is_444() {
+            for c in 0..3 {
+                if self.header.0.chroma_subsampling.h_shift(c) != 0 {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(c, true),
+                    ))?;
+                }
+                if self.header.0.chroma_subsampling.v_shift(c) != 0 {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(c, false),
+                    ))?;
+                }
+            }
+        }
         if self.header.0.loop_filter.gab {
             builder.add_stage(super::render_pipeline::stage_gaborish::get_gaborish_stage(
                 &self.header.0.loop_filter,
             ))?;
+        }
+        {
+            use super::render_pipeline::stage_epf::{EpfStage, get_epf_stage_shared};
+            let lf = &self.header.0.loop_filter;
+            if lf.epf_iters >= 3 {
+                builder.add_stage(get_epf_stage_shared(
+                    lf,
+                    self.state.sigma.clone(),
+                    EpfStage::Zero,
+                ))?;
+            }
+            if lf.epf_iters >= 1 {
+                builder.add_stage(get_epf_stage_shared(
+                    lf,
+                    self.state.sigma.clone(),
+                    EpfStage::One,
+                ))?;
+            }
+            if lf.epf_iters >= 2 {
+                builder.add_stage(get_epf_stage_shared(
+                    lf,
+                    self.state.sigma.clone(),
+                    EpfStage::Two,
+                ))?;
+            }
+        }
+        let h = &self.header.0;
+        let late_ec_upsample = h.upsampling != 1
+            && h.extra_channel_upsampling
+                .iter()
+                .all(|&up| up == h.upsampling);
+        if !late_ec_upsample {
+            for (ec, &up) in h.extra_channel_upsampling.iter().enumerate() {
+                if up != 1 {
+                    builder.add_stage(
+                        super::render_pipeline::stage_upsampling::get_upsampling_stage(
+                            &h.nonserialized_metadata.unwrap().transform_data,
+                            3 + ec,
+                            super::base::bits::ceil_log2_nonzero(up),
+                        ),
+                    )?;
+                }
+            }
+        }
+        if self.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
+            builder.add_stage(Some(
+                super::render_pipeline::stage_patches::get_patches_stage_shared(
+                    self.state.shared().image_features.patches.clone(),
+                    self.state.shared().reference_frames.clone(),
+                    &self
+                        .header
+                        .0
+                        .nonserialized_metadata
+                        .unwrap()
+                        .m
+                        .extra_channel_info,
+                ),
+            ))?;
+        }
+        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+            builder.add_stage(Some(Box::new(
+                super::render_pipeline::stage_splines::get_spline_stage_shared(
+                    self.state.shared().image_features.splines.clone(),
+                ),
+            )))?;
+        }
+        if h.upsampling != 1 {
+            let channels = 3 + if late_ec_upsample {
+                h.extra_channel_upsampling.len()
+            } else {
+                0
+            };
+            for c in 0..channels {
+                builder.add_stage(
+                    super::render_pipeline::stage_upsampling::get_upsampling_stage(
+                        &h.nonserialized_metadata.unwrap().transform_data,
+                        c,
+                        super::base::bits::ceil_log2_nonzero(h.upsampling),
+                    ),
+                )?;
+            }
+        }
+        if render_noise {
+            builder.add_stage(Some(
+                super::render_pipeline::stage_noise::get_convolve_noise_stage(num_c),
+            ))?;
+            builder.add_stage(Some(
+                super::render_pipeline::stage_noise::get_add_noise_stage_shared(
+                    self.state.shared().image_features.noise_params.clone(),
+                    self.state.shared().cmap.base_shared(),
+                    num_c,
+                ),
+            ))?;
+        }
+        if self.header.0.dc_level != 0 {
+            let slot = self.header.0.dc_level as usize - 1;
+            let original =
+                super::render_pipeline::render_pipeline_stage::WriteToImage3FStage::from_dc_frame(
+                    self.state.shared_storage.dc_frames.clone(),
+                    slot,
+                );
+            let writer: Box<
+                dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage,
+            > = if let Some(events) = &self.write_trace {
+                Box::new(TracedDcWriter {
+                    original,
+                    events: events.clone(),
+                    slot,
+                })
+            } else {
+                Box::new(original)
+            };
+            builder.add_stage(Some(writer))?;
+        }
+        if self.header.0.can_be_referenced() && self.header.0.save_before_color_transform {
+            builder.add_stage(Some(trace_bundle_writer(
+                Box::new(WriteToImageBundleStage::from_owned(
+                    self.state.frame_storage_for_referencing.clone(),
+                    &self
+                        .header
+                        .0
+                        .nonserialized_metadata
+                        .unwrap()
+                        .m
+                        .color_encoding,
+                )),
+                &self.write_trace,
+                FrameWriteTarget::ReferenceStorage,
+            )))?;
         }
         let info = &self.state.output_encoding_info;
         let tone = get_tone_mapping_stage(info);
@@ -231,8 +698,51 @@ impl FrameDecoder<'_, '_, '_> {
             tone.is_none(),
             "closed metadata has equal source/desired intensity"
         );
-        if self.header.0.color_transform == ColorTransform::XYB {
+        let mut linear = false;
+        if self.header.0.color_transform == ColorTransform::YCBCR {
+            builder.add_stage(Some(super::render_pipeline::stage_ycbcr::get_ycbcr_stage()))?;
+        } else if self.header.0.color_transform == ColorTransform::XYB {
             builder.add_stage(Some(super::render_pipeline::stage_xyb::get_xyb_stage(info)))?;
+            linear = true;
+        }
+        if super::blending::needs_blending(&self.header.0) {
+            if linear {
+                builder.add_stage(Some(
+                    super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
+                ))?;
+                linear = false;
+            }
+            builder.add_stage(Some(
+                super::render_pipeline::stage_blending::get_blending_stage_shared(
+                    self.header.0.clone(),
+                    self.state,
+                    &info.color_encoding,
+                ),
+            ))?;
+        }
+        if self.header.0.can_be_referenced() && !self.header.0.save_before_color_transform {
+            if linear {
+                builder.add_stage(Some(
+                    super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
+                ))?;
+                linear = false;
+            }
+            builder.add_stage(Some(trace_bundle_writer(
+                Box::new(WriteToImageBundleStage::from_owned(
+                    self.state.frame_storage_for_referencing.clone(),
+                    &self
+                        .header
+                        .0
+                        .nonserialized_metadata
+                        .unwrap()
+                        .m
+                        .color_encoding,
+                )),
+                &self.write_trace,
+                FrameWriteTarget::ReferenceStorage,
+            )))?;
+        }
+        if linear {
             // Admission proves sRGB output. This is the original
             // FromLinearStage<OpRgb>, including its scalar approximation.
             builder.add_stage(Some(
@@ -246,10 +756,19 @@ impl FrameDecoder<'_, '_, '_> {
         if cms.is_some() {
             builder.add_stage(cms)?;
         }
-        builder.add_stage(Some(Box::new(WriteToImageBundleStage::from_shared(
-            self.output,
-            &info.color_encoding,
-        ))))?;
+        let writer = match &self.output {
+            FrameOutput::Borrowed(output) => {
+                WriteToImageBundleStage::from_shared(output, &info.color_encoding)
+            }
+            FrameOutput::Owned(output) => {
+                WriteToImageBundleStage::from_owned(output.clone(), &info.color_encoding)
+            }
+        };
+        builder.add_stage(Some(trace_bundle_writer(
+            Box::new(writer),
+            &self.write_trace,
+            FrameWriteTarget::Output,
+        )))?;
         self.state.render_pipeline = Some(builder.finalize(self.state.shared().frame_dim)?);
         self.state
             .render_pipeline
@@ -274,10 +793,11 @@ impl FrameDecoder<'_, '_, '_> {
             self.group_caches.resize_with(size, GroupDecCache::default);
         }
         self.use_task_id = threads > tasks;
-        // Noise is outside admission; VarDCT full-image output retains group input.
+        // Original full-image VarDCT/noise paths retain group input owners.
         if let Some(p) = &mut self.state.render_pipeline {
-            let use_group_ids =
-                self.modular.uses_full_image() && self.header.0.encoding == FrameEncoding::VAR_DCT;
+            let use_group_ids = self.modular.uses_full_image()
+                && (self.header.0.encoding == FrameEncoding::VAR_DCT
+                    || self.header.0.flags & super::frame_header::FLAG_NOISE != 0);
             p.prepare_for_threads(size, use_group_ids)?;
         }
         self.state
@@ -432,6 +952,16 @@ impl FrameDecoder<'_, '_, '_> {
             }
         }
         self.passes[g] = self.passes[g].wrapping_add(count as u8);
+        if self.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
+            super::dec_noise::prepare_noise_input(
+                self.state.visible_frame_index,
+                self.state.nonvisible_frame_index,
+                &self.dim,
+                &self.header.0,
+                g,
+                &mut input,
+            );
+        }
         if !self.modular.uses_full_image() && should_run_pipeline && ready {
             input.done()?;
         }
@@ -541,6 +1071,7 @@ impl FrameDecoder<'_, '_, '_> {
             self.prepare_pipeline()?;
             if self.header.0.encoding == FrameEncoding::VAR_DCT
                 && self.header.0.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0
+                && self.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
             {
                 let shared = &mut self.state.shared_storage;
                 super::compressed_dc::adaptive_dc_smoothing(
@@ -594,7 +1125,64 @@ impl FrameDecoder<'_, '_, '_> {
             &self.state.shared_storage,
             self.state.render_pipeline.as_mut().unwrap(),
             true,
-        )
+        )?;
+        if self.header.0.can_be_referenced() {
+            let mut references = self.state.shared_storage.reference_frames.borrow_mut();
+            let info = &mut references[self.header.0.save_as_reference as usize];
+            info.frame
+                .as_deref_mut()
+                .expect("source requires an existing reference bundle")
+                .move_from(&mut self.state.frame_storage_for_referencing.borrow_mut());
+            if let Some(events) = &self.write_trace {
+                events
+                    .borrow_mut()
+                    .push(FrameWriteEvent::BundleMoveToReference {
+                        slot: self.header.0.save_as_reference as usize,
+                    });
+            }
+            info.ib_is_in_xyb = self.header.0.save_before_color_transform;
+        }
+        Ok(())
+    }
+    fn has_everything(&self) -> bool {
+        self.decoded_dc_global
+            && self.decoded_ac_global
+            && !self.dc_groups.contains(&0)
+            && self
+                .passes
+                .iter()
+                .all(|&pass| pass >= self.header.0.passes.num_passes as u8)
+    }
+    fn references(&self) -> i32 {
+        if self.is_finalized || !self.has_everything() {
+            return 0;
+        }
+        let h = &self.header.0;
+        let mut result = 0;
+        if h.frame_type == FrameType::REGULAR || h.frame_type == FrameType::SKIP_PROGRESSIVE {
+            let cropped = h.custom_size_or_origin;
+            if cropped || h.blending_info.mode != BlendMode::REPLACE {
+                result |= 1 << h.blending_info.source;
+            }
+            for info in &h.extra_channel_blending_info {
+                if cropped || info.mode != BlendMode::REPLACE {
+                    result |= 1 << info.source;
+                }
+            }
+        }
+        if h.flags & super::frame_header::FLAG_PATCHES != 0 {
+            result |= self
+                .state
+                .shared()
+                .image_features
+                .patches
+                .borrow()
+                .get_references();
+        }
+        if h.flags & super::frame_header::FLAG_USE_DC_FRAME != 0 {
+            result |= 16 << h.dc_level;
+        }
+        result
     }
 }
 
@@ -625,8 +1213,133 @@ impl LosslessThunderConfig {
         output: &'p RefCell<ImageBundle<'m>>,
         copied_header: &mut Option<FrameHeader<'m>>,
     ) -> Status {
-        decode_profile_frame_into(self.metadata(), bytes, state, output, copied_header, false)
+        decode_profile_frame_into(
+            self.metadata(),
+            bytes,
+            state,
+            output,
+            copied_header,
+            DecodeProfile::LosslessThunder,
+        )
     }
+}
+
+/// Defined reader/section checkpoints of the original DecodeFrame caller.
+/// An absent status denotes a source operation that was never reached.
+#[derive(Default)]
+pub struct FrameDecodeTrace {
+    pub init_status: Option<Status>,
+    pub output_status: Option<Status>,
+    pub header_bits: usize,
+    pub header_bounds: Option<Status>,
+    pub header_close: Option<Status>,
+    pub sections_status: Option<Status>,
+    pub section_statuses: Vec<u8>,
+    pub section_readers: Vec<(usize, Status)>,
+    pub references: Option<i32>,
+    pub has_decoded_dc: bool,
+    pub has_decoded_all: bool,
+    pub finalize_status: Option<Status>,
+    pub write_events: Vec<FrameWriteEvent>,
+}
+
+pub struct SequenceFrameDecode<'m> {
+    pub status: Status,
+    pub header: Option<FrameHeader<'m>>,
+    pub trace: FrameDecodeTrace,
+}
+
+/// The shared-state loop around the original DecodeFrame/InitFrame boundary.
+/// Metadata is supplied once and borrowed unchanged by all frames. The output
+/// and every retained pipeline writer share one bundle allocation owner.
+/// This boundary admits sRGB NONE/XYB frames and YCbCr 4:4:4/4:2:2/4:2:0/4:4:0,
+/// references, DC frames, animation and previews, including source early/late
+/// extra-channel and main spatial upsampling. Other color configurations and
+/// broader extra-channel paths remain separate boundaries.
+pub struct SequenceDecoder<'m> {
+    state: PassesDecoderState<'m, 'm>,
+    output: Rc<RefCell<ImageBundle<'m>>>,
+    metadata: &'m super::image_metadata::CodecMetadata,
+}
+impl<'m> SequenceDecoder<'m> {
+    pub fn new(metadata: &'m super::image_metadata::CodecMetadata) -> Result<Self, StatusCode> {
+        use super::color_encoding::RenderingIntent;
+        use super::image_metadata::ExtraChannel;
+        let m = &metadata.m;
+        if !(1..=32).contains(&m.bit_depth.bits_per_sample)
+            || m.num_extra_channels as usize != m.extra_channel_info.len()
+            || m.extra_channel_info.len() > 1
+            || m.extra_channel_info.iter().any(|ec| {
+                ec.channel_type != ExtraChannel::ALPHA
+                    || ec.bit_depth.floating_point_sample != m.bit_depth.floating_point_sample
+                    || ec.bit_depth.bits_per_sample != m.bit_depth.bits_per_sample
+                    || ec.bit_depth.exponent_bits_per_sample != m.bit_depth.exponent_bits_per_sample
+                    || ec.dim_shift != 0
+                    || ec.alpha_associated
+            })
+            || m.have_intrinsic_size
+            || m.orientation != 1
+            || m.color_encoding.want_icc()
+            || !m.color_encoding.is_srgb()
+            || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
+            || m.tone_mapping.intensity_target != 255.0
+            || m.tone_mapping.min_nits != 0.0
+            || m.tone_mapping.relative_to_max_display
+            || m.tone_mapping.linear_below != 0.0
+        {
+            return Err(StatusCode::Unsupported);
+        }
+        let mut state = PassesDecoderState::new();
+        state.output_encoding_info.set_from_metadata(metadata)?;
+        Ok(Self {
+            state,
+            output: Rc::new(RefCell::new(ImageBundle::new(Some(&metadata.m)))),
+            metadata,
+        })
+    }
+    pub fn decode_frame(&mut self, bytes: &[u8], preview: bool) -> SequenceFrameDecode<'m> {
+        let mut header = None;
+        let mut trace = FrameDecodeTrace::default();
+        let status = decode_frame_into(
+            self.metadata,
+            bytes,
+            &mut self.state,
+            FrameOutput::Owned(self.output.clone()),
+            &mut header,
+            DecodeProfile::Sequence { preview },
+            Some(&mut trace),
+        );
+        SequenceFrameDecode {
+            status,
+            header,
+            trace,
+        }
+    }
+    pub fn output(&self) -> std::cell::Ref<'_, ImageBundle<'m>> {
+        self.output.borrow()
+    }
+    pub fn state(&self) -> &PassesDecoderState<'m, 'm> {
+        &self.state
+    }
+}
+
+/// Original FrameDecoder::SavedAs. A DC header has a parsed level in 1..=4.
+pub fn frame_saved_as(header: &FrameHeader<'_>) -> i32 {
+    if header.frame_type == FrameType::DC {
+        16 << (header.dc_level - 1)
+    } else if header.can_be_referenced() {
+        1 << header.save_as_reference
+    } else {
+        0
+    }
+}
+
+#[derive(Clone, Copy)]
+enum DecodeProfile {
+    LosslessThunder,
+    VarDct,
+    Modular,
+    Sequence { preview: bool },
 }
 
 fn decode_profile_frame_into<'m, 'p>(
@@ -635,22 +1348,49 @@ fn decode_profile_frame_into<'m, 'p>(
     state: &mut PassesDecoderState<'m, 'p>,
     output: &'p RefCell<ImageBundle<'m>>,
     copied_header: &mut Option<FrameHeader<'m>>,
-    vardct: bool,
+    profile: DecodeProfile,
 ) -> Status {
-    (|| {
+    decode_frame_into(
+        metadata,
+        bytes,
+        state,
+        FrameOutput::Borrowed(output),
+        copied_header,
+        profile,
+        None,
+    )
+}
+
+fn decode_frame_into<'m, 'p>(
+    metadata: &'m super::image_metadata::CodecMetadata,
+    bytes: &[u8],
+    state: &mut PassesDecoderState<'m, 'p>,
+    output: FrameOutput<'p, 'm>,
+    copied_header: &mut Option<FrameHeader<'m>>,
+    profile: DecodeProfile,
+    mut trace: Option<&mut FrameDecodeTrace>,
+) -> Status {
+    let write_trace = trace.as_ref().map(|_| Rc::new(RefCell::new(Vec::new())));
+    let status = (|| {
         let mut header = FrameHeader::new(Some(metadata));
         let modular = ModularFrameDecoder::new();
         let mut reader = BitReader::new(bytes);
         // InitFrame: header and TOC parsing precede profile admission.
         state.shared_storage.matrices = DequantMatrices::default();
         let initialized = (|| {
-            header.nonserialized_is_preview = false;
+            header.nonserialized_is_preview =
+                matches!(profile, DecodeProfile::Sequence { preview: true });
             read_frame_header(&mut reader, &mut header)?;
             let dim = header.to_frame_dimensions();
             {
                 let mut decoded = output.borrow_mut();
                 *decoded.color_mut() = Image3::default();
                 decoded.extra_channels_mut().clear();
+                if let Some(events) = &write_trace {
+                    events.borrow_mut().push(FrameWriteEvent::BundleClear {
+                        target: FrameWriteTarget::Output,
+                    });
+                }
                 decoded.duration = header.animation_frame.duration;
             }
             if !header.nonserialized_is_preview
@@ -696,21 +1436,32 @@ fn decode_profile_frame_into<'m, 'p>(
             }
             Ok((dim, toc))
         })();
+        if let Some(trace) = &mut trace {
+            trace.init_status = Some(initialized.as_ref().map(|_| ()).map_err(|e| *e));
+            trace.header_bits = reader.total_bits_consumed();
+        }
         let (dim, toc) = match initialized {
             Ok(v) => v,
             Err(e) => {
-                let _ = reader.close();
+                let close = reader.close();
+                if let Some(trace) = &mut trace {
+                    trace.header_close = Some(close);
+                }
                 return Err(e);
             }
         };
-        let admitted = match if vardct {
-            AdmittedHeader::admit_vardct(header)
-        } else {
-            AdmittedHeader::admit(header)
+        let admitted = match match profile {
+            DecodeProfile::VarDct => AdmittedHeader::admit_vardct(header),
+            DecodeProfile::LosslessThunder => AdmittedHeader::admit(header),
+            DecodeProfile::Modular => AdmittedHeader::admit_modular(header),
+            DecodeProfile::Sequence { .. } => AdmittedHeader::admit_sequence(header),
         } {
             Ok(v) => v,
             Err(e) => {
-                let _ = reader.close();
+                let close = reader.close();
+                if let Some(trace) = &mut trace {
+                    trace.header_close = Some(close);
+                }
                 return Err(e);
             }
         };
@@ -732,18 +1483,37 @@ fn decode_profile_frame_into<'m, 'p>(
             allocated: false,
             group_caches: Vec::new(),
             use_task_id: false,
+            write_trace: write_trace.clone(),
         };
-        if let Err(e) = decoder.init_output() {
-            let _ = reader.close();
+        let initialized = decoder.init_output();
+        if let Some(trace) = &mut trace {
+            trace.output_status = Some(initialized);
+        }
+        if let Err(e) = initialized {
+            let close = reader.close();
+            if let Some(trace) = &mut trace {
+                trace.header_close = Some(close);
+            }
             return Err(e);
         }
-        *copied_header = Some(decoder.header.0.clone());
-        if let Err(e) = reader.all_reads_within_bounds() {
-            let _ = reader.close();
+        *copied_header = Some(decoder.header.0.as_ref().clone());
+        let bounds = reader.all_reads_within_bounds();
+        if let Some(trace) = &mut trace {
+            trace.header_bounds = Some(bounds);
+        }
+        if let Err(e) = bounds {
+            let close = reader.close();
+            if let Some(trace) = &mut trace {
+                trace.header_close = Some(close);
+            }
             return Err(e);
         }
         let header_bytes = reader.total_bits_consumed() / 8;
-        reader.close()?;
+        let close = reader.close();
+        if let Some(trace) = &mut trace {
+            trace.header_close = Some(close);
+        }
+        close?;
         let mut processed_bytes = header_bytes;
         let mut sections = Vec::new();
         let mut pos = header_bytes;
@@ -761,7 +1531,12 @@ fn decode_profile_frame_into<'m, 'p>(
                 pos = end;
             }
             let mut statuses = vec![SectionStatus::Skipped; sections.len()];
-            decoder.process_sections(&mut sections, &mut statuses)?;
+            let status = decoder.process_sections(&mut sections, &mut statuses);
+            if let Some(trace) = &mut trace {
+                trace.sections_status = Some(status);
+                trace.section_statuses = statuses.iter().map(|status| *status as u8).collect();
+            }
+            status?;
             for (i, status) in statuses.iter().enumerate() {
                 if *status != SectionStatus::Done {
                     return Err(StatusCode::GenericError);
@@ -771,19 +1546,43 @@ fn decode_profile_frame_into<'m, 'p>(
             Ok(())
         })();
         let mut close_ok = Ok(());
+        if let Some(trace) = &mut trace {
+            trace.section_readers.resize(sections.len(), (0, Ok(())));
+        }
         for section in sections.iter_mut().rev() {
             // index is retained at its original physical-order checkpoint.
             let _ = section.index;
-            if let Err(e) = section.reader.close() {
+            let bits = section.reader.total_bits_consumed();
+            let closed = section.reader.close();
+            if let Some(trace) = &mut trace {
+                trace.section_readers[section.index] = (bits, closed);
+            }
+            if let Err(e) = closed {
                 close_ok = Err(e);
             }
         }
         work?;
         close_ok?;
-        decoder.finalize_frame()?;
-        output.borrow_mut().set_decoded_bytes(processed_bytes);
+        if let Some(trace) = &mut trace {
+            trace.references = Some(decoder.references());
+            trace.has_decoded_dc = decoder.finalized_dc;
+            trace.has_decoded_all = decoder.toc.len() == decoder.num_sections_done;
+        }
+        let finalized = decoder.finalize_frame();
+        if let Some(trace) = &mut trace {
+            trace.finalize_status = Some(finalized);
+        }
+        finalized?;
+        decoder
+            .output
+            .borrow_mut()
+            .set_decoded_bytes(processed_bytes);
         Ok(())
-    })()
+    })();
+    if let Some(trace) = trace {
+        trace.write_events = write_trace.unwrap().borrow().clone();
+    }
+    status
 }
 
 /// Complete first-profile codestream result with owned metadata and integer
@@ -986,14 +1785,22 @@ impl VarDctConfig {
         output: &'p RefCell<ImageBundle<'m>>,
         header: &mut Option<FrameHeader<'m>>,
     ) -> Status {
-        decode_profile_frame_into(self.metadata(), bytes, state, output, header, true)
+        decode_profile_frame_into(
+            self.metadata(),
+            bytes,
+            state,
+            output,
+            header,
+            DecodeProfile::VarDct,
+        )
     }
 }
 
 /// Complete raw-codestream VarDCT result for the admitted sRGB XYB profile.
 /// Integer samples retain the source bit depth; float samples are interleaved
 /// sRGB color from the original image-bundle output stage, before quantization.
-/// General frames, EPF, effects, and container boxes remain outside admission.
+/// General frames, saved references, resampling and container boxes remain outside
+/// admission. Scalar EPF, noise and spline effects follow their original stages.
 pub struct VarDctImageDecode {
     pub status: Status,
     pub metadata: super::image_metadata::CodecMetadata,
@@ -1136,6 +1943,231 @@ pub fn decode_vardct(bytes: &[u8]) -> VarDctImageDecode {
         metadata = Some(cfg.into_metadata());
     }
     VarDctImageDecode {
+        status,
+        metadata: metadata.unwrap(),
+        pixels,
+        float_pixels,
+        reader_bits,
+        frame_size,
+        frame_decoded_bytes,
+    }
+}
+
+/// Explicit original external-output choice. SourceInteger retains the stored
+/// integer depth (the original exporter accepts 1..16); Float32 exports native
+/// binary32 samples for larger integer depths and custom floating samples.
+#[derive(Clone, Copy)]
+pub enum ModularOutput {
+    SourceInteger,
+    Float32,
+}
+/// Complete single final regular Modular codestream result. The metadata/header
+/// owner admits NONE/XYB sRGB and same-depth full-resolution unassociated alpha.
+/// References, chroma subsampling, spatial transforms and ICC remain separate.
+pub type ModularImageDecode = VarDctImageDecode;
+
+struct ModularConfig {
+    metadata: super::image_metadata::CodecMetadata,
+}
+impl ModularConfig {
+    fn metadata(&self) -> &super::image_metadata::CodecMetadata {
+        &self.metadata
+    }
+    fn into_metadata(self) -> super::image_metadata::CodecMetadata {
+        self.metadata
+    }
+    fn admit_decoded_metadata(
+        owner: &mut Option<super::image_metadata::CodecMetadata>,
+    ) -> Option<Self> {
+        use super::color_encoding::RenderingIntent;
+        use super::image_metadata::ExtraChannel;
+        let m = &owner.as_ref()?.m;
+        if !(1..=32).contains(&m.bit_depth.bits_per_sample)
+            || m.num_extra_channels as usize != m.extra_channel_info.len()
+            || m.extra_channel_info.len() > 1
+            || m.extra_channel_info.iter().any(|ec| {
+                ec.channel_type != ExtraChannel::ALPHA
+                    || ec.bit_depth.floating_point_sample != m.bit_depth.floating_point_sample
+                    || ec.bit_depth.bits_per_sample != m.bit_depth.bits_per_sample
+                    || ec.bit_depth.exponent_bits_per_sample != m.bit_depth.exponent_bits_per_sample
+                    || ec.dim_shift != 0
+                    || ec.alpha_associated
+            })
+            || m.have_animation
+            || m.have_preview
+            || m.have_intrinsic_size
+            || m.orientation != 1
+            || m.color_encoding.want_icc()
+            || !m.color_encoding.is_srgb()
+            || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
+            || m.tone_mapping.intensity_target != 255.0
+            || m.tone_mapping.min_nits != 0.0
+            || m.tone_mapping.relative_to_max_display
+            || m.tone_mapping.linear_below != 0.0
+        {
+            return None;
+        }
+        Some(Self {
+            metadata: owner.take().unwrap(),
+        })
+    }
+    fn decode_frame_into<'m, 'p>(
+        &'m self,
+        bytes: &[u8],
+        state: &mut PassesDecoderState<'m, 'p>,
+        output: &'p RefCell<ImageBundle<'m>>,
+        header: &mut Option<FrameHeader<'m>>,
+    ) -> Status {
+        decode_profile_frame_into(
+            self.metadata(),
+            bytes,
+            state,
+            output,
+            header,
+            DecodeProfile::Modular,
+        )
+    }
+}
+
+/// Decode the admitted general Modular profile through original group decoding,
+/// inverse transforms, rendering, scoped reader close and explicit export.
+pub fn decode_modular(bytes: &[u8], output_format: ModularOutput) -> ModularImageDecode {
+    use super::dec_external_image::convert_uint_to_buffer;
+    use super::fields::bundle;
+    use super::headers::read_size_header;
+    use super::image_metadata::{CodecMetadata, Orientation, read_image_metadata};
+    use super::types::JxlEndianness;
+    let mut metadata = Some(CodecMetadata::default());
+    let mut pixels = Vec::new();
+    let mut frame_size = (0, 0);
+    let mut frame_decoded_bytes = 0;
+    let mut reader = BitReader::new(bytes);
+    let parsed = (|| {
+        if reader.read_fixed_bits::<16>() != 0x0aff {
+            return Err(StatusCode::GenericError);
+        }
+        {
+            let m = metadata.as_mut().unwrap();
+            read_size_header(&mut reader, &mut m.size)?;
+            read_image_metadata(&mut reader, &mut m.m)?;
+            m.transform_data.nonserialized_xyb_encoded = m.m.xyb_encoded;
+            bundle::read(&mut reader, &mut m.transform_data)?;
+        }
+        Ok(())
+    })();
+    let config = if parsed.is_ok() {
+        ModularConfig::admit_decoded_metadata(&mut metadata)
+    } else {
+        None
+    };
+    let output = config
+        .as_ref()
+        .map(|cfg| RefCell::new(ImageBundle::new(Some(&cfg.metadata().m))));
+    let body = (|| {
+        parsed?;
+        let cfg = config.as_ref().ok_or(StatusCode::Unsupported)?;
+        // These external owners keep the source decoder's pointer bindings
+        // live. Empty/default bundle construction allocates no pixel storage.
+        let preview = ImageBundle::new(Some(&cfg.metadata().m));
+        let output = output.as_ref().unwrap();
+        let mut state = PassesDecoderState::new();
+        state
+            .output_encoding_info
+            .set_from_metadata(cfg.metadata())?;
+        reader.jump_to_byte_boundary()?;
+        let mut header = None;
+        // The admitted final regular frame makes both original do/while
+        // continuation conditions false. No additional frame is skipped.
+        let start = reader.total_bits_consumed() / 8;
+        let frame_status = cfg.decode_frame_into(&bytes[start..], &mut state, output, &mut header);
+        {
+            let image = output.borrow();
+            frame_size = (image.color().xsize(), image.color().ysize());
+            frame_decoded_bytes = image.decoded_bytes();
+        }
+        frame_status?;
+        reader.skip_bits(frame_decoded_bytes.wrapping_mul(8));
+        if reader.total_bits_consumed() != bytes.len().wrapping_mul(8) {
+            return Err(StatusCode::GenericError);
+        }
+        if reader.all_reads_within_bounds().is_err() {
+            return Err(StatusCode::GenericError);
+        }
+        // CodecInOut::CheckMetadata's actual no-preview/one-frame path.
+        let m = cfg.metadata();
+        if m.m.bit_depth.bits_per_sample == 0 || m.m.color_encoding.icc().is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        if preview.xsize() != 0 {
+            preview.verify_metadata()?;
+        }
+        if !std::ptr::eq(preview.metadata().unwrap(), &m.m) {
+            return Err(StatusCode::GenericError);
+        }
+        let image = output.borrow();
+        image.verify_metadata()?;
+        if !std::ptr::eq(image.metadata().unwrap(), &m.m) {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(())
+    })();
+    let reader_bits = reader.total_bits_consumed();
+    let closed = reader.close();
+    let mut status = body.and(closed);
+    if status.is_ok() {
+        // The source decoder state and scoped reader close have completed
+        // before the caller invokes the original external conversion.
+        let cfg = config.as_ref().unwrap();
+        let m = cfg.metadata();
+        let n = m.m.color_encoding.channels() + usize::from(m.m.has_alpha());
+        let (bits, fp) = match output_format {
+            ModularOutput::SourceInteger => (m.m.bit_depth.bits_per_sample as usize, false),
+            ModularOutput::Float32 => (32, true),
+        };
+        status = (|| {
+            let stride = m
+                .xsize()
+                .checked_mul(n)
+                .and_then(|v| v.checked_mul(bits.div_ceil(8)))
+                .ok_or(StatusCode::GenericError)?;
+            let size = stride
+                .checked_mul(m.ysize())
+                .ok_or(StatusCode::GenericError)?;
+            pixels.resize(size, 0);
+            let convert = if fp {
+                super::dec_external_image::convert_float_to_buffer
+            } else {
+                convert_uint_to_buffer
+            };
+            convert(
+                &output.as_ref().unwrap().borrow(),
+                bits,
+                n,
+                JxlEndianness::NATIVE,
+                stride,
+                &mut pixels,
+                size,
+                Orientation::IDENTITY,
+                false,
+            )
+        })();
+    }
+    let mut float_pixels = Vec::new();
+    if status.is_ok() {
+        let image = output.as_ref().unwrap().borrow();
+        for y in 0..image.color().ysize() {
+            for x in 0..image.color().xsize() {
+                for c in 0..3 {
+                    float_pixels.push(image.color().plane(c).row(y)[x]);
+                }
+            }
+        }
+    }
+    drop(output);
+    if let Some(cfg) = config {
+        metadata = Some(cfg.into_metadata());
+    }
+    ModularImageDecode {
         status,
         metadata: metadata.unwrap(),
         pixels,
