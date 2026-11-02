@@ -26,17 +26,45 @@ def capture(binary, payload, output):
     return output.read_text().splitlines()
 
 
+def paired_nan_product_requests():
+    """Exercise both input NaNs at each of the 27 concatenation products.
+
+    These are defined source requests, not UB diagnostics or expected results.
+    Keep each output cell and product visible independently: all other input
+    entries are zero. The original graph chooses the actual output words.
+    """
+    words = [0x7fc12345, 0xffc23456, 0x7f812345, 0xff823456]
+    requests = []
+    for row in range(3):
+        for column in range(3):
+            for term in range(3):
+                for first in words:
+                    for second in words:
+                        a, b = [0] * 9, [0] * 9
+                        a[3 * row + term] = first
+                        b[3 * term + column] = second
+                        requests.append("skcms-concat 0 " + " ".join(str(x) for x in a + b))
+    assert len(requests) == 432
+    return requests
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    requests = [q for q in retained_matrix_requests() if q.startswith("skcms-concat ")]
+    retained = [q for q in retained_matrix_requests() if q.startswith("skcms-concat ")]
+    assert len(retained) == 24324
+    paired = paired_nan_product_requests()
+    requests = retained + paired
     payload = ("\n".join(requests) + "\n").encode()
     (output / "requests.txt").write_bytes(payload)
     report = {"purpose": "diagnostic evidence; differences are not acceptance", "requests": len(requests),
-              "request_sha256": sha(output / "requests.txt"), "platform": platform.platform(), "graphs": {}, "differences": {}}
+              "request_sha256": sha(output / "requests.txt"), "platform": platform.platform(),
+              "retained_requests": len(retained), "paired_nan_product_requests": len(paired),
+              "retained_request_sha256": hashlib.sha256(("\n".join(retained) + "\n").encode()).hexdigest(),
+              "graphs": {}, "differences": {}}
     original = None
     for graph in ["oracle", "oracle-asan"]:
         directory = output / graph
@@ -53,6 +81,10 @@ def main():
                            for i, (q, a, b) in enumerate(zip(requests, original, rows)) if a != b]
             (output / "ordinary-instrumented-differences.json").write_text(json.dumps(differences, indent=2) + "\n")
             report["differences"]["ordinary_vs_instrumented"] = len(differences)
+            report["differences"]["retained_ordinary_vs_instrumented"] = sum(
+                d["index"] < len(retained) for d in differences)
+            report["differences"]["paired_nan_ordinary_vs_instrumented"] = sum(
+                d["index"] >= len(retained) for d in differences)
     for name, chain, release in [("debug", [], False), ("release", [], True), ("msrv", ["+1.85"], False)]:
         command = ["cargo", *chain, "build", "--locked", "--offline", "--lib"] + (["--release"] if release else [])
         with (output / (name + "-library-build.log")).open("w") as log:
