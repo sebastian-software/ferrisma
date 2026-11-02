@@ -6,7 +6,7 @@ on:
       runner:
         description: Native standard runner for the complete original suite
         type: choice
-        options: [ubuntu-24.04, macos-26]
+        options: [ubuntu-24.04, macos-26, macos-15]
         default: ubuntu-24.04
 
 permissions:
@@ -17,8 +17,8 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 100
     env:
-      CC: ${{ inputs.runner == 'macos-26' && 'clang' || 'clang-16' }}
-      CXX: ${{ inputs.runner == 'macos-26' && 'clang++' || 'clang++-16' }}
+      CC: ${{ startsWith(inputs.runner, 'macos-') && 'clang' || 'clang-16' }}
+      CXX: ${{ startsWith(inputs.runner, 'macos-') && 'clang++' || 'clang++-16' }}
       RUSTUP_TOOLCHAIN: nightly-2026-09-07
       CARGO_BUILD_JOBS: "2"
     steps:
@@ -28,13 +28,15 @@ jobs:
       - name: Install native Linux reference tools
         if: inputs.runner == 'ubuntu-24.04'
         run: |
+          test "$(uname -m)" = x86_64
           sudo apt-get update
           sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config python3-venv cmake
       - name: Install native macOS reference tools
-        if: inputs.runner == 'macos-26'
+        if: startsWith(inputs.runner, 'macos-')
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
+          test "$(uname -m)" = arm64
           for aom_tool in cmake ninja pkgconf; do
             brew list --formula "$aom_tool" >/dev/null 2>&1 || brew install "$aom_tool"
           done
@@ -62,7 +64,7 @@ jobs:
           python3 tools/check_aom_linkage.py
           python3 tools/review_aom_scalar_roles.py --check
       - name: Check named record layouts on the native macOS SDK
-        if: inputs.runner == 'macos-26'
+        if: startsWith(inputs.runner, 'macos-')
         run: |
           python3 tools/check_aom_abi.py
           python3 tools/check_aom_abi.py --release
@@ -93,7 +95,7 @@ jobs:
     timeout-minutes: 360
     strategy:
       fail-fast: false
-      max-parallel: ${{ inputs.runner == 'macos-26' && 4 || 8 }}
+      max-parallel: ${{ startsWith(inputs.runner, 'macos-') && 4 || 8 }}
       matrix:
         program: [test_libaom]
         shards: [120]

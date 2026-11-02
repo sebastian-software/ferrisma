@@ -259,7 +259,8 @@ The high-bit-depth d16 blend-mask fixture originally passes the same scalar
 function in both parameter slots. Its first slot now resolves to the isolated
 C reference while its second slot remains Rust. Both unchanged original random
 and extreme cases pass in Debug and Release on macOS and native GNU Linux;
-all 18,729 registrations and the disabled speed case remain unchanged. See [`aom-blend-d16-validation.json`](aom-blend-d16-validation.json).
+all 18,729 registrations and the disabled speed case remain unchanged. See
+[`aom-blend-d16-validation.json`](aom-blend-d16-validation.json).
 
 Five MSE and variance-summary subjects retain isolated C references in another
 40 original cases per profile. These template bodies compare MSE, SSE, sums,
@@ -415,8 +416,9 @@ established a passing full-suite result. The remaining subject/oracle role
 review is an additional gate even after full-suite execution passes.
 
 `aom-original-native.yml` schedules the same complete boundary on standard
-`ubuntu-24.04` or native ARM64 `macos-26` runners. It uses 120 paired main-suite
-shards per profile and the four original rate-control/speed jobs, with eight
+`ubuntu-24.04` or native ARM64 `macos-26` / `macos-15` runners. Both macOS images
+require the same native SDK layout checks. It uses 120 paired main-suite shards
+per profile and the four original rate-control/speed jobs, with eight
 Linux or four macOS jobs at a time. This finer scheduling addresses measured
 Debug runtimes within the hosted job limit; it does not reduce cases or alter
 codec thread settings. Native macOS builds also check named record layouts

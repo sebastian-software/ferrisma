@@ -16,6 +16,14 @@ repository; larger runners are outside this decision. See GitHub's
 [runner specifications](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 and [workflow limits](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax).
 
+Allow the standard ARM64 `macos-15` image as an additional native macOS host
+when `macos-26` remains queued without a runner assignment. Both labels select
+standard Apple Silicon runners. Verify the actual architecture and keep the
+same generated-header, named-layout, source, and original-suite gates on each
+SDK. An incompatible SDK fails acceptance; changing the image does not waive
+an ABI mismatch or turn queued execution into a passing result. Do not replace
+a pending run until the alternative build and its native layout audit pass.
+
 Build each host's native and Rust binaries once. Verify the committed source
 closure, configuration, original registrations, and Rust symbol ownership
 before distributing those exact binaries. Check named layouts against the
