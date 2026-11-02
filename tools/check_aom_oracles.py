@@ -109,6 +109,22 @@ SUITES['optical-flow'] = dict(source='test/disflow_test.cc',
     filter='PortScalar/ComputeFlowTest.CheckOutput/*', cases=1,
     headers=['config/aom_dsp_rtcd.h'], supplementary=True,
     added_registrations=2, added_disabled=1, fixtures=['bus_352x288_420_f20_b8.yuv'])
+SUITES['scaled-convolution'] = dict(source='test/convolve_test.cc',
+    sites={'aom_scaled_2d_c': [1117]}, subjects=['aom_scaled_2d_c'],
+    filter='C/ConvolveScale2DTest.Correctness/*', cases=13,
+    headers=['config/aom_dsp_rtcd.h'])
+SUITES['blend-mask-1d'] = dict(source='test/blend_a64_mask_1d_test.cc',
+    sites={'aom_blend_a64_mask_c': [177, 192], 'aom_highbd_blend_a64_mask_c': [296, 311]},
+    subjects=[f'aom_{depth}blend_a64_{direction}mask_c'
+              for depth in ['', 'highbd_'] for direction in ['h', 'v']],
+    filter='C/BlendA64Mask1DTest8B.RandomValues/*:C/BlendA64Mask1DTest8B.ExtremeValues/*:'
+           'C/BlendA64Mask1DTestHBD.RandomValues/*:C/BlendA64Mask1DTestHBD.ExtremeValues/*',
+    cases=8, headers=['config/aom_dsp_rtcd.h'])
+SUITES['warp-affine'] = dict(source='test/warp_filter_test_util.cc',
+    sites={'av1_warp_affine_c': [265]}, subjects=['av1_warp_affine_c'],
+    subject_source='test/warp_filter_test.cc',
+    filter='C/AV1WarpFilterTest.CheckOutput/*', cases=80,
+    headers=['config/av1_rtcd.h'])
 
 
 def supplementary_registrations(original, suite, reference_prefix=''):
@@ -266,6 +282,27 @@ def main():
     subprocess.run([*flags, '-include', include, '-c', copied, '-o', output],
                    cwd=entry['directory'], check=True)
     undefined = {line.split()[-1] for line in subprocess.check_output(['nm', '-u', output], text=True).splitlines() if line.split()}
+    subject_binding = None
+    if suite.get('subject_source'):
+        # The original parameter matrix may live in a separate unchanged C++
+        # object from its reference body. Require its actual external subject
+        # reference instead of inferring that reference from the link alone.
+        subject_entry = next(value for value in entries
+                             if Path(value['file']).as_posix().endswith('/' + suite['subject_source']))
+        subject_source = Path(subject_entry['file'])
+        expected_hash = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files'][suite['subject_source']]
+        if hashlib.sha256(subject_source.read_bytes()).hexdigest() != expected_hash:
+            raise SystemExit('Modified original indirect subject registration source')
+        subject_object = Path(subject_entry['directory']) / subject_entry['output']
+        subject_undefined = {line.split()[-1] for line in
+                            subprocess.check_output(['nm', '-u', subject_object], text=True).splitlines() if line.split()}
+        decoration = '_' if sys.platform == 'darwin' else ''
+        if not {decoration + name for name in suite['subjects']} <= subject_undefined:
+            raise SystemExit('Original separate parameter matrix does not reference its external Rust subjects')
+        undefined.update(subject_undefined)
+        subject_binding = dict(source=suite['subject_source'], source_sha256=expected_hash,
+                               original_object_sha256=hashlib.sha256(subject_object.read_bytes()).hexdigest(),
+                               unchanged_original_registration_object=True)
     decoration = '_' if sys.platform == 'darwin' else ''
     expected = {decoration + name for name in suite['subjects']}
     expected.update(decoration + PREFIX + name for name in oracle_sites)
@@ -348,6 +385,8 @@ def main():
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), cases=results[1])
     if fixture_records:
         record['original_fixtures'] = fixture_records
+    if subject_binding:
+        record['separate_subject_binding'] = subject_binding
     (work / 'summary.json').write_text(json.dumps(record, indent=2) + '\n')
     origin = 'supplementary' if augmentation else 'original'
     print(f'{len(results[1])} {origin} {args.suite} cases compare {len(suite["subjects"])} Rust subjects with isolated C oracles')

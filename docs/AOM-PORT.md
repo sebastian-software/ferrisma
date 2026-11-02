@@ -228,6 +228,15 @@ references for 22 Rust subjects across 912 original convolution cases per
 profile. Other DSP roles remain open. See
 [`aom-convolution-validation.json`](aom-convolution-validation.json).
 
+Six more Rust subjects now retain independent C reference bindings in 101
+unchanged original cases per macOS profile: 13 scaled-convolution cases,
+eight one-dimensional mask cases, and 80 affine-warp cases. The warp helper
+body and its original parameter registrations live in separate C++ objects;
+both external references and final definition ownership are checked. No
+registration, assertion, input matrix, or disabled flag changes. Native GNU
+execution is pending. See
+[`aom-scaling-mask-warp-validation.json`](aom-scaling-mask-warp-validation.json).
+
 The original k-means classes register only SIMD implementations, leaving zero
 k-means cases in the generic reference inventory. A separate supplementary
 scalar matrix reuses their unchanged test bodies, random inputs, fourteen
