@@ -41,6 +41,9 @@ jobs:
       - name: Check the ordinary reference
         if: always()
         run: python3 tools/check.py --msrv
+      - name: Record native skcms matrix source diagnostics
+        if: always() && runner.os == 'Linux'
+        run: python3 tools/skcms_matrix_diagnostics.py --output target/skcms-matrix-diagnostics
       - name: Record native Linux scalar diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/scalar_diagnostics.py
@@ -69,6 +72,7 @@ jobs:
             target/chroma-image-acceptance
             target/lifecycle-acceptance
             target/skcms-acceptance
+            target/skcms-matrix-diagnostics
           if-no-files-found: error
       - name: Audit complete extra-channel source bindings and stride boundaries
         if: always()
