@@ -61,6 +61,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   set_source_files_properties(icc_codec.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(chroma_image.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(chroma_stages.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
+  # Original protected lifecycle calls only; pristine archive flags stay unchanged.
+  set_source_files_properties(output_stage.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
   set_source_files_properties(blending_stage.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Keep Quantizer's original constructor/recomputation calls across plain and
   # sanitized builds. Inlining folds *1 into a raw copy only in the plain build,
@@ -81,7 +83,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle output_stage.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.

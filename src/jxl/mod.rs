@@ -76,6 +76,7 @@ pub mod inverse_mtf;
 pub mod jpeg;
 pub mod lehmer_code;
 pub mod loop_filter;
+pub mod memory_manager;
 pub mod memory_manager_internal;
 pub mod modular;
 pub mod noise;

@@ -1389,3 +1389,33 @@ results. Width-four prediction retains original unsigned wrapping. Invalid raw
 pointer, zero shuffle-width and overlapping-container caller preconditions do
 not receive invented codec semantics. Streaming ICCReader ownership remains a
 separate boundary.
+
+
+Output-stage callback buffers preserve the complete source lifetime protocol.
+Unsafe construction borrows actual external output storage, callback contexts
+and the live JxlMemoryManager pointer through stage destruction. Output metadata
+is copied as in the original; manager alloc/free/opaque fields are reread at each
+call, including cleanup after field mutation. Callbacks must uphold the stated
+raw-storage and non-reentrancy contract. Initialized views are created only for
+reached writes; raw float words preserve signaling NaN payloads without extra
+arithmetic. Unwritten scratch is represented by raw uninitialized storage.
+
+The callback-backed AlignedMemory owner retains the actual returned block and
+exact original requested size, with no payload copy, shadow allocation or custom
+header. It shares the existing source alignment-group counter at the original
+successful-allocation checkpoint. Null allocations do not advance that counter.
+Only the default Rust malloc-compatible callbacks add a private aligned size
+header to reconstruct std::alloc::Layout at free; custom callback blocks never
+use this header. Default payload bytes remain uninitialized. MemoryManagerInit
+follows its own null/default/pair and aliasing rules, including copying fields
+before reporting a mixed-pair failure; Brotli rules are not substituted.
+
+PrepareForThreads preserves original overwritten callback tokens, partial
+scratch replacement, failure prefixes and retry order. Destruction calls main
+then extra-output destroy callbacks before freeing output and input scratch.
+Explicit reverse pops match the configured libc++ vector member cleanup, which
+the independent source audit checks against the actual compiler/standard
+library on each native target. Source guards precede every read they protect.
+No invented codec status is assigned to invalid caller-pointer preconditions.
+This representation completes the output leaf; extending allocator ownership
+through the eventual public decoder and remaining codec owners is still needed.

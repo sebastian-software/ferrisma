@@ -44,6 +44,8 @@ mod chroma_image;
 mod chroma_stages;
 #[path = "parity/icc_codec.rs"]
 mod icc_codec;
+#[path = "parity/output_stage.rs"]
+mod output_stage;
 
 #[path = "parity/splines.rs"]
 mod splines;
@@ -792,6 +794,7 @@ fn observe(request: &str) -> String {
         kind if epf::handles(kind) => epf::observe(kind, &mut args),
         kind if splines::handles(kind) => splines::observe(kind, &mut args),
         kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
+        kind if output_stage::handles(kind) => output_stage::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if chroma_image::handles(kind) => chroma_image::observe(kind, &mut args),

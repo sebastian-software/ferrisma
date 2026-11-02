@@ -66,13 +66,14 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
-| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage and remaining concrete stages unported |
+| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage is mapped separately below; remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
 | `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete scalar horizontal/vertical stages, 3/4–1/4 interpolation, original borders/shifts/channel modes and factory; source-ordered channel stages precede filters in admitted YCbCr frames |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
+| `render_pipeline/stage_write.h`, `.cc` (WriteToOutputStage) | `render_pipeline/stage_write.rs`, `stage_write_dither.rs` | Complete scalar output factory, original buffer/callback conversions and lifecycle, 1,024-pixel chunks, all orientation/alpha/extra-output paths, byte/half/float words, actual callback-backed scratch, allocation and retry failures; public incremental decoder orchestration remains open |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
@@ -129,7 +130,7 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
-| `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation using Rust allocator and source scalar row sizing; custom C callbacks unported |
+| `memory_manager.h`, `memory_manager_internal.h`, `.cc` | `memory_manager.rs`, `memory_manager_internal.rs` | Complete JXL manager initialization/default callbacks and output-stage callback-backed aligned storage, preserving exact custom sizes, live manager fields and shared alignment counter; propagation through other owners remains open |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
 Internal storage mappings are specified in the
@@ -1614,3 +1615,39 @@ header checkpoint and the full logical-position/history domain. Focused
 comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
 Rust 1.85 configurations, including the three standalone regressions.
 Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
+
+
+## Output buffers and pixel callbacks
+
+The complete original scalar WriteToOutputStage is available as an internal
+pipeline leaf. It retains copied output descriptors, borrowed live manager
+identity, buffer strides and sentinels, callback priority, init/run/destroy order,
+partial PrepareForThreads failures and retries, all eight orientations, original
+unpremultiplication, uint8 dithering, uint16 saturation, endian stores, and raw
+half/float output. The 1,536 original dither words are literal source constants.
+Callback-returned allocations physically back scratch; custom callbacks receive
+exact source sizes and frees without allocator headers or shadow buffers.
+
+Nine differential groups contain 4,004 exact requests. Nine immutable original
+captures also run in an ordinary Rust test without C++ linkage. The independent
+source audit verifies live public factory and virtual-method bindings, original
+memory-manager archive bindings, compiler flags, libc++ identity and actual
+reverse vector cleanup. It replays all requests and native captures against
+both pristine source graphs without changing active binaries or objects.
+
+Depth 31 has a defined uint32 shift but its float multiplier rounds to 2^31.
+Reaching that value triggers the original Highway float-to-int32 undefined
+conversion. The audit retains 64 explicit value-one probes and all 192 initial
+depth-31 controls: 96 controls synthesize source alpha=1 and positively diagnose
+the same conversion, while 96 remain exact in the defined corpus. Another 48
+distinct four-channel real-alpha controls from the second extension remain
+exact, and 48 new two-channel real-alpha controls complete the defined path.
+Another 256 original-only requests positively diagnose oversized shifts at depths 32,
+33, 63 and SIZE_MAX. Every source-only diagnostic is retained individually;
+no source or sanitizer is changed and no prior defined request is discarded.
+
+The internal sequence decoder still uses its existing bundle/DC writers. This
+leaf does not complete the public incremental API, container parsing, direct
+public callback registration, or custom allocator propagation through unrelated
+codec owners. Native cross-platform and complete check results are recorded
+separately from the component boundary.

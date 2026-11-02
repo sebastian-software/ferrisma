@@ -385,3 +385,33 @@ claim and must be reviewed after source, compiler, target, or instrumentation
 changes.
 
 Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
+
+
+The complete output-stage observer calls the original public
+GetWriteToOutputStage, not a forwarding bundle/DC writer. An independent map
+requires that live factory and the actual scalar ProcessRow, PrepareForThreads,
+GetChannelMode, GetName and destructor bind to the pristine stage_write.cc
+include, and that manager initialization/allocation/free/aligned creation bind
+to memory_manager_internal.cc in the original archive. The scalar helper
+factory may be inlined or dead-stripped; it is not falsely claimed as a separate
+live binding. Both optimized graphs retain their original numerical flags and
+all nonrecovering sanitizers. Only the data-only observer uses scoped access
+visibility and RTTI flags. Compiler identity, actual libc++ version and reverse
+vector destruction order are recorded on Linux and macOS.
+
+All 4,004 defined output/manager requests compare the complete initialized wire
+observations, including actual callback data/opaque/owner identity, allocation
+and failure order, strides, padding, tails, retry behavior and cleanup. Nine
+immutable independently captured original cases additionally run without the
+C++ feature. Original-only boundary probes do not invoke Rust on undefined
+source calls: depth 31 reaching 2^31 is positively diagnosed at Highway
+base.h:2459:27, and oversized uint32 shifts at stage_write.cc:551. Every first
+introduced depth-31 request remains accounted for: 96 initial defined requests
+stay exact; 96 synthesized-alpha requests retain individual positive diagnostics.
+Real-alpha controls add the corresponding defined two/four-channel coverage.
+All 48 new defined requests from the second extension remain exact as well.
+The full 560-request source-only census also retains the explicit value-one
+and oversized-shift probes, with per-request stdout/stderr and classification.
+No blanket depth exclusion, expected-word rewrite, sanitizer relaxation or
+upstream-source change is permitted. Review this boundary after source,
+compiler, target or instrumentation changes.

@@ -561,3 +561,34 @@ The fixture manifest and [fixture README](../tests/data/README.md) record input
 recipes, sampling, dimensions, tool version and byte hashes. These captures
 establish the bounded internal sequence path, not JPEG reconstruction or the
 public incremental decoder API.
+
+
+The output-stage leaf translates the complete scalar WriteToOutputStage in
+`render_pipeline/stage_write.{h,cc}` and the reached JxlMemoryManager and
+AlignedMemory portions of `memory_manager_internal.{h,cc}` and the public
+`include/jxl/memory_manager.h`. The original 1,536-entry ordered-dither table is
+copied literally. No source pin, upstream source, numerical option or archive
+flag changes. The existing pristine stage_write.cc include renames only the
+bundle/DC factories; the real public GetWriteToOutputStage and its actual
+virtual methods serve the new observer directly.
+
+`tools/oracle/output_stage.cc` is data-only orchestration around that original
+factory and original manager functions. Its caller allocations carry initialized
+0xa5 bytes; callback traces identify actual returned payload ownership and opaque
+identity. Whole caller buffers include padding and tail bytes. Free captures
+retain every changed physical byte and intervening sentinel, trimming only
+unchanged outer sentinel runs because address-group offsets are not an API
+promise. Default allocation payloads stay uninitialized and are observed only
+after reached source writes. No undefined storage is compared.
+
+`tools/output_stage_reference.py` maps the real output methods to the pristine
+frame_sequence_writes.cc object and manager methods to the original archive,
+records actual libc++ compiler/version and reverse-vector cleanup, replays the
+4,004 defined requests in both source graphs, and independently recaptures the
+nine immutable native fixtures. Temporary evidence relinks leave every active
+binary/object/archive and compiler command unchanged. An original-only census
+retains all 560 depth-boundary requests: 416 have positive nonrecovering UBSan
+diagnostics (160 float-to-int32 conversions and 256 oversized shifts), while
+144 defined requests from the initial and second extensions remain exact
+active comparisons. No Rust-derived
+expected outputs, relaxed sanitizer settings or C++ runtime fallback is used.

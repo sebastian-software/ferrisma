@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, feat/decoder-chroma-integration]
+    branches: [main, feat/decoder-output-stage]
   pull_request:
 
 permissions:
@@ -56,6 +56,7 @@ jobs:
           python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
           python3 tools/chroma_image_reference.py --output target/chroma-image-acceptance
           python3 tools/frame_sequences.py --output target/lifecycle-acceptance
+          python3 tools/output_stage_reference.py --output target/output-stage-acceptance
       - name: Retain complete decoder source evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -67,6 +68,7 @@ jobs:
             !target/chroma-acceptance/**/*.o
             target/chroma-image-acceptance
             target/lifecycle-acceptance
+            target/output-stage-acceptance
           if-no-files-found: error
       - name: Record native alpha configuration diagnostics
         if: always() && runner.os == 'Linux'

@@ -510,6 +510,7 @@ bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 
 bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool OutputStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool BlendingStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
@@ -591,6 +592,7 @@ int main() {
       else if (PatchesCommand(command, in, &mm)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
       else if (ChromaImageCommand(command, in, &mm)) {}
+      else if (OutputStageCommand(command, in, &mm)) {}
       else if (ChromaStagesCommand(command, in, &mm)) {}
       else if (BlendingStageCommand(command, in, &mm)) {}
       else if (SplinesCommand(command, in, &mm)) {}
