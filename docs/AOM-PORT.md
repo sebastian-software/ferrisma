@@ -216,6 +216,18 @@ iterations per shape, with the original `1e-3` threshold. Debug and Release
 pass; the speed body remains disabled. This adds one executed supplementary
 case per profile and no original-suite execution credit.
 
+The original generic directional-prediction matrix leaves its comparison
+subject null. `OperationCheck` returns early, and `SaturatedValues` copies the
+reference result before comparing it. Separate `PortScalar/` registrations
+reuse those unchanged test bodies and the original twelve combinations of
+zone, bit depth, and start angle, with isolated C references and six Rust
+scalar subjects. All 24 enabled supplementary cases pass in Debug and Release;
+the twelve added speed registrations remain disabled. Native angle, upsampling,
+and timer helpers retain their original bindings. The original 18,729
+registrations remain unchanged and in order; these additions receive no
+original-suite execution credit. Native Linux execution remains pending. See
+[`aom-directional-prediction-validation.json`](aom-directional-prediction-validation.json).
+
 ## Execution and acceptance
 
 Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated

@@ -115,6 +115,11 @@ jobs:
           python3 tools/check_aom_oracles.py --suite convolution-2d
           python3 tools/check_aom_oracles.py --debug --suite compound
           python3 tools/check_aom_oracles.py --suite compound
+      - name: Compare supplementary scalar directional prediction
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+        run: |
+          python3 tools/check_aom_oracles.py --debug --suite directional-prediction
+          python3 tools/check_aom_oracles.py --suite directional-prediction
       - name: Compare native VMAF modes with the integer model
         if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |

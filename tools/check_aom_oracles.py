@@ -87,10 +87,36 @@ SUITES['nn-predict'] = dict(source='test/av1_nn_predict_test.cc',
     filter='PortScalar/NnPredictTest.RandomValues/*', cases=1,
     headers=['config/av1_rtcd.h'], supplementary=True,
     added_registrations=2, added_disabled=1)
+DR_PREDICTION_SUBJECTS = [f'av1_{depth}dr_prediction_z{zone}_c'
+                          for depth in ['', 'highbd_'] for zone in [1, 2, 3]]
+SUITES['directional-prediction'] = dict(source='test/dr_prediction_test.cc',
+    sites={name: [] for name in DR_PREDICTION_SUBJECTS}, subjects=DR_PREDICTION_SUBJECTS,
+    filter='PortScalar/*DrPredTest.SaturatedValues/*:PortScalar/*DrPredTest.OperationCheck/*', cases=24,
+    headers=['config/av1_rtcd.h', 'av1/common/reconintra.h'], supplementary=True,
+    added_registrations=36, added_disabled=12)
 
 
-def supplementary_registrations(original, suite):
-    """Reuse the original SIMD-only matrix for a separate scalar comparison."""
+def supplementary_registrations(original, suite, reference_prefix=''):
+    """Reuse original parameter matrices and bodies for a separate scalar comparison."""
+    if suite == 'directional-prediction':
+        result = '\nnamespace {\n'
+        for name, expected in [('LowbdDrPredTest', 3), ('HighbdDrPredTest', 9)]:
+            # The original C matrix leaves tst_fn null. Copy its exact angles,
+            # bit depths, and wrappers, adding a separate scalar subject slot.
+            match = re.search(r'INSTANTIATE_TEST_SUITE_P\(\s*C,\s*' + name + r',.*?\);', original, re.S)
+            if not match:
+                raise SystemExit(f'Original directional prediction matrix changed: {name}')
+            registration = re.sub(r'(INSTANTIATE_TEST_SUITE_P\(\s*)C,', r'\1PortScalar,', match[0], count=1)
+            def bind(match):
+                wrapper, function = match.groups()
+                return f'&{wrapper}<{reference_prefix}{function}>, &{wrapper}<{function}>'
+            registration, count = re.subn(
+                r'&(z[123]_wrapper(?:_hbd)?)<(av1_(?:highbd_)?dr_prediction_z[123]_c)>,\s*nullptr',
+                bind, registration)
+            if count != expected:
+                raise SystemExit(f'Original directional prediction parameters changed: {name}: {count}')
+            result += registration + '\n'
+        return result + '}\n'
     if suite == 'nn-predict':
         return ('\nnamespace {\nINSTANTIATE_TEST_SUITE_P(PortScalar, NnPredictTest,\n'
                 '  ::testing::Values(av1_nn_predict_c));\n}\n')
@@ -105,6 +131,12 @@ def supplementary_registrations(original, suite):
                    f'  ::testing::Combine(::testing::Values(&av1_calc_indices_dim{dimension}_c),\n'
                    '    ::testing::ValuesIn(kPortScalarBlockSize)));\n')
     return result + '}\n'
+
+
+def compilation_copy(text, source_name, augmentation):
+    # A UTF-8 signature must remain at byte zero when inserting diagnostics.
+    signature = '\ufeff' if text.startswith('\ufeff') else ''
+    return signature + f'#line 1 "{source_name}"\n' + text[len(signature):] + augmentation
 
 
 def audit_map(path, symbols, rust_archive, oracle_archive, subjects, oracles):
@@ -160,7 +192,8 @@ def main():
     if hashlib.sha256(source.read_bytes()).hexdigest() != source_hash:
         raise SystemExit(f'Modified original test source: {source_name}')
     original = source.read_text()
-    augmentation = supplementary_registrations(original, args.suite) if suite.get('supplementary') else ''
+    augmentation = supplementary_registrations(original, args.suite, PREFIX) if suite.get('supplementary') else ''
+    baseline_augmentation = supplementary_registrations(original, args.suite) if augmentation else ''
     lexemes, replacements, sites = tokens(original), [], {name: [] for name in oracle_sites}
     for index, token in enumerate(lexemes[:-1]):
         line = original.count('\n', 0, token.start()) + 1 if token[0] in oracle_sites else 0
@@ -177,7 +210,7 @@ def main():
     include.write_text(''.join(f'#include "{name}"\n' for name in suite['headers']) + 'extern "C" {\n'
                        + ''.join(f'decltype({name}) {PREFIX}{name};\n' for name in oracle_sites) + '}\n')
     copied = work / source.name
-    copied.write_text(f'#line 1 "{source_name}"\n' + text + augmentation)
+    copied.write_text(compilation_copy(text, source_name, augmentation))
     output = work / (source.name + '.o')
     flags = compiler_flags(entry)
     if any(flag in ['-MD', '-MMD', '-MP', '-MG'] or flag.startswith(('-MF', '-MT', '-MQ', '-MJ'))
@@ -228,7 +261,7 @@ def main():
     baseline = build / 'test_libaom'
     if augmentation:
         baseline_source = work / ('c-' + source.name)
-        baseline_source.write_text(f'#line 1 "{source_name}"\n' + original + augmentation)
+        baseline_source.write_text(compilation_copy(original, source_name, baseline_augmentation))
         baseline_object = work / ('c-' + source.name + '.o')
         subprocess.run([*flags, '-c', baseline_source, '-o', baseline_object],
                        cwd=entry['directory'], check=True)
@@ -259,6 +292,7 @@ def main():
                   executed_supplementary_cases=len(results[1]) if augmentation else 0,
                   supplementary_registrations=added,
                   augmentation_sha256=hashlib.sha256(augmentation.encode()).hexdigest() if augmentation else None,
+                  baseline_augmentation_sha256=hashlib.sha256(baseline_augmentation.encode()).hexdigest() if augmentation else None,
                   original_assertions_parameters_and_disabled_flags_unchanged=True,
                   original_source=source_name, original_source_sha256=source_hash, oracle_sites=oracle_sites,
                   binding_copy_sha256=hashlib.sha256(copied.read_bytes()).hexdigest(),

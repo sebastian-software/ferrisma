@@ -1,0 +1,449 @@
+{
+  "status": "supplementary scalar directional prediction passed in both macOS profiles; native Linux execution pending",
+  "target": "aarch64-apple-darwin",
+  "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "oracle_runner_sha256": "f2fba86a8c28eada5d04607a1beec98a96268bab83d6f098e599249e7a1e72e6",
+  "original_cpp_test_bodies_unchanged": true,
+  "original_scalar_null_subject_registrations_retained": true,
+  "original_execution_credit": 0,
+  "full_suite_acceptance": false,
+  "native_fixture_and_angle_helpers_retained": true,
+  "profiles": {
+    "debug": {
+      "profile": "debug",
+      "original_registrations": 18729,
+      "executed_original_cases": 0,
+      "executed_supplementary_cases": 24,
+      "supplementary_registrations": [
+        "PortScalar/LowbdDrPredTest.SaturatedValues/0",
+        "PortScalar/LowbdDrPredTest.SaturatedValues/1",
+        "PortScalar/LowbdDrPredTest.SaturatedValues/2",
+        "PortScalar/LowbdDrPredTest.OperationCheck/0",
+        "PortScalar/LowbdDrPredTest.OperationCheck/1",
+        "PortScalar/LowbdDrPredTest.OperationCheck/2",
+        "PortScalar/LowbdDrPredTest.DISABLED_Speed/0",
+        "PortScalar/LowbdDrPredTest.DISABLED_Speed/1",
+        "PortScalar/LowbdDrPredTest.DISABLED_Speed/2",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/0",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/1",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/2",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/3",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/4",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/5",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/6",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/7",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/8",
+        "PortScalar/HighbdDrPredTest.OperationCheck/0",
+        "PortScalar/HighbdDrPredTest.OperationCheck/1",
+        "PortScalar/HighbdDrPredTest.OperationCheck/2",
+        "PortScalar/HighbdDrPredTest.OperationCheck/3",
+        "PortScalar/HighbdDrPredTest.OperationCheck/4",
+        "PortScalar/HighbdDrPredTest.OperationCheck/5",
+        "PortScalar/HighbdDrPredTest.OperationCheck/6",
+        "PortScalar/HighbdDrPredTest.OperationCheck/7",
+        "PortScalar/HighbdDrPredTest.OperationCheck/8",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/0",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/1",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/2",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/3",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/4",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/5",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/6",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/7",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/8"
+      ],
+      "augmentation_sha256": "34d4a42e0d1a7f5144aee49b9ebe39d842bbc5498c7dc9ae082e1f33d058fa39",
+      "baseline_augmentation_sha256": "153e3efb10c32fbaf9d5fb0a5e269fc02d2b072bb84614a0736a9d05db2ca8f8",
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/dr_prediction_test.cc",
+      "original_source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "oracle_sites": {
+        "av1_dr_prediction_z1_c": [],
+        "av1_dr_prediction_z2_c": [],
+        "av1_dr_prediction_z3_c": [],
+        "av1_highbd_dr_prediction_z1_c": [],
+        "av1_highbd_dr_prediction_z2_c": [],
+        "av1_highbd_dr_prediction_z3_c": []
+      },
+      "binding_copy_sha256": "9abb67172522ea5832ddb830cf3898192cebef0c5c9c9be75ebce5dea769adbd",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "f9cca754f93af4e0cafcbdb69e8957a96ae4412986e62f5da349d1e2d052bcb6",
+        "profile": "debug",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2743,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+        "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+        "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2742,
+        "isolated_c_oracle_globals": 537,
+        "reviewed_rust_subjects": [
+          "av1_dr_prediction_z1_c",
+          "av1_dr_prediction_z2_c",
+          "av1_dr_prediction_z3_c",
+          "av1_highbd_dr_prediction_z1_c",
+          "av1_highbd_dr_prediction_z2_c",
+          "av1_highbd_dr_prediction_z3_c"
+        ],
+        "reviewed_c_oracles": [
+          "av1_dr_prediction_z1_c",
+          "av1_dr_prediction_z2_c",
+          "av1_dr_prediction_z3_c",
+          "av1_highbd_dr_prediction_z1_c",
+          "av1_highbd_dr_prediction_z2_c",
+          "av1_highbd_dr_prediction_z3_c"
+        ],
+        "map_sha256": "9728bf1add1adc7ac0c93d87c8b9f2aabd47a945d8a4951ea7e763ac020de840"
+      },
+      "translation_manifest_sha256": "50d3eb1712920c3fac58df1bd0ec354c1787de599b1328c32954c119b8c84870",
+      "rust_archive_sha256": "c6efaa484839f6924cd782bf4c183d0ae5afcea1a575fb69ddd48ec1247949cf",
+      "cases": [
+        {
+          "name": "PortScalar/LowbdDrPredTest.SaturatedValues/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.SaturatedValues/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.SaturatedValues/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.OperationCheck/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.OperationCheck/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.OperationCheck/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/4",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/5",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/6",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/7",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/8",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/4",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/5",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/6",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/7",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/8",
+          "failed": false,
+          "skipped": false
+        }
+      ]
+    },
+    "release": {
+      "profile": "release",
+      "original_registrations": 18729,
+      "executed_original_cases": 0,
+      "executed_supplementary_cases": 24,
+      "supplementary_registrations": [
+        "PortScalar/LowbdDrPredTest.SaturatedValues/0",
+        "PortScalar/LowbdDrPredTest.SaturatedValues/1",
+        "PortScalar/LowbdDrPredTest.SaturatedValues/2",
+        "PortScalar/LowbdDrPredTest.OperationCheck/0",
+        "PortScalar/LowbdDrPredTest.OperationCheck/1",
+        "PortScalar/LowbdDrPredTest.OperationCheck/2",
+        "PortScalar/LowbdDrPredTest.DISABLED_Speed/0",
+        "PortScalar/LowbdDrPredTest.DISABLED_Speed/1",
+        "PortScalar/LowbdDrPredTest.DISABLED_Speed/2",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/0",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/1",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/2",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/3",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/4",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/5",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/6",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/7",
+        "PortScalar/HighbdDrPredTest.SaturatedValues/8",
+        "PortScalar/HighbdDrPredTest.OperationCheck/0",
+        "PortScalar/HighbdDrPredTest.OperationCheck/1",
+        "PortScalar/HighbdDrPredTest.OperationCheck/2",
+        "PortScalar/HighbdDrPredTest.OperationCheck/3",
+        "PortScalar/HighbdDrPredTest.OperationCheck/4",
+        "PortScalar/HighbdDrPredTest.OperationCheck/5",
+        "PortScalar/HighbdDrPredTest.OperationCheck/6",
+        "PortScalar/HighbdDrPredTest.OperationCheck/7",
+        "PortScalar/HighbdDrPredTest.OperationCheck/8",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/0",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/1",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/2",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/3",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/4",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/5",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/6",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/7",
+        "PortScalar/HighbdDrPredTest.DISABLED_Speed/8"
+      ],
+      "augmentation_sha256": "34d4a42e0d1a7f5144aee49b9ebe39d842bbc5498c7dc9ae082e1f33d058fa39",
+      "baseline_augmentation_sha256": "153e3efb10c32fbaf9d5fb0a5e269fc02d2b072bb84614a0736a9d05db2ca8f8",
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/dr_prediction_test.cc",
+      "original_source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "oracle_sites": {
+        "av1_dr_prediction_z1_c": [],
+        "av1_dr_prediction_z2_c": [],
+        "av1_dr_prediction_z3_c": [],
+        "av1_highbd_dr_prediction_z1_c": [],
+        "av1_highbd_dr_prediction_z2_c": [],
+        "av1_highbd_dr_prediction_z3_c": []
+      },
+      "binding_copy_sha256": "9abb67172522ea5832ddb830cf3898192cebef0c5c9c9be75ebce5dea769adbd",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "5a8c3e6e8ae1eb63dcde8e230d7326559e136d05cc51cd4200e0a45e9db51f9f",
+        "profile": "release",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2741,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+        "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+        "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2741,
+        "isolated_c_oracle_globals": 536,
+        "reviewed_rust_subjects": [
+          "av1_dr_prediction_z1_c",
+          "av1_dr_prediction_z2_c",
+          "av1_dr_prediction_z3_c",
+          "av1_highbd_dr_prediction_z1_c",
+          "av1_highbd_dr_prediction_z2_c",
+          "av1_highbd_dr_prediction_z3_c"
+        ],
+        "reviewed_c_oracles": [
+          "av1_dr_prediction_z1_c",
+          "av1_dr_prediction_z2_c",
+          "av1_dr_prediction_z3_c",
+          "av1_highbd_dr_prediction_z1_c",
+          "av1_highbd_dr_prediction_z2_c",
+          "av1_highbd_dr_prediction_z3_c"
+        ],
+        "map_sha256": "b67f51b178fac529557f4472c738dd2d42ccc97b9d7e1a79cd7cfd02be926e3e"
+      },
+      "translation_manifest_sha256": "72782ea4fd98480df90b0573877341288465fc2061cc551d4b169f21eaa4f2df",
+      "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+      "cases": [
+        {
+          "name": "PortScalar/LowbdDrPredTest.SaturatedValues/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.SaturatedValues/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.SaturatedValues/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.OperationCheck/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.OperationCheck/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/LowbdDrPredTest.OperationCheck/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/4",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/5",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/6",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/7",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.SaturatedValues/8",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/0",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/1",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/2",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/3",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/4",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/5",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/6",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/7",
+          "failed": false,
+          "skipped": false
+        },
+        {
+          "name": "PortScalar/HighbdDrPredTest.OperationCheck/8",
+          "failed": false,
+          "skipped": false
+        }
+      ]
+    }
+  }
+}
