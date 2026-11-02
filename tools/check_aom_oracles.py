@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 import sys
@@ -51,6 +52,24 @@ INTRABC_SITES = {
 SUITES['intrabc'] = dict(source=SOURCE, sites=INTRABC_SITES, subjects=list(INTRABC_SITES),
     filter='C/AV1Convolve*IntraBCTest.RunTest/*', cases=243,
     headers=['config/av1_rtcd.h', 'config/aom_dsp_rtcd.h'])
+SUITES['kmeans'] = dict(source='test/av1_k_means_test.cc',
+    sites={'av1_calc_indices_dim1_c': [94, 109], 'av1_calc_indices_dim2_c': [200, 215]},
+    subjects=['av1_calc_indices_dim1_c', 'av1_calc_indices_dim2_c'],
+    filter='PortScalar/AV1KmeansTest*.CheckOutput/*', cases=28,
+    headers=['config/av1_rtcd.h'], supplementary=True, identifier_oracles=True)
+
+
+def supplementary_registrations(original):
+    """Reuse the original SIMD-only matrix for a separate scalar comparison."""
+    matrix = re.search(r'const BLOCK_SIZE kValidBlockSize\[\] = \{(.*?)\};', original, re.S)
+    if not matrix or len(re.findall(r'\bBLOCK_\w+', matrix[1])) != 14:
+        raise SystemExit('Original k-means block-size matrix changed')
+    result = '\nnamespace AV1Kmeans {\nconst BLOCK_SIZE kPortScalarBlockSize[] = {' + matrix[1] + '};\n'
+    for dimension in [1, 2]:
+        result += (f'INSTANTIATE_TEST_SUITE_P(PortScalar, AV1KmeansTest{dimension},\n'
+                   f'  ::testing::Combine(::testing::Values(&av1_calc_indices_dim{dimension}_c),\n'
+                   '    ::testing::ValuesIn(kPortScalarBlockSize)));\n')
+    return result + '}\n'
 
 
 def audit_map(path, symbols, rust_archive, oracle_archive, subjects, oracles):
@@ -94,10 +113,12 @@ def main():
         raise SystemExit(f'Modified original test source: {source_name}')
     entry = next(value for value in entries if Path(value['file']) == source)
     original = source.read_text()
+    augmentation = supplementary_registrations(original) if suite.get('supplementary') else ''
     lexemes, replacements, sites = tokens(original), [], {name: [] for name in oracle_sites}
     for index, token in enumerate(lexemes[:-1]):
         line = original.count('\n', 0, token.start()) + 1 if token[0] in oracle_sites else 0
-        if token[0] in oracle_sites and line in oracle_sites[token[0]] and lexemes[index + 1][0] == '(':
+        if (token[0] in oracle_sites and line in oracle_sites[token[0]]
+                and (lexemes[index + 1][0] == '(' or suite.get('identifier_oracles'))):
             sites[token[0]].append(line)
             replacements.append((token.start(), token.end(), PREFIX + token[0]))
     if sites != oracle_sites:
@@ -109,7 +130,7 @@ def main():
     include.write_text(''.join(f'#include "{name}"\n' for name in suite['headers']) + 'extern "C" {\n'
                        + ''.join(f'decltype({name}) {PREFIX}{name};\n' for name in oracle_sites) + '}\n')
     copied = work / source.name
-    copied.write_text(f'#line 1 "{source_name}"\n' + text)
+    copied.write_text(f'#line 1 "{source_name}"\n' + text + augmentation)
     output = work / (source.name + '.o')
     subprocess.run([*compiler_flags(entry), '-include', include, '-c', copied, '-o', output],
                    cwd=entry['directory'], check=True)
@@ -132,6 +153,7 @@ def main():
             if objects[token].relative_to(source_root).as_posix() not in ['common/args_helper.c', 'av1/arg_defs.c']:
                 raise SystemExit(f'Unreviewed original test/codec overlap: {token}')
             command.remove(token)
+    original_link = list(command)
     old = str((Path(entry['directory']) / entry['output']).relative_to(build))
     if command.count(old) != 1 or command.count('libaom.a') != 1:
         raise SystemExit('Expected one original test object and one codec archive')
@@ -145,11 +167,28 @@ def main():
     subprocess.run(command, cwd=build, check=True)
     ownership = audit_map(link_map, symbols, archive, oracle, suite['subjects'], oracle_sites)
     names = test_names((build / 'test_libaom-inventory.txt').read_text())
-    if test_names(subprocess.check_output([executable, '--gtest_list_tests'], text=True)) != names:
+    registered = test_names(subprocess.check_output([executable, '--gtest_list_tests'], text=True))
+    added = [name for name in registered if name.startswith('PortScalar/')] if augmentation else []
+    if [name for name in registered if name not in added] != names:
         raise SystemExit('Independent oracle binding changed original registrations, order, or parameters')
+    if augmentation and (len(added) != 56 or sum('DISABLED_' in name for name in added) != 28):
+        raise SystemExit('Supplementary scalar registrations do not match the original matrix/disabled flags')
+    baseline = build / 'test_libaom'
+    if augmentation:
+        baseline_source = work / ('c-' + source.name)
+        baseline_source.write_text(f'#line 1 "{source_name}"\n' + original + augmentation)
+        baseline_object = work / ('c-' + source.name + '.o')
+        subprocess.run([*compiler_flags(entry), '-c', baseline_source, '-o', baseline_object],
+                       cwd=entry['directory'], check=True)
+        baseline = work / 'test_libaom-c'
+        original_link[original_link.index(old)] = str(baseline_object)
+        original_link[original_link.index('-o') + 1] = str(baseline)
+        subprocess.run(original_link, cwd=build, check=True)
+        if test_names(subprocess.check_output([baseline, '--gtest_list_tests'], text=True)) != registered:
+            raise SystemExit('Supplementary C/Rust registrations differ')
     results = []
     environment = dict(os.environ, LIBAOM_TEST_DATA_PATH=str(ROOT / 'build/deps/aom-test-data'))
-    for label, binary in [('c', build / 'test_libaom'), ('rust', executable)]:
+    for label, binary in [('c', baseline), ('rust', executable)]:
         xml = work / f'{label}.xml'
         with (work / f'{label}.log').open('w') as log:
             subprocess.run([binary, f'--gtest_filter={suite["filter"]}', f'--gtest_output=xml:{xml}'],
@@ -162,14 +201,19 @@ def main():
         results.append(cases)
     if results[0] != results[1] or len(results[1]) != suite['cases']:
         raise SystemExit('Original independent-oracle execution inventories differ')
-    record = dict(profile=profile, original_registrations=len(names), executed_original_cases=len(results[1]),
+    record = dict(profile=profile, original_registrations=len(names),
+                  executed_original_cases=0 if augmentation else len(results[1]),
+                  executed_supplementary_cases=len(results[1]) if augmentation else 0,
+                  supplementary_registrations=added,
+                  augmentation_sha256=hashlib.sha256(augmentation.encode()).hexdigest() if augmentation else None,
                   original_assertions_parameters_and_disabled_flags_unchanged=True,
                   original_source=source_name, original_source_sha256=source_hash, oracle_sites=oracle_sites,
                   binding_copy_sha256=hashlib.sha256(copied.read_bytes()).hexdigest(),
                   complete_dsp_role_review=False, reference_archive=oracle_record, ownership=ownership,
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), cases=results[1])
     (work / 'summary.json').write_text(json.dumps(record, indent=2) + '\n')
-    print(f'{len(results[1])} original {args.suite} cases compare {len(suite["subjects"])} Rust subjects with isolated C oracles')
+    origin = 'supplementary' if augmentation else 'original'
+    print(f'{len(results[1])} {origin} {args.suite} cases compare {len(suite["subjects"])} Rust subjects with isolated C oracles')
 
 
 if __name__ == '__main__':

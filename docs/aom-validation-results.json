@@ -4629,6 +4629,256 @@
             "skipped": false
           }
         ]
+      },
+      "supplementary_c_kmeans_oracles": {
+        "profile": "debug",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 28,
+        "supplementary_registrations": [
+          "PortScalar/AV1KmeansTest1.CheckOutput/0",
+          "PortScalar/AV1KmeansTest1.CheckOutput/1",
+          "PortScalar/AV1KmeansTest1.CheckOutput/2",
+          "PortScalar/AV1KmeansTest1.CheckOutput/3",
+          "PortScalar/AV1KmeansTest1.CheckOutput/4",
+          "PortScalar/AV1KmeansTest1.CheckOutput/5",
+          "PortScalar/AV1KmeansTest1.CheckOutput/6",
+          "PortScalar/AV1KmeansTest1.CheckOutput/7",
+          "PortScalar/AV1KmeansTest1.CheckOutput/8",
+          "PortScalar/AV1KmeansTest1.CheckOutput/9",
+          "PortScalar/AV1KmeansTest1.CheckOutput/10",
+          "PortScalar/AV1KmeansTest1.CheckOutput/11",
+          "PortScalar/AV1KmeansTest1.CheckOutput/12",
+          "PortScalar/AV1KmeansTest1.CheckOutput/13",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/0",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/1",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/2",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/3",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/4",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/5",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/6",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/7",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/8",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/9",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/10",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/11",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/12",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/13",
+          "PortScalar/AV1KmeansTest2.CheckOutput/0",
+          "PortScalar/AV1KmeansTest2.CheckOutput/1",
+          "PortScalar/AV1KmeansTest2.CheckOutput/2",
+          "PortScalar/AV1KmeansTest2.CheckOutput/3",
+          "PortScalar/AV1KmeansTest2.CheckOutput/4",
+          "PortScalar/AV1KmeansTest2.CheckOutput/5",
+          "PortScalar/AV1KmeansTest2.CheckOutput/6",
+          "PortScalar/AV1KmeansTest2.CheckOutput/7",
+          "PortScalar/AV1KmeansTest2.CheckOutput/8",
+          "PortScalar/AV1KmeansTest2.CheckOutput/9",
+          "PortScalar/AV1KmeansTest2.CheckOutput/10",
+          "PortScalar/AV1KmeansTest2.CheckOutput/11",
+          "PortScalar/AV1KmeansTest2.CheckOutput/12",
+          "PortScalar/AV1KmeansTest2.CheckOutput/13",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/0",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/1",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/2",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/3",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/4",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/5",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/6",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/7",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/8",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/9",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/10",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/11",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/12",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/13"
+        ],
+        "augmentation_sha256": "cbf0cea2c521ff73f91aa1ec7f7ed66f803f711b85765b99a03aee325967755e",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_k_means_test.cc",
+        "original_source_sha256": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+        "oracle_sites": {
+          "av1_calc_indices_dim1_c": [
+            94,
+            109
+          ],
+          "av1_calc_indices_dim2_c": [
+            200,
+            215
+          ]
+        },
+        "binding_copy_sha256": "4f95d866c348141dbc439756fee03306ea1adc4eb13b8805f7e23126725341a5",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "152082b78a0e1dd63999f20e3a3ae8a949b4958462ec9f985cc7838c4849a8dc",
+          "profile": "debug",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2743,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "289e684fa026743f5bdc3270d9c574a36835d19175328ed6e1a4f3caa135a3a1",
+          "archive_sha256": "4380c703d5137e0f7f26ff6c8367e70de8fe1745a4676a1ac120fa95f7586a90",
+          "rename_map_sha256": "c72663e65ef48738c3437f931c78bfd631485f6573c7386f5079dd5af165c654",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2742,
+          "isolated_c_oracle_globals": 2656,
+          "reviewed_rust_subjects": [
+            "av1_calc_indices_dim1_c",
+            "av1_calc_indices_dim2_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_calc_indices_dim1_c",
+            "av1_calc_indices_dim2_c"
+          ],
+          "map_sha256": "36056e28db4296a59b8858b605ff4cd13ec430b872afc0009f9c67858deca928"
+        },
+        "rust_archive_sha256": "7a773ef04d9fea0f33dd40fd991eb5b02ca9b240b2e5d913a1d6f364029ad232",
+        "cases": [
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          }
+        ]
       }
     },
     "release": {
@@ -9240,6 +9490,256 @@
           },
           {
             "name": "C/AV1Convolve2DHighbdIntraBCTest.RunTest/53",
+            "failed": false,
+            "skipped": false
+          }
+        ]
+      },
+      "supplementary_c_kmeans_oracles": {
+        "profile": "release",
+        "original_registrations": 18729,
+        "executed_original_cases": 0,
+        "executed_supplementary_cases": 28,
+        "supplementary_registrations": [
+          "PortScalar/AV1KmeansTest1.CheckOutput/0",
+          "PortScalar/AV1KmeansTest1.CheckOutput/1",
+          "PortScalar/AV1KmeansTest1.CheckOutput/2",
+          "PortScalar/AV1KmeansTest1.CheckOutput/3",
+          "PortScalar/AV1KmeansTest1.CheckOutput/4",
+          "PortScalar/AV1KmeansTest1.CheckOutput/5",
+          "PortScalar/AV1KmeansTest1.CheckOutput/6",
+          "PortScalar/AV1KmeansTest1.CheckOutput/7",
+          "PortScalar/AV1KmeansTest1.CheckOutput/8",
+          "PortScalar/AV1KmeansTest1.CheckOutput/9",
+          "PortScalar/AV1KmeansTest1.CheckOutput/10",
+          "PortScalar/AV1KmeansTest1.CheckOutput/11",
+          "PortScalar/AV1KmeansTest1.CheckOutput/12",
+          "PortScalar/AV1KmeansTest1.CheckOutput/13",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/0",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/1",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/2",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/3",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/4",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/5",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/6",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/7",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/8",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/9",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/10",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/11",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/12",
+          "PortScalar/AV1KmeansTest1.DISABLED_Speed/13",
+          "PortScalar/AV1KmeansTest2.CheckOutput/0",
+          "PortScalar/AV1KmeansTest2.CheckOutput/1",
+          "PortScalar/AV1KmeansTest2.CheckOutput/2",
+          "PortScalar/AV1KmeansTest2.CheckOutput/3",
+          "PortScalar/AV1KmeansTest2.CheckOutput/4",
+          "PortScalar/AV1KmeansTest2.CheckOutput/5",
+          "PortScalar/AV1KmeansTest2.CheckOutput/6",
+          "PortScalar/AV1KmeansTest2.CheckOutput/7",
+          "PortScalar/AV1KmeansTest2.CheckOutput/8",
+          "PortScalar/AV1KmeansTest2.CheckOutput/9",
+          "PortScalar/AV1KmeansTest2.CheckOutput/10",
+          "PortScalar/AV1KmeansTest2.CheckOutput/11",
+          "PortScalar/AV1KmeansTest2.CheckOutput/12",
+          "PortScalar/AV1KmeansTest2.CheckOutput/13",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/0",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/1",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/2",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/3",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/4",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/5",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/6",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/7",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/8",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/9",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/10",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/11",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/12",
+          "PortScalar/AV1KmeansTest2.DISABLED_Speed/13"
+        ],
+        "augmentation_sha256": "cbf0cea2c521ff73f91aa1ec7f7ed66f803f711b85765b99a03aee325967755e",
+        "original_assertions_parameters_and_disabled_flags_unchanged": true,
+        "original_source": "test/av1_k_means_test.cc",
+        "original_source_sha256": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+        "oracle_sites": {
+          "av1_calc_indices_dim1_c": [
+            94,
+            109
+          ],
+          "av1_calc_indices_dim2_c": [
+            200,
+            215
+          ]
+        },
+        "binding_copy_sha256": "4f95d866c348141dbc439756fee03306ea1adc4eb13b8805f7e23126725341a5",
+        "complete_dsp_role_review": false,
+        "reference_archive": {
+          "key": "14d1477646c6a1703c44f772ab12b106d0e87ade3cdae6ad42b52ba8165f6a60",
+          "profile": "release",
+          "original_translation_units": 168,
+          "archive_members": 168,
+          "renamed_original_globals": 2741,
+          "unrenamed_original_codec_references": [],
+          "original_archive_sha256": "bea98ac1a305cfd5f55afa8772f91bf11a21e56d0a097e304c29eecda6c06e99",
+          "archive_sha256": "184d8d4bc9001b69b4894da46e948e953a27f9103d738698213785efa8ce8f07",
+          "rename_map_sha256": "194389be0e1b136c338bd693a6caecbfc91ea8011ef140fcc86bcaa2c4f49eea",
+          "object_tool": "llvm-objcopy, compatible with GNU objcopy\nHomebrew LLVM version 16.0.6\n  Optimized build.",
+          "archive_symbol_index_rebuilt": true,
+          "original_c_preprocessing_and_instructions_preserved": true
+        },
+        "ownership": {
+          "rust_original_globals": 2741,
+          "isolated_c_oracle_globals": 2654,
+          "reviewed_rust_subjects": [
+            "av1_calc_indices_dim1_c",
+            "av1_calc_indices_dim2_c"
+          ],
+          "reviewed_c_oracles": [
+            "av1_calc_indices_dim1_c",
+            "av1_calc_indices_dim2_c"
+          ],
+          "map_sha256": "e35d361e26225ae15deaf78b21cec0b90aeafb8fdfea4b6394bcf16555b40e96"
+        },
+        "rust_archive_sha256": "85c925aaa4af98ad5eb82ebcb8d4da82b6f8dd084f5f6e83b85f94f14f5c125c",
+        "cases": [
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest1.CheckOutput/13",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/0",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/1",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/2",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/3",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/4",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/5",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/6",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/7",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/8",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/9",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/10",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/11",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/12",
+            "failed": false,
+            "skipped": false
+          },
+          {
+            "name": "PortScalar/AV1KmeansTest2.CheckOutput/13",
             "failed": false,
             "skipped": false
           }

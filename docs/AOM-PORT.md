@@ -187,6 +187,15 @@ test compilation copy; original parameters, unequal source strides, assertions,
 and all 18,729 registrations remain intact. Other 2D and compound convolution
 roles still require review.
 
+The original k-means classes register only SIMD implementations, leaving zero
+k-means cases in the generic reference inventory. A separate supplementary
+scalar matrix reuses their unchanged test bodies, random inputs, fourteen
+original block sizes, and centroid counts 2 through 8. Its 28 enabled cases
+compare two Rust scalar functions with isolated C oracles; another 28 original
+speed bodies remain disabled. Both profiles pass. The original 18,729
+registrations remain present and in order; the added `PortScalar/` cases are
+counted separately and do not inflate original-suite execution totals.
+
 ## Execution and acceptance
 
 Work proceeds in one checkout with a Solo profile, coherent commits, generated
@@ -239,6 +248,8 @@ python3 tools/check_aom_oracles.py --debug --suite softmax
 python3 tools/check_aom_oracles.py --suite softmax
 python3 tools/check_aom_oracles.py --debug --suite intrabc
 python3 tools/check_aom_oracles.py --suite intrabc
+python3 tools/check_aom_oracles.py --debug --suite kmeans
+python3 tools/check_aom_oracles.py --suite kmeans
 python3 tools/check_aom_abi.py
 python3 tools/check_aom_abi.py --release
 python3 tools/check_aom_cli.py --debug
