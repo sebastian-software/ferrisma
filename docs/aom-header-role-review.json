@@ -1,0 +1,2970 @@
+{
+  "scope": "All direct production-header inline bindings in the selected 149 C++ inputs",
+  "target": "aarch64-apple-darwin",
+  "profile": "release",
+  "original_test_inputs": 149,
+  "inventory_sha256": "35ae33b1607bf817a8b80326d57a2d8cbf7fd85f7c1c996127eee3147c3b8297",
+  "distinct_reviewed_header_functions": 40,
+  "direct_header_role_review_complete": true,
+  "complete_included_template_and_indirect_role_review": false,
+  "execution_coverage_claimed_by_this_review": false,
+  "cpp_rate_control_boundary": "av1/ratectrl_rtc.cc builds the separate aom_av1_rc library, which upstream does not install. It is outside the selected 168-C-unit libaom archive and is retained as an original native consumer in test_aom_rc. No Rust wrapper implementation is claimed.",
+  "other_native_test_infrastructure": [
+    "GoogleTest",
+    "libyuv",
+    "WebM I/O",
+    "original C++ reference/fixture code"
+  ],
+  "bindings": [
+    {
+      "source": "test/block_test.cc",
+      "source_sha256": "4dba5e367699a391fd580f0f2b3117a2618fd7ef51830590adfd1042dbadc740",
+      "name": "get_partition_subsize",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/blockd.h",
+      "declaration_line": 995,
+      "direct_reference_lines": [
+        122
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/log2_test.cc",
+      "source_sha256": "bce8b609436f5fb406887cb08f4ab38e5167a67e6fe3b5dc1deba1517b10a876",
+      "name": "aom_ceil_log2",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/bitops.h",
+      "declaration_line": 74,
+      "direct_reference_lines": [
+        35,
+        37,
+        43,
+        44,
+        45,
+        49
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/log2_test.cc",
+      "source_sha256": "bce8b609436f5fb406887cb08f4ab38e5167a67e6fe3b5dc1deba1517b10a876",
+      "name": "get_msb",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/bitops.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        21,
+        27,
+        28,
+        29
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/aom_mem_test.cc",
+      "source_sha256": "c6834e1983a3e2f901732c07b867ecc15ae09eec50107c2b9e4d3ada9113d833",
+      "name": "aom_memset16",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        32
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/av1_common_int_test.cc",
+      "source_sha256": "bba847dfe54a3c95aff96267fd4a45b22b5347be67c95e828539505dbde0acfb",
+      "name": "get_tx_size",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/av1_common_int.h",
+      "declaration_line": 1710,
+      "direct_reference_lines": [
+        18
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/av1_scale_test.cc",
+      "source_sha256": "56e49b521d7ac0ba15b1b527d3b86df8514f517eb6f619d866d7c635231112ec",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        244,
+        251
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_scale_test.cc",
+      "source_sha256": "56e49b521d7ac0ba15b1b527d3b86df8514f517eb6f619d866d7c635231112ec",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        243,
+        250
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_scale_test.cc",
+      "source_sha256": "56e49b521d7ac0ba15b1b527d3b86df8514f517eb6f619d866d7c635231112ec",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        239,
+        247
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cdef_test.cc",
+      "source_sha256": "1bc8d0ff1bf573bafacaa4c820718a67c6298d38d6b3af37c1c2b995b7081f2e",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        146,
+        285,
+        290,
+        392,
+        398
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cdef_test.cc",
+      "source_sha256": "1bc8d0ff1bf573bafacaa4c820718a67c6298d38d6b3af37c1c2b995b7081f2e",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        145,
+        284,
+        289,
+        390,
+        396
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cdef_test.cc",
+      "source_sha256": "1bc8d0ff1bf573bafacaa4c820718a67c6298d38d6b3af37c1c2b995b7081f2e",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        139,
+        282,
+        287,
+        388,
+        394
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cdef_test.cc",
+      "source_sha256": "1bc8d0ff1bf573bafacaa4c820718a67c6298d38d6b3af37c1c2b995b7081f2e",
+      "name": "clamp",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 74,
+      "direct_reference_lines": [
+        104,
+        252,
+        346
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/expected-output helper",
+      "rationale": "Bounds generated CDEF/coefficients/wedge inputs or expected warp coordinates; no standalone clamp test is registered."
+    },
+    {
+      "source": "test/cfl_test.cc",
+      "source_sha256": "c95febab330b782a9427b0132011c7735631259f71f4b74c178a80d18735554c",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        215,
+        221,
+        271,
+        277,
+        407,
+        414,
+        458,
+        465
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cfl_test.cc",
+      "source_sha256": "c95febab330b782a9427b0132011c7735631259f71f4b74c178a80d18735554c",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        214,
+        220,
+        270,
+        276,
+        406,
+        413,
+        457,
+        464
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cfl_test.cc",
+      "source_sha256": "c95febab330b782a9427b0132011c7735631259f71f4b74c178a80d18735554c",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        210,
+        216,
+        266,
+        272,
+        402,
+        409,
+        453,
+        460
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "name": "aom_memset16",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        375
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Initializes original image or coefficient fixture buffers outside AomMemTest."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        656,
+        1091
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        653,
+        1089
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        631,
+        1084
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "name": "av1_get_interp_filter_kernel",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/filter.h",
+      "declaration_line": 256,
+      "direct_reference_lines": [
+        480,
+        562,
+        624,
+        635,
+        693,
+        1075,
+        1113
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Selects input filter coefficients for both the subject and reference."
+    },
+    {
+      "source": "test/convolve_test.cc",
+      "source_sha256": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+      "name": "clip_pixel_highbd",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 86,
+      "direct_reference_lines": [
+        216,
+        241
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Clips expected samples inside the C++ reference subpixel filters."
+    },
+    {
+      "source": "test/hiprec_convolve_test_util.cc",
+      "source_sha256": "a2a30dc98ed0aa294542ed1404a982862ca28cc8cad645818a569002282c2ae5",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        213,
+        226,
+        355,
+        368
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/hiprec_convolve_test_util.cc",
+      "source_sha256": "a2a30dc98ed0aa294542ed1404a982862ca28cc8cad645818a569002282c2ae5",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        212,
+        225,
+        354,
+        367
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/hiprec_convolve_test_util.cc",
+      "source_sha256": "a2a30dc98ed0aa294542ed1404a982862ca28cc8cad645818a569002282c2ae5",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        202,
+        216,
+        344,
+        358
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/hiprec_convolve_test_util.cc",
+      "source_sha256": "a2a30dc98ed0aa294542ed1404a982862ca28cc8cad645818a569002282c2ae5",
+      "name": "get_conv_params_wiener",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 107,
+      "direct_reference_lines": [
+        131,
+        177,
+        265,
+        316
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original Wiener-convolution input parameters."
+    },
+    {
+      "source": "test/intrabc_test.cc",
+      "source_sha256": "8f92be7ae33a30cebb38d0b94e812618f3aee864e9d0f0ad2ddec30e88bad18e",
+      "name": "av1_is_dv_valid",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/mvref_common.h",
+      "declaration_line": 279,
+      "direct_reference_lines": [
+        167
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/intrabc_test.cc",
+      "source_sha256": "8f92be7ae33a30cebb38d0b94e812618f3aee864e9d0f0ad2ddec30e88bad18e",
+      "name": "is_chroma_reference",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/av1_common_int.h",
+      "declaration_line": 1456,
+      "direct_reference_lines": [
+        164
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original decoder fixture before displacement validation."
+    },
+    {
+      "source": "test/intrapred_test.cc",
+      "source_sha256": "cf9c2a545998f5c3a6eb4d095226644bf6b8830ae697023f1af1c5f65bce59cf",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        144,
+        145
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/intrapred_test.cc",
+      "source_sha256": "cf9c2a545998f5c3a6eb4d095226644bf6b8830ae697023f1af1c5f65bce59cf",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        135,
+        142
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/intrapred_test.cc",
+      "source_sha256": "cf9c2a545998f5c3a6eb4d095226644bf6b8830ae697023f1af1c5f65bce59cf",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        131,
+        138
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/scan_test.cc",
+      "source_sha256": "922698cbf72ee6ff90ce6fc632e2753c882b962d9cdd0338e1e9033a13241b9b",
+      "name": "get_default_scan",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/scan.h",
+      "declaration_line": 41,
+      "direct_reference_lines": [
+        126
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/scan_test.cc",
+      "source_sha256": "922698cbf72ee6ff90ce6fc632e2753c882b962d9cdd0338e1e9033a13241b9b",
+      "name": "get_txb_high",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 60,
+      "direct_reference_lines": [
+        101
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets the original transform dimensions in scan/context fixtures."
+    },
+    {
+      "source": "test/scan_test.cc",
+      "source_sha256": "922698cbf72ee6ff90ce6fc632e2753c882b962d9cdd0338e1e9033a13241b9b",
+      "name": "get_txb_wide",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 55,
+      "direct_reference_lines": [
+        102
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets the original transform dimensions in scan/context fixtures."
+    },
+    {
+      "source": "test/selfguided_filter_test.cc",
+      "source_sha256": "41e2dcdd7834d4a1daf60ee3d652ae58a951f8c1c9bfcc6e4bbf9ecdbf9bf3c5",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        100,
+        117,
+        296,
+        313
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/selfguided_filter_test.cc",
+      "source_sha256": "41e2dcdd7834d4a1daf60ee3d652ae58a951f8c1c9bfcc6e4bbf9ecdbf9bf3c5",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        99,
+        116,
+        295,
+        312
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/selfguided_filter_test.cc",
+      "source_sha256": "41e2dcdd7834d4a1daf60ee3d652ae58a951f8c1c9bfcc6e4bbf9ecdbf9bf3c5",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        85,
+        103,
+        282,
+        299
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/boolcoder_test.cc",
+      "source_sha256": "15ce69ec3e052a922dfd11d6ffb82b63905a6f7a7243ea05983f2e3e699547f7",
+      "name": "aom_read_",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/bitreader.h",
+      "declaration_line": 104,
+      "direct_reference_lines": [
+        80,
+        113,
+        154,
+        169
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/boolcoder_test.cc",
+      "source_sha256": "15ce69ec3e052a922dfd11d6ffb82b63905a6f7a7243ea05983f2e3e699547f7",
+      "name": "aom_write",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/bitwriter.h",
+      "declaration_line": 72,
+      "direct_reference_lines": [
+        66,
+        101,
+        147
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/cnn_test.cc",
+      "source_sha256": "1364441d5b08b53bdc781f9d918d4a3ad3bf85ed16eca9008896c0117c31c0ed",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        2601,
+        2610
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cnn_test.cc",
+      "source_sha256": "1364441d5b08b53bdc781f9d918d4a3ad3bf85ed16eca9008896c0117c31c0ed",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        2600,
+        2609
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/cnn_test.cc",
+      "source_sha256": "1364441d5b08b53bdc781f9d918d4a3ad3bf85ed16eca9008896c0117c31c0ed",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        2594,
+        2603
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/divu_small_test.cc",
+      "source_sha256": "108f4a6d04e4366155cd544195fd2e2947f09f1169c0d96cb8c705328963cf5d",
+      "name": "get_msb",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/bitops.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        24,
+        26,
+        36,
+        38
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native fixture or macro expansion in the original consumer",
+      "rationale": "Sets resize fixture dimensions or expands original OD_DIVU_SMALL; separate macro execution binds the complete macro subject to Rust."
+    },
+    {
+      "source": "test/dr_prediction_test.cc",
+      "source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        184,
+        194
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/dr_prediction_test.cc",
+      "source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        183,
+        193
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/dr_prediction_test.cc",
+      "source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        178,
+        187
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/dr_prediction_test.cc",
+      "source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "name": "av1_get_dx",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/reconintra.h",
+      "declaration_line": 122,
+      "direct_reference_lines": [
+        299,
+        333,
+        357,
+        396,
+        408
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Selects the original directional-prediction input angle."
+    },
+    {
+      "source": "test/dr_prediction_test.cc",
+      "source_sha256": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+      "name": "av1_get_dy",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/reconintra.h",
+      "declaration_line": 137,
+      "direct_reference_lines": [
+        300,
+        334,
+        358,
+        397,
+        409
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Selects the original directional-prediction input angle."
+    },
+    {
+      "source": "test/noise_model_test.cc",
+      "source_sha256": "c025265e8f4646a8a317fb6a7aa290d4d0d880d8544dacb176304dc4afcc8d24",
+      "name": "fclamp",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 82,
+      "direct_reference_lines": [
+        1241
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Limits generated noise-model fixture samples to the original input range."
+    },
+    {
+      "source": "test/temporal_filter_test.cc",
+      "source_sha256": "9e363bed58d0da5fb72e4fcbacf98e5c822e516a3237eca61547b02fc98b0783",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        245,
+        256,
+        400,
+        407,
+        654,
+        665,
+        795,
+        802
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/temporal_filter_test.cc",
+      "source_sha256": "9e363bed58d0da5fb72e4fcbacf98e5c822e516a3237eca61547b02fc98b0783",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        243,
+        254,
+        399,
+        406,
+        652,
+        663,
+        794,
+        801
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/temporal_filter_test.cc",
+      "source_sha256": "9e363bed58d0da5fb72e4fcbacf98e5c822e516a3237eca61547b02fc98b0783",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        236,
+        247,
+        394,
+        401,
+        645,
+        656,
+        789,
+        796
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/encode_api_test.cc",
+      "source_sha256": "51f6c0b04f7a71a39ff2250822199939aa830dd14190e3c5f5ef00bf4c8860ef",
+      "name": "aom_memset16",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        448
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Initializes original image or coefficient fixture buffers outside AomMemTest."
+    },
+    {
+      "source": "test/av1_convolve_test.cc",
+      "source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        392,
+        404,
+        499,
+        511,
+        609,
+        621,
+        715,
+        727,
+        819,
+        829,
+        917,
+        927,
+        1016,
+        1026,
+        1114,
+        1124,
+        1353,
+        1364,
+        1549,
+        1561,
+        1676,
+        1687,
+        1840,
+        1853,
+        2402,
+        2410
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_convolve_test.cc",
+      "source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        391,
+        403,
+        498,
+        510,
+        608,
+        620,
+        714,
+        726,
+        818,
+        828,
+        916,
+        926,
+        1015,
+        1025,
+        1113,
+        1123,
+        1352,
+        1363,
+        1548,
+        1560,
+        1675,
+        1686,
+        1839,
+        1852,
+        2401,
+        2409
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_convolve_test.cc",
+      "source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        386,
+        398,
+        493,
+        505,
+        602,
+        615,
+        708,
+        721,
+        813,
+        823,
+        911,
+        921,
+        1010,
+        1020,
+        1107,
+        1118,
+        1346,
+        1357,
+        1542,
+        1555,
+        1669,
+        1680,
+        1833,
+        1846,
+        2394,
+        2404
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_convolve_test.cc",
+      "source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+      "name": "av1_get_interp_filter_params_with_block_size",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/filter.h",
+      "declaration_line": 249,
+      "direct_reference_lines": [
+        356,
+        379,
+        572,
+        595,
+        791,
+        808,
+        988,
+        1005,
+        1102,
+        1290,
+        1292,
+        1338,
+        1340,
+        1636,
+        1638,
+        1661,
+        1663,
+        1824,
+        1826,
+        2029,
+        2137,
+        2234,
+        2291,
+        2611,
+        2613,
+        2722,
+        2724
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original convolution input parameters."
+    },
+    {
+      "source": "test/av1_convolve_test.cc",
+      "source_sha256": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+      "name": "get_conv_params_no_round",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 68,
+      "direct_reference_lines": [
+        358,
+        365,
+        381,
+        394,
+        462,
+        472,
+        490,
+        502,
+        574,
+        582,
+        597,
+        611,
+        676,
+        686,
+        705,
+        718,
+        1312,
+        1321,
+        1344,
+        1356,
+        1404,
+        1414,
+        1510,
+        1520,
+        1540,
+        1554,
+        1642,
+        1648,
+        1667,
+        1679,
+        1714,
+        1721,
+        1797,
+        1808,
+        1831,
+        1845,
+        2005
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original convolution/warp/mask input parameters."
+    },
+    {
+      "source": "test/av1_fwd_txfm1d_test.cc",
+      "source_sha256": "44586326cf7d5bf9d544dfc0b1fadcdd812bff4616476ae03a4009c76169c609",
+      "name": "round_shift",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/av1_txfm.h",
+      "declaration_line": 118,
+      "direct_reference_lines": [
+        48,
+        49,
+        51,
+        52,
+        54,
+        55
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/av1_fwd_txfm2d_test.cc",
+      "source_sha256": "9ceabe4387d14799391fd72a014310bd279a6eed9215d85872307bf027740472",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        340,
+        348,
+        632,
+        640
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_fwd_txfm2d_test.cc",
+      "source_sha256": "9ceabe4387d14799391fd72a014310bd279a6eed9215d85872307bf027740472",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        338,
+        346,
+        630,
+        638
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_fwd_txfm2d_test.cc",
+      "source_sha256": "9ceabe4387d14799391fd72a014310bd279a6eed9215d85872307bf027740472",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        334,
+        342,
+        626,
+        634
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_get_qmlevel_test.cc",
+      "source_sha256": "e5b0f03f2ffecc7ddaf90a9d9c382fde3d919bfdb0726c55ce912909031a4d60",
+      "name": "aom_get_qmlevel",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/quant_common.h",
+      "declaration_line": 61,
+      "direct_reference_lines": [
+        19,
+        21,
+        23,
+        25,
+        27,
+        42,
+        44,
+        52,
+        54
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/av1_get_qmlevel_test.cc",
+      "source_sha256": "e5b0f03f2ffecc7ddaf90a9d9c382fde3d919bfdb0726c55ce912909031a4d60",
+      "name": "aom_get_qmlevel_allintra",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/quant_common.h",
+      "declaration_line": 77,
+      "direct_reference_lines": [
+        64,
+        66,
+        68,
+        70,
+        72,
+        89,
+        91,
+        100,
+        102
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "Rust test subject through an optional original-ABI export",
+      "rationale": "The unchanged original assertions execute the reviewed Rust helper; separate C execution retains the baseline."
+    },
+    {
+      "source": "test/av1_inv_txfm1d_test.cc",
+      "source_sha256": "b9edb831ba94e4f1d2809d5aa18e6d298698992b060f050f212821e563510c48",
+      "name": "round_shift",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/av1_txfm.h",
+      "declaration_line": 118,
+      "direct_reference_lines": [
+        146
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Rounds values in the independent C++ inverse-transform reference."
+    },
+    {
+      "source": "test/av1_inv_txfm2d_test.cc",
+      "source_sha256": "0b580ce9ac71beff1761b2a544543a99f63ee0846aa4cbfe128014518ca83b3d",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        312,
+        318
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_inv_txfm2d_test.cc",
+      "source_sha256": "0b580ce9ac71beff1761b2a544543a99f63ee0846aa4cbfe128014518ca83b3d",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        311,
+        317
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_inv_txfm2d_test.cc",
+      "source_sha256": "0b580ce9ac71beff1761b2a544543a99f63ee0846aa4cbfe128014518ca83b3d",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        307,
+        313
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_inv_txfm2d_test.cc",
+      "source_sha256": "0b580ce9ac71beff1761b2a544543a99f63ee0846aa4cbfe128014518ca83b3d",
+      "name": "get_default_scan",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/scan.h",
+      "declaration_line": 41,
+      "direct_reference_lines": [
+        281
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Selects coefficient scan data for the original inverse-transform fixture."
+    },
+    {
+      "source": "test/av1_k_means_test.cc",
+      "source_sha256": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        119,
+        225
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_k_means_test.cc",
+      "source_sha256": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        118,
+        224
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_k_means_test.cc",
+      "source_sha256": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        113,
+        219
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_nn_predict_test.cc",
+      "source_sha256": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        158,
+        164
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_nn_predict_test.cc",
+      "source_sha256": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        157,
+        163
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_nn_predict_test.cc",
+      "source_sha256": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        153,
+        159
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_round_shift_array_test.cc",
+      "source_sha256": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        99
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_round_shift_array_test.cc",
+      "source_sha256": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        98
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_round_shift_array_test.cc",
+      "source_sha256": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        93
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_softmax_test.cc",
+      "source_sha256": "6e5ae88e36b371dc95b3becd178980c6342ac5f64183e6f8f412a16dd389e4b3",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        91
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_softmax_test.cc",
+      "source_sha256": "6e5ae88e36b371dc95b3becd178980c6342ac5f64183e6f8f412a16dd389e4b3",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        90
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_softmax_test.cc",
+      "source_sha256": "6e5ae88e36b371dc95b3becd178980c6342ac5f64183e6f8f412a16dd389e4b3",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        86
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/av1_txfm_test.cc",
+      "source_sha256": "95d0f15759c52537ace08ca7823d6fe4fa5fa33d500a46176e599a1c6a3ac0ce",
+      "name": "fdct_round_shift",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/txfm_common.h",
+      "declaration_line": 150,
+      "direct_reference_lines": [
+        182,
+        183,
+        184,
+        185
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Used by the C++ reference forward transform in av1_txfm_test.cc."
+    },
+    {
+      "source": "test/av1_txfm_test.cc",
+      "source_sha256": "95d0f15759c52537ace08ca7823d6fe4fa5fa33d500a46176e599a1c6a3ac0ce",
+      "name": "get_rect_tx_log_ratio",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/av1_txfm.h",
+      "declaration_line": 254,
+      "direct_reference_lines": [
+        247
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Used by the C++ reference transform implementation in av1_txfm_test.cc."
+    },
+    {
+      "source": "test/av1_wedge_utils_test.cc",
+      "source_sha256": "ba016d8a32bf6227480891148ae3ab7c35d76cc5554d70e13c8e7db39d85fc98",
+      "name": "clamp",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 74,
+      "direct_reference_lines": [
+        98,
+        99,
+        258,
+        313
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/expected-output helper",
+      "rationale": "Bounds generated CDEF/coefficients/wedge inputs or expected warp coordinates; no standalone clamp test is registered."
+    },
+    {
+      "source": "test/avg_test.cc",
+      "source_sha256": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        165,
+        180,
+        189,
+        263,
+        272,
+        434,
+        436,
+        524,
+        526,
+        721,
+        723,
+        941,
+        943
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/avg_test.cc",
+      "source_sha256": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        164,
+        168,
+        179,
+        183,
+        262,
+        271,
+        424,
+        432,
+        514,
+        522,
+        709,
+        719,
+        930,
+        939
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/avg_test.cc",
+      "source_sha256": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        162,
+        168,
+        177,
+        183,
+        257,
+        266,
+        420,
+        427,
+        510,
+        517,
+        704,
+        714,
+        926,
+        934
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/blend_a64_mask_test.cc",
+      "source_sha256": "381f6cbee1f0ce67e6fd36027bc367a08eeaaef0e841c2710b3f8acf597c39f1",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        179,
+        188,
+        297,
+        306,
+        411,
+        420,
+        526,
+        536
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/blend_a64_mask_test.cc",
+      "source_sha256": "381f6cbee1f0ce67e6fd36027bc367a08eeaaef0e841c2710b3f8acf597c39f1",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        178,
+        187,
+        296,
+        305,
+        410,
+        419,
+        525,
+        535
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/blend_a64_mask_test.cc",
+      "source_sha256": "381f6cbee1f0ce67e6fd36027bc367a08eeaaef0e841c2710b3f8acf597c39f1",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        171,
+        180,
+        289,
+        298,
+        403,
+        412,
+        516,
+        527
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/comp_mask_pred_test.cc",
+      "source_sha256": "370176487a84088a04fc244764c6496900c86c56a0216b0ce22c078b3be0a6d7",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        162,
+        273,
+        393,
+        569,
+        700,
+        832
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/comp_mask_pred_test.cc",
+      "source_sha256": "370176487a84088a04fc244764c6496900c86c56a0216b0ce22c078b3be0a6d7",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        161,
+        272,
+        392,
+        568,
+        699,
+        831
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/comp_mask_pred_test.cc",
+      "source_sha256": "370176487a84088a04fc244764c6496900c86c56a0216b0ce22c078b3be0a6d7",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        156,
+        266,
+        387,
+        562,
+        691,
+        825
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/comp_mask_pred_test.cc",
+      "source_sha256": "370176487a84088a04fc244764c6496900c86c56a0216b0ce22c078b3be0a6d7",
+      "name": "get_wedge_types_lookup",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/reconinter.h",
+      "declaration_line": 330,
+      "direct_reference_lines": [
+        130,
+        147,
+        514,
+        544
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Bounds the original input mask enumeration."
+    },
+    {
+      "source": "test/disflow_test.cc",
+      "source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        90,
+        98
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/disflow_test.cc",
+      "source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        88,
+        96
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/disflow_test.cc",
+      "source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        83,
+        92
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/encodemb_test.cc",
+      "source_sha256": "e3642d43ec53cbff5cb08ccb650d36f5caf21b9977490fd93bd86083727d7a28",
+      "name": "av1_get_max_eob",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/blockd.h",
+      "declaration_line": 1601,
+      "direct_reference_lines": [
+        27,
+        38,
+        54
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets coefficient-buffer bounds and expected end-of-block state in the dropout fixture."
+    },
+    {
+      "source": "test/encodemb_test.cc",
+      "source_sha256": "e3642d43ec53cbff5cb08ccb650d36f5caf21b9977490fd93bd86083727d7a28",
+      "name": "get_scan",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/scan.h",
+      "declaration_line": 46,
+      "direct_reference_lines": [
+        28,
+        39
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Converts fixture coefficients between lexical and scan order around the dropout subject."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        137,
+        138
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        124,
+        134
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        119,
+        129,
+        239,
+        244
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "clamp",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 74,
+      "direct_reference_lines": [
+        155
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/expected-output helper",
+      "rationale": "Bounds generated CDEF/coefficients/wedge inputs or expected warp coordinates; no standalone clamp test is registered."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "get_padded_idx",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 69,
+      "direct_reference_lines": [
+        154
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Addresses the input levels buffer in the coefficient-context fixture."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "get_txb_bhl",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 50,
+      "direct_reference_lines": [
+        69,
+        105
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets input buffer indexing in the coefficient-context fixture."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "get_txb_high",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 60,
+      "direct_reference_lines": [
+        71,
+        107,
+        222
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets the original transform dimensions in scan/context fixtures."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "get_txb_wide",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 55,
+      "direct_reference_lines": [
+        70,
+        106,
+        221
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets the original transform dimensions in scan/context fixtures."
+    },
+    {
+      "source": "test/encodetxb_test.cc",
+      "source_sha256": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+      "name": "set_levels",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 65,
+      "direct_reference_lines": [
+        76,
+        116,
+        126,
+        226,
+        227
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Sets the input levels buffer origin in the coefficient-context fixture."
+    },
+    {
+      "source": "test/error_block_test.cc",
+      "source_sha256": "2cb7cd19da3265c3834f8a5618f144fe7ad07303d852cf27161821e96d1309e4",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        226,
+        235
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/error_block_test.cc",
+      "source_sha256": "2cb7cd19da3265c3834f8a5618f144fe7ad07303d852cf27161821e96d1309e4",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        224,
+        232
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/error_block_test.cc",
+      "source_sha256": "2cb7cd19da3265c3834f8a5618f144fe7ad07303d852cf27161821e96d1309e4",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        220,
+        228
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/frame_resize_test.cc",
+      "source_sha256": "1c342a29e3e78c9a3b7514a1d7dd8344370a770ec8232009ddb120fe839f9d79",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        109,
+        118,
+        223,
+        232
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/frame_resize_test.cc",
+      "source_sha256": "1c342a29e3e78c9a3b7514a1d7dd8344370a770ec8232009ddb120fe839f9d79",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        108,
+        117,
+        222,
+        231
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/frame_resize_test.cc",
+      "source_sha256": "1c342a29e3e78c9a3b7514a1d7dd8344370a770ec8232009ddb120fe839f9d79",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        103,
+        112,
+        217,
+        226
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/frame_resize_test.cc",
+      "source_sha256": "1c342a29e3e78c9a3b7514a1d7dd8344370a770ec8232009ddb120fe839f9d79",
+      "name": "get_msb",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/bitops.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        67,
+        182
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native fixture or macro expansion in the original consumer",
+      "rationale": "Sets resize fixture dimensions or expands original OD_DIVU_SMALL; separate macro execution binds the complete macro subject to Rust."
+    },
+    {
+      "source": "test/fwht4x4_test.cc",
+      "source_sha256": "837812b2d1fe97a835b582f550c845339a4734f3a9288f986748a7d9eaf88ed2",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        147,
+        148
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/fwht4x4_test.cc",
+      "source_sha256": "837812b2d1fe97a835b582f550c845339a4734f3a9288f986748a7d9eaf88ed2",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        136,
+        145
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/fwht4x4_test.cc",
+      "source_sha256": "837812b2d1fe97a835b582f550c845339a4734f3a9288f986748a7d9eaf88ed2",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        131,
+        139
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/hadamard_test.cc",
+      "source_sha256": "a157992295a6ce7af18dbf4943b4f75bdbeb2b7fc11da0151030b0d54d8d09b2",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        338
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/hadamard_test.cc",
+      "source_sha256": "a157992295a6ce7af18dbf4943b4f75bdbeb2b7fc11da0151030b0d54d8d09b2",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        336
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/hadamard_test.cc",
+      "source_sha256": "a157992295a6ce7af18dbf4943b4f75bdbeb2b7fc11da0151030b0d54d8d09b2",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        332
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/horver_correlation_test.cc",
+      "source_sha256": "dfd123783413ea6cd6bf1a7d407bb38bd51585acd9663ff475aeb2f7a0a6c873",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        97,
+        103
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/horver_correlation_test.cc",
+      "source_sha256": "dfd123783413ea6cd6bf1a7d407bb38bd51585acd9663ff475aeb2f7a0a6c873",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        96,
+        102
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/horver_correlation_test.cc",
+      "source_sha256": "dfd123783413ea6cd6bf1a7d407bb38bd51585acd9663ff475aeb2f7a0a6c873",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        91,
+        98
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/masked_sad_test.cc",
+      "source_sha256": "81cf6f6e7d72532d1558ceeeb0f2a1364ac8f59de7c0a8c6ac70abf8a358aafa",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        170,
+        176,
+        256,
+        271
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/masked_sad_test.cc",
+      "source_sha256": "81cf6f6e7d72532d1558ceeeb0f2a1364ac8f59de7c0a8c6ac70abf8a358aafa",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        169,
+        175,
+        255,
+        270
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/masked_sad_test.cc",
+      "source_sha256": "81cf6f6e7d72532d1558ceeeb0f2a1364ac8f59de7c0a8c6ac70abf8a358aafa",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        166,
+        172,
+        249,
+        257
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/masked_variance_test.cc",
+      "source_sha256": "379db8b548c0f0eb5352ad7cfc5675e3d24b9e7079e1f0bbdeb5160304325a00",
+      "name": "aom_memset16",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        276,
+        278,
+        280
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Initializes original image or coefficient fixture buffers outside AomMemTest."
+    },
+    {
+      "source": "test/minmax_test.cc",
+      "source_sha256": "e6924520d38aee2faad11c256244451712a03655cbdb58d75fe6d521776c7913",
+      "name": "aom_memset16",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        149,
+        150,
+        168,
+        169
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Initializes original image or coefficient fixture buffers outside AomMemTest."
+    },
+    {
+      "source": "test/model_rd_test.cc",
+      "source_sha256": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        100,
+        108
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/model_rd_test.cc",
+      "source_sha256": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        97,
+        106
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/model_rd_test.cc",
+      "source_sha256": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        93,
+        102
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/mv_cost_test.cc",
+      "source_sha256": "6fe8dabf25c82bf695148beb3454181bede4e28ec84b733501f1a2543c5d91ba",
+      "name": "av1_get_mv_class",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/encoder/encodemv.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        44
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Used inside ReferenceBuildNmvComponentCostTable, the C++ expected-cost implementation."
+    },
+    {
+      "source": "test/obmc_variance_test.cc",
+      "source_sha256": "644bf04145b3d27aa7b9bb7ba7bdb9d13d5c824fafb5ca26e55f468cc0bf24e7",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        120,
+        128
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/obmc_variance_test.cc",
+      "source_sha256": "644bf04145b3d27aa7b9bb7ba7bdb9d13d5c824fafb5ca26e55f468cc0bf24e7",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        118,
+        126
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/obmc_variance_test.cc",
+      "source_sha256": "644bf04145b3d27aa7b9bb7ba7bdb9d13d5c824fafb5ca26e55f468cc0bf24e7",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        114,
+        122
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/pickrst_test.cc",
+      "source_sha256": "5dc3cc6da0189deb6cb604d9af069170ae3db698cac6e1094d0e9f4483841c88",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        115,
+        123,
+        287,
+        295,
+        468,
+        475,
+        653,
+        660
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/pickrst_test.cc",
+      "source_sha256": "5dc3cc6da0189deb6cb604d9af069170ae3db698cac6e1094d0e9f4483841c88",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        114,
+        122,
+        286,
+        294,
+        467,
+        474,
+        652,
+        659
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/pickrst_test.cc",
+      "source_sha256": "5dc3cc6da0189deb6cb604d9af069170ae3db698cac6e1094d0e9f4483841c88",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        108,
+        116,
+        280,
+        288,
+        461,
+        469,
+        646,
+        654
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/reconinter_test.cc",
+      "source_sha256": "7088e47b40a38f5b7645dff73fb5a152f840d7d7b7b0bf3a940c05b159952387",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        331,
+        341
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/reconinter_test.cc",
+      "source_sha256": "7088e47b40a38f5b7645dff73fb5a152f840d7d7b7b0bf3a940c05b159952387",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        330,
+        340
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/reconinter_test.cc",
+      "source_sha256": "7088e47b40a38f5b7645dff73fb5a152f840d7d7b7b0bf3a940c05b159952387",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        70,
+        76,
+        167,
+        176,
+        323,
+        334
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/reconinter_test.cc",
+      "source_sha256": "7088e47b40a38f5b7645dff73fb5a152f840d7d7b7b0bf3a940c05b159952387",
+      "name": "get_conv_params_no_round",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 68,
+      "direct_reference_lines": [
+        266,
+        309
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original convolution/warp/mask input parameters."
+    },
+    {
+      "source": "test/sad_test.cc",
+      "source_sha256": "32341fbd96f0cda46376bf871907da718da78c0bef4cd7f4887ee26741c2b038",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        315
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sad_test.cc",
+      "source_sha256": "32341fbd96f0cda46376bf871907da718da78c0bef4cd7f4887ee26741c2b038",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        314
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sad_test.cc",
+      "source_sha256": "32341fbd96f0cda46376bf871907da718da78c0bef4cd7f4887ee26741c2b038",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        309
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/subtract_test.cc",
+      "source_sha256": "2b4d2fdf0ad5bcab219e93815bf6618a128bfe4145d1921383479e77d5f5a1e7",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        181,
+        192
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/subtract_test.cc",
+      "source_sha256": "2b4d2fdf0ad5bcab219e93815bf6618a128bfe4145d1921383479e77d5f5a1e7",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        180,
+        191
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/subtract_test.cc",
+      "source_sha256": "2b4d2fdf0ad5bcab219e93815bf6618a128bfe4145d1921383479e77d5f5a1e7",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        175,
+        186
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sum_squares_test.cc",
+      "source_sha256": "d158f560f1ce0d33afbf5a6800bf26c609c3402a36fc5387bef968c1591e18c4",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        134,
+        143,
+        381,
+        389,
+        561,
+        569,
+        735,
+        742,
+        884,
+        891
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sum_squares_test.cc",
+      "source_sha256": "d158f560f1ce0d33afbf5a6800bf26c609c3402a36fc5387bef968c1591e18c4",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        133,
+        142,
+        379,
+        387,
+        559,
+        567,
+        734,
+        741,
+        883,
+        890
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sum_squares_test.cc",
+      "source_sha256": "d158f560f1ce0d33afbf5a6800bf26c609c3402a36fc5387bef968c1591e18c4",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        128,
+        139,
+        375,
+        383,
+        555,
+        563,
+        729,
+        738,
+        878,
+        887
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sse_sum_test.cc",
+      "source_sha256": "1cbbd196fc7cadecd7808fe431834cc3b1f7d4893244baa74cb757534b417260",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        134,
+        143
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sse_sum_test.cc",
+      "source_sha256": "1cbbd196fc7cadecd7808fe431834cc3b1f7d4893244baa74cb757534b417260",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        133,
+        142
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/sse_sum_test.cc",
+      "source_sha256": "1cbbd196fc7cadecd7808fe431834cc3b1f7d4893244baa74cb757534b417260",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        128,
+        139
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/variance_test.cc",
+      "source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "name": "aom_memset16",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "direct_reference_lines": [
+        771,
+        1332,
+        1333,
+        1537,
+        1538
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Initializes original image or coefficient fixture buffers outside AomMemTest."
+    },
+    {
+      "source": "test/variance_test.cc",
+      "source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        428,
+        435,
+        535,
+        542,
+        803,
+        957,
+        970,
+        1119,
+        1133,
+        1380,
+        1393,
+        1589,
+        1876,
+        1883
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/variance_test.cc",
+      "source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        427,
+        434,
+        534,
+        541,
+        802,
+        955,
+        968,
+        1117,
+        1131,
+        1378,
+        1391,
+        1587,
+        1875,
+        1882
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/variance_test.cc",
+      "source_sha256": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        423,
+        430,
+        530,
+        537,
+        797,
+        945,
+        959,
+        1107,
+        1121,
+        1372,
+        1384,
+        1580,
+        1871,
+        1878
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        191,
+        390
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        190,
+        389
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        185,
+        383
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "clamp",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 74,
+      "direct_reference_lines": [
+        89,
+        90
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/expected-output helper",
+      "rationale": "Bounds generated CDEF/coefficients/wedge inputs or expected warp coordinates; no standalone clamp test is registered."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "clamp64",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 78,
+      "direct_reference_lines": [
+        91,
+        94
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Limits expected affine coordinates in the C++ warp-filter reference."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "get_conv_params",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 102,
+      "direct_reference_lines": [
+        160,
+        221,
+        252,
+        356,
+        423,
+        455
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original warp-filter input parameters."
+    },
+    {
+      "source": "test/warp_filter_test_util.cc",
+      "source_sha256": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+      "name": "get_conv_params_no_round",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 68,
+      "direct_reference_lines": [
+        180,
+        249,
+        269,
+        379,
+        452,
+        476
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native input/setup helper",
+      "rationale": "Constructs the original convolution/warp/mask input parameters."
+    },
+    {
+      "source": "test/wiener_test.cc",
+      "source_sha256": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+      "name": "aom_usec_timer_elapsed",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "direct_reference_lines": [
+        270,
+        278,
+        632,
+        640
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/wiener_test.cc",
+      "source_sha256": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+      "name": "aom_usec_timer_mark",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "direct_reference_lines": [
+        269,
+        277,
+        631,
+        639
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/wiener_test.cc",
+      "source_sha256": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+      "name": "aom_usec_timer_start",
+      "kind": "production header inline; role review required",
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "direct_reference_lines": [
+        263,
+        271,
+        625,
+        633
+      ],
+      "translated_name_present": false,
+      "reviewed_role": "native measurement infrastructure",
+      "rationale": "Measures original loops; does not compute asserted codec output."
+    },
+    {
+      "source": "test/wiener_test.cc",
+      "source_sha256": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+      "name": "find_average",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/encoder/pickrst.h",
+      "declaration_line": 60,
+      "direct_reference_lines": [
+        51
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Used inside the independent C++ Wiener-statistics reference."
+    },
+    {
+      "source": "test/wiener_test.cc",
+      "source_sha256": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+      "name": "find_average_highbd",
+      "kind": "production header inline; role review required",
+      "declaration": "av1/encoder/pickrst.h",
+      "declaration_line": 73,
+      "direct_reference_lines": [
+        427
+      ],
+      "translated_name_present": true,
+      "reviewed_role": "native expected-output helper",
+      "rationale": "Used inside the independent high-bit-depth C++ Wiener-statistics reference."
+    }
+  ]
+}

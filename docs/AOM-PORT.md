@@ -146,6 +146,21 @@ match in translated source is recorded as such; it is not execution coverage.
 References inside included C++ helper bodies and indirect calls need their
 own review beyond this direct-reference inventory.
 
+The finite direct header review now classifies all 170 bindings of those
+40 header functions. Actual inline subjects use the optional Rust exports;
+the other bindings construct inputs, compute original expected values, or
+measure loops. Their native execution receives no Rust subject coverage.
+`tools/review_aom_header_roles.py --check` rejects an unknown or changed
+binding inventory. This bounded review does not establish correspondence for
+all included template bodies or indirect calls. See
+[`aom-header-role-review.json`](aom-header-role-review.json).
+
+Upstream builds `av1/ratectrl_rtc.cc` into the separate `aom_av1_rc` library,
+which it does not install. That optional wrapper is outside the selected
+168-C-unit libaom archive and is not a root libavif runtime dependency. The
+original `test_aom_rc` executable retains it as a native consumer of the Rust
+codec; its passing cases do not establish a Rust wrapper implementation.
+
 Twelve reviewed inline test subjects now have optional generated Rust exports
 under `port-test-bridges` (ADR 0039). Nine original C++ inputs are recompiled
 with forced includes that redirect those subjects while retaining native
