@@ -448,3 +448,5 @@ ordinary captures for all original requests without assigning semantics to
 undefined writes. Uint16 output uses StoreLE16 byte stores and Float32 uses
 byte-order memcpy stores, so their odd-stride requests remain defined and
 unchanged. No sanitizer flag or source algorithm is altered.
+
+Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.

@@ -1586,8 +1586,11 @@ ordinary and ASan/UBSan Debug, Release and Rust 1.85 each complete 27 tests,
 including 15 differential groups and 9,702 exact requests, with no failed or
 ignored tests. The no-feature 25-file capture test, all-target/all-feature Clippy,
 formatting, source/notices, documentation links and all three independent source
-audits pass. Full integration gates and native Linux/macOS CI are still required
-before delivery. General orientation,
+audits pass. The preceding chroma/ICC union passed all six full local
+configurations: 513 tests, 307 differential groups and 926,392 exact defined
+requests, plus 72 source-only probes, with no failures or ignored tests. The
+extra-channel superset below also passes all six complete local checks. Native
+Linux/macOS CI and main integration remain required. General orientation,
 ICC/CMS parsing, broader sampling, JPEG reconstruction and the
 public progressive decoder API remain open. The extra-channel extension below
 connects the remaining source-defined metadata at the internal sequence boundary.
