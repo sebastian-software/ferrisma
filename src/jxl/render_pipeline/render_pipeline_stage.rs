@@ -204,11 +204,44 @@ pub trait RenderPipelineStage {
 }
 /// Complete original WriteToImage3FStage and factory from stage_write.cc.
 pub struct WriteToImage3FStage<'a> {
-    image: &'a mut crate::jxl::image::Image3<f32>,
+    image: Image3WriteTarget<'a>,
+}
+enum Image3WriteTarget<'a> {
+    Borrowed(&'a mut crate::jxl::image::Image3<f32>),
+    Owned(std::rc::Rc<std::cell::RefCell<crate::jxl::image::Image3<f32>>>),
+    DcFrame(crate::jxl::passes_state::SharedDcFrames, usize),
+}
+impl Image3WriteTarget<'_> {
+    fn with_storage(
+        &mut self,
+        f: impl FnOnce(&mut crate::jxl::image::Image3<f32>) -> Status,
+    ) -> Status {
+        match self {
+            Self::Borrowed(image) => f(image),
+            Self::Owned(owner) => f(&mut owner.borrow_mut()),
+            Self::DcFrame(owner, index) => f(&mut owner.borrow_mut()[*index]),
+        }
+    }
 }
 impl<'a> WriteToImage3FStage<'a> {
     pub fn new(image: &'a mut crate::jxl::image::Image3<f32>) -> Self {
-        Self { image }
+        Self {
+            image: Image3WriteTarget::Borrowed(image),
+        }
+    }
+    pub fn from_owned(
+        owner: std::rc::Rc<std::cell::RefCell<crate::jxl::image::Image3<f32>>>,
+    ) -> Self {
+        Self {
+            image: Image3WriteTarget::Owned(owner),
+        }
+    }
+    /// Retain the decoder's actual DC array, resolving its slot for every call.
+    pub fn from_dc_frame(owner: crate::jxl::passes_state::SharedDcFrames, index: usize) -> Self {
+        assert!(index < 4);
+        Self {
+            image: Image3WriteTarget::DcFrame(owner, index),
+        }
     }
 }
 impl RenderPipelineStage for WriteToImage3FStage<'_> {
@@ -224,8 +257,11 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
                 return Err(StatusCode::GenericError);
             }
         }
-        *self.image = crate::jxl::image::Image3::create(sizes[0].0, sizes[0].1)?;
-        Ok(())
+        let image = crate::jxl::image::Image3::create(sizes[0].0, sizes[0].1)?;
+        self.image.with_storage(|storage| {
+            *storage = image;
+            Ok(())
+        })
     }
     fn process_row(
         &mut self,
@@ -242,12 +278,14 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
         if left != 0 || right != 0 {
             return Err(StatusCode::GenericError);
         }
-        for c in 0..3 {
-            let from = self.get_input_row(input, c, 0);
-            self.image.plane_row_mut(c, y)[x..x + width]
-                .copy_from_slice(&buffers.row(from)[..width]);
-        }
-        Ok(())
+        let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
+        self.image.with_storage(|image| {
+            for (c, from) in rows.into_iter().enumerate() {
+                image.plane_row_mut(c, y)[x..x + width]
+                    .copy_from_slice(&buffers.row(from)[..width]);
+            }
+            Ok(())
+        })
     }
     fn get_channel_mode(&self, c: usize) -> RenderPipelineChannelMode {
         if c < 3 {
@@ -269,6 +307,8 @@ pub struct WriteToImageBundleStage<'b, 'm> {
 enum ImageBundleTarget<'b, 'm> {
     Borrowed(&'b mut crate::jxl::image_bundle::ImageBundle<'m>),
     Shared(&'b std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>),
+    Owned(std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>),
+    Reference(crate::jxl::passes_state::SharedReferenceFrames<'m>, usize),
 }
 impl ImageBundleTarget<'_, '_> {
     fn with_storage(
@@ -278,6 +318,11 @@ impl ImageBundleTarget<'_, '_> {
         match self {
             Self::Borrowed(storage) => f(storage),
             Self::Shared(owner) => f(&mut owner.borrow_mut()),
+            Self::Owned(owner) => f(&mut owner.borrow_mut()),
+            Self::Reference(owner, index) => f(owner.borrow_mut()[*index]
+                .frame
+                .as_deref_mut()
+                .expect("source requires an existing reference bundle")),
         }
     }
 }
@@ -300,6 +345,28 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
     ) -> Self {
         Self {
             image_bundle: ImageBundleTarget::Shared(owner),
+            color_encoding: color_encoding.clone(),
+        }
+    }
+    /// Retain an external bundle owner without borrowing the containing decoder.
+    pub fn from_owned(
+        owner: std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>,
+        color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
+    ) -> Self {
+        Self {
+            image_bundle: ImageBundleTarget::Owned(owner),
+            color_encoding: color_encoding.clone(),
+        }
+    }
+    /// Resolve the existing reference slot under a short exclusive borrow.
+    pub fn from_reference(
+        owner: crate::jxl::passes_state::SharedReferenceFrames<'m>,
+        index: usize,
+        color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
+    ) -> Self {
+        assert!(index < 4);
+        Self {
+            image_bundle: ImageBundleTarget::Reference(owner, index),
             color_encoding: color_encoding.clone(),
         }
     }

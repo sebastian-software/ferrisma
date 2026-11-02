@@ -13,6 +13,18 @@ use super::image::{Image3, Plane};
 use super::image_metadata::{ExtraChannel, ImageMetadata};
 use super::jpeg::jpeg_data::JpegData;
 
+/// Borrowed representation of the source color aliases after an original
+/// ImageBundle move. The destination owns the allocation; this view prevents
+/// its mutation or destruction while the original aliases are observed.
+pub struct MovedColorView<'a> {
+    color: &'a Image3<f32>,
+}
+impl MovedColorView<'_> {
+    pub fn color(&self) -> &Image3<f32> {
+        self.color
+    }
+}
+
 pub struct ImageBundle<'a> {
     memory_manager_present: bool,
     pub jpeg_data: Option<Box<JpegData>>,
@@ -116,6 +128,37 @@ impl<'a> ImageBundle<'a> {
         self.color = color.take().unwrap();
         self.c_current.clone_from(c_current);
         self.verify_sizes()
+    }
+    /// Original RemoveColor: reset only the color planes, retaining metadata,
+    /// profile, origin, extra planes and frame fields.
+    pub fn remove_color(&mut self) {
+        self.color = Image3::default();
+    }
+    /// Original default move assignment between distinct bundle objects.
+    /// The destination object keeps its identity. Scalar fields and color-plane
+    /// headers remain in the source; its moved allocation is observed through
+    /// the destination, never through a second Rust storage owner. The returned
+    /// view represents source color samples; source.color() retains only the
+    /// scalar headers after this transfer, without an allocation owner.
+    pub fn move_from<'d>(&'d mut self, source: &mut Self) -> MovedColorView<'d> {
+        self.memory_manager_present = source.memory_manager_present;
+        self.jpeg_data = source.jpeg_data.take();
+        self.color_transform = source.color_transform;
+        self.chroma_subsampling
+            .clone_from(&source.chroma_subsampling);
+        self.origin = source.origin;
+        self.duration = source.duration;
+        self.timecode = source.timecode;
+        self.use_for_next_frame = source.use_for_next_frame;
+        self.blend = source.blend;
+        self.blendmode = source.blendmode;
+        self.name = std::mem::take(&mut source.name);
+        self.metadata = source.metadata;
+        self.color.move_from(&mut source.color);
+        self.c_current.move_from(&mut source.c_current);
+        self.extra_channels = std::mem::take(&mut source.extra_channels);
+        self.decoded_bytes = source.decoded_bytes;
+        MovedColorView { color: &self.color }
     }
     pub fn verify_sizes(&self) -> Status {
         let xs = self.xsize();

@@ -489,6 +489,8 @@ bool ACGroupSymbolsCommand(const std::string&,std::istringstream&,JxlMemoryManag
 bool BlockContextCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool WholeImageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
+bool ModularImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
 bool VarDctImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool VarDCTDCCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -502,7 +504,11 @@ bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool PatchesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool EPFCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool FrameSequencesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
+bool BlendingStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 int main() {
   try {
@@ -569,14 +575,18 @@ int main() {
       else if (UintOutputCommand(command, in, &mm)) {}
       else if (FloatOutputCommand(command, in, &mm)) {}
       else if (WholeImageCommand(command, in, &mm)) {}
+      else if (ModularImageCommand(command, in, &mm)) {}
       else if (VarDctImageCommand(command, in, &mm)) {}
       else if (GroupRenderCommand(command, in, &mm)) {}
       else if (DequantCommand(command, in, &mm)) {}
       else if (GroupScheduleCommand(command, in, &mm)) {}
       else if (VarDCTDCCommand(command, in, &mm)) {}
+      else if (FrameSequencesCommand(command, in, &mm)) {}
+      else if (RetainedFrameOwnersCommand(command, in, &mm)) {}
       else if (NoiseRenderCommand(command, in, &mm)) {}
       else if (EPFCommand(command, in, &mm)) {}
       else if (PatchesCommand(command, in, &mm)) {}
+      else if (BlendingStageCommand(command, in, &mm)) {}
       else if (SplinesCommand(command, in, &mm)) {}
       else if (ACGroupSymbolsCommand(command, in, &mm)) {}
       else if (BlockContextCommand(command, in, &mm)) {}

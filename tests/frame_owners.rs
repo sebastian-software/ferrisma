@@ -17,7 +17,7 @@ fn moved_shared_state_keeps_its_matrix_dc_and_reference_bindings_in_the_same_own
         .quantizer
         .recompute_from_global_scale(&state.shared.matrices);
     assert_eq!(state.shared.quantizer.mul_dc()[..3], [0.5, 0.25, 0.125]);
-    assert!(std::ptr::eq(state.shared.dc(), &state.shared.dc_storage));
+    assert!(std::ptr::eq(&*state.shared.dc(), &state.shared.dc_storage));
     assert_eq!(
         state
             .shared

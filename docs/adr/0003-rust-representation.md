@@ -184,6 +184,35 @@ per-plane failure order. Native moves transfer ownership; explicit image
 cloning copies samples and transform vectors without implicit plane cloning.
 Source overloads receive explicit Rust names where necessary.
 
+ImageBundle's default move is an explicit member transfer in source declaration
+order. It preserves the existing destination bundle identity and the source's
+initialized scalar fields and color-plane headers. The JPEG owner, name, ICC
+vector and extra-plane vector transfer at their original member checkpoints;
+the observed original standard-library implementation leaves the moved
+vectors/name empty. Plane allocation ownership transfers without copying pixels. Original
+moved-from Plane raw addresses can still alias the destination allocation, so
+these reads are not inherently undefined. `move_from` returns a
+`MovedColorView` borrowed from the destination to represent the reached source
+color aliases: it cannot outlive, mutate, or survive mutation/destruction of
+that destination. The source bundle itself retains headers without a second
+allocation owner. Direct arbitrary moved-from source row access is outside this
+representation. Finalization may discard this view at the original assignment
+checkpoint. RemoveColor resets only color storage; profile, metadata, origin,
+frame fields and extra planes remain intact.
+
+Decoder-owned write stages retain the same shared reference temporary through
+`Rc<RefCell<ImageBundle>>`; indexed DC writers retain the same
+`Rc<RefCell<[Image3; 4]>>` owner and resolve its selected slot for each call.
+`dc()` returns either a direct storage borrow or a mapped Ref guard of that exact
+slot, preserving pointer identity and later writes without a staged image copy.
+Reference writers retain the existing four-slot reference owner and mutate the
+existing boxed bundle. Finalization moves the temporary into that bundle rather
+than replacing its Box, so patch and blending bindings keep their object
+identity. Existing borrowed writer constructors and the externally borrowed
+RefCell constructor keep their original lifetimes. All dynamic writer borrows
+end before return, with no callbacks or concurrent writes while borrowed; this
+mapping covers the sequential simple pipeline.
+
 Row sizing keeps the scalar source's four-byte MaxVectorSize, including rejection
 of positive widths with eight-byte samples. Zero-sized planes have no allocation
 context; channel reallocation inherits that null context and retains the source
@@ -1178,3 +1207,114 @@ borrowed by the simple decoder; its original GetInputBuffers call has no additio
 side effect. Convolution retains all 24 neighbor additions and scalar Highway
 rounding. Application retains original LUT interpolation, sign-bit clamp, color
 correlation and store order under the selected source configuration in ADR 0002.
+
+### Sequential frame ownership and defined error snapshots
+
+`SequenceDecoder` owns one private `PassesDecoderState` and one shared output
+bundle. Its immutable external metadata outlives every header, reference and
+retained pipeline stage. Parsed headers use `Rc<FrameHeader>` so a persistent
+blending stage can retain the exact header without borrowing the containing
+frame decoder. The fixed entry points retain their borrowed output constructor;
+the sequential entry point and its output writers retain the same `Rc<RefCell>`
+allocation. No frame, reference image, DC image or feature owner is copied.
+Finalization moves into the existing reference bundle allocation, preserving all
+four slot identities and the source's declaration-ordered moved-from state.
+
+The original InitFrame/InitFrameOutput, deferred header bounds check, reader
+close, physical TOC order, section status, finalization and decoded-byte
+checkpoints remain distinct. Optional tracing observes reached operations and
+does not replace an earlier source failure with a later cleanup result. Preview
+`is_last` does not terminate the main-frame loop. Visible/nonvisible indices,
+reference dependencies, saved-slot masks, DC selection and overwritten reference
+slots retain the source checkpoints. Main spatial upsampling and early/late
+extra-channel upsampling follow PreparePipeline order around patches, splines,
+noise and reference writes. Chroma conversion/subsampling, ICC, spot colors,
+broader extra-channel metadata, external output layouts and public progressive
+API orchestration remain outside this admission boundary.
+
+Error snapshots retain every initialized saved reference pixel. A failed later
+frame cannot make the earlier reference owners indeterminate: the source moves
+them only after successful FinalizeDecoding. DC images differ because the actual
+WriteI3F stage reallocates a slot in SetInputSizes before copying rows. Test-only
+C++ forwarding wrappers delegate the pristine stage's allocation, row writes,
+settings, status and cleanup unchanged, recording only successful allocation
+and row-span checkpoints. The optional Rust trace records those same events.
+Each allocation starts a new coverage generation; successful row spans mark
+all three written color samples. WriteIB forwarding observes output and
+reference-storage color/extra planes separately, including the successful color
+and extra-plane prefix if a later row guard fails. RemoveColor/ClearExtraChannels
+and reference-storage replacement invalidate coverage at their actual source
+checkpoints. A successful reference move leaves a defined source color alias;
+the Rust observer resolves it through that same reference slot without creating
+a second image owner, while moved extra-channel vectors become empty. Snapshots
+include output and reference storage on early header errors as well as section,
+close and finalization errors. They read all and only covered samples, including
+initialized samples retained after later errors, and never inspect newly
+allocated unwritten source samples. The current fixtures use the real host
+allocator and do not establish allocation-fault-injection coverage. The wrapper context is confined to
+one sequential null-runner fixture invocation and does not establish concurrent
+callback or custom-runner coverage. The pristine stage_write.cc supplies the
+actual public factories; there is no replacement pixel algorithm or runtime
+C++ dependency in the Rust library.
+
+
+### Source-generated lifecycle acceptance fixtures
+
+The sequential header boundary retains the complete parsed U64 flag field.
+Pinned FrameHeader::VisitFields reads it without rejecting reserved bits;
+reached dec_frame/dec_cache operations test only their individual known flags.
+An extra known-bit admission mask would reject earlier than the original
+InitFrameOutput and section-error checkpoints. The sequence admission therefore
+keeps unknown bits unchanged. Earlier fixed-profile entry points retain their
+separate closed-profile admission. The genuine patch fixture's byte-40 XOR
+mutation changes flags from 2 to 4 and explicitly checks the original successful
+output initialization before its later section error.
+
+Expanded lifecycle fixtures supply inputs to the actual encoder rather than
+constructing codec payloads. A separate opt-in command selects Squirrel,
+patches-on, and repeated connected glyph pixels; the unchanged commands keep
+their previous parameters and pixels. FindBestPatchDictionary and
+RoundtripPatchFrame queue the automatic reference-only special frame that the
+real EncodeFrameOneShot prepends. The saved 112-byte original capture and
+all output samples are checked exactly. Dictionary observations use only
+initialized vector entries; GetReferences iterates ref_positions whose source
+reference-index guard precedes insertion. Error snapshots keep partial positions
+without querying a not-yet-built patch tree.
+
+Main/extra resampling fixtures explicitly set CompressParams.resampling,
+ec_resampling, and modular_group_size_shift before ParamsPostInit, observe their
+readback, and check the reached decoded headers. Source EncodeFrame may increase
+the extra-channel factor to the main factor. Aligned positive early-extra cases
+remain distinct from genuine odd-sized Modular source-decoder failures; neither
+encoder rejections nor decoder failures substitute for successful source paths.
+Deliberate group boundaries are asserted from parsed headers, including
+reference, animation, and preview sequences at 257x3, 3x257, and 513x1.
+
+Higher-DC decoder fixtures start with genuine progressive-DC2 1x1 encoder
+output. The original header and TOC readers identify all payloads. Original
+WriteFrameHeader/WriteToc routines change only dc_level, preserving payloads,
+TOC sizes/permutations, and all 18 FrameDimensions fields for each reused frame.
+Reparsing and restoring that one field reproduces each original frame byte for
+byte; the DC2 whole-file control is also identical. This proves the original
+DC3/DC4 decoder schedules without claiming MakeFrameHeader can emit those
+levels. No handwritten codec framing, substitute entropy decoder, or production
+C++ dependency is introduced. All earlier fixture inputs and requests remain
+in the expanded corpus.
+
+Alpha's unassociated color term preserves `(bg * bga) * (1 - fga)` in that
+source operand order. Native x86 retains `1 - ((1 - fga) * (1 - bga))` as a
+subtraction and foreground-first additions; replacing it with a negated product
+changes exceptional words. ARM retains its source contraction. Local arithmetic
+call boundaries preserve those choices across Rust optimization. The selected
+pristine configuration and its finite/default audit are recorded in ADR 0002.
+PerformMulBlending also passes its literal background-first product through the
+existing out-of-line binary32 multiplication boundary. Native Linux ordinary
+Debug matched the selected source, while Rust Release commuted competing NaN
+operands in the clamped 1,536-pixel request. Retain the same request and every
+expected word; the call boundary preserves source operand order without changing
+the clamp, multiplication, rounding, or loop. Native replacement parity remains
+the acceptance gate.
+The original zero-width aliased memcpy boundary is exercised separately by
+oracle subprocesses, with explicit sanitizer evidence and no claimed source
+pixel semantics, including the source-derived tree-rendering boundaries recorded
+in ADR 0002. Rust's empty owned temporary remains safe to represent.

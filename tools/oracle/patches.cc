@@ -34,6 +34,19 @@ std::vector<jxl::ExtraChannelInfo> Extras(size_t n, size_t assoc) {
 float Pixel(size_t ref,size_t c,size_t x,size_t y) { return static_cast<float>((ref*37+c*11+x*3+y*7)%47)/16.0f - 0.5f; }
 }
 bool PatchesCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
+ if(command=="patch-sanitizers") {
+  // Observe this adapter's real instrumentation, not an environment/path hint.
+  // The oracle always enables ASan and UBSan together when instrumented.
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+  std::cout<<1; return true;
+#endif
+#endif
+#if defined(__SANITIZE_ADDRESS__)
+  std::cout<<1; return true;
+#endif
+  std::cout<<0; return true;
+ }
  if(command=="patch-needs") {
   unsigned type,custom,mode;size_t n;in>>type>>custom>>mode>>n;jxl::CodecMetadata metadata;jxl::FrameHeader header(&metadata);header.frame_type=static_cast<jxl::FrameType>(type);header.custom_size_or_origin=custom;header.blending_info.mode=static_cast<jxl::BlendMode>(mode);header.extra_channel_blending_info.resize(n);for(auto& ec:header.extra_channel_blending_info) {in>>mode;ec.mode=static_cast<jxl::BlendMode>(mode);}std::cout<<jxl::NeedsBlending(header);return true;
  }
@@ -55,6 +68,13 @@ bool PatchesCommand(const std::string& command,std::istringstream& in,JxlMemoryM
   for(size_t c=0;c<3+n;++c) { for(size_t x=0;x<x0+width+2;++x) fg[c].push_back(ReadFloat(in)); out[c]=bg[c]; b[c]=bg[c].data();f[c]=fg[c].data();o[c]=out[c].data(); }
   auto status=jxl::PerformBlending(mm,b.data(),f.data(),o.data(),x0,width,color,ec.data(),extras);
   std::cout<<Code(status); for(auto& row:out) for(float v:row) Float(v); return true;
+ }
+ if(command=="patch-rgba") {
+  size_t premul,clamp,n;in>>premul>>clamp>>n;
+  std::array<std::vector<float>,8> input;for(auto& row:input){row.resize(std::max<size_t>(1,n));for(size_t x=0;x<n;++x)row[x]=ReadFloat(in);}
+  std::array<std::vector<float>,4> out;for(auto& row:out)row.assign(std::max<size_t>(1,n),19.0f);
+  jxl::PerformAlphaBlending({input[0].data(),input[1].data(),input[2].data(),input[3].data()},{input[4].data(),input[5].data(),input[6].data(),input[7].data()},{out[0].data(),out[1].data(),out[2].data(),out[3].data()},n,premul,clamp);
+  std::cout<<"A";for(auto& row:out)for(size_t x=0;x<n;++x)Float(row[x]);return true;
  }
  if(command=="patch-alpha") {
   size_t op,premul,clamp,n,bi,bai,fi,fai;in>>op>>premul>>clamp>>n>>bi>>bai>>fi>>fai;

@@ -504,3 +504,29 @@ original graphs in CI run 41440766024. Each graph agrees on all 72 words for eac
 unchanged input file. They preserve independent source outputs instead of using
 Rust results as golden data; the original AArch64 captures are retained. See the
 fixture README for the native job and selection rule.
+
+The patch port translates `dec_patch_dictionary.{h,cc}`,
+`patch_dictionary_internal.h`, `blending.{h,cc}`, `alpha.{h,cc}`, and
+`render_pipeline/stage_patches.{h,cc}`. Genuine original entropy encoders produce
+the dictionary fixtures. Observations retain initialized partial dictionary/tree
+state and invoke actual original row/stage factories. The translated libc++
+non-arithmetic sort preserves tied interval order. Shared Rust stage bindings
+retain the existing dictionary and reference owners through their identities.
+
+`tools/oracle/alpha.cc` includes the pristine original file and supplies all six
+real public symbols, including complete-file calls. Only that unit uses scoped
+O0/no-inline configuration, with strict FP additionally on native x86_64 Linux.
+ARM keeps its original contraction. The numeric source audit verifies selected
+bindings, 1,944 ordinary/instrumented requests and all 1,632 finite observations
+against each untouched optimized archive. Native diagnostics retain complete
+source object disassembly and rejected candidate observations. Source revision,
+body, dependencies and every sanitizer remain unchanged.
+
+The original zero-width extra-channel weighted-add alias path can pass a null
+temporary destination to memcpy at `alpha.cc:70`. All 24 triggering old requests are
+retained as explicit original-only probes, with positive native Linux UBSan
+diagnostics; no output word from that undefined call is treated as reference
+semantics. Exact parity retains all 360 other blend requests, including 72
+zero-width cases. Direct zero-count alpha calls have non-null backing. See the
+[living oracle decision](adr/0002-differential-oracle.md) for the configuration
+and its review triggers.

@@ -51,6 +51,7 @@ endforeach()
 # the archive supplies the remaining original objects, without replacement code.
 add_subdirectory("${UPSTREAM}" upstream EXCLUDE_FROM_ALL)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  set_source_files_properties(blending_stage.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Keep Quantizer's original constructor/recomputation calls across plain and
   # sanitized builds. Inlining folds *1 into a raw copy only in the plain build,
   # changing signaling-NaN observations. The source routines stay unmodified.
@@ -70,7 +71,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle main.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
@@ -78,8 +79,19 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Match the original GetBlock class hierarchy in this traversal observer.
   # Keep the pristine noise stage operator order stable across ordinary and
   # sanitized objects. Only this isolated stage TU uses scoped -O0.
+  set_source_files_properties(frame_sequences.cc frame_sequence_writes.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
+  set_source_files_properties(retained_frame_owners.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   set_source_files_properties(splines.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
-  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS -fno-inline-functions)
+  # Native original alpha expressions commute exceptional operands differently
+  # across optimized/instrumented graphs. O0 preserves their scalar boundaries;
+  # native x86 additionally requires strict FP to retain the source subtraction
+  # and ADDSS destinations. ARM keeps its original contraction: strict FP changes
+  # finite words there. The pristine TU supplies all actual public alpha symbols,
+  # with every sanitizer active. tools/alpha_reference.py audits both defaults.
+  set_source_files_properties(alpha.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-inline-functions")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_property(SOURCE alpha.cc APPEND PROPERTY COMPILE_OPTIONS -ffp-model=strict)
+  endif()
   set_source_files_properties(patches.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   set_source_files_properties(epf.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti;-fno-access-control")
   set_source_files_properties(noise_stage.cc PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")

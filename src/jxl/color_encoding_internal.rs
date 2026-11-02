@@ -135,6 +135,29 @@ impl Default for ColorEncoding {
     }
 }
 impl ColorEncoding {
+    /// Default C++ member move: the ICC vector transfers, scalar/custom fields
+    /// remain unchanged in the source. No profile reconstruction takes place.
+    pub(crate) fn move_from(&mut self, source: &mut Self) {
+        self.all_default = source.all_default;
+        self.want_icc = source.want_icc;
+        self.storage.white_point = source.storage.white_point;
+        self.storage.primaries = source.storage.primaries;
+        self.storage.rendering_intent = source.storage.rendering_intent;
+        self.storage.have_fields = source.storage.have_fields;
+        self.storage.icc = std::mem::take(&mut source.storage.icc);
+        self.storage.color_space = source.storage.color_space;
+        self.storage.cmyk = source.storage.cmyk;
+        self.storage.tf.clone_from(&source.storage.tf);
+        self.storage.white.clone_from(&source.storage.white);
+        self.storage.red.clone_from(&source.storage.red);
+        self.storage.green.clone_from(&source.storage.green);
+        self.storage.blue.clone_from(&source.storage.blue);
+        self.white.clone_from(&source.white);
+        self.tf.clone_from(&source.tf);
+        self.red.clone_from(&source.red);
+        self.green.clone_from(&source.green);
+        self.blue.clone_from(&source.blue);
+    }
     fn create_c2(primaries: Primaries, tf: TransferFunction) -> [Self; 2] {
         let mut values = [Self::default(), Self::default()];
         for (i, value) in values.iter_mut().enumerate() {
