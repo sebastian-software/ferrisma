@@ -741,8 +741,84 @@ impl Default for Checkpoint {
     }
 }
 
+/// Code-independent owned fields from the original ANSSymbolReader. Moving
+/// this carrier retains the same LZ77 allocation and all checkpoint state.
+pub struct ANSSymbolReaderState {
+    use_prefix_code: bool,
+    state: u32,
+    log_alpha_size: u32,
+    log_entry_size: u32,
+    entry_size_minus_1: u32,
+    lz77_window: Option<AlignedMemory>,
+    num_decoded: u32,
+    num_to_copy: u32,
+    copy_pos: u32,
+    lz77_ctx: u32,
+    lz77_min_length: u32,
+    lz77_threshold: u32,
+    lz77_length_uint: HybridUintConfig,
+    special_distances: [u32; NUM_SPECIAL_DISTANCES],
+    num_special_distances: u32,
+}
+
+impl Default for ANSSymbolReaderState {
+    fn default() -> Self {
+        Self {
+            use_prefix_code: false,
+            state: ANS_SIGNATURE << 16,
+            log_alpha_size: 0,
+            log_entry_size: 0,
+            entry_size_minus_1: 0,
+            lz77_window: None,
+            num_decoded: 0,
+            num_to_copy: 0,
+            copy_pos: 0,
+            lz77_ctx: 0,
+            lz77_min_length: 0,
+            lz77_threshold: 1 << 20,
+            lz77_length_uint: HybridUintConfig::default(),
+            special_distances: [0; NUM_SPECIAL_DISTANCES],
+            num_special_distances: 0,
+        }
+    }
+}
+
+#[cfg(feature = "cpp-oracle")]
+impl ANSSymbolReaderState {
+    pub fn observer_use_prefix_code(&self) -> bool {
+        self.use_prefix_code
+    }
+
+    pub fn observer_scalars(&self) -> [u32; 15] {
+        [
+            self.state,
+            self.log_alpha_size,
+            self.log_entry_size,
+            self.entry_size_minus_1,
+            self.num_decoded,
+            self.num_to_copy,
+            self.copy_pos,
+            self.lz77_ctx,
+            self.lz77_min_length,
+            self.lz77_threshold,
+            self.lz77_length_uint.split_exponent,
+            self.lz77_length_uint.split_token,
+            self.lz77_length_uint.msb_in_token,
+            self.lz77_length_uint.lsb_in_token,
+            self.num_special_distances,
+        ]
+    }
+
+    pub fn observer_window(&self) -> Option<&[u32]> {
+        self.lz77_window
+            .as_ref()
+            .map(|window| &window.u32s()[..(self.num_decoded as usize).min(WINDOW_SIZE)])
+    }
+}
+
 pub struct ANSSymbolReader<'a> {
     code: &'a ANSCode,
+    use_prefix_code: bool,
     state: u32,
     log_alpha_size: u32,
     log_entry_size: u32,
@@ -760,6 +836,50 @@ pub struct ANSSymbolReader<'a> {
 }
 
 impl<'a> ANSSymbolReader<'a> {
+    /// Resolve surviving cached table/config views in the same code owner.
+    /// In-place source updates remain visible; the mode scalar stays cached.
+    /// Reached source views must not have been invalidated by owner changes.
+    pub fn from_state(code: &'a ANSCode, state: ANSSymbolReaderState) -> Self {
+        Self {
+            code,
+            use_prefix_code: state.use_prefix_code,
+            state: state.state,
+            log_alpha_size: state.log_alpha_size,
+            log_entry_size: state.log_entry_size,
+            entry_size_minus_1: state.entry_size_minus_1,
+            lz77_window: state.lz77_window,
+            num_decoded: state.num_decoded,
+            num_to_copy: state.num_to_copy,
+            copy_pos: state.copy_pos,
+            lz77_ctx: state.lz77_ctx,
+            lz77_min_length: state.lz77_min_length,
+            lz77_threshold: state.lz77_threshold,
+            lz77_length_uint: state.lz77_length_uint,
+            special_distances: state.special_distances,
+            num_special_distances: state.num_special_distances,
+        }
+    }
+
+    pub fn into_state(self) -> ANSSymbolReaderState {
+        ANSSymbolReaderState {
+            use_prefix_code: self.use_prefix_code,
+            state: self.state,
+            log_alpha_size: self.log_alpha_size,
+            log_entry_size: self.log_entry_size,
+            entry_size_minus_1: self.entry_size_minus_1,
+            lz77_window: self.lz77_window,
+            num_decoded: self.num_decoded,
+            num_to_copy: self.num_to_copy,
+            copy_pos: self.copy_pos,
+            lz77_ctx: self.lz77_ctx,
+            lz77_min_length: self.lz77_min_length,
+            lz77_threshold: self.lz77_threshold,
+            lz77_length_uint: self.lz77_length_uint,
+            special_distances: self.special_distances,
+            num_special_distances: self.num_special_distances,
+        }
+    }
+
     pub fn create(
         code: &'a ANSCode,
         br: &mut BitReader<'_>,
@@ -772,6 +892,7 @@ impl<'a> ANSSymbolReader<'a> {
         };
         let mut result = Self {
             code,
+            use_prefix_code: code.use_prefix_code,
             state: ANS_SIGNATURE << 16,
             log_alpha_size: 0,
             log_entry_size: 0,
@@ -852,7 +973,7 @@ impl<'a> ANSSymbolReader<'a> {
         histo_idx: usize,
         br: &mut BitReader<'_>,
     ) -> usize {
-        if self.code.use_prefix_code {
+        if self.use_prefix_code {
             self.read_symbol_huff_without_refill(histo_idx, br)
         } else {
             self.read_symbol_ans_without_refill(histo_idx, br)
@@ -929,7 +1050,7 @@ impl<'a> ANSSymbolReader<'a> {
     }
 
     pub fn is_huff_rle_only(&self) -> bool {
-        if self.lz77_window.is_none() || !self.code.use_prefix_code {
+        if self.lz77_window.is_none() || !self.use_prefix_code {
             return false;
         }
         for i in 0..HUFFMAN_TABLE_BITS {
@@ -1054,7 +1175,7 @@ impl<'a> ANSSymbolReader<'a> {
         value: &mut u32,
         count: usize,
     ) -> bool {
-        if self.code.use_prefix_code || self.num_to_copy != 0 {
+        if self.use_prefix_code || self.num_to_copy != 0 {
             return false;
         }
         let res = self.state & (ANS_TAB_SIZE - 1);

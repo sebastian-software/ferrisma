@@ -501,6 +501,8 @@ bool DequantCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool IccReaderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 int main() {
   try {
@@ -549,6 +551,8 @@ int main() {
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (QuantizerCommand(command, in, &mm)) {}
       else if (SplinesCommand(command, in, &mm)) {}
+      else if (IccCodecCommand(command, in, &mm)) {}
+      else if (IccReaderCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

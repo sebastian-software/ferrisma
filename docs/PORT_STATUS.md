@@ -117,11 +117,13 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
 | `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
+| `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete tag/command tables, endian access, unsigned bounds checks, initial/adaptive header prediction, linear byte prediction and ICC ANS contexts |
+| `icc_codec.h`, `.cc` | `icc_codec.rs` | Complete shuffle, bounded base-128 varint, preamble validation, ICC command decoding and incremental ICCReader Init/Process/Reset/CheckEOI with exact checkpoint, replay and defined partial state; whole-file ICC admission remains separate |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
-| `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
+| `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, transferred output ownership, WithInitialSpace, clear, push_back and checked append reached by ICC decoding; other container operations unported |
 | `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation using Rust allocator and source scalar row sizing; custom C callbacks unported |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
@@ -1400,3 +1402,83 @@ original compiler-dependent NaN operand ambiguity and ownership mapping. No old
 cases, expected words, source pins, sanitizer flags, or original archive options
 change. Complete-file EPF admission and image evidence are a separate integration
 milestone, so the README's EPF checkbox remains open here.
+
+
+## ICC profile command decoding
+
+The complete common-helper and UnpredictICC boundary adds five differential
+groups and 12,247 exact original requests. These cover every byte-pair context
+class, tag/endian access, adaptive header prediction, preceding-history loads,
+unsigned overflow checks, all tenth-byte varint forms, nonrectangular shuffles,
+every tag/command byte and prediction flag, command errors and initialized output
+prefixes. Four sRGB/linear ICC profiles and 45 arbitrary byte buffers pass through
+the actual original PredictICC function; their genuine command streams are then
+decoded, truncated and mutated against both implementations. Three standalone
+regressions retain independent original captures for tenth-byte overflow,
+nonrectangular shuffling and partial output with the nonempty-result guard.
+
+The observer compiles pristine icc_codec.cc and calls the original common helpers
+and predictor. Source bodies, numeric options, dependencies and sanitizer
+coverage remain unchanged. A fresh source review retained the fallible allocated
+header checkpoint and the full logical-position/history domain. Focused
+comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
+Rust 1.85 configurations, including the three standalone regressions.
+The command component passes complete ordinary and ASan/UBSan checks in Debug,
+Release and Rust 1.85: each configuration runs 449 tests, including 261
+differential groups and 894,179 exact requests, with no failures or ignored
+tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601)
+also passes all six Linux and three instrumented macOS configurations. The
+streaming reader component below requires its own complete integration checks.
+ICC parsing/default CMS and whole-file ICC admission remain open; the README
+color-profile checkbox stays unchecked.
+
+
+## Incremental ICCReader
+
+The complete pinned ICCReader Init, Process, Reset and CheckEOI component adds
+eight differential groups and 2,159 exact original requests with 7,894 incremental
+steps. Genuine original WriteICC streams and independently encoded ANS/Huffman
+payloads exercise chunked replay, different starting-bit bases, shorter backing,
+fatal headers/preambles/commands, output reuse and Reset. A full LZ77 ring and the
+original 65,536-byte expansion-ratio checkpoint are reached. The corpus retains
+4,425 NotEnoughBytes steps, 157 fatal observations, and 993 rollback observations
+whose still-defined written prefix exceeds the restored logical index. All fatal
+observations remain present alongside explicit caller Reset/replay recovery.
+
+Four standalone regressions use independently captured original behavior for
+Process before Init, owner moves after Init, and a partial LZ77 decode resumed
+after moving the complete reader, and source-defined Process after failed Init
+retaining the original cached Huffman mode. The genuine captured stream is 89 bytes and
+708 bits; its 47-byte prefix restores index 20 while retaining a defined 512-byte
+prefix, then resumes at the saved 373-bit skip.
+
+The original observer includes headers and calls real methods from the existing
+pristine complete icc_codec.cc unit. The durable tools/icc_reader_reference.py
+audit verifies those symbol definitions and link bindings, existing ANS
+decoder/checkpoint bodies after only the three enumerated source-cached mode
+accesses and one constructor initializer are normalized, unchanged ICC command
+bodies, full sanitizer coverage and both
+unchanged optimized original graphs. Every request and initialized observation
+is retained in the audit artifacts. ADR 0003 records the code-independent owned
+ANS state and ephemeral borrowed-reader mapping. No source algorithm, numeric
+flag, old expected output, runtime dependency or production C++ fallback changes.
+All six focused native ARM configurations pass: ordinary and fully ASan/UBSan
+Debug, Release and Rust 1.85 each complete 41 tests, including 32 differential
+tests and 203,189 exact requests across the reader and affected ICC/ANS/entropy
+boundaries, with no failures or ignored tests. Formatting, all-target/all-feature
+Clippy and the independent source-binding audit pass. Both complete local checks
+also pass ordinary and ASan/UBSan Debug, Release and Rust 1.85: each configuration
+completes 461 tests, 269 differential groups and 896,338 exact requests, with no
+failures or ignored tests. Native Linux/macOS CI and integration with current
+main remain required before this component is delivered.
+
+
+Independent cold review exposed a source-defined post-fatal Init path: histogram
+parsing changes code.use_prefix_code before ANS creation while the prior cached
+Huffman/config arrays remain valid. The source continues with its cached mode;
+the corrected state carrier now retains that scalar. Ten additive requests retain
+the exact original counterexample and both mode-switch directions, independently
+observe cached scalar and table/config pointer identity, and positively execute
+Process. Unused changed views do not exclude defined calls. Every previous 2,149
+request and expected observation remains intact; corrected focused verification
+and the source audit supersede the earlier packet's proof.

@@ -1139,3 +1139,83 @@ The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
 one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
 original reference configuration in ADR 0002; other target specializations remain
 separate work.
+
+
+ICC command decoding retains the original fallible PaddedBytes header append
+before inspecting the decoded output size, including zero-size output. Temporary
+array views borrow that allocated header; they do not replace its allocation
+checkpoint. The reached WithInitialSpace, clear, push_back and append operations
+retain their original size/growth/status order. No decoded prefix is discarded
+on a command or varint error.
+
+Linear ICC prediction keeps the logical current position separate from physical
+history backing. The source's width-four DecodeUint32 guard uses that logical
+position; only the preceding words need physical backing. Safe checked loads
+therefore do not require a slice extending to the current position. Width-one
+and width-two promoted integer formulas narrow at the original byte/word
+boundaries; explicit modulo-u32 arithmetic followed by narrowing preserves those
+results. Width-four prediction retains original unsigned wrapping. Invalid raw
+pointer, zero shuffle-width and overlapping-container caller preconditions do
+not receive invented codec semantics.
+
+
+ICCReader owns its ANSCode separately from a code-independent
+ANSSymbolReaderState. The state carrier moves all fifteen non-code fields,
+including the same aligned LZ77 window allocation, into a temporary borrowed
+ANSSymbolReader for each decoding call and moves them back on every Status
+return. Existing borrowed APIs and decoding/checkpoint algorithms are unchanged;
+three reader mode checks now access the source-cached scalar rather than the
+mutable owner mode. This replaces the source's retained code pointers without cloning
+code or windows, reparsing input, self-references, raw aliases or new unsafe
+operations. Native Rust moves transfer the complete reader owner.
+
+Default initialized ANS scalars retain the source values; source-uninitialized
+cached pointers and prefix-selection state are not exposed as fixture data.
+Reset clears only bits_to_skip and decompressed logical size, retaining the code,
+ANS state, index, encoded size and allocations. Init sets the used-bit base after
+its initial EOI check and either parses the original histogram/preamble or skips
+the retained checkpoint distance. Process checkpoints at the original 512-byte
+intervals, restores only ANS state and the logical index on NotEnoughBytes, and
+retains the consumed bit-reader position. Its expansion-ratio and ANS final-state
+guards precede output clearing and UnpredictICC in source order.
+
+Defined decompressed writes after a saved index remain observable after rollback;
+they must not be confused with the restored logical index. Fixture callers track
+the initialized physical prefix independently across growth and Reset, including
+the PaddedBytes byte initialized after an allocation copy. They observe only the
+intersection with logical size and initialized LZ77 history, never uninitialized
+capacity or uninitialized cached source pointers. Allocation identity is compared while
+capacity is unchanged; allocator address reuse after growth is not required.
+Read-only snapshots exist only with the explicit cpp-oracle feature. Cache-mode
+and view-identity observations require a proven Create; source-uninitialized
+default cached mode/pointers are never read by the original observer.
+
+A short input can produce a fatal histogram or preamble error as well as
+NotEnoughBytes. Fixtures retain each original fatal status, complete pre-reset
+state and output; separate caller-recovery sequences explicitly Reset before
+replaying after fatal errors. NotEnoughBytes instead resumes from the saved
+checkpoint without Reset. Process before Init follows its actual source EOI,
+ANS-final-state and empty UnpredictICC path; it does not acquire a fabricated
+initialization error. These component APIs do not admit ICC profiles through the
+complete-file decoder or provide ICC parsing/CMS transforms.
+
+
+A failed histogram parse can change the owner mode before recreating the ANS
+reader while leaving its cached Huffman/ANS tables and configuration entries
+valid. Retain the source use_prefix_code_ scalar from Create in both the reader
+and moved state carrier; never resolve it from the subsequently mutated owner.
+Surviving cached table/config pointers resolve to the same owning array entries,
+including in-place partial updates. Replacement or vector reallocation may
+invalidate a reached source view; an unused stale view does not invalidate an
+otherwise defined call. Additive original fixtures positively execute direct
+Process after fatal Init in both mode-switch directions, independently observing
+the real cached scalar and pointer identities, including a changed unused
+Huffman view while the reached ANS/config arrays remain valid.
+
+Reset midway through an existing stream clears the decompressed logical size
+without resetting its index; Process requires a successful fresh Init before
+reaching those cleared indices again. Custom allocator failures and arbitrary
+invalid caller sequences remain outside these observations. Source-integrity
+audits normalize only the three enumerated cached-mode field accesses and the
+single constructor cache initializer before requiring the previously recorded
+byte-identical decoder/checkpoint body hash.
