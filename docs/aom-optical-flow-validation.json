@@ -1,12 +1,12 @@
 {
-  "status": "supplementary original optical-flow body passed on macOS ARM64 in both profiles",
+  "status": "supplementary original optical-flow body passed on macOS ARM64 and native GNU Linux x86-64 in both profiles",
   "target": "aarch64-apple-darwin",
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "production_translation_units_per_profile": 168,
   "original_suite_execution_credit": 0,
   "full_standalone_acceptance": false,
   "root_integration": false,
-  "native_linux_execution_pending": true,
+  "native_linux_execution_pending": false,
   "original_fixture_behavior": "YUVVideoSource reuses one image allocation: src and ref in the original body point to the second frame after Next(). The original body and assertions are preserved; this comparison does not establish distinct-frame optical-flow coverage.",
   "negative_checks": {
     "missing_fixture_rejected": true,
@@ -143,5 +143,138 @@
         }
       }
     }
-  }
+  },
+  "native_linux_profiles": {
+    "debug": {
+      "profile": "debug",
+      "original_registrations": 18729,
+      "executed_original_cases": 0,
+      "executed_supplementary_cases": 1,
+      "supplementary_registrations": [
+        "PortScalar/ComputeFlowTest.CheckOutput/0",
+        "PortScalar/ComputeFlowTest.DISABLED_Speed/0"
+      ],
+      "augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "baseline_augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/disflow_test.cc",
+      "original_source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "oracle_sites": {
+        "aom_compute_flow_at_point_c": [
+          77,
+          85
+        ]
+      },
+      "binding_copy_sha256": "9222d07d7b303c1f99af24fcb9442b1445360642f85ea0c1851580c78c2ab29a",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "bf6e4a04303436c4a093106be13d62d4e7202940eaff5e053db411e46d7478df",
+        "profile": "debug",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2743,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "6dfe02dfe180abc7574e7b80f45b2c6e731e53549d095819023c3be19dfd4d91",
+        "archive_sha256": "13ceadcde78598145fd539cad37cb5b22a3607d62c80cda0c1eeb8ff59daebe6",
+        "rename_map_sha256": "1da641cac2d6f8e789812a307cac15085eb31b2e8fc051083e198a244c24263a",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2743,
+        "isolated_c_oracle_globals": 139,
+        "reviewed_rust_subjects": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "map_sha256": "b778bd04085b588e164cbcf06f8753a07c17aa98744fed0f7fbb20c16b677134"
+      },
+      "translation_manifest_sha256": "36d4715b42e88053336c418b26344d7516516f201e3021bbd17b6f9cd8a790da",
+      "rust_archive_sha256": "44bb5dae0247cc8deac79c37e5248f47fb8ca844664d87749bbbbb0dbe818b71",
+      "cases": [
+        {
+          "name": "PortScalar/ComputeFlowTest.CheckOutput/0",
+          "failed": false,
+          "skipped": false
+        }
+      ],
+      "original_fixtures": {
+        "bus_352x288_420_f20_b8.yuv": {
+          "sha1": "3eaf216d9fc8b4b9bb8c3956311f49a85974806c",
+          "size": 2585088,
+          "sha256": "61b6c4c773d08b468afa92502d6decac78781724904056b7ff8565d07a1afc16"
+        }
+      }
+    },
+    "release": {
+      "profile": "release",
+      "original_registrations": 18729,
+      "executed_original_cases": 0,
+      "executed_supplementary_cases": 1,
+      "supplementary_registrations": [
+        "PortScalar/ComputeFlowTest.CheckOutput/0",
+        "PortScalar/ComputeFlowTest.DISABLED_Speed/0"
+      ],
+      "augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "baseline_augmentation_sha256": "56d9dc2b1fc02e49c4de589805a89df8461d707b3fff1a9aae08f53ce0d5b286",
+      "original_assertions_parameters_and_disabled_flags_unchanged": true,
+      "original_source": "test/disflow_test.cc",
+      "original_source_sha256": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+      "oracle_sites": {
+        "aom_compute_flow_at_point_c": [
+          77,
+          85
+        ]
+      },
+      "binding_copy_sha256": "9222d07d7b303c1f99af24fcb9442b1445360642f85ea0c1851580c78c2ab29a",
+      "complete_dsp_role_review": false,
+      "reference_archive": {
+        "key": "72a2e36d1584f07010d4e5df66363f4a86bcb6716199c1516688955c81477794",
+        "profile": "release",
+        "original_translation_units": 168,
+        "archive_members": 168,
+        "renamed_original_globals": 2741,
+        "unrenamed_original_codec_references": [],
+        "original_archive_sha256": "f4e512fd92cdd96f66958b3afe210a4657f3f7601e42cf6cb6cbbf1f600b48d1",
+        "archive_sha256": "741a0a532b8d3bf85ebc1612914d76844fa1afe40e7ef2cdde9f138e32b712d8",
+        "rename_map_sha256": "88e1b9ced522184e52591f404772724fa93f13fafa07e0d78d96a37d73f34fc4",
+        "object_tool": "llvm-objcopy, compatible with GNU objcopy\nUbuntu LLVM version 16.0.6\n  Optimized build.",
+        "archive_symbol_index_rebuilt": true,
+        "original_c_preprocessing_and_instructions_preserved": true
+      },
+      "ownership": {
+        "rust_original_globals": 2741,
+        "isolated_c_oracle_globals": 137,
+        "reviewed_rust_subjects": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "reviewed_c_oracles": [
+          "aom_compute_flow_at_point_c"
+        ],
+        "map_sha256": "cc67c63ab81292a93ed679be4d3e5be56f776e74cbca452aa0d5a772e02677a5"
+      },
+      "translation_manifest_sha256": "d86f0b5ed1ce66e1182da605745c3e38ee1f1a7cfa80805ed609722806a790a5",
+      "rust_archive_sha256": "188f5942a559d9ca639e42755d2f5620b08617fb3871e6d4626e00ee1830f4c4",
+      "cases": [
+        {
+          "name": "PortScalar/ComputeFlowTest.CheckOutput/0",
+          "failed": false,
+          "skipped": false
+        }
+      ],
+      "original_fixtures": {
+        "bus_352x288_420_f20_b8.yuv": {
+          "sha1": "3eaf216d9fc8b4b9bb8c3956311f49a85974806c",
+          "size": 2585088,
+          "sha256": "61b6c4c773d08b468afa92502d6decac78781724904056b7ff8565d07a1afc16"
+        }
+      }
+    }
+  },
+  "native_linux_execution_run": 41501295637,
+  "native_linux_execution_commit": "a026d618f267fe81fa1a26d13949e39328064151",
+  "native_linux_execution_url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41501295637"
 }
