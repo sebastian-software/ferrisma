@@ -15,7 +15,7 @@ permissions:
 jobs:
   translate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 100
+    timeout-minutes: 180
     env:
       CC: clang-16
       CXX: clang++-16
@@ -108,6 +108,13 @@ jobs:
           python3 tools/check_aom_oracles.py --suite kmeans
           python3 tools/check_aom_oracles.py --debug --suite nn-predict
           python3 tools/check_aom_oracles.py --suite nn-predict
+      - name: Compare original 2D and compound convolution reference roles
+        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+        run: |
+          python3 tools/check_aom_oracles.py --debug --suite convolution-2d
+          python3 tools/check_aom_oracles.py --suite convolution-2d
+          python3 tools/check_aom_oracles.py --debug --suite compound
+          python3 tools/check_aom_oracles.py --suite compound
       - name: Compare native VMAF modes with the integer model
         if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |
@@ -179,6 +186,8 @@ jobs:
             build/aom-macro-tests-*/*.xml
             build/aom-reference-*/summary.json
             build/aom-oracles-*/summary.json
+            build/aom-oracles-*/*.log
+            build/aom-oracles-*/*.xml
             build/aom-faults-*/summary.json
             build/aom-faults-*/failure.log
             build/aom-faults-*/mismatch.json

@@ -52,6 +52,30 @@ INTRABC_SITES = {
 SUITES['intrabc'] = dict(source=SOURCE, sites=INTRABC_SITES, subjects=list(INTRABC_SITES),
     filter='C/AV1Convolve*IntraBCTest.RunTest/*', cases=243,
     headers=['config/av1_rtcd.h', 'config/aom_dsp_rtcd.h'])
+CONVOLUTION_2D_SITES = {
+    'av1_convolve_2d_sr_c': [1313, 1348, 1405],
+    'av1_highbd_convolve_2d_sr_c': [1643, 1671, 1715],
+}
+SUITES['convolution-2d'] = dict(source=SOURCE, sites=CONVOLUTION_2D_SITES,
+    subjects=list(CONVOLUTION_2D_SITES), cases=162,
+    filter='C/AV1Convolve2DTest.RunTest/*:C/AV1Convolve2DTest.VmafPreprocessing/*:'
+           'C/AV1Convolve2DHighbdTest.RunTest/*:C/AV1Convolve2DHighbdTest.VmafPreprocessing/*',
+    headers=['config/av1_rtcd.h', 'config/aom_dsp_rtcd.h'])
+# ReferenceFunc returns and Convolve's first argument select C oracles;
+# registration initializers continue to select the original Rust subjects.
+COMPOUND_SITES = {
+    'av1_dist_wtd_convolve_x_c': [2033],
+    'av1_highbd_dist_wtd_convolve_x_c': [2141],
+    'av1_dist_wtd_convolve_y_c': [2238],
+    'av1_highbd_dist_wtd_convolve_y_c': [2287],
+    'av1_dist_wtd_convolve_2d_copy_c': [2365, 2396, 2398],
+    'av1_highbd_dist_wtd_convolve_2d_copy_c': [2489],
+    'av1_dist_wtd_convolve_2d_c': [2589],
+    'av1_highbd_dist_wtd_convolve_2d_c': [2700],
+}
+SUITES['compound'] = dict(source=SOURCE, sites=COMPOUND_SITES,
+    subjects=list(COMPOUND_SITES), filter='C/AV1Convolve*CompoundTest.RunTest/*', cases=264,
+    headers=['config/av1_rtcd.h', 'config/aom_dsp_rtcd.h'], identifier_oracles=True)
 SUITES['kmeans'] = dict(source='test/av1_k_means_test.cc',
     sites={'av1_calc_indices_dim1_c': [94, 109], 'av1_calc_indices_dim2_c': [200, 215]},
     subjects=['av1_calc_indices_dim1_c', 'av1_calc_indices_dim2_c'],
@@ -106,23 +130,35 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--suite', choices=SUITES, default='convolution')
+    parser.add_argument('--reference-build', type=Path, help='Read an existing native reference without modifying it')
+    parser.add_argument('--rust-archive', type=Path, help='Read an existing candidate Rust archive')
     args = parser.parse_args()
     suite = SUITES[args.suite]
     source_name, oracle_sites = suite['source'], suite['sites']
     profile = 'debug' if args.debug else 'release'
-    build = ROOT / f'build/aom-native-{profile}'
+    build = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
     suffix = '' if args.suite == 'convolution' else '-' + args.suite
     work = ROOT / f'build/aom-oracles-{profile}{suffix}'
     work.mkdir(parents=True, exist_ok=True)
-    archive = ROOT / f'target/{profile}/libaom.a'
-    oracle, symbols, oracle_record = reference_archive(profile)
+    (work / 'summary.json').unlink(missing_ok=True)
+    archive = (args.rust_archive or ROOT / f'target/{profile}/libaom.a').resolve()
+    platform = 'macos' if sys.platform == 'darwin' else 'linux'
+    manifest = ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'
+    translation = json.loads(manifest.read_text())
+    reference = json.loads((build / 'reference-profile.json').read_text())
+    if reference['profile'] != profile or translation['preprocessing_profile'] != profile:
+        raise SystemExit('The native reference and Rust profile differ')
+    for name, expected in translation['generated_reference_headers'].items():
+        if hashlib.sha256((build / name).read_bytes()).hexdigest() != expected:
+            raise SystemExit(f'The native reference and Rust preprocessing differ: {name}')
+    oracle, symbols, oracle_record = reference_archive(profile, build)
     entries = json.loads((build / 'compile_commands.json').read_text())
-    source_root = ROOT / 'build/aom-native-source'
-    source = source_root / source_name
+    entry = next(value for value in entries if Path(value['file']).as_posix().endswith('/' + source_name))
+    source = Path(entry['file'])
+    source_root = source.parents[1]
     source_hash = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files'][source_name]
     if hashlib.sha256(source.read_bytes()).hexdigest() != source_hash:
         raise SystemExit(f'Modified original test source: {source_name}')
-    entry = next(value for value in entries if Path(value['file']) == source)
     original = source.read_text()
     augmentation = supplementary_registrations(original, args.suite) if suite.get('supplementary') else ''
     lexemes, replacements, sites = tokens(original), [], {name: [] for name in oracle_sites}
@@ -143,7 +179,11 @@ def main():
     copied = work / source.name
     copied.write_text(f'#line 1 "{source_name}"\n' + text + augmentation)
     output = work / (source.name + '.o')
-    subprocess.run([*compiler_flags(entry), '-include', include, '-c', copied, '-o', output],
+    flags = compiler_flags(entry)
+    if any(flag in ['-MD', '-MMD', '-MP', '-MG'] or flag.startswith(('-MF', '-MT', '-MQ', '-MJ'))
+           for flag in flags):
+        raise SystemExit('The read-only reference flags request dependency output files')
+    subprocess.run([*flags, '-include', include, '-c', copied, '-o', output],
                    cwd=entry['directory'], check=True)
     undefined = {line.split()[-1] for line in subprocess.check_output(['nm', '-u', output], text=True).splitlines() if line.split()}
     decoration = '_' if sys.platform == 'darwin' else ''
@@ -190,7 +230,7 @@ def main():
         baseline_source = work / ('c-' + source.name)
         baseline_source.write_text(f'#line 1 "{source_name}"\n' + original + augmentation)
         baseline_object = work / ('c-' + source.name + '.o')
-        subprocess.run([*compiler_flags(entry), '-c', baseline_source, '-o', baseline_object],
+        subprocess.run([*flags, '-c', baseline_source, '-o', baseline_object],
                        cwd=entry['directory'], check=True)
         baseline = work / 'test_libaom-c'
         original_link[original_link.index(old)] = str(baseline_object)
@@ -202,6 +242,7 @@ def main():
     environment = dict(os.environ, LIBAOM_TEST_DATA_PATH=str(ROOT / 'build/deps/aom-test-data'))
     for label, binary in [('c', baseline), ('rust', executable)]:
         xml = work / f'{label}.xml'
+        xml.unlink(missing_ok=True)
         with (work / f'{label}.log').open('w') as log:
             subprocess.run([binary, f'--gtest_filter={suite["filter"]}', f'--gtest_output=xml:{xml}'],
                            cwd=build, env=environment, stdout=log, stderr=subprocess.STDOUT, check=True)
@@ -222,6 +263,7 @@ def main():
                   original_source=source_name, original_source_sha256=source_hash, oracle_sites=oracle_sites,
                   binding_copy_sha256=hashlib.sha256(copied.read_bytes()).hexdigest(),
                   complete_dsp_role_review=False, reference_archive=oracle_record, ownership=ownership,
+                  translation_manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
                   rust_archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), cases=results[1])
     (work / 'summary.json').write_text(json.dumps(record, indent=2) + '\n')
     origin = 'supplementary' if augmentation else 'original'

@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PREFIX = 'port_aom_reference_'
 
 
-def reference_archive(profile):
-    build = ROOT / f'build/aom-native-{profile}'
+def reference_archive(profile, build=None):
+    build = (build or ROOT / f'build/aom-native-{profile}').resolve()
     source = build / 'libaom.a'
     work = ROOT / f'build/aom-reference-{profile}'
     work.mkdir(parents=True, exist_ok=True)
