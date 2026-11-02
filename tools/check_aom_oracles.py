@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import shlex
 import subprocess
 import sys
@@ -14,6 +13,7 @@ import xml.etree.ElementTree as ET
 from aom_reference import PREFIX, reference_archive
 from build_aom import library_entries, test_names
 from check_abi import compiler_flags
+from check_aom_linkage import consumer_owners
 from dav1d_storage import tokens
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,41 +34,16 @@ FILTER = ':'.join(f'C/AV1Convolve{name}Test.RunTest/*' for name in
 
 def audit_map(path, symbols, rust_archive, oracle_archive):
     loaded, oracle_loaded = set(), set()
-    if sys.platform == 'darwin':
-        owners = {}
-        for line in path.read_text(errors='surrogateescape').splitlines():
-            owner = re.fullmatch(r'\[\s*(\d+)\]\s+(.+)', line)
-            if owner:
-                owners[owner[1]] = owner[2]
-            symbol = re.fullmatch(r'0x[0-9A-Fa-f]+\s+0x[0-9A-Fa-f]+\s+\[\s*(\d+)\]\s+_(\w+)', line)
-            if not symbol:
-                continue
-            name, owner = symbol[2], owners[symbol[1]]
-            if name in symbols:
-                if not owner.startswith(str(rust_archive) + '(aom.') or not owner.endswith('.rcgu.o)'):
-                    raise SystemExit(f'Original subject global supplied outside Rust: {name}: {owner}')
-                loaded.add(name)
-            if name.startswith(PREFIX) and name[len(PREFIX):] in symbols:
-                if not owner.startswith(str(oracle_archive) + '('):
-                    raise SystemExit(f'Oracle global supplied outside isolated C: {name}: {owner}')
-                oracle_loaded.add(name[len(PREFIX):])
-    else:
-        text = path.read_text()
-        if 'Cross Reference Table\n' not in text:
-            raise SystemExit('GNU oracle ownership audit requires a cross-reference table')
-        for line in text.split('Cross Reference Table\n', 1)[1].splitlines():
-            fields = line.split()
-            if len(fields) != 2 or line[:1].isspace():
-                continue
-            name, owner = fields
-            if name in symbols:
-                if not owner.startswith(str(rust_archive) + '(aom.') or not owner.endswith('.rcgu.o)'):
-                    raise SystemExit(f'Original subject global supplied outside Rust: {name}: {owner}')
-                loaded.add(name)
-            if name.startswith(PREFIX) and name[len(PREFIX):] in symbols:
-                if not owner.startswith(str(oracle_archive) + '('):
-                    raise SystemExit(f'Oracle global supplied outside isolated C: {name}: {owner}')
-                oracle_loaded.add(name[len(PREFIX):])
+    owners, _ = consumer_owners(path)
+    for name, owner in owners.items():
+        if name in symbols:
+            if not owner.startswith(str(rust_archive) + '(aom.') or not owner.endswith('.rcgu.o)'):
+                raise SystemExit(f'Original subject global supplied outside Rust: {name}: {owner}')
+            loaded.add(name)
+        if name.startswith(PREFIX) and name[len(PREFIX):] in symbols:
+            if not owner.startswith(str(oracle_archive) + '('):
+                raise SystemExit(f'Oracle global supplied outside isolated C: {name}: {owner}')
+            oracle_loaded.add(name[len(PREFIX):])
     if not set(SITES) <= loaded or not set(SITES) <= oracle_loaded:
         raise SystemExit('The original subject and independent C oracle are not both loaded')
     return dict(rust_original_globals=len(loaded), isolated_c_oracle_globals=len(oracle_loaded),

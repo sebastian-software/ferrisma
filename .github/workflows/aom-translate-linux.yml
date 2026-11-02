@@ -79,8 +79,8 @@ jobs:
           cargo test -p libavif-aom --locked
           cargo run -p libavif-aom --example raw_api --locked
           cargo run -p libavif-aom --example raw_api --locked --release
-          python3 tools/check_aom_linkage.py --debug --archives-only
-          python3 tools/check_aom_linkage.py --archives-only
+          python3 tools/check_aom_linkage.py --debug
+          python3 tools/check_aom_linkage.py
           python3 tools/check_aom_inlines.py --debug
           python3 tools/check_aom_inlines.py
           python3 tools/check_aom_oracles.py --debug

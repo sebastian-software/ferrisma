@@ -70,7 +70,7 @@ def main():
         if any(token == 'libaom.a' or token.startswith('-laom') for token in command):
             raise SystemExit('Original codec library remains in candidate link command')
         link_map = output / f'{executable}.map'
-        command.append(f'-Wl,-map,{link_map}' if sys.platform == 'darwin' else f'-Wl,-Map,{link_map}')
+        command.append(f'-Wl,-map,{link_map}' if sys.platform == 'darwin' else f'-Wl,-Map,{link_map},--cref')
         subprocess.run(command, cwd=build, check=True)
         linkage[executable] = dict(executable=executable, codec_replacements=replacements,
                             rust_archive_sha256=archive_sha256,

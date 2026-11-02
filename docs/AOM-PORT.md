@@ -266,3 +266,10 @@ without rerunning translation. `generate` produces fresh profiles; `verify`
 reproduces committed profiles from the native source and headers. Fresh
 translation reproduction and the remaining Linux execution gates are still
 required before acceptance.
+
+GNU consumer links now emit cross-reference tables with their map files.
+The ownership audit checks the defining archive/member for every loaded
+original codec global and rejects native codec objects or archives. The same
+parser supports the separate C oracle audit. Existing macOS audits still pass
+for all 15 consumer maps and both oracle executables; native GNU execution of
+this extended audit remains a Linux workflow gate.

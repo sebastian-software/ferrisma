@@ -48,6 +48,33 @@ def definitions(archive, codec_members_only=False):
     return result
 
 
+def consumer_owners(path):
+    """Read definition owners, preserving the linker's archive/member identity."""
+    text = path.read_text(errors='surrogateescape')
+    symbols, objects = {}, set()
+    if sys.platform == 'darwin':
+        owners = {}
+        for line in text.splitlines():
+            owner = re.fullmatch(r'\[\s*(\d+)\]\s+(.+)', line)
+            if owner:
+                owners[owner[1]] = owner[2]
+                objects.add(owner[2])
+            symbol = re.fullmatch(r'0x[0-9A-Fa-f]+\s+0x[0-9A-Fa-f]+\s+\[\s*(\d+)\]\s+_(\w+)', line)
+            if symbol:
+                symbols[symbol[2]] = owners[symbol[1]]
+    else:
+        if 'Cross Reference Table\n' not in text:
+            raise SystemExit('GNU consumer ownership requires a link map with --cref')
+        for line in text.split('Cross Reference Table\n', 1)[1].splitlines():
+            fields = line.split()
+            # The first row names the definition; indented rows are references.
+            if len(fields) == 2 and not line[:1].isspace():
+                symbols[fields[0]] = fields[1]
+                objects.add(fields[1])
+        objects.update(re.findall(r'^LOAD (.+)$', text, re.M))
+    return symbols, objects
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
@@ -69,28 +96,22 @@ def main():
             raise SystemExit(f'Function/data symbol kind differs: {name}')
     consumers = []
     if not args.archives_only:
-        if sys.platform != 'darwin':
-            raise SystemExit('Detailed consumer-map ownership currently requires Darwin; use --archives-only')
         native_objects = [str(Path(entry['output']).relative_to(original))
                           if Path(entry['output']).is_absolute() else entry['output']
                           for entry in library_entries(original)]
         for path in sorted(output.glob('*.map')):
-            owners, checked = {}, []
-            for line in path.read_text(errors='surrogateescape').splitlines():
-                owner = re.fullmatch(r'\[\s*(\d+)\]\s+(.+)', line)
-                if owner:
-                    index, name = owner.groups()
-                    owners[index] = name
-                    if any(name == value or name.endswith('/' + value) for value in native_objects):
-                        raise SystemExit(f'Original codec object loaded into candidate: {path.name}: {name}')
-                    if str(reference_archive) + '(' in name:
-                        raise SystemExit(f'Original archive loaded into candidate: {path.name}: {name}')
-                symbol = re.fullmatch(r'0x[0-9A-Fa-f]+\s+0x[0-9A-Fa-f]+\s+\[\s*(\d+)\]\s+_(\w+)', line)
-                if symbol and symbol[2] in reference:
-                    name = owners[symbol[1]]
-                    if not re.search(r'libaom\.a\(aom\.[^/]*\.rcgu\.o\)$', name):
-                        raise SystemExit(f'Loaded original global is supplied outside Rust: {path.name}: {symbol[2]}: {name}')
-                    checked.append(symbol[2])
+            owners, objects = consumer_owners(path)
+            checked = []
+            for name in objects:
+                if any(name == value or name.endswith('/' + value) for value in native_objects):
+                    raise SystemExit(f'Original codec object loaded into candidate: {path.name}: {name}')
+                if name == str(reference_archive) or str(reference_archive) + '(' in name or name == 'libaom.a':
+                    raise SystemExit(f'Original archive loaded into candidate: {path.name}: {name}')
+            for symbol, name in owners.items():
+                if symbol in reference:
+                    if not name.startswith(str(rust_archive) + '(aom.') or not name.endswith('.rcgu.o)'):
+                        raise SystemExit(f'Loaded original global is supplied outside Rust: {path.name}: {symbol}: {name}')
+                    checked.append(symbol)
             if not checked:
                 raise SystemExit(f'No original globals found in consumer map: {path}')
             consumers.append(dict(executable=path.stem, checked_original_globals=len(set(checked)),
