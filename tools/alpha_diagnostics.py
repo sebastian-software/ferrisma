@@ -93,6 +93,17 @@ def candidate(build, destination, options):
     return binary
 
 
+def capture_object(record, label, path, map_file=None):
+    command = ['xcrun', 'llvm-objdump', '-d', '--demangle'] if platform.system() == 'Darwin' else [
+        'objdump', '-d', '-C']
+    record[label] = {
+        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+        'disassembly': subprocess.check_output(command + [str(path)], text=True),
+    }
+    if map_file is not None:
+        record[label]['binding_map'] = map_file.read_text()
+
+
 def main():
     print('native alpha diagnostic platform: ' + platform.platform(), flush=True)
     source = ROOT / 'upstream/libjxl/lib/jxl/alpha.cc'
@@ -110,7 +121,8 @@ def main():
     receipts = [hashlib.sha256(path.read_bytes()).hexdigest() for path in active]
     record = {'platform': platform.platform(), 'source_sha256': digest,
               'original_requests': len(cases), 'additional_competing_requests': len(extra),
-              'additional_competing_pixels': 600 * len(extra), 'comparisons': {}}
+              'additional_competing_pixels': 600 * len(extra), 'comparisons': {},
+              'objects': {}, 'candidate_options': {}}
     results = record['comparisons']
     with tempfile.TemporaryDirectory(prefix='jxl-alpha-diagnostic-') as directory:
         temporary = Path(directory)
@@ -121,18 +133,31 @@ def main():
             local.mkdir()
             defaults.append(observe(link(build, local, False), all_cases))
             selected.append(observe(link(build, local, True), all_cases))
+            capture_object(record['objects'], 'active-selected-' + name,
+                           build / 'CMakeFiles/jxl_oracle.dir/alpha.cc.o', local / 'selected.map')
+            capture_object(record['objects'], 'untouched-default-' + name,
+                           build / 'upstream/lib/CMakeFiles/jxl_dec-obj.dir/jxl/alpha.cc.o')
         differences('active selected ordinary/ASan', all_cases, *selected, results)
         for i, name in enumerate(('ordinary', 'ASan')):
             differences('active selected/default finite ' + name, all_cases,
                         selected[i], defaults[i], results, all_finite)
         # Preserve O3/flags in the first candidate; O1/O0 are progressively
-        # broader source-scoped experiments. No candidate replaces active files.
+        # broader source-scoped experiments. Strict FP is a separate source
+        # operator-order experiment, with no instruction-set feature assumption.
+        # No candidate replaces active files, algorithms or sanitizer flags.
         for label, options in [('no-unroll', ['-fno-unroll-loops']),
-                               ('O1', ['-O1']), ('O0', ['-O0'])]:
+                               ('O1', ['-O1']), ('O0', ['-O0']),
+                               ('strict-O3', ['-ffp-model=strict']),
+                               ('strict-O0', ['-O0', '-ffp-model=strict'])]:
+            record['candidate_options'][label] = options
             observed = []
             for name, build in zip(('ordinary', 'ASan'), builds):
-                binary = candidate(build, temporary / (label + '-' + name), options)
+                destination = temporary / (label + '-' + name)
+                binary = candidate(build, destination, options)
                 observed.append(observe(binary, all_cases))
+                capture_object(record['objects'], label + '-' + name,
+                               destination / 'CMakeFiles/jxl_oracle.dir/alpha.cc.o',
+                               destination / 'selected.map')
             differences(label + ' ordinary/ASan', all_cases, *observed, results)
             for i, name in enumerate(('ordinary', 'ASan')):
                 differences(label + '/default finite ' + name, all_cases,
