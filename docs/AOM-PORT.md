@@ -246,6 +246,13 @@ registration, assertion, input matrix, or disabled flag changes. Native GNU
 execution is pending. See
 [`aom-scaling-mask-warp-validation.json`](aom-scaling-mask-warp-validation.json).
 
+The high-bit-depth d16 blend-mask fixture originally passes the same scalar
+function in both parameter slots. Its first slot now resolves to the isolated
+C reference while its second slot remains Rust. Both unchanged original random
+and extreme cases pass in Debug and Release on macOS; all 18,729 registrations
+and the disabled speed case remain unchanged. Native Linux execution is
+pending. See [`aom-blend-d16-validation.json`](aom-blend-d16-validation.json).
+
 The original k-means classes register only SIMD implementations, leaving zero
 k-means cases in the generic reference inventory. A separate supplementary
 scalar matrix reuses their unchanged test bodies, random inputs, fourteen
@@ -298,9 +305,9 @@ original suites. See
 The SIMD-only optical-flow fixture also has a separate scalar registration.
 Its unchanged body compares the Rust kernel with an isolated C reference in
 both macOS and native GNU Linux profiles, using the original checksum-verified
-bus sequence. The original video helper reuses one image buffer, so both pointers in this test
-refer to the second frame; distinct-frame coverage is not claimed. The speed
-case stays disabled and the original suite receives no additional execution
+bus sequence. The original video helper reuses one image buffer, so both
+pointers in this test refer to the second frame; distinct-frame coverage is
+not claimed. The speed case stays disabled and the original suite receives no additional execution
 credit. Fixture subsets have separate provenance records and cannot replace
 the full-corpus record. See [the optical-flow record](aom-optical-flow-validation.json).
 

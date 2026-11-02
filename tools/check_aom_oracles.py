@@ -120,6 +120,13 @@ SUITES['blend-mask-1d'] = dict(source='test/blend_a64_mask_1d_test.cc',
     filter='C/BlendA64Mask1DTest8B.RandomValues/*:C/BlendA64Mask1DTest8B.ExtremeValues/*:'
            'C/BlendA64Mask1DTestHBD.RandomValues/*:C/BlendA64Mask1DTestHBD.ExtremeValues/*',
     cases=8, headers=['config/aom_dsp_rtcd.h'])
+# Keep the first FuncParam slot as the independent C reference. The second
+# slot and the original random/extreme assertions continue to exercise Rust.
+SUITES['blend-mask-d16'] = dict(source='test/blend_a64_mask_test.cc',
+    sites={'aom_highbd_blend_a64_d16_mask_c': [616]},
+    subjects=['aom_highbd_blend_a64_d16_mask_c'], identifier_oracles=True,
+    filter='C/BlendA64MaskTestHBD_d16.RandomValues/*:C/BlendA64MaskTestHBD_d16.ExtremeValues/*',
+    cases=2, headers=['config/aom_dsp_rtcd.h'])
 SUITES['warp-affine'] = dict(source='test/warp_filter_test_util.cc',
     sites={'av1_warp_affine_c': [265]}, subjects=['av1_warp_affine_c'],
     subject_source='test/warp_filter_test.cc',

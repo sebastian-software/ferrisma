@@ -8,6 +8,11 @@ on:
         type: choice
         options: [generate, verify, compile, macros, dsp, oracles]
         default: generate
+      oracle_suite:
+        description: Original DSP family for mode=oracles; all runs every reviewed family
+        type: choice
+        options: [all, scaled-convolution, blend-mask-1d, blend-mask-d16, warp-affine]
+        default: all
 
 permissions:
   contents: read
@@ -122,10 +127,10 @@ jobs:
         run: |
           python3 tools/check_aom_oracles.py --debug --suite directional-prediction
           python3 tools/check_aom_oracles.py --suite directional-prediction
-      - name: Compare original scaling, one-dimensional masks, and affine warp references
+      - name: Compare original scaling, mask, and affine warp references
         if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |
-          for aom_suite in scaled-convolution blend-mask-1d warp-affine; do
+          for aom_suite in scaled-convolution blend-mask-1d blend-mask-d16 warp-affine; do
             python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
             python3 tools/check_aom_oracles.py --suite "$aom_suite"
           done
@@ -154,10 +159,13 @@ jobs:
           done
       - name: Check only the added original DSP oracle bindings
         if: inputs.mode == 'oracles'
+        env:
+          AOM_ORACLE_SUITE: ${{ inputs.oracle_suite }}
         run: |
           cargo build -p libavif-aom --locked
           cargo build -p libavif-aom --locked --release
-          for aom_suite in scaled-convolution blend-mask-1d warp-affine; do
+          for aom_suite in scaled-convolution blend-mask-1d blend-mask-d16 warp-affine; do
+            if [ "$AOM_ORACLE_SUITE" != all ] && [ "$AOM_ORACLE_SUITE" != "$aom_suite" ]; then continue; fi
             python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
             python3 tools/check_aom_oracles.py --suite "$aom_suite"
           done
