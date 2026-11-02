@@ -70,11 +70,20 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle icc_codec.cc splines.cc main.cc epf.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
+add_executable(jxl_oracle icc_codec.cc splines.cc main.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc epf.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc")
 # Expose original internal state to the frame fixture adapter without changing
 # source files, class layouts, or runtime algorithms. Limit this to its TU.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  # Native Linux x86_64 ordinary/ASan O3, no-unroll and O1 objects choose different
+  # competing NaN operands. Pristine isolated O0 stages agree on every retained
+  # request, and all finite inputs match both unchanged archive graphs.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    set_source_files_properties(chroma_ycbcr_stage.cc chroma_upsampling_stage.cc
+      PROPERTIES COMPILE_OPTIONS "-O0;-fno-rtti")
+  endif()
+  set_source_files_properties(chroma_stages.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
+
   set_source_files_properties(icc_codec.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(splines.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control;-fno-rtti")
   # Match the original GetBlock class hierarchy in this traversal observer.

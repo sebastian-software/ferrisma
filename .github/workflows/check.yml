@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, feat/decoder-icc-codec]
+    branches: [main, feat/decoder-chroma]
   pull_request:
 
 permissions:
@@ -41,6 +41,25 @@ jobs:
       - name: Record native Linux scalar diagnostics
         if: always() && runner.os == 'Linux'
         run: python3 tools/scalar_diagnostics.py
+      - name: Build the ordinary macOS reference for chroma acceptance
+        if: always() && runner.os == 'macOS'
+        run: |
+          cmake -S tools/oracle -B target/oracle -DCMAKE_BUILD_TYPE=Release -DORACLE_SANITIZERS=OFF
+          cmake --build target/oracle --target jxl_oracle --parallel 2
+      - name: Audit the selected chroma reference configuration
+        if: always()
+        run: python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
+      - name: Preserve chroma acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: chroma-acceptance-${{ matrix.os }}
+          path: |
+            target/chroma-acceptance
+            !target/chroma-acceptance/**/jxl_oracle
+            !target/chroma-acceptance/**/*.o
+          if-no-files-found: error
+
       - name: Audit the EPF numeric reference configuration
         if: always() && runner.os == 'Linux'
         run: python3 tools/epf_reference.py

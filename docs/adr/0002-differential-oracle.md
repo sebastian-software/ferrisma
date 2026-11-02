@@ -256,6 +256,34 @@ objects to agree on all 546 finite/exceptional requests. Assembly inspection is
 supporting evidence; native CI is the acceptance gate. Review this scoped
 configuration again after source, compiler, target or instrumentation changes.
 
+Native Linux x86_64 chroma diagnostics (run 41445638463, Clang 21.1.8) retain
+all 4,842 original requests and add 720 finite tiny-value, cancellation, and
+signed-zero rows. The unchanged optimized ordinary and ASan/UBSan archives
+disagree on 181 of these 5,562 initialized requests, including 104 simple
+pipelines. Independent pristine stage_ycbcr.cc and stage_chroma_upsampling.cc
+objects at -fno-unroll-loops or -O1 retain all 181 disagreements. At -O0 the two
+original graphs agree on every request, and all 4,592 finite requests match
+both unchanged optimized archive graphs exactly.
+
+Only on Linux x86_64, compile two dedicated pristine stage translation units at
+scoped -O0. Their real public factories also serve complete-file callers. Keep
+the original archives, earlier adapters, contraction settings, and every
+sanitizer unchanged. Other platforms retain the original archive binding:
+native ARM ordinary and instrumented archives already agree, while selecting
+ARM -O0 would change 182 exceptional observations despite finite equivalence.
+The existing ARM captured cases and words remain unchanged.
+
+tools/chroma_reference.py --audit verifies this platform-specific binding,
+records object symbols, link commands, source/object/archive hashes, and saves
+the unchanged default and selected observations from both graphs. Require all
+5,562 selected requests to agree across instrumentation, all selected Linux
+x86_64 observations to match independent pristine -O0 objects, and every
+selected observation on other platforms to match the untouched default. All
+4,592 finite observations must also match both unchanged default graphs.
+Native diagnostics and acceptance run on Linux x86_64 and macOS ARM; final
+Rust parity remains a separate gate. This configuration makes no performance
+claim and must be reviewed after source, compiler, target, or instrumentation
+changes.
 
 Compile the pristine scalar EPF stage in its dedicated `epf.cc` observation unit
 at scoped `-O0`, with every sanitizer active. Native ARM default optimized ordinary

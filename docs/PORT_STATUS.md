@@ -68,6 +68,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
+| `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete original scalar YCbCr stage/factories, full-range BT.601 constants, source color-channel order, no-extra-span guard, and in-place RGB stores; complete-file profile admission and SIMD remain separate |
+| `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete original scalar horizontal/vertical stages and factory, 3/4–1/4 interpolation, signed extra spans, channel selection, source borders/shifts and interleaved/two-row output; original simple-pipeline coverage includes odd dimensions and subsampled input sizes; complete-file integration and SIMD remain separate |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
@@ -1355,6 +1357,54 @@ complements the ARM-only capture; both targets now run 425 tests, the same 246
 differential groups and 868,587 requests. Replacement native CI remains required
 before integration; the earlier failed runs are retained in the PR history.
 
+## Scalar chroma upsampling and YCbCr conversion
+
+The initial scalar stage boundary adds four differential groups and 4,842 exact
+original requests: 18 factory/settings/lifecycle observations, 3,330 direct rows,
+480 original simple-pipeline sequences, and 1,014 ordered special-float pairs.
+The row cases retain every initialized input/output sample, error-before-mutation
+behavior, signed extra spans, noncontiguous row views, ignored channels, signed
+zeros, subnormals, infinities, and competing quiet/signaling NaN payloads. Pipeline
+cases cover odd dimensions, each channel's horizontal/vertical shifts, mirrored
+edges, group boundaries, reversed input groups, repeated passes, and YCbCr after
+chroma upsampling. Two standalone regressions retain original captured finite
+pixels, exceptional words, and source guard/mutation order.
+
+Both complete ordinary and ASan/UBSan native ARM original graphs matched the
+focused Rust Debug, Release, and 1.85 configurations exactly. Both initial full
+local checks, each with Debug,
+Release and Rust 1.85, passed 431 tests, 250 differential groups and 873,429 exact
+requests per configuration, with zero failed or ignored tests.
+
+Native Linux x86_64 diagnostics exposed 181 ordinary/instrumented original
+disagreements, including 104 simple pipelines. The complete retained corpus now
+has five groups and 5,562 requests, adding 720 finite subnormal, cancellation,
+and signed-zero rows without changing any earlier request or ARM captured word.
+Linux x86_64 alone selects pristine stage_ycbcr.cc and
+stage_chroma_upsampling.cc through dedicated -O0 translation units, including
+their real factories for complete-file callers. Independent original -O0
+objects agree on every request; all 4,592 finite requests also agree with both
+unchanged optimized archives. Other platforms retain the original archive
+binding because native ARM -O0 would change 182 exceptional observations.
+All sanitizer settings and original archives stay unchanged.
+
+tools/chroma_reference.py --audit verifies the selected factory binding and
+the complete selected/default equivalence required by each platform. The native
+diagnostic workflow retains the untouched defaults, independent candidate
+outputs, compiler commands, symbols, and hashes. ADRs 0002 and 0003 record the
+selection evidence and Rust operand mapping, including actual original Linux
+capture provenance for two target-specific YCbCr words and a horizontal row.
+All six replacement ordinary/ASan/UBSan Debug, Release and Rust 1.85 checks
+passed 432 tests, 251 differential groups and 874,149 exact requests each,
+with no failures or ignored tests. Native replacement run 41453588220 passed
+on both platforms, including their selected-reference audits. Linux completed
+all six configurations with 433 tests (one additional native capture), the same
+251 groups and 874,149 requests. macOS completed its three instrumented
+configurations with 432 tests and the same groups/requests. Combining this
+component with the merged EPF/spline components remains an integration gate.
+Complete-file YCbCr and chroma-profile admission
+belong to the decoder integration milestone.
+
 ## Scalar spline decoding and rendering
 
 The complete scalar spline boundary adds four differential groups and 6,253
@@ -1380,7 +1430,7 @@ requests with no failures or ignored tests. Combining the spline component with
 the merged EPF component also passes all six local ordinary/ASan/UBSan Debug,
 Release and Rust 1.85 configurations: 441 tests, 256 groups and 881,932 requests
 each. Native CI run 41447097097 passed on the combined branch: Linux completed
-all six configurations and macOS completed all three ordinary configurations,
+all six configurations and macOS completed all three instrumented configurations,
 with the same counts and no failures or ignored tests. The component is now
 integrated with EPF; complete-file spline integration remains separate.
 
@@ -1403,6 +1453,7 @@ cases, expected words, source pins, sanitizer flags, or original archive options
 change. Complete-file EPF admission and image evidence are a separate integration
 milestone, so the README's EPF checkbox remains open here.
 
+The chroma branch combined with the merged EPF and spline boundaries passes all six ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations: 448 tests, 261 differential groups and 887,494 exact requests each, with no failures or ignored tests. The combined EPF and chroma numeric audits also pass; the chroma audit retains all 5,562 observations and all 4,592 finite/default comparisons. Native [run 41465661403](https://github.com/sebastian-software/libjxl-rs/actions/runs/41465661403) passes on both Linux and macOS: Linux completes 449 tests per configuration and macOS 448, with the same 261 groups and 887,494 requests. The subsequent union with ICC command decoding passes all six local configurations with 456 tests, 266 groups and 899,741 exact requests each, with no failures or ignored tests. Both numeric audits pass again. Native CI for this union remains required.
 
 ## ICC profile command decoding
 
