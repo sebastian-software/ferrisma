@@ -38,7 +38,7 @@ def library_entries(build):
     objects = shlex.split(line.split(' |')[0])[3:]
     database = json.loads((build / 'compile_commands.json').read_text())
     entries = [entry for entry in database
-               if str(Path(entry['output']).relative_to(build)) in objects]
+               if str((Path(entry['directory']) / entry['output']).relative_to(build)) in objects]
     if len(entries) != len(objects) or not all(e['file'].endswith('.c') for e in entries):
         raise SystemExit('Archive closure does not match the C compilation database')
     return entries

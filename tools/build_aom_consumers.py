@@ -29,7 +29,7 @@ def main():
     subprocess.run(cargo, check=True)
     archive = ROOT / f'target/{profile}/libaom.a'
     library_sources = {Path(entry['file']) for entry in library_entries(build)}
-    compiled_sources = {str(Path(entry['output']).relative_to(build)): Path(entry['file'])
+    compiled_sources = {str((Path(entry['directory']) / entry['output']).relative_to(build)): Path(entry['file'])
                         for entry in json.loads((build / 'compile_commands.json').read_text())}
     executables = re.findall(r'^build ([^ :]+): C(?:XX)?_EXECUTABLE_LINKER',
                              (build / 'build.ninja').read_text(), re.M)
