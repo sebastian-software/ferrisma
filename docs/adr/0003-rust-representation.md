@@ -1139,3 +1139,22 @@ The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
 one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
 original reference configuration in ADR 0002; other target specializations remain
 separate work.
+
+
+ICC command decoding retains the original fallible PaddedBytes header append
+before inspecting the decoded output size, including zero-size output. Temporary
+array views borrow that allocated header; they do not replace its allocation
+checkpoint. The reached WithInitialSpace, clear, push_back and append operations
+retain their original size/growth/status order. No decoded prefix is discarded
+on a command or varint error.
+
+Linear ICC prediction keeps the logical current position separate from physical
+history backing. The source's width-four DecodeUint32 guard uses that logical
+position; only the preceding words need physical backing. Safe checked loads
+therefore do not require a slice extending to the current position. Width-one
+and width-two promoted integer formulas narrow at the original byte/word
+boundaries; explicit modulo-u32 arithmetic followed by narrowing preserves those
+results. Width-four prediction retains original unsigned wrapping. Invalid raw
+pointer, zero shuffle-width and overlapping-container caller preconditions do
+not receive invented codec semantics. Streaming ICCReader ownership remains a
+separate boundary.
