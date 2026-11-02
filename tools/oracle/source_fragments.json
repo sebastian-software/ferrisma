@@ -61,5 +61,40 @@
     "end": "\n\n// NOLINTNEXTLINE(google-readability-namespace-comments)",
     "sha256": "76e1c80895d8bb7c00b7c3c1fb77e7f7266cdbec0718974bc4f7a796c13821bb",
     "output": "original_decode_group_impl.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "bool OutOfBounds(",
+    "end": "\n\nJXL_INLINE size_t InitialBasicInfoSizeHint()",
+    "sha256": "b715b4d677a9c98308edb3141a05508ff10983ff9302582036e2096c8dc35870",
+    "output": "original_decoder_bounds.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JXL_INLINE size_t InitialBasicInfoSizeHint()",
+    "end": "\n\n// Debug-printing failure macro",
+    "sha256": "feae7fad06b762618cc84513bd24610a3eef915d30958a81ae79aed98facada9",
+    "output": "original_decoder_size_hint.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "// Debug-printing failure macro",
+    "end": "\nJxlDecoderStatus ConvertStatus",
+    "sha256": "e9d2e327badb80c1f3e7dbd0993e39c9507eb3ddd2911d7a3e50213a1bc35f74",
+    "output": "original_decoder_errors.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JxlSignature ReadSignature(",
+    "end": "\n\n}  // namespace\n\nuint32_t JxlDecoderVersion",
+    "sha256": "70eaa27fed01fc95201e0e0c811ee30f479d7b898595febc3f155ea0ed83a0a4",
+    "output": "original_decoder_signature.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "static JxlDecoderStatus ParseBoxHeader(",
+    "end": "\n\n// This includes handling the codestream",
+    "sha256": "cdd1f9f65747e33502c5a3e7effcf97367be461e08f349370a7e9a957752542d",
+    "output": "original_decoder_box_header.inc"
   }
 ]

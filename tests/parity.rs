@@ -42,6 +42,8 @@ mod blending_stage;
 mod chroma_image;
 #[path = "parity/chroma_stages.rs"]
 mod chroma_stages;
+#[path = "parity/decoder_api.rs"]
+mod decoder_api;
 #[path = "parity/decoder_geometry.rs"]
 mod decoder_geometry;
 #[path = "parity/extra_channels.rs"]
@@ -803,6 +805,7 @@ fn observe(request: &str) -> String {
         kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
         kind if output_stage::handles(kind) => output_stage::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
+        kind if decoder_api::handles(kind) => decoder_api::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if decoder_geometry::handles(kind) => decoder_geometry::observe(kind, &mut args),
         kind if extra_channels::handles(kind) => extra_channels::observe(kind, &mut args),

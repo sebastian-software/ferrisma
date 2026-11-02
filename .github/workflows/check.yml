@@ -52,6 +52,7 @@ jobs:
           python3 tools/epf_reference.py
           python3 tools/noise_reference.py
           python3 tools/alpha_reference.py
+          python3 tools/decoder_api_reference.py --output target/decoder-api-acceptance
       - name: Audit complete chroma images and retained frame lifecycles
         if: always()
         run: |
@@ -71,6 +72,7 @@ jobs:
             target/chroma-image-acceptance
             target/lifecycle-acceptance
             target/output-stage-acceptance
+            target/decoder-api-acceptance
           if-no-files-found: error
       - name: Audit complete extra-channel source bindings and stride boundaries
         if: always()

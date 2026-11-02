@@ -480,3 +480,13 @@ and oversized-shift probes, with per-request stdout/stderr and classification.
 No blanket depth exclusion, expected-word rewrite, sanitizer relaxation or
 upstream-source change is permitted. Review this boundary after source,
 compiler, target or instrumentation changes.
+
+
+The decoder signature/box-header observer compiles five exact source fragments
+and calls the actual archive JxlSignatureCheck. Every generated fragment must
+match its complete pinned source body, notice and original line mapping. The
+audit checks exact original/observer optimization and nonrecovering sanitizer
+options and resolves executable code addresses to their live archive/adapter
+objects. Dead symbols and unwind rows cannot establish those bindings; compiler
+cold suffixes are distinct symbols, not duplicate definitions of the entry
+point. Relinked audit binaries do not replace the active oracle graph.
