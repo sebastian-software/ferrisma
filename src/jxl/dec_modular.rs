@@ -6,22 +6,29 @@
 //! ModularFrameDecoder storage, Init, DecodeGlobalInfo, and MaybeDropFullImage
 //! retain their complete source control flow. DecodeGroup, image-to-pipeline
 //! conversion, and FinalizeDecoding use the original null-pool/simple-pipeline
-//! configuration. Full decoder state orchestration and debug descriptions remain
+//! configuration. VarDCT DC and AC metadata decoding preserve their reached
+//! dequantization, context, strategy, sharpness, and sigma updates. Full decoder
+//! state orchestration and debug descriptions remain
 //! unported. The three Highway
 //! kernels retain the one-lane scalar configuration; disjoint row slices replace
 //! restrict pointers. Custom-float shifts retain source caller preconditions.
 //! Kind retains raw fixed-underlying-type enum values: the source switch leaves
 //! an unknown kind's initialized index at zero. All size_t arithmetic wraps.
 
+use super::ac_strategy::{AcStrategy, AcStrategyType};
 use super::base::bits::ceil_log2_nonzero;
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
+use super::compressed_dc::dequant_dc;
 use super::dec_ans::{ANSCode, decode_histograms};
 use super::dec_bit_reader::BitReader;
+use super::dec_cache::{DecoderShared, PassesDecoderState};
+use super::epf::compute_sigma;
 use super::frame_dimensions::FrameDimensions;
 use super::frame_header::{ColorTransform, FLAG_NOISE, FrameEncoding, FrameHeader};
 use super::image::Plane;
-use super::image_ops::{copy_rect_to, zero_fill_image};
+use super::image_ops::{convert_plane_and_clamp_i32_to_i8, copy_rect_to, zero_fill_image};
+use super::loop_filter::EPF_SHARP_ENTRIES;
 use super::modular::encoding::dec_ma::{Tree, decode_tree};
 use super::modular::encoding::encoding::{GroupHeader, modular_generic_decompress};
 use super::modular::modular_image::{Channel, Image};
@@ -29,7 +36,9 @@ use super::modular::options::ModularOptions;
 use super::modular::transform::transform::{Transform, TransformId};
 use super::passes_state::PassesSharedState;
 use super::quant_weights::NUM_QUANT_TABLES;
+use super::quantizer::Quantizer;
 use super::render_pipeline::simple_render_pipeline::{RenderPipelineInput, SimpleRenderPipeline};
+use std::sync::atomic::Ordering;
 
 fn shift_right(n: usize, shift: i32) -> usize {
     assert!(
@@ -458,6 +467,182 @@ impl ModularFrameDecoder {
                 ch.plane = Plane::default();
             }
         }
+    }
+    pub fn decode_var_dct_dc(
+        &mut self,
+        header: &FrameHeader<'_>,
+        group_id: usize,
+        reader: &mut BitReader<'_>,
+        state: &mut PassesDecoderState<'_, '_>,
+    ) -> Status {
+        let rect = state.shared().frame_dim.dc_group_rect(group_id);
+        let mut image = Image::create(rect.xsize(), rect.ysize(), self.full_image.bitdepth, 3)?;
+        let stream_id = ModularStreamId::var_dct_dc(group_id).id(&self.frame_dim);
+        reader.refill();
+        let extra_precision = reader.read_fixed_bits::<2>();
+        let multiplier = 1.0f32 / (1 << extra_precision) as f32;
+        let mut options = ModularOptions::default();
+        for c in 0..3 {
+            let channel = &mut image.channel[if c < 2 { c ^ 1 } else { c }];
+            channel.w >>= header.chroma_subsampling.h_shift(c);
+            channel.h >>= header.chroma_subsampling.v_shift(c);
+            channel.shrink()?;
+        }
+        if modular_generic_decompress(
+            reader,
+            &mut image,
+            None,
+            stream_id,
+            &mut options,
+            true,
+            Some(&self.tree),
+            Some(&self.code),
+            Some(&self.context_map),
+            false,
+        )
+        .is_err()
+        {
+            return Err(StatusCode::GenericError);
+        }
+        let factors = *state.shared().quantizer.mul_dc();
+        let cfl_factors = *state.shared().cmap.base().dc_factors();
+        let storage = &mut state.shared_storage;
+        let block_context = match &state.shared {
+            DecoderShared::Own => &storage.block_ctx_map,
+            DecoderShared::External(shared) => &shared.block_ctx_map,
+        };
+        dequant_dc(
+            rect,
+            &mut storage.dc_storage,
+            &mut storage.quant_dc,
+            &image,
+            &factors,
+            multiplier,
+            &cfl_factors,
+            &header.chroma_subsampling,
+            block_context,
+        );
+        Ok(())
+    }
+    pub fn decode_ac_metadata(
+        &mut self,
+        header: &FrameHeader<'_>,
+        group_id: usize,
+        reader: &mut BitReader<'_>,
+        state: &mut PassesDecoderState<'_, '_>,
+    ) -> Status {
+        let rect = state.shared().frame_dim.dc_group_rect(group_id);
+        let upper_bound = rect.xsize().wrapping_mul(rect.ysize());
+        reader.refill();
+        let count = reader.read_bits(ceil_log2_nonzero(upper_bound)) as usize + 1;
+        let stream_id = ModularStreamId::ac_metadata(group_id).id(&self.frame_dim);
+        let mut image = Image::create(rect.xsize(), rect.ysize(), self.full_image.bitdepth, 4)?;
+        let color_rect = Rect::new(
+            rect.x0() >> 3,
+            rect.y0() >> 3,
+            (rect.xsize() + 7) >> 3,
+            (rect.ysize() + 7) >> 3,
+        );
+        image.channel[0] =
+            Channel::create_with_shifts(color_rect.xsize(), color_rect.ysize(), 3, 3)?;
+        image.channel[1] =
+            Channel::create_with_shifts(color_rect.xsize(), color_rect.ysize(), 3, 3)?;
+        image.channel[2] = Channel::create(count, 2)?;
+        let mut options = ModularOptions::default();
+        if modular_generic_decompress(
+            reader,
+            &mut image,
+            None,
+            stream_id,
+            &mut options,
+            true,
+            Some(&self.tree),
+            Some(&self.code),
+            Some(&self.context_map),
+            false,
+        )
+        .is_err()
+        {
+            return Err(StatusCode::GenericError);
+        }
+        convert_plane_and_clamp_i32_to_i8(
+            Rect::new(
+                0,
+                0,
+                image.channel[0].plane.xsize(),
+                image.channel[0].plane.ysize(),
+            ),
+            &image.channel[0].plane,
+            color_rect,
+            &mut state.shared_storage.cmap.ytox_map,
+        )?;
+        convert_plane_and_clamp_i32_to_i8(
+            Rect::new(
+                0,
+                0,
+                image.channel[1].plane.xsize(),
+                image.channel[1].plane.ysize(),
+            ),
+            &image.channel[1].plane,
+            color_rect,
+            &mut state.shared_storage.cmap.ytob_map,
+        )?;
+        let mut num = 0;
+        let is444 = header.chroma_subsampling.is_444();
+        let strategy = &mut state.shared_storage.ac_strategy;
+        let xlim = strategy.xsize().min(rect.x0() + rect.xsize());
+        let ylim = strategy.ysize().min(rect.y0() + rect.ysize());
+        let mut local_used = 0;
+        for iy in 0..rect.ysize() {
+            let y = rect.y0() + iy;
+            let quant_row = &mut state.shared_storage.raw_quant_field.row_mut(y)[rect.x0()..];
+            let sharp_row = &mut state.shared_storage.epf_sharpness.row_mut(y)[rect.x0()..];
+            let strategies = image.channel[2].plane.row(0);
+            let quants = image.channel[2].plane.row(1);
+            let sharpness = image.channel[3].plane.row(iy);
+            for ix in 0..rect.xsize() {
+                let x = rect.x0() + ix;
+                let sharp = sharpness[ix];
+                if sharp < 0 || sharp >= EPF_SHARP_ENTRIES as i32 {
+                    return Err(StatusCode::GenericError);
+                }
+                sharp_row[ix] = sharp as u8;
+                if strategy.is_valid(x, y) {
+                    continue;
+                }
+                if num >= count {
+                    return Err(StatusCode::GenericError);
+                }
+                if !AcStrategy::is_raw_strategy_valid(strategies[num]) {
+                    return Err(StatusCode::GenericError);
+                }
+                local_used |= 1u32 << strategies[num];
+                let acs = AcStrategy::from_raw_strategy(AcStrategyType(strategies[num] as u32));
+                if (acs.covered_blocks_x() > 1 || acs.covered_blocks_y() > 1) && !is444 {
+                    return Err(StatusCode::GenericError);
+                }
+                let next_x_group = (x / super::frame_dimensions::GROUP_DIM_IN_BLOCKS + 1)
+                    * super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
+                let next_y_group = (y / super::frame_dimensions::GROUP_DIM_IN_BLOCKS + 1)
+                    * super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
+                let next_x = x + acs.covered_blocks_x();
+                let next_y = y + acs.covered_blocks_y();
+                if next_x > next_x_group || next_x > xlim {
+                    return Err(StatusCode::GenericError);
+                }
+                if next_y > next_y_group || next_y > ylim {
+                    return Err(StatusCode::GenericError);
+                }
+                strategy.set_no_bounds_check(x, y, AcStrategyType(strategies[num] as u32), true)?;
+                quant_row[ix] = 1 + quants[num].clamp(0, Quantizer::QUANT_MAX - 1);
+                num += 1;
+            }
+        }
+        state.used_acs.fetch_or(local_used, Ordering::SeqCst);
+        if header.loop_filter.epf_iters > 0 {
+            compute_sigma(&header.loop_filter, rect, state)?;
+        }
+        Ok(())
     }
     /// Complete original DecodeGroup. The optional decoder-state pointer is
     /// reified as its actual const shared-state dependency; pipeline storage

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-01
+- Updated: 2026-11-02
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -1071,3 +1071,19 @@ mutation. The test adapter extracts only the original template with a pinned
 SHA-256 and calls actual entropy machinery in ordinary and fully instrumented
 original graphs. No unsafe Rust, new dependency, numeric flag, or blanket
 suppression is added.
+
+VarDCT DC/AC metadata methods keep the source's selected-shared reads and owned
+shared-storage writes distinct. Decode failures retain already written CfL,
+sharpness, strategy, and QF cells. Strategy setters preserve overlap checks and
+partial writes; parsed used_acs is atomically merged only at the original final
+checkpoint. Image row/rectangle views borrow their owners and retain physical
+padding. Signed modular-to-map conversion clamps to the original int8 range.
+
+Adaptive DC smoothing retains the existing scalar Highway multiplication's
+binary64 promotion/narrowing and separate additions. Out-of-line boundaries
+preserve competing NaN operand order rather than rewriting NaN bits. Its selected
+pristine ordinary/instrumented objects agree on retained exceptional requests;
+all finite observations also match both default optimized source graphs.
+DequantDC preserves quant bucket assignment, inverse scales, signed plane reads,
+CfL arithmetic and original output writes. ComputeSigma retains source shifted
+coordinates, border copies, and ordered std::min behavior for NaNs and ties.

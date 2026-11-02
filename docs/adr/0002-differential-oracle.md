@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-01
+- Updated: 2026-11-02
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -223,3 +223,16 @@ because it changed finite DCT/LLF results and retained instrumented NaN drift.
 The original archive and existing fixtures keep their flags. Complete native
 ordinary and instrumented graphs remain separate required gates; review the
 configuration with compiler/source/target/instrumentation changes.
+
+Observe pristine compressed_dc.cc through a dedicated vardct_dc.cc translation
+unit compiled at scoped -O0 with all sanitizers active. Optimized native AArch64
+ordinary and ASan objects commute competing NaN operands in adaptive smoothing
+and produce different payloads from identical initialized inputs. The selected
+ordinary/instrumented observers agree on all 1,322 captured fixture requests;
+all 1,202 finite requests also agree with both unchanged optimized archives.
+Retain every exceptional request and exact word. Link maps must bind the actual
+public AdaptiveDCSmoothing/DequantDC and scalar implementations from this selected
+unit for complete decoder observations too; an isolated observer alone does not
+establish whole-image parity. The original archive and earlier fixture flags
+remain unchanged. This preserves a reproducible source configuration without
+claiming performance parity. Revisit after source/compiler/target changes.

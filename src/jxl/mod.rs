@@ -81,3 +81,6 @@ pub mod render_pipeline;
 pub mod splines;
 pub mod toc;
 pub mod types;
+
+pub mod compressed_dc;
+pub mod epf;
