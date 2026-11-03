@@ -32,8 +32,11 @@ configure_file("${UPSTREAM}/lib/jxl/version.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/generated/jxl/version.h" @ONLY)
 add_executable(box_content_decoder_oracle ../box_content_decoder.cc
   "${UPSTREAM}/lib/jxl/box_content_decoder.cc")
-target_compile_features(box_content_decoder_oracle PRIVATE cxx_std_17)
-set_target_properties(box_content_decoder_oracle PROPERTIES CXX_EXTENSIONS OFF)
+# Request strict C++17 explicitly. A compile feature alone adds no -std flag
+# when the compiler's default already satisfies it (Clang 21 on Linux defaults
+# to gnu++17), which would silently keep GNU extensions on that platform.
+set_target_properties(box_content_decoder_oracle PROPERTIES
+  CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # Preserve the actual original libjxl scalar object's RTTI/exception and
   # vectorization boundaries. Brotli archive units retain their own defaults.
