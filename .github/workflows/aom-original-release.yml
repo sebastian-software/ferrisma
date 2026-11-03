@@ -79,7 +79,7 @@ jobs:
       - name: Restore exact original executables
         run: chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
       - name: Fetch and verify every original selected fixture
-        if: matrix.program == 'test_libaom'
+        if: matrix.program != 'test_intra_pred_speed'
         run: python3 tools/fetch_aom_test_data.py --profile release --jobs 2
       - name: Run the unchanged original Release pair
         run: python3 tools/run_aom_paired_shard.py --program '${{ matrix.program }}' --shards '${{ matrix.shards }}' --index '${{ matrix.index }}'

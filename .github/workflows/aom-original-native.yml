@@ -134,7 +134,7 @@ jobs:
             chmod +x "$aom_binary"
           done
       - name: Fetch and verify every original selected fixture
-        if: matrix.program == 'test_libaom'
+        if: matrix.program != 'test_intra_pred_speed'
         run: python3 tools/fetch_aom_test_data.py --profile "$AOM_PROFILE" --jobs 2
       - name: Run the identical original C and Rust shard
         run: |
