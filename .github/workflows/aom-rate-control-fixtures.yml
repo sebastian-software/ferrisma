@@ -1,0 +1,73 @@
+name: Recover original AOM rate-control fixture provisioning
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Original native source run with exact frozen binaries
+        type: string
+        required: true
+      continuation_run:
+        description: Release continuation with the preserved missing-video failure
+        type: string
+        required: true
+      runner:
+        description: Same native runner as the source build
+        type: choice
+        options: [ubuntu-24.04, macos-26, macos-15]
+        default: ubuntu-24.04
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rate-control:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 tests/ports/aom_rc_fixture_recovery_test.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-release-shard-test_aom_rc-0
+          run-id: ${{ inputs.continuation_run }}
+          github-token: ${{ github.token }}
+          path: build/aom-rc-fixture-failure
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-release-source-plan
+          run-id: ${{ inputs.continuation_run }}
+          github-token: ${{ github.token }}
+          path: build/aom-rc-fixture-failure
+      - name: Classify the preserved missing-video failures without accepting another assertion
+        run: python3 tools/check_aom_rc_fixture_recovery.py --source-run '${{ inputs.source_run }}' --continuation-run '${{ inputs.continuation_run }}' --runner '${{ inputs.runner }}'
+      - name: Restore the exact executables and verify every original fixture
+        run: |
+          chmod +x build/aom-{native,rust}-release/test_aom_rc
+          python3 tools/fetch_aom_test_data.py --profile release --jobs 2
+      - name: Repeat all unchanged original C and Rust rate-control cases
+        run: python3 tools/run_aom_paired_shard.py --program test_aom_rc --shards 1 --index 0
+      - name: Require all 38 cases and preserve exact original fixture provenance
+        run: python3 tools/check_aom_rc_fixture_recovery.py --source-run '${{ inputs.source_run }}' --continuation-run '${{ inputs.continuation_run }}' --runner '${{ inputs.runner }}' --verify-success
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: aom-rate-control-fixture-recovery
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/aom-rc-fixture-failure/
+            build/aom-paired-release-test_aom_rc/
+            build/aom-rc-fixture-recovery.json
+            build/aom-rc-fixture-verified-inputs.json
