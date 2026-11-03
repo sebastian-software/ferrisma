@@ -730,21 +730,31 @@ capture request/response pairs are independent of Rust decoding.
 
 ### skcms baseline pixel transforms and destination preparation
 
-`src/skcms/transform.rs` translates pinned skcms.cc:2494-3143, including curve
-selection/fusion, format widths, reference PQ/HLG CICP functions, destination
-preparation, Transform, MakeUsableAsDestination/SingleCurve and approximate
-profile/TRC predicates. `transform_types.rs` follows src/skcms_public.h and
-src/skcms_Transform.h. `transform_simd.rs` and `transform_neon.rs` translate the
-reached src/Transform_inl.h baseline N=4 stages, native NEON/SSE arithmetic,
-loads/stores, tables, CLUT interpolation and vector tails. Existing HSW/SKX
-engines remain separate unported original targets.
+`src/skcms/transform.rs` translates pinned skcms.cc:2422-3143, including the
+cpu_type() engine selection, curve selection/fusion, format widths, reference
+PQ/HLG CICP functions, destination preparation, Transform,
+MakeUsableAsDestination/SingleCurve and approximate profile/TRC predicates.
+`transform_types.rs` follows src/skcms_public.h and src/skcms_Transform.h.
+`transform_simd.rs` and `transform_neon.rs` translate the reached
+src/Transform_inl.h baseline N=4 stages, native NEON/SSE arithmetic,
+loads/stores, tables, CLUT interpolation and vector tails. `transform_x86.rs`
+translates the same header as included by src/skcms_TransformHsw.cc (N=8,
+AVX2/F16C) and src/skcms_TransformSkx.cc (N=16, AVX-512F/DQ). Rust 1.85 lacks
+stable AVX-512 intrinsics, so SKX issues each 512-bit lane operation as two
+256-bit AVX/FMA/F16C operations with identical per-lane results.
 
-The source oracle uses the actual unchanged CMS archive with its existing
-SKCMS_DISABLE_HSW/SKCMS_DISABLE_SKX configuration, never SKCMS_PORTABLE. The
-private observer includes pristine skcms.cc under the actual original compile
-command and links the unchanged archive baseline engine. The binding audit
-records compiler arguments, live code addresses, object ownership and the actual
-linked baseline object's disassembly. All four dependency pins remain unchanged.
+The source oracle uses the actual unchanged CMS archive, never SKCMS_PORTABLE.
+third_party/skcms.cmake keeps SKCMS_DISABLE_HSW/SKCMS_DISABLE_SKX only off
+x86_64. On x86_64 Clang it compiles skcms_TransformHsw.cc with
+`-march=x86-64 -mavx2 -mf16c` and skcms_TransformSkx.cc with
+`-march=x86-64 -mavx512f -mavx512dq -mavx512cd -mavx512bw -mavx512vl`;
+skcms_Transform then selects baseline, HSW or SKX with cpu_type() on the
+executing CPU. The private observer includes pristine skcms.cc under the actual
+original compile command, calls the unchanged archive baseline engine for direct
+stage programs and reaches the archive HSW/SKX engines through Transform. The
+binding audit checks this per-host engine configuration and records compiler
+arguments, live code addresses, object ownership and every linked engine
+object's disassembly. All four dependency pins remain unchanged.
 
 Test observers serialize inputs, initialized output words, statuses and borrowed
 pointer relationships; they do not implement source algorithms. Pointer tokens
@@ -758,8 +768,8 @@ not its field order, words or inherited request inventory.
 The default CMS boundary translates the selected skcms branch of
 `lib/jxl/cms/jxl_cms.cc` in full, including the private profile-identification
 helpers and callback/owner/row lifecycle. Its scalar Highway transfer wrapper
-uses `transfer_functions.h` and `transfer_functions-inl.h`; the skcms baseline
-remains the original N=4 NEON/SSE engine. The two source HLG Base assertions
+uses `transfer_functions.h` and `transfer_functions-inl.h`; skcms_Transform
+selects the original N=4 NEON/SSE engine, or HSW/SKX on x86_64 by cpu_type(). The two source HLG Base assertions
 are inactive in the selected NDEBUG build, so only their corresponding Rust
 assertions are omitted. Initial actual-source NaN successes and twelve Rust
 panics are retained.

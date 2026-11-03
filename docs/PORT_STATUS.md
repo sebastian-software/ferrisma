@@ -50,8 +50,17 @@ earlier component counts below describe their original trees. The original
 optimized Linux concat graphs disagree on new paired-NaN products. A dedicated
 complete-source observer and preserved native investigation now pin that
 boundary without changing the original archive, previous requests, or finite
-results. Native acceptance of the combined tree remains required. HSW/SKX
-transform variants and complete-image ICC admission remain separate work.
+results. Native acceptance of the combined tree remains required.
+Complete-image ICC admission remains separate work.
+
+The HSW (N=8) and SKX (N=16) skcms stage engines and the original cpu_type()
+dispatch are now translated. Native Linux x86_64 CI previously failed three
+public transform groups because the original archive selected an x86 engine
+while Rust ran only the baseline: F16C half conversion, the 4*4*N tail
+temporary and N-pixel alias traversal differ from N=4. Each native host exercises
+only the engine its CPU selects, so a runner without AVX-512 does not compare
+SKX. SKX acceptance requires an AVX-512 host or an explicitly pinned engine
+configuration; neither is claimed yet.
 
 The combined Brotli and CMS recovery passes the complete ordinary local check
 on macOS AArch64 in Debug and Release: 833 tests per configuration, with zero
@@ -2244,8 +2253,9 @@ destination-usability source closure: all original formats and 79 stages,
 N=4 NEON/SSE arithmetic/load-store paths, tables/CLUTs, profile preparation,
 reference PQ/HLG CICP helpers and approximate-profile/TRC predicates. It unites
 the parser and fitting dependencies without changing their numeric algorithms.
-HSW/SKX targets and JXL default CMS/ColorSpaceTransform/pipeline integration
-remain separate work. Decoder checklist step 9 remains open until genuine
+HSW/SKX engines are now translated separately (see the recovered CMS work
+above). JXL default CMS/ColorSpaceTransform/pipeline integration remains
+separate work. Decoder checklist step 9 remains open until genuine
 complete ICC/HDR files pass exact pixels/statuses and native acceptance.
 
 All six local ordinary/nonrecovering ASan/UBSan configurations pass Debug,
@@ -2284,7 +2294,7 @@ white-point recovery, primaries/transfer detection, CICP admission, luminance
 computation, default interface, callback initialization, generated intermediate
 ICC owners, aligned per-thread buffers, row conversion and destruction. The
 reference selects Highway's scalar transfer wrapper and the original skcms N=4
-NEON/SSE engine. HSW/SKX remain separate source targets.
+NEON/SSE engine, or the HSW/SKX engine cpu_type() selects on x86_64.
 
 Seventeen mandatory groups retain 946,197 exact source cases, including all 88
 original ICC profiles, 84 generated RGB/gray/white-point/primaries/transfer

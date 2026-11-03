@@ -598,7 +598,10 @@ The audit compares all public requests between both compilation contexts and
 retains ordinary/instrumented observations independently. It verifies live code
 addresses and archive/observer object ownership, exact private compile-command
 substitution, actual baseline-object disassembly and complete format/op names
-against the pinned headers.
+against the pinned headers. On x86_64 Clang it additionally requires the
+enabled original HSW/SKX engine objects with their exact ISA options and live
+bindings, and retains their disassembly. Elsewhere it requires both
+SKCMS_DISABLE definitions.
 
 The 151,592 transform inputs supplement all inherited transfer, fitting and
 parser requests. They include all 42 formats, alpha combinations, zero/tail

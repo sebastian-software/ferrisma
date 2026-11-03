@@ -2,8 +2,8 @@
 // Use of this source code is governed by the BSD-style license in
 // licenses/SKCMS-BSD-3-Clause.txt.
 //! Transform orchestration and profile-usability operations from pinned
-//! skcms.cc:1741-1810,2482-3143. Pixel execution uses the unchanged baseline
-//! four-lane stage schedule; optimized HSW/SKX targets are separate boundaries.
+//! skcms.cc:1741-1810,2422-3143. Pixel execution selects the original
+//! baseline, HSW or SKX stage engine with the source's cpu_type() checks.
 
 use super::curve::Curve;
 use super::fitting::{approximate_curve, are_approximate_inverses, max_roundtrip_error};
@@ -541,7 +541,7 @@ pub unsafe fn transform(
             return false;
         };
         program.add(store);
-        super::transform_simd::run_program(
+        run_program(
             &program.ops[..program.len],
             &program.contexts[..program.len],
             src,
@@ -552,6 +552,80 @@ pub unsafe fn transform(
         );
     }
     true
+}
+
+/// Original skcms.cc:2422-2480 engine classification.
+#[cfg(target_arch = "x86_64")]
+#[derive(Clone, Copy)]
+enum CpuType {
+    Baseline,
+    Hsw,
+    Skx,
+}
+
+/// skcms.cc:2424 cpu_type() for the reference x86_64 Clang build, which
+/// compiles both HSW and SKX. std_detect reports AVX, F16C, FMA and AVX2 only
+/// when XCR0 saves XMM/YMM state, and AVX-512 only when it also saves opmask
+/// and ZMM state: the source's xgetbv conditions. The unported
+/// skcms_DisableRuntimeCPUDetection leaves runtime detection enabled. A
+/// function-local static caches the source result; OnceLock caches it here.
+#[cfg(target_arch = "x86_64")]
+fn cpu_type() -> CpuType {
+    static TYPE: std::sync::OnceLock<CpuType> = std::sync::OnceLock::new();
+    *TYPE.get_or_init(|| {
+        if is_x86_feature_detected!("sse")
+            && is_x86_feature_detected!("sse2")
+            && is_x86_feature_detected!("sse3")
+            && is_x86_feature_detected!("ssse3")
+            && is_x86_feature_detected!("fma")
+            && is_x86_feature_detected!("sse4.1")
+            && is_x86_feature_detected!("sse4.2")
+            && is_x86_feature_detected!("xsave")
+            && is_x86_feature_detected!("avx")
+            && is_x86_feature_detected!("f16c")
+            && is_x86_feature_detected!("avx2")
+        {
+            if is_x86_feature_detected!("avx512f")
+                && is_x86_feature_detected!("avx512dq")
+                && is_x86_feature_detected!("avx512cd")
+                && is_x86_feature_detected!("avx512bw")
+                && is_x86_feature_detected!("avx512vl")
+            {
+                return CpuType::Skx;
+            }
+            return CpuType::Hsw;
+        }
+        CpuType::Baseline
+    })
+}
+
+/// The original engine selection and call at skcms.cc:3039-3058. Targets
+/// other than x86_64 define SKCMS_DISABLE_HSW/SKX and use the baseline.
+///
+/// # Safety
+/// The program and its contexts, pixel spans and dimensions satisfy the
+/// selected engine's run_program contract.
+unsafe fn run_program(
+    program: &[Op],
+    contexts: &[*const ()],
+    src: *const u8,
+    dst: *mut u8,
+    n: i32,
+    src_bpp: usize,
+    dst_bpp: usize,
+) {
+    type Run = unsafe fn(&[Op], &[*const ()], *const u8, *mut u8, i32, usize, usize);
+    #[cfg(target_arch = "x86_64")]
+    let run: Run = match cpu_type() {
+        CpuType::Skx => super::transform_x86::run_program_skx,
+        CpuType::Hsw => super::transform_x86::run_program_hsw,
+        CpuType::Baseline => super::transform_simd::run_program,
+    };
+    #[cfg(not(target_arch = "x86_64"))]
+    let run: Run = super::transform_simd::run_program;
+    // SAFETY: cpu_type() established the selected engine's CPU features; the
+    // caller supplies the remaining forwarded program and pixel contract.
+    unsafe { run(program, contexts, src, dst, n, src_bpp, dst_bpp) }
 }
 
 /// Original three-TRC inverse check, retaining its null/flag short circuit.

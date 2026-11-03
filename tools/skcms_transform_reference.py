@@ -11,7 +11,7 @@ import platform
 import re
 import shlex
 import subprocess
-from skcms_binding import live_bindings
+from skcms_binding import engine_configuration, live_bindings
 from skcms_fitting_reference import source_command
 ROOT=Path(__file__).resolve().parent.parent
 
@@ -39,12 +39,12 @@ def inventory():
     result['Op']=names
     return result
 
-def object_evidence(entry,directory):
+def object_evidence(entry,directory,engine='baseline'):
     """Retain disassembly from the object actually linked into the CMS archive."""
     command=entry.get('arguments')or shlex.split(entry['command'])
     obj=Path(command[command.index('-o')+1])
     if not obj.is_absolute():obj=Path(entry['directory'])/obj
-    destination=directory/'baseline-object-disassembly.txt'
+    destination=directory/(engine+'-object-disassembly.txt')
     disassemble=['otool','-tvV',str(obj)]if platform.system()=='Darwin'else['objdump','-dr',str(obj)]
     with destination.open('w')as stream:
         subprocess.run(disassemble,stdout=stream,stderr=subprocess.STDOUT,check=True)
@@ -77,18 +77,19 @@ def binding(build,directory):
     baseline_command=baseline.get('arguments')or shlex.split(baseline['command'])
     normalized=baseline_command.copy();normalized[normalized.index('-o')+1]=original[original.index('-o')+1];normalized[normalized.index('-c')+1]=original[original.index('-c')+1]
     assert normalized==original,'Baseline source must inherit the identical original configuration'
-    assert '-DSKCMS_DISABLE_HSW' in original and '-DSKCMS_DISABLE_SKX' in original and not any('SKCMS_PORTABLE' in a for a in original)
+    assert not any('SKCMS_PORTABLE' in a for a in original)
+    engines,engine_specs=engine_configuration(commands,original)
     link=shlex.split((build/'CMakeFiles/jxl_oracle.dir/link.txt').read_text());bound=directory/'public-bound';mapping=directory/'public.map'
     link[link.index('-o')+1]=str(bound);link+=[('-Wl,-map,' if platform.system()=='Darwin' else '-Wl,-Map,')+str(mapping)]
     with (directory/'public-link.log').open('w')as log:subprocess.run(link,cwd=build,stdout=log,stderr=subprocess.STDOUT,check=True)
     public=['skcms_Transform','skcms_MakeUsableAsDestination','skcms_MakeUsableAsDestinationWithSingleCurve','skcms_ApproximatelyEqualProfiles','skcms_TRCs_AreApproximateInverse','skcms_ParseWithA2BPriority']
     specs={name:(r'_?'+name,r'libjxl_cms\.a(?:\[\d+\])?\((?:.*/)?skcms\.cc\.o\)$')for name in public}
     baseline_symbol=r'_?_*ZN13skcms_private8baseline11run_programE.*';baseline_owner=r'libjxl_cms\.a(?:\[\d+\])?\((?:.*/)?skcms_TransformBaseline\.cc\.o\)$'
-    specs['baseline::run_program']=(baseline_symbol,baseline_owner)
+    specs['baseline::run_program']=(baseline_symbol,baseline_owner);specs.update(engine_specs)
     public_bound=live_bindings(bound,mapping,specs)
     private_map=build/'skcms_transform_private.map';text=private_map.read_text()
     # A pristine source include supplies the helper's public definitions. Only
-    # the unchanged original baseline engine may be pulled from the CMS archive.
+    # the unchanged original stage engines may be pulled from the CMS archive.
     assert not re.search(r'libjxl_cms\.a[^\n]*\bskcms\.cc\.o',text)
     names=['select_curve_op','select_curve_ops','bytes_per_pixel','set_reference_pq_ish_trc','set_sdr_hlg_ish_trc','prep_for_destination']
     private_specs={name:(r'_+ZL'+str(len(name))+name+r'.*',r'(?:^|/)skcms_transform_private\.o$')for name in names}
@@ -101,7 +102,7 @@ def binding(build,directory):
         wanted=['-fsanitize=address,undefined','-fno-sanitize-recover=all']if build.name=='oracle-asan'else[]
         assert [a for a in argv if 'sanitize' in a]==wanted,(name,argv)
         adapters[name]=adapter
-    return {'public':public_bound,'private':private_bound,'baseline_command':baseline,'baseline_object':object_evidence(baseline,directory),'adapter_commands':adapters,'private_receipt':receipt}
+    return {'public':public_bound,'private':private_bound,'baseline_command':baseline,'baseline_object':object_evidence(baseline,directory),'engine_commands':engines,'engine_objects':{name:object_evidence(entry,directory,name)for name,entry in engines.items()},'adapter_commands':adapters,'private_receipt':receipt}
 
 def observe(binary,requests):
     p=subprocess.run([str(binary)],input='\n'.join(requests)+'\n',text=True,capture_output=True)

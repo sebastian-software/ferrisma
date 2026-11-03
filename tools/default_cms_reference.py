@@ -11,7 +11,7 @@ import re
 import shlex
 import subprocess
 import itertools
-from skcms_binding import live_bindings
+from skcms_binding import engine_configuration, live_bindings
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -112,9 +112,11 @@ def bindings(build):
         assert len(selected) == 1, selected
         argv = selected[0].get("arguments") or shlex.split(selected[0]["command"])
         assert [flag for flag in argv if "sanitize" in flag] == wanted
-        assert "-DSKCMS_DISABLE_HSW" in argv and "-DSKCMS_DISABLE_SKX" in argv
         assert not any("SKCMS_PORTABLE" in flag for flag in argv)
         dependency_commands.append(selected[0])
+    skcms_argv = dependency_commands[0].get("arguments") or shlex.split(dependency_commands[0]["command"])
+    engine_commands, engine_specs = engine_configuration(commands, skcms_argv)
+    dependency_commands.extend(engine_commands.values())
     results = {}
     for context in receipt["contexts"]:
         kind = context["kind"]
@@ -139,6 +141,7 @@ def bindings(build):
             "skcms_MakeUsableAsDestination", "skcms_ApproximateCurve", "skcms_ApproximatelyEqualProfiles"]}
         dependencies["baseline::run_program"] = (r"_?_*ZN13skcms_private8baseline11run_programE.*",
             r"libjxl_cms\.a(?:\[\d+\])?\((?:.*/)?skcms_TransformBaseline\.cc\.o\)$")
+        dependencies.update(engine_specs)
         dependencies = live_bindings(binary, mapping, dependencies)
         query = "default-cms-bindings\n" + ("default-cms-private-bindings\n" if kind == "private" else "")
         runtime = subprocess.run([str(binary)], input=query, text=True, capture_output=True, check=True)

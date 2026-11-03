@@ -1815,6 +1815,18 @@ algorithm or a claim of equivalent call-stack/performance behavior. Native
 contraction checkpoints are validated against actual compiled original objects;
 source compiler options are not changed to obtain agreement.
 
+On x86_64 the reference Clang build also compiles the HSW (N=8, AVX2/F16C,
+no FMA) and SKX (N=16, AVX-512F/DQ) engines, and Transform selects one with
+cpu_type(). Rust translates both from the same header with lane-count generic
+stages and the source's non-NEON branches. HSW rounds contracted products; SKX
+fuses the same frontend-contracted expressions, including U16_from_F. Rust 1.85
+has no stable AVX-512 intrinsics or target features, so SKX issues each 512-bit
+operation as two 256-bit AVX/FMA/F16C operations. Every used operation is
+lane-independent with identical per-lane results, including F16C rounding,
+floor and truncating conversion. cpu_type() maps each cpuid/xgetbv condition to
+std_detect, whose AVX and AVX-512 reports include the same XCR0 state checks.
+Direct-stage oracle programs still call the baseline engine only.
+
 Curve selection keeps source control counts as i32, including the post-decrement
 before its comparison. A2B input and B2A output u32 channel words use the
 original native int conversion. Only a proven nonnegative, bounded source index

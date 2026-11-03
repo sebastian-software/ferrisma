@@ -10,4 +10,6 @@ pub mod transfer_function;
 pub mod transform;
 mod transform_simd;
 pub mod transform_types;
+#[cfg(target_arch = "x86_64")]
+mod transform_x86;
 pub mod types;
