@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shlex
 import subprocess
 from skcms_binding import live_bindings
@@ -23,6 +24,25 @@ def observe(binary, payload):
         raise RuntimeError('Original JPEG payload response inventory changed')
     return result.stdout
 
+def stale_scan_probe(binary, scans, request, instrumented):
+    """Run one source-undefined repeated-owner request in its own process."""
+    result = subprocess.run([str(binary)], input=request + b'\n', capture_output=True)
+    stderr = result.stderr.decode(errors='replace')
+    frame = next((line for line in stderr.splitlines() if line.lstrip().startswith('#0 ')), '')
+    diagnosed = (result.returncode != 0
+                 and 'ERROR: AddressSanitizer: heap-buffer-overflow ' in stderr
+                 and 'READ of size 4 ' in stderr
+                 and re.search(rf'is located 16 bytes after {scans * 120}-byte region', stderr) is not None
+                 and (' in ' not in frame
+                      or ('jxl::jpeg::JPEGData::VisitFields' in frame
+                          and 'vector<jxl::jpeg::JPEGScanInfo' in stderr)))
+    if instrumented and not diagnosed:
+        raise RuntimeError('Instrumented source did not diagnose the stale scan_info read:\n' + stderr[:4000])
+    return {'request_sha256': hashlib.sha256(request).hexdigest(), 'stale_scans': scans,
+            'returncode': result.returncode, 'diagnosed': diagnosed,
+            'stdout_sha256': hashlib.sha256(result.stdout).hexdigest(),
+            'stderr_sha256': hashlib.sha256(result.stderr).hexdigest()}, result.stderr
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -31,7 +51,9 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     check_source()
     capture = output / 'requests.txt'
+    undefined_capture = output / 'source-undefined-requests.txt'
     env = dict(os.environ, JXL_JPEG_PAYLOAD_CAPTURE=str(capture),
+               JXL_JPEG_PAYLOAD_UNDEFINED_CAPTURE=str(undefined_capture),
                JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'))
     with (output / 'parity.log').open('w') as log:
         subprocess.run(['cargo', 'test', '--locked', '--offline', '--all-features', '--test',
@@ -41,8 +63,14 @@ def main():
     payload = capture.read_bytes()
     if not payload or any(not q.startswith(b'jm-ops ') for q in payload.splitlines()):
         raise RuntimeError('Complete payload history inventory missing')
+    undefined = [line.split(b' ', 1) for line in undefined_capture.read_bytes().splitlines()]
+    if len(undefined) != 24 or any(not q.startswith(b'jm-ops ') for _, q in undefined):
+        raise RuntimeError('Stale-scan repeated-owner inventory changed')
     expected = None
-    report = {'requests': len(payload.splitlines()), 'requests_sha256': sha(capture), 'graphs': {}}
+    report = {'requests': len(payload.splitlines()), 'requests_sha256': sha(capture),
+              'source_undefined': {'boundary': 'JPEGData::VisitFields table validation after a retained SOS marker',
+                                   'requests': len(undefined), 'requests_sha256': sha(undefined_capture)},
+              'graphs': {}}
     for graph in ['oracle', 'oracle-asan']:
         build = ROOT / 'target' / graph
         directory = output / graph
@@ -76,13 +104,21 @@ def main():
             raise RuntimeError('Original ordinary/instrumented payload histories differ')
         expected = observations
         (directory / 'observations.txt').write_bytes(observations)
+        probes = []
+        with (directory / 'source-undefined-stderr.txt').open('wb') as diagnostics:
+            for scans, request in undefined:
+                probe, stderr = stale_scan_probe(binary, int(scans), request, graph == 'oracle-asan')
+                probes.append(probe)
+                diagnostics.write(request + b'\n' + stderr + b'\n')
         if any(sha(p) != digest for p, digest in before.items()):
             raise RuntimeError('Source audit changed an active original input')
         report['graphs'][graph] = {'compile': checked, 'bindings': bindings,
-            'unchanged_inputs': before, 'observations_sha256': sha(directory / 'observations.txt')}
+            'unchanged_inputs': before, 'observations_sha256': sha(directory / 'observations.txt'),
+            'source_undefined_probes': probes}
     check_source()
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(f"Complete DecodeJPEGData: {report['requests']} exact source owner histories")
+    print(f"Complete DecodeJPEGData: {report['requests']} exact source owner histories; "
+          f"{len(undefined)} diagnosed stale-scan owner requests")
 
 if __name__ == '__main__':
     main()

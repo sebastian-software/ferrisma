@@ -36,9 +36,12 @@ payload reconstruction. The input and accepted output paths now share the same
 JxlMemoryManager type and the original alignment-group counter. JPEG coefficient
 paths retain the accepted frame-storage ownership split. The new payload corpus
 uses the actual original encoder and compares complete, truncated, trailing-data
-and repeated-owner histories. Full local checks and native admission are being
-rerun on this combined tree. Public container/event orchestration and complete
-JPEG-file API admission remain open.
+and repeated-owner histories: 4,740 defined requests compare exactly. When an
+earlier call on the same owner leaves an SOS marker behind, the original
+validation reads one scan_info element past its end. Those 24 requests run as
+separate original-only probes, and every instrumented graph must report that
+heap-buffer-overflow; they have no C++/Rust comparison (ADR 0003). Public
+container/event orchestration and complete JPEG-file API admission remain open.
 
 ## Recovered Brotli decoder (2026-11-03)
 
@@ -2071,10 +2074,10 @@ assigned codec result; defined aliases, malformed streams and partial errors
 remain compared exactly. No compiler option, sanitizer, old case or expected
 word changes.
 
-The Brotli-dependent `DecodeJPEGData` boundary remains absent. Its streaming
-Brotli decoder, marker payload reconstruction, JPEG coefficient reconstruction
-and whole-file integration still need separate ports and evidence. The README's
-JPEG reconstruction checkbox stays unchecked.
+`DecodeJPEGData` and its marker payload reconstruction are now translated over
+the recovered Brotli decoder; see the recovered decoder state section above.
+Whole-file JPEG reconstruction and public API admission still need separate
+evidence. The README's JPEG reconstruction checkbox stays unchecked.
 ### skcms ICC parser and directly reached curves
 
 The complete parser boundary translates profile/tag/curve carriers, public ICC

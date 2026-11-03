@@ -632,6 +632,7 @@ fn jpeg_metadata_all_serialized_fields_and_source_validation_branches() {
 #[test]
 fn jpeg_metadata_complete_brotli_payloads_keep_truncations_and_repeated_owner_state() {
     let mut cases = Vec::new();
+    let mut undefined = Vec::new();
     for name in [
         "baseline.jpg",
         "gray.jpg",
@@ -661,17 +662,110 @@ fn jpeg_metadata_complete_brotli_payloads_keep_truncations_and_repeated_owner_st
                 extra.extend(trailing);
                 cases.push(request(&empty(), &format!("B {}", hex(&extra)), 1));
             }
-            for length in [0, 1, encoded.len() / 2, encoded.len().saturating_sub(1)] {
-                cases.push(request(
+            let lengths = [0, 1, encoded.len() / 2, encoded.len().saturating_sub(1)];
+            let first: Vec<_> = lengths
+                .iter()
+                .map(|length| request(&empty(), &format!("B {}", hex(&encoded[..*length])), 1))
+                .collect();
+            for (length, observed) in lengths.iter().zip(original_observations(&first)) {
+                let repeated = request(
                     &empty(),
-                    &format!("B {} B {}", hex(&encoded[..length]), hex(&encoded)),
+                    &format!("B {} B {}", hex(&encoded[..*length]), hex(&encoded)),
                     2,
-                ));
+                );
+                // VisitFields appends to the retained marker_order but resizes
+                // scan_info to the new scan count. A retained SOS marker makes
+                // the source table validation read scan_info[scan_info.size()].
+                let stale_scans = stale_scan_markers(&observed);
+                if stale_scans == 0 {
+                    cases.push(repeated);
+                } else {
+                    undefined.push((repeated, stale_scans));
+                }
             }
         }
     }
     if let Some(path) = std::env::var_os("JXL_JPEG_PAYLOAD_CAPTURE") {
         std::fs::write(path, cases.join("\n") + "\n").unwrap();
     }
+    if let Some(path) = std::env::var_os("JXL_JPEG_PAYLOAD_UNDEFINED_CAPTURE") {
+        let requests: Vec<_> = undefined
+            .iter()
+            .map(|(request, scans)| format!("{scans} {request}"))
+            .collect();
+        std::fs::write(path, requests.join("\n") + "\n").unwrap();
+    }
     compare(cases);
+    assert_eq!(undefined.len(), 24);
+    let instrumented = original_observations(&["patch-sanitizers".into()])[0] == "1";
+    let oracle = std::env::var_os("JXL_CPP_ORACLE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/oracle/jxl_oracle")
+        });
+    let mut diagnosed = 0;
+    for (request, scans) in &undefined {
+        let mut child = Command::new(&oracle)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start original UB boundary probe");
+        writeln!(child.stdin.take().unwrap(), "{request}").expect("write exact UB request");
+        let output = child
+            .wait_with_output()
+            .expect("observe original UB boundary");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // The READ lands 16 bytes after the retained scan_info allocation of
+        // 120-byte JPEGScanInfo elements: num_components one past its end.
+        // Frame names are checked whenever the report is symbolized.
+        let frame = stderr
+            .lines()
+            .find(|line| line.trim_start().starts_with("#0 "))
+            .unwrap_or_default();
+        let stale_scan_read = stderr.contains("ERROR: AddressSanitizer: heap-buffer-overflow ")
+            && stderr.contains("READ of size 4 ")
+            && stderr.contains(&format!(
+                "is located 16 bytes after {}-byte region",
+                scans * 120
+            ))
+            && (!frame.contains(" in ")
+                || (frame.contains("jxl::jpeg::JPEGData::VisitFields")
+                    && stderr.contains("vector<jxl::jpeg::JPEGScanInfo")))
+            && stderr.contains("SUMMARY: AddressSanitizer: heap-buffer-overflow");
+        if instrumented {
+            assert!(
+                stale_scan_read && !output.status.success(),
+                "instrumented source must diagnose the stale scan_info read: {request}\n{stderr}"
+            );
+            diagnosed += 1;
+        } else {
+            println!(
+                "Original ordinary stale-scan request (undefined, not compared): {}",
+                output.status
+            );
+        }
+        // No C++/Rust comparison or codec status is assigned to this source
+        // call. Safe Rust indexing panics instead of reading past scan_info.
+        assert!(
+            std::panic::catch_unwind(|| super::observe(request)).is_err(),
+            "Rust must not read past the retained scan_info: {request}"
+        );
+    }
+    println!(
+        "{} original stale-scan owner requests exercised; {diagnosed} diagnosed",
+        undefined.len()
+    );
+}
+
+fn stale_scan_markers(observed: &str) -> usize {
+    let mut words = observed.split_whitespace();
+    assert_eq!(words.next(), Some("B"));
+    let _: i32 = number(&mut words);
+    assert_eq!(words.next(), Some("S"));
+    let j = read_data(&mut words);
+    j.marker_order
+        .iter()
+        .filter(|marker| **marker == 0xda)
+        .count()
 }

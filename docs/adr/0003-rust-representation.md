@@ -1622,9 +1622,21 @@ The table-order validation retains original reached-index preconditions. The
 source CanEncode visitor accumulates bit-range errors, so an out-of-range
 Huffman slot can access bool[4] before reporting its error; the source sanitizer
 probe establishes this undefined domain. Safe Rust bounds checks do not invent
-a codec status for that source-undefined call. General DecodeJPEGData remains
-absent until its genuine Brotli streaming dependency is translated. Revisit this
-mapping for the complete metadata payload/coefficients and public decoder API.
+a codec status for that source-undefined call.
+
+Reading into an owner appends to its retained marker_order but resizes scan_info
+to the newly read scan count. When a previous DecodeJPEGData call on the same
+owner left an SOS marker behind, the table validation walks the old and new
+markers and reads scan_info[scan_info.size()]. The instrumented original reports
+a heap-buffer-overflow READ 16 bytes after the scan_info allocation: the
+num_components field of the element past its end. The ordinary original returns
+or faults depending on heap layout. The payload corpus derives the stale SOS
+count from the original's own first-call owner snapshot. Those 24 repeated-owner
+requests run in separate original-only processes and must produce exactly that
+diagnostic on every instrumented graph. They have no C++/Rust comparison;
+the Rust test asserts only that its bounds check stops at the same element.
+The 4,740 defined histories, including empty and short stale prefixes, retain
+exact parity. Revisit this mapping for the public decoder API and coefficients.
 
 ### Borrowed skcms profiles and active curve storage
 
