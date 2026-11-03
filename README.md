@@ -99,6 +99,9 @@ adapter to the Rust AOM crate for validation. It has passed the original
 libavif Debug, Release, full-feature, and ASan suites. The subsequent external
 input-alignment correction requires fresh standalone acceptance and final
 root revalidation before the default dependency switch.
+The current acceptance policy requires complete original Release suites on
+both native platforms plus focused Debug and sanitizer checks, preserving all
+original tests. See [ADR 0048](docs/adr/0048-require-complete-release-and-focused-debug-aom-acceptance.md).
 
 ## License
 

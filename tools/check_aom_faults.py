@@ -31,7 +31,7 @@ def main():
     hooks = ['pthread_create'] if args.thread_failures else ['malloc', 'calloc', 'realloc', 'free']
     work = ROOT / (f'build/aom-{kind}-{profile}' + ('-asan' if args.asan else ''))
     work.mkdir(parents=True, exist_ok=True)
-    reference = ROOT / f'build/aom-native-{profile}'
+    reference = (ROOT / f'build/aom-native-{profile}').resolve()
     archive = ROOT / f'target/{profile}/libaom.a'
     compiler, runtime = os.environ.get('CC', 'cc'), []
     prefix = Path(os.environ.get('LIBAVIF_RS_LLVM_PREFIX', ROOT / 'build/toolchain/llvm@16/16.0.6_1'))

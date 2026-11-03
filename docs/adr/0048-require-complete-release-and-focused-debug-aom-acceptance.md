@@ -6,6 +6,8 @@ complete unoptimized Debug gate from ADRs 0044, 0045, and 0046 with focused
 Debug checks for API errors, allocation and worker failures, and the known
 high-bit-depth input-alignment regression. Keep final root sanitizer checks,
 source correspondence, ABI, symbol ownership, and strict AVIF/PNG parity gates.
+Final root integration uses the complete Release and supported-feature suites,
+focused Debug regressions, and the existing root ASan checks.
 
 The first four matching complete Linux shard pairs took 15–19 times longer
 in Debug than Release; the corresponding macOS pairs took 13–15 times longer.

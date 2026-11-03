@@ -105,6 +105,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-run', type=int, required=True)
     parser.add_argument('--recovery-run', type=int, action='append', default=[])
+    parser.add_argument('--release-only', action='store_true', help='Use ADR 0048; do not claim complete Debug execution')
+    parser.add_argument('--source-plan', type=Path, help='Verify unchanged original Release results reused by a continuation')
     parser.add_argument('--repository', default=os.environ.get('GITHUB_REPOSITORY', 'sebastian-software/libavif-rs'))
     args = parser.parse_args()
     if args.source_run < 1 or len(set(args.recovery_run)) != len(args.recovery_run):
@@ -112,6 +114,13 @@ def main():
     source = api(args.repository, f'actions/runs/{args.source_run}')
     if source['path'].split('@', 1)[0] != '.github/workflows/aom-original-native.yml':
         raise ValueError('Source run is not the complete original native acceptance workflow')
+    source_plan = None
+    if args.source_plan:
+        from plan_aom_release import verify_reused
+        source_plan = json.loads(args.source_plan.read_text())
+        if source_plan['source_run'] != args.source_run or source_plan['source_commit'] != source['head_sha']:
+            raise ValueError('Release continuation plan belongs to another source run')
+        verify_reused(source_plan, ROOT)
     seen, recoveries = set(), []
     for run in args.recovery_run:
         metadata = api(args.repository, f'actions/runs/{run}')
@@ -138,7 +147,8 @@ def main():
         recoveries.append(imported)
     checked = verify_original_xml(ROOT)
     results = []
-    for profile in ('debug', 'release'):
+    profiles = ('release',) if args.release_only else ('debug', 'release')
+    for profile in profiles:
         for program, (registered, active, disabled) in EXPECTED.items():
             command = ['python3', str(ROOT / 'tools/run_aom_paired_shard.py'), '--program', program,
                        '--shards', '120' if program == 'test_libaom' else '1', '--collect']
@@ -152,13 +162,23 @@ def main():
                      and summary.get('executed') == active and summary.get('upstream_disabled') == disabled)
             results.append(dict(profile=profile, program=program, valid=valid,
                                 collector_exit_code=execution.returncode, summary=summary))
-    valid = len(results) == 6 and all(item['valid'] for item in results)
+    release_valid = all(item['valid'] for item in results if item['profile'] == 'release')
+    focused_debug = None
+    if args.release_only:
+        from check_aom_focused_debug import verify_focused_debug
+        focused_debug = verify_focused_debug(ROOT)
+    valid = len(results) == len(profiles) * len(EXPECTED) and all(item['valid'] for item in results)
     report = dict(valid=valid, source_run=args.source_run, source_commit=source['head_sha'],
                   source_workflow_status=source['status'], source_workflow_conclusion=source['conclusion'],
                   collection_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   recoveries=recoveries, original_and_recovered_shard_records_checked=checked,
                   complete_original_case_and_matching_skip_inventories_required=True,
                   root_default_engine_switched=False, profiles=results)
+    report.update(acceptance_contract='ADR-0048' if args.release_only else 'complete Debug and Release',
+                  complete_debug_acceptance=not args.release_only and valid,
+                  complete_release_acceptance=release_valid, source_reuse=source_plan,
+                  focused_debug=focused_debug,
+                  continuation_run=os.environ.get('GITHUB_RUN_ID'))
     (ROOT / 'build/aom-complete-acceptance.json').write_text(json.dumps(report, indent=2) + '\n')
     if not valid:
         raise SystemExit('Complete original native acceptance is not passing; no default switch is authorized by this evidence')

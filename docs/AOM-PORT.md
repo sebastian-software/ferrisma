@@ -6,8 +6,9 @@ Release, with a raw Rust API and passing focused native comparisons. Before
 the input-alignment correction in ADR 0046, the explicit root candidate passed
 libavif Debug, Release, supported-feature, and AddressSanitizer suites. Those
 root checks require final revalidation. Default libavif builds still link native
-libaom while the complete original AOM suites and remaining correspondence
-gates run.
+libaom while the complete original Release suites, focused Debug checks, and
+remaining correspondence gates run under ADR 0048. Exhaustive unoptimized
+Debug execution is no longer a default-switch prerequisite.
 
 The first hosted macOS full Debug shard exposed an additional Rust alignment
 requirement when the original small-width test's byte-array fixture had an odd
@@ -23,10 +24,13 @@ comparisons are recorded in
 [`aom-unaligned-input-validation.json`](aom-unaligned-input-validation.json).
 
 The replacement Linux Debug run reached the hosted six-hour job limit in
-two original shards. ADR 0047 keeps the immutable binaries and successful
-partitions, recovering only confirmed time-limit cancellations with finer
-original GoogleTest shards. Complete acceptance still requires every original
-case and matching dynamic skip exactly once; partial recovery is not enough.
+several original shards. ADR 0047 preserved immutable binaries and successful
+partitions while recovering confirmed time-limit cancellations with finer
+original GoogleTest shards. ADR 0048 subsequently replaced the full Debug
+gate after measuring its runtime. The mixed full-suite and Debug-recovery
+runs were stopped with their published artifacts retained. Complete Release
+acceptance still requires every original active case and matching dynamic
+skip exactly once; a passing subset is not enough.
 See [`aom-shard-recovery-validation.json`](aom-shard-recovery-validation.json)
 for the time-limit evidence and recovery checks.
 
@@ -453,16 +457,27 @@ This workflow is prepared for full native Linux acceptance; it has not yet
 established a passing full-suite result. The remaining subject/oracle role
 review is an additional gate even after full-suite execution passes.
 
-`aom-original-native.yml` schedules the same complete boundary on standard
+`aom-original-native.yml` builds both profiles on standard
 `ubuntu-24.04` or native ARM64 `macos-26` / `macos-15` runners. Both macOS images
 require the same native SDK layout checks. It uses 120 paired main-suite shards
-per profile and the four original rate-control/speed jobs, with eight
-Linux or four macOS jobs at a time. This finer scheduling addresses measured
-Debug runtimes within the hosted job limit; it does not reduce cases or alter
-codec thread settings. Native macOS builds also check named record layouts
-against that runner's SDK. Local execution remains limited to two CPU-intensive
-processes. ADR 0044 records this scheduling decision; a complete passing run
-on either hosted platform is still pending.
+for Release and the two original Release rate-control/speed jobs, with eight
+Linux or four macOS jobs at a time. Debug runs 69 unchanged original API,
+memory-boundary, and high-bit-depth alignment cases. Native macOS builds also
+check named record layouts against that runner's SDK. Allocation and worker
+failure comparisons remain separate focused checks. Local execution remains
+limited to two CPU-intensive processes. ADR 0048 records the revised gate;
+a complete passing Release run on either hosted platform is still pending.
+
+`aom-original-release.yml` continues from an existing native source run's exact
+frozen binaries. It checks actual XML and the established execution identities
+before reusing a complete source Release pair, then schedules only missing
+partitions. Collection verifies that reused reports and XML remain unchanged,
+requires all three Release inventories, and reparses the focused Debug proof.
+It explicitly records the source run's cancellation and does not claim full
+Debug acceptance. Original tests, inputs, and disabled flags are unchanged.
+The transition, original-artifact integration checks, and focused fault
+comparisons are recorded in
+[`aom-release-policy-validation.json`](aom-release-policy-validation.json).
 
 The hosted `macos-26` build now passes both original profiles and verifies
 18,207 Debug / 18,157 Release named record instances with 204,984 / 204,684
@@ -486,8 +501,9 @@ receive no full-suite execution credit. See
    supplemental exact encode/decode comparisons, defined API errors, allocation
    failures, and instrumented cleanup checks. Audit symbols and link maps for
    original codec fallbacks and accidental symbol interposition.
-5. Require Debug and Release evidence on native macOS ARM64 and GNU Linux
-   x86-64 before standalone acceptance. Root Linux support remains separate.
+5. Require complete Release execution and focused Debug evidence on native
+   macOS ARM64 and GNU Linux x86-64 under ADR 0048. Root Linux support remains
+   separate. Preserve independent oracles, ABI and ownership audits.
 6. Replace native libaom in the root archive, audit the full default linkage,
    and rerun original libavif suites and exact AVIF/PNG comparisons. Keep the
    VMAF dependency and any remaining unsupported configurations visible.
@@ -534,6 +550,7 @@ python3 tools/check_aom_faults.py --thread-failures
 python3 tools/check_aom_roundtrip.py --asan
 python3 tools/check_aom_faults.py --asan
 python3 tools/check_aom_faults.py --asan --thread-failures
+python3 tools/check_aom_focused_debug.py
 python3 tools/run_aom_tests.py
 python3 tools/run_aom_tests.py --rust
 ```

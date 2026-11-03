@@ -1,0 +1,180 @@
+name: Continue original AOM Release acceptance from frozen binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Original native source run with frozen Debug and Release binaries
+        required: true
+        type: string
+      runner:
+        description: Same native runner as the source build
+        type: choice
+        options: [ubuntu-24.04, macos-26, macos-15]
+        default: ubuntu-24.04
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  plan:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 25
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_work: ${{ steps.plan.outputs.has_work }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 tests/ports/aom_release_reuse_test.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-original-shard-release-*
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: build
+      - name: Restore executable permissions and verify original fixtures
+        run: |
+          chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+          python3 tools/fetch_aom_test_data.py --profile release --jobs 2
+      - id: plan
+        name: Validate reusable actual XML and schedule only missing original pairs
+        run: python3 tools/plan_aom_release.py --source-run '${{ inputs.source_run }}' --runner '${{ inputs.runner }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-release-source-plan
+          retention-days: 14
+          if-no-files-found: error
+          path: build/aom-release-source-plan.json
+  paired:
+    needs: plan
+    if: needs.plan.outputs.has_work == 'true'
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ startsWith(inputs.runner, 'macos-') && 4 || 8 }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - name: Restore exact original executables
+        run: chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+      - name: Fetch and verify every original selected fixture
+        if: matrix.program == 'test_libaom'
+        run: python3 tools/fetch_aom_test_data.py --profile release --jobs 2
+      - name: Run the unchanged original Release pair
+        run: python3 tools/run_aom_paired_shard.py --program '${{ matrix.program }}' --shards '${{ matrix.shards }}' --index '${{ matrix.index }}'
+      - name: Preserve actual XML, logs, and execution identities
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-release-shard-${{ matrix.program }}-${{ matrix.index }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/aom-paired-release-${{ matrix.program }}/
+            build/aom-native-release/reference-profile.json
+  focused-debug:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - name: Run focused original Debug API, memory, and alignment cases
+        run: |
+          chmod +x build/aom-{native,rust}-debug/test_libaom
+          python3 tools/check_aom_focused_debug.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: aom-focused-debug
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/aom-focused-debug.json
+            build/aom-paired-debug-test_libaom-focused-*/
+  collect:
+    needs: [plan, paired, focused-debug]
+    if: ${{ always() && !cancelled() && needs.plan.result == 'success' && (needs.paired.result == 'success' || needs.paired.result == 'skipped') && needs.focused-debug.result == 'success' }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-original-shard-release-*
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: needs.plan.outputs.has_work == 'true'
+        with:
+          pattern: aom-release-shard-*
+          merge-multiple: true
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-release-source-plan
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-focused-debug
+          path: build
+      - name: Require complete Release and unchanged reused source evidence
+        run: |
+          chmod +x build/aom-{native,rust}-release/test_{libaom,aom_rc,intra_pred_speed}
+          python3 tools/collect_aom_recovery.py --source-run '${{ inputs.source_run }}' --release-only --source-plan build/aom-release-source-plan.json
+      - name: Preserve complete Release and focused Debug evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-release-acceptance
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/aom-complete-acceptance.json
+            build/aom-release-source-plan.json
+            build/aom-focused-debug.json
+            build/aom-paired-*/
+            build/aom-abi-*/summary.json
+            build/aom-unaligned-input-*/summary.json
+            build/aom-rust-*/linkage.json
+            build/aom-rust-*/symbol-audit.json
+            build/aom-native-*/reference-profile.json
