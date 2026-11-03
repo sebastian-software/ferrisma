@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 #[path = "common/skcms_parser.rs"]
 pub mod cases;
+#[path = "common/skcms_profile_observation.rs"]
+mod skcms_profile_observation;
 use jxl::skcms::{
     curve::eval_curve,
     profile::{self, IccProfile},

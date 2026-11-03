@@ -1,0 +1,14 @@
+{
+  "skcms_revision": "96d9171c94b937a1b5f0293de7309ac16311b722",
+  "source_files": {
+    "skcms.cc": "c4b69d55184af6a7689005b58c3fdc68181d5c32895d4e7030351408d3193c1c",
+    "src/skcms_public.h": "aa5f042d104287d47268d6f1efc5800c5d0497b6680150744729f379eb5b5ce3",
+    "src/skcms_internals.h": "e0636ad492f32d6ab67788cf4711b048763ea876c87140b30dfc25a19692dcb2"
+  },
+  "requests": 8624,
+  "defined": 8262,
+  "original_only_positive_ub": 362,
+  "tsv_sha256": "6860bef6742e6e85d2f46a2a6d117196c5f6b842a5321010f2496076103b6cfc",
+  "source_probe": "Every U row independently aborts in the pristine nonrecovering ASan/UBSan public TransferFunction_eval path at its float-to-int cast; defined rows agree under both untouched original graphs. Native platforms must repeat this census.",
+  "existing_requests_retained": 86696
+}

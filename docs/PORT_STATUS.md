@@ -40,6 +40,33 @@ The instrumented check and complete streaming/API audits are being rerun; native
 Linux and macOS admission remains required. Dedicated streaming and API audits
 are now required in CI. The stack-based one-shot decoder remains unported.
 
+## Recovered CMS work (2026-11-03)
+
+The integration recovers the transfer/matrix, nonlinear-fitting, baseline SIMD
+transform and default-CMS work on top of the reviewed decoder components.
+The complete ordinary local check passes Debug, Release and Rust 1.85. The
+instrumented and native gates are being rerun for this combined tree;
+earlier component counts below describe their original trees. The original
+optimized Linux concat graphs disagree on new paired-NaN products. A dedicated
+complete-source observer and preserved native investigation now pin that
+boundary without changing the original archive, previous requests, or finite
+results. Native acceptance of the combined tree remains required.
+Complete-image ICC admission remains separate work.
+
+The HSW (N=8) and SKX (N=16) skcms stage engines and the original cpu_type()
+dispatch are now translated. Native Linux x86_64 CI previously failed three
+public transform groups because the original archive selected an x86 engine
+while Rust ran only the baseline: F16C half conversion, the 4*4*N tail
+temporary and N-pixel alias traversal differ from N=4. Each native host exercises
+only the engine its CPU selects, so a runner without AVX-512 does not compare
+SKX. SKX acceptance requires an AVX-512 host or an explicitly pinned engine
+configuration; neither is claimed yet.
+
+The combined Brotli and CMS recovery passes the complete ordinary local check
+on macOS AArch64 in Debug and Release: 833 tests per configuration, with zero
+failures or ignored tests. Native Linux and macOS CI acceptance of this
+combined tree remains required.
+
 ## Reviewed decoder integration (2026-11-03)
 
 [PR #34](https://github.com/sebastian-software/libjxl-rs/pull/34) delivers the
@@ -193,9 +220,9 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
 | `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ, TF_HLG, TF_709 and TF_SRGB input/output algorithms, TF_709 double encoding overload, and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; alternate SIMD targets remain separate |
-| `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete tag/command tables, endian access, unsigned bounds checks, initial/adaptive header prediction, linear byte prediction and ICC ANS contexts |
 | `icc_codec.h`, `.cc` | `icc_codec.rs` | Complete shuffle, bounded base-128 varint, preamble validation, ICC command decoding and incremental ICCReader Init/Process/Reset/CheckEOI with exact checkpoint, replay and defined partial state; whole-file ICC admission remains separate |
+| `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default CMS backend acceptance is recorded below |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `decode.cc` signature/container-header helpers, constants in `lib/include/jxl/decode.h` | `decode.rs`, signature bytes in `common.rs` | Complete OutOfBounds, InitialBasicInfoSizeHint, ReadSignature, JxlSignatureCheck and ParseBoxHeader; public incremental decoder state/events and C ABI entry points remain separate |
@@ -2063,6 +2090,73 @@ The Brotli-dependent `DecodeJPEGData` boundary remains absent. Its streaming
 Brotli decoder, marker payload reconstruction, JPEG coefficient reconstruction
 and whole-file integration still need separate ports and evidence. The README's
 JPEG reconstruction checkbox stays unchecked.
+## skcms transfer functions and matrices
+
+The pinned skcms dependency now has translated public transfer-function
+classification, five predicates, constructors (including the original inline
+HLGish shim), evaluation and inversion. The reached log2/exp2/power helpers keep
+the source approximations and constants. Matrix support covers concatenation,
+full double-temporary inversion, Bradford adaptation to XYZ D50 and primary
+chromaticities to XYZ D50. Both inversion paths support actual input/output
+aliasing and retain destination state at source failure checkpoints.
+
+Twelve defined differential groups cover 207,144 exact requests: 119,268 transfer
+calls and 87,876 matrix calls. All six focused ordinary/ASan/UBSan Debug, Release
+and Rust 1.85 configurations pass on native ARM with zero failed or ignored
+tests. The initial 71,226 matrix requests remain encoded exactly; extra controls
+include paired exceptional entries, 432 paired concatenation NaN products and the
+original sRGB/standard-primary cases.
+All 362 positively undefined original transfer calls remain in a separate source
+census and are never assigned invented Rust outputs. The independent source
+binding audit verifies all 16 actual archive functions, every retained matrix
+request and all 362 positive original-only boundaries. Both complete local
+checks pass in Debug, Release and Rust 1.85: each configuration runs 544 tests,
+331 differential groups and 1,239,923 exact defined comparisons, with zero
+failures or ignored tests. Native Linux/macOS CI remains an acceptance gate.
+ICC parsing, nonlinear curve fitting, pixel transformation and complete default
+JXL CMS integration are still open; the README color-profile milestone remains
+unchecked.
+
+
+## skcms curve approximation and nonlinear fitting
+
+The complete pinned `skcms.cc:328-342,2110-2421` fitting closure is translated:
+maximum sampled round-trip error, inverse classification, residuals/gradients,
+the original Gauss-Newton step, checked error, fixup, eight-iteration nonlinear
+fitting and public ApproximateCurve. The canonical borrowed Curve representation
+is shared with ICC parsing. Outputs retain null/count guards, partial writes,
+best-TF restoration and error-before-approx assignment, including error aliases
+with individual TF fields. Gradient evaluation reads the original six TF words
+and does not require the unused e word to be initialized.
+
+The retained initial inventory has 11,432 defined requests in six groups:
+3,143 public approximations, 1,089 sampled round trips, 2,400 residual/gradient
+requests, 3,600 Gauss-Newton steps, 600 complete nonlinear fits and 600 checked
+errors. It contains 8-/16-bit tables, parametric curves, both original tolerances,
+short and long grids, monotone/nonmonotone/constant/plateau tables, null/count
+guards, output aliases and failed/restored destinations. Inputs are stored
+without expected outputs. Ordinary tests additionally retain independent original
+words for the degenerate two-point segment and six-field gradient, plus truly
+partially initialized early-return state.
+
+All initial requests agree between both unchanged original graphs and Debug,
+Release and Rust 1.85 preflight probes. The independent audit verifies six public
+archive functions and four actual private-helper code addresses in each graph,
+with no changed source/compiler/sanitizer options or active graph mutation.
+Regular Cargo differential tests call the actual Rust crate. All six complete
+local configurations pass: each runs 551 tests, 336 differential groups and
+1,250,923 exact defined comparisons, with zero failures or ignored tests. Both
+independent source audits pass. All 11,432 initial fitting observations and all
+206,712 inherited transfer/matrix request/observation pairs remain exact in both
+original graphs. The transfer/matrix audit captures its own two module families;
+the fitting audit supplies its separate private-helper environment.
+
+Native acceptance and current-main integration remain pending. The separate
+transfer/matrix PR still has a native Linux operand-order discrepancy under
+investigation, including newly exposed competing-NaN cases; its corrected
+prerequisite and expanded native gates must be accepted before this combined
+boundary. This leaf does not complete pixel transformation, default JXL CMS
+integration or whole-image color/HDR admission.
 ### skcms ICC parser and directly reached curves
 
 The complete parser boundary translates profile/tag/curve carriers, public ICC
@@ -2151,3 +2245,91 @@ tests in each configuration. All sixteen mandatory Brotli source observers and
 their retained component corpora also run in these gates. Native x86 complete
 streaming/API acceptance remains pending. JPEG reconstruction, compressed
 container integration and whole-codec completion remain open.
+
+### skcms baseline pixel transform candidate
+
+The candidate completes the pinned baseline skcms pixel-transform and
+destination-usability source closure: all original formats and 79 stages,
+N=4 NEON/SSE arithmetic/load-store paths, tables/CLUTs, profile preparation,
+reference PQ/HLG CICP helpers and approximate-profile/TRC predicates. It unites
+the parser and fitting dependencies without changing their numeric algorithms.
+HSW/SKX engines are now translated separately (see the recovered CMS work
+above). JXL default CMS/ColorSpaceTransform/pipeline integration remains
+separate work. Decoder checklist step 9 remains open until genuine
+complete ICC/HDR files pass exact pixels/statuses and native acceptance.
+
+All six local ordinary/nonrecovering ASan/UBSan configurations pass Debug,
+Release and Rust 1.85 with 591 tests, 363 parity groups and 1,650,305 exact
+observations per configuration. These retain all inherited requests, including
+45 skcms parity tests with 617,526 exact observations: 465,934 inherited
+transfer/fitting/parser requests and 151,592 transform requests. Ten standalone
+transform tests also pass, including 16 independently captured original
+observations. No tests are ignored or removed. All initial 11,448 transform
+requests and their original observations remain retained unchanged.
+
+The four independent source audits also pass: 206,712 transfer/matrix, 11,432
+fitting, 247,790 parser and 151,592 transform requests. They preserve both
+complete ordinary/instrumented observations and require actual archive/private
+bindings and source configurations. The transform audit additionally verifies
+all 42 formats, three alpha formats, 79 stages and actual baseline-object
+disassembly.
+
+Signed source channel counts retain the original post-decrement checkpoint and
+u32-to-int call conversions. Negative counts except INT_MIN read no curve;
+eight high-bit raw A2B/B2A controls remain valid at zero pixels without reading
+unknown grids. Three source-only INT_MIN cases positively diagnose the original
+signed decrement at skcms.cc:2536, alongside the existing 362 transfer and nine
+parser diagnostics. This does not exclude other high-bit channel words.
+
+Native Linux/macOS acceptance and current-main integration remain required.
+The inherited native x86 numeric/source-context discrepancy remains an explicit
+open gate; this candidate does not select diagnostic compiler flags to hide it.
+
+
+### Default CMS profile metadata and callback backend (candidate)
+
+The selected skcms branch of `lib/jxl/cms/jxl_cms.cc` is translated completely
+into `cms/jxl_cms.rs` and `cms/jxl_cms_profile.rs`: profile identification,
+white-point recovery, primaries/transfer detection, CICP admission, luminance
+computation, default interface, callback initialization, generated intermediate
+ICC owners, aligned per-thread buffers, row conversion and destruction. The
+reference selects Highway's scalar transfer wrapper and the original skcms N=4
+NEON/SSE engine, or the HSW/SKX engine cpu_type() selects on x86_64.
+
+Seventeen mandatory groups retain 946,197 exact source cases, including all 88
+original ICC profiles, 84 generated RGB/gray/white-point/primaries/transfer
+profiles, 5,001 complete synthetic profiles, 184,467 malformed admissions, all
+CICP byte combinations, all half inputs through the transfer wrapper, repeated
+aligned allocations, actual aliases, partial callback outputs and callback/ICC
+replacement order. Initial failures remain recorded in the input manifest.
+Independent actual-archive and pristine-include source contexts retain their
+original compiler and sanitizer flags. All six complete local configurations
+pass: Debug, Release and Rust 1.85 against both ordinary and instrumented
+originals, each with 609 tests, 380 differential groups and 2,596,502 exact
+requests. The independent CMS audit passes all 946,197 requests across both
+source graphs, including exact empty-span callback nullness. The four inherited
+source audits also pass their 617,526 retained requests and original-only
+undefined-operation diagnostics. The final local gates retain every inherited
+case after the source-defined empty destination-copy correction. Sixteen
+independent macOS ARM source captures pass without invoking a C++ process.
+Native two-platform acceptance and integration review remain required.
+
+This backend does not complete decoder checklist step 9. Real decoding still
+needs accepted streaming ICCReader integration, alternate requested output
+profiles, HDR transfer pipeline integration and complete successful/malformed
+ICC/HDR files with exact pixels/statuses on both native platforms.
+Additional concatenation coverage keeps all 24,324 prior requests and adds 432
+paired quiet/signaling NaN products at every output-cell/term position. Native
+ARM focused diagnostics compare all 24,756 calls exactly in Debug, Release and
+Rust 1.85 against both original graphs. The Rust concatenation mapping preserves
+the original operand ordering at three local arithmetic checkpoints. A permanent
+differential group and independently captured ARM regression protect this
+boundary. The expanded complete local suite and source audit pass all six
+configurations.
+Every one of the prior 206,712 request/output pairs is retained in both original
+graphs, with exactly 432 additional defined pairs. Native Linux captures expose
+64 defined ordinary/ASan output differences in the new product probes; the
+original 24,324 concatenation observations stay unchanged. Temporary source
+configuration diagnostics retain every raw word before selecting a reproducible
+reference profile. Native acceptance and the decoder color milestone remain
+open; these additional cases are not undefined and retain exact comparisons.

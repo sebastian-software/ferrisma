@@ -96,5 +96,12 @@
     "end": "\n\n// This includes handling the codestream",
     "sha256": "cdd1f9f65747e33502c5a3e7effcf97367be461e08f349370a7e9a957752542d",
     "output": "original_decoder_box_header.inc"
+  },
+  {
+    "path": "third_party/skcms/skcms.cc",
+    "start": "skcms_Matrix3x3 skcms_Matrix3x3_concat(",
+    "end": "\n\n#if defined(__clang__)",
+    "sha256": "8358a075cf4eee85a55fcbc6ff595adc7debaa0d05563984eac9faa49151699b",
+    "output": "original_skcms_concat.inc"
   }
 ]

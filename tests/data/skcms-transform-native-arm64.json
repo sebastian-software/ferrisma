@@ -1,0 +1,13 @@
+{
+  "pins": {
+    "libjxl": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
+    "third_party/highway": "457c891775a7397bdb0376bb1031e6e027af1c48",
+    "third_party/brotli": "db24a98aed38a16de78cc05ca15cdd8dc2a0d92d",
+    "third_party/skcms": "96d9171c94b937a1b5f0293de7309ac16311b722"
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "architecture": "arm64",
+  "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "captures": 16,
+  "tsv_sha256": "c363f36377824fb846df1b636273e4fab5e4bebbd639f15971493d73aa2cd554"
+}

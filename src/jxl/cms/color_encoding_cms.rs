@@ -239,8 +239,9 @@ impl ColorEncoding {
     ///
     /// # Safety
     /// Invoked callback/opaque data must be valid, non-unwinding, non-reentrant,
-    /// and obey cms_interface.h. On success the callback must initialize both
-    /// complete output values. It may borrow input bytes during the call only.
+    /// and obey cms_interface.h. On success it initializes the CMYK word and
+    /// every external encoding field reached by FromExternal's active branches.
+    /// Inactive fields may remain untouched. Input bytes are borrowed for the call.
     pub unsafe fn set_fields_from_icc(
         &mut self,
         new_icc: &mut IccBytes,
@@ -256,7 +257,7 @@ impl ColorEncoding {
         let mut new_cmyk = 0;
         // SAFETY: The exclusive byte-owner borrow is live for the call and both
         // output pointers address initialized local storage. The unsafe caller
-        // guarantees the callback/data and complete-success-output contract.
+        // guarantees the callback/data and reached-success-output contract.
         let success = unsafe {
             cms.set_fields_from_icc
                 .expect("source requires an ICC field callback")(
