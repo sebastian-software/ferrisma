@@ -87,7 +87,7 @@ def redirect_dependencies(original, command, directory, obj):
     return changes
 
 
-def candidate(root, build, directory, optimization, options, bindings):
+def candidate(root, build, directory, optimization, options, bindings, concat_optnone=False):
     entries = json.loads((build / 'compile_commands.json').read_text())
     entry, = [item for item in entries if Path(item['file']).name == 'skcms.cc']
     expected_source = (root / 'upstream/libjxl/third_party/skcms/skcms.cc').resolve()
@@ -108,6 +108,21 @@ def candidate(root, build, directory, optimization, options, bindings):
     command[command.index('-o') + 1] = str(obj)
     dependency_changes = redirect_dependencies(original, command, directory, obj)
     command.extend(options)
+    declaration_config = None
+    if concat_optnone:
+        # A declaration attribute changes compiler treatment of this one original
+        # function; its complete source file and every function body stay pristine.
+        assert 'clang' in Path(original[0]).name, 'Clang declaration diagnostic only'
+        header = directory / 'concat-optnone.h'
+        header.write_text('/* Copyright 2018 Google Inc.\n * Use of this source code is governed by a BSD-style license in LICENSE.\n */\n#include "src/skcms_public.h"\nextern "C" __attribute__((optnone, noinline)) skcms_Matrix3x3\nskcms_Matrix3x3_concat(const skcms_Matrix3x3*, const skcms_Matrix3x3*);\n')
+        command.extend(['-include', str(header)])
+        source = expected_source.read_text()
+        start = source.index('skcms_Matrix3x3 skcms_Matrix3x3_concat(')
+        end = source.index('\n}\n', start) + len('\n}\n')
+        declaration_config = {'header': str(header), 'header_sha256': sha(header),
+                              'original_source_sha256': sha(expected_source),
+                              'unchanged_function_sha256': hashlib.sha256(source[start:end].encode()).hexdigest(),
+                              'scope': 'Clang optnone/noinline on the original Matrix3x3_concat declaration only'}
     command_changes = [{'index': i, 'original': original[i] if i < len(original) else None,
                         'candidate': command[i] if i < len(command) else None}
                        for i in range(max(len(original), len(command)))
@@ -138,7 +153,8 @@ def candidate(root, build, directory, optimization, options, bindings):
     bound = bindings(mapping.read_text(), binary)
     with gzip.open(directory / 'source-object.asm.gz', 'wb') as assembly:
         assembly.write(subprocess.check_output(['objdump', '-d', '-C', str(obj)]))
-    return binary, {'numeric_options': [optimization, *options], 'dependency_output_changes': dependency_changes,
+    return binary, {'numeric_options': [optimization, *options], 'declaration_config': declaration_config,
+                    'dependency_output_changes': dependency_changes,
                     'command_changes': command_changes, 'original_command': original,
                     'candidate_command': command, 'link': link, 'bindings': bound,
                     'original_archive_members': old_members, 'candidate_archive_members': new_members,
@@ -222,18 +238,19 @@ def main():
     # Retain the O3/strict and O0 controls, then isolate the original inline
     # and loop-unroll boundaries without changing optimization level. Never
     # select or activate a reference configuration here.
-    for name, optimization, options in [
-            ('o3-strict', '-O3', ['-ffp-model=strict']),
-            ('o0-strict', '-O0', ['-ffp-model=strict']),
-            ('o0-plain', '-O0', []),
-            ('o3-noinline', '-O3', ['-fno-inline-functions']),
-            ('o3-noinline-no-unroll', '-O3', ['-fno-inline-functions', '-fno-unroll-loops'])]:
+    for name, optimization, options, concat_optnone in [
+            ('o3-strict', '-O3', ['-ffp-model=strict'], False),
+            ('o0-strict', '-O0', ['-ffp-model=strict'], False),
+            ('o0-plain', '-O0', [], False),
+            ('o3-noinline', '-O3', ['-fno-inline-functions'], False),
+            ('o3-noinline-no-unroll', '-O3', ['-fno-inline-functions', '-fno-unroll-loops'], False),
+            ('o3-concat-optnone', '-O3', [], True)]:
         rows, full_rows = {}, {}
         item = {'graphs': {}}
         for graph in ['oracle', 'oracle-asan']:
             directory = output / name / graph
             directory.mkdir(parents=True)
-            binary, proof = candidate(root, root / 'target' / graph, directory, optimization, options, bindings)
+            binary, proof = candidate(root, root / 'target' / graph, directory, optimization, options, bindings, concat_optnone)
             rows[graph] = observe(binary, payload, directory / 'observations.txt')
             proof['baseline_word_changes'] = differences(requests, baseline_rows[graph], rows[graph], directory / 'baseline-changes.json.gz')
             proof['observations_sha256'] = sha(directory / 'observations.txt')
