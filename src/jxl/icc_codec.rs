@@ -1,8 +1,12 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-//! Command decoding from lib/jxl/icc_codec.cc, through complete UnpredictICC.
-//! The streaming ICCReader entropy/lifecycle boundary is ported separately.
+//! Complete command decoding and incremental ICCReader from lib/jxl/icc_codec.cc.
 use super::base::status::{Status, StatusCode};
+use super::dec_ans::{
+    ANSCode, ANSSymbolReader, ANSSymbolReaderState, Checkpoint, MAX_CHECKPOINT_INTERVAL,
+    decode_histograms,
+};
+use super::dec_bit_reader::BitReader;
 use super::icc_codec_common::*;
 use super::padded_bytes::PaddedBytes;
 pub const PREAMBLE_SIZE: usize = 20;
@@ -296,4 +300,239 @@ pub fn unpredict_icc(enc: &[u8], result: &mut PaddedBytes) -> Status {
         return Err(StatusCode::GenericError);
     }
     Ok(())
+}
+
+/// Incremental reader from icc_codec.{h,cc}. The code and code-independent ANS
+/// state have separate owners; temporary borrowed readers move the same state
+/// back on every Status return, retaining the LZ77 allocation and checkpoints.
+#[derive(Default)]
+pub struct ICCReader {
+    i: usize,
+    bits_to_skip: usize,
+    used_bits_base: usize,
+    enc_size: u64,
+    context_map: Vec<u8>,
+    code: ANSCode,
+    ans_state: ANSSymbolReaderState,
+    decompressed: PaddedBytes,
+}
+
+impl ICCReader {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn reset(&mut self) {
+        self.bits_to_skip = 0;
+        self.decompressed.clear();
+    }
+
+    fn check_eoi(reader: &mut BitReader<'_>) -> Status {
+        reader
+            .all_reads_within_bounds()
+            .map_err(|_| StatusCode::NotEnoughBytes)
+    }
+
+    pub fn init(&mut self, reader: &mut BitReader<'_>) -> Status {
+        Self::check_eoi(reader)?;
+        self.used_bits_base = reader.total_bits_consumed();
+        if self.bits_to_skip == 0 {
+            self.enc_size = super::fields::u64_coder::read(reader);
+            if self.enc_size > 268_435_456 {
+                return Err(StatusCode::GenericError);
+            }
+            decode_histograms(
+                reader,
+                NUM_ICC_CONTEXTS,
+                &mut self.code,
+                &mut self.context_map,
+                false,
+            )?;
+            self.ans_state = ANSSymbolReader::create(&self.code, reader, 0)?.into_state();
+            self.i = 0;
+            self.decompressed
+                .resize((self.i + 0x400).min(self.enc_size as usize))?;
+            let mut ans =
+                ANSSymbolReader::from_state(&self.code, std::mem::take(&mut self.ans_state));
+            let status = (|| {
+                while self.i < 2.min(self.enc_size as usize) {
+                    let context = icc_ans_context(
+                        self.i,
+                        if self.i > 0 {
+                            usize::from(self.decompressed.as_slice()[self.i - 1])
+                        } else {
+                            0
+                        },
+                        if self.i > 1 {
+                            usize::from(self.decompressed.as_slice()[self.i - 2])
+                        } else {
+                            0
+                        },
+                    );
+                    self.decompressed.bytes_mut()[self.i] =
+                        ans.read_hybrid_uint(context, reader, &self.context_map) as u8;
+                    self.i += 1;
+                }
+                if self.enc_size > PREAMBLE_SIZE as u64 {
+                    while self.i < PREAMBLE_SIZE {
+                        let context = icc_ans_context(
+                            self.i,
+                            usize::from(self.decompressed.as_slice()[self.i - 1]),
+                            usize::from(self.decompressed.as_slice()[self.i - 2]),
+                        );
+                        self.decompressed.bytes_mut()[self.i] =
+                            ans.read_hybrid_uint(context, reader, &self.context_map) as u8;
+                        self.i += 1;
+                    }
+                    Self::check_eoi(reader)?;
+                    check_preamble(self.decompressed.as_slice(), self.enc_size as usize)?;
+                }
+                Ok(())
+            })();
+            self.ans_state = ans.into_state();
+            status?;
+            self.bits_to_skip = reader
+                .total_bits_consumed()
+                .wrapping_sub(self.used_bits_base);
+        } else {
+            reader.skip_bits(self.bits_to_skip);
+        }
+        Ok(())
+    }
+
+    pub fn process(&mut self, reader: &mut BitReader<'_>, icc: &mut PaddedBytes) -> Status {
+        let mut checkpoint = Box::new(Checkpoint::default());
+        let mut ans = ANSSymbolReader::from_state(&self.code, std::mem::take(&mut self.ans_state));
+        ans.save(&mut checkpoint);
+        self.bits_to_skip = reader
+            .total_bits_consumed()
+            .wrapping_sub(self.used_bits_base);
+        let mut saved_i = self.i;
+        let status = (|| {
+            while self.i < self.enc_size as usize {
+                if self.i % MAX_CHECKPOINT_INTERVAL == 0 && self.i > 0 {
+                    if let Err(status) = Self::check_eoi(reader) {
+                        ans.restore(&checkpoint);
+                        self.i = saved_i;
+                        return Err(status);
+                    }
+                    ans.save(&mut checkpoint);
+                    self.bits_to_skip = reader
+                        .total_bits_consumed()
+                        .wrapping_sub(self.used_bits_base);
+                    saved_i = self.i;
+                    if self.i & 0xffff == 0 {
+                        let used_bytes = reader
+                            .total_bits_consumed()
+                            .wrapping_sub(self.used_bits_base)
+                            as f32
+                            / 8.0;
+                        if self.i as f32 > used_bytes * 256.0 {
+                            return Err(StatusCode::GenericError);
+                        }
+                    }
+                    self.decompressed
+                        .resize((self.i + 0x400).min(self.enc_size as usize))?;
+                }
+                if self.i < 2 {
+                    return Err(StatusCode::GenericError);
+                }
+                let context = icc_ans_context(
+                    self.i,
+                    usize::from(self.decompressed.as_slice()[self.i - 1]),
+                    usize::from(self.decompressed.as_slice()[self.i - 2]),
+                );
+                self.decompressed.bytes_mut()[self.i] =
+                    ans.read_hybrid_uint(context, reader, &self.context_map) as u8;
+                self.i += 1;
+            }
+            if let Err(status) = Self::check_eoi(reader) {
+                ans.restore(&checkpoint);
+                self.i = saved_i;
+                return Err(status);
+            }
+            self.bits_to_skip = reader
+                .total_bits_consumed()
+                .wrapping_sub(self.used_bits_base);
+            if !ans.check_ans_final_state() {
+                return Err(StatusCode::GenericError);
+            }
+            icc.clear();
+            unpredict_icc(self.decompressed.as_slice(), icc)
+        })();
+        self.ans_state = ans.into_state();
+        status
+    }
+}
+
+/// Read-only fixture access to initialized scalar fields and logical storage.
+/// Only the observer's independently tracked written prefix of decompressed is
+/// original-defined; capacity and unwritten logical bytes are not ICC output.
+#[cfg(feature = "cpp-oracle")]
+pub struct ICCReaderSnapshot<'a> {
+    pub i: usize,
+    pub bits_to_skip: usize,
+    pub used_bits_base: usize,
+    pub enc_size: u64,
+    pub context_map: &'a [u8],
+    pub code_sizes: [usize; 3],
+    pub ans_scalars: [u32; 15],
+    pub cached_use_prefix_code: bool,
+    pub owner_use_prefix_code: bool,
+    pub code_addresses: [usize; 3],
+    pub lz_window: Option<&'a [u32]>,
+    pub decompressed: &'a [u8],
+    pub decompressed_capacity: usize,
+    pub decompressed_address: usize,
+}
+
+#[cfg(feature = "cpp-oracle")]
+impl ICCReader {
+    pub fn observer_snapshot(&self) -> ICCReaderSnapshot<'_> {
+        let storage = self.decompressed.bytes();
+        ICCReaderSnapshot {
+            i: self.i,
+            bits_to_skip: self.bits_to_skip,
+            used_bits_base: self.used_bits_base,
+            enc_size: self.enc_size,
+            context_map: &self.context_map,
+            code_sizes: [
+                self.code.huffman_data.len(),
+                self.code.uint_config.len(),
+                self.code.degenerate_symbols.len(),
+            ],
+            ans_scalars: self.ans_state.observer_scalars(),
+            cached_use_prefix_code: self.ans_state.observer_use_prefix_code(),
+            owner_use_prefix_code: self.code.use_prefix_code,
+            code_addresses: [
+                if self.code.alias_tables().is_empty() {
+                    0
+                } else {
+                    self.code.alias_tables().as_ptr() as usize
+                },
+                if self.code.huffman_data.is_empty() {
+                    0
+                } else {
+                    self.code.huffman_data.as_ptr() as usize
+                },
+                if self.code.uint_config.is_empty() {
+                    0
+                } else {
+                    self.code.uint_config.as_ptr() as usize
+                },
+            ],
+            lz_window: self.ans_state.observer_window(),
+            decompressed: self.decompressed.as_slice(),
+            decompressed_capacity: storage.len().saturating_sub(8),
+            decompressed_address: if storage.is_empty() {
+                0
+            } else {
+                storage.as_ptr() as usize
+            },
+        }
+    }
+
+    pub fn observer_check_eoi(reader: &mut BitReader<'_>) -> Status {
+        Self::check_eoi(reader)
+    }
 }

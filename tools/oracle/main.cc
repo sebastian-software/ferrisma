@@ -518,6 +518,13 @@ bool OutputStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 bool ChromaStagesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool BlendingStageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool JpegWriterCommand(const std::string&,std::istringstream&);
+bool IccReaderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool JpegMetadataCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool SkcmsParserCommand(const std::string&,std::istringstream&);
+bool ToLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool FromLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+
 int main() {
   try {
     JxlMemoryManager mm;
@@ -564,6 +571,12 @@ int main() {
       else if (DctCommand(command, in)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (QuantizerCommand(command, in, &mm)) {}
+      else if (JpegWriterCommand(command, in)) {}
+      else if (IccReaderCommand(command, in, &mm)) {}
+      else if (JpegMetadataCommand(command, in, &mm)) {}
+      else if (SkcmsParserCommand(command, in)) {}
+      else if (ToLinearCommand(command, in, &mm)) {}
+      else if (FromLinearCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

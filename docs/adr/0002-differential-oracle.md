@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-02
+- Updated: 2026-11-03
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -490,3 +490,28 @@ options and resolves executable code addresses to their live archive/adapter
 objects. Dead symbols and unwind rows cannot establish those bindings; compiler
 cold suffixes are distinct symbols, not duplicate definitions of the entry
 point. Relinked audit binaries do not replace the active oracle graph.
+The skcms parser observer calls public functions from the untouched original
+CMS archive. Private curve helpers use a separate executable that includes the
+complete pristine skcms.cc. Its compile command is copied from that actual
+archive object's command, replacing only the input translation unit and output
+object paths. Compiler, target, optimization, numeric settings and nonrecovering
+sanitizers stay identical. Link maps must bind public parser/getter symbols to
+the archive, retain the private original bodies in the separate helper, and
+exclude a duplicate archive skcms.cc object from that helper. Every public
+request is also compared in the pristine helper's whole-Parse compilation
+context, because private arithmetic can inline differently inside the parser.
+
+Profile observations include initialized fields and retained non-pointer curve
+words on failures, borrowed pointer relationships, native ABI layout, getter
+boundary behavior, explicit profile zeroing, static pointer identity and setter
+self-aliases. Original ICC files remain in the corpus alongside generated tag,
+LUT, priority, malformed and truncation cases. Large-count source-only requests
+require the exact original-file/line arithmetic diagnostic before any payload
+bounds error. Their same-count defined controls remain exact comparisons.
+No source, sanitizer option, existing case or expected source word is relaxed.
+
+Parser source-binding verification cross-checks each actual executable nm code
+address against its expected live object and text range. Mach-O dead symbols and
+unwind FDE rows cannot establish a binding. GNU local helper addresses must lie
+inside the directly linked pristine-include object's actual text extent. Exact
+optimization and nonrecovering sanitizer tokens are checked in both graphs.

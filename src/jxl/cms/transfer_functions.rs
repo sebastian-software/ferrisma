@@ -8,11 +8,11 @@ use super::super::base::float::{max_f64, mul_add_f64};
 
 pub struct TfHlgBase;
 impl TfHlgBase {
-    const A: f64 = 0.17883277;
+    pub(crate) const A: f64 = 0.17883277;
     const RA: f64 = 1.0 / Self::A;
-    const B: f64 = 1.0 - 4.0 * Self::A;
-    const C: f64 = 0.5599107295;
-    const INV12: f64 = 1.0 / 12.0;
+    pub(crate) const B: f64 = 1.0 - 4.0 * Self::A;
+    pub(crate) const C: f64 = 0.5599107295;
+    pub(crate) const INV12: f64 = 1.0 / 12.0;
     pub fn display_from_encoded(e: f64) -> f64 {
         Self::inv_oetf(e)
     }

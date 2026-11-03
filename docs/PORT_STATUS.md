@@ -28,6 +28,45 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
+## Reviewed decoder integration (2026-11-03)
+
+[PR #34](https://github.com/sebastian-software/libjxl-rs/pull/34) delivers the
+output stage and signature/container-header helpers, including PR #29. Its
+[native acceptance](https://github.com/sebastian-software/libjxl-rs/actions/runs/41548861657)
+passes all six ordinary/instrumented Debug, Release and Rust 1.85 configurations
+on Linux and macOS. The lifecycle work in PR #26 was already integrated through
+PR #30. The SpotColor implementation, component tests and independent source
+audit from PR #23 are already identical to the accepted extra-channel integration.
+Those two old PRs do not represent missing decoder features.
+
+The next integration combines scalar color-transfer stages (#22), JPEG writing
+(#25), incremental ICCReader (#27), JPEG metadata fields (#28), the skcms ICC
+parser (#36), and frame-state ownership preparation (#38). It retains their
+component implementations, fixtures and assertions unchanged. Shared module,
+command, build and test registrations include every component once. The existing
+native source-audit steps stay enabled, with additional ICCReader, JPEG metadata
+and skcms parser audits on both platforms. The integrating PR must supply native
+acceptance for this combined tree; earlier individual slice counts below are
+historical and do not describe the combined test inventory.
+
+Both complete local checks pass: `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`. Each of the six Debug, Release and
+Rust 1.85 configurations passes 611 tests, 374 differential groups and 1,455,093
+exact defined comparisons, with zero failures or ignored tests. The independent
+ICCReader, JPEG metadata and skcms parser audits also pass both original graphs:
+2,159 reader histories / 7,894 steps, 11,852 metadata requests and 247,790 parser
+requests. They retain the separate positive original-only diagnostics and verify
+live source bindings without changing active original objects. Rustdoc builds
+with all features and warnings denied. These local ARM results do not substitute
+for the integrating PR's required native Linux/macOS acceptance.
+
+The skcms transfer/matrix work in #35 and its curve-fitting dependent #37 remain
+outside this integration. Native Linux matrix concatenation still fails exact
+comparisons, and original ordinary/instrumented matrix observations disagree.
+No relaxed comparison, changed expected word or unaccepted reference
+configuration is used to admit these ports. Whole-image ICC/HDR, default CMS,
+JPEG reconstruction, containers and the public incremental decoder remain open.
+
 ## Source mapping
 
 | Upstream source under `lib/jxl/` | Rust module under `src/jxl/` | Boundary |
@@ -82,7 +121,7 @@ tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage is mapped separately below; remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
-| `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
+| `render_pipeline/stage_from_linear.h`, `.cc`, `render_pipeline/stage_to_linear.h`, `.cc` | `render_pipeline/stage_from_linear.rs`, `render_pipeline/stage_to_linear.rs` | Complete scalar factory-reached Linear/sRGB/PQ/HLG/BT709/gamma/DCI conversion stages, copied operation state, row guards and load-transform-store order; legacy sRGB factory retained; general HDR/CMS and ICC whole-file integration remains separate |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
 | `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete scalar horizontal/vertical stages, 3/4–1/4 interpolation, original borders/shifts/channel modes and factory; source-ordered channel stages precede filters in admitted YCbCr frames |
@@ -107,6 +146,12 @@ tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 | `alpha.h`, `.cc`, `blending.h`, `.cc` | `alpha.rs`, `blending.rs` | Complete scalar blending/alpha kernels and temporary-plane ownership; original pointer-identity branches and selected numeric configuration |
 | `splines.h`, `.cc`, `render_pipeline/stage_splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization, entropy decoding, curve/cache generation and rendering, with borrowed/shared SplineStage |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
+| `render_pipeline/stage_splines.h`, `.cc` | `render_pipeline/stage_splines.rs` | Complete scalar stage/factories with borrowed or shared cache identity and safe disjoint row spans; complete-file integration remains separate |
+| `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above |
+| `jpeg/jpeg_data.h`, CalculateMcuSize in `.cc`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, complete MCU geometry, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and field serialization unported |
+| `jpeg/dec_jpeg_data_writer.h`, `.cc`, `dec_jpeg_output_chunk.h`, `dec_jpeg_serialization_state.h` | `jpeg/dec_jpeg_data_writer.rs`, `jpeg/dec_jpeg_output_chunk.rs`, `jpeg/dec_jpeg_serialization_state.rs` | Complete WriteJpeg marker/Huffman/quantization serialization, sequential/progressive/refinement scan writing, restarts, padding, chunk ownership and output callback lifecycle; compressed reconstruction metadata and complete-file coefficient integration remain open |
+| `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and reconstruction unported |
+| `jpeg/jpeg_data.cc`: complete `VisitFields` and `SetJPEGDataFromICC` | `jpeg/jpeg_data_fields.rs` | Complete metadata bundle field order, component/marker/table validation, delta-coded reset/zero-run indices, postponed buffer sizes, padding bits and ICC byte injection; Brotli `DecodeJPEGData`, full JPEG parsing and complete reconstruction remain separate |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
@@ -135,8 +180,10 @@ tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |
-| `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ rational approximation and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; other transfer functions/SIMD targets unported |
+| `cms/transfer_functions-inl.h`, `cms/tone_mapping-inl.h` | `cms/transfer_functions_scalar.rs`, `cms/tone_mapping_scalar.rs` | Complete original one-lane TF_PQ, TF_HLG, TF_709 and TF_SRGB input/output algorithms, TF_709 double encoding overload, and derived Rec2408ToneMapper/HlgOOTF/GamutMap, including scene-light factories and original base constructors; alternate SIMD targets remain separate |
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
+| `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete tag/command tables, endian access, unsigned bounds checks, initial/adaptive header prediction, linear byte prediction and ICC ANS contexts |
+| `icc_codec.h`, `.cc` | `icc_codec.rs` | Complete shuffle, bounded base-128 varint, preamble validation, ICC command decoding and incremental ICCReader Init/Process/Reset/CheckEOI with exact checkpoint, replay and defined partial state; whole-file ICC admission remains separate |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `decode.cc` signature/container-header helpers, constants in `lib/include/jxl/decode.h` | `decode.rs`, signature bytes in `common.rs` | Complete OutOfBounds, InitialBasicInfoSizeHint, ReadSignature, JxlSignatureCheck and ParseBoxHeader; public incremental decoder state/events and C ABI entry points remain separate |
@@ -1613,6 +1660,43 @@ with the counts recorded above, and the union is merged into `main`. General ori
 ICC/CMS parsing, broader sampling, JPEG reconstruction and the
 public progressive decoder API remain open.
 
+## JPEG bitstream writing
+
+The complete pinned WriteJpeg boundary adds five differential groups with 940
+exact requests and three independent source-captured native regressions. Six
+actual cjpeg files exercise baseline/progressive scans, grayscale and RGB,
+subsampling, restart markers, bit stuffing and multiple 16,384-byte bit-writer
+chunks. The actual original ReadJpeg supplies their quantization, Huffman,
+coefficient, scan and marker data; the writer reproduces each input byte-for-byte.
+The [fixture provenance](../tests/data/jpeg-writer/README.md) records the generator,
+options, original image data recipe and every file hash.
+
+The corpus retains every callback offer, accepted count, null pointer distinction
+and output byte, including short successful and failed writes. It covers all 256
+marker values, table and metadata errors, explicit padding and malformed but
+source-defined structure inputs. A cold review caught C++ int promotion for
+Al16..31 and int16_t compound-assignment narrowing after many extra zero runs;
+independent ordinary/instrumented source experiments confirmed both domains.
+The corrections preserve those exact requests and the original algorithms.
+A reversible prefix representation avoids duplicating large callback offers in
+the test protocol; every byte remains present literally or as a previously
+observed exact prefix. Earlier independent literal captures reconstruct exactly.
+
+All six focused ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations
+pass the 940 requests and three native regressions. Complete ordinary and
+ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration
+completes 449 tests, 261 differential groups and 882,872 exact requests, with no
+failures or ignored tests. Native Linux/macOS CI and integration with the latest
+main remain required. No source body, numeric option, dependency or sanitizer coverage
+changes. Brotli reconstruction metadata decoding, JPEGData field serialization,
+and whole-file coefficient/reconstruction integration remain open; the README
+JPEG reconstruction milestone stays unchecked.
+
+Combining this writer with main's verified ICC command decoding also passes all
+six complete local configurations: 457 tests, 266 differential groups and
+895,119 exact requests each, with no failures or ignored tests. Native CI for
+this combined tree remains required.
+
 ## ICC profile command decoding
 
 The complete common-helper and UnpredictICC boundary adds five differential
@@ -1847,3 +1931,156 @@ with zero failures or ignored tests. The independent output-stage, signature/box
 helper, retained lifecycle, extra-channel and geometry source audits also pass.
 Fresh native Linux/macOS acceptance of this combined tree remains pending.
 The public incremental decoder and container checklist items remain open.
+## Incremental decoder state ownership preparation
+
+Frame-owned fields and the temporary codec-state borrow are represented
+separately. All 17 owned frame fields retain their order and values, with no new
+allocation or callback. Reversing the declared field projections and constructor
+split recovers the prior complete module byte for byte after formatting. The
+candidate passes all six complete local configurations: Debug, Release and
+Rust 1.85 against ordinary and nonrecovering ASan/UBSan originals. Each runs
+535 tests, 322 differential groups and 1,091,467 exact defined comparisons,
+with zero failures or ignored tests. The lifecycle, extra-channel and geometry
+source audits also pass. Native CI acceptance remains pending.
+This prepares retained incremental state without implementing a public
+decoder object, input processing, events, or callbacks. The public decoder
+checklist item remains open.
+
+## Scalar color transfer stages
+
+The complete scalar FromLinear/ToLinear packet adds 11 differential groups with
+10,360 exact original requests and seven standalone tests. It covers every
+factory-selected operation, copied construction state, row guards, repeated
+stage calls, ignored extra channels, and actual multigroup simple pipelines.
+Existing PQ/sRGB encoding helpers and the legacy sRGB stage retain their bodies.
+Both full local checks, including Rust 1.85, pass all six ordinary/ASan/UBSan
+Debug, Release and MSRV configurations: 480 tests, 283 groups and 904,089 exact
+requests each, with no failures or ignored tests. Native CI and complete-file
+HDR/ICC/color-profile integration remain separate acceptance gates.
+The command component passes complete ordinary and ASan/UBSan checks in Debug,
+Release and Rust 1.85: each configuration runs 449 tests, including 261
+differential groups and 894,179 exact requests, with no failures or ignored
+tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601)
+also passes all six Linux and three instrumented macOS configurations. The
+streaming reader component below requires its own complete integration checks.
+ICC parsing/default CMS and whole-file ICC admission remain open; the README
+color-profile checkbox stays unchecked.
+
+
+## Incremental ICCReader
+
+The complete pinned ICCReader Init, Process, Reset and CheckEOI component adds
+eight differential groups and 2,159 exact original requests with 7,894 incremental
+steps. Genuine original WriteICC streams and independently encoded ANS/Huffman
+payloads exercise chunked replay, different starting-bit bases, shorter backing,
+fatal headers/preambles/commands, output reuse and Reset. A full LZ77 ring and the
+original 65,536-byte expansion-ratio checkpoint are reached. The corpus retains
+4,425 NotEnoughBytes steps, 157 fatal observations, and 993 rollback observations
+whose still-defined written prefix exceeds the restored logical index. All fatal
+observations remain present alongside explicit caller Reset/replay recovery.
+
+Four standalone regressions use independently captured original behavior for
+Process before Init, owner moves after Init, and a partial LZ77 decode resumed
+after moving the complete reader, and source-defined Process after failed Init
+retaining the original cached Huffman mode. The genuine captured stream is 89 bytes and
+708 bits; its 47-byte prefix restores index 20 while retaining a defined 512-byte
+prefix, then resumes at the saved 373-bit skip.
+
+The original observer includes headers and calls real methods from the existing
+pristine complete icc_codec.cc unit. The durable tools/icc_reader_reference.py
+audit verifies those symbol definitions and link bindings, existing ANS
+decoder/checkpoint bodies after only the three enumerated source-cached mode
+accesses and one constructor initializer are normalized, unchanged ICC command
+bodies, full sanitizer coverage and both
+unchanged optimized original graphs. Every request and initialized observation
+is retained in the audit artifacts. ADR 0003 records the code-independent owned
+ANS state and ephemeral borrowed-reader mapping. No source algorithm, numeric
+flag, old expected output, runtime dependency or production C++ fallback changes.
+All six focused native ARM configurations pass: ordinary and fully ASan/UBSan
+Debug, Release and Rust 1.85 each complete 41 tests, including 32 differential
+tests and 203,189 exact requests across the reader and affected ICC/ANS/entropy
+boundaries, with no failures or ignored tests. Formatting, all-target/all-feature
+Clippy and the independent source-binding audit pass. Both complete local checks
+also pass ordinary and ASan/UBSan Debug, Release and Rust 1.85: each configuration
+completes 461 tests, 269 differential groups and 896,338 exact requests, with no
+failures or ignored tests. Native Linux/macOS CI and integration with current
+main remain required before this component is delivered.
+
+
+Independent cold review exposed a source-defined post-fatal Init path: histogram
+parsing changes code.use_prefix_code before ANS creation while the prior cached
+Huffman/config arrays remain valid. The source continues with its cached mode;
+the corrected state carrier now retains that scalar. Ten additive requests retain
+the exact original counterexample and both mode-switch directions, independently
+observe cached scalar and table/config pointer identity, and positively execute
+Process. Unused changed views do not exclude defined calls. Every previous 2,149
+request and expected observation remains intact; corrected focused verification
+and the source audit supersede the earlier packet's proof.
+## JPEG reconstruction metadata bundle
+
+The complete `JPEGData::VisitFields` and `SetJPEGDataFromICC` source boundaries
+retain field ordering, all distributions and defaults, checks, partially mutated
+delta indices, initialized owner contents, delayed allocations and ICC writes
+before an error. Existing visitors handle encoding and reading; the production
+crate adds no dependency, unsafe operation or C/C++ build requirement.
+
+Five differential groups cover 7,715 exact requests: genuine baseline, grayscale,
+progressive and restart JPEG metadata; every byte truncation; deterministic
+mutations; all serialized fields and component-ID forms; malformed marker/table
+and scan metadata; reset/zero-run boundaries; and live ICC owner writes. Three
+standalone regressions retain original unaligned bundle bytes, initialized state
+at a truncated read and an ICC error after a completed marker write. Focused
+Debug, Release and Rust 1.85 checks compare both ordinary and fully ASan/UBSan
+original graphs. All six configurations pass with five groups, 7,715 exact
+requests and three standalone regressions each, with no failures or ignored
+tests. All six full repository configurations also pass: each runs 457 tests,
+266 differential groups and 901,894 exact requests, with no failures or ignored
+tests. Native Linux/macOS CI and integration into `main` remain required.
+
+`tools/jpeg_metadata_reference.py` independently captures real original
+`ReadJpeg`, `Bundle::Write` and `Bundle::Read` observations and checks the pinned
+source, fixture hashes, original symbol bindings, instrumentation and saved
+source bytes. Both graphs agree on 11,852 source-only requests, including
+11,787 truncated-read errors and exact complete owner snapshots. Its separate source-undefined probe positively diagnoses a reached
+Huffman slot 4 at pristine `jpeg_data.cc:415` before `CanEncode` can report its
+accumulated two-bit range error. Such reached out-of-bounds table indices have no
+assigned codec result; defined aliases, malformed streams and partial errors
+remain compared exactly. No compiler option, sanitizer, old case or expected
+word changes.
+
+The Brotli-dependent `DecodeJPEGData` boundary remains absent. Its streaming
+Brotli decoder, marker payload reconstruction, JPEG coefficient reconstruction
+and whole-file integration still need separate ports and evidence. The README's
+JPEG reconstruction checkbox stays unchecked.
+### skcms ICC parser and directly reached curves
+
+The complete parser boundary translates profile/tag/curve carriers, public ICC
+parsing with A2B/B2A priorities, all reached curv/para/MFT1/MFT2/mAB/mBA readers,
+CICP, XYZ/CHAD/white-point getters, input-channel checks, built-in profiles and
+inline setters. Scalar curve evaluation, linear-prefix fitting and identity
+canonicalization preserve borrowed tables and partial output writes. This is a
+parser dependency for general color management; it does not complete nonlinear
+curve fitting, profile transforms, default JXL CMS orchestration or the public
+incremental decoder.
+
+Initial ordinary comparisons cover every one of the 88 pinned original ICC
+profiles, 5,001 generated LUT/curve/channel combinations, every original public
+priority request, 184,467 malformed/truncated structures, 34,920 direct curve
+reader failures/null guards, and 20,400 evaluation/fitting/alias/identity cases.
+Additional source-layout, static, getter, zeroing and same-count large-table
+controls bring the corpus to 247,790 defined requests in ten groups. All six
+complete local configurations pass: Debug, Release and Rust 1.85 against ordinary
+and nonrecovering ASan/UBSan originals. Each passes 543 tests, 328 differential
+groups and 1,280,569 exact comparisons, with zero failures or ignored tests.
+The independent audit also passes both graphs, verifies 11 public and four
+private live code addresses and actual source-object ownership, and retains all
+247,790 prior request/observation pairs exactly. Twelve independent original
+captures and moved/mutated borrowed ICC ownership tests pass. Native Linux/macOS
+CI and current-main integration remain separate acceptance gates.
+
+Nine original-only large-count probes positively diagnose source arithmetic UB:
+canonicalization's signed `2*N` at skcms.cc:1245, evaluation's out-of-range
+float-to-int at line 308, and 16-bit table evaluation's signed `2*lo` at line 318.
+Every exact request and diagnostic remains present; 74 defined controls use the
+same counts with reached index zero or the original canonicalization guard.
+They are paired comparisons, without a blanket exclusion of large tables.

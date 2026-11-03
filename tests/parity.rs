@@ -21,6 +21,19 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/from_linear.rs"]
+mod from_linear;
+#[path = "parity/icc_reader.rs"]
+mod icc_reader;
+#[path = "parity/jpeg_metadata.rs"]
+mod jpeg_metadata;
+#[path = "parity/jpeg_writer.rs"]
+mod jpeg_writer;
+#[path = "parity/skcms_parser.rs"]
+mod skcms_parser;
+#[path = "parity/to_linear.rs"]
+mod to_linear;
+
 #[path = "parity/retained_frame_owners.rs"]
 mod retained_frame_owners;
 
@@ -784,6 +797,12 @@ fn observe(request: &str) -> String {
         kind if quant_ac::handles(kind) => quant_ac::observe(kind, &mut args),
         kind if quant_storage::handles(kind) => quant_storage::observe(kind, &mut args),
         kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
+        kind if jpeg_writer::handles(kind) => jpeg_writer::observe(kind, &mut args),
+        kind if icc_reader::handles(kind) => icc_reader::observe(kind, &mut args),
+        kind if jpeg_metadata::handles(kind) => jpeg_metadata::observe(kind, &mut args),
+        kind if skcms_parser::handles(kind) => skcms_parser::observe(kind, &mut args),
+        kind if to_linear::handles(kind) => to_linear::observe(kind, &mut args),
+        kind if from_linear::handles(kind) => from_linear::observe(kind, &mut args),
         kind if aux_stats::handles(kind) => aux_stats::observe(kind, &mut args),
         kind if frame_output::handles(kind) => frame_output::observe(kind, &mut args),
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),

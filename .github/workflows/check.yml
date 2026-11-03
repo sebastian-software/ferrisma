@@ -111,3 +111,19 @@ jobs:
             target/patches-boundaries.json
           if-no-files-found: error
           retention-days: 7
+      - name: Audit integrated ICC reader, parser, and JPEG metadata
+        if: always()
+        run: |
+          python3 tools/icc_reader_reference.py --output target/icc-reader-acceptance
+          python3 tools/skcms_parser_reference.py --output target/skcms-parser-acceptance
+          python3 tools/jpeg_metadata_reference.py --output target/jpeg-metadata-acceptance
+      - name: Retain integrated component source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: integrated-components-${{ runner.os }}
+          path: |
+            target/icc-reader-acceptance
+            target/skcms-parser-acceptance
+            target/jpeg-metadata-acceptance
+          if-no-files-found: error
