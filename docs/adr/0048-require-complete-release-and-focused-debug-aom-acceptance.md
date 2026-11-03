@@ -37,3 +37,12 @@ Retain the old workflow conclusions and partial Debug evidence as historical
 results. This changes the acceptance policy, not the codec implementation or
 its compiler profiles. Native VMAF and the separately scoped optional engines
 remain unchanged.
+
+Native execution may take place locally or on a hosted runner. Prioritize local
+macOS ARM64 validation within the two-process CPU limit, while Linux x86-64
+continues in CI. Reuse the exact frozen source-run executables and original
+partitions; retain each execution's origin and actual reports, XML, logs, and
+hashes when composing local and hosted evidence. Require the same complete
+inventories and matching execution identities regardless of location. A local
+macOS pass is useful portable-code evidence, but does not replace the Linux
+platform gate or establish a numerical probability of cross-platform correctness.

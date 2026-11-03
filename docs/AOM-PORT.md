@@ -466,7 +466,17 @@ memory-boundary, and high-bit-depth alignment cases. Native macOS builds also
 check named record layouts against that runner's SDK. Allocation and worker
 failure comparisons remain separate focused checks. Local execution remains
 limited to two CPU-intensive processes. ADR 0048 records the revised gate;
-a complete passing Release run on either hosted platform is still pending.
+complete native Release acceptance on either platform is still pending.
+
+Local macOS ARM64 execution now complements the hosted runs. It uses the exact
+frozen source-run C/Rust executables and the original 120 main-suite partitions,
+starting at the opposite end of the hosted queue to avoid repeating completed
+work. The local corpus was rehashed against all 568 original fixture checksums
+before launch. At most two paired runners execute locally; each runs C and Rust
+sequentially. Complete native evidence may combine source-run, continuation,
+and local results with explicit origins and unchanged binary, configuration,
+manifest, fixture, case, skip, and XML identities. Linux continues independently
+in CI. A macOS result does not count as Linux acceptance.
 
 `aom-original-release.yml` continues from an existing native source run's exact
 frozen binaries. It checks actual XML and the established execution identities
