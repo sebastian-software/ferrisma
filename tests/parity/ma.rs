@@ -856,7 +856,7 @@ fn generated_tree(depth: usize, seed: &mut u64) -> Tree {
         let idx = t.len();
         t.push(PropertyDecisionNode::default());
         let r = next(seed);
-        if depth == 0 || r % 5 == 0 {
+        if depth == 0 || r.is_multiple_of(5) {
             t[idx] = PropertyDecisionNode::leaf(
                 Predictor((r % 14) as u32),
                 ((r >> 5) % 1024) as i64 - 512,

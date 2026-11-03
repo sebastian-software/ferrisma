@@ -143,6 +143,10 @@ fn decode_coeff_order(
 /// The output is the original packed per-order/per-channel storage. Only
 /// selected strategies' ranges are accessed; unused encoded orders still
 /// consume their permutations and validate the final entropy state.
+#[expect(
+    clippy::collapsible_if,
+    reason = "Mirror the source nested conditions."
+)]
 pub fn decode_coeff_orders(
     used_orders: u16,
     used_acs: u32,

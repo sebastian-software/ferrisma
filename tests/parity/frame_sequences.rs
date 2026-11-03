@@ -754,7 +754,9 @@ fn extended_encodings(prefix: &str) -> Vec<(String, String, EncodedSequence)> {
                     .map(|v| v.parse::<i32>().unwrap())
                     .collect();
                 let requested: Vec<_> = source[10..]
-                    .chunks_exact(22)
+                    .as_chunks::<22>()
+                    .0
+                    .iter()
                     .flat_map(|f| f[19..22].iter().map(|v| v.parse::<i32>().unwrap()))
                     .collect();
                 assert_eq!(

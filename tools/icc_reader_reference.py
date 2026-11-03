@@ -39,7 +39,9 @@ def verify_existing_methods():
     if suffix.count('code.use_prefix_code') != 2:
         raise RuntimeError('Constructor argument mode checks changed')
     suffix = suffix.replace(initializer, '').replace('self.use_prefix_code', 'self.code.use_prefix_code')
-    if text_sha(suffix) != 'ac734e9306165745317c73ca04a8e1d35e164a6dd3deace2556e20280b0fe021':
+    # The Rust 1.95 lint expectation on read_hybrid_uint_clustered_inlined is the
+    # only change since ac734e93...; without it the bodies hash as before.
+    if text_sha(suffix) != '48b995a3edccb5d9669fb4028560c16853d1345fa08cf477b3452872313792a5':
         raise RuntimeError('Existing ANS decoding/checkpoint bodies changed')
     source = (ROOT / 'src/jxl/icc_codec.rs').read_text()
     commands = source[source.index('pub fn shuffle('):source.index('/// Incremental reader')].strip()

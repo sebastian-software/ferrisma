@@ -135,7 +135,7 @@ def main():
                 assert run([str(build / target),"decode",str(path)+".compressed"]) == expected
             report["default_streams"][name+"-"+fixture] = {"bytes":len(expected),"sha256":sha(expected)}
     for config, prefix, optimize in [("debug",["rustc"],"0"),("release",["rustc"],"3"),
-                                     ("msrv",["rustup","run","1.85","rustc"],"0")]:
+                                     ("msrv",["rustup","run","1.95","rustc"],"0")]:
         binary = args.output / ("rust-"+config)
         run(prefix+["--edition=2024","--test","tests/brotli_huffman_reader.rs","--cfg",'feature="cpp-oracle"',
                     "-D","warnings","-C","opt-level="+optimize,"-o",str(binary)],cwd=ROOT)
@@ -155,7 +155,7 @@ def main():
             print(gate+" exact",flush=True)
     for key in ["cases","records","record_bytes","status_counts_source_seedA","files"]:
         assert len({json.dumps(g[key],sort_keys=True) for g in report["gates"].values()}) == 1
-    (args.output/"clippy.toml").write_text('msrv = "1.85"\n')
+    (args.output/"clippy.toml").write_text('msrv = "1.95"\n')
     run(["clippy-driver","--edition=2024","--test","tests/brotli_huffman_reader.rs","--cfg",'feature="cpp-oracle"',
          "-D","warnings","-o",str(args.output/"rust-clippy")],cwd=ROOT,
         env=dict(os.environ,CLIPPY_CONF_DIR=str(args.output)))

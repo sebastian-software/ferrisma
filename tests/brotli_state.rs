@@ -49,7 +49,7 @@ fn named_dictionary_and_descriptors_retain_the_actual_static_backing() {
         .map(|x| x.parse().unwrap())
         .collect();
     assert_eq!(values.len(), 4);
-    assert!(values[1] >= values[0] && values[1] % values[0] == 0);
+    assert!(values[0] != 0 && values[1] >= values[0] && values[1].is_multiple_of(values[0]));
     assert_eq!(values[2] % values[1], 0);
     assert_eq!(values[3], 0);
 }

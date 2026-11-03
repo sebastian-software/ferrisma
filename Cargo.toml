@@ -2,7 +2,7 @@
 name = "libjxl-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.95"
 license = "BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception)"
 description = "A mechanical Rust port of the JPEG XL reference implementation"
 publish = false
@@ -14,3 +14,11 @@ name = "jxl"
 # The C++ oracle is an executable used by integration tests, never a dependency
 # of the Rust library. Enabling this feature requires building it first.
 cpp-oracle = []
+
+# Optimized test builds that keep every overflow check and debug assertion. The
+# port mirrors C++ unsigned arithmetic with explicit wrapping operations, so an
+# omitted one only surfaces with overflow checks enabled.
+[profile.checked]
+inherits = "release"
+debug-assertions = true
+overflow-checks = true

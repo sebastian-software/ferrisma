@@ -234,7 +234,7 @@ def main():
     report["original_domain_preflight"] = {"bytes": (args.output / "original-domain-preflight.bin").stat().st_size, "sha256": file_sha(args.output / "original-domain-preflight.bin")}
     for config, prefix, optimize in [("debug", ["rustc"], "0"),
                                      ("release", ["rustc"], "3"),
-                                     ("msrv", ["rustup", "run", "1.85", "rustc"], "0")]:
+                                     ("msrv", ["rustup", "run", "1.95", "rustc"], "0")]:
         binary = args.output / ("rust-" + config)
         run(prefix + ["--edition=2024", "--test", "tests/brotli_context_map.rs",
                       "--cfg", 'feature="cpp-oracle"', "-D", "warnings",
@@ -263,7 +263,7 @@ def main():
             print(gate + " exact", flush=True)
     for key in report["gates"]["debug-plain"]:
         assert len({gate[key] for gate in report["gates"].values()}) == 1
-    (args.output / "clippy.toml").write_text('msrv = "1.85"\n')
+    (args.output / "clippy.toml").write_text('msrv = "1.95"\n')
     run(["clippy-driver", "--edition=2024", "--test", "tests/brotli_context_map.rs",
          "--cfg", 'feature="cpp-oracle"', "-D", "warnings", "-o", str(args.output / "rust-clippy")],
         cwd=ROOT, env=dict(os.environ, CLIPPY_CONF_DIR=str(args.output)))

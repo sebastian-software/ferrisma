@@ -283,7 +283,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             for c in 0..3 {
                 for y in 0..h {
                     for x in 0..w {
-                        image.plane_row_mut(c, y)[x] = if mode % 2 == 0 {
+                        image.plane_row_mut(c, y)[x] = if mode.is_multiple_of(2) {
                             ((x * 13 + y * 67 + c * 997) % 4093) as f32 - 2051.0
                         } else {
                             f32::from_bits(values[(x + y * 7 + c * 3) % 12])

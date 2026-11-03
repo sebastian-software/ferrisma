@@ -19,7 +19,7 @@ when their stated scope is implemented, verified, and merged into `main`.
 For each boundary, preserve statuses, partial state, reader consumption and
 close obligations, reference lifetimes, callback ordering, metadata, and every
 initialized output sample. Compare genuine original inputs with the independent
-C++ implementation in Debug, Release, and Rust 1.85, with ordinary and
+C++ implementation in the `checked` test profile, with ordinary and
 ASan/UBSan references on the established native platform matrix. Retain all
 existing cases, exact float comparisons, source pins, and sanitizer coverage.
 Any compiler-dependent numeric boundary needs the same evidence and explicit

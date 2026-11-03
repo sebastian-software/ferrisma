@@ -17,7 +17,10 @@ fn concatenation_retains_each_native_competing_nan_product() {
     let captures = include_bytes!("data/skcms-concat-paired-nan-x86.words");
     assert_eq!(requests.lines().count(), 432);
     assert_eq!(captures.len(), 432 * 9 * 4);
-    for (index, (request, captured)) in requests.lines().zip(captures.chunks_exact(36)).enumerate()
+    for (index, (request, captured)) in requests
+        .lines()
+        .zip(captures.as_chunks::<36>().0)
+        .enumerate()
     {
         let mut args = request.split_whitespace();
         assert_eq!(args.next(), Some("skcms-concat"));
@@ -33,10 +36,15 @@ fn concatenation_retains_each_native_competing_nan_product() {
         }
         assert!(args.next().is_none());
         let actual = a.concat(&b);
-        for (value, expected) in actual.vals.iter().flatten().zip(captured.chunks_exact(4)) {
+        for (value, expected) in actual
+            .vals
+            .iter()
+            .flatten()
+            .zip(captured.as_chunks::<4>().0)
+        {
             assert_eq!(
                 value.to_bits(),
-                u32::from_le_bytes(expected.try_into().unwrap()),
+                u32::from_le_bytes(*expected),
                 "native request {index}"
             );
         }

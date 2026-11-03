@@ -61,7 +61,7 @@ def main():
         assert result.stdout==expected
         (out/f"{graph}-cursor-aliases.txt").write_bytes(result.stdout)
 
-    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.85", "0")]:
+    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.95", "0")]:
         compiler = ["rustup", "run", toolchain, "rustc", "--edition", "2024", "-D", "warnings", "-C", f"opt-level={level}"]
         for component in ["stream_input", "stream_blocks", "stream_output"]:
             binary = out / f"{component}-{name}-tests"
@@ -81,7 +81,7 @@ def main():
                 "requests_sha256": sha(capture / "requests.txt")}
     for key in ["observations_sha256", "observation_bytes", "requests_sha256"]:
         assert len({row[key] for row in report["gates"].values()}) == 1
-    (out / "clippy.toml").write_text('msrv = "1.85"\n')
+    (out / "clippy.toml").write_text('msrv = "1.95"\n')
     for component in ["stream_input", "stream_blocks", "stream_output"]:
         execute(f"{component}-clippy", ["clippy-driver", "--edition=2024", "--test", "--cfg", 'feature="cpp-oracle"',
             ROOT / f"tests/brotli_{component}.rs", "-D", "warnings", "-o", out / f"{component}-clippy"],

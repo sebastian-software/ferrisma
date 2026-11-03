@@ -161,7 +161,7 @@ def main():
     if os.uname().machine == "x86_64":
         from dequant_reference import audit
         audit()
-    for profile in ("debug", "release"):
+    for profile in ("debug", "release", "checked"):
         for candidate in sorted((ROOT / "target" / profile / "deps").glob("parity-*")):
             if candidate.is_file() and candidate.open("rb").read(4) == b"\x7fELF":
                 instructions(candidate, ("add_gamut", "gamut_map", "idct_add", "afv_add",

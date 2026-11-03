@@ -255,6 +255,15 @@ translated boundaries, not whole-file or whole-library completion.
 
 ## Evidence
 
+From 2026-11-03, the checks run the Rust tests once per oracle graph in the
+optimized `checked` profile, with overflow checks and debug assertions enabled,
+and compile all targets with the minimum Rust version, now 1.95. Results below
+that name Debug, Release and Rust 1.85 test runs record the configurations and
+the minimum version in use at that time. Pull
+requests and `main` get a fast Linux gate; both oracle graphs on Linux and
+macOS and all audits run in the nightly deep gate on `main`, as described in
+[ADR 0002](adr/0002-differential-oracle.md).
+
 Validated on 2026-11-02 on macOS arm64 with Rust 1.99.0 (stable), Rust 1.85.1
 (minimum-version series), and Apple Clang 21.0.0. The C++ oracle is built from
 the unmodified pinned source with scalar Highway and release status behavior.

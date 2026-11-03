@@ -12,7 +12,29 @@ The oracle's line protocol is test infrastructure. It calls original upstream
 functions; it does not reimplement their algorithms. The Rust crate has no
 C/C++ build or link dependency. `cpp-oracle` enables differential integration
 tests and fails when the executable is unavailable. The repository check
-command always runs this evidence, including debug and release Rust builds.
+command always runs this evidence.
+
+Run the differential tests in the `checked` Cargo profile: release
+optimizations with overflow checks and debug assertions enabled. Optimized code
+keeps the long corpus fast, and the checks still catch an omitted wrapping
+operation or a violated debug assertion. Plain release only removes those
+checks, so it is compiled but not tested again, except for test files with a
+`cfg(not(debug_assertions))` variant. The minimum Rust version is a compile
+check of all targets. One pass runs against each oracle graph: the ordinary
+graph is the reference behavior, and the ASan/UBSan graph detects undefined
+behavior in the original per case. The audits keep proving that both graphs
+give identical results for defined cases.
+
+Native Linux and macOS CI remains the acceptance gate, in two tiers. A fast
+tier runs for every pull request and on `main`: the static checks and the
+ordinary Linux oracle in parallel partitions, reusing an oracle build cached
+under its exact inputs. It is the required check before a change lands. The deep
+tier runs both oracle graphs on both systems and every audit in parallel jobs,
+building each oracle from source. It runs nightly on `main` and on demand, so a
+regression that only the instrumented graph, macOS, or an audit detects can
+reach `main` for up to a day. A failed nightly run opens or updates an issue, and
+the fix lands forward. Start the deep tier on a branch before merging a change
+that touches an oracle, a sanitizer, or audit inputs.
 
 Compare encoded bytes and bit counts, decoded values, exact status codes,
 consumed-bit counters, padding, truncation, and finalization behavior. Include
@@ -415,8 +437,10 @@ through a separate binary32 function boundary. The subtraction and literal
 operand tree stay unchanged; ARM and other targets retain their existing
 contraction mapping. No request or expected word changes.
 
-Native Rust acceptance requires the complete unchanged corpus in Debug,
-Release and Rust 1.85 against both selected source graphs after this mapping.
+Native Rust acceptance requires the complete unchanged corpus against both
+selected source graphs after this mapping. At the time, that meant Debug,
+Release and Rust 1.85; it now means the optimized `checked` profile above, which
+exercises the optimized code generation that exposed this difference.
 The diagnostic workflow explicitly enables Bash pipeline failure propagation
 while collecting every configuration's log. A successful source audit or overall
 workflow conclusion alone is insufficient: verify all six actual test results

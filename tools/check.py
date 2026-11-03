@@ -83,17 +83,32 @@ def check_docs():
     print("Local documentation links verified", flush=True)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sanitizers", action="store_true", help="Instrument the original C++ oracle with ASan and UBSan")
-    parser.add_argument("--msrv", action="store_true", help="Also test with the already-installed Rust 1.85 toolchain")
-    args = parser.parse_args()
-    check_source()
+def rust_version():
+    return re.search(r'^rust-version = "([^"]+)"$', (ROOT / "Cargo.toml").read_text(), re.M)[1]
+
+
+def release_only_tests():
+    # Tests compiled only without debug assertions are absent from the checked
+    # profile, so their whole binaries also run in an ordinary release build.
+    return sorted(path.stem for path in (ROOT / "tests").glob("*.rs")
+                  if "cfg(not(debug_assertions))" in path.read_text())
+
+
+def check_static(msrv):
     check_docs()
     run("cargo", "fmt", "--all", "--", "--check")
-    build = ROOT / "target" / ("oracle-asan" if args.sanitizers else "oracle")
+    run("cargo", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
+    if msrv:
+        run("cargo", f"+{rust_version()}", "check", "--locked", "--offline", "--all-targets", "--all-features")
+    run("cargo", "build", "--locked", "--offline", "--release", "--all-targets", "--all-features")
+    for name in release_only_tests():
+        run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--test", name)
+
+
+def build_oracle(sanitizers):
+    build = ROOT / "target" / ("oracle-asan" if sanitizers else "oracle")
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
-        f"-DORACLE_SANITIZERS={'ON' if args.sanitizers else 'OFF'}")
+        f"-DORACLE_SANITIZERS={'ON' if sanitizers else 'OFF'}")
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     from skcms_fitting_reference import build_private as build_fitting_private
     from skcms_parser_reference import build_private as build_parser_private
@@ -109,12 +124,60 @@ def main():
                JXL_DEFAULT_CMS_ORACLE=str(default_cms_public),
                JXL_DEFAULT_CMS_PRIVATE_ORACLE=str(default_cms_private),
                JXL_DEFAULT_CMS_CAPTURE=str(build / "default-cms-corpus"))
-    env.update(prepare_brotli_observers(args.sanitizers))
-    run("cargo", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
-    run("cargo", "test", "--locked", "--offline", "--all-features", "--", "--nocapture", env=env)
-    run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--", "--nocapture", env=env)
-    if args.msrv:
-        run("cargo", "+1.85", "test", "--locked", "--offline", "--all-features", "--", "--nocapture", env=env)
+    env.update(prepare_brotli_observers(sanitizers))
+    return env
+
+
+def check_tests(env, partition, filter):
+    test = ["cargo", "test", "--locked", "--offline", "--profile", "checked", "--all-features"]
+    if filter is not None:
+        run(*test, "--", "--nocapture", filter, env=env)
+        return
+    if partition is None:
+        run(*test, "--", "--nocapture", env=env)
+        return
+    index, count = partition
+    # Every listed name belongs to exactly one partition. A name shared by
+    # several test binaries runs in each of them within that partition.
+    print(f"+ {' '.join(test)} -- --list --format terse", flush=True)
+    listing = subprocess.run([*test, "--", "--list", "--format", "terse"], cwd=ROOT, env=env,
+                             stdout=subprocess.PIPE, text=True, check=True).stdout
+    names = sorted({line.removesuffix(": test") for line in listing.splitlines() if line.endswith(": test")})
+    selected = names[index - 1::count]
+    print(f"Partition {index}/{count}: {len(selected)} of {len(names)} test names", flush=True)
+    if selected:
+        run(*test, "--", "--nocapture", "--exact", *selected, env=env)
+
+
+def partition(value):
+    match = re.fullmatch(r"([1-9][0-9]*)/([1-9][0-9]*)", value)
+    if not match or int(match[1]) > int(match[2]):
+        raise argparse.ArgumentTypeError("expected K/N with 1 <= K <= N")
+    return int(match[1]), int(match[2])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sanitizers", action="store_true", help="Instrument the original C++ oracle with ASan and UBSan")
+    parser.add_argument("--msrv", action="store_true",
+                        help="Also compile all targets with the already-installed rust-version toolchain")
+    parser.add_argument("--stage", choices=["all", "static", "oracle", "test"], default="all",
+                        help="static: pins, notices, links, fmt, Clippy, MSRV, and release builds; "
+                             "oracle: build the selected C++ reference only; test: oracle and checked-profile tests")
+    parser.add_argument("--partition", type=partition, metavar="K/N",
+                        help="Run only the K-th of N disjoint subsets of test names")
+    parser.add_argument("--filter", metavar="NAME",
+                        help="Run only the tests whose names contain NAME, for example to write an audit's capture")
+    args = parser.parse_args()
+    if args.partition is not None and args.filter is not None:
+        parser.error("--partition and --filter are mutually exclusive")
+    check_source()
+    if args.stage in ("all", "static"):
+        check_static(args.msrv)
+    if args.stage in ("all", "oracle", "test"):
+        env = build_oracle(args.sanitizers)
+    if args.stage in ("all", "test"):
+        check_tests(env, args.partition, args.filter)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 

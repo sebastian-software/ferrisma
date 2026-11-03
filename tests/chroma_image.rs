@@ -87,8 +87,10 @@ fn captured_original_jpeg_chroma_files_decode_without_cpp() {
             .collect();
         let expected: Vec<_> = capture
             .pixels
-            .chunks_exact(4)
-            .map(|v| u32::from_le_bytes(v.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|v| u32::from_le_bytes(*v))
             .collect();
         assert_eq!(words, expected);
         assert!(image.extra_channels().is_empty());

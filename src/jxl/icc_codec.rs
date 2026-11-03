@@ -400,6 +400,10 @@ impl ICCReader {
         Ok(())
     }
 
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn process(&mut self, reader: &mut BitReader<'_>, icc: &mut PaddedBytes) -> Status {
         let mut checkpoint = Box::new(Checkpoint::default());
         let mut ans = ANSSymbolReader::from_state(&self.code, std::mem::take(&mut self.ans_state));

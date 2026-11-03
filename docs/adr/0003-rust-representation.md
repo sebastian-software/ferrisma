@@ -1898,8 +1898,8 @@ boundary; their arithmetic bodies remain unchanged. Source memcmp paths still
 require every byte actually compared to be initialized.
 
 The baseline engine retains four lanes, native NEON/SSE arithmetic and the
-original zeroed 64-byte tail scratch schedule. Stable Rust 1.85 cannot promise
-Clang's musttail ABI. Stage dispatch therefore follows the original interpreter
+original zeroed 64-byte tail scratch schedule. Stable Rust, including the 1.95
+minimum version, cannot promise Clang's musttail ABI. Stage dispatch therefore follows the original interpreter
 traversal while retaining the selected baseline operations and load/store
 branches. This is a language-required call-dispatch mapping, not a new scalar
 algorithm or a claim of equivalent call-stack/performance behavior. Native
@@ -1910,11 +1910,13 @@ On x86_64 the reference Clang build also compiles the HSW (N=8, AVX2/F16C,
 no FMA) and SKX (N=16, AVX-512F/DQ) engines, and Transform selects one with
 cpu_type(). Rust translates both from the same header with lane-count generic
 stages and the source's non-NEON branches. HSW rounds contracted products; SKX
-fuses the same frontend-contracted expressions, including U16_from_F. Rust 1.85
-has no stable AVX-512 intrinsics or target features, so SKX issues each 512-bit
-operation as two 256-bit AVX/FMA/F16C operations. Every used operation is
-lane-independent with identical per-lane results, including F16C rounding,
-floor and truncating conversion. cpu_type() maps each cpuid/xgetbv condition to
+fuses the same frontend-contracted expressions, including U16_from_F. SKX
+issues each 512-bit operation as two 256-bit AVX/FMA/F16C operations. This
+split was chosen under the earlier Rust 1.85 minimum version, which had no
+stable AVX-512 intrinsics or target features. They are stable since Rust 1.89,
+so translating SKX to native 512-bit operations is a possible follow-up with its
+own parity evidence. Every used operation is lane-independent with identical
+per-lane results, including F16C rounding, floor and truncating conversion. cpu_type() maps each cpuid/xgetbv condition to
 std_detect, whose AVX and AVX-512 reports include the same XCR0 state checks.
 Direct-stage oracle programs still call the baseline engine only.
 

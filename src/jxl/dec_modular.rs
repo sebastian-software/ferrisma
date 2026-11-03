@@ -651,6 +651,10 @@ impl ModularFrameDecoder {
         clippy::too_many_arguments,
         reason = "Keep original group, shift, reader, state, and output checkpoint parameters."
     )]
+    #[expect(
+        clippy::collapsible_if,
+        reason = "Mirror the source nested conditions."
+    )]
     pub fn decode_group(
         &mut self,
         header: &FrameHeader<'_>,

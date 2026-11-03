@@ -15,7 +15,9 @@ fn unhex(s: &str) -> Vec<u8> {
         return Vec::new();
     }
     s.as_bytes()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|v| u8::from_str_radix(std::str::from_utf8(v).unwrap(), 16).unwrap())
         .collect()
 }
@@ -605,8 +607,8 @@ pub fn format_requests() -> Vec<String> {
                 }
                 // Float inputs are finite words; half inputs retain all original patterns.
                 if sf >> 1 == 17 || sf >> 1 == 18 {
-                    for (i, v) in payload.chunks_exact_mut(4).enumerate() {
-                        v.copy_from_slice(&((i as f32 - 3.0) / 7.0).to_ne_bytes());
+                    for (i, v) in payload.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                        *v = ((i as f32 - 3.0) / 7.0).to_ne_bytes();
                     }
                 }
                 let sa = (sf + df + n as i32) % 3;
@@ -653,8 +655,8 @@ pub fn alias_requests() -> Vec<String> {
                         *v = (i * 37 + 13) as u8;
                     }
                     if sf >> 1 == 17 || sf >> 1 == 18 {
-                        for (i, v) in payload.chunks_exact_mut(4).enumerate() {
-                            v.copy_from_slice(&((i as f32 - 3.0) / 7.0).to_ne_bytes());
+                        for (i, v) in payload.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                            *v = ((i as f32 - 3.0) / 7.0).to_ne_bytes();
                         }
                     }
                     rows.push(format!(

@@ -538,7 +538,7 @@ fn sample_request(
         1 => "5 4 6 9 15 18",
         _ => "3 0 1 9",
     };
-    let mult = if variant % 2 == 0 && include_multipliers {
+    let mult = if variant.is_multiple_of(2) && include_multipliers {
         "2 0 2 0 8 1 2 4 0 8 3"
     } else {
         "0"

@@ -67,7 +67,7 @@ is reimplemented in the adapter.
 
 ## Prerequisites
 
-- Rust 1.85 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.
+- Rust 1.95 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.
 - Python 3, Git, CMake 3.18 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
 
@@ -97,9 +97,14 @@ upstream changes require a separate migration and renewed evidence.
 python3 tools/check.py
 ```
 
-This checks the source pins, notices, and local documentation links, then runs
-formatting, oracle compilation, Clippy, and all Rust and differential tests in
-debug and release. It does not install or update toolchains or dependencies.
+This checks the source pins, notices, and local documentation links. It then
+runs formatting, Clippy, a release build of all targets, oracle compilation, and
+all Rust and differential tests in the `checked` Cargo profile. That profile
+inherits release optimizations and keeps overflow checks and debug assertions
+enabled. The port mirrors C++ unsigned arithmetic with explicit wrapping
+operations, so an omitted one only fails with overflow checks on. Test files
+with a `cfg(not(debug_assertions))` variant also run in an ordinary release
+build. The check does not install or update toolchains or dependencies.
 
 For an instrumented C++ reference and the minimum Rust version:
 
@@ -107,11 +112,19 @@ For an instrumented C++ reference and the minimum Rust version:
 python3 tools/check.py --sanitizers --msrv
 ```
 
-`--msrv` requires the Rust `1.85` toolchain to be installed already. Sanitizers
-cover the oracle adapters, original codec library, and its built dependencies;
-they do not instrument Rust or prove Rust memory safety. The current platform
-evidence is listed in
+`--msrv` compiles all targets with the toolchain named by `rust-version` in
+`Cargo.toml`, currently `1.95`, which must be installed already. It does not
+run the tests on that toolchain. Sanitizers cover the oracle adapters, original
+codec library, and its built dependencies; they do not instrument Rust or prove
+Rust memory safety. The current platform evidence is listed in
 [PORT_STATUS.md](docs/PORT_STATUS.md).
+
+`--stage` runs one part of the check: `static` needs no C++ toolchain, `oracle`
+only builds the selected reference graph, and `test` builds it and runs the
+tests. `--partition K/N` runs the K-th of N disjoint subsets of the test names,
+so N jobs together run every test exactly once. `--filter NAME` runs only the
+tests whose names contain `NAME`. The default CMS audit replays the requests
+that `--stage test --filter default_cms::` captures for each oracle graph.
 
 Focused checks:
 
@@ -120,7 +133,7 @@ cargo test --locked --offline --test bitstream
 cargo test --locked --offline --test headers
 cmake -S tools/oracle -B target/oracle -DCMAKE_BUILD_TYPE=Release
 cmake --build target/oracle --target jxl_oracle --parallel 4
-cargo test --locked --offline --features cpp-oracle --test parity -- --nocapture
+cargo test --locked --offline --profile checked --features cpp-oracle --test parity -- --nocapture
 ```
 
 Set `JXL_CPP_ORACLE` to an absolute path when using a separately built oracle.
@@ -128,8 +141,38 @@ The default is `target/oracle/jxl_oracle`. Oracle comparisons use the source's
 release status behavior; debug-only abort and diagnostic instrumentation is
 outside the current parity contract.
 
-The GitHub Actions workflow schedules the same complete check on Linux and
-macOS. A local result does not imply that those hosted jobs have run.
+GitHub Actions runs the checks in two tiers:
+
+- The fast gate runs on Linux for every pull request and every push to `main`:
+  the static stage with the MSRV compile check, and the `checked` tests against
+  the ordinary oracle in four partitions. It reuses a cached oracle build whose
+  key covers the submodule revision, `tools/oracle`, the check tools, and the
+  compiler.
+- The deep gate adds macOS, the ASan/UBSan oracle on both systems, and every
+  original-source audit, each in its own parallel job. It runs nightly on
+  `main` and on manual dispatch, and builds every oracle from source. A failed
+  nightly run opens an issue titled "Nightly deep check failed", or comments on
+  the open one. Fix such a failure forward in a new pull request.
+
+The `Checks passed` job summarizes the jobs of a run and is the single required
+status check for pull requests. To run the deep gate on a branch before
+merging, for example after changing an oracle or a sanitizer setting, start it
+manually:
+
+```sh
+gh workflow run check.yml --ref <branch>
+```
+
+A local result does not imply that those hosted jobs have run.
+
+The minimum supported Rust version trails stable by about four releases, or
+about six months. Raise it deliberately at regular intervals in its own change:
+update `rust-version`, the `msrv` toolchains in the Brotli audit tools, and the
+documentation. No CI rule fails when it falls behind. Clippy reads
+`rust-version`, so a raise can enable lints that suggest newer idioms. In
+translated code, keep the source's form and add a function-scoped
+`#[expect(clippy::..., reason = "...")]`; for example, `is_multiple_of` differs
+from the source's `%` test for a zero divisor.
 
 Keep [PORT_STATUS.md](docs/PORT_STATUS.md) current as units and evidence change.
 Update an existing ADR in place when changing its decision and its `Updated`

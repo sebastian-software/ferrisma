@@ -18,7 +18,9 @@ fn unhex(text: &str) -> Vec<u8> {
         return Vec::new();
     }
     text.as_bytes()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
         .collect()
 }
@@ -391,7 +393,7 @@ fn icc(tags: &[(u32, Vec<u8>)], space: u32, pcs: u32) -> Vec<u8> {
     for (i, (sig, payload)) in tags.iter().enumerate() {
         let offset = bytes.len();
         bytes.extend_from_slice(payload);
-        while bytes.len() % 4 != 0 {
+        while !bytes.len().is_multiple_of(4) {
             bytes.push(0);
         }
         put32(&mut bytes, 132 + 12 * i, *sig);

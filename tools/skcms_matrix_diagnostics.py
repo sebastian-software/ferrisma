@@ -88,7 +88,7 @@ def main():
                 d["index"] < len(retained) for d in differences)
             report["differences"]["paired_nan_ordinary_vs_instrumented"] = sum(
                 d["index"] >= len(retained) for d in differences)
-    for name, chain, release in [("debug", [], False), ("release", [], True), ("msrv", ["+1.85"], False)]:
+    for name, chain, release in [("debug", [], False), ("release", [], True), ("msrv", ["+1.95"], False)]:
         command = ["cargo", *chain, "build", "--locked", "--offline", "--lib"] + (["--release"] if release else [])
         with (output / (name + "-library-build.log")).open("w") as log:
             subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=True)

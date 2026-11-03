@@ -48,9 +48,9 @@ pub fn matrix() -> Vec<String> {
         .chunks_exact(52)
         .map(|row| {
             let mut line = "default-cms-matrix-product".to_owned();
-            for bytes in row.chunks_exact(4) {
+            for bytes in row.as_chunks::<4>().0 {
                 line.push(' ');
-                line.push_str(&u32::from_le_bytes(bytes.try_into().unwrap()).to_string());
+                line.push_str(&u32::from_le_bytes(*bytes).to_string());
             }
             line
         })
@@ -658,9 +658,9 @@ pub fn numeric() -> Vec<String> {
     }
     for row in include_bytes!("../data/default-cms-matrix-inputs.bin").chunks_exact(52) {
         let mut line = "default-cms-numeric 1".to_owned();
-        for bytes in row[..36].chunks_exact(4) {
+        for bytes in row[..36].as_chunks::<4>().0 {
             line.push(' ');
-            line.push_str(&u32::from_le_bytes(bytes.try_into().unwrap()).to_string());
+            line.push_str(&u32::from_le_bytes(*bytes).to_string());
         }
         out.push(line);
     }
