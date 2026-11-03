@@ -76,6 +76,10 @@ impl RenderPipelineStage for EPFStage<'_> {
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(self.border())
     }
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     fn process_row(
         &mut self,
         input: &RowInfo,

@@ -39,7 +39,7 @@ def main():
         execute(f"source-{graph}-build", ["cmake", "--build", directory, "--target", "brotli_state_oracle", "--parallel", "2"])
         original[graph] = directory / "brotli_state_oracle"
     rust = []
-    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.85", "0")]:
+    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.95", "0")]:
         compiler = ["rustup", "run", toolchain, "rustc", "--edition", "2024", "-D", "warnings", "-C", f"opt-level={level}"]
         binary, tests = out / name, out / f"{name}-tests"
         execute(f"{name}-build", [*compiler, ROOT / "tools/brotli_state_probe.rs", "-o", binary])

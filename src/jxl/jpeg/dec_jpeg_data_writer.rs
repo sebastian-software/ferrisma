@@ -1010,6 +1010,10 @@ fn maybe_push_output(
     }
     Ok(())
 }
+#[expect(
+    clippy::collapsible_if,
+    reason = "Mirror the source nested conditions."
+)]
 fn write_jpeg_internal<'a>(
     jpg: &'a JpegData,
     out: &mut impl FnMut(Option<&[u8]>) -> usize,

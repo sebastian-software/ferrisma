@@ -272,7 +272,7 @@ fn frame_buffer_rebinding_and_copying_preserve_stale_copy_precedence_partial_fie
                 let mut request = format!("fb-chain {w} {h} {extra} 12");
                 for step in 0..12 {
                     let index = next(&mut seed) % (extra + 3);
-                    let null = next(&mut seed) % 3 == 0;
+                    let null = next(&mut seed).is_multiple_of(3);
                     let size = [0, 1, 2, 31, 64, 511, 512][next(&mut seed) % 7];
                     let channels = [0u32, 1, 2, 3, 4, u32::MAX][next(&mut seed) % 6];
                     let dtype = next(&mut seed) % 8;

@@ -23,6 +23,10 @@ fn next_alignment_offset() -> usize {
     ALIGNMENT * (group & (NUM_ALIGNMENT_GROUPS - 1))
 }
 
+#[expect(
+    clippy::manual_is_multiple_of,
+    reason = "Mirror the source modulo test."
+)]
 pub fn bytes_per_row(xsize: usize, sizeof_t: usize) -> StatusOr<usize> {
     if xsize == 0 {
         return Ok(0);

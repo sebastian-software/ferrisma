@@ -477,25 +477,25 @@ fn fixture_params(i: usize) -> CompressParams<'static> {
     let override_values = [-128, -1, 0, 1, 2, 127];
     let mut p = CompressParams {
         butteraugli_distance: distances[i % distances.len()],
-        modular_mode: i % 2 != 0,
+        modular_mode: !i.is_multiple_of(2),
         color_transform: ColorTransform((i / 2 % 3) as u32),
         speed_tier: tier((i % 11) as i32 - 1),
         decoding_speed_tier: [0, 1, 2, 3, 4, 8, usize::MAX][i % 7],
         modular_group_size_shift: [-1, 0, 1, 2, 3][i % 5],
         resampling: [-3, -1, 0, 1, 2, 3, 4, 8][i % 8],
         ec_resampling: [-1, 0, 1, 2, 4, 8, 3][i % 7],
-        already_downsampled: i % 3 == 0,
-        original_butteraugli_distance: if i % 3 == 0 { -1.0 } else { 3.0 },
+        already_downsampled: i.is_multiple_of(3),
+        original_butteraugli_distance: if i.is_multiple_of(3) { -1.0 } else { 3.0 },
         progressive_mode: Override(override_values[i % 6]),
         qprogressive_mode: Override(override_values[i / 6 % 6]),
         responsive: 3,
         epf: [-3, -1, 0, 1, 2, 3, 7][i % 7],
         gaborish: Override(override_values[i / 5 % 6]),
         noise: Override(override_values[i / 7 % 6]),
-        disable_perceptual_optimizations: i % 5 == 0,
+        disable_perceptual_optimizations: i.is_multiple_of(5),
         photon_noise_iso: [-1.0, 0.0, 100.0, f32::from_bits(0x7fc01234)][i % 4],
         progressive_dc: [-1, 0, 1, 2][i % 4],
-        lossy_palette: i % 7 == 0,
+        lossy_palette: i.is_multiple_of(7),
         force_lfs_jpeg_recompression: [-1, 0, 1, 2][i % 4],
         ..Default::default()
     };
@@ -636,7 +636,7 @@ fn jpeg_input(i: usize) -> String {
     let n = i % 5;
     let mut out = n.to_string();
     for c in 0..n {
-        vals!(out;if i%3==0 {[82,71,66,0][c]}else{c+1},[1,2,3,0,257,-254][(i+c)%6],[1,2,1,0,2,257][(i/3+c)%6]);
+        vals!(out;if i.is_multiple_of(3) {[82,71,66,0][c]}else{c+1},[1,2,3,0,257,-254][(i+c)%6],[1,2,1,0,2,257][(i/3+c)%6]);
     }
     let markers: Vec<u8> = match i % 7 {
         0 => vec![],
@@ -650,7 +650,7 @@ fn jpeg_input(i: usize) -> String {
     vals!(out;hex(&markers));
     let count = match i % 7 {
         0 | 1 => 0,
-        2 | 4 => usize::from(i % 11 != 0),
+        2 | 4 => usize::from(!i.is_multiple_of(11)),
         _ => 2,
     };
     vals!(out;count);
@@ -659,7 +659,7 @@ fn jpeg_input(i: usize) -> String {
         if data.len() >= 15 {
             data[3..8].copy_from_slice(b"Adobe");
             data[14] = (i % 3) as u8;
-            if i % 13 == 0 {
+            if i.is_multiple_of(13) {
                 data[5] = 0;
             }
         }
@@ -695,25 +695,29 @@ fn info_input(i: usize, baseline: bool, extras: usize) -> String {
         FrameInfo::default()
     } else {
         FrameInfo {
-            save_before_color_transform: i % 2 != 0,
-            ib_needs_color_transform: i % 3 != 0,
+            save_before_color_transform: !i.is_multiple_of(2),
+            ib_needs_color_transform: !i.is_multiple_of(3),
             frame_type: FrameType((i % 4) as u32),
-            dc_level: if i % 53 == 0 {
+            dc_level: if i.is_multiple_of(53) {
                 ((1u64 << 32) as usize) + 1
             } else {
                 i % 5
             },
-            is_last: i % 2 == 0,
-            is_preview: i % 7 == 0,
-            save_as_reference: if i % 11 == 0 { usize::MAX } else { i % 4 },
+            is_last: i.is_multiple_of(2),
+            is_preview: i.is_multiple_of(7),
+            save_as_reference: if i.is_multiple_of(11) {
+                usize::MAX
+            } else {
+                i % 4
+            },
             source: i % 4,
-            clamp: i % 2 == 0,
+            clamp: i.is_multiple_of(2),
             alpha_channel: [-1, 0, 1, 5, -2][i % 5],
             origin: FrameOrigin {
                 x0: [0, -2, 3][i % 3],
                 y0: [0, 0, 5][i % 3],
             },
-            blend: i % 3 == 0,
+            blend: i.is_multiple_of(3),
             blendmode: BlendMode((i % 5) as u32),
             duration: (i * 17) as u32,
             timecode: i as u32 ^ 0x12345678,

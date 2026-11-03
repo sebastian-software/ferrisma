@@ -165,7 +165,7 @@ def main():
             retained_observation_segments=hashes, retained_metadata548_sha256=metadata_hash.hexdigest())
     assert sha(out / "ordinary.txt") == sha(out / "sanitized.txt")
 
-    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.85", "0")]:
+    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.95", "0")]:
         compiler = ["rustup", "run", toolchain, "rustc", "--edition", "2024", "-D", "warnings", "-C", f"opt-level={level}"]
         binary = out / f"rust-{name}"
         run(f"{name}-build", [*compiler, ROOT / "tools/brotli_stream_probe.rs", "-o", binary])
@@ -185,7 +185,7 @@ def main():
                 "source_binary_sha256": sha(originals[graph]), "rust_binary_sha256": sha(binary),
                 "observation_sha256": sha(out / f"rust-{name}.txt"),
                 "retained_observation_segments": hashes}
-    (out / "clippy.toml").write_text('msrv = "1.85"\n')
+    (out / "clippy.toml").write_text('msrv = "1.95"\n')
     run("clippy", ["clippy-driver", "--edition=2024", "--test", ROOT / "tests/brotli_stream.rs",
         "-D", "warnings", "-o", out / "clippy-tests"], dict(os.environ, CLIPPY_CONF_DIR=str(out)))
     report["files"] = {path.name: sha(path) for path in out.iterdir() if path.is_file()}

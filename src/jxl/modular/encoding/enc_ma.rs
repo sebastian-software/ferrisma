@@ -408,6 +408,10 @@ impl TreeSamples {
         clippy::too_many_arguments,
         reason = "Preserve source property/multiplier/sample inputs"
     )]
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn pre_quantize_properties(
         &mut self,
         range: &StaticPropRange,

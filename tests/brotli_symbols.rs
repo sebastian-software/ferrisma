@@ -467,8 +467,10 @@ fn actual_original_tables_and_every_symbol_observation_match() {
     assert!(source.stderr.is_empty());
     let words: Vec<u64> = source
         .stdout
-        .chunks_exact(8)
-        .map(|word| u64::from_le_bytes(word.try_into().unwrap()))
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .map(|word| u64::from_le_bytes(*word))
         .collect();
     let mut cursor = 0;
     for table in &tables {
@@ -509,8 +511,12 @@ fn actual_original_tables_and_every_symbol_observation_match() {
     );
     assert!(source.stderr.is_empty());
     assert_eq!(source.stdout.len(), cases.len() * 136);
-    for (case, actual) in cases.iter().zip(source.stdout.chunks_exact(136)) {
-        assert_eq!(observe(*case, &tables[case.table]), actual, "{case:?}");
+    for (case, actual) in cases.iter().zip(source.stdout.as_chunks::<136>().0) {
+        assert_eq!(
+            observe(*case, &tables[case.table]),
+            actual.as_slice(),
+            "{case:?}"
+        );
     }
     if let Some(directory) = std::env::var_os("BROTLI_SYMBOLS_CAPTURE") {
         let directory = std::path::PathBuf::from(directory);

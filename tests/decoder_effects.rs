@@ -37,8 +37,10 @@ fn original_epf_noise_and_spline_files_decode_without_a_cpp_runtime() {
         assert_eq!(decoded.reader_bits, file.len() * 8);
         assert_eq!(decoded.pixels, pixels);
         let expected: Vec<_> = floats
-            .chunks_exact(4)
-            .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| u32::from_le_bytes(*b))
             .collect();
         assert_eq!(
             decoded

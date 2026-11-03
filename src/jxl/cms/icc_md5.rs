@@ -4,6 +4,10 @@
 //! ICCComputeMD5 from `lib/jxl/cms/jxl_cms_internal.h`. Integer overflow in
 //! this source algorithm is deliberate; no cryptographic API is introduced.
 
+#[expect(
+    clippy::chunks_exact_to_as_chunks,
+    reason = "Mirror the source block loop."
+)]
 pub fn icc_compute_md5(data: &[u8]) -> [u8; 16] {
     let mut padded = data.to_vec();
     padded.push(128);

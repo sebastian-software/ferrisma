@@ -45,7 +45,7 @@ def main():
             execute(f"{component}-{graph}-build", ["cmake", "--build", directory, "--target", *targets, "--parallel", "2"])
             originals[component, graph] = directory / f"brotli_{component}_oracle"
     rust = {"instance": [], "metablock": []}
-    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.85", "0")]:
+    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.95", "0")]:
         compiler = ["rustup", "run", toolchain, "rustc", "--edition", "2024", "-D", "warnings", "-C", f"opt-level={level}"]
         for component in ["instance", "metablock"]:
             binary = output / f"{component}-{name}"
@@ -69,7 +69,7 @@ def main():
     execute("metadata-source-audit", [sys.executable, ROOT / "tools/brotli_metadata_reference.py",
         "--ordinary", originals["metadata", "ordinary"], "--sanitized", originals["metadata", "sanitized"],
         "--output", output / "metadata-source-audit"])
-    (output / "clippy.toml").write_text('msrv = "1.85"\n')
+    (output / "clippy.toml").write_text('msrv = "1.95"\n')
     for component in ["instance", "metablock"]:
         execute(f"{component}-clippy", ["clippy-driver", "--edition=2024", "--test", ROOT / f"tests/brotli_{component}.rs",
             "--cfg", 'feature="cpp-oracle"', "-D", "warnings", "-o", output / f"{component}-clippy"],

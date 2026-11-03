@@ -75,7 +75,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         };
         if (operation == 1 || operation == 2)
             && active == Err(StatusCode::NotEnoughBytes)
-            && !(old_i > 0 && old_i % 512 == 0 && initial_bits > data.len() * 8)
+            && !(old_i > 0 && old_i.is_multiple_of(512) && initial_bits > data.len() * 8)
         {
             written = ((snapshot.i / 512 + 1) * 512).min(snapshot.enc_size as usize);
         }

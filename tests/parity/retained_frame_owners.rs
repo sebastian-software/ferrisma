@@ -70,7 +70,7 @@ fn init(
     let mut color = Image3::create(w + 2, h + 1).unwrap();
     fill(&mut color, seed);
     color.shrink_to(w, h).unwrap();
-    let mut profile_value = if profile % 2 != 0 {
+    let mut profile_value = if !profile.is_multiple_of(2) {
         ColorEncoding::linear_srgb(metadata.color_encoding.is_gray())
     } else {
         ColorEncoding::srgb(metadata.color_encoding.is_gray())
@@ -102,8 +102,8 @@ fn init(
     };
     b.duration = (seed * 313) as u32;
     b.timecode = (seed * 117) as u32;
-    b.use_for_next_frame = seed % 2 != 0;
-    b.blend = seed % 2 == 0;
+    b.use_for_next_frame = !seed.is_multiple_of(2);
+    b.blend = seed.is_multiple_of(2);
     b.blendmode = BlendMode::ADD;
     b.name = (0..name).map(|i| ((i * 37 + seed) % 256) as u8).collect();
     b.set_decoded_bytes(seed * 1931);

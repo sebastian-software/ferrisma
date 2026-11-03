@@ -58,7 +58,7 @@ def main():
         report["source"][graph] = verify(binary, graph == "sanitized",
             "brotli_compound_dictionary.map", ["brotli_compound_dictionary.c"], expected_owners)
     for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"),
-                                    ("msrv", "1.85", "0")]:
+                                    ("msrv", "1.95", "0")]:
         binary = out / f"{name}-tests"
         execute(f"{name}-build", ["rustup", "run", toolchain, "rustc", "--edition", "2024",
             "--test", "--cfg", 'feature="cpp-oracle"', "-D", "warnings", "-C", f"opt-level={level}",
@@ -68,7 +68,7 @@ def main():
                 BROTLI_COMPOUND_DICTIONARY_ORACLE=str(source)))
         report["rust"][name] = {"tests_each_graph": 8,
                                "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest()}
-    (out / "clippy.toml").write_text('msrv = "1.85"\n')
+    (out / "clippy.toml").write_text('msrv = "1.95"\n')
     execute("clippy", ["clippy-driver", "--edition=2024", "--test", "--cfg", 'feature="cpp-oracle"',
         ROOT / "tests/brotli_compound_dictionary.rs", "-D", "warnings", "-o", out / "clippy"],
         dict(os.environ, CLIPPY_CONF_DIR=str(out)))
