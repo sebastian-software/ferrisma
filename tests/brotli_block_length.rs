@@ -473,8 +473,10 @@ fn actual_original_block_observations_match_every_byte() {
     assert_eq!(source.stdout.len(), expected.len());
     for (i, (source, rust)) in source
         .stdout
-        .chunks_exact(72)
-        .zip(expected.chunks_exact(72))
+        .as_chunks::<72>()
+        .0
+        .iter()
+        .zip(expected.as_chunks::<72>().0)
         .enumerate()
     {
         assert_eq!(source, rust, "record {i}");

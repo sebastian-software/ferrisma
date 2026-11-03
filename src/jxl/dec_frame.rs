@@ -1030,6 +1030,10 @@ impl FrameDecoder<'_, '_, '_> {
             }
         }
     }
+    #[expect(
+        clippy::collapsible_if,
+        reason = "Mirror the source nested conditions."
+    )]
     fn process_sections(
         &mut self,
         sections: &mut [Section<'_>],
@@ -1412,6 +1416,10 @@ fn decode_profile_frame_into<'m, 'p>(
     )
 }
 
+#[expect(
+    clippy::manual_is_multiple_of,
+    reason = "Mirror the source modulo test."
+)]
 fn decode_frame_into<'m, 'p>(
     metadata: &'m super::image_metadata::CodecMetadata,
     bytes: &[u8],

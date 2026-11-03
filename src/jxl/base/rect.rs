@@ -99,6 +99,10 @@ impl Rect {
             self.ysize.wrapping_shl(y as u32),
         )
     }
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn ceil_shift_right(self, shift: (usize, usize)) -> StatusOr<Self> {
         let (x, y) = shift;
         let dx = 1usize << x;

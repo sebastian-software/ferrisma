@@ -32,7 +32,7 @@ def main():
         execute(f'{graph}-build',['cmake','--build',directory,'--target','brotli_ringbuffer_oracle','--parallel','2'])
         originals[graph]=directory/'brotli_ringbuffer_oracle'
     rust=[]
-    for name,tc,level in [('debug','stable','0'),('release','stable','3'),('msrv','1.85','0')]:
+    for name,tc,level in [('debug','stable','0'),('release','stable','3'),('msrv','1.95','0')]:
         compiler=['rustup','run',tc,'rustc','--edition','2024','-D','warnings','-C',f'opt-level={level}']
         binary=out/name;tests=out/f'{name}-tests'
         execute(f'{name}-build',[*compiler,ROOT/'tools/brotli_ringbuffer_probe.rs','-o',binary])
@@ -42,7 +42,7 @@ def main():
         rust+=['--rust',f'{name}={binary}']
     execute('audit',[sys.executable,ROOT/'tools/brotli_ringbuffer_reference.py','--ordinary',originals['ordinary'],
         '--sanitized',originals['sanitized'],*rust,'--output',out/'audit'])
-    (out/'clippy.toml').write_text('msrv = "1.85"\n')
+    (out/'clippy.toml').write_text('msrv = "1.95"\n')
     execute('clippy',['clippy-driver','--edition=2024','--test',ROOT/'tests/brotli_ringbuffer.rs','--cfg','feature="cpp-oracle"',
         '-D','warnings','-o',out/'clippy'],dict(os.environ,CLIPPY_CONF_DIR=str(out)))
     (out/'report.json').write_text(json.dumps({'all_six_exact':True,'tests_each_configuration':6,

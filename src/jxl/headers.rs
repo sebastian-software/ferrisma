@@ -73,6 +73,10 @@ impl Default for SizeHeader {
 }
 
 impl SizeHeader {
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn set(&mut self, xsize64: usize, ysize64: usize) -> Status {
         if xsize64 > u32::MAX as usize || ysize64 > u32::MAX as usize {
             return Err(StatusCode::GenericError);
@@ -178,6 +182,10 @@ impl Default for PreviewHeader {
 }
 
 impl PreviewHeader {
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn set(&mut self, xsize64: usize, ysize64: usize) -> Status {
         let xsize32 = xsize64 as u32;
         let ysize32 = ysize64 as u32;

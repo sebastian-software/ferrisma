@@ -1,53 +1,151 @@
 name: Checks
 
+# Two tiers share this workflow. The fast gate runs for every pull request and
+# push to main: static checks, the MSRV compile check, and the checked test
+# profile against the ordinary Linux oracle. The deep gate adds macOS, the
+# ASan/UBSan oracle on both systems, and every audit. It runs nightly on main
+# and on demand, and a failed nightly run opens or updates an issue. Jobs test
+# the deep tier with
+#   github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# The event name keeps a pending nightly run from being replaced by a push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CC: clang
+  CXX: clang++
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  port:
-    defaults:
-      run:
-        shell: bash
+  static:
+    name: Static checks (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
-    env:
-      CARGO_BUILD_JOBS: 2
-      RUST_TEST_THREADS: 2
-      CC: clang
-      CXX: clang++
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Initialize the pinned reference and codec dependencies
+      - uses: ./.github/actions/prepare
+        with:
+          msrv: true
+          oracle: false
+      - name: Check pins, notices, links, formatting, Clippy, MSRV, and release builds
+        run: python3 tools/check.py --stage static --msrv
+
+  parity:
+    name: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.shard }}/${{ matrix.os == 'macos-latest' && matrix.oracle == 'ordinary' && 2 || 4 }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ordinary", "sanitized"]' || '["ordinary"]') }}
+        shard: [1, 2, 3, 4]
+        # The ordinary macOS oracle needs a sixth of the sanitized time, so it
+        # uses two partitions instead of four.
+        exclude:
+          - { os: macos-latest, oracle: ordinary, shard: 3 }
+          - { os: macos-latest, oracle: ordinary, shard: 4 }
+    runs-on: ${{ matrix.os }}
+    env:
+      PARTITION: ${{ matrix.shard }}/${{ matrix.os == 'macos-latest' && matrix.oracle == 'ordinary' && 2 || 4 }}
+      ORACLE_FLAGS: ${{ matrix.oracle == 'sanitized' && '--sanitizers' || '' }}
+      ORACLE_GRAPH: ${{ matrix.oracle == 'sanitized' && 'oracle-asan' || 'oracle' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/prepare
+      - name: Identify the oracle build inputs
+        id: inputs
         run: |
-          git submodule update --init --depth 1 upstream/libjxl
-          git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
-      - name: Install Rust toolchains
-        run: rustup toolchain install stable 1.85 --profile minimal --component rustfmt --component clippy
-      - name: Install the Linux reference standard library
-        if: runner.os == 'Linux'
+          {
+            git rev-parse HEAD:upstream/libjxl
+            "$CXX" --version
+            if command -v dpkg-query >/dev/null; then dpkg-query -W 'libc++*'; fi
+            echo "$ImageOS $ImageVersion"
+          } | tee "$RUNNER_TEMP/oracle-toolchain.txt"
+          echo "toolchain=$(shasum -a 256 "$RUNNER_TEMP/oracle-toolchain.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      # The fast gate reuses an oracle built from identical inputs. Nightly and
+      # manual runs always build it from source.
+      - name: Restore the oracle build
+        id: restore
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: oracle-${{ runner.os }}-${{ runner.arch }}-${{ matrix.oracle }}-${{ steps.inputs.outputs.toolchain }}-${{ hashFiles('upstream.json', 'tools/oracle/**', 'tools/*.py') }}
+          path: |
+            target/${{ env.ORACLE_GRAPH }}
+            target/brotli-support/${{ matrix.oracle }}
+            !target/brotli-support/${{ matrix.oracle }}/captures
+      - name: Date the checkout before the restored build
+        if: steps.restore.outputs.cache-hit == 'true'
+        # The cache key covers exactly these inputs. A fresh checkout is newer
+        # than the restored objects, so make would otherwise rebuild them all.
+        run: find upstream/libjxl tools -name .git -prune -o -type f -exec touch -t 200001010000 {} +
+      - name: Build the oracle
+        run: python3 tools/check.py --stage oracle $ORACLE_FLAGS
+      - name: Save the oracle build
+        if: steps.restore.outputs.cache-hit != 'true' && (github.event_name == 'pull_request' || github.event_name == 'push')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: oracle-${{ runner.os }}-${{ runner.arch }}-${{ matrix.oracle }}-${{ steps.inputs.outputs.toolchain }}-${{ hashFiles('upstream.json', 'tools/oracle/**', 'tools/*.py') }}
+          path: |
+            target/${{ env.ORACLE_GRAPH }}
+            target/brotli-support/${{ matrix.oracle }}
+            !target/brotli-support/${{ matrix.oracle }}/captures
+      - name: Run the checked-profile tests
+        run: python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
+
+  audit:
+    name: Audit (${{ matrix.os }}, ${{ matrix.group }})
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        group: [decoder, extra-channels, geometry, components, brotli, diagnostics]
+        exclude:
+          - { os: macos-latest, group: diagnostics }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Brotli audits also compile their probes with the rust-version toolchain.
+      - uses: ./.github/actions/prepare
+        with:
+          msrv: true
+      - name: Build the ordinary and instrumented oracles
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libc++-dev libc++abi-dev
-      - name: Check the mechanical port
-        run: python3 tools/check.py --sanitizers --msrv
-      - name: Check the ordinary reference
-        if: always()
-        run: python3 tools/check.py --msrv
-      - name: Record native Linux scalar diagnostics
-        if: always() && runner.os == 'Linux'
-        run: python3 tools/scalar_diagnostics.py
+          python3 tools/check.py --stage oracle
+          python3 tools/check.py --stage oracle --sanitizers
+
+      # The default CMS audit replays the requests that its parity tests capture.
+      - name: Capture the default CMS parity requests
+        if: matrix.group == 'decoder'
+        run: |
+          python3 tools/check.py --stage test --filter default_cms::
+          python3 tools/check.py --stage test --filter default_cms:: --sanitizers
       - name: Audit the decoder numeric reference configurations
-        if: always()
+        if: matrix.group == 'decoder'
         run: |
           python3 tools/epf_reference.py
           python3 tools/noise_reference.py
@@ -58,14 +156,14 @@ jobs:
           python3 tools/skcms_transform_reference.py --output target/skcms-transform-acceptance
           python3 tools/default_cms_reference.py --output target/default-cms-acceptance
       - name: Audit complete chroma images and retained frame lifecycles
-        if: always()
+        if: ${{ !cancelled() && matrix.group == 'decoder' }}
         run: |
           python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
           python3 tools/chroma_image_reference.py --output target/chroma-image-acceptance
           python3 tools/frame_sequences.py --output target/lifecycle-acceptance
           python3 tools/output_stage_reference.py --output target/output-stage-acceptance
       - name: Retain complete decoder source evidence
-        if: always()
+        if: ${{ !cancelled() && matrix.group == 'decoder' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: decoder-source-${{ matrix.os }}
@@ -82,51 +180,38 @@ jobs:
             target/skcms-transform-acceptance
             target/default-cms-acceptance
           if-no-files-found: error
+
       - name: Audit complete extra-channel source bindings and stride boundaries
-        if: always()
+        if: matrix.group == 'extra-channels'
         run: python3 tools/extra_channels_reference.py --output target/extra-channels-reference
       - name: Retain complete extra-channel source evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() && matrix.group == 'extra-channels' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: extra-channels-reference-${{ runner.os }}
           path: target/extra-channels-reference
           if-no-files-found: error
           retention-days: 7
+
       - name: Audit complete geometry source bindings and independent output captures
-        if: always()
+        if: matrix.group == 'geometry'
         run: python3 tools/decoder_geometry_reference.py --output target/decoder-geometry-reference
       - name: Retain complete geometry source evidence
-        if: always()
+        if: ${{ !cancelled() && matrix.group == 'geometry' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: decoder-geometry-reference-${{ runner.os }}
           path: target/decoder-geometry-reference
           if-no-files-found: error
-      - name: Record native alpha configuration diagnostics
-        if: always() && runner.os == 'Linux'
-        run: python3 tools/alpha_diagnostics.py
-      - name: Census every original patch-tree boundary
-        if: always() && runner.os == 'Linux'
-        run: python3 tools/patches_boundaries.py
-      - name: Retain native alpha diagnostic evidence
-        if: always() && runner.os == 'Linux'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: alpha-diagnostics-${{ runner.os }}
-          path: |
-            target/alpha-diagnostics.json
-            target/patches-boundaries.json
-          if-no-files-found: error
-          retention-days: 7
+
       - name: Audit integrated ICC reader, parser, and JPEG metadata
-        if: always()
+        if: matrix.group == 'components'
         run: |
           python3 tools/icc_reader_reference.py --output target/icc-reader-acceptance
           python3 tools/skcms_parser_reference.py --output target/skcms-parser-acceptance
           python3 tools/jpeg_metadata_reference.py --output target/jpeg-metadata-acceptance
       - name: Retain integrated component source evidence
-        if: always()
+        if: ${{ !cancelled() && matrix.group == 'components' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: integrated-components-${{ runner.os }}
@@ -137,13 +222,13 @@ jobs:
           if-no-files-found: error
 
       - name: Audit complete Brotli streaming and API source boundaries
-        if: always()
+        if: matrix.group == 'brotli'
         run: |
           python3 tools/brotli_stream_reference.py --output target/brotli-stream-acceptance
           python3 tools/brotli_stream_api_reference.py --output target/brotli-stream-api-acceptance
       - name: Retain Brotli source acceptance
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() && matrix.group == 'brotli' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: brotli-source-${{ runner.os }}
           path: |
@@ -154,3 +239,78 @@ jobs:
             !target/brotli-*-acceptance/**/*.a
           if-no-files-found: error
           retention-days: 7
+
+      # Native Linux diagnostics also disassemble the tested parity binaries.
+      - name: Build the tested parity binaries
+        if: matrix.group == 'diagnostics'
+        run: |
+          cargo test --locked --offline --profile checked --all-features --test parity --no-run
+          cargo test --locked --offline --release --all-features --test parity --no-run
+      - name: Record native Linux scalar diagnostics
+        if: matrix.group == 'diagnostics'
+        run: python3 tools/scalar_diagnostics.py
+      - name: Record native alpha configuration diagnostics
+        if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
+        run: python3 tools/alpha_diagnostics.py
+      - name: Census every original patch-tree boundary
+        if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
+        run: python3 tools/patches_boundaries.py
+      - name: Retain native alpha diagnostic evidence
+        if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alpha-diagnostics-${{ runner.os }}
+          path: |
+            target/alpha-diagnostics.json
+            target/patches-boundaries.json
+          if-no-files-found: error
+          retention-days: 7
+
+  # The single required status check. Skipped deep jobs in the fast gate count
+  # as passed; any failed or cancelled job fails the gate.
+  checks:
+    name: Checks passed
+    if: always()
+    needs: [static, parity, audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every gate job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*) exit 1 ;;
+          esac
+
+  # A failed nightly run has no pull request to report to, so it keeps one open
+  # issue current instead.
+  report:
+    name: Report the nightly failure
+    if: always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
+    needs: [static, parity, audit]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the nightly failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Nightly deep check failed
+          BODY: |
+            The nightly deep check failed on `main` at ${{ github.sha }}.
+
+            - Static checks: ${{ needs.static.result }}
+            - Tests: ${{ needs.parity.result }}
+            - Audits: ${{ needs.audit.result }}
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == env.TITLE)) | first | .number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

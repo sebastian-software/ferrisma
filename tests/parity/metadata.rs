@@ -563,13 +563,13 @@ fn metadata_request(
     variant: usize,
 ) -> String {
     let mut c = cms::srgb();
-    if variant % 2 != 0 {
+    if !variant.is_multiple_of(2) {
         c.color_space = ColorSpace::GRAY;
     }
     if variant % 3 == 1 {
         c.transfer_function = TransferFunction::LINEAR;
     }
-    let extras = if variant % 3 == 0 { 0 } else { 2 };
+    let extras = if variant.is_multiple_of(3) { 0 } else { 2 };
     let mut line = format!(
         "meta-write {full} {offset} 0 {} 0 {orientation} {flags} {extras} {} {} {} {} 0 {}",
         [8, 10, 16][variant % 3],

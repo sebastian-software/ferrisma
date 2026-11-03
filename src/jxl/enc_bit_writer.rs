@@ -52,6 +52,10 @@ impl BitWriter {
         self.storage.shrink_to_fit()
     }
 
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn append_byte_aligned(&mut self, span: &[u8]) -> Status {
         if span.is_empty() {
             return Ok(());
@@ -72,6 +76,10 @@ impl BitWriter {
         Ok(())
     }
 
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
     pub fn append_byte_aligned_writers(&mut self, others: &[&BitWriter]) -> Status {
         let mut other_bytes: usize = 0;
         for writer in others {

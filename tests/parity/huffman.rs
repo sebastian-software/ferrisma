@@ -185,8 +185,11 @@ fn histogram(length: usize, trial: usize, seed: &mut u64) -> Vec<u32> {
         5..=10 => {
             let n = (2 + (trial - 5) / 2).min(length);
             for i in 0..n {
-                counts[i * (length - 1) / (n - 1).max(1)] =
-                    if trial % 2 == 0 && i == 0 { 10000 } else { 1 };
+                counts[i * (length - 1) / (n - 1).max(1)] = if trial.is_multiple_of(2) && i == 0 {
+                    10000
+                } else {
+                    1
+                };
             }
         }
         11 => {
@@ -202,7 +205,7 @@ fn histogram(length: usize, trial: usize, seed: &mut u64) -> Vec<u32> {
         }
         _ => {
             for value in &mut counts {
-                *value = if next(seed) % 4 == 0 {
+                *value = if next(seed).is_multiple_of(4) {
                     0
                 } else {
                     (next(seed) % 4 + 1) as u32
@@ -333,7 +336,7 @@ fn huffman_lookup_tables_and_consumed_counts_match_cpp() {
         let mut sparse = Vec::new();
         for &d in &depth {
             sparse.push(d);
-            if next(&mut seed) % 4 == 0 {
+            if next(&mut seed).is_multiple_of(4) {
                 sparse.push(0);
             }
         }

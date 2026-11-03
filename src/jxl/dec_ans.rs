@@ -1066,6 +1066,10 @@ impl<'a> ANSSymbolReader<'a> {
         self.lz77_window.is_some()
     }
 
+    #[expect(
+        clippy::collapsible_if,
+        reason = "Mirror the source nested conditions."
+    )]
     pub fn read_hybrid_uint_clustered_inlined<const USES_LZ77: bool>(
         &mut self,
         ctx: usize,

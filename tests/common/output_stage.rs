@@ -228,7 +228,7 @@ unsafe extern "C" fn run(
         "R {} {} {thread} {x} {y} {n} {owner} {} {}",
         cookie.id,
         run.id,
-        u8::from(address % 128 == 0),
+        u8::from(address.is_multiple_of(128)),
         hex(bytes)
     ));
 }

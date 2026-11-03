@@ -141,7 +141,7 @@ def main():
     for kind, tests in [("block_length", 5), ("mtf", 5)]:
         for config, prefix, optimize in [("debug", ["rustc"], "0"),
                                          ("release", ["rustc"], "3"),
-                                         ("msrv", ["rustup", "run", "1.85", "rustc"], "0")]:
+                                         ("msrv", ["rustup", "run", "1.95", "rustc"], "0")]:
             binary = args.output / ("rust-" + kind + "-" + config)
             run(prefix + ["--edition=2024", "--test", "tests/brotli_" + kind + ".rs",
                           "--cfg", 'feature="cpp-oracle"', "-D", "warnings",
@@ -168,7 +168,7 @@ def main():
         gates = [gate for key, gate in report["gates"].items() if key.startswith(kind + "-")]
         for key in gates[0]:
             assert len({gate[key] for gate in gates}) == 1
-    (args.output / "clippy.toml").write_text('msrv = "1.85"\n')
+    (args.output / "clippy.toml").write_text('msrv = "1.95"\n')
     for kind in ["block_length", "mtf"]:
         run(["clippy-driver", "--edition=2024", "--test", "tests/brotli_" + kind + ".rs",
              "--cfg", 'feature="cpp-oracle"', "-D", "warnings", "-o",

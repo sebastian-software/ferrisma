@@ -97,10 +97,10 @@ pub(super) fn encoding(out: &mut String, q: &QuantEncoding) {
     write!(out, " {}", q.predefined).unwrap();
 }
 fn mutate(q: &mut QuantEncoding, v: i32) {
-    if let Some(table) = q.raw_table_mut() {
-        if let Some(x) = table.first_mut() {
-            *x ^= v;
-        }
+    if let Some(table) = q.raw_table_mut()
+        && let Some(x) = table.first_mut()
+    {
+        *x ^= v;
     }
 }
 fn matrices(out: &mut String, m: &DequantMatrices) {
@@ -182,7 +182,7 @@ fn recipe(mode: usize, kind: usize, trial: usize, seed: &mut u64) -> String {
         }
     }
     for i in 0..27 {
-        let bits = if trial % 2 == 0 {
+        let bits = if trial.is_multiple_of(2) {
             (i as f32 - 13.0).to_bits()
         } else {
             next(seed) as u32
