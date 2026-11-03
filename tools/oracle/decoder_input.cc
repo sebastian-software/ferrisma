@@ -104,6 +104,10 @@ bool DecoderInputCommand(const std::string& command,std::istringstream& in,JxlMe
   std::cout<<" ]";
  }
  if(!in.eof())throw std::runtime_error("input parse");in.clear();
+ // std::map destruction order is unspecified: libc++ 21 destroys tree nodes
+ // post-order, libc++ 22 in key order. Release retained payloads in key order
+ // first so the observed frees do not depend on the standard library.
+ for(auto& e:dec->jxlp_ooo_buffer)e.second.first.reset();
  dec.reset();std::cout<<" E";for(auto& e:allocator.events)std::cout<<' '<<e;
  return true;
 }

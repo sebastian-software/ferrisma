@@ -174,12 +174,6 @@ different algorithm with a different equivalent-element order. The complete
 existing sort and codec corpus remains enabled for the selected library.
 Other standard-library algorithms/configurations require separate translation
 and evidence. This does not add a C++ dependency to the Rust library.
-The oracle configuration fails unless the libc++ major version matches the
-reference snapshot in `tools/reference/libcxx` (22). Linux CI installs
-`libc++-22-dev` for the native Clang. Other standard-library internals are
-observable, too: libc++ 21 destroys `std::map` nodes post-order, while the
-recorded libc++ 22 reference destroys them in key order, which changes the
-memory-manager free order of a destroyed decoder input.
 
 The frame-finalization fixture allocates backing storage for an empty group
 through the original BitWriter::WithMaxBits without writing bits. Its vector

@@ -24,24 +24,6 @@ if(NOT EXISTS "${UPSTREAM}/third_party/skcms/skcms.h")
   message(FATAL_ERROR "Initialize upstream/libjxl/third_party/skcms for the full image reference")
 endif()
 
-# Standard-library internals are observable through the oracle, for example
-# std::map destruction order through memory-manager frees: libc++ 21 destroys
-# tree nodes post-order, the recorded libc++ 22 reference in key order. Build
-# only against the major version pinned by the libc++ reference snapshot.
-file(READ "${PORT_ROOT}/tools/reference/libcxx/source.json" LIBCXX_REFERENCE)
-string(REGEX MATCH "\"libcpp_version\": *([0-9]+)" _ "${LIBCXX_REFERENCE}")
-math(EXPR LIBCXX_REFERENCE_MAJOR "${CMAKE_MATCH_1} / 10000")
-include(CheckCXXSourceCompiles)
-check_cxx_source_compiles("
-#include <version>
-#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION / 10000 != ${LIBCXX_REFERENCE_MAJOR}
-#error libc++ major version differs from the reference snapshot
-#endif
-int main() { return 0; }" ORACLE_LIBCXX_MATCHES_REFERENCE)
-if(NOT ORACLE_LIBCXX_MATCHES_REFERENCE)
-  message(FATAL_ERROR "The differential oracle requires libc++ ${LIBCXX_REFERENCE_MAJOR}, the version recorded in tools/reference/libcxx")
-endif()
-
 option(ORACLE_SANITIZERS "Instrument the complete C++ reference with ASan and UBSan" OFF)
 add_compile_definitions(HWY_COMPILE_ONLY_SCALAR=1)
 if(ORACLE_SANITIZERS)

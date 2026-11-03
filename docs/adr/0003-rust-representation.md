@@ -1821,8 +1821,11 @@ growth commits capacity before releasing the old allocation. A BTreeMap retains
 ordered payload lookup and separately boxed unique payload owners; injection erases/destroys the selected
 payload before decrementing the total. Map ownership is released before the
 codestream-copy owner, as in the source enclosing object's destruction order.
-Remaining payloads drop in ascending key order, as the reference libc++ 22
-tree deleter destroys them; libc++ 21's post-order is not the reference.
+Remaining payloads drop in ascending key order. The order in which std::map
+destroys its nodes is unspecified and depends on the standard library: libc++ 21
+destroys them post-order, libc++ 22 in key order. The oracle adapter therefore
+releases the retained payloads in key order before destroying the decoder, so
+the compared free order is independent of the standard library.
 
 The unsafe boundary retains the source's same-allocation pointer/advance,
 initialized-input, nonoverlapping-copy and callback-lifetime requirements.
