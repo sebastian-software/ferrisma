@@ -15,6 +15,14 @@ pub(crate) const ALIGNMENT: usize = 128;
 pub(crate) const NUM_ALIGNMENT_GROUPS: usize = 16;
 pub(crate) const ALIAS: usize = NUM_ALIGNMENT_GROUPS * ALIGNMENT;
 
+// Both storage representations below implement the same original static
+// AlignedMemory constructor counter; custom allocations must not fork it.
+static NEXT_GROUP: AtomicU32 = AtomicU32::new(0);
+fn next_alignment_offset() -> usize {
+    let group = NEXT_GROUP.fetch_add(1, Ordering::Relaxed) as usize;
+    ALIGNMENT * (group & (NUM_ALIGNMENT_GROUPS - 1))
+}
+
 pub fn bytes_per_row(xsize: usize, sizeof_t: usize) -> StatusOr<usize> {
     if xsize == 0 {
         return Ok(0);
@@ -115,12 +123,9 @@ impl AlignedMemory {
         let allocation =
             NonNull::new(unsafe { alloc_zeroed(layout) }).ok_or(StatusCode::GenericError)?;
 
-        static NEXT_GROUP: AtomicU32 = AtomicU32::new(0);
         // Relaxed ordering is sufficient: only a rotating numeric group is
         // shared, never the allocation or its contents, as in the source.
-        let group = NEXT_GROUP.fetch_add(1, Ordering::Relaxed) as usize;
-        let group = group & (NUM_ALIGNMENT_GROUPS - 1);
-        let offset = ALIGNMENT * group;
+        let offset = next_alignment_offset();
         let address = allocation.as_ptr() as usize + pre_padding;
         let mut aligned_address = (address & !(ALIAS - 1)) + offset;
         if aligned_address < address {
@@ -167,5 +172,85 @@ impl Drop for AlignedMemory {
         // SAFETY: allocation was produced by alloc_zeroed with this layout,
         // is owned exactly once, and has not been resized or deallocated.
         unsafe { dealloc(self.allocation.as_ptr(), self.layout) };
+    }
+}
+
+/// Original callback-backed AlignedMemory, retaining the live manager pointer.
+/// The callback's actual block backs the payload; unwritten bytes remain
+/// indeterminate. This owner exposes pointers rather than initialized slices.
+pub(crate) struct CallbackAlignedMemory {
+    allocation: NonNull<u8>,
+    memory_manager: *const super::memory_manager::JxlMemoryManager,
+    address: NonNull<u8>,
+    size: usize,
+}
+impl CallbackAlignedMemory {
+    /// # Safety
+    /// A nonnull manager must remain live through this owner's destruction.
+    /// Its reached callbacks/opaque values must be initialized and valid, and
+    /// successful alloc must return an exclusively owned block of the exact
+    /// requested size, compatible with its later free callback. User callbacks
+    /// must not unwind or invalidate a manager/block still used by this call.
+    pub(crate) unsafe fn create(
+        manager: *const super::memory_manager::JxlMemoryManager,
+        size: usize,
+        pre_padding: usize,
+    ) -> StatusOr<Self> {
+        if pre_padding > ALIAS {
+            return Err(StatusCode::GenericError);
+        }
+        let allocation_size = size
+            .checked_add(pre_padding)
+            .and_then(|n| n.checked_add(ALIAS))
+            .ok_or(StatusCode::GenericError)?;
+        if manager.is_null() {
+            return Err(StatusCode::GenericError);
+        }
+        // SAFETY: The caller establishes the original manager callback
+        // protocol. No borrowed view of the block exists across this call.
+        let allocated =
+            unsafe { super::memory_manager::memory_manager_alloc(manager, allocation_size) };
+        let allocation = NonNull::new(allocated.cast::<u8>()).ok_or(StatusCode::GenericError)?;
+        // Source increments this shared counter only after successful alloc.
+        let offset = next_alignment_offset();
+        let address = (allocation.as_ptr() as usize).wrapping_add(pre_padding);
+        let mut aligned_address = (address & !(ALIAS - 1)).wrapping_add(offset);
+        if aligned_address < address {
+            aligned_address = aligned_address.wrapping_add(ALIAS);
+        }
+        let address_offset = aligned_address.wrapping_sub(allocation.as_ptr() as usize);
+        assert!(
+            address_offset >= pre_padding && address_offset <= allocation_size - size,
+            "source allocator must return the requested live object extent"
+        );
+        // SAFETY: SafeAdd and the source alignment calculation place this
+        // pointer within the actual callback block, retaining its provenance.
+        let address = unsafe { NonNull::new_unchecked(allocation.as_ptr().add(address_offset)) };
+        Ok(Self {
+            allocation,
+            memory_manager: manager,
+            address,
+            size,
+        })
+    }
+
+    pub(crate) fn address(&self) -> *mut u8 {
+        self.address.as_ptr()
+    }
+    pub(crate) fn size(&self) -> usize {
+        self.size
+    }
+}
+impl Drop for CallbackAlignedMemory {
+    fn drop(&mut self) {
+        // SAFETY: create retains this still-live source manager pointer and
+        // unique callback allocation. Read its current free/opaque fields at
+        // the original destruction checkpoint, then release exactly once.
+        unsafe {
+            super::memory_manager::memory_manager_free(
+                self.memory_manager,
+                self.allocation.as_ptr().cast(),
+            );
+        }
     }
 }

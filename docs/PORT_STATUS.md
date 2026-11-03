@@ -80,13 +80,14 @@ tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
-| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage and remaining concrete stages unported |
+| `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage is mapped separately below; remaining concrete stages unported |
 | `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
 | `render_pipeline/stage_from_linear.cc` (`OpRgb`), `cms/transfer_functions-inl.h` | `render_pipeline/stage_from_linear.rs`, `cms/transfer_functions_scalar.rs` | Complete scalar sRGB FromLinearStage specialization, original high-precision TF_SRGB and separate fast helper; other transfer-function stage specializations remain unported |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
 | `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete scalar horizontal/vertical stages, 3/4–1/4 interpolation, original borders/shifts/channel modes and factory; source-ordered channel stages precede filters in admitted YCbCr frames |
 | `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
+| `render_pipeline/stage_write.h`, `.cc` (WriteToOutputStage) | `render_pipeline/stage_write.rs`, `stage_write_dither.rs` | Complete scalar output factory, original buffer/callback conversions and lifecycle, 1,024-pixel chunks, all orientation/alpha/extra-output paths, byte/half/float words, actual callback-backed scratch, allocation and retry failures; public incremental decoder orchestration remains open |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
@@ -138,12 +139,13 @@ tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 | `cms/jxl_cms_internal.h`, used `base/common.h` helpers | `cms/icc*.rs`, `base/float.rs` | Complete profile generation with default 3D tone mapping, matrices, curves, tags, descriptions, and source MD5; default ICC parser/CMS transform backend unported |
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
+| `decode.cc` signature/container-header helpers, constants in `lib/include/jxl/decode.h` | `decode.rs`, signature bytes in `common.rs` | Complete OutOfBounds, InitialBasicInfoSizeHint, ReadSignature, JxlSignatureCheck and ParseBoxHeader; public incremental decoder state/events and C ABI entry points remain separate |
 | `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete source common helpers and command tables from main |
 | `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete command decoding and defined partial output from main; streaming reader/CMS remain separate |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
-| `memory_manager_internal.h`, `.cc` | `memory_manager_internal.rs` | Aligned allocation using Rust allocator and source scalar row sizing; custom C callbacks unported |
+| `memory_manager.h`, `memory_manager_internal.h`, `.cc` | `memory_manager.rs`, `memory_manager_internal.rs` | Complete JXL manager initialization/default callbacks and output-stage callback-backed aligned storage, preserving exact custom sizes, live manager fields and shared alignment counter; propagation through other owners remains open |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
 Internal storage mappings are specified in the
@@ -1632,6 +1634,54 @@ comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
 Rust 1.85 configurations, including the three standalone regressions.
 Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
 
+
+## Output buffers and pixel callbacks
+
+The complete original scalar WriteToOutputStage is available as an internal
+pipeline leaf. It retains copied output descriptors, borrowed live manager
+identity, buffer strides and sentinels, callback priority, init/run/destroy order,
+partial PrepareForThreads failures and retries, all eight orientations, original
+unpremultiplication, uint8 dithering, uint16 saturation, endian stores, and raw
+half/float output. The 1,536 original dither words are literal source constants.
+Callback-returned allocations physically back scratch; custom callbacks receive
+exact source sizes and frees without allocator headers or shadow buffers.
+
+Nine differential groups contain 4,004 exact requests. Nine immutable original
+captures also run in an ordinary Rust test without C++ linkage. The independent
+source audit verifies live public factory and virtual-method bindings, original
+memory-manager archive bindings, compiler flags, libc++ identity and actual
+reverse vector cleanup. It replays all requests and native captures against
+both pristine source graphs without changing active binaries or objects.
+
+Depth 31 has a defined uint32 shift but its float multiplier rounds to 2^31.
+Reaching that value triggers the original Highway float-to-int32 undefined
+conversion. The audit retains 64 explicit value-one probes and all 192 initial
+depth-31 controls: 96 controls synthesize source alpha=1 and positively diagnose
+the same conversion, while 96 remain exact in the defined corpus. Another 48
+distinct four-channel real-alpha controls from the second extension remain
+exact, and 48 new two-channel real-alpha controls complete the defined path.
+Another 256 original-only requests positively diagnose oversized shifts at depths 32,
+33, 63 and SIZE_MAX. Every source-only diagnostic is retained individually;
+no source or sanitizer is changed and no prior defined request is discarded.
+
+The internal sequence decoder still uses its existing bundle/DC writers. This
+leaf does not complete the public incremental API, container parsing, direct
+public callback registration, or custom allocator propagation through unrelated
+codec owners. The pre-geometry union passed all six local configurations:
+Debug, Release and Rust 1.85 against ordinary and nonrecovering ASan/UBSan
+originals after integration with
+the accepted extra-channel implementation. Each runs 540 tests, 327 differential
+groups and 1,036,783 exact defined comparisons, with zero failures or ignored
+tests. The independent output-stage, extra-channel and retained frame-lifecycle
+source audits also pass. Native [run 41517918249](https://github.com/sebastian-software/libjxl-rs/actions/runs/41517918249)
+passes all six configurations and source audits on both Linux and macOS for
+this source tree: Linux runs 541 tests per configuration; macOS runs 540.
+The geometry union passes all six complete local configurations with 545
+tests, 331 differential groups and 1,095,471 exact defined requests each, with
+zero failures or ignored tests. The output-stage, lifecycle, extra-channel and
+geometry source audits all pass. Fresh native acceptance of this union remains
+pending.
+
 ## Associated alpha and remaining extra channels in complete sequences
 
 The internal sequence boundary now admits associated/subsampled alpha, independent
@@ -1699,7 +1749,7 @@ orientation/intrinsic-size metadata without adding a pixel transform inside the
 decoder. Existing per-channel horizontal/vertical chroma stages, source crop and
 blend scheduling, spatial resampling and external orientation conversion retain
 their original algorithms. Fixed Thunder/Modular/VarDCT profile admission stays
-unchanged. General color management and direct output-stage callbacks remain
+unchanged. General color management and public callback orchestration remain
 separate boundaries.
 
 The genuine JPEG corpus includes all 64 triples of 1x1/2x2/2x1/1x2 input sampling
@@ -1743,3 +1793,57 @@ zero failures or ignored tests. Linux runs 536 tests per configuration; macOS
 runs 535. The verified source is merged through [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32),
 and the README geometry milestone is checked. Color management/HDR, original
 JPEG reconstruction and the public incremental decoder remain open.
+
+
+## Decoder signature and container-header helpers
+
+The complete pinned signature and box-header helpers retain source minimum-byte
+checks, unsigned size arithmetic, unbounded/extended box sizes, file-position
+overflow errors, and exact output-parameter mutation on incomplete headers.
+Public signature/status values follow decode.h and the existing transparent-u32
+public-type convention. These Rust helpers do not expose a partial decoder
+state machine or claim the public C ABI is complete.
+
+The independent observer compiles five exact, hash-checked fragments from the
+pinned decode.cc through the existing source extractor. It also calls the actual
+public JxlSignatureCheck from the original archive. The corpus exhausts every
+two-byte signature and varies container prefixes, output seeds, every box-header
+byte, truncation, offsets and overflow. Three standalone regressions retain
+independent original captures of partial assignments, signature prefixes and
+file-position wrap. tools/decoder_api_reference.py audits the complete actual
+Rust-generated corpus against both original graphs and checks source hashes,
+public symbols, instrumentation and unchanged active artifacts.
+
+All six focused ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations
+pass four differential groups with 92,452 exact requests and three standalone
+regressions each, with no failures or ignored tests. The independent source audit
+retains every original request/observation pair in both source graphs. A separate
+cold review found no source-defined discrepancy.
+The geometry union passes all six complete local configurations: each runs 542
+tests, 326 differential groups and 1,183,919 exact defined requests, with zero
+failures or ignored tests. Complete lifecycle, extra-channel and geometry source
+audits also pass. Its four API groups retain the original helper bodies and
+corpus unchanged. Fresh native acceptance of this union remains pending.
+The earlier leaf passed native [run 41484988662](https://github.com/sebastian-software/libjxl-rs/actions/runs/41484988662):
+all six Linux configurations and the three instrumented macOS configurations.
+The independent helper audit now checks exact optimization/sanitizer tokens,
+every compiled generated fragment against the original source, and actual live
+code-address ownership for JxlSignatureCheck and the observation adapter. All
+92,452 original request/observation pairs remain exact in both source graphs.
+The 32-bit size-narrowing branch is source-reviewed but requires its own native
+target evidence; the current acceptance matrix is 64-bit Linux and macOS.
+Container sequencing, compressed boxes, incremental events, callbacks
+and progressive pixel output remain decoder work. The README public-decoder and
+container checkboxes remain open.
+
+## Decoder output and input-framing integration
+
+The combined candidate retains the complete output-stage and signature/box-header
+helper scopes above, on the verified geometry decoder. Both component source
+and test inventories remain unchanged. All six complete local configurations
+pass: Debug, Release and Rust 1.85 against ordinary and ASan/UBSan originals
+each run 552 tests, 335 differential groups and 1,187,923 exact defined requests,
+with zero failures or ignored tests. The independent output-stage, signature/box
+helper, retained lifecycle, extra-channel and geometry source audits also pass.
+Fresh native Linux/macOS acceptance of this combined tree remains pending.
+The public incremental decoder and container checklist items remain open.

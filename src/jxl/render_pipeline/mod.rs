@@ -14,5 +14,7 @@ pub mod stage_splines;
 pub mod stage_spot;
 pub mod stage_tone_mapping;
 pub mod stage_upsampling;
+pub mod stage_write;
+mod stage_write_dither;
 pub mod stage_xyb;
 pub mod stage_ycbcr;
