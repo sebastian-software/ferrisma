@@ -1,0 +1,44 @@
+{
+  "cjpeg_version": "libjpeg-turbo version 3.2.1 (build 20261026)",
+  "cjpeg_sha256": "99ec26a3a0d11e9ac925fa4cdfbda8b56660591d57a61e47ee7d7657f0611f69",
+  "pixel_recipe": "RGB8(x,y,c)=(x*17+y*23+c*61+(x*y)%47)%256; 31x19 binary P6 PPM",
+  "cases": [
+    {
+      "jpeg": "rgb-baseline.jpg",
+      "options": [
+        "-rgb",
+        "-quality",
+        "90",
+        "-dct",
+        "int",
+        "-baseline"
+      ],
+      "sha256": "852c3c6b4d74d31a47149fd0f473e85a3ff733153ac0bbd6a758f198f05eb14a"
+    },
+    {
+      "jpeg": "rgb-progressive.jpg",
+      "options": [
+        "-rgb",
+        "-quality",
+        "90",
+        "-dct",
+        "int",
+        "-progressive"
+      ],
+      "sha256": "7d5963c701fff94f2ab369e84d0721cd85fc688d8b545ce47860f8b5d98b79be"
+    },
+    {
+      "jpeg": "rgb-restarts.jpg",
+      "options": [
+        "-rgb",
+        "-quality",
+        "90",
+        "-dct",
+        "int",
+        "-restart",
+        "1B"
+      ],
+      "sha256": "acfdc49b3ef193a3229ed84d3f7d44efc00cf215a4ac5d2cd61a0c09c47b8a44"
+    }
+  ]
+}

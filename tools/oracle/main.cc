@@ -499,6 +499,9 @@ bool GroupScheduleCommand(const std::string&,std::istringstream&,JxlMemoryManage
 
 bool DequantCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool JpegReconstructionCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool JpegWriterCommand(const std::string&,std::istringstream&);
+
 bool GroupRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool SplinesCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -510,6 +513,7 @@ bool FrameSequencesCommand(const std::string&,std::istringstream&,JxlMemoryManag
 bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
+bool DecoderInputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderApiCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderGeometryCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -570,6 +574,8 @@ int main() {
       else if (QuantStorageCommand(command, in)) {}
       else if (DctCommand(command, in)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
+      else if (JpegReconstructionCommand(command, in, &mm)) {}
+      else if (JpegWriterCommand(command, in)) {}
       else if (QuantizerCommand(command, in, &mm)) {}
       else if (JpegWriterCommand(command, in)) {}
       else if (IccReaderCommand(command, in, &mm)) {}
@@ -609,6 +615,7 @@ int main() {
       else if (NoiseRenderCommand(command, in, &mm)) {}
       else if (EPFCommand(command, in, &mm)) {}
       else if (PatchesCommand(command, in, &mm)) {}
+      else if (DecoderInputCommand(command, in, &mm)) {}
       else if (DecoderApiCommand(command, in, &mm)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
       else if (DecoderGeometryCommand(command, in, &mm)) {}

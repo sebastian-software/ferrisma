@@ -208,6 +208,11 @@ pub(super) fn observe(_: &str, args: &mut std::str::SplitWhitespace<'_>) -> Stri
                 )
                 .unwrap();
             }
+            "B" => {
+                let encoded = unhex(args.next().unwrap());
+                let result = jxl::jxl::jpeg::dec_jpeg_data::decode_jpeg_data(&encoded, &mut j);
+                write!(out, " B {}", status_code(&result)).unwrap();
+            }
             "I" => {
                 let b = unhex(args.next().unwrap());
                 write!(
@@ -622,4 +627,51 @@ fn jpeg_metadata_all_serialized_fields_and_source_validation_branches() {
     for batch in cases.chunks(32) {
         compare(batch.to_vec());
     }
+}
+
+#[test]
+fn jpeg_metadata_complete_brotli_payloads_keep_truncations_and_repeated_owner_state() {
+    let mut cases = Vec::new();
+    for name in [
+        "baseline.jpg",
+        "gray.jpg",
+        "progressive.jpg",
+        "restarts.jpg",
+    ] {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data/jpeg-metadata")
+            .join(name);
+        let raw = std::fs::read(path).unwrap();
+        for effort in [0, 4, 11] {
+            let source =
+                original_observations(&[format!("jm-packed-fixture {} {effort}", hex(&raw))]);
+            let mut words = source[0].split_whitespace();
+            assert_eq!(words.next(), Some("P"));
+            assert_eq!(words.next(), Some("0"));
+            let encoded = unhex(words.next().unwrap());
+            for length in 0..=encoded.len() {
+                cases.push(request(
+                    &empty(),
+                    &format!("B {}", hex(&encoded[..length])),
+                    1,
+                ));
+            }
+            for trailing in [vec![0], vec![255], encoded.clone()] {
+                let mut extra = encoded.clone();
+                extra.extend(trailing);
+                cases.push(request(&empty(), &format!("B {}", hex(&extra)), 1));
+            }
+            for length in [0, 1, encoded.len() / 2, encoded.len().saturating_sub(1)] {
+                cases.push(request(
+                    &empty(),
+                    &format!("B {} B {}", hex(&encoded[..length]), hex(&encoded)),
+                    2,
+                ));
+            }
+        }
+    }
+    if let Some(path) = std::env::var_os("JXL_JPEG_PAYLOAD_CAPTURE") {
+        std::fs::write(path, cases.join("\n") + "\n").unwrap();
+    }
+    compare(cases);
 }

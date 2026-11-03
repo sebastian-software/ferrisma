@@ -1,0 +1,13 @@
+{
+  "source_pin": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
+  "brotli_pin": "db24a98aed38a16de78cc05ca15cdd8dc2a0d92d",
+  "observer": "tools/oracle/box_content_decoder.cc",
+  "actual_original_class_source": "lib/jxl/box_content_decoder.cc",
+  "ordinary_binary_sha256": "44135ceb6a4bf26e6a4c36dfad6ed8967a4d5d5d9e4ed1f87fa6abc0ccc9ea5b",
+  "sanitized_binary_sha256": "5cc7b6a52ed118b7ee9012feb9dc523d8dfcb202d0a065991d8be662cc0953ea",
+  "ordinary_and_sanitized_words_identical": true,
+  "capture_sha256": "c2c6785f413ec08095f66400d1e04f4576bae8cc3ea3978c1482b0cc9fe13dfc",
+  "requests": 34,
+  "recipe": "tools/box_content_decoder_reference.py: source-first captures",
+  "all6165baseline_requests_retained": true
+}

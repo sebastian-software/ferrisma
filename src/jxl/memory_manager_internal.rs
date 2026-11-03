@@ -18,7 +18,7 @@ pub(crate) const ALIAS: usize = NUM_ALIGNMENT_GROUPS * ALIGNMENT;
 // Both storage representations below implement the same original static
 // AlignedMemory constructor counter; custom allocations must not fork it.
 static NEXT_GROUP: AtomicU32 = AtomicU32::new(0);
-fn next_alignment_offset() -> usize {
+pub(crate) fn next_alignment_offset() -> usize {
     let group = NEXT_GROUP.fetch_add(1, Ordering::Relaxed) as usize;
     ALIGNMENT * (group & (NUM_ALIGNMENT_GROUPS - 1))
 }

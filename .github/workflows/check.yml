@@ -146,3 +146,23 @@ jobs:
             !target/brotli-*-acceptance/**/*.a
           if-no-files-found: error
           retention-days: 7
+
+      - name: Audit recovered input, box, and JPEG reconstruction boundaries
+        if: always()
+        run: |
+          python3 tools/jpeg_payload_reference.py --output target/jpeg-payload-acceptance
+          python3 tools/decoder_input_reference.py --output target/decoder-input-acceptance
+          python3 tools/box_content_decoder_reference.py --output target/box-content-acceptance
+          python3 tools/jpeg_reconstruction_reference.py --output target/jpeg-reconstruction-reference
+      - name: Retain recovered decoder source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: recovered-decoder-${{ runner.os }}
+          path: |
+            target/jpeg-payload-acceptance
+            target/decoder-input-acceptance
+            target/box-content-acceptance
+            target/jpeg-reconstruction-reference
+          if-no-files-found: error
+          retention-days: 7

@@ -640,6 +640,7 @@ arithmetic. Independently captured RGBA buffers include unchanged seeded row
 padding and trailing guards. The source audit binds those entry points to their
 pristine source objects, retains both original graphs' full observations and
 checks that diagnostic relinking changes no active binary or compiled object.
+
 The JPEG reconstruction writer translates the complete pinned
 jpeg/dec_jpeg_data_writer.cc and its chunk/state headers, plus
 JPEGData::CalculateMcuSize. The oracle calls the actual archive ReadJpeg,
@@ -688,3 +689,21 @@ inputs; generated dictionary/static tables are crate-owned and require no
 runtime source checkout. Dedicated original observers and their standalone
 runners are test infrastructure. Their genuine encoder streams and source
 capture request/response pairs are independent of Rust decoding.
+The JPEG reconstruction integration translates the JPEG branch of
+DecodeGroupImpl in dec_group.cc and its reached InitFrameOutput,
+DecodeGlobalDCInfo, ProcessACGlobal, ProcessACGroup, FinalizeDC and FinalizeFrame
+branches in dec_frame.cc. Test adapters call the pristine archive DecodeFrame,
+WriteJpeg, ReadJpeg, ParseJPG and public JPEG encoder. The direct group fixture
+uses the existing hash-checked original function fragments without changing
+implementation bodies. All 25 earlier JPEG/chroma files and all 128 geometry
+sampling files remain exact inputs; nine additional public-encoder outputs include
+six existing writer fixtures and three RGB baseline/progressive/restart files.
+Their recipe and source captures are recorded
+in [the JPEG reconstruction fixtures](../tests/data/jpeg-reconstruction/README.md).
+
+Persistent input and callback PaddedBytes derive from the pinned decode.cc,
+padded_bytes.h and memory_manager_internal.cc bodies. The box-content owner
+follows box_content_decoder.{h,cc}. Complete compressed JPEG metadata decoding
+follows jpeg/dec_jpeg_data.cc and uses the translated pinned Brotli decoder.
+Their observers call or extract the actual complete original bodies; captures
+and generated compressed inputs remain independent of Rust execution.

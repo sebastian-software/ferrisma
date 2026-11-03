@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 // Data-only observations of the pinned original JPEGData bundle and ICC helper.
 #include <cstdint>
+#include <brotli/encode.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -14,6 +15,8 @@
 #include "lib/jxl/enc_fields.h"
 #include "lib/jxl/fields.h"
 #include "lib/jxl/jpeg/enc_jpeg_data_reader.h"
+#include "lib/jxl/jpeg/dec_jpeg_data.h"
+#include "lib/jxl/jpeg/enc_jpeg_data.h"
 #include "lib/jxl/jpeg/jpeg_data.h"
 std::string Hex(jxl::Bytes);
 std::vector<uint8_t> Unhex(const std::string&);
@@ -50,6 +53,14 @@ struct Input {
 }  // namespace
 bool JpegMetadataCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
  if(command.rfind("jm-",0)!=0)return false;
+ if(command=="jm-packed-fixture") {
+  std::string h;int effort;in>>h>>effort;auto v=Unhex(h);JPEGData j;
+  auto result=ReadJpeg(v.data(),v.size(),JpegReadMode::kReadAll,&j);if(!result)throw std::runtime_error("source packed JPEG fixture parse");
+  for(auto& scan:j.scan_info)for(size_t i=scan.num_components;i<4;++i)scan.components[i]={0,0,0};
+  jxl::CompressParams params;params.brotli_effort=effort;std::vector<uint8_t> encoded;
+  auto status=EncodeJPEGData(mm,j,&encoded,params);
+  std::cout<<" P "<<int(status.code())<<' '<<Hex(jxl::Bytes(encoded))<<" S";PrintData(j);return true;
+ }
  if(command=="jm-fixture") {
   std::string h;in>>h;auto v=Unhex(h);JPEGData j;
   auto result=ReadJpeg(v.data(),v.size(),JpegReadMode::kReadAll,&j);if(!result)throw std::runtime_error("source JPEG fixture parse");
@@ -65,6 +76,9 @@ bool JpegMetadataCommand(const std::string& command,std::istringstream& in,JxlMe
   else if(op=="C") {size_t ext=0,total=0;auto s=jxl::Bundle::CanEncode(j,&ext,&total);std::cout<<" C "<<int(s.code())<<' '<<ext<<' '<<total;}
   else if(op=="D") {size_t offset;std::string h;in>>offset>>h;Input data(h);jxl::BitReader reader(data.bytes());reader.SkipBits(offset);auto s=jxl::Bundle::Read(&reader,&j);size_t bits=reader.TotalBitsConsumed();auto close=reader.Close();std::cout<<" D "<<int(s.code())<<' '<<bits<<' '<<int(close.code());}
   else if(op=="I") {std::string h;in>>h;auto v=Unhex(h);if(v.empty())v.reserve(1);auto s=SetJPEGDataFromICC(v,&j);std::cout<<" I "<<int(s.code());}
+  else if(op=="E") {int effort;in>>effort;jxl::CompressParams params;params.brotli_effort=effort;std::vector<uint8_t> encoded;auto s=EncodeJPEGData(mm,j,&encoded,params);std::cout<<" E "<<int(s.code())<<' '<<Hex(jxl::Bytes(encoded));}
+  else if(op=="Z") {int effort;std::string h;in>>effort>>h;auto payload=Unhex(h);if(payload.empty())payload.reserve(1);jxl::BitWriter w(mm);auto s=jxl::Bundle::Write(j,&w,jxl::LayerType::Header,nullptr);std::vector<uint8_t> encoded;if(s){if(!Pad(w))throw std::runtime_error("source raw fixture pad");jxl::Bytes(w.GetSpan()).AppendTo(encoded);size_t size=BrotliEncoderMaxCompressedSize(payload.size());std::vector<uint8_t> compressed(size);auto ok=BrotliEncoderCompress(effort,BROTLI_DEFAULT_WINDOW,BROTLI_MODE_GENERIC,payload.size(),payload.data(),&size,compressed.data());if(!ok)throw std::runtime_error("source raw fixture encode");encoded.insert(encoded.end(),compressed.begin(),compressed.begin()+size);}std::cout<<" Z "<<int(s.code())<<' '<<Hex(jxl::Bytes(encoded));}
+  else if(op=="B") {std::string h;in>>h;Input data(h);auto s=DecodeJPEGData(data.bytes(),&j);std::cout<<" B "<<int(s.code());}
   else if(op=="H") {size_t index;int slot;in>>index>>slot;j.huffman_code.at(index).slot_id=slot;std::cout<<" H "<<index<<' '<<slot;}
   else throw std::runtime_error("unknown JPEG metadata operation");
   std::cout<<" S";PrintData(j);std::cout.flush();

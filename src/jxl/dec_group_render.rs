@@ -1,8 +1,8 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Scalar DequantLane/DequantBlock and the pixel branch of DecodeGroupImpl
-//! from `lib/jxl/dec_group.cc`. JPEG reconstruction is a separate boundary.
+//! Scalar DequantLane/DequantBlock and DecodeGroupImpl from
+//! `lib/jxl/dec_group.cc`, including original quantized JPEG reconstruction.
 
 use super::ac_strategy::AcStrategyType;
 use super::base::rect::Rect;
@@ -132,11 +132,12 @@ fn const_blocks<'a>(blocks: &'a [AcPtrMut<'_>; 3]) -> [ConstAcPtr<'a>; 3] {
     })
 }
 
-/// Complete source traversal for rendering to pixels. Its signature selects
-/// the original null-JPEG branch. The caller retains valid strategy geometry,
-/// initialized DC/matrix/correlation owners, and prepared pipeline buffers.
+/// Complete source traversal for pixel or original quantized JPEG output.
+/// The caller retains valid strategy geometry, initialized DC/matrix/correlation
+/// owners, and prepared pipeline buffers. JPEG requires i32 coefficient storage;
+/// RAW table divisions and float conversions retain source definedness domains.
 #[allow(clippy::too_many_arguments)]
-pub fn decode_group_impl_pixels(
+pub fn decode_group_impl(
     frame_header: &FrameHeader<'_>,
     get_block: &mut impl GetBlock,
     buffers: GroupDecBuffers<'_>,
@@ -147,6 +148,7 @@ pub fn decode_group_impl_pixels(
     biases: &[f32; 4],
     group_idx: usize,
     render_pipeline_input: &mut RenderPipelineInput<'_, '_>,
+    mut jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
     draw: DrawMode,
 ) -> Status {
     let block_rect = shared.frame_dim.block_group_rect(group_idx);
@@ -160,6 +162,53 @@ pub fn decode_group_impl_pixels(
     let accumulate = !coefficients.is_empty();
     let mut offset = 0;
     let color_correlation = shared.cmap.base();
+    let mut scaled_qtable = [0i32; 64 * 3];
+    let mut jpeg_c_map = [0usize; 3];
+    let mut jpeg_is_gray = false;
+    let mut dcoff = [0i32; 3];
+    if let Some(jpeg) = jpeg_data.as_deref() {
+        if !color_correlation.is_jpeg_compatible() {
+            return Err(StatusCode::GenericError);
+        }
+        jpeg_is_gray = jpeg.components.len() == 1;
+        if frame_header.color_transform == super::frame_header::ColorTransform::XYB {
+            return Err(StatusCode::GenericError);
+        }
+        jpeg_c_map = super::frame_header::jpeg_order(frame_header.color_transform, jpeg_is_gray)
+            .map(|c| c as usize);
+        let encodings = shared.matrices.encodings();
+        let Some(encoding) = encodings.first() else {
+            return Err(StatusCode::GenericError);
+        };
+        let super::quant_weights::QuantEncodingData::Raw { qtable, qtable_den } = encoding.data()
+        else {
+            return Err(StatusCode::GenericError);
+        };
+        if (*qtable_den - 1.0f32 / (8 * 255) as f32).abs() > 1e-8f32 {
+            return Err(StatusCode::GenericError);
+        }
+        let qtable = qtable
+            .as_deref()
+            .expect("source RAW quantization allocation");
+        if qtable.len() != 3 * 8 * 8 {
+            return Err(StatusCode::GenericError);
+        }
+        for c in 0..3 {
+            if frame_header.color_transform == super::frame_header::ColorTransform::NONE {
+                // The source divides before validating this table entry.
+                dcoff[c] = 1024 / qtable[64 * c];
+            }
+            for i in 0..64 {
+                let num = qtable[64 + i];
+                let den = qtable[64 * c + i];
+                if num <= 0 || den <= 0 || num >= 65536 || den >= 65536 {
+                    return Err(StatusCode::GenericError);
+                }
+                scaled_qtable[64 * c + (i % 8) * 8 + i / 8] =
+                    (1 << super::chroma_from_luma::CFL_FIXED_POINT_PRECISION) * num / den;
+            }
+        }
+    }
     let hshift: [usize; 3] = std::array::from_fn(|c| cs.h_shift(c));
     let vshift: [usize; 3] = std::array::from_fn(|c| cs.v_shift(c));
     let rects: [Rect; 3] = std::array::from_fn(|c| {
@@ -239,6 +288,97 @@ pub fn decode_group_impl_pixels(
                     bx += llf_x;
                     continue;
                 }
+                if let Some(jpeg) = jpeg_data.as_deref_mut() {
+                    if acs.strategy() != AcStrategyType::DCT {
+                        return Err(StatusCode::GenericError);
+                    }
+                    let mut transposed_dct_y = [0i32; 64];
+                    for c in [1, 0, 2] {
+                        if jpeg_is_gray && c != 1 {
+                            continue;
+                        }
+                        if sbx[c] << hshift[c] != bx || sby[c] << vshift[c] != by {
+                            continue;
+                        }
+                        let component = &mut jpeg.components[jpeg_c_map[c]];
+                        let start = (component.width_in_blocks as usize * (rects[c].y0() + sby[c])
+                            + rects[c].x0()
+                            + sbx[c])
+                            * 64;
+                        let jpeg_pos = &mut component.coeffs[start..start + 64];
+                        let AcPtrMut::I32(transposed_dct) = &mut qblock[c] else {
+                            panic!("source JPEG reconstruction uses i32 coefficients");
+                        };
+                        // Mutate the actual accumulated qblock, as the source does.
+                        for x in 0..8 {
+                            for y in x + 1..8 {
+                                transposed_dct.swap(y * 8 + x, x * 8 + y);
+                            }
+                        }
+                        if !cs.is_444() || (row_cmap_x[abs_tx] == 0 && row_cmap_b[abs_tx] == 0) {
+                            for i in 0..64 {
+                                jpeg_pos[i] = transposed_dct[i]
+                                    .clamp(i16::MIN as i32, i16::MAX as i32)
+                                    as i16;
+                            }
+                        } else if c == 1 {
+                            for i in 0..64 {
+                                transposed_dct_y[i] = transposed_dct[i];
+                                jpeg_pos[i] = transposed_dct[i]
+                                    .clamp(i16::MIN as i32, i16::MAX as i32)
+                                    as i16;
+                            }
+                        } else {
+                            let factor = if c == 0 {
+                                row_cmap_x[abs_tx]
+                            } else {
+                                row_cmap_b[abs_tx]
+                            };
+                            let scale = super::chroma_from_luma::ColorCorrelation::ratio_jpeg(
+                                i32::from(factor),
+                            );
+                            let precision = super::chroma_from_luma::CFL_FIXED_POINT_PRECISION;
+                            let round = 1i32 << (precision - 1);
+                            for i in 0..64 {
+                                // Highway signed vector Add/Mul retain low 32 bits.
+                                let coeff_scale = scaled_qtable[c * size + i]
+                                    .wrapping_mul(scale)
+                                    .wrapping_add(round)
+                                    >> precision;
+                                let cfl_factor = transposed_dct_y[i]
+                                    .wrapping_mul(coeff_scale)
+                                    .wrapping_add(round)
+                                    >> precision;
+                                jpeg_pos[i] = transposed_dct[i]
+                                    .wrapping_add(cfl_factor)
+                                    .clamp(i16::MIN as i32, i16::MAX as i32)
+                                    as i16;
+                            }
+                        }
+                        let dc = dc_rows[c][sbx[c]] - dcoff[c] as f32;
+                        // Clamp1 uses ordered comparisons; defined source casts
+                        // require a finite value after this clamp.
+                        #[allow(clippy::manual_clamp)]
+                        // Preserve original ordered Clamp1 comparisons.
+                        let dc = if dc < -2047.0 {
+                            -2047.0
+                        } else if dc > 2047.0 {
+                            2047.0
+                        } else {
+                            dc
+                        };
+                        assert!(
+                            dc.is_finite(),
+                            "source float-to-int conversion must be defined"
+                        );
+                        jpeg_pos[0] = dc as i16;
+                        if jpeg_pos.iter().any(|&v| !(-4095..=4095).contains(&v)) {
+                            return Err(StatusCode::GenericError);
+                        }
+                    }
+                    bx += llf_x;
+                    continue;
+                }
                 dequant_block(
                     inv_global_scale,
                     row_quant[bx],
@@ -280,4 +420,35 @@ pub fn decode_group_impl_pixels(
         }
     }
     Ok(())
+}
+
+/// Original null-JPEG specialization retained for existing callers.
+#[allow(clippy::too_many_arguments)]
+pub fn decode_group_impl_pixels(
+    frame_header: &FrameHeader<'_>,
+    get_block: &mut impl GetBlock,
+    buffers: GroupDecBuffers<'_>,
+    shared: &PassesSharedState<'_>,
+    coefficients: &mut AcImage,
+    x_dm_multiplier: f32,
+    b_dm_multiplier: f32,
+    biases: &[f32; 4],
+    group_idx: usize,
+    render_pipeline_input: &mut RenderPipelineInput<'_, '_>,
+    draw: DrawMode,
+) -> Status {
+    decode_group_impl(
+        frame_header,
+        get_block,
+        buffers,
+        shared,
+        coefficients,
+        x_dm_multiplier,
+        b_dm_multiplier,
+        biases,
+        group_idx,
+        render_pipeline_input,
+        None,
+        draw,
+    )
 }

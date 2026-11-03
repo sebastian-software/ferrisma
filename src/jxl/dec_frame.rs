@@ -399,7 +399,35 @@ impl FrameDecoder<'_, '_, '_> {
         initialize_passes_shared_state(h, &mut self.state.shared_storage, false)?;
         self.state.init(h)?;
         self.storage.modular.init(&self.storage.dim);
-        // The internally constructed output is non-JPEG.
+        if let Some(jpeg) = self.storage.output.borrow_mut().jpeg_data.as_deref_mut() {
+            if h.encoding == FrameEncoding::MODULAR {
+                return Err(StatusCode::GenericError);
+            }
+            let num_components = jpeg.components.len();
+            if num_components != 1 && num_components != 3 {
+                return Err(StatusCode::GenericError);
+            }
+            if h.nonserialized_metadata.unwrap().m.xyb_encoded {
+                return Err(StatusCode::GenericError);
+            }
+            let map = super::frame_header::jpeg_order(ColorTransform::YCBCR, num_components == 1);
+            jpeg.width = self.storage.dim.xsize as i32;
+            jpeg.height = self.storage.dim.ysize as i32;
+            for (c, &index) in map.iter().enumerate().take(num_components) {
+                let component = &mut jpeg.components[index as usize];
+                component.width_in_blocks =
+                    (self.storage.dim.xsize_blocks >> h.chroma_subsampling.h_shift(c)) as u32;
+                component.height_in_blocks =
+                    (self.storage.dim.ysize_blocks >> h.chroma_subsampling.v_shift(c)) as u32;
+                component.h_samp_factor = 1 << h.chroma_subsampling.raw_h_shift(c);
+                component.v_samp_factor = 1 << h.chroma_subsampling.raw_v_shift(c);
+                let blocks =
+                    component.width_in_blocks as usize * component.height_in_blocks as usize;
+                component
+                    .coeffs
+                    .resize(blocks * super::frame_dimensions::DCT_BLOCK_SIZE, 0);
+            }
+        }
         self.storage.decoded_dc_global = false;
         self.storage.decoded_ac_global = false;
         self.storage.is_finalized = false;
@@ -467,6 +495,9 @@ impl FrameDecoder<'_, '_, '_> {
             shared.quantizer.decode(&shared.matrices, reader)?;
             super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
             shared.cmap.decode_dc(reader)?;
+            if self.storage.output.borrow().jpeg_data.is_some() {
+                shared.quantizer.clear_dc_mul();
+            }
             shared.ac_strategy.fill_invalid();
         }
         if self.storage.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
@@ -899,7 +930,7 @@ impl FrameDecoder<'_, '_, '_> {
             }
             max_bits +=
                 super::base::bits::ceil_log2_nonzero(self.storage.header.0.passes.num_passes);
-            let kind = if max_bits < 16 {
+            let kind = if max_bits < 16 && self.storage.output.borrow().jpeg_data.is_none() {
                 super::dct_util::AcType::I16
             } else {
                 super::dct_util::AcType::I32
@@ -920,6 +951,60 @@ impl FrameDecoder<'_, '_, '_> {
             )?);
             if store {
                 self.state.coefficients.as_mut().unwrap().zero_fill();
+            }
+        }
+        let mut decoded = self.storage.output.borrow_mut();
+        if decoded.jpeg_data.is_some() {
+            decoded.color_transform = self.storage.header.0.color_transform;
+            decoded.chroma_subsampling = self.storage.header.0.chroma_subsampling.clone();
+            let jpeg = decoded.jpeg_data.as_deref_mut().unwrap();
+            let encodings = self.state.shared_storage.matrices.encodings();
+            let Some(encoding) = encodings.first() else {
+                return Err(StatusCode::GenericError);
+            };
+            let super::quant_weights::QuantEncodingData::Raw { qtable, qtable_den } =
+                encoding.data()
+            else {
+                return Err(StatusCode::GenericError);
+            };
+            if (*qtable_den - 1.0f32 / (8 * 255) as f32).abs() > 1e-8f32 {
+                return Err(StatusCode::GenericError);
+            }
+            let num_components = jpeg.components.len();
+            let is_gray = num_components == 1;
+            if self.storage.header.0.color_transform == ColorTransform::XYB || num_components > 3 {
+                return Err(StatusCode::GenericError);
+            }
+            let map =
+                super::frame_header::jpeg_order(self.storage.header.0.color_transform, is_gray);
+            let qtable = qtable
+                .as_deref()
+                .expect("source RAW quantization allocation");
+            if qtable.len() != 3 * 8 * 8 {
+                return Err(StatusCode::GenericError);
+            }
+            let mut qt_set = 0usize;
+            for (c, &index) in map.iter().enumerate().take(num_components) {
+                let quant_c = if is_gray { 1 } else { c };
+                let qpos = jpeg.components[index as usize].quant_idx as usize;
+                if qpos == jpeg.quant.len() {
+                    return Err(StatusCode::GenericError);
+                }
+                qt_set |= 1usize << qpos;
+                for x in 0..8 {
+                    for y in 0..8 {
+                        jpeg.quant[qpos].values[x * 8 + y] = qtable[quant_c * 64 + y * 8 + x];
+                    }
+                }
+            }
+            for i in 0..jpeg.quant.len() {
+                if qt_set & (1 << i) != 0 {
+                    continue;
+                }
+                if i == 0 {
+                    return Err(StatusCode::GenericError);
+                }
+                jpeg.quant[i].values = jpeg.quant[i - 1].values;
             }
         }
         Ok(())
@@ -966,7 +1051,8 @@ impl FrameDecoder<'_, '_, '_> {
                 b_dm_multiplier: self.state.b_dm_multiplier,
                 quant_biases: &self.state.output_encoding_info.opsin_params.quant_biases,
             };
-            let result = super::dec_group::decode_ac_group_pixels(
+            let mut decoded = self.storage.output.borrow_mut();
+            let result = super::dec_group::decode_ac_group(
                 &self.storage.header.0,
                 &mut pass_readers,
                 std::num::NonZeroUsize::new(count).unwrap(),
@@ -974,6 +1060,7 @@ impl FrameDecoder<'_, '_, '_> {
                 group_state,
                 &mut self.storage.group_caches[thread],
                 &mut input,
+                decoded.jpeg_data.as_deref_mut(),
                 pass0,
                 false,
                 Some(&mut should_run_pipeline),
@@ -1015,7 +1102,11 @@ impl FrameDecoder<'_, '_, '_> {
                 &mut input,
             );
         }
-        if !self.storage.modular.uses_full_image() && should_run_pipeline && ready {
+        if !self.storage.modular.uses_full_image()
+            && self.storage.output.borrow().jpeg_data.is_none()
+            && should_run_pipeline
+            && ready
+        {
             input.done()?;
         }
         Ok(())
@@ -1132,6 +1223,7 @@ impl FrameDecoder<'_, '_, '_> {
             if self.storage.header.0.encoding == FrameEncoding::VAR_DCT
                 && self.storage.header.0.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0
                 && self.storage.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
+                && self.storage.output.borrow().jpeg_data.is_none()
             {
                 let shared = &mut self.state.shared_storage;
                 super::compressed_dc::adaptive_dc_smoothing(
@@ -1180,6 +1272,9 @@ impl FrameDecoder<'_, '_, '_> {
             return Err(StatusCode::GenericError);
         }
         self.storage.is_finalized = true;
+        if self.storage.output.borrow().jpeg_data.is_some() {
+            return Ok(());
+        }
         self.storage.modular.finalize_decoding(
             &self.storage.header.0,
             &self.state.shared_storage,
@@ -1391,6 +1486,7 @@ enum DecodeProfile {
     VarDct,
     Modular,
     Sequence { preview: bool },
+    Jpeg,
 }
 
 fn decode_profile_frame_into<'m, 'p>(
@@ -1506,6 +1602,7 @@ fn decode_frame_into<'m, 'p>(
             DecodeProfile::LosslessThunder => AdmittedHeader::admit(header),
             DecodeProfile::Modular => AdmittedHeader::admit_modular(header),
             DecodeProfile::Sequence { .. } => AdmittedHeader::admit_sequence(header),
+            DecodeProfile::Jpeg => Ok(AdmittedHeader(Rc::new(header))),
         } {
             Ok(v) => v,
             Err(e) => {
@@ -2230,5 +2327,44 @@ pub fn decode_modular(bytes: &[u8], output_format: ModularOutput) -> ModularImag
         reader_bits,
         frame_size,
         frame_decoded_bytes,
+    }
+}
+
+/// Defined frame result retaining its original JPEGData owner and partial state.
+pub struct JpegFrameDecode<'m> {
+    pub status: Status,
+    pub image: ImageBundle<'m>,
+    pub header: Option<FrameHeader<'m>>,
+    pub trace: FrameDecodeTrace,
+}
+
+/// DecodeFrame with an existing JPEGData owner, preserving coefficient and
+/// metadata mutations even when a later section fails. Metadata remains borrowed.
+/// The input starts at the original frame header, after codestream metadata.
+pub fn decode_jpeg_frame<'m>(
+    metadata: &'m super::image_metadata::CodecMetadata,
+    bytes: &[u8],
+    jpeg_data: Box<super::jpeg::jpeg_data::JpegData>,
+) -> JpegFrameDecode<'m> {
+    let output = RefCell::new(ImageBundle::new(Some(&metadata.m)));
+    output.borrow_mut().jpeg_data = Some(jpeg_data);
+    let mut state = PassesDecoderState::new();
+    let mut header = None;
+    let mut trace = FrameDecodeTrace::default();
+    let status = decode_frame_into(
+        metadata,
+        bytes,
+        &mut state,
+        FrameOutput::Borrowed(&output),
+        &mut header,
+        DecodeProfile::Jpeg,
+        Some(&mut trace),
+    );
+    drop(state);
+    JpegFrameDecode {
+        status,
+        image: output.into_inner(),
+        header,
+        trace,
     }
 }

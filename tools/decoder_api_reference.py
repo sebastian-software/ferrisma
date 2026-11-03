@@ -30,7 +30,8 @@ def main():
         raise RuntimeError('Use a fresh output directory to retain each audit')
     runpy.run_path(str(ROOT / 'tools/check.py'))['check_source']()
     fragments = json.loads((ROOT / 'tools/oracle/source_fragments.json').read_text())
-    selected = [f for f in fragments if f['output'].startswith('original_decoder_')]
+    selected = [f for f in fragments if f['output'].startswith('original_decoder_')
+                and not f['output'].startswith('original_decoder_input_')]
     if len(selected) != 5:
         raise RuntimeError('Complete original decoder-helper manifest missing')
     for fragment in selected:
