@@ -26,8 +26,8 @@ fn requests(selected: u8) -> Vec<String> {
         data = &data[5..];
         assert!(usize::from(tag) < COMMANDS.len() && count >= 17);
         let mut line = COMMANDS[usize::from(tag)].to_owned();
-        for (index, word) in data[..count * 4].chunks_exact(4).enumerate() {
-            let word = u32::from_le_bytes(word.try_into().unwrap());
+        for (index, word) in data[..count * 4].as_chunks::<4>().0.iter().enumerate() {
+            let word = u32::from_le_bytes(*word);
             if [4, 7, 8].contains(&index) {
                 write!(line, " {}", word as i32).unwrap();
             } else {

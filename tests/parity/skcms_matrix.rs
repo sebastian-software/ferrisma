@@ -95,8 +95,8 @@ fn retained_requests(command: u8) -> Vec<String> {
             continue;
         }
         let mut request = format!("{} {flag}", COMMANDS[usize::from(tag)]);
-        for word in record[2..].chunks_exact(4) {
-            write!(request, " {}", u32::from_le_bytes(word.try_into().unwrap())).unwrap();
+        for word in record[2..].as_chunks::<4>().0 {
+            write!(request, " {}", u32::from_le_bytes(*word)).unwrap();
         }
         requests.push(request);
     }
