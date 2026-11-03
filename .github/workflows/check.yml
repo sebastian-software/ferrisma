@@ -164,7 +164,7 @@ jobs:
           python3 tools/output_stage_reference.py --output target/output-stage-acceptance
       - name: Retain complete decoder source evidence
         if: ${{ !cancelled() && matrix.group == 'decoder' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: decoder-source-${{ matrix.os }}
           path: |
@@ -186,7 +186,7 @@ jobs:
         run: python3 tools/extra_channels_reference.py --output target/extra-channels-reference
       - name: Retain complete extra-channel source evidence
         if: ${{ !cancelled() && matrix.group == 'extra-channels' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: extra-channels-reference-${{ runner.os }}
           path: target/extra-channels-reference
@@ -198,7 +198,7 @@ jobs:
         run: python3 tools/decoder_geometry_reference.py --output target/decoder-geometry-reference
       - name: Retain complete geometry source evidence
         if: ${{ !cancelled() && matrix.group == 'geometry' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: decoder-geometry-reference-${{ runner.os }}
           path: target/decoder-geometry-reference
@@ -212,7 +212,7 @@ jobs:
           python3 tools/jpeg_metadata_reference.py --output target/jpeg-metadata-acceptance
       - name: Retain integrated component source evidence
         if: ${{ !cancelled() && matrix.group == 'components' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: integrated-components-${{ runner.os }}
           path: |
@@ -228,7 +228,7 @@ jobs:
           python3 tools/brotli_stream_api_reference.py --output target/brotli-stream-api-acceptance
       - name: Retain Brotli source acceptance
         if: ${{ !cancelled() && matrix.group == 'brotli' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: brotli-source-${{ runner.os }}
           path: |
@@ -257,7 +257,7 @@ jobs:
         run: python3 tools/patches_boundaries.py
       - name: Retain native alpha diagnostic evidence
         if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: alpha-diagnostics-${{ runner.os }}
           path: |
