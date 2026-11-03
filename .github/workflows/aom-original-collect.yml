@@ -1,0 +1,74 @@
+name: Collect complete original libaom acceptance with recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Complete original native source run with immutable binaries
+        required: true
+        type: string
+      recovery_runs:
+        description: Comma-separated successful disjoint recovery run IDs
+        default: ""
+        type: string
+      runner:
+        description: Same native host as the original binaries
+        type: choice
+        options: [ubuntu-24.04, macos-26, macos-15]
+        default: ubuntu-24.04
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  collect:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      RECOVERY_RUNS: ${{ inputs.recovery_runs }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 tests/ports/aom_recovery_collection_test.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-original-shard-*
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: build
+      - name: Require complete original C/Rust execution and XML evidence
+        run: |
+          chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+          python3 - <<'PY'
+          import os, subprocess
+          command = ['python3', 'tools/collect_aom_recovery.py', '--source-run', str(int(os.environ['SOURCE_RUN']))]
+          for value in filter(None, (v.strip() for v in os.environ['RECOVERY_RUNS'].split(','))):
+              command.extend(['--recovery-run', str(int(value))])
+          subprocess.run(command, check=True)
+          PY
+      - name: Preserve complete acceptance, original summaries, and recovery provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-complete-native-acceptance
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/aom-complete-acceptance.json
+            build/aom-paired-*/summary.json
+            build/aom-recovery-contracts/
+            build/aom-paired-*/shard-*.json
+            build/aom-paired-*/shard-*.xml
+            build/aom-paired-*/shard-*.log
+            build/aom-recovery-*/original-*/segment-*/

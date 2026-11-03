@@ -86,5 +86,10 @@
   "recovery_contract_unit_checks": 10,
   "exact_github_plan_matrix_checked_locally": true,
   "full_original_suite_acceptance": false,
-  "root_default_engine_switched": false
+  "root_default_engine_switched": false,
+  "final_collection_workflow": ".github/workflows/aom-original-collect.yml",
+  "final_collection_artifact_import_checks": 7,
+  "final_collection_requires_all_six_complete_profile_program_inventories": true,
+  "final_collection_preserves_original_source_workflow_conclusion": true,
+  "final_collection_rejects_overlapping_recoveries_and_passing_source_overwrites": true
 }

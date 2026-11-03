@@ -32,6 +32,15 @@ require all active original cases once across the complete suite. Recovery
 of selected shards alone is not complete acceptance. Record all source and
 recovery run IDs when the complete result is assembled.
 
+Use `aom-original-collect.yml` for final native collection. Download all
+original source artifacts and only complete successful, disjoint recovery
+artifacts. Reject attempts to replace passing source results or hide explicit
+original failures. Reparse ordinary XML as well as every recovered subshard's
+XML, then require all six profile/program inventories through the complete
+collector. Preserve the final report, source/recovery run IDs, original
+summaries, and individual XML evidence. The original source workflow's
+time-limit conclusion remains recorded; validated recovery does not rewrite it.
+
 The [GitHub Actions limits](https://docs.github.com/en/actions/reference/limits)
 document the hosted six-hour execution limit and the 256-job matrix limit.
 Keep each recovery matrix at most 240 jobs and retain the existing native
