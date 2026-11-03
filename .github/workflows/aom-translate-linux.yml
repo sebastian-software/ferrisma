@@ -238,6 +238,7 @@ jobs:
             build/aom-cli-*/*-encode.log
             build/aom-cli-*/*-decode.log
             build/aom-roundtrip-*/summary.json
+            build/aom-unaligned-input-*/summary.json
             build/aom-inlines-*/summary.json
             build/aom-macro-tests-*/summary.json
             build/aom-macro-tests-*/*.log

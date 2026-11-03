@@ -10,6 +10,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from build_aom import test_names
+from aom_subshards import passing_subshards
 
 ROOT = Path(__file__).resolve().parents[1]
 PROGRAMS = ['test_libaom', 'test_aom_rc', 'test_intra_pred_speed']
@@ -62,6 +63,8 @@ def execute(binary, label, args, work, native):
 
 
 def passing_pair(record):
+    if 'subshards' in record:
+        return passing_subshards(record, ROOT)
     c, rust = record['results']['c'], record['results']['rust']
     return (all(not value['exit_code'] and value['valid_xml']
                 and not any(case['failed'] for case in value['cases']) for value in [c, rust])
@@ -174,7 +177,8 @@ def main():
             continue
         record = json.loads(path.read_text())
         if (record['identity'] != identity or record['index'] != index
-                or not record['valid'] or not passing_pair(record)):
+                or not record['valid'] or not passing_pair(record)
+                or [case['name'] for case in record['results']['c']['cases']] != expected[index::args.shards]):
             invalid_shards.append(index)
         cases.extend(record['results']['rust']['cases'])
     executed = [case['name'] for case in cases]
@@ -186,6 +190,9 @@ def main():
                    invalid_shards=invalid_shards, missing_cases=missing, unexpected_cases=extra,
                    duplicate_cases=len(executed) - len(set(executed)),
                    original_cases_parameters_and_disabled_flags_unchanged=True)
+    summary['recovered_subshard_indices'] = [index for index in range(args.shards)
+        if (work / f'shard-{index}.json').exists()
+        and 'subshards' in json.loads((work / f'shard-{index}.json').read_text())]
     valid = not any(summary[name] for name in ['missing_shards', 'invalid_shards', 'missing_cases',
                                               'unexpected_cases', 'duplicate_cases', 'failures'])
     summary['valid'] = valid

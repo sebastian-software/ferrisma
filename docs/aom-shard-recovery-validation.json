@@ -1,0 +1,90 @@
+{
+  "status": "recovery tools pass original C/Rust integration and negative checks; complete recovered host execution and full acceptance remain pending",
+  "source_run": 41548531529,
+  "source_commit": "8c978b2b476d593d74ae919c76c0cfb2971b178d",
+  "profile": "debug",
+  "original_shards": 120,
+  "recovery_parts_per_original_shard": 8,
+  "finer_gtest_total_shards": 960,
+  "finer_gtest_index": "original_index + 120 * segment",
+  "confirmed_time_limit_cancellations": {
+    "4": {
+      "job": 125635169370,
+      "reason": "The job has exceeded the maximum execution time of 6h0m0s",
+      "original_c_cases": 144,
+      "original_c_dynamic_skips": 1,
+      "original_c_failures": 0,
+      "rust_log_completed_cases": 56,
+      "last_original_rust_case_started": "[ RUN      ] AV1/DatarateTestSVC.BasicRateTargetingSVC3TL3SLIntraStartDecodeBaseMidSeq/0",
+      "source_files_sha256": {
+        "aom-native-debug/reference-profile.json": "a83ee3faa46b75f9c2ac7f2536ad69c9c2bc06b76c6053cbf8e5db72730f940f",
+        "aom-paired-debug-test_libaom/shard-4-c.xml": "d751755af825e10eeb78a9c5dc23b586ad8074eeeb3e4241569e61dcf2f72335",
+        "aom-paired-debug-test_libaom/shard-4-rust.log": "a2d37f49c10d0de7068ca50aea5259b8badf77a619e8dc5afafeae1907650ff0",
+        "aom-paired-debug-test_libaom/fixtures.json": "7a7585bdce3f0054c83e5cff6588eea8d166392a6429a5dd8f15dc5d6a220cd8",
+        "aom-paired-debug-test_libaom/shard-4-c.log": "760d2634d8bd697a213d7eef5272d6097ef77572127e5d093f3171ea01c3c4ee"
+      }
+    },
+    "5": {
+      "job": 125635169621,
+      "reason": "The job has exceeded the maximum execution time of 6h0m0s",
+      "original_c_cases": 144,
+      "original_c_dynamic_skips": 1,
+      "original_c_failures": 0,
+      "rust_log_completed_cases": 62,
+      "last_original_rust_case_started": "[ RUN      ] AV1/DatarateTestSVC.BasicRateTargetingSVC1TL3SLDynDisEnabl/1",
+      "source_files_sha256": {
+        "aom-native-debug/reference-profile.json": "a83ee3faa46b75f9c2ac7f2536ad69c9c2bc06b76c6053cbf8e5db72730f940f",
+        "aom-paired-debug-test_libaom/shard-5-c.xml": "457653dfe91b4318c6ae4ddf4e15f1718fd464bb5945fa1e2c49226afdea4050",
+        "aom-paired-debug-test_libaom/shard-5-c.log": "cc0f7fb7b187d044c2fa12594f3c108c9ea8ae0214400c1c6afde99d8480ebea",
+        "aom-paired-debug-test_libaom/shard-5-rust.log": "9c9189f1ba9e4e70a059c5b0972e937b1728f7714ebde779b30c64a6cce11d23",
+        "aom-paired-debug-test_libaom/fixtures.json": "7a7585bdce3f0054c83e5cff6588eea8d166392a6429a5dd8f15dc5d6a220cd8"
+      }
+    }
+  },
+  "codec_implementation_and_immutable_binaries_unchanged": true,
+  "local_legacy_and_finer_execution_match": true,
+  "local_original_cases": 8,
+  "local_original_filter": "AomImageTest.*",
+  "local_recovered_parent_shards": 2,
+  "local_recovery_parts_per_original_shard": 3,
+  "local_summary": {
+    "identity": {
+      "profile": "release",
+      "program": "test_libaom",
+      "shards": 2,
+      "filter": "AomImageTest.*",
+      "c_executable_sha256": "dafd88b22466689eb7ad9436ec405bf93395a771cb722147b775c5c14ecc2e0b",
+      "rust_executable_sha256": "8d2ad1d315a859de52c8390b6f5d9a648ddd610123f9a6327d00d555e730a9d4",
+      "original_inventory_sha256": "bd6eb64d0ed463a89128e66f751c16cbc41c664d35757fe6105d020c2b2a6205",
+      "config_sha256": "ef64f3b87c3cc954cd3f0449fc4eebd035cb0bc911fa9f189451cffa01c10a2c",
+      "translation_manifest_sha256": "d840027ac510515fbfe772c46d7ac67fb1389d266769341accf3223593fc2244",
+      "verified_fixtures_sha256": null,
+      "rust_archive_sha256": "4d8e420ec43dc0b9762c79cae4ebda63b1f30678cea613960f85e90808f385d2"
+    },
+    "original_registrations": 18729,
+    "selected_registrations": 8,
+    "original_active_selected": 8,
+    "upstream_disabled": 1501,
+    "executed": 8,
+    "dynamic_skips": 0,
+    "failures": 0,
+    "missing_shards": [],
+    "invalid_shards": [],
+    "missing_cases": [],
+    "unexpected_cases": [],
+    "duplicate_cases": 0,
+    "original_cases_parameters_and_disabled_flags_unchanged": true,
+    "recovered_subshard_indices": [
+      0,
+      1
+    ],
+    "valid": true
+  },
+  "local_summary_sha256": "9556734ac773de318fea1826c243c14e1ede909c00c82ba4c441fe2eab8e1817",
+  "changed_actual_xml_rejected_by_complete_collector": true,
+  "negative_xml_check_log_sha256": "de742dc5b583368a8a938aa406d348b92df2a3c88d2c4e30211b8a4ea90588d2",
+  "recovery_contract_unit_checks": 10,
+  "exact_github_plan_matrix_checked_locally": true,
+  "full_original_suite_acceptance": false,
+  "root_default_engine_switched": false
+}

@@ -1,0 +1,194 @@
+name: Recover original libaom shards from immutable binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Original full-suite run containing the immutable binaries
+        required: true
+        type: string
+      runner:
+        description: Same native host as the original run
+        type: choice
+        options: [ubuntu-24.04, macos-26, macos-15]
+        default: ubuntu-24.04
+      profile:
+        type: choice
+        options: [debug, release]
+        default: debug
+      indices:
+        description: Comma-separated original 120-way shard indices to recover
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 tests/ports/aom_subshards_test.py
+      - id: plan
+        env:
+          SOURCE_RUN: ${{ inputs.source_run }}
+          ORIGINAL_INDICES: ${{ inputs.indices }}
+          AOM_PROFILE: ${{ inputs.profile }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          if not os.environ['SOURCE_RUN'].isdecimal():
+              raise SystemExit('Require a numeric immutable source run')
+          values = os.environ['ORIGINAL_INDICES'].split(',')
+          if not all(v.strip().isdecimal() for v in values):
+              raise SystemExit('Require comma-separated numeric original indices')
+          indices = [int(v) for v in values]
+          if not 1 <= len(indices) <= 30 or len(set(indices)) != len(indices) or any(not 0 <= v < 120 for v in indices):
+              raise SystemExit('Require 1..30 distinct original indices in 0..119')
+          repository = os.environ['GH_REPO']
+          endpoint = f"repos/{repository}/actions/runs/{os.environ['SOURCE_RUN']}/jobs?per_page=100"
+          lines = subprocess.check_output(['gh', 'api', '--paginate', endpoint, '--jq', '.jobs[] | @json'], text=True)
+          jobs = [json.loads(line) for line in lines.splitlines()]
+          evidence = {'source_run': int(os.environ['SOURCE_RUN']), 'profile': os.environ['AOM_PROFILE'], 'indices': {}}
+          for index in indices:
+              name = f"paired (test_libaom, 120, {index}, {os.environ['AOM_PROFILE']})"
+              matching = [job for job in jobs if job['name'] == name]
+              if len(matching) != 1 or matching[0]['conclusion'] not in ('cancelled', 'timed_out'):
+                  raise SystemExit(f'Recovery requires one completed timed-out source job: {name}')
+              check = matching[0]['check_run_url'].rsplit('/', 1)[1]
+              annotations = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repository}/check-runs/{check}/annotations'], text=True))
+              if not any('exceeded the maximum execution time' in item['message'] for item in annotations):
+                  raise SystemExit(f'Source job has no confirmed time-limit annotation: {name}')
+              directory = Path(f'build/aom-timeout-source-{index}')
+              artifact = f"aom-original-shard-{os.environ['AOM_PROFILE']}-test_libaom-{index}"
+              subprocess.run(['gh', 'run', 'download', os.environ['SOURCE_RUN'], '--repo', repository,
+                              '--name', artifact, '--dir', str(directory)], check=True)
+              files = {}
+              for path in directory.rglob('*'):
+                  if not path.is_file():
+                      continue
+                  files[str(path.relative_to(directory))] = hashlib.sha256(path.read_bytes()).hexdigest()
+                  if path.suffix == '.xml':
+                      xml = ET.parse(path).getroot()
+                      if int(xml.get('errors', 0)) or int(xml.get('failures', 0)):
+                          raise SystemExit(f'Timed-out source has explicit test failures: {path}')
+                  if path.suffix == '.log' and any(line.startswith('[  FAILED  ]') for line in path.read_text(errors='replace').splitlines()):
+                      raise SystemExit(f'Timed-out source log has explicit test failures: {path}')
+              evidence['indices'][str(index)] = {'job': matching[0]['id'], 'annotations': annotations, 'source_files_sha256': files}
+          Path('build/aom-recovery-source-contract.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          matrix = {'include': [{'original_index': i, 'segment': p} for i in indices for p in range(8)]}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('matrix=' + json.dumps(matrix), file=output)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-recovery-source-contract
+          retention-days: 7
+          path: build/aom-recovery-source-contract.json
+          if-no-files-found: error
+  recover:
+    needs: plan
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ startsWith(inputs.runner, 'macos-') && 2 || 4 }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      AOM_PROFILE: ${{ inputs.profile }}
+      AOM_ORIGINAL_INDEX: ${{ matrix.original_index }}
+      AOM_SEGMENT: ${{ matrix.segment }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - name: Restore exact original binaries and verify the native host
+        run: |
+          case '${{ inputs.runner }}' in
+            ubuntu-*) test "$(uname -m)" = x86_64 ;;
+            macos-*) test "$(uname -m)" = arm64 ;;
+          esac
+          chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+      - name: Fetch and verify every original selected fixture
+        run: python3 tools/fetch_aom_test_data.py --profile "$AOM_PROFILE" --jobs 2
+      - name: Run an unchanged finer original C and Rust shard
+        run: |
+          aom_profile_args=()
+          if [ "$AOM_PROFILE" = debug ]; then aom_profile_args+=(--debug); fi
+          aom_finer_index=$((AOM_ORIGINAL_INDEX + 120 * AOM_SEGMENT))
+          python3 tools/run_aom_paired_shard.py "${aom_profile_args[@]}" --shards 960 --index "$aom_finer_index" \
+            --output-dir "build/aom-recovery-$AOM_PROFILE-test_libaom/original-$AOM_ORIGINAL_INDEX/segment-$AOM_SEGMENT"
+      - name: Preserve finer execution evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-recovery-${{ inputs.profile }}-${{ matrix.original_index }}-${{ matrix.segment }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            build/aom-recovery-${{ inputs.profile }}-test_libaom/
+            build/aom-native-${{ inputs.profile }}/reference-profile.json
+  collect:
+    needs: [plan, recover]
+    if: ${{ always() && !cancelled() && needs.recover.result == 'success' }}
+    runs-on: ${{ inputs.runner }}
+    env:
+      AOM_PROFILE: ${{ inputs.profile }}
+      ORIGINAL_INDICES: ${{ inputs.indices }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-recovery-*
+          merge-multiple: true
+          path: build
+      - name: Verify all original XML and recover only complete original partitions
+        run: |
+          chmod +x build/aom-native-$AOM_PROFILE/test_libaom
+          python3 - <<'PY'
+          import os, subprocess
+          profile = os.environ['AOM_PROFILE']
+          for index in map(int, os.environ['ORIGINAL_INDICES'].split(',')):
+              command = ['python3', 'tools/merge_aom_subshards.py', '--shards', '120', '--index', str(index), '--parts', '8',
+                         '--input-dir', f'build/aom-recovery-{profile}-test_libaom/original-{index}',
+                         '--output-dir', f'build/aom-paired-{profile}-test_libaom']
+              if profile == 'debug':
+                  command.append('--debug')
+              subprocess.run(command, check=True)
+          PY
+      - name: Preserve recovered partitions and all individual original XML
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-original-recovered-${{ inputs.profile }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            build/aom-paired-${{ inputs.profile }}-test_libaom/
+            build/aom-recovery-${{ inputs.profile }}-test_libaom/
+            build/aom-native-${{ inputs.profile }}/reference-profile.json
+            build/aom-recovery-source-contract.json

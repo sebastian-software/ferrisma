@@ -22,6 +22,14 @@ The failure, negative reproduction, and corrected local original/supplemental
 comparisons are recorded in
 [`aom-unaligned-input-validation.json`](aom-unaligned-input-validation.json).
 
+The replacement Linux Debug run reached the hosted six-hour job limit in
+two original shards. ADR 0047 keeps the immutable binaries and successful
+partitions, recovering only confirmed time-limit cancellations with finer
+original GoogleTest shards. Complete acceptance still requires every original
+case and matching dynamic skip exactly once; partial recovery is not enough.
+See [`aom-shard-recovery-validation.json`](aom-shard-recovery-validation.json)
+for the time-limit evidence and recovery checks.
+
 The immutable reference is libaom 3.15.2, tag `v3.15.2`, commit
 `af3dc9aadc793c1b00edc003e3fc19a44fdeb574`. The complete 1,520-file snapshot,
 including original tests and bundled third-party sources, is under
