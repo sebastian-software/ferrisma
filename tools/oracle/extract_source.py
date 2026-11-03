@@ -19,5 +19,9 @@ for fragment in json.loads(Path(__file__).with_name("source_fragments.json").rea
     if hashlib.sha256(body.encode()).hexdigest()!=fragment["sha256"]:
         raise SystemExit(f"Pinned source function changed: {source}")
     line=text[:start].count("\n")+1
-    notice="".join(text.splitlines(keepends=True)[:5])
+    # Keep a complete leading block comment, such as skcms.cc's notice.
+    if text.startswith("/*"):
+        notice=text[:text.index("*/")+2]+"\n"
+    else:
+        notice="".join(text.splitlines(keepends=True)[:5])
     (destination/fragment["output"]).write_text(notice+f'#line {line} {json.dumps(str(source))}\n'+body)
