@@ -53,6 +53,11 @@ boundary without changing the original archive, previous requests, or finite
 results. Native acceptance of the combined tree remains required. HSW/SKX
 transform variants and complete-image ICC admission remain separate work.
 
+The combined Brotli and CMS recovery passes the complete ordinary local check
+on macOS AArch64 in Debug and Release: 833 tests per configuration, with zero
+failures or ignored tests. Native Linux and macOS CI acceptance of this
+combined tree remains required.
+
 ## Reviewed decoder integration (2026-11-03)
 
 [PR #34](https://github.com/sebastian-software/libjxl-rs/pull/34) delivers the
