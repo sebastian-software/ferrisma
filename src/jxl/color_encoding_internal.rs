@@ -200,8 +200,9 @@ impl ColorEncoding {
     ///
     /// # Safety
     /// Any invoked CMS callback and opaque data must be valid for this call,
-    /// obey cms_interface.h, fully initialize successful output, and neither
-    /// unwind nor reenter this color owner. The input remains owned by the
+    /// obey cms_interface.h, initialize the CMYK word and FromExternal-reached
+    /// encoding fields on success, and neither unwind nor reenter this color
+    /// owner. Inactive output fields may remain untouched. Input stays with the
     /// caller on error; success transfers its byte allocation.
     pub unsafe fn set_icc(&mut self, icc: &mut Vec<u8>, cms: Option<&JxlCmsInterface>) -> Status {
         let cms = cms.ok_or(StatusCode::GenericError)?;

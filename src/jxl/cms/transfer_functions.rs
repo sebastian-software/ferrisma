@@ -6,6 +6,8 @@
 
 use super::super::base::float::{max_f64, mul_add_f64};
 
+// The selected original O3/NDEBUG graph omits the two HLG JXL_DASSERTs,
+// including for source-defined NaN inputs. Preserve its arithmetic unchanged.
 pub struct TfHlgBase;
 impl TfHlgBase {
     pub(crate) const A: f64 = 0.17883277;
@@ -29,7 +31,6 @@ impl TfHlgBase {
             return f64::from(((3.0 * s).sqrt() as f32).copysign(sign));
         }
         let e = mul_add_f64(Self::A, mul_add_f64(12.0, s, -Self::B).ln(), Self::C);
-        debug_assert!(e > 0.0);
         f64::from((e as f32).copysign(sign))
     }
     fn inv_oetf(mut e: f64) -> f64 {
@@ -42,7 +43,6 @@ impl TfHlgBase {
             return f64::from(((e * e * (1.0 / 3.0)) as f32).copysign(sign));
         }
         let s = (((e - Self::C) * Self::RA).exp() + Self::B) * Self::INV12;
-        debug_assert!(s >= 0.0);
         f64::from((s as f32).copysign(sign))
     }
 }

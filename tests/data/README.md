@@ -141,3 +141,92 @@ contains complete oriented output rows with 16 bytes of untouched 0xa5 padding
 and a seven-byte trailing guard. `tools/decoder_geometry_reference.py` reproduces
 every source fixture and capture, verifies actual original bindings and repeats
 all 58,688 defined complete-file/error/export requests under both original graphs.
+## skcms transfer and matrix input inventories
+
+`skcms-transfer-classification.requests` retains the original 16,000
+classification/inversion inputs. `skcms-transfer-exceptional.tsv` retains all
+8,624 exceptional-parameter calls, marked D (8,262 defined) or U (362 positively
+diagnosed original float-to-integer boundaries). Its manifest records source
+pins and census provenance. Expected outputs are always obtained independently
+from the actual pinned public functions.
+
+`skcms-matrix-requests.bin` retains all 71,226 initial matrix requests without
+changing any float word, alias flag or destination sentinel. Each record stores
+a command byte (0 concat, 1 invert, 2 adapt, 3 primaries), a flag byte, and
+18/18/11/17 little-endian u32 float words. The adjacent JSON manifest records
+both the binary hash and the exact original textual request hash. The source
+audit decodes and checks that inventory independently. The fixture contains no
+expected outputs; the original CMS archive remains the numerical oracle.
+
+
+### skcms fitting requests
+
+`skcms-fitting-requests.bin` retains all 11,432 initial preflight inputs. Each
+record is a command byte, a little-endian u32 word count, and that many
+little-endian u32 protocol words. The command order and signed alias/L/N words
+are described in `skcms-fitting-requests.json`. The fixture contains input data
+only; the ordinary or fully instrumented original supplies every differential
+expected output. `skcms-fitting-degenerate.table8` retains the original 255-byte
+table for the five initially differing degenerate-segment/alias cases. Native
+source words and both archive hashes are recorded in the manifest.
+
+
+### skcms baseline transform inventories
+
+`skcms-transform-ops.txt` contains the 79 original work/store stage names in
+header order. The independent transform audit compares it and the Rust numeric
+carriers to the actual pinned headers, including every one of the 42 pixel and
+three alpha formats. It captures all 151,592 generated transform requests and
+both complete original observations as artifacts. `skcms-transform-preflight.requests.gz` freezes every one of the original
+11,448 preflight inputs; the adjacent JSON manifest records its hashes and all
+148 initial failure indices/request hashes. The audit requires every frozen
+input in the expanded generators and compares their original words under the
+recorded native configuration. Formats/tails, CICP/profile, Lab, alias and
+exceptional regressions remain in the expanded generators. All half words and integer halfway neighbors supplement
+that corpus; they do not replace earlier failures.
+
+`skcms-transform-native-arm64.tsv` stores 16 independent actual-original
+observations, including source-defined partially initialized contexts. Its JSON
+manifest records platform, compiler, pins and the fixture hash. These retained
+numeric captures apply to the macOS ARM baseline; native CI independently
+captures its own target and compares both original graphs. No Rust output is
+used to produce a source fixture.
+
+
+### Default CMS retained inputs and native observations
+
+`default-cms-matrix-inputs.bin` retains the initial 4,096 MatrixProduct inputs,
+including actual input/output aliases. Each 52-byte record is thirteen
+little-endian u32 words: nine float matrix words, three float input words and
+the alias flag. The file contains inputs only.
+
+`default-cms-preflight.json` records the fixture hash, every initial failed
+index, deterministic request hashes and the initial source-observation hashes
+for the recorded native configuration. The generators reproduce all initial
+public/profile/row/CICP/transfer/prefix/callback/numeric inputs byte-for-byte.
+The independent audit requires those inputs everywhere and compares every
+returned word with both actual native source graphs; architecture-scoped hashes
+never substitute one platform's source words for another's.
+
+`default-cms-native-arm64.tsv` stores 16 independent actual-source observations
+covering interface/guards, profile rows, private arithmetic, partial contexts,
+callback mutation and retained initial failures. The adjacent JSON records its
+pins, native compiler/platform and hash. Its Rust test invokes no C++ process;
+the independent audit reconstructs the captures from both actual source graphs.
+An additional 88,064 MatrixProduct cases retain exceptional coefficients,
+competing NaN inputs and original in-place write order in both source graphs.
+`skcms-concat-paired-nan.requests` adds 432 defined inputs: every matrix output
+cell and product term, crossed with four signed quiet/signaling NaN words in
+both multiplicands. `skcms-concat-paired-nan-arm.words` records the actual native
+ARM ordinary/ASan outputs as 432 matrices of nine row-major little-endian u32
+float words. Both original graphs independently produce the same bytes; the
+adjacent manifest records source bindings, numeric options and command/object
+hashes. The source audit
+reproduces the inputs and native captures. These inputs supplement every old
+concatenation request; native x86 output words are independently validated.
+
+`skcms-concat-paired-nan-x86.words` retains independently captured native Linux
+words from run 41550202739's original declaration-only concat configuration.
+`skcms-concat-x86-source-config.json` records the source/artifact hashes and all
+48 changed paired-NaN observations per graph. No finite or prior observation
+changed. The isolated complete-body observer must reproduce these captures.

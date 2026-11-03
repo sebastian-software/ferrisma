@@ -110,9 +110,20 @@ def build_oracle(sanitizers):
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
         f"-DORACLE_SANITIZERS={'ON' if sanitizers else 'OFF'}")
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
-    from skcms_parser_reference import build_private
-    build_private(build)
-    env = dict(os.environ, JXL_CPP_ORACLE=str(build / "jxl_oracle"))
+    from skcms_fitting_reference import build_private as build_fitting_private
+    from skcms_parser_reference import build_private as build_parser_private
+    from skcms_transform_reference import build_private as build_transform_private
+    from default_cms_reference import build_contexts as build_default_cms_contexts
+    transform_helper = build_transform_private(build)
+    helper = build_fitting_private(build)
+    build_parser_private(build)
+    default_cms_public, default_cms_private = build_default_cms_contexts(build)
+    env = dict(os.environ, JXL_CPP_ORACLE=str(build / "jxl_oracle"),
+               JXL_SKCMS_FITTING_ORACLE=str(helper),
+               JXL_SKCMS_TRANSFORM_ORACLE=str(transform_helper),
+               JXL_DEFAULT_CMS_ORACLE=str(default_cms_public),
+               JXL_DEFAULT_CMS_PRIVATE_ORACLE=str(default_cms_private),
+               JXL_DEFAULT_CMS_CAPTURE=str(build / "default-cms-corpus"))
     env.update(prepare_brotli_observers(sanitizers))
     return env
 
