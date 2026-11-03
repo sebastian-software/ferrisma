@@ -1,6 +1,8 @@
 # Portable libaom port
 
-Status: full standalone acceptance is in progress. All 168 portable C
+Status: native Linux Release and focused Debug acceptance passes under
+ADR 0048; native macOS completion and final root integration are pending.
+All 168 portable C
 translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug and
 Release, with a raw Rust API and passing focused native comparisons. Before
 the input-alignment correction in ADR 0046, the explicit root candidate passed
@@ -521,6 +523,21 @@ with those from the complete continuation pair.
 The rejected inventory and a real download of an omitted original partition are
 recorded in
 [`aom-artifact-pagination-validation.json`](aom-artifact-pagination-validation.json).
+
+The corrected native Linux collection, run 41690098163, passes the complete
+Release gate: all 17,228 active main registrations with 23 matching dynamic
+skips, all 38 rate-control cases, and the unchanged 38 disabled speed
+registrations with no enabled execution. Its focused Debug proof covers all
+69 selected original cases. The downloaded artifact was checked against its
+GitHub ZIP digest; every paired report was compared with actual C/Rust XML,
+ordered original case identities, frozen binaries, source/configuration and
+fixture identities. The 14 reused source pairs, 106 continuation main pairs,
+classified original rate-control failure, and successful fixture repair remain
+preserved. Exact evidence hashes and the independent ABI/oracle checkpoint are
+recorded in
+[`aom-linux-release-acceptance.json`](aom-linux-release-acceptance.json).
+This completes the native Linux gate. Native macOS completion and final
+default root validation are still required before changing the default.
 
 The hosted `macos-26` build now passes both original profiles and verifies
 18,207 Debug / 18,157 Release named record instances with 204,984 / 204,684
