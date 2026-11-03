@@ -60,16 +60,22 @@ impl F {
         #[cfg(target_arch = "x86_64")]
         // SAFETY: SSE2 is a required x86_64 baseline feature; conversion retains its native result.
         unsafe {
-            return std::mem::transmute(std::arch::x86_64::_mm_cvttps_epi32(std::mem::transmute(
-                self.0,
-            )));
+            return std::mem::transmute::<std::arch::x86_64::__m128i, [i32; 4]>(
+                std::arch::x86_64::_mm_cvttps_epi32(std::mem::transmute::<
+                    [f32; 4],
+                    std::arch::x86_64::__m128,
+                >(self.0)),
+            );
         }
         #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
         self.0.map(|v| v as i32)
     }
-    #[expect(
-        clippy::needless_return,
-        reason = "Keep target-selected intrinsic branches explicit."
+    #[cfg_attr(
+        target_arch = "aarch64",
+        expect(
+            clippy::needless_return,
+            reason = "Keep target-selected intrinsic branches explicit."
+        )
     )]
     fn u32(self) -> [u32; 4] {
         #[cfg(target_arch = "aarch64")]
@@ -88,9 +94,12 @@ impl F {
     fn fixed(self) -> [u32; 4] {
         (self + 0.5).i32().map(|v| v as u32)
     }
-    #[expect(
-        clippy::needless_return,
-        reason = "Keep target-selected intrinsic branches explicit."
+    #[cfg_attr(
+        target_arch = "aarch64",
+        expect(
+            clippy::needless_return,
+            reason = "Keep target-selected intrinsic branches explicit."
+        )
     )]
     fn floor(self) -> Self {
         #[cfg(target_arch = "aarch64")]
@@ -109,9 +118,12 @@ impl F {
             roundtrip - Self::select(roundtrip.greater(self), Self::ONE, Self::ZERO)
         }
     }
-    #[expect(
-        clippy::needless_return,
-        reason = "Keep target-selected intrinsic branches explicit."
+    #[cfg_attr(
+        target_arch = "aarch64",
+        expect(
+            clippy::needless_return,
+            reason = "Keep target-selected intrinsic branches explicit."
+        )
     )]
     fn min(self, y: Self) -> Self {
         #[cfg(target_arch = "aarch64")]
@@ -128,9 +140,12 @@ impl F {
         #[cfg(not(target_arch = "aarch64"))]
         Self::select(self.greater(y), y, self)
     }
-    #[expect(
-        clippy::needless_return,
-        reason = "Keep target-selected intrinsic branches explicit."
+    #[cfg_attr(
+        target_arch = "aarch64",
+        expect(
+            clippy::needless_return,
+            reason = "Keep target-selected intrinsic branches explicit."
+        )
     )]
     fn max(self, y: Self) -> Self {
         #[cfg(target_arch = "aarch64")]
@@ -147,9 +162,12 @@ impl F {
         #[cfg(not(target_arch = "aarch64"))]
         Self::select(self.less(y), y, self)
     }
-    #[expect(
-        clippy::needless_return,
-        reason = "Keep target-selected intrinsic branches explicit."
+    #[cfg_attr(
+        target_arch = "aarch64",
+        expect(
+            clippy::needless_return,
+            reason = "Keep target-selected intrinsic branches explicit."
+        )
     )]
     fn madd(self, b: Self, c: Self) -> Self {
         #[cfg(target_arch = "aarch64")]
@@ -178,7 +196,7 @@ macro_rules! arithmetic {
             unsafe {return Self(std::mem::transmute::<std::arch::aarch64::float32x4_t, [f32; 4]>(std::arch::aarch64::$arm(std::mem::transmute::<[f32; 4], std::arch::aarch64::float32x4_t>(self.0),std::mem::transmute::<[f32; 4], std::arch::aarch64::float32x4_t>(rhs.0))));}
             #[cfg(target_arch="x86_64")]
             // SAFETY: SSE is required on x86_64; both operands have exactly 128 bits.
-            unsafe {return Self(std::mem::transmute(std::arch::x86_64::$sse(std::mem::transmute(self.0),std::mem::transmute(rhs.0))));}
+            unsafe {return Self(std::mem::transmute::<std::arch::x86_64::__m128, [f32; 4]>(std::arch::x86_64::$sse(std::mem::transmute::<[f32; 4], std::arch::x86_64::__m128>(self.0),std::mem::transmute::<[f32; 4], std::arch::x86_64::__m128>(rhs.0))));}
             #[cfg(not(any(target_arch="aarch64",target_arch="x86_64")))]
             Self(std::array::from_fn(|i|self.0[i] $op rhs.0[i]))
         }}

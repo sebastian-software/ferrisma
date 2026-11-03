@@ -131,7 +131,8 @@ def configuration(build, directory):
         body = text[start:end] + '\n'
         if hashlib.sha256(body.encode()).hexdigest() != fragment['sha256']:
             raise RuntimeError('Complete original concat extraction changed')
-        notice = ''.join(text.splitlines(keepends=True)[:5])
+        # skcms.cc starts with a complete six-line block-comment notice.
+        notice = text[:text.index('*/') + 2] + '\n'
         expected = notice + f'#line {text[:start].count(chr(10)) + 1} {json.dumps(str(source_path))}\n' + body
         generated = build / 'generated' / fragment['output']
         if generated.read_text() != expected:
