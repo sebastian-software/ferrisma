@@ -128,8 +128,11 @@ def build_oracle(sanitizers):
     return env
 
 
-def check_tests(env, partition):
+def check_tests(env, partition, filter):
     test = ["cargo", "test", "--locked", "--offline", "--profile", "checked", "--all-features"]
+    if filter is not None:
+        run(*test, "--", "--nocapture", filter, env=env)
+        return
     if partition is None:
         run(*test, "--", "--nocapture", env=env)
         return
@@ -163,14 +166,18 @@ def main():
                              "oracle: build the selected C++ reference only; test: oracle and checked-profile tests")
     parser.add_argument("--partition", type=partition, metavar="K/N",
                         help="Run only the K-th of N disjoint subsets of test names")
+    parser.add_argument("--filter", metavar="NAME",
+                        help="Run only the tests whose names contain NAME, for example to write an audit's capture")
     args = parser.parse_args()
+    if args.partition is not None and args.filter is not None:
+        parser.error("--partition and --filter are mutually exclusive")
     check_source()
     if args.stage in ("all", "static"):
         check_static(args.msrv)
     if args.stage in ("all", "oracle", "test"):
         env = build_oracle(args.sanitizers)
     if args.stage in ("all", "test"):
-        check_tests(env, args.partition)
+        check_tests(env, args.partition, args.filter)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 

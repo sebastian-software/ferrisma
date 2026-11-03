@@ -122,7 +122,9 @@ Rust memory safety. The current platform evidence is listed in
 `--stage` runs one part of the check: `static` needs no C++ toolchain, `oracle`
 only builds the selected reference graph, and `test` builds it and runs the
 tests. `--partition K/N` runs the K-th of N disjoint subsets of the test names,
-so N jobs together run every test exactly once.
+so N jobs together run every test exactly once. `--filter NAME` runs only the
+tests whose names contain `NAME`. The default CMS audit replays the requests
+that `--stage test --filter default_cms::` captures for each oracle graph.
 
 Focused checks:
 
@@ -141,17 +143,27 @@ outside the current parity contract.
 
 GitHub Actions runs the checks in two tiers:
 
-- The fast gate runs for every pull request on Linux: the static stage with the
-  MSRV compile check, and the `checked` tests against the ordinary oracle in
-  four partitions. Pull requests reuse a cached oracle build whose key covers
-  the submodule revision, `tools/oracle`, the check tools, and the compiler.
+- The fast gate runs on Linux for every pull request and every push to `main`:
+  the static stage with the MSRV compile check, and the `checked` tests against
+  the ordinary oracle in four partitions. It reuses a cached oracle build whose
+  key covers the submodule revision, `tools/oracle`, the check tools, and the
+  compiler.
 - The deep gate adds macOS, the ASan/UBSan oracle on both systems, and every
-  original-source audit, each in its own parallel job. It runs for the merge
-  queue, on pushes to `main`, on manual dispatch, and for pull requests labeled
-  `deep-ci`. These runs build every oracle from source.
+  original-source audit, each in its own parallel job. It runs nightly on
+  `main` and on manual dispatch, and builds every oracle from source. A failed
+  nightly run opens an issue titled "Nightly deep check failed", or comments on
+  the open one. Fix such a failure forward in a new pull request.
 
-The `Checks passed` job summarizes both tiers and is the single required status
-check. A local result does not imply that those hosted jobs have run.
+The `Checks passed` job summarizes the jobs of a run and is the single required
+status check for pull requests. To run the deep gate on a branch before
+merging, for example after changing an oracle or a sanitizer setting, start it
+manually:
+
+```sh
+gh workflow run check.yml --ref <branch>
+```
+
+A local result does not imply that those hosted jobs have run.
 
 The minimum supported Rust version trails stable by about four releases, or
 about six months. Raise it deliberately at regular intervals in its own change:

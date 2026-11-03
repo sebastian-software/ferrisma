@@ -25,13 +25,16 @@ graph is the reference behavior, and the ASan/UBSan graph detects undefined
 behavior in the original per case. The audits keep proving that both graphs
 give identical results for defined cases.
 
-Native Linux and macOS CI remains the acceptance gate, and it now runs at merge
-time. A fast pull request tier runs the static checks and the ordinary Linux
-oracle in parallel partitions, reusing an oracle build cached under its exact
-inputs. The deep tier runs both oracle graphs on both systems and every audit in
-parallel jobs, building each oracle from source. It runs for the merge queue, on
-`main`, on demand, and for pull requests labeled `deep-ci`. A change lands on
-`main` only after the deep tier passes, once the merge queue requires it.
+Native Linux and macOS CI remains the acceptance gate, in two tiers. A fast
+tier runs for every pull request and on `main`: the static checks and the
+ordinary Linux oracle in parallel partitions, reusing an oracle build cached
+under its exact inputs. It is the required check before a change lands. The deep
+tier runs both oracle graphs on both systems and every audit in parallel jobs,
+building each oracle from source. It runs nightly on `main` and on demand, so a
+regression that only the instrumented graph, macOS, or an audit detects can
+reach `main` for up to a day. A failed nightly run opens or updates an issue, and
+the fix lands forward. Start the deep tier on a branch before merging a change
+that touches an oracle, a sanitizer, or audit inputs.
 
 Compare encoded bytes and bit counts, decoded values, exact status codes,
 consumed-bit counters, padding, truncation, and finalization behavior. Include

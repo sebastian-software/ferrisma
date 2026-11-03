@@ -1,24 +1,26 @@
 name: Checks
 
-# Two tiers share this workflow. The fast gate runs on every pull request event:
-# static checks, the MSRV compile check, and the checked test profile against
-# the ordinary Linux oracle. The deep gate adds macOS, the ASan/UBSan oracle on
-# both systems, and every audit. It runs for the merge queue, on main, on
-# demand, and for pull requests labeled deep-ci. Jobs test the deep tier with
-#   github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'deep-ci')
+# Two tiers share this workflow. The fast gate runs for every pull request and
+# push to main: static checks, the MSRV compile check, and the checked test
+# profile against the ordinary Linux oracle. The deep gate adds macOS, the
+# ASan/UBSan oracle on both systems, and every audit. It runs nightly on main
+# and on demand, and a failed nightly run opens or updates an issue. Jobs test
+# the deep tier with
+#   github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
-  merge_group:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 2 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# The event name keeps a pending nightly run from being replaced by a push.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -35,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON((github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'deep-ci')) && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        os: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,8 +55,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON((github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'deep-ci')) && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
-        oracle: ${{ fromJSON((github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'deep-ci')) && '["ordinary", "sanitized"]' || '["ordinary"]') }}
+        os: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ordinary", "sanitized"]' || '["ordinary"]') }}
         shard: [1, 2, 3, 4]
         # The ordinary macOS oracle needs a sixth of the sanitized time, so it
         # uses two partitions instead of four.
@@ -81,11 +83,11 @@ jobs:
             echo "$ImageOS $ImageVersion"
           } | tee "$RUNNER_TEMP/oracle-toolchain.txt"
           echo "toolchain=$(shasum -a 256 "$RUNNER_TEMP/oracle-toolchain.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
-      # Pull requests reuse an oracle built from identical inputs. The merge
-      # queue, main, and manual runs always build it from source.
+      # The fast gate reuses an oracle built from identical inputs. Nightly and
+      # manual runs always build it from source.
       - name: Restore the oracle build
         id: restore
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           key: oracle-${{ runner.os }}-${{ runner.arch }}-${{ matrix.oracle }}-${{ steps.inputs.outputs.toolchain }}-${{ hashFiles('upstream.json', 'tools/oracle/**', 'tools/*.py') }}
@@ -114,7 +116,7 @@ jobs:
 
   audit:
     name: Audit (${{ matrix.os }}, ${{ matrix.group }})
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'deep-ci')
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -136,6 +138,12 @@ jobs:
           python3 tools/check.py --stage oracle
           python3 tools/check.py --stage oracle --sanitizers
 
+      # The default CMS audit replays the requests that its parity tests capture.
+      - name: Capture the default CMS parity requests
+        if: matrix.group == 'decoder'
+        run: |
+          python3 tools/check.py --stage test --filter default_cms::
+          python3 tools/check.py --stage test --filter default_cms:: --sanitizers
       - name: Audit the decoder numeric reference configurations
         if: matrix.group == 'decoder'
         run: |
@@ -258,8 +266,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # The single required status check. Skipped deep jobs on an unlabeled pull
-  # request count as passed; any failed or cancelled job fails the gate.
+  # The single required status check. Skipped deep jobs in the fast gate count
+  # as passed; any failed or cancelled job fails the gate.
   checks:
     name: Checks passed
     if: always()
@@ -274,3 +282,35 @@ jobs:
           case " $RESULTS " in
             *" failure "*|*" cancelled "*) exit 1 ;;
           esac
+
+  # A failed nightly run has no pull request to report to, so it keeps one open
+  # issue current instead.
+  report:
+    name: Report the nightly failure
+    if: always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
+    needs: [static, parity, audit]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the nightly failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Nightly deep check failed
+          BODY: |
+            The nightly deep check failed on `main` at ${{ github.sha }}.
+
+            - Static checks: ${{ needs.static.result }}
+            - Tests: ${{ needs.parity.result }}
+            - Audits: ${{ needs.audit.result }}
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == env.TITLE)) | first | .number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

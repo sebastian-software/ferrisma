@@ -245,8 +245,8 @@ optimized `checked` profile, with overflow checks and debug assertions enabled,
 and compile all targets with the minimum Rust version, now 1.95. Results below
 that name Debug, Release and Rust 1.85 test runs record the configurations and
 the minimum version in use at that time. Pull
-requests get a fast Linux gate; both oracle graphs on Linux and macOS and all
-audits run in the deep gate before merges and on `main`, as described in
+requests and `main` get a fast Linux gate; both oracle graphs on Linux and
+macOS and all audits run in the nightly deep gate on `main`, as described in
 [ADR 0002](adr/0002-differential-oracle.md).
 
 Validated on 2026-11-02 on macOS arm64 with Rust 1.99.0 (stable), Rust 1.85.1
