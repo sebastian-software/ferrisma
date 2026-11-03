@@ -640,3 +640,40 @@ arithmetic. Independently captured RGBA buffers include unchanged seeded row
 padding and trailing guards. The source audit binds those entry points to their
 pristine source objects, retains both original graphs' full observations and
 checks that diagnostic relinking changes no active binary or compiled object.
+The JPEG reconstruction writer translates the complete pinned
+jpeg/dec_jpeg_data_writer.cc and its chunk/state headers, plus
+JPEGData::CalculateMcuSize. The oracle calls the actual archive ReadJpeg,
+WriteJpeg and MCU functions; it contains no substitute entropy writer or JPEG
+parser. Deterministic fixture images are encoded by the recorded cjpeg tool,
+then parsed and reconstructed through the original entry points. Generated
+JPEGs, pixel recipe, command options and hashes are recorded under
+[tests/data/jpeg-writer](../tests/data/jpeg-writer/README.md). C++ and cjpeg
+remain explicit test/fixture tools and are not Rust build/runtime dependencies.
+
+The complete JPEG metadata Fields implementation and ICC marker-byte injection
+are derived from `lib/jxl/jpeg/jpeg_data.cc`. `tools/oracle/jpeg_metadata.cc`
+invokes the original archive's JPEGData virtual visitor, ReadJpeg, Bundle
+operations and SetJPEGDataFromICC; it supplies no JPEG or metadata algorithm.
+`tests/data/jpeg-metadata/provenance.json` records four genuine cjpeg files copied
+byte-for-byte from commit `71e353827499a0dba9d95833854d1b347ff54065`, their original
+encoder options and pixel-input hashes, and separately captured original gray
+fields/bundle bytes. The source-only capture script validates those bytes against
+both complete reference graphs and records actual binary/symbol/source evidence.
+The fixtures do not make cjpeg a Rust build or test dependency. The unported
+Brotli decoder remains an explicit dependency boundary rather than an FFI fallback.
+The canonical skcms profile and curve modules translate pinned skcms.cc
+302-325 and 355-1728, together with the reached public/internal header layouts
+and inline profile setters. The original skcms BSD notice is retained verbatim
+in [licenses/SKCMS-BSD-3-Clause.txt](../licenses/SKCMS-BSD-3-Clause.txt).
+Transfer-function and matrix carriers are shared translated dependencies;
+nonlinear fitting and color-transform integration remain separate work.
+
+`tools/oracle/skcms_parser.cc` observes the actual original public parser,
+profile constants and getters. `tools/oracle/skcms_parser_private.cc` includes
+pristine skcms.cc only in a separate test executable to call its actual private
+curve readers, evaluation, linear fitting and identity canonicalization.
+`tools/skcms_parser_reference.py` checks exact compile-command equivalence,
+source pins, archive bindings and whole-public-parser observations in both
+compilation contexts. It retains the complete request inventory, independent
+native captures and original-only arithmetic diagnostics. Ordinary Rust builds
+neither compile nor link these C++ observers.

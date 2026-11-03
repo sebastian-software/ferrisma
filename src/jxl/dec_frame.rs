@@ -365,8 +365,9 @@ fn trace_bundle_writer<'a>(
         original
     }
 }
-struct FrameDecoder<'s, 'm, 'p> {
-    state: &'s mut PassesDecoderState<'m, 'p>,
+// Source frame fields retain their owner independently of the current
+// processing scope's codec-state loan. Field and drop order remain unchanged.
+struct FrameDecoderStorage<'m, 'p> {
     output: FrameOutput<'p, 'm>,
     header: AdmittedHeader<'m>,
     dim: FrameDimensions,
@@ -385,36 +386,46 @@ struct FrameDecoder<'s, 'm, 'p> {
     use_task_id: bool,
     write_trace: Option<FrameWriteTrace>,
 }
+// The processing scope lends disjoint frame and codec state. This view owns
+// no frame payload and ends before the caller accesses either owner again.
+struct FrameDecoder<'s, 'm, 'p> {
+    state: &'s mut PassesDecoderState<'m, 'p>,
+    storage: &'s mut FrameDecoderStorage<'m, 'p>,
+}
+
 impl FrameDecoder<'_, '_, '_> {
     fn init_output(&mut self) -> Status {
-        let h = &self.header.0;
+        let h = &self.storage.header.0;
         initialize_passes_shared_state(h, &mut self.state.shared_storage, false)?;
         self.state.init(h)?;
-        self.modular.init(&self.dim);
+        self.storage.modular.init(&self.storage.dim);
         // The internally constructed output is non-JPEG.
-        self.decoded_dc_global = false;
-        self.decoded_ac_global = false;
-        self.is_finalized = false;
-        self.finalized_dc = false;
-        self.num_sections_done = 0;
-        self.dc_groups.clear();
-        self.dc_groups.resize(self.dim.num_dc_groups, 0);
-        self.passes.clear();
-        self.passes.resize(self.dim.num_groups, 0);
-        self.processed.clear();
-        self.processed.resize(self.toc.len(), 0);
-        self.allocated = false;
+        self.storage.decoded_dc_global = false;
+        self.storage.decoded_ac_global = false;
+        self.storage.is_finalized = false;
+        self.storage.finalized_dc = false;
+        self.storage.num_sections_done = 0;
+        self.storage.dc_groups.clear();
+        self.storage
+            .dc_groups
+            .resize(self.storage.dim.num_dc_groups, 0);
+        self.storage.passes.clear();
+        self.storage.passes.resize(self.storage.dim.num_groups, 0);
+        self.storage.processed.clear();
+        self.storage.processed.resize(self.storage.toc.len(), 0);
+        self.storage.allocated = false;
         Ok(())
     }
     fn process_dc_global(&mut self, reader: &mut BitReader<'_>) -> Status {
         let shared = &mut self.state.shared_storage;
-        if self.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
+        if self.storage.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
             let mut uses_extra_channels = false;
             shared.image_features.patches.borrow_mut().decode(
                 reader,
-                self.dim.xsize_padded,
-                self.dim.ysize_padded,
-                self.header
+                self.storage.dim.xsize_padded,
+                self.storage.dim.ysize_padded,
+                self.storage
+                    .header
                     .0
                     .nonserialized_metadata
                     .unwrap()
@@ -423,13 +434,14 @@ impl FrameDecoder<'_, '_, '_> {
                 &mut uses_extra_channels,
                 &shared.reference_frames.borrow(),
             )?;
-            if self.header.0.upsampling != 1
+            if self.storage.header.0.upsampling != 1
                 && self
+                    .storage
                     .header
                     .0
                     .extra_channel_upsampling
                     .iter()
-                    .any(|&up| up != self.header.0.upsampling)
+                    .any(|&up| up != self.storage.header.0.upsampling)
             {
                 return Err(StatusCode::GenericError);
             }
@@ -437,62 +449,67 @@ impl FrameDecoder<'_, '_, '_> {
             shared.image_features.patches.borrow_mut().clear();
         }
         shared.image_features.splines.borrow_mut().clear();
-        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+        if self.storage.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
             shared
                 .image_features
                 .splines
                 .borrow_mut()
-                .decode(reader, self.dim.xsize * self.dim.ysize)?;
+                .decode(reader, self.storage.dim.xsize * self.storage.dim.ysize)?;
         }
-        if self.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
+        if self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
             super::dec_noise::decode_noise(
                 reader,
                 &mut shared.image_features.noise_params.borrow_mut(),
             )?;
         }
         shared.matrices.decode_dc(reader)?;
-        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
             shared.quantizer.decode(&shared.matrices, reader)?;
             super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
             shared.cmap.decode_dc(reader)?;
             shared.ac_strategy.fill_invalid();
         }
-        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+        if self.storage.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
             let shared = self.state.shared();
             shared
                 .image_features
                 .splines
                 .borrow_mut()
                 .initialize_draw_cache(
-                    self.dim.xsize_upsampled,
-                    self.dim.ysize_upsampled,
+                    self.storage.dim.xsize_upsampled,
+                    self.storage.dim.ysize_upsampled,
                     &shared.cmap.base(),
                 )?;
         }
         let status = self
+            .storage
             .modular
-            .decode_global_info(reader, &self.header.0, false);
+            .decode_global_info(reader, &self.storage.header.0, false);
         if status.is_ok() {
-            self.decoded_dc_global = true;
+            self.storage.decoded_dc_global = true;
         }
         status
     }
     fn process_dc_group(&mut self, g: usize, reader: &mut BitReader<'_>) -> Status {
-        if self.header.0.encoding == FrameEncoding::VAR_DCT
-            && self.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
+        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT
+            && self.storage.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
         {
-            self.modular
-                .decode_var_dct_dc(&self.header.0, g, reader, self.state)?;
+            self.storage.modular.decode_var_dct_dc(
+                &self.storage.header.0,
+                g,
+                reader,
+                self.state,
+            )?;
         }
-        let d = &self.dim;
+        let d = &self.storage.dim;
         let rect = Rect::new(
             (g % d.xsize_dc_groups) * d.dc_group_dim,
             (g / d.xsize_dc_groups) * d.dc_group_dim,
             d.dc_group_dim,
             d.dc_group_dim,
         );
-        self.modular.decode_group(
-            &self.header.0,
+        self.storage.modular.decode_group(
+            &self.storage.header.0,
             rect,
             Some(reader),
             3,
@@ -504,63 +521,69 @@ impl FrameDecoder<'_, '_, '_> {
             false,
             None,
         )?;
-        if self.header.0.encoding == FrameEncoding::VAR_DCT {
-            self.modular
-                .decode_ac_metadata(&self.header.0, g, reader, self.state)?;
-        } else if self.header.0.loop_filter.epf_iters > 0 {
+        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
+            self.storage.modular.decode_ac_metadata(
+                &self.storage.header.0,
+                g,
+                reader,
+                self.state,
+            )?;
+        } else if self.storage.header.0.loop_filter.epf_iters > 0 {
             super::image_ops::fill_image(
-                super::epf::INV_SIGMA_NUM / self.header.0.loop_filter.epf_sigma_for_modular,
+                super::epf::INV_SIGMA_NUM / self.storage.header.0.loop_filter.epf_sigma_for_modular,
                 &mut self.state.sigma.borrow_mut(),
             );
         }
-        self.dc_groups[g] = 1;
+        self.storage.dc_groups[g] = 1;
         Ok(())
     }
     fn prepare_pipeline(&mut self) -> Status {
-        if self.header.0.can_be_referenced() {
-            if let Some(events) = &self.write_trace {
+        if self.storage.header.0.can_be_referenced() {
+            if let Some(events) = &self.storage.write_trace {
                 events.borrow_mut().push(FrameWriteEvent::BundleClear {
                     target: FrameWriteTarget::ReferenceStorage,
                 });
             }
-            *self.state.frame_storage_for_referencing.borrow_mut() =
-                ImageBundle::new(Some(&self.header.0.nonserialized_metadata.unwrap().m));
+            *self.state.frame_storage_for_referencing.borrow_mut() = ImageBundle::new(Some(
+                &self.storage.header.0.nonserialized_metadata.unwrap().m,
+            ));
         }
         // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
         // render_spotcolors=true, render_noise=true. Header admission proves
         // only the explicitly connected filter/transform branches are reachable.
         let num_c = 3 + self
+            .storage
             .header
             .0
             .nonserialized_metadata
             .unwrap()
             .m
             .num_extra_channels as usize;
-        let render_noise = self.header.0.flags & super::frame_header::FLAG_NOISE != 0;
+        let render_noise = self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0;
         let mut builder =
             SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
-        if !self.header.0.chroma_subsampling.is_444() {
+        if !self.storage.header.0.chroma_subsampling.is_444() {
             for c in 0..3 {
-                if self.header.0.chroma_subsampling.h_shift(c) != 0 {
+                if self.storage.header.0.chroma_subsampling.h_shift(c) != 0 {
                     builder.add_stage(Some(
                         super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(c, true),
                     ))?;
                 }
-                if self.header.0.chroma_subsampling.v_shift(c) != 0 {
+                if self.storage.header.0.chroma_subsampling.v_shift(c) != 0 {
                     builder.add_stage(Some(
                         super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(c, false),
                     ))?;
                 }
             }
         }
-        if self.header.0.loop_filter.gab {
+        if self.storage.header.0.loop_filter.gab {
             builder.add_stage(super::render_pipeline::stage_gaborish::get_gaborish_stage(
-                &self.header.0.loop_filter,
+                &self.storage.header.0.loop_filter,
             ))?;
         }
         {
             use super::render_pipeline::stage_epf::{EpfStage, get_epf_stage_shared};
-            let lf = &self.header.0.loop_filter;
+            let lf = &self.storage.header.0.loop_filter;
             if lf.epf_iters >= 3 {
                 builder.add_stage(get_epf_stage_shared(
                     lf,
@@ -583,7 +606,7 @@ impl FrameDecoder<'_, '_, '_> {
                 ))?;
             }
         }
-        let h = &self.header.0;
+        let h = &self.storage.header.0;
         let late_ec_upsample = h.upsampling != 1
             && h.extra_channel_upsampling
                 .iter()
@@ -601,12 +624,13 @@ impl FrameDecoder<'_, '_, '_> {
                 }
             }
         }
-        if self.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
+        if self.storage.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
             builder.add_stage(Some(
                 super::render_pipeline::stage_patches::get_patches_stage_shared(
                     self.state.shared().image_features.patches.clone(),
                     self.state.shared().reference_frames.clone(),
                     &self
+                        .storage
                         .header
                         .0
                         .nonserialized_metadata
@@ -616,7 +640,7 @@ impl FrameDecoder<'_, '_, '_> {
                 ),
             ))?;
         }
-        if self.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
+        if self.storage.header.0.flags & super::frame_header::FLAG_SPLINES != 0 {
             builder.add_stage(Some(Box::new(
                 super::render_pipeline::stage_splines::get_spline_stage_shared(
                     self.state.shared().image_features.splines.clone(),
@@ -651,8 +675,8 @@ impl FrameDecoder<'_, '_, '_> {
                 ),
             ))?;
         }
-        if self.header.0.dc_level != 0 {
-            let slot = self.header.0.dc_level as usize - 1;
+        if self.storage.header.0.dc_level != 0 {
+            let slot = self.storage.header.0.dc_level as usize - 1;
             let original =
                 super::render_pipeline::render_pipeline_stage::WriteToImage3FStage::from_dc_frame(
                     self.state.shared_storage.dc_frames.clone(),
@@ -660,7 +684,7 @@ impl FrameDecoder<'_, '_, '_> {
                 );
             let writer: Box<
                 dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage,
-            > = if let Some(events) = &self.write_trace {
+            > = if let Some(events) = &self.storage.write_trace {
                 Box::new(TracedDcWriter {
                     original,
                     events: events.clone(),
@@ -671,11 +695,14 @@ impl FrameDecoder<'_, '_, '_> {
             };
             builder.add_stage(Some(writer))?;
         }
-        if self.header.0.can_be_referenced() && self.header.0.save_before_color_transform {
+        if self.storage.header.0.can_be_referenced()
+            && self.storage.header.0.save_before_color_transform
+        {
             builder.add_stage(Some(trace_bundle_writer(
                 Box::new(WriteToImageBundleStage::from_owned(
                     self.state.frame_storage_for_referencing.clone(),
                     &self
+                        .storage
                         .header
                         .0
                         .nonserialized_metadata
@@ -683,7 +710,7 @@ impl FrameDecoder<'_, '_, '_> {
                         .m
                         .color_encoding,
                 )),
-                &self.write_trace,
+                &self.storage.write_trace,
                 FrameWriteTarget::ReferenceStorage,
             )))?;
         }
@@ -694,13 +721,13 @@ impl FrameDecoder<'_, '_, '_> {
             "closed metadata has equal source/desired intensity"
         );
         let mut linear = false;
-        if self.header.0.color_transform == ColorTransform::YCBCR {
+        if self.storage.header.0.color_transform == ColorTransform::YCBCR {
             builder.add_stage(Some(super::render_pipeline::stage_ycbcr::get_ycbcr_stage()))?;
-        } else if self.header.0.color_transform == ColorTransform::XYB {
+        } else if self.storage.header.0.color_transform == ColorTransform::XYB {
             builder.add_stage(Some(super::render_pipeline::stage_xyb::get_xyb_stage(info)))?;
             linear = true;
         }
-        if super::blending::needs_blending(&self.header.0) {
+        if super::blending::needs_blending(&self.storage.header.0) {
             if linear {
                 builder.add_stage(Some(
                     super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
@@ -709,13 +736,15 @@ impl FrameDecoder<'_, '_, '_> {
             }
             builder.add_stage(Some(
                 super::render_pipeline::stage_blending::get_blending_stage_shared(
-                    self.header.0.clone(),
+                    self.storage.header.0.clone(),
                     self.state,
                     &info.color_encoding,
                 ),
             ))?;
         }
-        if self.header.0.can_be_referenced() && !self.header.0.save_before_color_transform {
+        if self.storage.header.0.can_be_referenced()
+            && !self.storage.header.0.save_before_color_transform
+        {
             if linear {
                 builder.add_stage(Some(
                     super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
@@ -726,6 +755,7 @@ impl FrameDecoder<'_, '_, '_> {
                 Box::new(WriteToImageBundleStage::from_owned(
                     self.state.frame_storage_for_referencing.clone(),
                     &self
+                        .storage
                         .header
                         .0
                         .nonserialized_metadata
@@ -733,13 +763,14 @@ impl FrameDecoder<'_, '_, '_> {
                         .m
                         .color_encoding,
                 )),
-                &self.write_trace,
+                &self.storage.write_trace,
                 FrameWriteTarget::ReferenceStorage,
             )))?;
         }
         // dec_cache.cc retains coefficients in the immutable metadata owner.
         // The reference writer above observes color before spot rendering.
         for (ec, eci) in self
+            .storage
             .header
             .0
             .nonserialized_metadata
@@ -769,7 +800,7 @@ impl FrameDecoder<'_, '_, '_> {
         if cms.is_some() {
             builder.add_stage(cms)?;
         }
-        let writer = match &self.output {
+        let writer = match &self.storage.output {
             FrameOutput::Borrowed(output) => {
                 WriteToImageBundleStage::from_shared(output, &info.color_encoding)
             }
@@ -779,7 +810,7 @@ impl FrameDecoder<'_, '_, '_> {
         };
         builder.add_stage(Some(trace_bundle_writer(
             Box::new(writer),
-            &self.write_trace,
+            &self.storage.write_trace,
             FrameWriteTarget::Output,
         )))?;
         self.state.render_pipeline = Some(builder.finalize(self.state.shared().frame_dim)?);
@@ -790,27 +821,29 @@ impl FrameDecoder<'_, '_, '_> {
             .is_initialized()
     }
     fn allocate_output(&mut self) -> Status {
-        if self.allocated {
+        if self.storage.allocated {
             return Ok(());
         }
-        self.modular.maybe_drop_full_image();
-        self.output.borrow_mut().origin = self.header.0.frame_origin;
+        self.storage.modular.maybe_drop_full_image();
+        self.storage.output.borrow_mut().origin = self.storage.header.0.frame_origin;
         self.state
-            .init_for_ac(self.header.0.passes.num_passes as usize)?;
-        self.allocated = true;
+            .init_for_ac(self.storage.header.0.passes.num_passes as usize)?;
+        self.storage.allocated = true;
         Ok(())
     }
     fn prepare_storage(&mut self, threads: usize, tasks: usize) -> Status {
         let size = threads.min(tasks);
-        if size > self.group_caches.len() {
-            self.group_caches.resize_with(size, GroupDecCache::default);
+        if size > self.storage.group_caches.len() {
+            self.storage
+                .group_caches
+                .resize_with(size, GroupDecCache::default);
         }
-        self.use_task_id = threads > tasks;
+        self.storage.use_task_id = threads > tasks;
         // Original full-image VarDCT/noise paths retain group input owners.
         if let Some(p) = &mut self.state.render_pipeline {
-            let use_group_ids = self.modular.uses_full_image()
-                && (self.header.0.encoding == FrameEncoding::VAR_DCT
-                    || self.header.0.flags & super::frame_header::FLAG_NOISE != 0);
+            let use_group_ids = self.storage.modular.uses_full_image()
+                && (self.storage.header.0.encoding == FrameEncoding::VAR_DCT
+                    || self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0);
             p.prepare_for_threads(size, use_group_ids)?;
         }
         self.state
@@ -820,18 +853,20 @@ impl FrameDecoder<'_, '_, '_> {
             .prepare_for_threads(threads)
     }
     fn process_ac_global(&mut self, reader: &mut BitReader<'_>) -> Status {
-        if !self.finalized_dc {
+        if !self.storage.finalized_dc {
             return Err(StatusCode::GenericError);
         }
-        if self.header.0.encoding == FrameEncoding::VAR_DCT {
+        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
             let used = self
                 .state
                 .used_acs
                 .load(std::sync::atomic::Ordering::SeqCst);
             let shared = &mut self.state.shared_storage;
-            shared.matrices.decode(reader, Some(&self.modular))?;
+            shared
+                .matrices
+                .decode(reader, Some(&self.storage.modular))?;
             shared.matrices.ensure_computed(used)?;
-            let bits = super::base::bits::ceil_log2_nonzero(self.dim.num_groups);
+            let bits = super::base::bits::ceil_log2_nonzero(self.storage.dim.num_groups);
             shared.num_histograms = 1 + reader.read_bits(bits) as usize;
             self.state
                 .code
@@ -840,7 +875,7 @@ impl FrameDecoder<'_, '_, '_> {
                 .context_map
                 .resize_with(super::common::MAX_NUM_PASSES, Vec::new);
             let mut max_bits = 0usize;
-            for pass in 0..self.header.0.passes.num_passes as usize {
+            for pass in 0..self.storage.header.0.passes.num_passes as usize {
                 let orders =
                     super::fields::u32_coder::read(super::frame_header::ORDER_ENC, reader) as u16;
                 let start = pass * shared.coeff_order_size;
@@ -862,13 +897,14 @@ impl FrameDecoder<'_, '_, '_> {
                 self.state.context_map[pass].resize(contexts + 16, 0);
                 max_bits = max_bits.max(self.state.code[pass].max_num_bits);
             }
-            max_bits += super::base::bits::ceil_log2_nonzero(self.header.0.passes.num_passes);
+            max_bits +=
+                super::base::bits::ceil_log2_nonzero(self.storage.header.0.passes.num_passes);
             let kind = if max_bits < 16 {
                 super::dct_util::AcType::I16
             } else {
                 super::dct_util::AcType::I32
             };
-            let store = self.header.0.passes.num_passes > 1;
+            let store = self.storage.header.0.passes.num_passes > 1;
             self.state.coefficients = Some(super::dct_util::AcImage::make(
                 kind,
                 if store {
@@ -876,7 +912,11 @@ impl FrameDecoder<'_, '_, '_> {
                 } else {
                     0
                 },
-                if store { self.dim.num_groups } else { 0 },
+                if store {
+                    self.storage.dim.num_groups
+                } else {
+                    0
+                },
             )?);
             if store {
                 self.state.coefficients.as_mut().unwrap().zero_fill();
@@ -892,7 +932,7 @@ impl FrameDecoder<'_, '_, '_> {
         count: usize,
         thread: usize,
     ) -> Status {
-        let d = &self.dim;
+        let d = &self.storage.dim;
         let mut input = self
             .state
             .render_pipeline
@@ -906,10 +946,10 @@ impl FrameDecoder<'_, '_, '_> {
             d.group_dim,
         );
         let mut should_run_pipeline = true;
-        let pass0 = self.passes[g] as usize;
-        if self.header.0.encoding == FrameEncoding::VAR_DCT {
-            self.group_caches[thread].init_once(
-                self.header.0.passes.num_passes as usize,
+        let pass0 = self.storage.passes[g] as usize;
+        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
+            self.storage.group_caches[thread].init_once(
+                self.storage.header.0.passes.num_passes as usize,
                 self.state
                     .used_acs
                     .load(std::sync::atomic::Ordering::SeqCst) as usize,
@@ -927,12 +967,12 @@ impl FrameDecoder<'_, '_, '_> {
                 quant_biases: &self.state.output_encoding_info.opsin_params.quant_biases,
             };
             let result = super::dec_group::decode_ac_group_pixels(
-                &self.header.0,
+                &self.storage.header.0,
                 &mut pass_readers,
                 std::num::NonZeroUsize::new(count).unwrap(),
                 g,
                 group_state,
-                &mut self.group_caches[thread],
+                &mut self.storage.group_caches[thread],
                 &mut input,
                 pass0,
                 false,
@@ -945,10 +985,10 @@ impl FrameDecoder<'_, '_, '_> {
         }
         let mut ready = false;
         for i in pass0..pass0 + count {
-            let (min, max) = self.header.0.passes.get_downsampling_bracket(i);
+            let (min, max) = self.storage.header.0.passes.get_downsampling_bracket(i);
             let mut pass_ready = true;
-            self.modular.decode_group(
-                &self.header.0,
+            self.storage.modular.decode_group(
+                &self.storage.header.0,
                 rect,
                 Some(&mut readers[indices[i]].reader),
                 min,
@@ -964,28 +1004,29 @@ impl FrameDecoder<'_, '_, '_> {
                 ready = true;
             }
         }
-        self.passes[g] = self.passes[g].wrapping_add(count as u8);
-        if self.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
+        self.storage.passes[g] = self.storage.passes[g].wrapping_add(count as u8);
+        if self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
             super::dec_noise::prepare_noise_input(
                 self.state.visible_frame_index,
                 self.state.nonvisible_frame_index,
-                &self.dim,
-                &self.header.0,
+                &self.storage.dim,
+                &self.storage.header.0,
                 g,
                 &mut input,
             );
         }
-        if !self.modular.uses_full_image() && should_run_pipeline && ready {
+        if !self.storage.modular.uses_full_image() && should_run_pipeline && ready {
             input.done()?;
         }
         Ok(())
     }
     fn mark_sections(&mut self, sections: &[Section<'_>], statuses: &[SectionStatus]) {
-        self.num_sections_done = self.num_sections_done.wrapping_add(sections.len());
+        self.storage.num_sections_done =
+            self.storage.num_sections_done.wrapping_add(sections.len());
         for (section, status) in sections.iter().zip(statuses) {
             if *status != SectionStatus::Done {
-                self.processed[section.id] = 0;
-                self.num_sections_done = self.num_sections_done.wrapping_sub(1);
+                self.storage.processed[section.id] = 0;
+                self.storage.num_sections_done = self.storage.num_sections_done.wrapping_sub(1);
             }
         }
     }
@@ -1001,16 +1042,20 @@ impl FrameDecoder<'_, '_, '_> {
         statuses.fill(SectionStatus::Skipped);
         let mut dc_global = num;
         let mut ac_global = num;
-        let mut dc = vec![num; self.dim.num_dc_groups];
-        let mut ac = vec![vec![num; self.header.0.passes.num_passes as usize]; self.dim.num_groups];
-        let mut desired = vec![0; self.dim.num_groups];
-        let single = self.dim.num_groups == 1 && self.header.0.passes.num_passes == 1;
+        let mut dc = vec![num; self.storage.dim.num_dc_groups];
+        let mut ac = vec![
+            vec![num; self.storage.header.0.passes.num_passes as usize];
+            self.storage.dim.num_groups
+        ];
+        let mut desired = vec![0; self.storage.dim.num_groups];
+        let single =
+            self.storage.dim.num_groups == 1 && self.storage.header.0.passes.num_passes == 1;
         if single {
             if num != 1 || sections[0].id != 0 {
                 return Err(StatusCode::GenericError);
             }
-            if self.processed[0] == 0 {
-                self.processed[0] = 1;
+            if self.storage.processed[0] == 0 {
+                self.storage.processed[0] = 1;
                 ac[0].resize(1, num);
                 dc_global = 0;
                 ac_global = 0;
@@ -1021,13 +1066,13 @@ impl FrameDecoder<'_, '_, '_> {
                 statuses[0] = SectionStatus::Duplicate;
             }
         } else {
-            let ac_global_index = self.dim.num_dc_groups + 1;
+            let ac_global_index = self.storage.dim.num_dc_groups + 1;
             for i in 0..num {
                 let id = sections[i].id;
-                if id >= self.processed.len() {
+                if id >= self.storage.processed.len() {
                     return Err(StatusCode::GenericError);
                 }
-                if self.processed[id] != 0 {
+                if self.storage.processed[id] != 0 {
                     statuses[i] = SectionStatus::Duplicate;
                     continue;
                 }
@@ -1039,19 +1084,21 @@ impl FrameDecoder<'_, '_, '_> {
                     ac_global = i;
                 } else {
                     let idx = id - ac_global_index - 1;
-                    let g = idx % self.dim.num_groups;
-                    let p = idx / self.dim.num_groups;
-                    if p >= self.header.0.passes.num_passes as usize {
+                    let g = idx % self.storage.dim.num_groups;
+                    let p = idx / self.storage.dim.num_groups;
+                    if p >= self.storage.header.0.passes.num_passes as usize {
                         return Err(StatusCode::GenericError);
                     }
                     ac[g][p] = i;
                 }
-                self.processed[id] = 1;
+                self.storage.processed[id] = 1;
             }
             for g in 0..ac.len() {
                 let mut j = 0;
-                while j + (self.passes[g] as usize) < self.header.0.passes.num_passes as usize {
-                    if ac[g][j + self.passes[g] as usize] == num {
+                while j + (self.storage.passes[g] as usize)
+                    < self.storage.header.0.passes.num_passes as usize
+                {
+                    if ac[g][j + self.storage.passes[g] as usize] == num {
                         break;
                     }
                     j += 1;
@@ -1072,7 +1119,7 @@ impl FrameDecoder<'_, '_, '_> {
                 SectionStatus::Partial
             };
         }
-        if self.decoded_dc_global {
+        if self.storage.decoded_dc_global {
             for i in 0..dc.len() {
                 if dc[i] != num {
                     self.process_dc_group(i, &mut sections[dc[i]].reader)?;
@@ -1080,45 +1127,45 @@ impl FrameDecoder<'_, '_, '_> {
                 }
             }
         }
-        if !self.dc_groups.contains(&0) && !self.finalized_dc {
+        if !self.storage.dc_groups.contains(&0) && !self.storage.finalized_dc {
             self.prepare_pipeline()?;
-            if self.header.0.encoding == FrameEncoding::VAR_DCT
-                && self.header.0.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0
-                && self.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
+            if self.storage.header.0.encoding == FrameEncoding::VAR_DCT
+                && self.storage.header.0.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0
+                && self.storage.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
             {
                 let shared = &mut self.state.shared_storage;
                 super::compressed_dc::adaptive_dc_smoothing(
                     shared.quantizer.mul_dc(),
                     &mut shared.dc_storage,
-                    &self.header.0.chroma_subsampling,
+                    &self.storage.header.0.chroma_subsampling,
                 )?;
             }
-            self.finalized_dc = true;
+            self.storage.finalized_dc = true;
             self.allocate_output()?;
         }
-        if self.finalized_dc && ac_global != num && !self.decoded_ac_global {
+        if self.storage.finalized_dc && ac_global != num && !self.storage.decoded_ac_global {
             self.process_ac_global(&mut sections[ac_global].reader)?;
-            self.decoded_ac_global = true;
+            self.storage.decoded_ac_global = true;
             statuses[ac_global] = SectionStatus::Done;
         }
-        if self.decoded_ac_global {
+        if self.storage.decoded_ac_global {
             for (g, &count) in desired.iter().enumerate() {
                 if count != 0 {
                     self.state.render_pipeline.as_mut().unwrap().clear_done(g);
                 }
             }
-            self.prepare_storage(1, self.passes.len())?;
+            self.prepare_storage(1, self.storage.passes.len())?;
             for g in 0..ac.len() {
                 if desired[g] == 0 {
                     continue;
                 }
-                let first = self.passes[g] as usize;
+                let first = self.storage.passes[g] as usize;
                 for i in 0..desired[g] {
                     if ac[g][first + i] == num {
                         return Err(StatusCode::GenericError);
                     }
                 }
-                let thread = if self.use_task_id { g } else { 0 };
+                let thread = if self.storage.use_task_id { g } else { 0 };
                 self.process_ac_group(g, sections, &ac[g], desired[g], thread)?;
                 for i in 0..desired[g] {
                     statuses[ac[g][first + i]] = SectionStatus::Done;
@@ -1129,48 +1176,49 @@ impl FrameDecoder<'_, '_, '_> {
         Ok(())
     }
     fn finalize_frame(&mut self) -> Status {
-        if self.is_finalized {
+        if self.storage.is_finalized {
             return Err(StatusCode::GenericError);
         }
-        self.is_finalized = true;
-        self.modular.finalize_decoding(
-            &self.header.0,
+        self.storage.is_finalized = true;
+        self.storage.modular.finalize_decoding(
+            &self.storage.header.0,
             &self.state.shared_storage,
             self.state.render_pipeline.as_mut().unwrap(),
             true,
         )?;
-        if self.header.0.can_be_referenced() {
+        if self.storage.header.0.can_be_referenced() {
             let mut references = self.state.shared_storage.reference_frames.borrow_mut();
-            let info = &mut references[self.header.0.save_as_reference as usize];
+            let info = &mut references[self.storage.header.0.save_as_reference as usize];
             info.frame
                 .as_deref_mut()
                 .expect("source requires an existing reference bundle")
                 .move_from(&mut self.state.frame_storage_for_referencing.borrow_mut());
-            if let Some(events) = &self.write_trace {
+            if let Some(events) = &self.storage.write_trace {
                 events
                     .borrow_mut()
                     .push(FrameWriteEvent::BundleMoveToReference {
-                        slot: self.header.0.save_as_reference as usize,
+                        slot: self.storage.header.0.save_as_reference as usize,
                     });
             }
-            info.ib_is_in_xyb = self.header.0.save_before_color_transform;
+            info.ib_is_in_xyb = self.storage.header.0.save_before_color_transform;
         }
         Ok(())
     }
     fn has_everything(&self) -> bool {
-        self.decoded_dc_global
-            && self.decoded_ac_global
-            && !self.dc_groups.contains(&0)
+        self.storage.decoded_dc_global
+            && self.storage.decoded_ac_global
+            && !self.storage.dc_groups.contains(&0)
             && self
+                .storage
                 .passes
                 .iter()
-                .all(|&pass| pass >= self.header.0.passes.num_passes as u8)
+                .all(|&pass| pass >= self.storage.header.0.passes.num_passes as u8)
     }
     fn references(&self) -> i32 {
-        if self.is_finalized || !self.has_everything() {
+        if self.storage.is_finalized || !self.has_everything() {
             return 0;
         }
-        let h = &self.header.0;
+        let h = &self.storage.header.0;
         let mut result = 0;
         if h.frame_type == FrameType::REGULAR || h.frame_type == FrameType::SKIP_PROGRESSIVE {
             let cropped = h.custom_size_or_origin;
@@ -1468,8 +1516,7 @@ fn decode_frame_into<'m, 'p>(
                 return Err(e);
             }
         };
-        let mut decoder = FrameDecoder {
-            state,
+        let mut storage = FrameDecoderStorage {
             output,
             header: admitted,
             dim,
@@ -1488,6 +1535,10 @@ fn decode_frame_into<'m, 'p>(
             use_task_id: false,
             write_trace: write_trace.clone(),
         };
+        let mut decoder = FrameDecoder {
+            state,
+            storage: &mut storage,
+        };
         let initialized = decoder.init_output();
         if let Some(trace) = &mut trace {
             trace.output_status = Some(initialized);
@@ -1499,7 +1550,7 @@ fn decode_frame_into<'m, 'p>(
             }
             return Err(e);
         }
-        *copied_header = Some(decoder.header.0.as_ref().clone());
+        *copied_header = Some(decoder.storage.header.0.as_ref().clone());
         let bounds = reader.all_reads_within_bounds();
         if let Some(trace) = &mut trace {
             trace.header_bounds = Some(bounds);
@@ -1521,7 +1572,7 @@ fn decode_frame_into<'m, 'p>(
         let mut sections = Vec::new();
         let mut pos = header_bytes;
         let work = (|| {
-            for (index, entry) in decoder.toc.iter().enumerate() {
+            for (index, entry) in decoder.storage.toc.iter().enumerate() {
                 let end = pos.wrapping_add(entry.size);
                 if end > bytes.len() {
                     return Err(StatusCode::GenericError);
@@ -1544,7 +1595,7 @@ fn decode_frame_into<'m, 'p>(
                 if *status != SectionStatus::Done {
                     return Err(StatusCode::GenericError);
                 }
-                processed_bytes = processed_bytes.wrapping_add(decoder.toc[i].size);
+                processed_bytes = processed_bytes.wrapping_add(decoder.storage.toc[i].size);
             }
             Ok(())
         })();
@@ -1568,8 +1619,8 @@ fn decode_frame_into<'m, 'p>(
         close_ok?;
         if let Some(trace) = &mut trace {
             trace.references = Some(decoder.references());
-            trace.has_decoded_dc = decoder.finalized_dc;
-            trace.has_decoded_all = decoder.toc.len() == decoder.num_sections_done;
+            trace.has_decoded_dc = decoder.storage.finalized_dc;
+            trace.has_decoded_all = decoder.storage.toc.len() == decoder.storage.num_sections_done;
         }
         let finalized = decoder.finalize_frame();
         if let Some(trace) = &mut trace {
@@ -1577,6 +1628,7 @@ fn decode_frame_into<'m, 'p>(
         }
         finalized?;
         decoder
+            .storage
             .output
             .borrow_mut()
             .set_decoded_bytes(processed_bytes);

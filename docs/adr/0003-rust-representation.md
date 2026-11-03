@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-02
+- Updated: 2026-11-03
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -1371,6 +1371,37 @@ partial/error snapshots use the existing reached-write coverage machinery;
 new Rust-only captures retain every source-initialized planar float word.
 This does not provide JPEG reconstruction, ICC parsing, arbitrary sampling,
 or the public progressive decoder API.
+The scalar EPF stages retain the original filter copy, neighbor/SAD accumulation
+order, high-precision reciprocal and scalar Highway multiplication checkpoints.
+Signed extended-row coordinates convert to block indices at the original source
+points. Sigma binding is either an immutable borrowed plane or the same
+`Rc<RefCell<Plane<f32>>>` owner retained by the decoder. Each row call borrows that
+owner immutably and releases it before return; sigma generation requires an
+exclusive borrow between stage calls. No sigma snapshot or self-reference is
+created, and subsequent source-owner writes remain visible to the existing stage.
+The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
+one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
+original reference configuration in ADR 0002; other target specializations remain
+separate work.
+
+JPEG reconstruction writing retains borrowed marker/tail payloads and owned
+bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
+storage with a separate active prefix length; output callbacks receive None for
+a null source pointer and Some(empty) for retained allocated empty storage.
+The pinned short-write loop decreases length without advancing its pointer;
+the Rust callback lifecycle preserves that behavior rather than repairing it.
+Callback overreporting remains a source programmer-precondition violation.
+The queue is passed alongside a mutable bit-writer borrow instead of storing an
+owner-relative output pointer. Current AC Huffman and padding pointers become
+indices into their existing stable owners; no Huffman tables or JPEG data are
+cloned to resolve borrows. Source-indeterminate storage gets safe initialization
+without assigning meaning to otherwise undefined reads. Variable shifts promote
+coeff_t operands to i32 before shifting, narrowing only at original int16_t
+assignments; source-defined Al16..31 structures remain accepted. The sequential
+extra-zero-run counter likewise retains promoted subtraction followed by int16_t
+narrowing. These standalone writer domains are wider than JPEGData field
+serialization and do not establish validity of an encoded JPEG file.
+
 
 ICC command decoding retains the original fallible PaddedBytes header append
 before inspecting the decoded output size, including zero-size output. Temporary
@@ -1471,3 +1502,159 @@ input pointer/length pairs without copying bytes or introducing unsafe code.
 The source's separate JxlDecoderStatus values are not internal StatusCode errors.
 Transparent-u32 public values follow the existing pixel-format descriptor mapping;
 this component does not yet export C ABI entry points or a decoder object.
+Frame-owned decoder fields stay in `FrameDecoderStorage`, in their original
+field and destruction order. The `FrameDecoder` processing view borrows that
+owner and `PassesDecoderState` separately. This represents the original retained
+frame object and codec-state pointer without retaining an exclusive Rust borrow
+of codec state between processing scopes. The mapping adds no allocation, clone,
+reset, shared-mutation wrapper, or algorithm change. Existing whole-frame calls
+use one scope; the incremental API must end the scope before exposing either
+owner to another API call or callback. Owned vector allocations and render
+references retain their existing identities.
+
+Scalar FromLinearStage and ToLinearStage factories copy only their selected
+operation state. PQ captures the original intensity target; HLG captures the
+source-selected intensity and luminances in HlgOOTF; gamma captures inverse_gamma
+or its reciprocal at construction. Later mutations of OutputEncodingInfo do not
+change the existing stage. Each scalar row loads RGB together, applies the
+original operation order, then stores RGB together. Extras remain ignored and
+horizontal guards run before row access. The legacy sRGB stage/factory and
+existing PQ/sRGB encoding helper bodies remain unchanged.
+
+The general FromLinear factory preserves the source's nullable release return
+for an invalid target. Its source JXL_DEBUG_ABORT programmer-error branch maps
+to a Rust debug assertion; it does not become a codec status. The ToLinear
+factory instead returns an initialized identity operation for an invalid target,
+as in the original. Uninstantiated private template default constructors are not
+introduced as public Rust APIs.
+
+HLG and BT709 double constexpr expressions convert to binary32 at their original
+Set sites. HLG's kA product promotes the original binary32 kInvLog2e constant to
+double before its final conversion. Both vector alternatives are expressed
+before selection, including masked low-input FastLog2f/FastPowf calculations.
+The original FastLog2f explicitly leaves selected negative/NaN approximations
+undefined. This excludes claims about a selected HLG OOTF with negative or NaN
+luminance, raw HLG encoding of NaNs, or selected gamma/BT709 powers of NaNs. It does not exclude valid
+negative inputs selected by the original gamma/BT709 low branches, mirrored HLG
+transfer inputs, or negative HLG channels with positive total luminance; exact
+original cases cover those boundaries. Scalar Highway integer reduction and
+conversion semantics remain those of the existing FastPow helpers. No new
+numeric configuration, unsafe code, or dependency is introduced.
+not receive invented codec semantics.
+
+
+ICCReader owns its ANSCode separately from a code-independent
+ANSSymbolReaderState. The state carrier moves all fifteen non-code fields,
+including the same aligned LZ77 window allocation, into a temporary borrowed
+ANSSymbolReader for each decoding call and moves them back on every Status
+return. Existing borrowed APIs and decoding/checkpoint algorithms are unchanged;
+three reader mode checks now access the source-cached scalar rather than the
+mutable owner mode. This replaces the source's retained code pointers without cloning
+code or windows, reparsing input, self-references, raw aliases or new unsafe
+operations. Native Rust moves transfer the complete reader owner.
+
+Default initialized ANS scalars retain the source values; source-uninitialized
+cached pointers and prefix-selection state are not exposed as fixture data.
+Reset clears only bits_to_skip and decompressed logical size, retaining the code,
+ANS state, index, encoded size and allocations. Init sets the used-bit base after
+its initial EOI check and either parses the original histogram/preamble or skips
+the retained checkpoint distance. Process checkpoints at the original 512-byte
+intervals, restores only ANS state and the logical index on NotEnoughBytes, and
+retains the consumed bit-reader position. Its expansion-ratio and ANS final-state
+guards precede output clearing and UnpredictICC in source order.
+
+Defined decompressed writes after a saved index remain observable after rollback;
+they must not be confused with the restored logical index. Fixture callers track
+the initialized physical prefix independently across growth and Reset, including
+the PaddedBytes byte initialized after an allocation copy. They observe only the
+intersection with logical size and initialized LZ77 history, never uninitialized
+capacity or uninitialized cached source pointers. Allocation identity is compared while
+capacity is unchanged; allocator address reuse after growth is not required.
+Read-only snapshots exist only with the explicit cpp-oracle feature. Cache-mode
+and view-identity observations require a proven Create; source-uninitialized
+default cached mode/pointers are never read by the original observer.
+
+A short input can produce a fatal histogram or preamble error as well as
+NotEnoughBytes. Fixtures retain each original fatal status, complete pre-reset
+state and output; separate caller-recovery sequences explicitly Reset before
+replaying after fatal errors. NotEnoughBytes instead resumes from the saved
+checkpoint without Reset. Process before Init follows its actual source EOI,
+ANS-final-state and empty UnpredictICC path; it does not acquire a fabricated
+initialization error. These component APIs do not admit ICC profiles through the
+complete-file decoder or provide ICC parsing/CMS transforms.
+
+
+A failed histogram parse can change the owner mode before recreating the ANS
+reader while leaving its cached Huffman/ANS tables and configuration entries
+valid. Retain the source use_prefix_code_ scalar from Create in both the reader
+and moved state carrier; never resolve it from the subsequently mutated owner.
+Surviving cached table/config pointers resolve to the same owning array entries,
+including in-place partial updates. Replacement or vector reallocation may
+invalidate a reached source view; an unused stale view does not invalidate an
+otherwise defined call. Additive original fixtures positively execute direct
+Process after fatal Init in both mode-switch directions, independently observing
+the real cached scalar and pointer identities, including a changed unused
+Huffman view while the reached ANS/config arrays remain valid.
+
+Reset midway through an existing stream clears the decompressed logical size
+without resetting its index; Process requires a successful fresh Init before
+reaching those cleared indices again. Custom allocator failures and arbitrary
+invalid caller sequences remain outside these observations. Source-integrity
+audits normalize only the three enumerated cached-mode field accesses and the
+single constructor cache initializer before requiring the previously recorded
+byte-identical decoder/checkpoint body hash.
+
+### JPEG reconstruction metadata fields
+
+The JPEG metadata bundle implements the existing Fields visitor contract on the
+same JpegData owner. Source enum object representation becomes the existing raw
+AppMarkerType wrapper, retaining assignment before enum validation. All vector
+resizes preserve old entries and source value-initialized new entries; byte
+payloads, quant values and coefficients not serialized by VisitFields stay in
+the same owner. Genuine parsed scan fixtures seed only the source-indeterminate
+unused scan-component entries before observing the full owner representation.
+
+Delta-encoded block indices are mutated in place before each visit and restored
+only after that visit succeeds. Explicit modulo-u32 subtraction/addition matches
+the C++ unsigned conversion of last_block_idx+1. The source's different reset
+and extra-zero-run upper-bound comparisons remain distinct. Padding bits append
+to existing storage while tail/intermarker allocations occur only after the
+final table-definition validation. ICC byte injection writes directly into the
+existing marker allocations and retains completed writes on a later error.
+The source fixture reserves real backing for a zero-length ICC vector before
+zero-byte memcpy calls, preserving its logical size and byte contents.
+
+The table-order validation retains original reached-index preconditions. The
+source CanEncode visitor accumulates bit-range errors, so an out-of-range
+Huffman slot can access bool[4] before reporting its error; the source sanitizer
+probe establishes this undefined domain. Safe Rust bounds checks do not invent
+a codec status for that source-undefined call. General DecodeJPEGData remains
+absent until its genuine Brotli streaming dependency is translated. Revisit this
+mapping for the complete metadata payload/coefficients and public decoder API.
+is observed before export without reading unwritten output. Direct output-stage
+callbacks and the public incremental API remain separate unported boundaries.
+
+### Borrowed skcms profiles and active curve storage
+
+The pinned skcms profile representation remains one canonical `#[repr(C)]`
+profile/curve family. A curve's seven-word parametric function starts after its
+32-bit count; the count is not its gamma word. The table branch retains its
+native pointer alignment, padding and two borrowed byte pointers. Explicit
+`MaybeUninit` storage preserves initialized inactive bytes without manufacturing
+values for source-indeterminate bytes. Whole-curve copies transfer raw
+representation bytes and pointer provenance, without cloning table payloads.
+
+ICC parsing retains the original profile-wide memset, individual field writes,
+short-circuit tag reads and partial errors. Raw pointer operations carry an
+explicit initialized-branch, reached-bounds and external-lifetime contract.
+GetTagByIndex keeps the source's literal `idx > tag_count` guard; a physically
+backed `idx == tag_count` request remains observable. Successful parsing does not
+create an owner for ICC bytes, curve tables or color grids. Immutable built-in
+profiles receive a narrowly scoped static wrapper; arbitrary borrowed profiles
+and curves do not gain a general Send/Sync promise.
+
+Scalar curve evaluation and linear fitting retain original float checkpoints,
+output-pointer aliases and write order. Their safety contracts include the
+source's reached signed arithmetic and float-to-integer domain. Positive
+nonrecovering diagnostics classify individual undefined-source requests; they do
+not justify rejecting defined requests merely because their table counts match.

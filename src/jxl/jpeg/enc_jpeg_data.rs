@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Frame subsampling/color selection from lib/jxl/jpeg/enc_jpeg_data.cc.
-//! ICC handling, JPEG serialization, and the remaining encoder are unported.
+//! Encoder ICC/blob detection, Brotli payload serialization, and the remaining
+//! encoder are unported. The JPEGData field bundle is in jpeg_data_fields.
 
 use super::jpeg_data::JpegData;
 use crate::jxl::base::status::{Status, StatusCode};
