@@ -127,3 +127,22 @@ jobs:
             target/skcms-parser-acceptance
             target/jpeg-metadata-acceptance
           if-no-files-found: error
+
+      - name: Audit complete Brotli streaming and API source boundaries
+        if: always()
+        run: |
+          python3 tools/brotli_stream_reference.py --output target/brotli-stream-acceptance
+          python3 tools/brotli_stream_api_reference.py --output target/brotli-stream-api-acceptance
+      - name: Retain Brotli source acceptance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: brotli-source-${{ runner.os }}
+          path: |
+            target/brotli-support/**/report.json
+            target/brotli-stream-acceptance
+            target/brotli-stream-api-acceptance
+            !target/brotli-*-acceptance/**/*.o
+            !target/brotli-*-acceptance/**/*.a
+          if-no-files-found: error
+          retention-days: 7

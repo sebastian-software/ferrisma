@@ -1631,8 +1631,6 @@ probe establishes this undefined domain. Safe Rust bounds checks do not invent
 a codec status for that source-undefined call. General DecodeJPEGData remains
 absent until its genuine Brotli streaming dependency is translated. Revisit this
 mapping for the complete metadata payload/coefficients and public decoder API.
-is observed before export without reading unwritten output. Direct output-stage
-callbacks and the public incremental API remain separate unported boundaries.
 
 ### Borrowed skcms profiles and active curve storage
 
@@ -1658,3 +1656,88 @@ output-pointer aliases and write order. Their safety contracts include the
 source's reached signed arithmetic and float-to-integer domain. Positive
 nonrecovering diagnostics classify individual undefined-source requests; they do
 not justify rejecting defined requests merely because their table counts match.
+The pinned Brotli decoder uses a separate malloc-like allocation contract.
+Each source request owns the actual returned block, including custom callbacks;
+no Rust Vec or Box shadows its state or buffer payload. Owned block descriptors
+move inline without relocating the allocation. Explicit cleanup checkpoints
+execute source-order frees, including null callbacks; Drop is only the unique
+block's matching deallocation backstop. A callback pair is either both absent
+or both present, and mixed pairs fail before any callback. Custom construction
+is unsafe because allocator/free/opaque lifetime, alignment, exclusive ownership,
+null acceptance and no-unwind behavior are caller obligations. No Send or Sync
+implementation is added. Default allocation uses Rust's fallible global
+allocator, without a C runtime dependency. Its zero-byte reservation occupies
+one physical byte, within the source malloc(0) choice of a freeable result;
+custom callbacks always receive the unchanged requested size.
+
+Storage starts as MaybeUninit bytes. Source field writes initialize only their
+reached fields; only the original memset checkpoints initialize complete blocks.
+This preserves bytes seeded by a custom allocator that the source does not
+write. Initialized byte views require a local initialized-range proof. The
+original allocation/layout observer independently records native sizes,
+alignments, selected offsets, callback failure order and null frees under both
+ordinary and complete ASan/UBSan original builds. Native repr(C) field layouts
+must agree with that observation before the decoder state uses these blocks;
+the initial storage support alone does not implement the streaming decoder.
+
+The source Brotli state flags share a C bitfield word with fields and padding
+that StateInit leaves uninitialized. Reading that entire word as a Rust integer
+would be invalid; clearing it would overwrite caller-initialized sentinel bits.
+The AArch64/x86-64 representation candidate therefore performs native raw
+load/mask/store entirely within a small inline-assembly helper over an exclusive,
+aligned four-byte MaybeUninit borrow. Selected-field reads mask and shift before
+returning a Rust scalar and require those field bits to be source-initialized.
+Scratch registers are early outputs, not late outputs; memory effects and x86
+flag clobbers are explicit. Source assignment order is retained individually.
+Other architectures have no guessed bitfield implementation. Before core state
+use, native original C-declaration and real constructor observations must prove
+every field's byte masks, truncation, neighboring sentinel preservation and
+partially initialized selected-field reads on both supported architectures and
+ordinary/instrumented graphs. The 33,664-request proof and actual constructor/assembly observations pass
+against both original graphs and all three Rust profiles on native AArch64 and
+x86-64. The separate raw byte-XOR primitive also passes its complete native
+1,633,984-tuple source/tail proof on both architectures.
+
+
+The complete Brotli streaming state machine retains the actual decoder block
+in `DecoderInstance`, with fixed borrowed-dictionary binding metadata beside
+it. No code/state/ring payload is cloned. Real callable default allocator thunks
+use private size bookkeeping for Rust deallocation; custom callbacks retain
+their exact addresses, sizes, returned backing and free identity. Native C
+`max_align_t` is observed separately from Rust's sufficient payload alignment.
+Default allocation remains fallible and uninitialized. Source cleanup invokes
+null frees at its actual checkpoints, independently from the unique owner's
+backstop cleanup. Helper entry histories remain source preconditions; arbitrary
+partially initialized state is not a new generic API.
+
+Local label enums represent original gotos without changing save/return order.
+Source reader loans transfer the same accumulator, available-bit count and
+input/guard/last positions on the same input anchor, including a guard behind
+next. They do not recalculate these fields through SetInput. Only source-reached
+initialized fields and table slots form Rust scalars. Loans end before allocator,
+free or metadata callbacks; later accesses reload actual native fields.
+`MetadataCallbacksHandle` and `DecoderStateHandle` point to the stable source
+allocation, never the movable Rust sidecar. They convey no ownership/lifetime
+extension and permit only their documented callback-field/getter operations.
+
+The canonical streaming and TakeOutput boundaries use raw caller cursor/size
+pointers. This retains source-defined scalar aliases and original conditional
+loads/stores without holding conflicting Rust references across callbacks or
+native state operations. Returned output pointers remain tied to the actual
+ring allocation; NULL and a non-NULL empty view stay distinct. A byte read needs
+its own initialized-range proof. Speculative memmove copies MaybeUninit object
+representations; raw dictionary views retain actual caller pointer/length and
+allow source-defined late initialization/mutation between loans. They create
+no eager slice or second payload owner. Unknown transform tails use the native
+accepted raw XOR primitive without clearing or truncating source writes.
+
+The default embedded dictionary owns one named static byte array, and every
+source-shaped descriptor/getter points into that same backing. A static
+reference to independently promoted include_bytes expressions did not preserve
+this identity under real Cargo compilation; named storage preserves source
+static initialization without runtime OnceLock or changed bytes. The source's
+default SetDictionaryData no-op remains unchanged. The one-shot stack-owned
+entry cannot be implemented by an extra CreateInstance allocation and stays
+separate until translated. Current state/partial-bit admission is AArch64 and
+x86-64 only. Untested private-state/input aliases receive no equivalence claim;
+proven external I/O and raw scalar aliases retain their source checkpoints.
