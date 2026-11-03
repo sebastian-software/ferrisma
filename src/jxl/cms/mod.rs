@@ -4,6 +4,8 @@ mod icc_description;
 mod icc_math;
 mod icc_md5;
 mod icc_tags;
+pub mod jxl_cms;
+mod jxl_cms_profile;
 pub mod opsin_params;
 pub mod tone_mapping;
 pub mod tone_mapping_scalar;

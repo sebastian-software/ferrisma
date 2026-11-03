@@ -511,6 +511,11 @@ bool RetainedFrameOwnersCommand(const std::string&,std::istringstream&,JxlMemory
 bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 bool DecoderApiCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool SkcmsTransformCommand(const std::string&, std::istringstream&);
+bool SkcmsFittingCommand(const std::string&, std::istringstream&);
+bool SkcmsMatrixCommand(const std::string&, std::istringstream&);
+bool SkcmsTransferCommand(const std::string&, std::istringstream&);
+bool SkcmsParserCommand(const std::string&,std::istringstream&);
 bool IccCodecCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderGeometryCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ChromaImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -521,7 +526,6 @@ bool BlendingStageCommand(const std::string&,std::istringstream&,JxlMemoryManage
 bool JpegWriterCommand(const std::string&,std::istringstream&);
 bool IccReaderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool JpegMetadataCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
-bool SkcmsParserCommand(const std::string&,std::istringstream&);
 bool ToLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool FromLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
@@ -551,6 +555,10 @@ int main() {
       else if (LZ77Command(command, in)) {}
       else if (EncodeEntropyCommand(command, in, &mm)) {}
       else if (CmsCommand(command, in)) {}
+      else if (SkcmsTransformCommand(command, in)) {}
+      else if (SkcmsFittingCommand(command, in)) {}
+      else if (SkcmsTransferCommand(command, in)) {}
+      else if (SkcmsMatrixCommand(command, in)) {}
       else if (MetadataCommand(command, in, &mm)) {}
       else if (FrameCommand(command, in, &mm)) {}
       else if (TocCommand(command, in, &mm)) {}

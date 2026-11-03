@@ -6,7 +6,7 @@
 //! Table storage is borrowed. Raw operations require the source's initialized
 //! branch, storage lifetime, bounds and arithmetic preconditions.
 
-use super::transfer_function::TransferFunction;
+use super::transfer_function::{TransferFunction, eval_raw};
 use std::mem::{MaybeUninit, align_of, size_of};
 use std::ptr;
 
@@ -100,7 +100,8 @@ fn interpolate(l: f32, h: f32, t: f32) -> f32 {
 ///
 /// # Safety
 /// The prefix count and selected source branch must be initialized. A zero
-/// count requires all seven function words. A nonzero count requires initialized
+/// count requires only the function fields reached by classification/evaluation.
+/// A nonzero count requires initialized
 /// table pointers and readable storage for all reached indices; the count/index
 /// arithmetic and float-to-int conversions must be source-defined. Borrowed
 /// bytes must remain live and must not be concurrently mutated during reads.
@@ -108,9 +109,9 @@ pub unsafe fn eval_curve(curve: *const Curve, x: f32) -> f32 {
     // SAFETY: the initialized prefix is common to both source union branches.
     let entries = unsafe { curve.cast::<u32>().read() };
     if entries == 0 {
-        // SAFETY: the selected source parametric branch has seven valid words;
+        // SAFETY: the selected parametric branch initializes its reached fields;
         // this temporary shared view ends before any caller can mutate them.
-        return unsafe { (&*ptr::addr_of!((*curve).parametric.function)).eval(x) };
+        return unsafe { eval_raw(ptr::addr_of!((*curve).parametric.function), x) };
     }
     let ix = fmax(0.0, fmin(x, 1.0)) * (entries - 1) as f32;
     let lo = ix as i32;

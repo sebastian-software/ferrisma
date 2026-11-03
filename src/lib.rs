@@ -6,5 +6,4 @@
 //! The low-level Rust API is not stable.
 
 pub mod jxl;
-
 pub mod skcms;
