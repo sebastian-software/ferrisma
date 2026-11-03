@@ -510,6 +510,17 @@ The Release mode of `aom-original-collect.yml` composes passing original and
 continuation main/speed evidence with a successful guarded repair. It retains
 the original failed workflow conclusion and evidence, rejects any other job
 failure, and still requires the complete Release and focused Debug collectors.
+The first native composition correctly rejected eight missing, already passing
+main partitions: the bulk artifact download had enumerated only the first 100
+of 110 published artifacts. Bulk downloads now explicitly traverse every API
+page, check ZIP digests, preserve existing evidence, and retain per-file hashes.
+Incomplete source-run files remain in a separate staging directory; only the
+source plan's hash-pinned passing pairs enter the composed inventory. This
+preserves the cancelled partial C execution without replacing its XML or logs
+with those from the complete continuation pair.
+The rejected inventory and a real download of an omitted original partition are
+recorded in
+[`aom-artifact-pagination-validation.json`](aom-artifact-pagination-validation.json).
 
 The hosted `macos-26` build now passes both original profiles and verifies
 18,207 Debug / 18,157 Release named record instances with 204,984 / 204,684

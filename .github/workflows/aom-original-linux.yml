@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -130,11 +131,10 @@ jobs:
         with:
           name: aom-original-binaries
           path: build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: aom-original-shard-*
-          merge-multiple: true
-          path: build
+      - name: Download every matching artifact through all API pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/download_aom_artifacts.py --run '${{ github.run_id }}' --pattern 'aom-original-shard-*' --destination build
       - name: Restore the original report directories and executable permissions
         run: |
           for aom_profile in debug release; do

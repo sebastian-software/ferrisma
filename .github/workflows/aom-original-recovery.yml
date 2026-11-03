@@ -162,11 +162,10 @@ jobs:
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: aom-recovery-*
-          merge-multiple: true
-          path: build
+      - name: Download every matching artifact through all API pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/download_aom_artifacts.py --run '${{ github.run_id }}' --pattern 'aom-recovery-*' --destination build
       - name: Verify all original XML and recover only complete original partitions
         run: |
           chmod +x build/aom-native-$AOM_PROFILE/test_libaom

@@ -30,20 +30,19 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - run: python3 tests/ports/aom_release_reuse_test.py
+      - run: |
+          python3 tests/ports/aom_release_reuse_test.py
+          python3 tests/ports/aom_artifact_download_test.py
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: aom-original-binaries
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: aom-original-shard-release-*
-          run-id: ${{ inputs.source_run }}
-          github-token: ${{ github.token }}
-          merge-multiple: true
-          path: build
+      - name: Download every matching artifact through all API pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/download_aom_artifacts.py --run '${{ inputs.source_run }}' --pattern 'aom-original-shard-release-*' --destination build
       - name: Restore executable permissions and verify original fixtures
         run: |
           chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
@@ -136,23 +135,21 @@ jobs:
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: aom-original-shard-release-*
-          run-id: ${{ inputs.source_run }}
-          github-token: ${{ github.token }}
-          merge-multiple: true
-          path: build
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: needs.plan.outputs.has_work == 'true'
-        with:
-          pattern: aom-release-shard-*
-          merge-multiple: true
-          path: build
+      - name: Download every matching artifact through all API pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/download_aom_artifacts.py --run '${{ inputs.source_run }}' --pattern 'aom-original-shard-release-*' --destination build/aom-source-release-evidence
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: aom-release-source-plan
           path: build
+      - name: Project only pinned passing source pairs and retain incomplete originals separately
+        run: python3 tools/project_aom_source_evidence.py
+      - name: Download every matching artifact through all API pages
+        if: needs.plan.outputs.has_work == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/download_aom_artifacts.py --run '${{ github.run_id }}' --pattern 'aom-release-shard-*' --destination build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: aom-focused-debug
@@ -170,7 +167,10 @@ jobs:
           if-no-files-found: error
           path: |
             build/aom-complete-acceptance.json
+            build/aom-artifact-downloads/*/manifest-*.json
             build/aom-release-source-plan.json
+            build/aom-source-release-projection.json
+            build/aom-source-release-evidence/
             build/aom-focused-debug.json
             build/aom-paired-*/
             build/aom-abi-*/summary.json

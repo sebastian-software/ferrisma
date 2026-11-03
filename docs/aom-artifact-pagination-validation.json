@@ -1,0 +1,55 @@
+{
+  "status": "All 106 original continuation ZIPs and a complete actual-XML composition verified locally without executing tests; native recollection pending",
+  "source_run": 41548531529,
+  "continuation_run": 41609941416,
+  "rejected_collection_run": 41684117960,
+  "rejected_collection_artifact_id": 13254726920,
+  "api_artifacts_across_all_pages": 110,
+  "matching_main_artifacts_across_all_pages": 106,
+  "matching_main_artifacts_in_first_100": 98,
+  "missing_original_indices": [
+    14,
+    15,
+    17,
+    20,
+    21,
+    22,
+    24,
+    25
+  ],
+  "missing_registered_cases": 1152,
+  "collector_rejected_incomplete_actual_inventory": true,
+  "new_downloader_smoke": {
+    "original_index": 14,
+    "paired_actual_xml_cases": 144,
+    "original_case_order_and_matching_skips_verified": true,
+    "api_records_enumerated": 110,
+    "zip_digest_checked_against_github_metadata": true
+  },
+  "artifact_download_contract_checks_passed": 7,
+  "codec_original_tests_parameters_assertions_goldens_and_disabled_flags_unchanged": true,
+  "full_native_acceptance": false,
+  "complete_actual_xml_composition_smoke": {
+    "source_passing_pairs_projected": 14,
+    "continuation_artifacts_merged": 106,
+    "all_actual_main_and_rate_control_xml_cases_verified": [
+      {
+        "program": "test_libaom",
+        "paired_actual_xml_cases": 17228,
+        "matching_dynamic_skips": 23,
+        "partitions": 120
+      },
+      {
+        "program": "test_aom_rc",
+        "paired_actual_xml_cases": 38,
+        "matching_dynamic_skips": 0,
+        "partitions": 1
+      }
+    ],
+    "cancelled_source_partial_execution_retained_separately": true,
+    "native_platform_collector_still_required": true,
+    "full_native_acceptance": false
+  },
+  "all_106_continuation_zip_digests_checked_against_github": true,
+  "source_projection_contract_checks_passed": 15
+}
