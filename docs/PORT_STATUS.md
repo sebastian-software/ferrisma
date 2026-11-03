@@ -49,6 +49,17 @@ and skcms parser audits on both platforms. The integrating PR must supply native
 acceptance for this combined tree; earlier individual slice counts below are
 historical and do not describe the combined test inventory.
 
+Both complete local checks pass: `python3 tools/check.py --msrv` and
+`python3 tools/check.py --sanitizers --msrv`. Each of the six Debug, Release and
+Rust 1.85 configurations passes 611 tests, 374 differential groups and 1,455,093
+exact defined comparisons, with zero failures or ignored tests. The independent
+ICCReader, JPEG metadata and skcms parser audits also pass both original graphs:
+2,159 reader histories / 7,894 steps, 11,852 metadata requests and 247,790 parser
+requests. They retain the separate positive original-only diagnostics and verify
+live source bindings without changing active original objects. Rustdoc builds
+with all features and warnings denied. These local ARM results do not substitute
+for the integrating PR's required native Linux/macOS acceptance.
+
 The skcms transfer/matrix work in #35 and its curve-fitting dependent #37 remain
 outside this integration. Native Linux matrix concatenation still fails exact
 comparisons, and original ordinary/instrumented matrix observations disagree.

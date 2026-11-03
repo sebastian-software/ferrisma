@@ -61,7 +61,7 @@ impl TfPq {
 }
 
 /// Original high-precision scalar TF_SRGB::EncodedFromDisplay. The reference
-/// common.h selects JXL_HIGH_PRECISION=1, including FromLinearStage<OpRgb>.
+/// common.h selects JXL_HIGH_PRECISION=1, including `FromLinearStage<OpRgb>`.
 #[allow(clippy::excessive_precision)]
 pub fn srgb_encoded_from_display(value: f32) -> f32 {
     let sign = value.to_bits() & 0x8000_0000;

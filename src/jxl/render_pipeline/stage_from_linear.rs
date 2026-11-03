@@ -1,9 +1,9 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-//! The scalar FromLinearStage<OpRgb> specialization in stage_from_linear.cc,
-//! with the original high-precision TF_SRGB from cms/transfer_functions-inl.h.
-//! The separate original FastLinearToSRGB helper is translated as well.
-//! Complete scalar general factory and all six original transfer operations.
+//! Complete scalar FromLinearStage factory from stage_from_linear.cc,
+//! including the original high-precision `FromLinearStage<OpRgb>` specialization
+//! and all six transfer operations. Transfer helpers follow
+//! cms/transfer_functions-inl.h; FastLinearToSRGB remains a separate helper.
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };
