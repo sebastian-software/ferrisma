@@ -1,5 +1,9 @@
 # Preserve byte-aligned high-bit-depth input validation
 
+[ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md)
+supersedes the full Debug acceptance requirement below. The correction and
+focused alignment regression checks remain required.
+
 Use `core::ptr::read_unaligned` for the single external unsigned-short sample
 load in `validate_img`, in all four selected libaom translation profiles.
 Keep its native byte order, range comparison, bounds, strides, null check,

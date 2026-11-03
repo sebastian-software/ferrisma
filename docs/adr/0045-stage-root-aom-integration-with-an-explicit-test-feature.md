@@ -1,5 +1,9 @@
 # Stage root AOM integration with an explicit test feature
 
+[ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md)
+replaces the full Debug standalone gate below with focused Debug checks.
+The complete native Release and final root integration gates still apply.
+
 Use the temporary `port-aom-candidate` Cargo feature to test the existing
 libavif adapter against the workspace Rust AOM crate while complete standalone
 acceptance is pending. Keep the adapter's translated implementation, public

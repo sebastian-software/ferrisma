@@ -1,5 +1,9 @@
 # Shard complete libaom suites on native standard runners
 
+The complete unoptimized Debug requirement is superseded by
+[ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md).
+The source-preservation and complete Release requirements remain in force.
+
 Keep the full original Debug and Release suites and change their scheduling
 when unoptimized codec execution exceeds practical job budgets. A measured
 local sample of the same first 35 completed C cases took 2,830 seconds in
