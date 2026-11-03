@@ -37,7 +37,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libc++-dev libc++abi-dev
+          # Match the libc++ major version recorded in tools/reference/libcxx.
+          sudo apt-get install -y libc++-22-dev libc++abi-22-dev
       - name: Check the mechanical port
         run: python3 tools/check.py --sanitizers --msrv
       - name: Check the ordinary reference
