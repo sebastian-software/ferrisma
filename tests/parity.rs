@@ -5,6 +5,9 @@
 
 #![cfg(feature = "cpp-oracle")]
 
+#[path = "common/skcms_profile_observation.rs"]
+mod skcms_profile_observation;
+
 use jxl::jxl::base::status::{Status, StatusCode, status_code};
 use jxl::jxl::dec_bit_reader::BitReader;
 use jxl::jxl::enc_aux_out::{AuxOut, LayerType};
@@ -61,6 +64,8 @@ mod decoder_api;
 mod decoder_geometry;
 #[path = "parity/decoder_input.rs"]
 mod decoder_input;
+#[path = "parity/default_cms.rs"]
+mod default_cms;
 #[path = "parity/extra_channels.rs"]
 mod extra_channels;
 #[path = "parity/icc_codec.rs"]
@@ -68,6 +73,8 @@ mod icc_codec;
 #[path = "parity/output_stage.rs"]
 mod output_stage;
 
+#[path = "parity/skcms_transform.rs"]
+mod skcms_transform;
 #[path = "parity/spot_color.rs"]
 mod spot_color;
 
@@ -115,6 +122,13 @@ mod enc_entropy;
 
 #[path = "parity/cms.rs"]
 mod cms;
+
+#[path = "parity/skcms_fitting.rs"]
+mod skcms_fitting;
+#[path = "parity/skcms_matrix.rs"]
+mod skcms_matrix;
+#[path = "parity/skcms_transfer.rs"]
+mod skcms_transfer;
 
 #[path = "parity/metadata.rs"]
 mod metadata;
@@ -838,8 +852,12 @@ fn observe(request: &str) -> String {
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
         kind if decoder_input::handles(kind) => decoder_input::observe(kind, &mut args),
         kind if decoder_api::handles(kind) => decoder_api::observe(kind, &mut args),
+        kind if skcms_transform::handles(kind) => skcms_transform::observe(kind, &mut args),
+        kind if default_cms::handles(kind) => default_cms::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
         kind if decoder_geometry::handles(kind) => decoder_geometry::observe(kind, &mut args),
+        kind if skcms_matrix::handles(kind) => skcms_matrix::observe(kind, &mut args),
+        kind if skcms_transfer::handles(kind) => skcms_transfer::observe(kind, &mut args),
         kind if extra_channels::handles(kind) => extra_channels::observe(kind, &mut args),
         kind if spot_color::handles(kind) => spot_color::observe(kind, &mut args),
         kind if chroma_image::handles(kind) => chroma_image::observe(kind, &mut args),

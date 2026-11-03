@@ -124,5 +124,12 @@
     "end": "\n\nJxlDecoderStatus JxlDecoderSetJPEGBuffer(",
     "sha256": "ec627f3681a7c65cd596cd3359d2eadba57aa3781dc7663321696daf458af455",
     "output": "original_decoder_input_public.inc"
+  },
+  {
+    "path": "third_party/skcms/skcms.cc",
+    "start": "skcms_Matrix3x3 skcms_Matrix3x3_concat(",
+    "end": "\n\n#if defined(__clang__)",
+    "sha256": "8358a075cf4eee85a55fcbc6ff595adc7debaa0d05563984eac9faa49151699b",
+    "output": "original_skcms_concat.inc"
   }
 ]

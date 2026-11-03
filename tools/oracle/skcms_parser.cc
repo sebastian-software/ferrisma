@@ -70,6 +70,8 @@ void Tag(const skcms_ICCTag& tag,const uint8_t* base) {
 }
 }
 
+void SkcmsObserveProfile(const skcms_ICCProfile& value,const uint8_t* base) {Profile(value,base);}
+
 bool SkcmsParserCommand(const std::string& command,std::istringstream& in) {
   if(command.rfind("skcms-profile-",0)!=0) return false;
   if(command=="skcms-profile-layout") {
