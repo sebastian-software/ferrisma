@@ -7,7 +7,7 @@ the input-alignment correction in ADR 0046, the explicit root candidate passed
 libavif Debug, Release, supported-feature, and AddressSanitizer suites. Those
 root checks require final revalidation. Default libavif builds still link native
 libaom while the complete original Release suites, focused Debug checks, and
-remaining correspondence gates run under ADR 0048. Exhaustive unoptimized
+final runtime gates run under ADR 0048. Exhaustive unoptimized
 Debug execution is no longer a default-switch prerequisite.
 
 The first hosted macOS full Debug shard exposed an additional Rust alignment
@@ -158,9 +158,9 @@ Supplemental comparisons in each profile preserve exact output:
 
 Durable results and remaining gates are recorded in
 [`aom-validation-results.json`](aom-validation-results.json). Full-suite
-execution, remaining header-inline and scalar DSP test correspondence, additional
-allocation/thread failure scenarios, broader sanitizer coverage, and
-final default root integration remain open.
+execution and final default root integration, including its focused Debug and
+ASan checks, remain open. The finite source-role review below is closed for
+its declared inventory; complete native execution remains a separate gate.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
 
@@ -199,6 +199,16 @@ generic registrations. Case-name hashes and disabled counts are checked
 against all 18,729 original registrations. The static review assigns no pass
 or runtime-coverage credit. See
 [`aom-scalar-role-review.json`](aom-scalar-role-review.json).
+
+The finite correspondence closure rechecks all 223 listed original file hashes,
+the direct and scalar source hashes, and every classified role. It also verifies
+the actual summaries and both C/Rust XML files for 17 current native Linux
+oracle matrices per profile: 1,089 original independent-oracle cases and 226
+separate supplementary cases. This closes the declared classification review;
+it does not establish complete native acceptance or universal indirect-call or
+runtime-path coverage. Scope, evidence hashes, native-helper boundaries, and
+remaining execution gates are recorded in
+[`aom-subject-oracle-correspondence.json`](aom-subject-oracle-correspondence.json).
 
 Upstream builds `av1/ratectrl_rtc.cc` into the separate `aom_av1_rc` library,
 which it does not install. That optional wrapper is outside the selected

@@ -1,0 +1,63 @@
+{
+  "status": "Finite subject and oracle classification review closed for the declared selected-source inventory",
+  "codec_implementation_commit": "8c978b2b476d593d74ae919c76c0cfb2971b178d",
+  "upstream_source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+  "classification_scope": {
+    "compiler_inventory_target": "aarch64-apple-darwin",
+    "compiler_inventory_profile": "release",
+    "original_cpp_compilation_inputs": 149,
+    "direct_production_header_bindings": 170,
+    "distinct_direct_header_functions": 40,
+    "original_source_and_header_hashes_verified": 223,
+    "included_header_functions": 41,
+    "included_static_sites_and_lookup_candidates": 751,
+    "original_scalar_cpp_inputs": 36,
+    "simd_only_inputs_with_zero_generic_registrations": 16,
+    "unclassified_entries_in_the_declared_inventory": 0,
+    "static_classification_assigns_no_execution_credit": true
+  },
+  "classification_reports_sha256": {
+    "aom-test-bindings-macos-release.json": "35ae33b1607bf817a8b80326d57a2d8cbf7fd85f7c1c996127eee3147c3b8297",
+    "aom-header-role-review.json": "e5e9f8e6f62366adc052e57c72302ef5e6e95be7015cbad0345bf5c20110d39f",
+    "aom-included-header-role-review.json": "57e21d9ed6cfc34f3391734d8c5d3c51140d044348d8c3743e54d24c96e11d24",
+    "aom-scalar-role-review.json": "6eff730f00c2db3ae4eecacd41e11e277a462ca3dd3e5f6f8c4afc532895cb95"
+  },
+  "current_implementation_unchanged_since_verified_oracles": true,
+  "independent_c_oracle_evidence": {
+    "native_run": 41548542987,
+    "artifact_id": 13197737288,
+    "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/41548542987",
+    "profiles": {
+      "debug": {
+        "original_independent_oracle_cases": 1089,
+        "supplementary_cases": 226,
+        "actual_oracle_suite_reports_and_both_xmls_verified": 17
+      },
+      "release": {
+        "original_independent_oracle_cases": 1089,
+        "supplementary_cases": 226,
+        "actual_oracle_suite_reports_and_both_xmls_verified": 17
+      }
+    },
+    "actual_summary_and_c_rust_xml_hashes_verified": true,
+    "exact_c_rust_case_order_matching_and_no_failed_or_skipped_oracle_cases": true,
+    "supplementary_cases_receive_no_original_case_credit": true
+  },
+  "explicit_boundaries": [
+    "Native timers, setup, fixture computations, and expected-output helpers receive no Rust implementation coverage.",
+    "Included template bodies and dependent lookup candidates form a static superset and receive no runtime coverage merely because they appear in the inventory.",
+    "The original directional-prediction null-subject self-copy or early-return cases are preserved; the separate 24-case matrix provides separately identified C/Rust comparison evidence.",
+    "The original optical-flow buffer aliasing is preserved; no distinct-frame original coverage is claimed.",
+    "The native C++ aom_av1_rc wrapper is outside the 168-C-unit archive. Its 38 cases test the Rust codec as a consumer and do not establish a Rust wrapper implementation.",
+    "Original SIMD-only zero-registration inputs remain unchanged; supplementary scalar cases do not add original registrations.",
+    "No universal indirect-call or runtime-path coverage is claimed."
+  ],
+  "remaining_acceptance": {
+    "complete_native_release_execution_and_focused_debug_on_both_platforms": false,
+    "main_active_registrations_per_platform_required": 17228,
+    "original_rate_control_registrations_per_platform_required": 38,
+    "original_disabled_speed_registrations_preserved": 38,
+    "final_root_release_supported_features_focused_debug_asan_ownership_and_strict_parity_required": true,
+    "root_default_engine_switched": false
+  }
+}
