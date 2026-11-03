@@ -6,7 +6,7 @@
 //! never invokes a callback or transfers ownership. ColorEncoding's ICC setters
 //! and ColorSpaceTransform implement the corresponding callback lifecycle;
 //! calls uphold the header's buffer, lifetime, and thread contracts. The
-//! default CMS implementation remains a separate, unported boundary.
+//! default CMS implementation is translated separately in cms::jxl_cms.
 
 use super::color_encoding::JxlColorEncoding;
 use std::ffi::{c_int, c_void};

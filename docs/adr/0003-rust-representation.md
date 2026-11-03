@@ -1632,6 +1632,47 @@ a codec status for that source-undefined call. General DecodeJPEGData remains
 absent until its genuine Brotli streaming dependency is translated. Revisit this
 mapping for the complete metadata payload/coefficients and public decoder API.
 
+Pinned skcms transfer functions and 3x3/3x4 matrix carriers retain their original
+repr(C) field order and float widths. Shared matrix carriers have one canonical
+Rust definition. Transfer inversion and matrix inversion retain initialized
+caller destinations on early failure and every source write on later failure.
+In-place methods snapshot only the initialized input scalars because the source
+loads those scalars before its first destination write; they do not clone an
+ICC buffer or profile owner. Optional mutable matrix destinations represent the
+original null-output guard without creating a Rust reference to null storage.
+
+The original skcms bespoke logarithm, exponential and power approximations are
+translated directly, including constants, integer range reduction, classification
+and signed branches. No standard-library power approximation replaces them.
+Defined float-to-integer conversions keep their original rounding/cast points;
+positively undefined original conversions remain separately diagnosed source
+requests. Explicit native contraction follows the pinned source configuration.
+For ARM matrix inversion, a non-inlined bitwise sign change retains the measured
+FNEG checkpoint before subsequent FMUL/FMADD. This prevents LLVM from moving a
+negation across a NaN-producing operation and changing an initialized output
+word. Two source expressions negate an input before multiplication, while the
+other subtraction sites negate the rounded product. The distinction is retained
+in Debug, Release and Rust 1.85. It changes neither source algebra nor the
+accepted request domain. Revalidate these compiler-dependent details after a
+source, compiler, target or instrumentation change.
+
+
+### skcms fitting output and initialization checkpoints
+
+Curve fitting borrows the canonical raw Curve/table representation and uses
+individual raw output fields at original source checkpoints. No Rust reference
+to caller outputs survives an aliasing write. ApproximateCurve writes infinity
+to the actual max_error slot only after its original guards, rereads that slot
+after possible prior TF assignments, and retains max_error-before-full-TF write
+order. Valid source aliases can target any one actual TF float.
+
+Residual/gradient evaluation reads only g/a/b/c/d/f; e can remain genuinely
+uninitialized. Gauss-Newton writes g, a and b in source order and retains every
+source failure/partial state. Private fit temporaries are initialized without
+adding caller-visible writes; admitted table fitting initializes every reached
+parameter before use. The original eight iterations and saved-best restoration
+remain unchanged. Existing scalar matrix and bespoke TF arithmetic supply the
+source numeric boundaries; fitting does not introduce a different optimizer.
 ### Borrowed skcms profiles and active curve storage
 
 The pinned skcms profile representation remains one canonical `#[repr(C)]`
@@ -1741,3 +1782,116 @@ entry cannot be implemented by an extra CreateInstance allocation and stays
 separate until translated. Current state/partial-bit admission is AArch64 and
 x86-64 only. Untested private-state/input aliases receive no equivalence claim;
 proven external I/O and raw scalar aliases retain their source checkpoints.
+
+### Baseline skcms stages and source-reached initialization
+
+PixelFormat and AlphaFormat use transparent i32 carriers with the original
+numeric named constants. This also represents unnamed, source-defined enum
+values at Release rejection/alpha paths without constructing an invalid Rust
+enum. The internal stage enum retains all 79 original names and numeric values.
+
+Transformation borrows canonical raw profiles, curves, tables and grids. Local
+matrices/functions and temporary profile copies remain live through program
+execution. Raw whole-object copies use MaybeUninit representation storage;
+external pointers never acquire ownership. The source's same-address, different
+width rejection, partial-overlap traversal, guards, error status and profile
+write/cleanup order remain observable. No reference spans a caller-visible
+mutating alias.
+
+The original classifier and selector short-circuit over raw fields. A count-zero
+curve with only g=-129 initialized is valid on its immediate-invalid path.
+Gamma stages read only g; PQ/HLG stages read a..f without reading g. CLUT stages
+read only grid_points[0..input_channels], while both original grid pointers are
+evaluated. Safe transfer methods delegate to the same raw classifier/evaluator
+boundary; their arithmetic bodies remain unchanged. Source memcmp paths still
+require every byte actually compared to be initialized.
+
+The baseline engine retains four lanes, native NEON/SSE arithmetic and the
+original zeroed 64-byte tail scratch schedule. Stable Rust 1.85 cannot promise
+Clang's musttail ABI. Stage dispatch therefore follows the original interpreter
+traversal while retaining the selected baseline operations and load/store
+branches. This is a language-required call-dispatch mapping, not a new scalar
+algorithm or a claim of equivalent call-stack/performance behavior. Native
+contraction checkpoints are validated against actual compiled original objects;
+source compiler options are not changed to obtain agreement.
+
+Curve selection keeps source control counts as i32, including the post-decrement
+before its comparison. A2B input and B2A output u32 channel words use the
+original native int conversion. Only a proven nonnegative, bounded source index
+becomes usize for Rust array/pointer access. A count's source-defined no-access
+path does not become an allocation-sized unsigned loop. INT_MIN's original
+signed-overflow boundary remains a separately diagnosed source precondition.
+
+
+## Default CMS context and selected assertion configuration
+
+The default CMS translation retains borrowed input ICC backing, with ownership
+only for generated intermediate linear profiles. Its static interface has a
+stable address and points init_data back to that same interface. Init reads only
+the source-reached ICC span fields, including after callbacks that may change
+descriptors or the callback interface. Inactive external encoding/channel fields
+may remain unknown. Callback field loads are repeated at each original call.
+
+Per-thread sample storage uses interior-mutable float cells with stable raw
+views. Row execution never creates an exclusive borrow of the whole context or
+its vectors while independent thread callbacks can run. Original 128-byte
+alignment, 32-float stride rounding, zero-filled allocation, zero-width views,
+backward gray expansion, forward gray contraction and copy/alias branches remain
+explicit. The selected original wrapper uses Highway scalar transfer functions;
+this does not replace the separate skcms four-lane engine with scalar math.
+Private transfer contexts and failed CICP guards retain source prefix-only reads
+and writes; unnamed ExtraTF values use their original switch fallthrough.
+
+The original jxl_cms.cc build selects O3 and NDEBUG. Its two HLG Base JXL_DASSERTs
+in transfer_functions.h:49,62 are inactive, including for NaN inputs with defined
+returned float words. Rust debug assertions at those sites would instead panic
+in a Debug consumer. Omit precisely those two assertions in TfHlgBase in every
+Rust profile, retaining its arithmetic body, sign conversion and contraction
+checkpoints unchanged. This maps the selected reference configuration, without
+changing upstream or selecting alternate optimization/sanitizer flags. Keep the
+actual ordinary/instrumented exceptional observations and initial Rust panics as
+regressions, along with every inherited transfer/parser/fitting/transform case.
+
+Default-CMS callbacks may change their interface callback/data pair and either
+caller's ICC span. Reload only the fields at the original subsequent call sites;
+retain both the caller's replacement backing and the already copied profile
+bytes for their original lifetimes. Successful callbacks initialize the CMYK
+word and the external fields reached by FromExternal. Its inactive custom xy,
+gamma and gray-primary fields need not be written. The Rust local carrier is
+already initialized, so this preserves source-defined partial callback outputs
+without reading unknown source bytes. Explicitly destroy owning context vectors
+in reverse C++ member declaration order before automatic Rust field destruction.
+
+The actual ARM objects also select distinct contraction checkpoints for two
+HLG luminance helpers. Default CMS rounds G*Yg before fusing R*Yr then B*Yb;
+the original skcms N=4 forward and inverse OOTF stages do the same with their
+XYZD50 constants. Preserve those observed checkpoints, including the initial
+callback/ICC-replacement cases that exposed the inherited N=4 discrepancy.
+Keep the non-ARM path and all reference flags unchanged.
+
+CIExyFromXYZ retains the source's float sum, conversion to double, reciprocal
+and two double products. Its actual ARM helper issues each product with the
+factor as the first FMUL operand. Use precisely those two register operations
+to preserve competing NaN payload selection across Rust compilation profiles;
+do not normalize NaN values or replace finite arithmetic. Both original source
+graphs agree on all 144,905 numeric probes, including the 854 initial Rust
+payload differences. Every original input and failed observation remains part
+of the retained regression record.
+
+A callback may replace the destination ICC span with null+zero after init's
+initial nonempty checks. Preserve both subsequent descriptor loads and the
+original empty vector assignment, then its SetFieldsFromICC empty-input failure.
+Do not construct a null Rust slice, even with length zero. Observer empty-vector
+spans retain the selected libc++ nullness, and zero-size observations access no
+backing. Keep the eight initial Rust aborts alongside the agreeing ordinary and
+instrumented source controls. Native captures involving platform libm apply
+only to their recorded macOS ARM configuration; other targets use their own
+actual source comparisons.
+ARM matrix concatenation retains the source's first multiplicand at the middle
+FMUL and both FMADD checkpoints. Rust Release otherwise commutes selected
+unrolled products with two competing input NaNs. Keep these operations in local
+non-inlined functions; preserve the original contraction and rounding tree.
+The vector product used by adaptation and primaries keeps its existing mapping.
+No NaN bits are classified or rewritten by the runtime mapping. Independent
+native source captures cover all 27 cell/term positions with both operand orders
+and quiet/signaling inputs.

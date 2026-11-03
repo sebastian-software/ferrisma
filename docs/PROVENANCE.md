@@ -661,6 +661,45 @@ fields/bundle bytes. The source-only capture script validates those bytes agains
 both complete reference graphs and records actual binary/symbol/source evidence.
 The fixtures do not make cjpeg a Rust build or test dependency. The unported
 Brotli decoder remains an explicit dependency boundary rather than an FFI fallback.
+The skcms transfer/matrix boundary derives from dependency revision
+`96d9171c94b937a1b5f0293de7309ac16311b722`, as pinned by libjxl. Its original
+BSD notice is retained verbatim in `licenses/SKCMS-BSD-3-Clause.txt` and checked
+against the pristine dependency. `src/skcms/transfer_function.rs` translates the
+public transfer operations and reached bespoke math helpers in skcms.cc and
+src/skcms_internals.h; `matrix.rs` translates skcms.cc:1810-1980, with the public
+matrix carriers in `types.rs`.
+
+The transfer classification and exceptional-domain fixtures contain input float
+words, not Rust-derived expected values. The complete exceptional census retains
+8,262 defined calls and all 362 positively diagnosed original float-to-integer
+boundaries. The matrix binary fixture losslessly encodes all 71,226 original
+preflight requests as command/flag bytes and little-endian float words. Its
+manifest retains the original textual request hash, allowing an independent
+round-trip inventory check without substituting expected results. Standard
+primary controls derive from skcms tests.c:1366-1414 and the JXL color-encoding
+constants. Paired exceptional entries supplement, rather than replace, the
+initial corpus. Source arithmetic, optimizer flags, sanitizer options and all
+four upstream pins remain unchanged.
+
+
+### skcms nonlinear fitting
+
+`src/skcms/fitting.rs` translates pinned skcms `skcms.cc:328-342,2110-2421`.
+The source algorithms, iteration count, tolerances and original fit-linear/TF/
+matrix dependencies are retained. `tests/data/skcms-fitting-requests.bin` stores
+all 11,432 original preflight inputs; its manifest records the original text and
+binary hashes, command inventory, independent source archive hashes and the
+initial five degenerate-segment failures. `skcms-fitting-degenerate.table8` is
+the unchanged 255-entry input for those failures. No Rust output supplies oracle
+expected words.
+
+`tools/oracle/skcms_fitting.cc` calls actual archive public functions. A separate
+private-helper executable includes pristine skcms.cc once and inherits its exact
+original compilation command, replacing only the observation TU/output and two
+adapter-only defines. It links the original baseline transform dependency without
+a duplicate archive skcms.cc object. Live executable addresses, actual object
+owners, unchanged graph hashes, source flags and both complete observations are
+checked by `tools/skcms_fitting_reference.py`.
 The canonical skcms profile and curve modules translate pinned skcms.cc
 302-325 and 355-1728, together with the reached public/internal header layouts
 and inline profile setters. The original skcms BSD notice is retained verbatim
@@ -688,3 +727,65 @@ inputs; generated dictionary/static tables are crate-owned and require no
 runtime source checkout. Dedicated original observers and their standalone
 runners are test infrastructure. Their genuine encoder streams and source
 capture request/response pairs are independent of Rust decoding.
+
+### skcms baseline pixel transforms and destination preparation
+
+`src/skcms/transform.rs` translates pinned skcms.cc:2494-3143, including curve
+selection/fusion, format widths, reference PQ/HLG CICP functions, destination
+preparation, Transform, MakeUsableAsDestination/SingleCurve and approximate
+profile/TRC predicates. `transform_types.rs` follows src/skcms_public.h and
+src/skcms_Transform.h. `transform_simd.rs` and `transform_neon.rs` translate the
+reached src/Transform_inl.h baseline N=4 stages, native NEON/SSE arithmetic,
+loads/stores, tables, CLUT interpolation and vector tails. Existing HSW/SKX
+engines remain separate unported original targets.
+
+The source oracle uses the actual unchanged CMS archive with its existing
+SKCMS_DISABLE_HSW/SKCMS_DISABLE_SKX configuration, never SKCMS_PORTABLE. The
+private observer includes pristine skcms.cc under the actual original compile
+command and links the unchanged archive baseline engine. The binding audit
+records compiler arguments, live code addresses, object ownership and the actual
+linked baseline object's disassembly. All four dependency pins remain unchanged.
+
+Test observers serialize inputs, initialized output words, statuses and borrowed
+pointer relationships; they do not implement source algorithms. Pointer tokens
+normalize address identity before comparing profile representation changes.
+Final initialized transfer-function words and partially retained failure states
+remain exact. Independent native captures come only from both original graphs.
+The shared parser/profile observation extraction changes formatting ownership,
+not its field order, words or inherited request inventory.
+
+
+The default CMS boundary translates the selected skcms branch of
+`lib/jxl/cms/jxl_cms.cc` in full, including the private profile-identification
+helpers and callback/owner/row lifecycle. Its scalar Highway transfer wrapper
+uses `transfer_functions.h` and `transfer_functions-inl.h`; the skcms baseline
+remains the original N=4 NEON/SSE engine. The two source HLG Base assertions
+are inactive in the selected NDEBUG build, so only their corresponding Rust
+assertions are omitted. Initial actual-source NaN successes and twelve Rust
+panics are retained.
+
+`tools/default_cms_reference.py` derives both observers from the actual original
+CMS compile command. One links the pristine CMS archive; the other includes
+the untouched source to reach private functions. Shared adapters contain only
+input construction, initialized-output observation and pointer identity tokens.
+Callbacks invoke the actual default implementation before applying fixture
+mutations. Live function addresses and link-map owners establish that public
+callbacks, private helpers and all reached skcms dependencies belong to the
+expected original objects. Both ordinary and fully instrumented graphs preserve
+source/archive/object hashes, compiler commands and disassembly evidence.
+
+The 946,197 generated cases and retained initial failures are local test
+infrastructure. MatrixProduct and both HLG OOTF helpers preserve the actual ARM
+contraction checkpoints; CIExy preserves actual factor-first double FMUL operand
+order for competing NaN payloads. No output floating word is normalized. Raw
+failed source/Rust observations remain diagnostic artifacts; the committed
+manifest retains input/observation hashes and every initial failed index.
+Neither backend helper acceptance nor the architecture-scoped native fixture
+claims whole-file ICC/HDR decoding or alternate SIMD target acceptance.
+The 432 additional skcms concatenation inputs place independently selected
+positive/negative quiet/signaling NaNs at each of the 27 cell/product positions.
+`tests/data/skcms-concat-paired-nan.requests` contains only inputs; the native ARM
+`.words` companion contains all nine raw output words per request captured from
+both actual original CMS archives. Its manifest records the original bindings,
+numerical options and compiler-command/object hashes. The captured words were not generated by Rust.
+All 71,226 earlier matrix requests and source flags remain unchanged.

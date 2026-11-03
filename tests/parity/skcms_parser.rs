@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 use super::*;
 #[path = "../common/skcms_parser.rs"]
-mod cases;
+pub(super) mod cases;
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("skcms-profile-") || kind.starts_with("skcms-curve-")
 }

@@ -490,6 +490,76 @@ options and resolves executable code addresses to their live archive/adapter
 objects. Dead symbols and unwind rows cannot establish those bindings; compiler
 cold suffixes are distinct symbols, not duplicate definitions of the entry
 point. Relinked audit binaries do not replace the active oracle graph.
+The skcms transfer/matrix boundary calls unchanged public functions from the
+original CMS archive, with a scoped x86 concat observer described below. The
+observer contains raw-word protocol and public calls, including actual
+same-pointer inversion and null destinations. The original deprecated HLGish
+shim reaches the archive's scaled constructor. Maps verify all 16 original
+entry points in skcms.cc. Both optimized archive graphs retain their numerical
+options and full nonrecovering instrumentation.
+
+Native Linux Clang O3 ordinary and ASan concat objects disagree on 64 of the
+432 new paired-NaN requests. Preserve every old request and the complete
+ordinary/instrumented investigation. Observe this single complete original
+function in a hash-verified, symbol-renamed extraction at scoped -O0. Its body,
+source line mapping, types and instrumentation stay unchanged; the original
+archive and every other source unit keep their options. The independent native
+optnone investigation agrees across all 207,144 requests; each graph differs
+from its prior O3 observations on 48 new paired-NaN requests only, with no
+changed finite word or prior request. Retain those changes and original captures
+rather than replacing expectations with Rust-derived words. Native admission
+must bind the extracted body to its live object, reproduce the independent
+captures, and compare every old concat observation with the unchanged archive.
+Rust preserves the observed scalar multiplication/addition checkpoints. ARM
+keeps the original archive's contracted operations and operand order. This
+reference configuration establishes no performance parity and must be reviewed
+after compiler, target, source or instrumentation changes.
+
+Transfer coverage retains the initial 86,696 defined requests and adds 8,262
+defined exceptional-parameter cases and 24,310 actual in-place inversions. The
+complete original exceptional census retains all 8,624 requests: 362 positively
+reach the NaN-to-int32 conversion in skcms_internals.h:149 and have no defined
+Rust result. Every original-only request is recorded individually in both
+source graphs; no parameter-word class is silently dropped or normalized.
+
+Matrix coverage retains every one of the initial 71,226 source requests,
+including the four initially failing infinity/NaN-sign observations. Its binary
+fixture encodes input words only, with the original text hash in its manifest.
+Another 16,200 paired exceptional-entry inversions and 18 standard-primary/null
+output calls remain exact comparisons. Expected results always come from the
+actual original functions. Source assembly records the original ARM contraction
+and pre-negation checkpoints; Rust preserves those checkpoints explicitly.
+Native Linux/macOS validation remains required before accepting this boundary.
+ICC parsing, nonlinear curve fitting, pixel transformation, JXL default CMS and
+complete-image profile admission remain separate source closures.
+
+
+### skcms nonlinear fitting source context
+
+Public ApproximateCurve, MaxRoundtripError and AreApproximateInverses bind to the
+unchanged complete CMS archive. Direct observations of rg_nonlinear,
+gauss_newton_step, max_roundtrip_error_checked and fit_nonlinear use a separate
+pristine skcms.cc include executable. Its actual original compiler command is
+retained, changing only the test observation TU/output and adapter-only defines;
+all original optimization and nonrecovering sanitizer flags remain active. The
+original archive supplies only its baseline transform dependency to that helper.
+Actual live code addresses must map to the expected objects, excluding dead
+symbols and unwind FDEs. The complete public request subset must agree between
+archive and whole-include contexts and between ordinary/instrumented originals.
+
+The ARM degenerate two-point nonlinear segment contracts the final subtraction
+in `b = eval_curve(...) - a * index * dx`: the first product rounds and the
+scaled subtraction uses FMADD. The Rust mapping preserves those checkpoints.
+All five initially differing requests remain in the input inventory, including
+error-slot aliases; source flags, expected words and finite comparisons do not
+change. This establishes numeric equivalence for the recorded source context,
+not performance parity. Native target acceptance remains required.
+
+The transfer/matrix source audit captures exactly its two registered operation
+families. Curve-fitting and parser audits configure their own original private
+helpers independently. Adding another skcms family must not make an existing
+audit accidentally run that family's tests without its required observer, or
+change the retained requests and observations of the original audit.
 The skcms parser observer calls public functions from the untouched original
 CMS archive. Private curve helpers use a separate executable that includes the
 complete pristine skcms.cc. Its compile command is copied from that actual
@@ -515,3 +585,112 @@ address against its expected live object and text range. Mach-O dead symbols and
 unwind FDE rows cannot establish a binding. GNU local helper addresses must lie
 inside the directly linked pristine-include object's actual text extent. Exact
 optimization and nonrecovering sanitizer tokens are checked in both graphs.
+
+
+### skcms baseline transform source closure
+
+The transform observer calls the actual archive Transform, destination-usability
+and approximate-profile/TRC APIs. A separate pristine skcms.cc include observes
+private selection, destination preparation and reference CICP helpers, and calls
+the original linked baseline::run_program for direct stages. Both contexts use
+the original O3/DNDEBUG commands and complete nonrecovering ASan/UBSan flags.
+The audit compares all public requests between both compilation contexts and
+retains ordinary/instrumented observations independently. It verifies live code
+addresses and archive/observer object ownership, exact private compile-command
+substitution, actual baseline-object disassembly and complete format/op names
+against the pinned headers.
+
+The 151,592 transform inputs supplement all inherited transfer, fitting and
+parser requests. They include all 42 formats, alpha combinations, zero/tail
+lengths, same-address and partial overlap, actual original ICC files, generated
+profiles, malformed guards, CICP priority and PQ/HLG parameters, profile mutation
+and failure states, direct stages/CLUT grids, all half words and integer rounding
+neighbors. Genuine uninitialized C++ and Rust contexts exercise source-defined
+g-only classification, per-op TF fields and dimension-prefix grid points.
+Whole inactive objects are never materialized merely to compare them.
+
+A profile's previous pointer words can overlap a later active parametric
+function. Observer pointer normalization applies separately to the old and new
+active branches before computing representation changes. It normalizes only
+address identity/borrowed offsets; it does not mask or canonicalize initialized
+post-call function words. Failure snapshots retain every initialized field and
+partially retained pointer state.
+
+The initial 11,448 preflight requests and 148 initial numeric failures remain
+regressions. Actual ARM assembly establishes rounded m1*g followed by the
+original m0*r and m2*b contractions, XR packing and Lab contraction checkpoints.
+Later exact agreement does not replace those requests or change source flags.
+Existing transfer/parser source-UB censuses remain independent and unchanged.
+Native Linux/macOS and complete JXL ICC/HDR files remain acceptance boundaries;
+a passing local baseline helper suite does not complete default CMS integration.
+
+The private curve selector retains signed int channel counts and its original
+post-decrement condition. Negative counts other than INT_MIN perform no curve
+or output access, including high-bit u32 A2B/B2A counts converted to int while
+preparing a zero-pixel program. Same-path defined controls retain unknown curve
+and CLUT payloads. Three direct/A2B/B2A INT_MIN requests require the actual
+nonrecovering source skcms.cc:2536 signed-decrement diagnostic; ordinary
+observations are retained without becoming Rust expected values. No broader
+high-bit count range is excluded. All earlier numeric requests remain paired.
+
+
+## Default CMS archive and private contexts
+
+Compile the default CMS public observer with the actual selected jxl_cms.cc
+compiler command, changing only the adapter translation unit and output path,
+and link the untouched original CMS archive. A second observer includes the
+complete pristine jxl_cms.cc with that same command and links its original
+dependencies. Its public callbacks must agree with the archive context and both
+ordinary/nonrecovering ASan+UBSan graphs. Retain exact statuses, external fields,
+partial failures, aligned thread-view pointer relationships, all initialized
+sample words and cleanup order. Private helpers retain their actual source
+functions and source-defined prefix-only context/descriptor cases.
+
+The source audit must verify live function addresses/object owners, unchanged
+source/archive/object hashes, actual compiler/instrumentation commands, complete
+retained requests and compiled-object arithmetic evidence. MatrixProduct retains
+its float-zero initialization and three accumulation/write checkpoints, including
+actual input/output aliasing. Native contraction evidence supplements exact
+observations; it does not justify changing source flags or expected words.
+
+Keep the twelve initial HLG NaN Rust panics alongside their successful actual
+ordinary/ASan source observations. The selected NDEBUG source has no active HLG
+JXL_DASSERT at those two sites. Removing only the corresponding Rust assertions
+requires an explicit unchanged-arithmetic proof and complete inherited corpus
+retention. Do not classify those successful source calls as undefined or remove
+them from paired comparisons. Whole alternate-profile/ICC/HDR decoding and both
+native platforms remain separate required acceptance gates.
+
+Retain genuine callback probes with unknown inactive interface/descriptor
+members, callback/data replacement, ICC-span replacement between calls, early
+failure, nonzero success and active-field-only external outputs. Observe every
+callback input byte and every initialized returned field, call order, descriptor
+state and row output. Normalize only function/data identity tokens and buffer
+alignment or relative pointer offsets. The eight initial callback row failures
+remain mandatory: actual original ordinary/instrumented contexts agree, and
+actual baseline-object instructions expose a rounded G product followed by R
+and B FMAs in both skcms OOTF directions. An ARM checkpoint correction requires
+the complete inherited corpus and all six final gates again; helper success
+does not establish whole-file ICC/HDR admission or native two-platform closure.
+
+The direct numeric corpus also retains all 854 initial CIExy NaN payload
+differences. Both actual source graphs agree, and the actual private-object
+FMUL operand order determines the target representation checkpoint. Compare
+all returned float/double words exactly. Keep the original observations and
+input hashes; pointer identity normalization never applies to numeric values.
+
+Empty callback replacement vectors preserve their selected libc++ null data
+pointers in both observers. Eight original callback cases expose the target's
+initial null+zero slice abort; retain their full diagnostics and unchanged
+requests/source observations. The corrected empty-copy path requires fresh
+complete gates, not acceptance from a preceding runtime freeze.
+The concatenation diagnostic additionally retains 432 defined calls with paired
+quiet/signaling NaNs at every output-cell/product-term position. Both native ARM
+original graphs agree on every word. All 24,324 existing concatenation inputs
+and their captured outputs are retained byte for byte. The actual ARM source
+object keeps A before B at the rounded middle product and both FMADD sites;
+non-inlined Rust checkpoints retain that order in all three build profiles.
+The paired inputs also run as a permanent exact differential group, and a
+separate native ARM regression checks independently captured original words.
+Native Linux operand selection and full native acceptance remain open until
+both original graphs and all Rust profiles pass the same complete inventory.
