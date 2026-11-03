@@ -98,6 +98,34 @@
     "output": "original_decoder_box_header.inc"
   },
   {
+    "path": "lib/jxl/decode.cc",
+    "start": "JxlDecoderStatus ConvertStatus(JxlDecoderStatus status)",
+    "end": "\nJxlSignature ReadSignature(",
+    "sha256": "1e33f7e94e08cc00332ac35214a68bbc6fba07982ee4c737b76e78562132033b",
+    "output": "original_decoder_input_status.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "  bool CanAddBuffer(size_t length) const {",
+    "end": "\n#if JPEGXL_ENABLE_BOXES",
+    "sha256": "a8a2f8b7d365600735dc2b96fc1ee1d9596c874c13b14b64add634e13fd14496",
+    "output": "original_decoder_input_buffer.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "  void AdvanceInput(size_t size) {",
+    "end": "\n  // Whether the decoder can use more codestream input",
+    "sha256": "5b4a9c20db52ea6ca18cec1478a8fe0f401842cd9e5d716a56be0e2e8884f6ba",
+    "output": "original_decoder_input_methods.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JxlDecoderStatus JxlDecoderSetInput(JxlDecoder* dec,",
+    "end": "\n\nJxlDecoderStatus JxlDecoderSetJPEGBuffer(",
+    "sha256": "ec627f3681a7c65cd596cd3359d2eadba57aa3781dc7663321696daf458af455",
+    "output": "original_decoder_input_public.inc"
+  },
+  {
     "path": "third_party/skcms/skcms.cc",
     "start": "skcms_Matrix3x3 skcms_Matrix3x3_concat(",
     "end": "\n\n#if defined(__clang__)",

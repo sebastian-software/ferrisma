@@ -62,6 +62,8 @@ mod chroma_stages;
 mod decoder_api;
 #[path = "parity/decoder_geometry.rs"]
 mod decoder_geometry;
+#[path = "parity/decoder_input.rs"]
+mod decoder_input;
 #[path = "parity/default_cms.rs"]
 mod default_cms;
 #[path = "parity/extra_channels.rs"]
@@ -75,6 +77,15 @@ mod output_stage;
 mod skcms_transform;
 #[path = "parity/spot_color.rs"]
 mod spot_color;
+
+#[path = "parity/jpeg_reconstruction.rs"]
+mod jpeg_reconstruction;
+
+#[path = "common/jpeg_reconstruction.rs"]
+mod jpeg_reconstruction_protocol;
+
+#[path = "common/jpeg_data.rs"]
+mod jpeg_data_protocol;
 
 #[path = "parity/splines.rs"]
 mod splines;
@@ -810,8 +821,9 @@ fn observe(request: &str) -> String {
         kind if quant_dc::handles(kind) => quant_dc::observe(kind, &mut args),
         kind if quant_ac::handles(kind) => quant_ac::observe(kind, &mut args),
         kind if quant_storage::handles(kind) => quant_storage::observe(kind, &mut args),
-        kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
+        kind if jpeg_reconstruction::handles(kind) => jpeg_reconstruction::observe(kind, &mut args),
         kind if jpeg_writer::handles(kind) => jpeg_writer::observe(kind, &mut args),
+        kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
         kind if icc_reader::handles(kind) => icc_reader::observe(kind, &mut args),
         kind if jpeg_metadata::handles(kind) => jpeg_metadata::observe(kind, &mut args),
         kind if skcms_parser::handles(kind) => skcms_parser::observe(kind, &mut args),
@@ -838,6 +850,7 @@ fn observe(request: &str) -> String {
         kind if blending_stage::handles(kind) => blending_stage::observe(kind, &mut args),
         kind if output_stage::handles(kind) => output_stage::observe(kind, &mut args),
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
+        kind if decoder_input::handles(kind) => decoder_input::observe(kind, &mut args),
         kind if decoder_api::handles(kind) => decoder_api::observe(kind, &mut args),
         kind if skcms_transform::handles(kind) => skcms_transform::observe(kind, &mut args),
         kind if default_cms::handles(kind) => default_cms::observe(kind, &mut args),

@@ -318,12 +318,11 @@ pub struct AcGroupDecoderState<'a, 'metadata> {
     pub quant_biases: &'a [f32; 4],
 }
 
-/// The nonzero-pass, pixel-output branch of DecodeGroup. The admitted caller
-/// supplies genuine AC passes and a cache initialized at the original caller's
-/// InitOnce checkpoint. DC preview and JPEG reconstruction are separate source
-/// boundaries; this entry cannot select them.
+/// The nonzero-pass branch of DecodeGroup, with optional original JPEG output.
+/// The caller supplies genuine AC passes, an initialized cache, and i32 AC
+/// storage for JPEG. DC-only preview remains a separate source boundary.
 #[allow(clippy::too_many_arguments)] // Preserve the reached source arguments.
-pub fn decode_ac_group_pixels(
+pub fn decode_ac_group(
     frame_header: &super::frame_header::FrameHeader<'_>,
     readers: &mut [BitReader<'_>],
     num_passes: std::num::NonZeroUsize,
@@ -334,6 +333,7 @@ pub fn decode_ac_group_pixels(
         '_,
         '_,
     >,
+    jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
     first_pass: usize,
     force_draw: bool,
     should_run_pipeline: Option<&mut bool>,
@@ -368,7 +368,7 @@ pub fn decode_ac_group_pixels(
         state.context_map,
         first_pass,
     )?;
-    super::dec_group_render::decode_group_impl_pixels(
+    super::dec_group_render::decode_group_impl(
         frame_header,
         &mut get_block,
         buffers,
@@ -379,7 +379,40 @@ pub fn decode_ac_group_pixels(
         state.quant_biases,
         group_idx,
         render_pipeline_input,
+        jpeg_data,
         draw,
     )?;
     get_block.check_ans_final_state()
+}
+
+/// Original null-JPEG specialization retained for existing pixel callers.
+#[allow(clippy::too_many_arguments)]
+pub fn decode_ac_group_pixels(
+    frame_header: &super::frame_header::FrameHeader<'_>,
+    readers: &mut [BitReader<'_>],
+    num_passes: std::num::NonZeroUsize,
+    group_idx: usize,
+    state: AcGroupDecoderState<'_, '_>,
+    group_dec_cache: &mut super::dec_cache::GroupDecCache,
+    render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<
+        '_,
+        '_,
+    >,
+    first_pass: usize,
+    force_draw: bool,
+    should_run_pipeline: Option<&mut bool>,
+) -> Status {
+    decode_ac_group(
+        frame_header,
+        readers,
+        num_passes,
+        group_idx,
+        state,
+        group_dec_cache,
+        render_pipeline_input,
+        None,
+        first_pass,
+        force_draw,
+        should_run_pipeline,
+    )
 }

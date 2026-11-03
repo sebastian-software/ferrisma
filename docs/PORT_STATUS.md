@@ -28,6 +28,21 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
+## Recovered decoder state and reconstruction (2026-11-03)
+
+The recovery combines persistent incremental input, callback-backed PaddedBytes,
+box-content decompression, JPEG coefficients and complete DecodeJPEGData marker
+payload reconstruction. The input and accepted output paths now share the same
+JxlMemoryManager type and the original alignment-group counter. JPEG coefficient
+paths retain the accepted frame-storage ownership split. The new payload corpus
+uses the actual original encoder and compares complete, truncated, trailing-data
+and repeated-owner histories: 4,740 defined requests compare exactly. When an
+earlier call on the same owner leaves an SOS marker behind, the original
+validation reads one scan_info element past its end. Those 24 requests run as
+separate original-only probes, and every instrumented graph must report that
+heap-buffer-overflow; they have no C++/Rust comparison (ADR 0003). Public
+container/event orchestration and complete JPEG-file API admission remain open.
+
 ## Recovered Brotli decoder (2026-11-03)
 
 The complete streaming decoder and its allocator/state/dictionary boundaries are
@@ -190,7 +205,7 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | `jpeg/jpeg_data.h`, CalculateMcuSize in `.cc`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, complete MCU geometry, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and field serialization unported |
 | `jpeg/dec_jpeg_data_writer.h`, `.cc`, `dec_jpeg_output_chunk.h`, `dec_jpeg_serialization_state.h` | `jpeg/dec_jpeg_data_writer.rs`, `jpeg/dec_jpeg_output_chunk.rs`, `jpeg/dec_jpeg_serialization_state.rs` | Complete WriteJpeg marker/Huffman/quantization serialization, sequential/progressive/refinement scan writing, restarts, padding, chunk ownership and output callback lifecycle; compressed reconstruction metadata and complete-file coefficient integration remain open |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and reconstruction unported |
-| `jpeg/jpeg_data.cc`: complete `VisitFields` and `SetJPEGDataFromICC` | `jpeg/jpeg_data_fields.rs` | Complete metadata bundle field order, component/marker/table validation, delta-coded reset/zero-run indices, postponed buffer sizes, padding bits and ICC byte injection; Brotli `DecodeJPEGData`, full JPEG parsing and complete reconstruction remain separate |
+| `jpeg/jpeg_data.cc`: complete `VisitFields` and `SetJPEGDataFromICC` | `jpeg/jpeg_data_fields.rs` | Complete metadata bundle field order, component/marker/table validation, delta-coded reset/zero-run indices, postponed buffer sizes, padding bits and ICC byte injection; complete Brotli DecodeJPEGData payload reconstruction is registered beside the bundle; full JPEG parsing and public reconstruction remain separate |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
@@ -2095,10 +2110,11 @@ assigned codec result; defined aliases, malformed streams and partial errors
 remain compared exactly. No compiler option, sanitizer, old case or expected
 word changes.
 
-The Brotli-dependent `DecodeJPEGData` boundary remains absent. Its streaming
-Brotli decoder, marker payload reconstruction, JPEG coefficient reconstruction
-and whole-file integration still need separate ports and evidence. The README's
-JPEG reconstruction checkbox stays unchecked.
+`DecodeJPEGData` and its marker payload reconstruction are now translated over
+the recovered Brotli decoder; see the recovered decoder state section above.
+Whole-file JPEG reconstruction and public API admission still need separate
+evidence. The README's JPEG reconstruction checkbox stays unchecked.
+
 ## skcms transfer functions and matrices
 
 The pinned skcms dependency now has translated public transfer-function
@@ -2254,6 +2270,71 @@ tests in each configuration. All sixteen mandatory Brotli source observers and
 their retained component corpora also run in these gates. Native x86 complete
 streaming/API acceptance remains pending. JPEG reconstruction, compressed
 container integration and whole-codec completion remain open.
+## Persistent incremental decoder input boundary
+
+The complete original CanAddBuffer, InjectNextBufferedJxlpBox, AdvanceInput,
+AvailableCodestream, AdvanceCodestream, RequestMoreInput and GetCodestreamInput
+methods are translated with their reached SetInput/ReleaseInput/CloseInput
+operations. Retained input identity, buffered-prefix consumption, skip debt,
+out-of-order payload ownership and exact allocation-failure checkpoints remain
+explicit. A callback-backed PaddedBytes representation preserves initialized
+prefixes and unknown padding without changing prior global-allocator users.
+
+The source-only initial probe captured 1,159 histories before implementation.
+The additive corpus now includes unknown-field cursor short circuits,
+callback-mutated input, bounded/unbounded fragments, release/replacement, unsigned
+buffer-limit checks and all permutations of four out-of-order payloads. The
+observer compiles exact hash-bound original member and public-function bodies;
+its allocator records actual allocation/free events. Standalone captures come
+only from that original observer. The final frozen candidate passes all six local
+configurations: Debug, Release and Rust 1.85 against ordinary and nonrecovering
+ASan/UBSan originals. Each runs 567 tests, 327 differential groups and 1,185,111
+exact defined comparisons, with zero failures or ignored tests. Its new group
+retains 1,192 histories and 24 standalone original captures. The independent
+input audit verifies all 196 original C/C++ units in each graph, exact compiled
+source fragments, live original/adapter code ownership, every original history
+and both retained capture prefixes. The existing framing audit also retains all
+92,452 requests against both originals. Native CI/current-main integration
+remains a separate gate. The complete public decoder object, container state
+machine, events, progressive output, callbacks and C ABI remain open.
+## Original JPEG coefficient reconstruction
+
+The JPEG output branch now retains actual quantized i32 coefficients through the
+original group traversal, in-place transpose, fixed-point color correlation,
+saturation, DC replacement and coefficient-range checks. Frame setup retains
+component dimensions/sampling, DC multiplier clearing, i32 AC allocation,
+quantization-table reconstruction and unused-table copying. JPEG finalization
+keeps the source early return and never serializes inverse-transformed pixels.
+The existing pixel entry points retain their null-JPEG behavior.
+
+The candidate integrates the previously verified complete JPEG writer. Its
+focused corpus retains 162 genuine JPEG/raw-JXL pairs: all 25 earlier chroma
+fixtures, all 128 geometry/sampling cases, six original public-encoder outputs
+from the writer corpus and three RGB baseline/progressive/restart files. These
+include progressive scans/refinement, restarts and multiple writer chunks.
+Each complete frame reconstructs the entire original
+JPEG file byte for byte. Separate direct group calls retain initialized qblocks,
+accumulated coefficients, partial-load failures, invalid strategies and tables,
+DC clamps, grayscale/subsampling and fixed-point color-correlation boundaries.
+Eighteen independent original complete/partial captures run without the optional
+C++ oracle feature. Complete repository/native gates remain pending for this
+candidate. Compressed JPEG reconstruction metadata decoding and whole-file
+container/public decoder orchestration remain open; this does not complete
+decoder expansion step 10.
+
+Frame-setup mutation fixtures preserve the source vector resize, including
+growth of a one-component input to two components. The missing-table control
+clears the table vector and sets component indices to zero in both adapters,
+so the original equality guard rejects before indexing. Retaining nonzero
+indices after clearing violates vector indexing preconditions and cannot supply
+a defined Rust expectation. Pre-correction failed evidence remains separate.
+All 11,135 previously captured request/observation pairs remain byte-identical
+within the expanded 13,874-request focused corpus. The complete source audit
+passes both unchanged original graphs, verifies nine live source-object bindings
+per graph, and reproduces all 18 complete/partial native captures. All 12
+source-only NaN-conversion/zero-division probes retain their ordinary results
+and positive nonrecovering sanitizer diagnostics. Full repository and native
+CI acceptance remains pending.
 
 ### skcms baseline pixel transform candidate
 

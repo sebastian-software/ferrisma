@@ -1258,7 +1258,6 @@ callback or custom-runner coverage. The pristine stage_write.cc supplies the
 actual public factories; there is no replacement pixel algorithm or runtime
 C++ dependency in the Rust library.
 
-
 ### Source-generated lifecycle acceptance fixtures
 
 The sequential header boundary retains the complete parsed U64 flag field.
@@ -1319,7 +1318,6 @@ The original zero-width aliased memcpy boundary is exercised separately by
 oracle subprocesses, with explicit sanitizer evidence and no claimed source
 pixel semantics, including the source-derived tree-rendering boundaries recorded
 in ADR 0002. Rust's empty owned temporary remains safe to represent.
-
 
 YCbCr and horizontal/vertical chroma upsampling keep stack row descriptors,
 source channel order, the original 3/4–1/4 interpolation, shift/border settings,
@@ -1401,7 +1399,6 @@ assignments; source-defined Al16..31 structures remain accepted. The sequential
 extra-zero-run counter likewise retains promoted subtraction followed by int16_t
 narrowing. These standalone writer domains are wider than JPEGData field
 serialization and do not establish validity of an encoded JPEG file.
-
 
 ICC command decoding retains the original fallible PaddedBytes header append
 before inspecting the decoded output size, including zero-size output. Temporary
@@ -1489,7 +1486,6 @@ at that boundary. Oriented dimensions come from the original metadata helpers.
 All parsed YCbCr modes use the existing per-channel horizontal/vertical stage
 order; no normalization or replacement chroma interpolation is added.
 
-
 Decoder API framing helpers retain caller-owned output parameters. ParseBoxHeader
 writes header_size=8 on an incomplete initial header without changing the type
 or box size. An incomplete extended header retains the decoded type, box_size=1,
@@ -1542,7 +1538,6 @@ conversion semantics remain those of the existing FastPow helpers. No new
 numeric configuration, unsafe code, or dependency is introduced.
 not receive invented codec semantics.
 
-
 ICCReader owns its ANSCode separately from a code-independent
 ANSSymbolReaderState. The state carrier moves all fifteen non-code fields,
 including the same aligned LZ77 window allocation, into a temporary borrowed
@@ -1582,7 +1577,6 @@ checkpoint without Reset. Process before Init follows its actual source EOI,
 ANS-final-state and empty UnpredictICC path; it does not acquire a fabricated
 initialization error. These component APIs do not admit ICC profiles through the
 complete-file decoder or provide ICC parsing/CMS transforms.
-
 
 A failed histogram parse can change the owner mode before recreating the ANS
 reader while leaving its cached Huffman/ANS tables and configuration entries
@@ -1628,9 +1622,21 @@ The table-order validation retains original reached-index preconditions. The
 source CanEncode visitor accumulates bit-range errors, so an out-of-range
 Huffman slot can access bool[4] before reporting its error; the source sanitizer
 probe establishes this undefined domain. Safe Rust bounds checks do not invent
-a codec status for that source-undefined call. General DecodeJPEGData remains
-absent until its genuine Brotli streaming dependency is translated. Revisit this
-mapping for the complete metadata payload/coefficients and public decoder API.
+a codec status for that source-undefined call.
+
+Reading into an owner appends to its retained marker_order but resizes scan_info
+to the newly read scan count. When a previous DecodeJPEGData call on the same
+owner left an SOS marker behind, the table validation walks the old and new
+markers and reads scan_info[scan_info.size()]. The instrumented original reports
+a heap-buffer-overflow READ 16 bytes after the scan_info allocation: the
+num_components field of the element past its end. The ordinary original returns
+or faults depending on heap layout. The payload corpus derives the stale SOS
+count from the original's own first-call owner snapshot. Those 24 repeated-owner
+requests run in separate original-only processes and must produce exactly that
+diagnostic on every instrumented graph. They have no C++/Rust comparison;
+the Rust test asserts only that its bounds check stops at the same element.
+The 4,740 defined histories, including empty and short stale prefixes, retain
+exact parity. Revisit this mapping for the public decoder API and coefficients.
 
 Pinned skcms transfer functions and 3x3/3x4 matrix carriers retain their original
 repr(C) field order and float widths. Shared matrix carriers have one canonical
@@ -1739,7 +1745,6 @@ against both original graphs and all three Rust profiles on native AArch64 and
 x86-64. The separate raw byte-XOR primitive also passes its complete native
 1,633,984-tuple source/tail proof on both architectures.
 
-
 The complete Brotli streaming state machine retains the actual decoder block
 in `DecoderInstance`, with fixed borrowed-dictionary binding metadata beside
 it. No code/state/ring payload is cloned. Real callable default allocator thunks
@@ -1782,6 +1787,92 @@ entry cannot be implemented by an extra CreateInstance allocation and stays
 separate until translated. Current state/partial-bit admission is AArch64 and
 x86-64 only. Untested private-state/input aliases receive no equivalence claim;
 proven external I/O and raw scalar aliases retain their source checkpoints.
+Decoder API framing helpers retain caller-owned output parameters. ParseBoxHeader
+writes header_size=8 on an incomplete initial header without changing the type
+or box size. An incomplete extended header retains the decoded type, box_size=1,
+and header_size=16. Later validation errors retain the completed header outputs.
+Use explicit usize wrapping for source size_t additions; checked slice access
+follows the original overflow/range guard. Signature failure leaves the input
+position unchanged, including an incomplete container candidate whose available
+bytes already differ from the final signature. Borrowed slices replace raw
+input pointer/length pairs without copying bytes or introducing unsafe code.
+The source's separate JxlDecoderStatus values are not internal StatusCode errors.
+Transparent-u32 public values follow the existing pixel-format descriptor mapping;
+this component does not yet export C ABI entry points or a decoder object.
+
+### Persistent incremental input storage
+
+DecoderInput retains the original codestream copy, partial-consumption counters,
+input pointer identity and ordered jxlp payload ownership. It is storage for the
+eventual complete decoder object, not an alternate buffered decoder. The three
+contiguous input cursor fields use MaybeUninit so SetInput, ReleaseInput and
+CloseInput read only the source-defined reached fields. Non-null empty input
+remains set until ReleaseInput; a null empty input retains its distinct identity.
+Operation-scoped byte spans end before input replacement, owner mutation or an
+allocation callback. Public C entry points remain absent.
+
+This boundary uses a callback-owned PaddedBytes representation. Its allocation,
+capacity growth, initialized prefix, source alignment-group formula and free
+checkpoints follow padded_bytes.h and memory_manager_internal.cc. All input/output allocation paths share the source alignment-group counter
+and the canonical JxlMemoryManager ABI. Callback storage does not
+zero unknown capacity or lend input bytes across callbacks. An append failure
+preserves old allocation/size/capacity and external input consumption; successful
+growth commits capacity before releasing the old allocation. A BTreeMap retains
+ordered payload lookup and separately boxed unique payload owners; injection erases/destroys the selected
+payload before decrementing the total. Map ownership is released before the
+codestream-copy owner, as in the source enclosing object's destruction order.
+Remaining payloads drop in ascending key order. The order in which std::map
+destroys its nodes is unspecified and depends on the standard library: libc++ 21
+destroys them post-order, libc++ 22 in key order. The oracle adapter therefore
+releases the retained payloads in key order before destroying the decoder, so
+the compared free order is independent of the standard library.
+
+The unsafe boundary retains the source's same-allocation pointer/advance,
+initialized-input, nonoverlapping-copy and callback-lifetime requirements.
+Callbacks cannot unwind or reenter the input owner. This does not establish a
+general private-state/caller-buffer alias contract or the complete decoder's
+reset, allocation or callback APIs. Source size_t additions wrap explicitly;
+PaddedBytes allocation geometry retains the original checked additions.
+JPEG reconstruction writing retains borrowed marker/tail payloads and owned
+bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
+storage with a separate active prefix length; output callbacks receive None for
+a null source pointer and Some(empty) for retained allocated empty storage.
+The pinned short-write loop decreases length without advancing its pointer;
+the Rust callback lifecycle preserves that behavior rather than repairing it.
+Callback overreporting remains a source programmer-precondition violation.
+The queue is passed alongside a mutable bit-writer borrow instead of storing an
+owner-relative output pointer. Current AC Huffman and padding pointers become
+indices into their existing stable owners; no Huffman tables or JPEG data are
+cloned to resolve borrows. Source-indeterminate storage gets safe initialization
+without assigning meaning to otherwise undefined reads. Variable shifts promote
+coeff_t operands to i32 before shifting, narrowing only at original int16_t
+assignments; source-defined Al16..31 structures remain accepted. The sequential
+extra-zero-run counter likewise retains promoted subtraction followed by int16_t
+narrowing. These standalone writer domains are wider than JPEGData field
+serialization and do not establish validity of an encoded JPEG file.
+
+JPEG coefficient reconstruction borrows the existing JPEGData box only for each
+frame/group operation. The same accumulated i32 AC storage is transposed in
+place at the original DecodeGroupImpl checkpoint; coefficient output never
+passes through an inverse transform or pixel re-encoding. Grayscale channel
+selection, component order, subsampling alignment and partial writes retain the
+source traversal. Highway integer products/additions retain low 32 bits before
+arithmetic shifts and saturating i16 demotion. DC replacement keeps the original
+ordered Clamp1 comparisons and truncating conversion. Source NaN-to-short casts
+and pre-validation zero quantizer divisions remain undefined caller domains,
+with separate original sanitizer probes; the Rust boundary asserts those
+preconditions rather than inventing decoder status codes. Quantization matrices
+and the original JPEG marker/scan owners remain distinct; no metadata or
+coefficient owner is cloned to resolve borrows. Ordinary pixel callers retain
+the original null-JPEG specialization of the same traversal.
+
+The complete box-content owner retains a source Brotli decoder between Process
+calls and releases it at the original reset/destruction checkpoints. Borrowed
+input/output buffers and raw cursor cells retain their reached lifetimes and
+callback nonreentrancy requirements. DecodeJPEGData owns an independent Brotli
+decoder for the complete call, preserves every partial JPEG marker mutation, and
+uses only the final probe's one writable sink byte without reading unwritten
+storage. Neither boundary calls C/C++ at runtime.
 
 ### Baseline skcms stages and source-reached initialization
 
