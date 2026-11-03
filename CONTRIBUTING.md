@@ -134,3 +134,23 @@ macOS. A local result does not imply that those hosted jobs have run.
 Keep [PORT_STATUS.md](docs/PORT_STATUS.md) current as units and evidence change.
 Update an existing ADR in place when changing its decision and its `Updated`
 date, instead of appending a chain of replacement records for the same topic.
+
+
+The same check command builds sixteen pinned-original Brotli support observers
+in a separate graph and supplies their required `BROTLI_*` environments. It
+retains all 38,187 ContextMap requests, including source-defined synthetic width
+boundaries. No extra environment setup or runtime C dependency is added to
+ordinary Rust builds. The source graphs keep O3/NDEBUG and full sanitizers;
+visibility-only test bridges are limited to their existing adapter TUs.
+Focused complete-stream and API evidence can be reproduced independently:
+
+```sh
+python3 tools/brotli_stream_reference.py --output target/brotli-stream-reference
+python3 tools/brotli_stream_api_reference.py --output target/brotli-api-reference
+```
+
+These output directories must be new so earlier observations are preserved.
+Native AArch64 and x86-64 are the admitted state/partial-bit targets. Actual
+per-symbol link bindings, compiler flags, source-generated requests, complete
+outputs and test logs are retained for review; slice-level source proofs do not
+claim JPEG reconstruction, container integration or whole-codec completion.

@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from brotli_check_support import prepare as prepare_brotli_observers
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -58,6 +60,8 @@ def check_source():
         raise SystemExit("The translated Highway helper's notice differs from upstream")
     if (ROOT / "licenses/SKCMS-BSD-3-Clause.txt").read_bytes() != (skcms / "LICENSE").read_bytes():
         raise SystemExit("The translated skcms notice differs from upstream")
+    if (ROOT / "licenses/BROTLI-MIT.txt").read_bytes() != (brotli / "LICENSE").read_bytes():
+        raise SystemExit("The translated Brotli notice differs from upstream")
     sort_reference = ROOT / "tools/reference/libcxx"
     sort_pin = json.loads((sort_reference / "source.json").read_text())
     for name, expected in sort_pin["files"].items():
@@ -94,6 +98,7 @@ def main():
     from skcms_parser_reference import build_private
     build_private(build)
     env = dict(os.environ, JXL_CPP_ORACLE=str(build / "jxl_oracle"))
+    env.update(prepare_brotli_observers(args.sanitizers))
     run("cargo", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
     run("cargo", "test", "--locked", "--offline", "--all-features", "--", "--nocapture", env=env)
     run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--", "--nocapture", env=env)

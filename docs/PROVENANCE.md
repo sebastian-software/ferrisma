@@ -677,3 +677,14 @@ source pins, archive bindings and whole-public-parser observations in both
 compilation contexts. It retains the complete request inventory, independent
 native captures and original-only arithmetic diagnostics. Ordinary Rust builds
 neither compile nor link these C++ observers.
+
+
+The Brotli dependency translation in `src/brotli` derives from pinned revision
+`db24a98aed38a16de78cc05ca15cdd8dc2a0d92d`, with its MIT notice in
+[licenses/BROTLI-MIT.txt](../licenses/BROTLI-MIT.txt). Module headers and the
+[status source map](PORT_STATUS.md#brotli-streaming-decoder-dependency) identify
+the original units. `tools/brotli_tables_sources.json` records exact generator
+inputs; generated dictionary/static tables are crate-owned and require no
+runtime source checkout. Dedicated original observers and their standalone
+runners are test infrastructure. Their genuine encoder streams and source
+capture request/response pairs are independent of Rust decoding.

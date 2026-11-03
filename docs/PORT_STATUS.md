@@ -28,6 +28,18 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
+## Recovered Brotli decoder (2026-11-03)
+
+The complete streaming decoder and its allocator/state/dictionary boundaries are
+recovered on top of the reviewed decoder integration. All 40 Rust modules and
+the pinned dictionary bytes match the saved implementation. The complete local
+ordinary check passes Debug, Release and Rust 1.85: 765 tests per configuration,
+including the unchanged 374 libjxl differential groups and 1,455,093 exact
+comparisons, plus the Brotli tests and 16 independently bound source observers.
+The instrumented check and complete streaming/API audits are being rerun; native
+Linux and macOS admission remains required. Dedicated streaming and API audits
+are now required in CI. The stack-based one-shot decoder remains unported.
+
 ## Reviewed decoder integration (2026-11-03)
 
 [PR #34](https://github.com/sebastian-software/libjxl-rs/pull/34) delivers the
@@ -222,7 +234,6 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 `python3 tools/check.py --msrv` (ordinary C++ reference).
 
 | Gate | Result | Evidence |
-| --- | --- | --- |
 | Source revision, Highway/Brotli/skcms pins, notices, local doc links | PASSED | Checked against `upstream.json` and the Git submodule entries |
 | Rust formatting and Clippy | PASSED | All targets and features, warnings treated as errors |
 | Rust debug | PASSED | 425 tests, including 246 differential test groups; zero ignored cases |
@@ -2084,3 +2095,59 @@ float-to-int at line 308, and 16-bit table evaluation's signed `2*lo` at line 31
 Every exact request and diagnostic remains present; 74 defined controls use the
 same counts with reached index zero or the original canonicalization guard.
 They are paired comparisons, without a blanket exclusion of large tables.
+## Brotli streaming decoder dependency
+
+The `brotli` crate module mechanically translates pinned Brotli
+`db24a98aed38a16de78cc05ca15cdd8dc2a0d92d`. It registers the complete default
+streaming decoder, retained state, raw dictionaries, metadata callbacks,
+settings, status/error queries, output borrowing, and destruction. It introduces
+no crate dependency or runtime C/C++ code. The source-distinct stack-owned
+one-shot `BrotliDecoderDecompress` entry remains separate and unimplemented.
+JPEG metadata/container consumers have not yet been connected to this module.
+
+| Original source | Rust mapping |
+| --- | --- |
+| `c/common/platform.c`, `c/dec/state.{h,c}` | `memory`, `default_memory`, `layout`, `bitfield`, `state`: actual allocator-returned blocks, native layout and source-order field/allocation/free checkpoints |
+| `c/common/{constants,context,dictionary,transform}.*`, `c/dec/{prefix,static_init}.*` | `tables`, `constants`, `dictionary`, `static_descriptors`, `transform`, `raw_transform`, `raw_bytes`: exact static bytes, named backing identity, initialized-prefix/tail behavior |
+| `c/common/shared_dictionary.*`, `decode.c:1526–1718` | `shared_dictionary`, `compound_dictionary`, `stream_api`: caller-backed raw views and exact partial attachment/copy state |
+| `c/dec/bit_reader.*`, `huffman.*`, `decode.c:361–1175` | `bit_reader`, `reader_copy`, `symbols`, `huffman`, `huffman_reader`, `block_length`, `mtf`, `context_map`, `tree_group`: complete reached scalar readers and header state |
+| `decode.c:1179–1524,1719–1980` | `stream_switch`, `distance`, `command`, `ringbuffer`, `stream_blocks`, `stream_output`: source fast/safe kernels, raw output checkpoints and ring ownership |
+| `decode.c:1982–2900` | `stream_commands`, `stream_header`, `stream_tables`, `stream_input`, `stream`: complete command kernels and streaming state machine |
+| `decode.c` constructor/settings/getters/metadata/output APIs, `decode.h`, `state.h` | `instance`, `stream_api`, `status`, `running`: retained owner, callable fields, actual native callback handles and raw cursors |
+
+The generator checks exact pinned source hashes and retains all 122,784
+dictionary bytes, 2,048 context bytes, 704 command entries and built-in
+prefix/suffix/transform tables with the MIT notice. Named static storage fixes
+the independently reproduced CTFE promotion identity gap; no byte changes or
+runtime initialization replace the original static data.
+
+Focused macOS AArch64 evidence is complete for ordinary and fully ASan/UBSan
+original graphs against Rust Debug, Release and 1.85. The complete stream packet
+retains all 13,920 original requests, including its initial 3,780 genuine
+compressed-stream schedules and all 548 earlier metadata traces. Each graph
+produces 691,550,918 exact observation bytes. The API packet adds 3,084 exact
+requests and 41 independently captured source cases; all 51 earlier complete
+stream captures remain unchanged. Original encoder calls generate the inputs;
+these are not Rust round trips. The public crate test replays seven of those
+same source schedules through registered `jxl::brotli` APIs, checking cursor,
+status, output-prefix, finished and pending-output observations.
+
+`tools/check.py` prepares sixteen original support observers in one dedicated
+pristine Brotli graph, verifies actual per-symbol live object/address bindings
+and strict compiler options, and supplies their required test environments.
+It generates and retains all 38,187 ContextMap requests from the actual source
+fixture encoder. Every earlier component case remains in the all-feature test
+inventory, including partial owner bytes, allocator failures and source-backed
+callback replacement. The independent standalone runners retain their original
+CMake graphs and every earlier request/output corpus. No source algorithms,
+default configuration, sanitizer coverage or comparisons are relaxed.
+
+Both native architectures independently accepted the raw packed-bit and raw
+byte-XOR primitives before core use. The registered module now passes all six
+complete ordinary/ASan/UBSan Debug, Release and Rust 1.85 repository
+configurations on macOS AArch64: 689 tests, including all 322 retained libjxl
+differential groups and 1,091,467 exact requests, with no failures or ignored
+tests in each configuration. All sixteen mandatory Brotli source observers and
+their retained component corpora also run in these gates. Native x86 complete
+streaming/API acceptance remains pending. JPEG reconstruction, compressed
+container integration and whole-codec completion remain open.

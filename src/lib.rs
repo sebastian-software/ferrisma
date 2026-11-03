@@ -5,6 +5,7 @@
 //! while general codec configurations and the public C API remain unfinished.
 //! The low-level Rust API is not stable.
 
+pub mod brotli;
 pub mod jxl;
 
 pub mod skcms;

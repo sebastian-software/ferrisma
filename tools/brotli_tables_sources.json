@@ -1,0 +1,13 @@
+{
+  "pin": "db24a98aed38a16de78cc05ca15cdd8dc2a0d92d",
+  "files": {
+    "c/common/context.c": "c9aa1acb35af38c90c4a38ba168885b649838236b2d57adb5e76d687bdbe252e",
+    "c/common/constants.c": "630f40ca2ac787025175eaf39b9569a60aff6ddec7e5085197e4cb0d43641b0d",
+    "c/common/dictionary.c": "0890056e4ae595efab6bbf3bf1fd244332e2cfad3adcb9f5793ee29a8f3a18c5",
+    "c/common/dictionary_inc.h": "55b98973df9dcb353bd78b2b573fb7338ab55d98fb5571ad93939095978768e8",
+    "c/common/dictionary.bin": "20e42eb1b511c21806d4d227d07e5dd06877d8ce7b3a817f378f313653f35c70",
+    "c/common/transform.c": "47f229a79c3542ea57ec07145d7eaf77300a02816d95695332f9911ea19d6ab3",
+    "c/common/transform.h": "b79dd99d1dcc618c1a4284b74dd04adda099fc3f65f906924991a736e09c125c",
+    "c/dec/prefix_inc.h": "e1ade26b7b1e1e56b1a91af20ef93f81ef7a4ed83e0543fd6d9eb29f5c6d2983"
+  }
+}
