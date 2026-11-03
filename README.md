@@ -54,7 +54,8 @@ the items vary in size and do not represent equal amounts of work.
   stages and pixel-buffer export for the admitted image profiles.
 - [x] Generate ICC profiles and serialize the documented color-encoding fields.
 - [x] Compare translated boundaries with ordinary and ASan/UBSan original C++
-  references in Debug, Release and Rust 1.85, with native Linux/macOS CI.
+  references using optimized Rust with overflow checks and debug assertions,
+  with native Linux/macOS CI and a Rust 1.95 compile check.
   Ordinary Rust builds have no external crate dependencies and do not compile
   or link C/C++.
 
@@ -117,8 +118,9 @@ python3 tools/check.py
 
 The complete check builds the C++ oracle, runs Clippy, and compares encoded
 bytes, decoded values, statuses, bit counts, truncated headers, and lifecycle
-checkpoints in debug and release Rust builds. Missing oracle prerequisites are
-an error. All binary16 input patterns are compared against the original code.
+checkpoints in an optimized Rust build with overflow checks and debug
+assertions. Missing oracle prerequisites are an error. All binary16 input
+patterns are compared against the original code.
 
 The provisional Rust API follows upstream's low-level module structure under
 `jxl::jxl`. It is not a stable public API, and the crate is not publishable yet.
