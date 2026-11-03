@@ -489,6 +489,18 @@ The transition, original-artifact integration checks, and focused fault
 comparisons are recorded in
 [`aom-release-policy-validation.json`](aom-release-policy-validation.json).
 
+The original Linux continuation exposed a fixture-provisioning error in its
+rate-control job: both C and Rust failed the same 16 file-open cases because
+the job had not fetched the two required original videos. The actual failed
+XML, logs, and identities are retained in
+[`aom-rate-control-fixture-failure.json`](aom-rate-control-fixture-failure.json).
+`aom-rate-control-fixtures.yml` validates that exact failure class and repeats
+all 38 unchanged cases using the frozen binaries and verified original corpus.
+The Release mode of `aom-original-collect.yml` composes passing original and
+continuation main/speed evidence with a successful guarded repair. It retains
+the original failed workflow conclusion and evidence, rejects any other job
+failure, and still requires the complete Release and focused Debug collectors.
+
 The hosted `macos-26` build now passes both original profiles and verifies
 18,207 Debug / 18,157 Release named record instances with 204,984 / 204,684
 layout checks and no differences. All original globals resolve to Rust in

@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-from check_aom_rc_fixture_recovery import validate_failure
+from check_aom_rc_fixture_recovery import validate_failure, verify_repaired_pair
 
 
 class MissingVideoRecovery(unittest.TestCase):
@@ -92,6 +92,40 @@ class MissingVideoRecovery(unittest.TestCase):
         self.record['valid'] = True
         self.write_report()
         self.reject()
+
+    def make_passing_pair(self):
+        self.record['valid'] = True
+        for side in ('c', 'rust'):
+            result = self.record['results'][side]
+            result.update(exit_code=0, valid_xml=True)
+            for case in result['cases']:
+                case['failed'] = False
+            p = self.directory / f'shard-0-{side}.xml'
+            tree = ET.parse(p)
+            tree.getroot().set('failures', '0')
+            for case in tree.getroot().iter('testcase'):
+                for failure in case.findall('failure'):
+                    case.remove(failure)
+            tree.write(p)
+        self.write_report()
+
+    def test_repaired_pair_requires_actual_unchanged_c_and_rust_xml(self):
+        self.make_passing_pair()
+        self.assertEqual(verify_repaired_pair(self.directory, self.names, self.identity), self.record)
+
+    def test_repaired_pair_rejects_changed_binary_identity(self):
+        self.make_passing_pair()
+        self.record['identity']['rust_executable_sha256'] = 'other'
+        self.write_report()
+        with self.assertRaises(ValueError):
+            verify_repaired_pair(self.directory, self.names, self.identity)
+
+    def test_repaired_pair_rejects_changed_actual_xml(self):
+        self.make_passing_pair()
+        p = self.directory / 'shard-0-rust.xml'
+        p.write_text(p.read_text().replace('OneLayer/0', 'Different/0'))
+        with self.assertRaises(ValueError):
+            verify_repaired_pair(self.directory, self.names, self.identity)
 
 
 if __name__ == '__main__':

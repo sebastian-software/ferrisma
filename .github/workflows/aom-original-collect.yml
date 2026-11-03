@@ -11,6 +11,14 @@ on:
         description: Comma-separated successful disjoint recovery run IDs
         default: ""
         type: string
+      release_continuation:
+        description: Completed Release continuation to compose under ADR 0048
+        default: ""
+        type: string
+      rc_fixture_recovery:
+        description: Successful strictly classified rate-control fixture repair
+        default: ""
+        type: string
       runner:
         description: Same native host as the original binaries
         type: choice
@@ -23,6 +31,7 @@ permissions:
 
 jobs:
   collect:
+    if: inputs.release_continuation == ''
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 45
     env:
@@ -72,3 +81,121 @@ jobs:
             build/aom-paired-*/shard-*.xml
             build/aom-paired-*/shard-*.log
             build/aom-recovery-*/original-*/segment-*/
+  release-collect:
+    if: inputs.release_continuation != ''
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      CONTINUATION_RUN: ${{ inputs.release_continuation }}
+      REPAIR_RUN: ${{ inputs.rc_fixture_recovery }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 tests/ports/aom_rc_fixture_recovery_test.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-original-binaries
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-original-shard-release-*
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: aom-release-shard-test_libaom-*
+          run-id: ${{ inputs.release_continuation }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-release-shard-test_intra_pred_speed-0
+          run-id: ${{ inputs.release_continuation }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-release-source-plan
+          run-id: ${{ inputs.release_continuation }}
+          github-token: ${{ github.token }}
+          path: build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-focused-debug
+          run-id: ${{ inputs.release_continuation }}
+          github-token: ${{ github.token }}
+          path: build
+      - name: Refuse to replace original rate-control evidence
+        run: test ! -e build/aom-paired-release-test_aom_rc/shard-0.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aom-rate-control-fixture-recovery
+          run-id: ${{ inputs.rc_fixture_recovery }}
+          github-token: ${{ github.token }}
+          path: build
+      - name: Recheck actual original failure, repaired cases, frozen identities, and fixture hashes
+        run: python3 tools/check_aom_rc_fixture_recovery.py --source-run '${{ inputs.source_run }}' --continuation-run '${{ inputs.release_continuation }}' --runner '${{ inputs.runner }}' --verify-artifact
+      - name: Require complete unchanged native Release composition
+        run: |
+          chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          repository = 'sebastian-software/libavif-rs'
+          source, continuation, repair = [int(os.environ[key]) for key in ('SOURCE_RUN', 'CONTINUATION_RUN', 'REPAIR_RUN')]
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', f'repos/{repository}/{path}'], text=True))
+          def pages(path, key):
+              output = subprocess.check_output(['gh', 'api', '--paginate', f'repos/{repository}/{path}', '--jq', f'.{key}[] | @json'], text=True)
+              return [json.loads(line) for line in output.splitlines()]
+          previous, repaired = api(f'actions/runs/{continuation}'), api(f'actions/runs/{repair}')
+          if (previous['status'] != 'completed' or previous['conclusion'] != 'failure'
+                  or repaired['status'] != 'completed' or repaired['conclusion'] != 'success'
+                  or repaired['path'].split('@')[0] != '.github/workflows/aom-rate-control-fixtures.yml'):
+              raise ValueError('Require completed original evidence and a successful guarded fixture repair')
+          jobs = pages(f'actions/runs/{continuation}/jobs?per_page=25', 'jobs')
+          failed = [j for j in jobs if j['conclusion'] not in ('success', 'skipped')]
+          if len(failed) != 1 or failed[0]['name'] != 'paired (test_aom_rc, 1, 0)' or failed[0]['conclusion'] != 'failure':
+              raise ValueError('Another failed or incomplete original job cannot be hidden by fixture recovery')
+          build = pathlib.Path('build')
+          if json.loads((build / 'aom-release-source-plan.json').read_text()) != json.loads((build / 'aom-rc-fixture-failure/aom-release-source-plan.json').read_text()):
+              raise ValueError('Reused original source plan differs from the repaired continuation')
+          artifacts = [a for a in pages(f'actions/runs/{repair}/artifacts?per_page=25', 'artifacts') if a['name'] == 'aom-rate-control-fixture-recovery' and not a['expired']]
+          if len(artifacts) != 1:
+              raise ValueError('Require one immutable complete repair artifact')
+          subprocess.run(['python3', 'tools/collect_aom_recovery.py', '--source-run', str(source), '--release-only', '--source-plan', 'build/aom-release-source-plan.json'], check=True)
+          path = build / 'aom-complete-acceptance.json'
+          report = json.loads(path.read_text())
+          report.update(continuation_run=continuation, continuation_original_conclusion=previous['conclusion'],
+                        collection_run=int(os.environ['GITHUB_RUN_ID']), fixture_repair_run=repair,
+                        fixture_repair_artifact_id=artifacts[0]['id'],
+                        fixture_repair=json.loads((build / 'aom-rc-fixture-recovery.json').read_text()))
+          path.write_text(json.dumps(report, indent=2) + '\n')
+          PY
+      - name: Preserve complete native Release, focused Debug, and classified failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-complete-native-release-acceptance
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/aom-complete-acceptance.json
+            build/aom-release-source-plan.json
+            build/aom-focused-debug.json
+            build/aom-paired-*/
+            build/aom-rc-fixture-failure/
+            build/aom-rc-fixture-recovery.json
+            build/aom-rc-fixture-verified-inputs.json
+            build/aom-abi-*/summary.json
+            build/aom-unaligned-input-*/summary.json
+            build/aom-rust-*/linkage.json
+            build/aom-rust-*/symbol-audit.json
+            build/aom-native-*/reference-profile.json

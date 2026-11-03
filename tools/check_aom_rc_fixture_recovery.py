@@ -36,7 +36,7 @@ def validate_failure(directory, names, identity):
         result = record['results'][side]
         path = directory / f'shard-0-{side}.xml'
         document = ET.parse(path).getroot()
-        # xml_cases deliberately rejects failures; preserve them here for classification.
+        # Classify the actual failure elements without accepting them as passing XML.
         cases = [c for c in document.iter('testcase') if c.get('status') == 'run']
         if (result['exit_code'] != 1 or result['valid_xml'] or result['xml_errors']
                 or document.get('errors') != '0' or int(document.get('failures', -1)) != 16
@@ -74,12 +74,23 @@ def api(path):
         'repos/sebastian-software/libavif-rs/' + path], text=True))
 
 
+def verify_repaired_pair(directory, names, identity):
+    recovered = source_pair(directory, 'test_aom_rc', 0)
+    if (recovered is None or recovered['identity'] != identity
+            or [c['name'] for c in recovered['results']['c']['cases']] != names
+            or any(c['skipped'] for c in recovered['results']['c']['cases'])):
+        raise ValueError('All 38 unchanged original C/Rust cases must pass')
+    return recovered
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-run', required=True, type=int)
     parser.add_argument('--continuation-run', required=True, type=int)
     parser.add_argument('--runner', required=True, choices=['ubuntu-24.04', 'macos-26', 'macos-15'])
-    parser.add_argument('--verify-success', action='store_true')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--verify-success', action='store_true')
+    modes.add_argument('--verify-artifact', action='store_true', help='Recheck a complete preserved repair without executing tests')
     args = parser.parse_args()
     if platform.machine() != ('arm64' if args.runner.startswith('macos-') else 'x86_64'):
         raise ValueError('Recovery must execute on the original native architecture')
@@ -117,30 +128,38 @@ def main():
         failed_actual_files_sha256={str(p.relative_to(failed)): digest(p)
             for p in failed.rglob('*') if p.is_file()}, repair_complete=False,
         complete_native_acceptance=False, original_cases=38)
-    if args.verify_success:
+    if args.verify_success or args.verify_artifact:
         previous = json.loads((ROOT / 'build/aom-rc-fixture-recovery.json').read_text())
-        if previous != report:
+        base = dict(previous)
+        if args.verify_artifact:
+            if base.get('repair_complete') is not True:
+                raise ValueError('Repair artifact does not establish a complete passing pair')
+            base['repair_complete'] = False
+            for key in ('fixture_provenance_sha256', 'recovered_actual_files_sha256'):
+                base.pop(key, None)
+        if base != report:
             raise ValueError('Original failure evidence changed during recovery')
         directory = ROOT / 'build/aom-paired-release-test_aom_rc'
-        recovered = source_pair(directory, 'test_aom_rc', 0)
-        if (recovered is None or recovered['identity'] != identity
-                or [c['name'] for c in recovered['results']['c']['cases']] != names
-                or any(c['skipped'] for c in recovered['results']['c']['cases'])):
-            raise ValueError('All 38 unchanged original C/Rust cases must pass')
-        fixtures = json.loads((ROOT / 'build/deps/aom-test-data/verified-inputs.json').read_text())
-        required = json.loads((native / 'test-data.json').read_text())
-        if not fixtures['complete_selected_corpus'] or set(fixtures['files']) != set(required):
-            raise ValueError('Require the complete verified original fixture corpus')
-        for name in VIDEOS:
-            record = fixtures['files'][name]
-            if (record['sha1'] != required[name] or digest(ROOT / 'build/deps/aom-test-data' / name) != record['sha256']):
-                raise ValueError('Original rate-control fixture content changed')
+        verify_repaired_pair(directory, names, identity)
         target = ROOT / 'build/aom-rc-fixture-verified-inputs.json'
-        shutil.copyfile(ROOT / 'build/deps/aom-test-data/verified-inputs.json', target)
+        fixture_path = target if args.verify_artifact else ROOT / 'build/deps/aom-test-data/verified-inputs.json'
+        fixtures = json.loads(fixture_path.read_text())
+        required = json.loads((native / 'test-data.json').read_text())
+        if (not fixtures['complete_selected_corpus'] or set(fixtures['files']) != set(required)
+                or any(fixtures['files'][name]['sha1'] != value for name, value in required.items())):
+            raise ValueError('Require the complete verified original fixture corpus')
+        if args.verify_success:
+            for name in VIDEOS:
+                if digest(ROOT / 'build/deps/aom-test-data' / name) != fixtures['files'][name]['sha256']:
+                    raise ValueError('Original rate-control fixture content changed')
+            shutil.copyfile(fixture_path, target)
         report.update(repair_complete=True, fixture_provenance_sha256=digest(target),
-            recovered_actual_files_sha256={str(p.relative_to(ROOT / 'build')): digest(p)
-                for p in directory.iterdir() if p.is_file()})
-    (ROOT / 'build/aom-rc-fixture-recovery.json').write_text(json.dumps(report, indent=2) + '\n')
+            recovered_actual_files_sha256={str((directory / name).relative_to(ROOT / 'build')): digest(directory / name)
+                for name in ('shard-0.json', 'shard-0-c.xml', 'shard-0-rust.xml', 'shard-0-c.log', 'shard-0-rust.log')})
+        if args.verify_artifact and report != previous:
+            raise ValueError('Repaired XML, reports, logs, or fixture provenance changed')
+    if not args.verify_artifact:
+        (ROOT / 'build/aom-rc-fixture-recovery.json').write_text(json.dumps(report, indent=2) + '\n')
 
 
 if __name__ == '__main__':
