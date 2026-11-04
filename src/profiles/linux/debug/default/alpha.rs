@@ -272,19 +272,6 @@ pub unsafe extern "C" fn avifReformatAlpha(mut params: *const avifAlphaParams) {
             }
         }
     } else {
-        if (*params).dstDepth > 8 as uint32_t {} else {
-            __assert_fail(
-                b"params->dstDepth > 8\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/alpha.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                127 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 48],
-                    [core::ffi::c_char; 48],
-                >(*b"void avifReformatAlpha(const avifAlphaParams *)\0"))
-                    .as_ptr(),
-            );
-        }
         'c_5066: {
             if (*params).dstDepth > 8 as uint32_t {} else {
                 __assert_fail(
@@ -348,20 +335,6 @@ pub unsafe extern "C" fn avifRGBImagePremultiplyAlpha(
         != AVIF_RESULT_NOT_IMPLEMENTED as core::ffi::c_int as core::ffi::c_uint
     {
         return libyuvResult;
-    }
-    if (*rgb).depth >= 8 as uint32_t && (*rgb).depth <= 16 as uint32_t {} else {
-        __assert_fail(
-            b"rgb->depth >= 8 && rgb->depth <= 16\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/alpha.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            168 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 56],
-                [core::ffi::c_char; 56],
-            >(*b"avifResult avifRGBImagePremultiplyAlpha(avifRGBImage *)\0"))
-                .as_ptr(),
-        );
     }
     'c_2173: {
         if (*rgb).depth >= 8 as uint32_t && (*rgb).depth <= 16 as uint32_t {} else {
@@ -673,20 +646,6 @@ pub unsafe extern "C" fn avifRGBImageUnpremultiplyAlpha(
         != AVIF_RESULT_NOT_IMPLEMENTED as core::ffi::c_int as core::ffi::c_uint
     {
         return libyuvResult;
-    }
-    if (*rgb).depth >= 8 as uint32_t && (*rgb).depth <= 16 as uint32_t {} else {
-        __assert_fail(
-            b"rgb->depth >= 8 && rgb->depth <= 16\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/alpha.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            355 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 58],
-                [core::ffi::c_char; 58],
-            >(*b"avifResult avifRGBImageUnpremultiplyAlpha(avifRGBImage *)\0"))
-                .as_ptr(),
-        );
     }
     'c_3833: {
         if (*rgb).depth >= 8 as uint32_t && (*rgb).depth <= 16 as uint32_t {} else {

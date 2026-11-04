@@ -16,7 +16,7 @@ on:
       tier:
         description: Preparation only, bounded original smoke suite, or complete original root suite
         type: choice
-        options: [prepare, smoke, full]
+        options: [prepare, smoke, regression, full]
         default: prepare
   workflow_call:
     inputs:
@@ -65,6 +65,7 @@ jobs:
           python3 tools/generate_licenses.py --check
           python3 tests/ports/root_profile_test.py
           python3 tests/ports/root_link_order_test.py
+          python3 tests/ports/root_assertions_test.py
           cargo fetch --locked
       - name: Build the pinned retained VMAF reference
         run: |

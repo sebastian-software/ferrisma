@@ -828,16 +828,6 @@ pub unsafe extern "C" fn avifImageCopySamples(
     mut srcImage: *const avifImage,
     mut planes: avifPlanesFlags,
 ) {
-    if (*srcImage).depth == (*dstImage).depth {} else {
-        __assert_fail(
-            b"srcImage->depth == dstImage->depth\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            189 as core::ffi::c_uint,
-            __ASSERT_FUNCTION.as_ptr(),
-        );
-    }
     'c_4741: {
         if (*srcImage).depth == (*dstImage).depth {} else {
             __assert_fail(
@@ -851,18 +841,6 @@ pub unsafe extern "C" fn avifImageCopySamples(
         }
     };
     if planes & AVIF_PLANES_YUV as core::ffi::c_int as avifPlanesFlags != 0 {
-        if (*srcImage).yuvFormat as core::ffi::c_uint
-            == (*dstImage).yuvFormat as core::ffi::c_uint
-        {} else {
-            __assert_fail(
-                b"srcImage->yuvFormat == dstImage->yuvFormat\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                191 as core::ffi::c_uint,
-                __ASSERT_FUNCTION.as_ptr(),
-            );
-        }
         'c_4687: {
             if (*srcImage).yuvFormat as core::ffi::c_uint
                 == (*dstImage).yuvFormat as core::ffi::c_uint
@@ -898,17 +876,6 @@ pub unsafe extern "C" fn avifImageCopySamples(
             let mut dstRow: *mut uint8_t = avifImagePlane(dstImage, c);
             let srcRowBytes: uint32_t = avifImagePlaneRowBytes(srcImage, c) as uint32_t;
             let dstRowBytes: uint32_t = avifImagePlaneRowBytes(dstImage, c) as uint32_t;
-            if srcRow.is_null() as core::ffi::c_int
-                == dstRow.is_null() as core::ffi::c_int
-            {} else {
-                __assert_fail(
-                    b"!srcRow == !dstRow\0" as *const u8 as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    211 as core::ffi::c_uint,
-                    __ASSERT_FUNCTION.as_ptr(),
-                );
-            }
             'c_4601: {
                 if srcRow.is_null() as core::ffi::c_int
                     == dstRow.is_null() as core::ffi::c_int
@@ -923,16 +890,6 @@ pub unsafe extern "C" fn avifImageCopySamples(
                 }
             };
             if !srcRow.is_null() {
-                if planeWidth == avifImagePlaneWidth(dstImage, c) {} else {
-                    __assert_fail(
-                        b"planeWidth == avifImagePlaneWidth(dstImage, c)\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        215 as core::ffi::c_uint,
-                        __ASSERT_FUNCTION.as_ptr(),
-                    );
-                }
                 'c_4545: {
                     if planeWidth == avifImagePlaneWidth(dstImage, c) {} else {
                         __assert_fail(
@@ -945,16 +902,6 @@ pub unsafe extern "C" fn avifImageCopySamples(
                         );
                     }
                 };
-                if planeHeight == avifImagePlaneHeight(dstImage, c) {} else {
-                    __assert_fail(
-                        b"planeHeight == avifImagePlaneHeight(dstImage, c)\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        216 as core::ffi::c_uint,
-                        __ASSERT_FUNCTION.as_ptr(),
-                    );
-                }
                 'c_4483: {
                     if planeHeight == avifImagePlaneHeight(dstImage, c) {} else {
                         __assert_fail(

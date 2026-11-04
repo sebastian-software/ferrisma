@@ -418,22 +418,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
         {
             return AVIF_RESULT_OUT_OF_MEMORY;
         }
-        if avifPushConstant(expression, 256 as int32_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushConstant(expression, 256)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                106 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2880: {
             if avifPushConstant(expression, 256 as int32_t) != 0 {} else {
                 __assert_fail(
@@ -452,22 +436,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushInputImageItem(expression, 1 as uint8_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushInputImageItem(expression, 1)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                107 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2838: {
             if avifPushInputImageItem(expression, 1 as uint8_t) != 0 {} else {
                 __assert_fail(
@@ -486,22 +454,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT)\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                108 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2796: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT) != 0 {} else {
                 __assert_fail(
@@ -520,22 +472,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushInputImageItem(expression, 2 as uint8_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushInputImageItem(expression, 2)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                112 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2751: {
             if avifPushInputImageItem(expression, 2 as uint8_t) != 0 {} else {
                 __assert_fail(
@@ -554,22 +490,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_OR) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_OR)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                114 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2707: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_OR) != 0 {} else {
                 __assert_fail(
@@ -602,22 +522,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
         {
             return AVIF_RESULT_OUT_OF_MEMORY;
         }
-        if avifPushConstant(expression, 16 as int32_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushConstant(expression, 16)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                128 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2633: {
             if avifPushConstant(expression, 16 as int32_t) != 0 {} else {
                 __assert_fail(
@@ -636,22 +540,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushInputImageItem(expression, 1 as uint8_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushInputImageItem(expression, 1)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                129 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2591: {
             if avifPushInputImageItem(expression, 1 as uint8_t) != 0 {} else {
                 __assert_fail(
@@ -670,22 +558,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT)\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                130 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2549: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT) != 0 {} else {
                 __assert_fail(
@@ -704,22 +576,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushInputImageItem(expression, 2 as uint8_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushInputImageItem(expression, 2)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                134 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2504: {
             if avifPushInputImageItem(expression, 2 as uint8_t) != 0 {} else {
                 __assert_fail(
@@ -738,22 +594,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushConstant(expression, 16 as int32_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushConstant(expression, 16)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                135 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2464: {
             if avifPushConstant(expression, 16 as int32_t) != 0 {} else {
                 __assert_fail(
@@ -772,22 +612,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_QUOTIENT) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_QUOTIENT)\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                136 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2421: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_QUOTIENT) != 0
             {} else {
@@ -807,22 +631,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_SUM) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_SUM)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                138 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2376: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_SUM) != 0 {} else {
                 __assert_fail(
@@ -855,22 +663,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
         {
             return AVIF_RESULT_OUT_OF_MEMORY;
         }
-        if avifPushConstant(expression, 16 as int32_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushConstant(expression, 16)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                152 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2300: {
             if avifPushConstant(expression, 16 as int32_t) != 0 {} else {
                 __assert_fail(
@@ -889,22 +681,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushInputImageItem(expression, 1 as uint8_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushInputImageItem(expression, 1)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                153 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2258: {
             if avifPushInputImageItem(expression, 1 as uint8_t) != 0 {} else {
                 __assert_fail(
@@ -923,22 +699,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT)\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                154 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2215: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_PRODUCT) != 0 {} else {
                 __assert_fail(
@@ -957,22 +717,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushInputImageItem(expression, 2 as uint8_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushInputImageItem(expression, 2)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                158 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2129: {
             if avifPushInputImageItem(expression, 2 as uint8_t) != 0 {} else {
                 __assert_fail(
@@ -991,22 +735,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_SUM) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_SUM)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                159 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2086: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_SUM) != 0 {} else {
                 __assert_fail(
@@ -1025,22 +753,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushConstant(expression, 128 as int32_t) != 0 {} else {
-            __assert_fail(
-                b"avifPushConstant(expression, 128)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                163 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2002: {
             if avifPushConstant(expression, 128 as int32_t) != 0 {} else {
                 __assert_fail(
@@ -1059,22 +771,6 @@ pub unsafe extern "C" fn avifSampleTransformRecipeToExpression(
                 );
             }
         };
-        if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_DIFFERENCE) != 0 {} else {
-            __assert_fail(
-                b"avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_DIFFERENCE)\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                164 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 109],
-                    [core::ffi::c_char; 109],
-                >(
-                    *b"avifResult avifSampleTransformRecipeToExpression(avifSampleTransformRecipe, avifSampleTransformExpression *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_1908: {
             if avifPushOperator(expression, AVIF_SAMPLE_TRANSFORM_DIFFERENCE) != 0
             {} else {
@@ -1185,19 +881,6 @@ unsafe extern "C" fn avifSampleTransformOperation32bOneOperand(
             return log2;
         }
         _ => {
-            __assert_fail(
-                b"AVIF_FALSE\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                221 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 68],
-                    [core::ffi::c_char; 68],
-                >(
-                    *b"int32_t avifSampleTransformOperation32bOneOperand(int32_t, uint8_t)\0",
-                ))
-                    .as_ptr(),
-            );
             'c_3879: {
                 __assert_fail(
                     b"AVIF_FALSE\0" as *const u8 as *const core::ffi::c_char,
@@ -1294,19 +977,6 @@ unsafe extern "C" fn avifSampleTransformOperation32bTwoOperands(
             return if leftOperand <= rightOperand { rightOperand } else { leftOperand };
         }
         _ => {
-            __assert_fail(
-                b"AVIF_FALSE\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                274 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 78],
-                    [core::ffi::c_char; 78],
-                >(
-                    *b"int32_t avifSampleTransformOperation32bTwoOperands(int32_t, int32_t, uint8_t)\0",
-                ))
-                    .as_ptr(),
-            );
             'c_3487: {
                 __assert_fail(
                     b"AVIF_FALSE\0" as *const u8 as *const core::ffi::c_char,
@@ -1361,22 +1031,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                             == AVIF_SAMPLE_TRANSFORM_CONSTANT as core::ffi::c_int
                                 as core::ffi::c_uint
                         {
-                            if stackSize < stackCapacity {} else {
-                                __assert_fail(
-                                    b"stackSize < stackCapacity\0" as *const u8
-                                        as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    313 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 149],
-                                        [core::ffi::c_char; 149],
-                                    >(
-                                        *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_4227: {
                                 if stackSize < stackCapacity {} else {
                                     __assert_fail(
@@ -1408,22 +1062,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                                         - 1 as core::ffi::c_int) as isize,
                                 );
                             let mut row: *const uint8_t = avifImagePlane(image, c);
-                            if !row.is_null() {} else {
-                                __assert_fail(
-                                    b"row != ((void*)0)\0" as *const u8
-                                        as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    318 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 149],
-                                        [core::ffi::c_char; 149],
-                                    >(
-                                        *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_4166: {
                                 if !row.is_null() {} else {
                                     __assert_fail(
@@ -1447,22 +1085,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                                     (avifImagePlaneRowBytes(image, c) as size_t)
                                         .wrapping_mul(y as size_t) as isize,
                                 );
-                            if stackSize < stackCapacity {} else {
-                                __assert_fail(
-                                    b"stackSize < stackCapacity\0" as *const u8
-                                        as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    320 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 149],
-                                        [core::ffi::c_char; 149],
-                                    >(
-                                        *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_4113: {
                                 if stackSize < stackCapacity {} else {
                                     __assert_fail(
@@ -1504,22 +1126,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                                 == AVIF_SAMPLE_TRANSFORM_BSR as core::ffi::c_int
                                     as core::ffi::c_uint
                         {
-                            if stackSize >= 1 as uint32_t {} else {
-                                __assert_fail(
-                                    b"stackSize >= 1\0" as *const u8
-                                        as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    324 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 149],
-                                        [core::ffi::c_char; 149],
-                                    >(
-                                        *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_3985: {
                                 if stackSize >= 1 as uint32_t {} else {
                                     __assert_fail(
@@ -1545,22 +1151,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                                 (*token).type_0 as uint8_t,
                             );
                         } else {
-                            if stackSize >= 2 as uint32_t {} else {
-                                __assert_fail(
-                                    b"stackSize >= 2\0" as *const u8
-                                        as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    328 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 149],
-                                        [core::ffi::c_char; 149],
-                                    >(
-                                        *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_3802: {
                                 if stackSize >= 2 as uint32_t {} else {
                                     __assert_fail(
@@ -1591,21 +1181,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                         }
                         t = t.wrapping_add(1);
                     }
-                    if stackSize == 1 as uint32_t {} else {
-                        __assert_fail(
-                            b"stackSize == 1\0" as *const u8 as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            334 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 149],
-                                [core::ffi::c_char; 149],
-                            >(
-                                *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                            ))
-                                .as_ptr(),
-                        );
-                    }
                     'c_3359: {
                         if stackSize == 1 as uint32_t {} else {
                             __assert_fail(
@@ -1634,22 +1209,6 @@ unsafe extern "C" fn avifImageApplyExpression32b(
                         *stack.offset(0 as core::ffi::c_int as isize)
                     };
                     let mut row_0: *mut uint8_t = avifImagePlane(dstImage, c);
-                    if !row_0.is_null() {} else {
-                        __assert_fail(
-                            b"row != ((void*)0)\0" as *const u8
-                                as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            340 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 149],
-                                [core::ffi::c_char; 149],
-                            >(
-                                *b"avifResult avifImageApplyExpression32b(avifImage *, const avifSampleTransformExpression *, const avifImage **, avifPlanesFlags, int32_t *, uint32_t)\0",
-                            ))
-                                .as_ptr(),
-                        );
-                    }
                     'c_3259: {
                         if !row_0.is_null() {} else {
                             __assert_fail(
@@ -1698,24 +1257,6 @@ pub unsafe extern "C" fn avifImageApplyExpression(
     mut inputImageItems: *mut *const avifImage,
     mut planes: avifPlanesFlags,
 ) -> avifResult {
-    if avifSampleTransformExpressionIsValid(expression, numInputImageItems as uint32_t)
-        != 0
-    {} else {
-        __assert_fail(
-            b"avifSampleTransformExpressionIsValid(expression, numInputImageItems)\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            361 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 163],
-                [core::ffi::c_char; 163],
-            >(
-                *b"avifResult avifImageApplyExpression(avifImage *, avifSampleTransformBitDepth, const avifSampleTransformExpression *, uint8_t, const avifImage **, avifPlanesFlags)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_4509: {
         if avifSampleTransformExpressionIsValid(
             expression,
@@ -1825,21 +1366,6 @@ pub unsafe extern "C" fn avifImageApplyOperations(
             &mut expression as *mut avifSampleTransformExpression
                 as *mut core::ffi::c_void,
         ) as *mut avifSampleTransformToken;
-        if !token.is_null() {} else {
-            __assert_fail(
-                b"token != ((void*)0)\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/sampletransform.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                402 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 168],
-                    [core::ffi::c_char; 168],
-                >(
-                    *b"avifResult avifImageApplyOperations(avifImage *, avifSampleTransformBitDepth, uint32_t, const avifSampleTransformToken *, uint8_t, const avifImage **, avifPlanesFlags)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_4636: {
             if !token.is_null() {} else {
                 __assert_fail(

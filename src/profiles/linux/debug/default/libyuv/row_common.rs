@@ -85,21 +85,6 @@ pub unsafe extern "C" fn InterpolateRow_C(
     let mut y0_fraction: core::ffi::c_int = 256 as core::ffi::c_int - y1_fraction;
     let mut src_ptr1: *const uint8_t = src_ptr.offset(src_stride as isize);
     let mut x: core::ffi::c_int = 0;
-    if source_y_fraction >= 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"source_y_fraction >= 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/row_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            55 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 71],
-                [core::ffi::c_char; 71],
-            >(
-                *b"void InterpolateRow_C(uint8_t *, const uint8_t *, ptrdiff_t, int, int)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1507: {
         if source_y_fraction >= 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -117,21 +102,6 @@ pub unsafe extern "C" fn InterpolateRow_C(
             );
         }
     };
-    if source_y_fraction < 256 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"source_y_fraction < 256\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/row_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            56 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 71],
-                [core::ffi::c_char; 71],
-            >(
-                *b"void InterpolateRow_C(uint8_t *, const uint8_t *, ptrdiff_t, int, int)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1459: {
         if source_y_fraction < 256 as core::ffi::c_int {} else {
             __assert_fail(
@@ -186,21 +156,6 @@ pub unsafe extern "C" fn InterpolateRow_16_C(
     let mut y0_fraction: core::ffi::c_int = 256 as core::ffi::c_int - y1_fraction;
     let mut src_ptr1: *const uint16_t = src_ptr.offset(src_stride as isize);
     let mut x: core::ffi::c_int = 0;
-    if source_y_fraction >= 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"source_y_fraction >= 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/row_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            86 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 76],
-                [core::ffi::c_char; 76],
-            >(
-                *b"void InterpolateRow_16_C(uint16_t *, const uint16_t *, ptrdiff_t, int, int)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1766: {
         if source_y_fraction >= 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -218,21 +173,6 @@ pub unsafe extern "C" fn InterpolateRow_16_C(
             );
         }
     };
-    if source_y_fraction < 256 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"source_y_fraction < 256\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/row_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            87 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 76],
-                [core::ffi::c_char; 76],
-            >(
-                *b"void InterpolateRow_16_C(uint16_t *, const uint16_t *, ptrdiff_t, int, int)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1729: {
         if source_y_fraction < 256 as core::ffi::c_int {} else {
             __assert_fail(

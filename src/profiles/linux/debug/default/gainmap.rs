@@ -656,16 +656,6 @@ pub unsafe extern "C" fn avifRGBImageApplyGainMap(
         && (*baseImage).isFloat == (*toneMappedImage).isFloat
         && (*baseImage).rowBytes == (*toneMappedImage).rowBytes
     {
-        if (*baseImage).height == (*toneMappedImage).height {} else {
-            __assert_fail(
-                b"baseImage->height == toneMappedImage->height\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/gainmap.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                132 as core::ffi::c_uint,
-                __ASSERT_FUNCTION.as_ptr(),
-            );
-        }
         'c_3074: {
             if (*baseImage).height == (*toneMappedImage).height {} else {
                 __assert_fail(

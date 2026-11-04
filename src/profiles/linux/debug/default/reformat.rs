@@ -707,28 +707,6 @@ unsafe extern "C" fn avifYUVColorSpaceInfoUVToUNorm(
     mut v: core::ffi::c_float,
 ) -> core::ffi::c_int {
     let mut unorm: core::ffi::c_int = 0;
-    if (*info).mode as core::ffi::c_uint
-        != AVIF_REFORMAT_MODE_YCGCO as core::ffi::c_int as core::ffi::c_uint
-        && (*info).mode as core::ffi::c_uint
-            != AVIF_REFORMAT_MODE_YCGCO_RE as core::ffi::c_int as core::ffi::c_uint
-        && (*info).mode as core::ffi::c_uint
-            != AVIF_REFORMAT_MODE_YCGCO_RO as core::ffi::c_int as core::ffi::c_uint
-        || (*info).range as core::ffi::c_uint
-            == AVIF_RANGE_FULL as core::ffi::c_int as core::ffi::c_uint
-    {} else {
-        __assert_fail(
-            b"(info->mode != AVIF_REFORMAT_MODE_YCGCO && info->mode != AVIF_REFORMAT_MODE_YCGCO_RE && info->mode != AVIF_REFORMAT_MODE_YCGCO_RO) || (info->range == AVIF_RANGE_FULL)\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            214 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 67],
-                [core::ffi::c_char; 67],
-            >(*b"int avifYUVColorSpaceInfoUVToUNorm(avifYUVColorSpaceInfo *, float)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2035: {
         if (*info).mode as core::ffi::c_uint
             != AVIF_REFORMAT_MODE_YCGCO as core::ffi::c_int as core::ffi::c_uint
@@ -1518,21 +1496,6 @@ unsafe extern "C" fn avifCreateYUVToRGBLookUpTables(
     mut state: *const avifReformatState,
 ) -> avifBool {
     let cpCount: size_t = (1 as core::ffi::c_int as size_t) << depth;
-    if !unormFloatTableY.is_null() {} else {
-        __assert_fail(
-            b"unormFloatTableY\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            583 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 97],
-                [core::ffi::c_char; 97],
-            >(
-                *b"avifBool avifCreateYUVToRGBLookUpTables(float **, float **, uint32_t, const avifReformatState *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_9092: {
         if !unormFloatTableY.is_null() {} else {
             __assert_fail(
@@ -1687,25 +1650,6 @@ unsafe extern "C" fn avifImageYUVAnyToRGBAnySlow(
         as core::ffi::c_int;
     let yuvMaxChannel: uint16_t = (*state).yuv.maxChannel as uint16_t;
     let rgbMaxChannelF: core::ffi::c_float = (*state).rgb.maxChannelF;
-    if alphaMultiplyMode as core::ffi::c_uint
-        == AVIF_ALPHA_MULTIPLY_MODE_NO_OP as core::ffi::c_int as core::ffi::c_uint
-        || !aPlane.is_null()
-    {} else {
-        __assert_fail(
-            b"(alphaMultiplyMode == AVIF_ALPHA_MULTIPLY_MODE_NO_OP) || aPlane\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            688 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 124],
-                [core::ffi::c_char; 124],
-            >(
-                *b"avifResult avifImageYUVAnyToRGBAnySlow(const avifImage *, avifRGBImage *, const avifReformatState *, avifAlphaMultiplyMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_8828: {
         if alphaMultiplyMode as core::ffi::c_uint
             == AVIF_ALPHA_MULTIPLY_MODE_NO_OP as core::ffi::c_int as core::ffi::c_uint
@@ -3920,21 +3864,6 @@ pub unsafe extern "C" fn avifGetRGBAPixel(
     mut info: *const avifRGBColorSpaceInfo,
     mut rgbaPixel: *mut core::ffi::c_float,
 ) {
-    if !src.is_null() {} else {
-        __assert_fail(
-            b"src != NULL\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1862 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 104],
-                [core::ffi::c_char; 104],
-            >(
-                *b"void avifGetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_16801: {
         if !src.is_null() {} else {
             __assert_fail(
@@ -3952,22 +3881,6 @@ pub unsafe extern "C" fn avifGetRGBAPixel(
             );
         }
     };
-    if (*src).isFloat == 0 || (*src).depth == 16 as uint32_t {} else {
-        __assert_fail(
-            b"!src->isFloat || src->depth == 16\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1863 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 104],
-                [core::ffi::c_char; 104],
-            >(
-                *b"void avifGetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_16746: {
         if (*src).isFloat == 0 || (*src).depth == 16 as uint32_t {} else {
             __assert_fail(
@@ -3986,25 +3899,6 @@ pub unsafe extern "C" fn avifGetRGBAPixel(
             );
         }
     };
-    if (*src).format as core::ffi::c_uint
-        != AVIF_RGB_FORMAT_RGB_565 as core::ffi::c_int as core::ffi::c_uint
-        || (*src).depth == 8 as uint32_t
-    {} else {
-        __assert_fail(
-            b"src->format != AVIF_RGB_FORMAT_RGB_565 || src->depth == 8\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1864 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 104],
-                [core::ffi::c_char; 104],
-            >(
-                *b"void avifGetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_16684: {
         if (*src).format as core::ffi::c_uint
             != AVIF_RGB_FORMAT_RGB_565 as core::ffi::c_int as core::ffi::c_uint
@@ -4116,21 +4010,6 @@ pub unsafe extern "C" fn avifSetRGBAPixel(
     mut info: *const avifRGBColorSpaceInfo,
     mut rgbaPixel: *const core::ffi::c_float,
 ) {
-    if !dst.is_null() {} else {
-        __assert_fail(
-            b"dst != NULL\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1902 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 110],
-                [core::ffi::c_char; 110],
-            >(
-                *b"void avifSetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, const float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_17509: {
         if !dst.is_null() {} else {
             __assert_fail(
@@ -4148,22 +4027,6 @@ pub unsafe extern "C" fn avifSetRGBAPixel(
             );
         }
     };
-    if (*dst).isFloat == 0 || (*dst).depth == 16 as uint32_t {} else {
-        __assert_fail(
-            b"!dst->isFloat || dst->depth == 16\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1903 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 110],
-                [core::ffi::c_char; 110],
-            >(
-                *b"void avifSetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, const float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_17455: {
         if (*dst).isFloat == 0 || (*dst).depth == 16 as uint32_t {} else {
             __assert_fail(
@@ -4182,25 +4045,6 @@ pub unsafe extern "C" fn avifSetRGBAPixel(
             );
         }
     };
-    if (*dst).format as core::ffi::c_uint
-        != AVIF_RGB_FORMAT_RGB_565 as core::ffi::c_int as core::ffi::c_uint
-        || (*dst).depth == 8 as uint32_t
-    {} else {
-        __assert_fail(
-            b"dst->format != AVIF_RGB_FORMAT_RGB_565 || dst->depth == 8\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1904 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 110],
-                [core::ffi::c_char; 110],
-            >(
-                *b"void avifSetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, const float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_17395: {
         if (*dst).format as core::ffi::c_uint
             != AVIF_RGB_FORMAT_RGB_565 as core::ffi::c_int as core::ffi::c_uint
@@ -4222,24 +4066,6 @@ pub unsafe extern "C" fn avifSetRGBAPixel(
             );
         }
     };
-    if *rgbaPixel.offset(0 as core::ffi::c_int as isize) >= 0.0f32
-        && *rgbaPixel.offset(0 as core::ffi::c_int as isize) <= 1.0f32
-    {} else {
-        __assert_fail(
-            b"rgbaPixel[0] >= 0.0f && rgbaPixel[0] <= 1.0f\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1905 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 110],
-                [core::ffi::c_char; 110],
-            >(
-                *b"void avifSetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, const float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_17337: {
         if *rgbaPixel.offset(0 as core::ffi::c_int as isize) >= 0.0f32
             && *rgbaPixel.offset(0 as core::ffi::c_int as isize) <= 1.0f32
@@ -4260,24 +4086,6 @@ pub unsafe extern "C" fn avifSetRGBAPixel(
             );
         }
     };
-    if *rgbaPixel.offset(1 as core::ffi::c_int as isize) >= 0.0f32
-        && *rgbaPixel.offset(1 as core::ffi::c_int as isize) <= 1.0f32
-    {} else {
-        __assert_fail(
-            b"rgbaPixel[1] >= 0.0f && rgbaPixel[1] <= 1.0f\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1906 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 110],
-                [core::ffi::c_char; 110],
-            >(
-                *b"void avifSetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, const float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_17279: {
         if *rgbaPixel.offset(1 as core::ffi::c_int as isize) >= 0.0f32
             && *rgbaPixel.offset(1 as core::ffi::c_int as isize) <= 1.0f32
@@ -4298,24 +4106,6 @@ pub unsafe extern "C" fn avifSetRGBAPixel(
             );
         }
     };
-    if *rgbaPixel.offset(2 as core::ffi::c_int as isize) >= 0.0f32
-        && *rgbaPixel.offset(2 as core::ffi::c_int as isize) <= 1.0f32
-    {} else {
-        __assert_fail(
-            b"rgbaPixel[2] >= 0.0f && rgbaPixel[2] <= 1.0f\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/reformat.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1907 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 110],
-                [core::ffi::c_char; 110],
-            >(
-                *b"void avifSetRGBAPixel(const avifRGBImage *, uint32_t, uint32_t, const avifRGBColorSpaceInfo *, const float *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_17219: {
         if *rgbaPixel.offset(2 as core::ffi::c_int as isize) >= 0.0f32
             && *rgbaPixel.offset(2 as core::ffi::c_int as isize) <= 1.0f32

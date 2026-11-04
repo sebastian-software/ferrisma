@@ -933,19 +933,6 @@ static mut xmpContentTypeSize: size_t = unsafe {
     ::core::mem::size_of::<[core::ffi::c_char; 20]>() as size_t
 };
 unsafe extern "C" fn floorLog2(mut n: uint32_t) -> core::ffi::c_int {
-    if n > 0 as uint32_t {} else {
-        __assert_fail(
-            b"n > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            51 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 24],
-                [core::ffi::c_char; 24],
-            >(*b"int floorLog2(uint32_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_27708: {
         if n > 0 as uint32_t {} else {
             __assert_fail(
@@ -975,19 +962,6 @@ unsafe extern "C" fn splitTilesLog2(
     mut tileDim1Log2: *mut core::ffi::c_int,
     mut tileDim2Log2: *mut core::ffi::c_int,
 ) {
-    if dim1 >= dim2 {} else {
-        __assert_fail(
-            b"dim1 >= dim2\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            69 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 59],
-                [core::ffi::c_char; 59],
-            >(*b"void splitTilesLog2(uint32_t, uint32_t, int, int *, int *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_27859: {
         if dim1 >= dim2 {} else {
             __assert_fail(
@@ -1011,19 +985,6 @@ unsafe extern "C" fn splitTilesLog2(
     }
     *tileDim2Log2 = subtract / 2 as core::ffi::c_int;
     *tileDim1Log2 = tilesLog2 - *tileDim2Log2;
-    if *tileDim1Log2 >= *tileDim2Log2 {} else {
-        __assert_fail(
-            b"*tileDim1Log2 >= *tileDim2Log2\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            78 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 59],
-                [core::ffi::c_char; 59],
-            >(*b"void splitTilesLog2(uint32_t, uint32_t, int, int *, int *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_27767: {
         if *tileDim1Log2 >= *tileDim2Log2 {} else {
             __assert_fail(
@@ -1197,22 +1158,6 @@ unsafe extern "C" fn avifEncoderDataCreateItem(
     mut cellIndex: uint32_t,
     mut itemPtr: *mut *mut avifEncoderItem,
 ) -> avifResult {
-    if (*data).lastItemID != 4294967295 as uint32_t {} else {
-        __assert_fail(
-            b"data->lastItemID != (4294967295U)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            303 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 122],
-                [core::ffi::c_char; 122],
-            >(
-                *b"avifResult avifEncoderDataCreateItem(avifEncoderData *, const char *, const char *, size_t, uint32_t, avifEncoderItem **)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_22848: {
         if (*data).lastItemID != 4294967295 as uint32_t {} else {
             __assert_fail(
@@ -1412,21 +1357,6 @@ unsafe extern "C" fn avifItemPropertyDedupFinish(
             ) == 0
         {
             propertyIndex = (*property).index;
-            if propertyIndex as core::ffi::c_int != 0 as core::ffi::c_int {} else {
-                __assert_fail(
-                    b"propertyIndex != 0\0" as *const u8 as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    452 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 126],
-                        [core::ffi::c_char; 126],
-                    >(
-                        *b"avifResult avifItemPropertyDedupFinish(avifItemPropertyDedup *, avifRWStream *, avifItemPropertyAssociationArray *, avifBool)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_2899: {
                 if propertyIndex as core::ffi::c_int != 0 as core::ffi::c_int {} else {
                     __assert_fail(
@@ -1836,21 +1766,6 @@ unsafe extern "C" fn avifEncoderWriteColorProperties(
 ) -> avifResult {
     let mut dedupStream: *mut avifRWStream = outputStream;
     if !dedup.is_null() {
-        if !associations.is_null() {} else {
-            __assert_fail(
-                b"associations\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                719 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 139],
-                    [core::ffi::c_char; 139],
-                >(
-                    *b"avifResult avifEncoderWriteColorProperties(avifRWStream *, const avifImage *, avifItemPropertyAssociationArray *, avifItemPropertyDedup *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_5471: {
             if !associations.is_null() {} else {
                 __assert_fail(
@@ -2650,21 +2565,6 @@ unsafe extern "C" fn avifEncoderWriteTrackMetaBox(
             4 as size_t,
         ) == 0 as core::ffi::c_int)
         {
-            if (*item_1).hiddenImage == 0 {} else {
-                __assert_fail(
-                    b"!item->hiddenImage\0" as *const u8 as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    982 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 71],
-                        [core::ffi::c_char; 71],
-                    >(
-                        *b"avifResult avifEncoderWriteTrackMetaBox(avifEncoder *, avifRWStream *)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_12034: {
                 if (*item_1).hiddenImage == 0 {} else {
                     __assert_fail(
@@ -3147,24 +3047,6 @@ unsafe extern "C" fn avifWriteGainmapMetadata(
             c += 1;
         }
     }
-    if avifRWStreamOffset(s)
-        == offset.wrapping_add(avifGainMapMetadataSize(gainMap) as size_t)
-    {} else {
-        __assert_fail(
-            b"avifRWStreamOffset(s) == offset + avifGainMapMetadataSize(gainMap)\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1102 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 92],
-                [core::ffi::c_char; 92],
-            >(
-                *b"avifResult avifWriteGainmapMetadata(avifRWStream *, const avifGainMap *, avifDiagnostics *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_25682: {
         if avifRWStreamOffset(s)
             == offset.wrapping_add(avifGainMapMetadataSize(gainMap) as size_t)
@@ -3269,21 +3151,6 @@ unsafe extern "C" fn avifEncoderWriteSampleTransformTokens(
     mut s: *mut avifRWStream,
     mut expression: *const avifSampleTransformExpression,
 ) -> avifResult {
-    if (*expression).count <= 255 as uint32_t {} else {
-        __assert_fail(
-            b"expression->count <= 255\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1148 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 104],
-                [core::ffi::c_char; 104],
-            >(
-                *b"avifResult avifEncoderWriteSampleTransformTokens(avifRWStream *, const avifSampleTransformExpression *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_24771: {
         if (*expression).count <= 255 as uint32_t {} else {
             __assert_fail(
@@ -3530,21 +3397,6 @@ unsafe extern "C" fn avifImageCopyAndPad(
     mut dstWidth: uint32_t,
     mut dstHeight: uint32_t,
 ) -> avifResult {
-    if !dstImage.is_null() {} else {
-        __assert_fail(
-            b"dstImage\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1228 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 88],
-                [core::ffi::c_char; 88],
-            >(
-                *b"avifResult avifImageCopyAndPad(avifImage *const, const avifImage *, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_21944: {
         if !dstImage.is_null() {} else {
             __assert_fail(
@@ -3562,22 +3414,6 @@ unsafe extern "C" fn avifImageCopyAndPad(
             );
         }
     };
-    if (*dstImage).width == 0 && (*dstImage).height == 0 {} else {
-        __assert_fail(
-            b"!dstImage->width && !dstImage->height\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1229 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 88],
-                [core::ffi::c_char; 88],
-            >(
-                *b"avifResult avifImageCopyAndPad(avifImage *const, const avifImage *, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_21893: {
         if (*dstImage).width == 0 && (*dstImage).height == 0 {} else {
             __assert_fail(
@@ -3596,21 +3432,6 @@ unsafe extern "C" fn avifImageCopyAndPad(
             );
         }
     };
-    if dstWidth >= (*srcImage).width {} else {
-        __assert_fail(
-            b"dstWidth >= srcImage->width\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1230 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 88],
-                [core::ffi::c_char; 88],
-            >(
-                *b"avifResult avifImageCopyAndPad(avifImage *const, const avifImage *, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_21851: {
         if dstWidth >= (*srcImage).width {} else {
             __assert_fail(
@@ -3629,21 +3450,6 @@ unsafe extern "C" fn avifImageCopyAndPad(
             );
         }
     };
-    if dstHeight >= (*srcImage).height {} else {
-        __assert_fail(
-            b"dstHeight >= srcImage->height\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1231 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 88],
-                [core::ffi::c_char; 88],
-            >(
-                *b"avifResult avifImageCopyAndPad(avifImage *const, const avifImage *, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_21807: {
         if dstHeight >= (*srcImage).height {} else {
             __assert_fail(
@@ -3912,31 +3718,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
     mut gridHeight: uint32_t,
     mut colorItemID: uint32_t,
 ) -> avifResult {
-    if (*encoder).sampleTransformRecipe as core::ffi::c_uint
-        == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_8B_8B as core::ffi::c_int
-            as core::ffi::c_uint
-        || (*encoder).sampleTransformRecipe as core::ffi::c_uint
-            == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_12B_4B as core::ffi::c_int
-                as core::ffi::c_uint
-        || (*encoder).sampleTransformRecipe as core::ffi::c_uint
-            == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_12B_8B_OVERLAP_4B
-                as core::ffi::c_int as core::ffi::c_uint
-    {} else {
-        __assert_fail(
-            b"encoder->sampleTransformRecipe == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_8B_8B || encoder->sampleTransformRecipe == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_12B_4B || encoder->sampleTransformRecipe == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_12B_8B_OVERLAP_4B\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1377 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 116],
-                [core::ffi::c_char; 116],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_25003: {
         if (*encoder).sampleTransformRecipe as core::ffi::c_uint
             == AVIF_SAMPLE_TRANSFORM_BIT_DEPTH_EXTENSION_8B_8B as core::ffi::c_int
@@ -3989,22 +3770,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
     }
     (*sampleTransformItem).itemCategory = AVIF_ITEM_SAMPLE_TRANSFORM;
     let mut sampleTransformItemID: uint32_t = (*sampleTransformItem).id;
-    if (*(*encoder).data).alternativeItemIDs.count == 0 as uint32_t {} else {
-        __assert_fail(
-            b"encoder->data->alternativeItemIDs.count == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1403 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 116],
-                [core::ffi::c_char; 116],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_24434: {
         if (*(*encoder).data).alternativeItemIDs.count == 0 as uint32_t {} else {
             __assert_fail(
@@ -4058,21 +3823,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
         (*encoder).data as *mut avifEncoderData,
         bitDepthExtensionColorItemId,
     );
-    if !bitDepthExtensionColorItem.is_null() {} else {
-        __assert_fail(
-            b"bitDepthExtensionColorItem\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1415 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 116],
-                [core::ffi::c_char; 116],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_24295: {
         if !bitDepthExtensionColorItem.is_null() {} else {
             __assert_fail(
@@ -4091,22 +3841,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
         }
     };
     (*bitDepthExtensionColorItem).hiddenImage = AVIF_TRUE as avifBool;
-    if colorItemID < bitDepthExtensionColorItemId {} else {
-        __assert_fail(
-            b"colorItemID < bitDepthExtensionColorItemId\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1422 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 116],
-                [core::ffi::c_char; 116],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_24251: {
         if colorItemID < bitDepthExtensionColorItemId {} else {
             __assert_fail(
@@ -4129,21 +3863,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
         (*encoder).data as *mut avifEncoderData,
         colorItemID,
     );
-    if !colorItem.is_null() {} else {
-        __assert_fail(
-            b"colorItem != ((void*)0)\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1424 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 116],
-                [core::ffi::c_char; 116],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_24208: {
         if !colorItem.is_null() {} else {
             __assert_fail(
@@ -4161,21 +3880,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
             );
         }
     };
-    if (*colorItem).dimgFromID == 0 as uint32_t {} else {
-        __assert_fail(
-            b"colorItem->dimgFromID == 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1425 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 116],
-                [core::ffi::c_char; 116],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_24166: {
         if (*colorItem).dimgFromID == 0 as uint32_t {} else {
             __assert_fail(
@@ -4215,21 +3919,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
             (*encoder).data as *mut avifEncoderData,
             bitDepthExtensionAlphaItemId,
         );
-        if !bitDepthExtensionAlphaItem.is_null() {} else {
-            __assert_fail(
-                b"bitDepthExtensionAlphaItem\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                1434 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 116],
-                    [core::ffi::c_char; 116],
-                >(
-                    *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_23404: {
             if !bitDepthExtensionAlphaItem.is_null() {} else {
                 __assert_fail(
@@ -4256,22 +3945,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionItems(
                 (*encoder).data as *mut avifEncoderData,
                 bitDepthExtensionColorItemId,
             );
-            if !bitDepthExtensionColorItem.is_null() {} else {
-                __assert_fail(
-                    b"bitDepthExtensionColorItem\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    1440 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 116],
-                        [core::ffi::c_char; 116],
-                    >(
-                        *b"avifResult avifEncoderCreateBitDepthExtensionItems(avifEncoder *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_23330: {
                 if !bitDepthExtensionColorItem.is_null() {} else {
                     __assert_fail(
@@ -4400,22 +4073,6 @@ unsafe extern "C" fn avifEncoderDecodeSatoBaseImage(
                         != AVIF_PLANES_A as core::ffi::c_int as core::ffi::c_uint))
             {
                 if !((*item).cellIndex != cellIndex) {
-                    if !((*item).encodeOutput).is_null() {} else {
-                        __assert_fail(
-                            b"item->encodeOutput != ((void*)0)\0" as *const u8
-                                as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            1498 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 140],
-                                [core::ffi::c_char; 140],
-                            >(
-                                *b"avifResult avifEncoderDecodeSatoBaseImage(avifEncoder *, uint32_t, const avifImage *, uint32_t, avifPlanesFlag, avifCodec **, avifImage **)\0",
-                            ))
-                                .as_ptr(),
-                        );
-                    }
                     'c_19872: {
                         if !((*item).encodeOutput).is_null() {} else {
                             __assert_fail(
@@ -4434,22 +4091,6 @@ unsafe extern "C" fn avifEncoderDecodeSatoBaseImage(
                             );
                         }
                     };
-                    if (*(*item).encodeOutput).samples.count == 1 as uint32_t {} else {
-                        __assert_fail(
-                            b"item->encodeOutput->samples.count == 1\0" as *const u8
-                                as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            1499 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 140],
-                                [core::ffi::c_char; 140],
-                            >(
-                                *b"avifResult avifEncoderDecodeSatoBaseImage(avifEncoder *, uint32_t, const avifImage *, uint32_t, avifPlanesFlag, avifCodec **, avifImage **)\0",
-                            ))
-                                .as_ptr(),
-                        );
-                    }
                     'c_19823: {
                         if (*(*item).encodeOutput).samples.count == 1 as uint32_t
                         {} else {
@@ -4469,26 +4110,6 @@ unsafe extern "C" fn avifEncoderDecodeSatoBaseImage(
                             );
                         }
                     };
-                    if (*((*(*item).encodeOutput).samples.sample)
-                        .offset(0 as core::ffi::c_int as isize))
-                        .data
-                        .size != 0 as size_t
-                    {} else {
-                        __assert_fail(
-                            b"item->encodeOutput->samples.sample[0].data.size != 0\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            1500 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 140],
-                                [core::ffi::c_char; 140],
-                            >(
-                                *b"avifResult avifEncoderDecodeSatoBaseImage(avifEncoder *, uint32_t, const avifImage *, uint32_t, avifPlanesFlag, avifCodec **, avifImage **)\0",
-                            ))
-                                .as_ptr(),
-                        );
-                    }
                     'c_19764: {
                         if (*((*(*item).encodeOutput).samples.sample)
                             .offset(0 as core::ffi::c_int as isize))
@@ -4511,22 +4132,6 @@ unsafe extern "C" fn avifEncoderDecodeSatoBaseImage(
                             );
                         }
                     };
-                    if sample.data.size == 0 as size_t {} else {
-                        __assert_fail(
-                            b"sample.data.size == 0\0" as *const u8
-                                as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            1501 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 140],
-                                [core::ffi::c_char; 140],
-                            >(
-                                *b"avifResult avifEncoderDecodeSatoBaseImage(avifEncoder *, uint32_t, const avifImage *, uint32_t, avifPlanesFlag, avifCodec **, avifImage **)\0",
-                            ))
-                                .as_ptr(),
-                        );
-                    }
                     'c_19722: {
                         if sample.data.size == 0 as size_t {} else {
                             __assert_fail(
@@ -4557,21 +4162,6 @@ unsafe extern "C" fn avifEncoderDecodeSatoBaseImage(
             }
         }
         itemIndex = itemIndex.wrapping_add(1);
-    }
-    if sample.data.size != 0 as size_t {} else {
-        __assert_fail(
-            b"sample.data.size != 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1505 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 140],
-                [core::ffi::c_char; 140],
-            >(
-                *b"avifResult avifEncoderDecodeSatoBaseImage(avifEncoder *, uint32_t, const avifImage *, uint32_t, avifPlanesFlag, avifCodec **, avifImage **)\0",
-            ))
-                .as_ptr(),
-        );
     }
     'c_19616: {
         if sample.data.size != 0 as size_t {} else {
@@ -4651,30 +4241,6 @@ unsafe extern "C" fn avifEncoderCreateSatoImage(
             == AVIF_ITEM_ALPHA as core::ffi::c_int as core::ffi::c_uint)
         as core::ffi::c_int;
     if isBase == 0 {
-        if (*item).itemCategory as core::ffi::c_uint
-            >= AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR as core::ffi::c_int
-                as core::ffi::c_uint
-            && (*item).itemCategory as core::ffi::c_uint
-                <= (AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA as core::ffi::c_int
-                    + (AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA as core::ffi::c_int
-                        - AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR as core::ffi::c_int)
-                    - 1 as core::ffi::c_int) as core::ffi::c_uint
-        {} else {
-            __assert_fail(
-                b"item->itemCategory >= AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR && item->itemCategory <= (AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA + (AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA - AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR) - 1)\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                1531 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 121],
-                    [core::ffi::c_char; 121],
-                >(
-                    *b"avifResult avifEncoderCreateSatoImage(avifEncoder *, const avifEncoderItem *, avifBool, const avifImage *, avifImage **)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_20715: {
             if (*item).itemCategory as core::ffi::c_uint
                 >= AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR as core::ffi::c_int
@@ -4987,21 +4553,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionImage(
     mut image: *const avifImage,
     mut sampleTransformedImage: *mut *mut avifImage,
 ) -> avifResult {
-    if (*image).depth == 16 as uint32_t {} else {
-        __assert_fail(
-            b"image->depth == 16\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1617 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 134],
-                [core::ffi::c_char; 134],
-            >(
-                *b"avifResult avifEncoderCreateBitDepthExtensionImage(avifEncoder *, const avifEncoderItem *, avifBool, const avifImage *, avifImage **)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_20830: {
         if (*image).depth == 16 as uint32_t {} else {
             __assert_fail(
@@ -5038,29 +4589,6 @@ unsafe extern "C" fn avifEncoderCreateBitDepthExtensionImage(
 unsafe extern "C" fn avifEncoderGetCodecType(
     mut encoder: *const avifEncoder,
 ) -> avifCodecType {
-    if (*encoder).codecChoice as core::ffi::c_uint
-        != AVIF_CODEC_CHOICE_AUTO as core::ffi::c_int as core::ffi::c_uint
-        || strcmp(
-            avifCodecName(
-                (*encoder).codecChoice,
-                AVIF_CODEC_FLAG_CAN_ENCODE as core::ffi::c_int as avifCodecFlags,
-            ),
-            b"avm\0" as *const u8 as *const core::ffi::c_char,
-        ) != 0 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"(encoder->codecChoice != AVIF_CODEC_CHOICE_AUTO) || (strcmp(avifCodecName(encoder->codecChoice, AVIF_CODEC_FLAG_CAN_ENCODE), \"avm\") != 0)\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            1630 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 59],
-                [core::ffi::c_char; 59],
-            >(*b"avifCodecType avifEncoderGetCodecType(const avifEncoder *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_18117: {
         if (*encoder).codecChoice as core::ffi::c_uint
             != AVIF_CODEC_CHOICE_AUTO as core::ffi::c_int as core::ffi::c_uint
@@ -5326,24 +4854,6 @@ unsafe extern "C" fn avifValidateGrid(
     let mut bottomRightCell: *const avifImage = *cellImages
         .offset(cellCount.wrapping_sub(1 as uint32_t) as isize);
     if validateGainMap != 0 {
-        if !((*firstCell).gainMap).is_null()
-            && !((*(*firstCell).gainMap).image).is_null()
-        {} else {
-            __assert_fail(
-                b"firstCell->gainMap && firstCell->gainMap->image\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                1818 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 103],
-                    [core::ffi::c_char; 103],
-                >(
-                    *b"avifResult avifValidateGrid(uint32_t, uint32_t, const avifImage *const *, avifBool, avifDiagnostics *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_29021: {
             if !((*firstCell).gainMap).is_null()
                 && !((*(*firstCell).gainMap).image).is_null()
@@ -5365,24 +4875,6 @@ unsafe extern "C" fn avifValidateGrid(
             }
         };
         firstCell = (*(*firstCell).gainMap).image;
-        if !((*bottomRightCell).gainMap).is_null()
-            && !((*(*bottomRightCell).gainMap).image).is_null()
-        {} else {
-            __assert_fail(
-                b"bottomRightCell->gainMap && bottomRightCell->gainMap->image\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                1820 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 103],
-                    [core::ffi::c_char; 103],
-                >(
-                    *b"avifResult avifValidateGrid(uint32_t, uint32_t, const avifImage *const *, avifBool, avifDiagnostics *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_28962: {
             if !((*bottomRightCell).gainMap).is_null()
                 && !((*(*bottomRightCell).gainMap).image).is_null()
@@ -5426,24 +4918,6 @@ unsafe extern "C" fn avifValidateGrid(
     while cellIndex < cellCount {
         let mut cellImage: *const avifImage = *cellImages.offset(cellIndex as isize);
         if validateGainMap != 0 {
-            if !((*cellImage).gainMap).is_null()
-                && !((*(*cellImage).gainMap).image).is_null()
-            {} else {
-                __assert_fail(
-                    b"cellImage->gainMap && cellImage->gainMap->image\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    1836 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 103],
-                        [core::ffi::c_char; 103],
-                    >(
-                        *b"avifResult avifValidateGrid(uint32_t, uint32_t, const avifImage *const *, avifBool, avifDiagnostics *)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_28854: {
                 if !((*cellImage).gainMap).is_null()
                     && !((*(*cellImage).gainMap).image).is_null()
@@ -5897,21 +5371,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                 (*encoder).data as *mut avifEncoderData,
                 alphaItemID,
             );
-            if !alphaItem.is_null() {} else {
-                __assert_fail(
-                    b"alphaItem\0" as *const u8 as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    2114 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 129],
-                        [core::ffi::c_char; 129],
-                    >(
-                        *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_27028: {
                 if !alphaItem.is_null() {} else {
                     __assert_fail(
@@ -5936,21 +5395,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                     (*encoder).data as *mut avifEncoderData,
                     colorItemID,
                 );
-                if !colorItem.is_null() {} else {
-                    __assert_fail(
-                        b"colorItem\0" as *const u8 as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        2119 as core::ffi::c_uint,
-                        (::core::mem::transmute::<
-                            [u8; 129],
-                            [core::ffi::c_char; 129],
-                        >(
-                            *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                        ))
-                            .as_ptr(),
-                    );
-                }
                 'c_26967: {
                     if !colorItem.is_null() {} else {
                         __assert_fail(
@@ -6002,22 +5446,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
             }
             (*toneMappedItem).itemCategory = AVIF_ITEM_COLOR;
             let mut toneMappedItemID: uint32_t = (*toneMappedItem).id;
-            if (*(*encoder).data).alternativeItemIDs.count == 0 as uint32_t {} else {
-                __assert_fail(
-                    b"encoder->data->alternativeItemIDs.count == 0\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    2138 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 129],
-                        [core::ffi::c_char; 129],
-                    >(
-                        *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_25533: {
                 if (*(*encoder).data).alternativeItemIDs.count == 0 as uint32_t {} else {
                     __assert_fail(
@@ -6093,21 +5521,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                 (*encoder).data as *mut avifEncoderData,
                 gainMapItemID,
             );
-            if !gainMapItem.is_null() {} else {
-                __assert_fail(
-                    b"gainMapItem\0" as *const u8 as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    2156 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 129],
-                        [core::ffi::c_char; 129],
-                    >(
-                        *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_25330: {
                 if !gainMapItem.is_null() {} else {
                     __assert_fail(
@@ -6126,22 +5539,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                 }
             };
             (*gainMapItem).hiddenImage = AVIF_TRUE as avifBool;
-            if colorItemID < gainMapItemID {} else {
-                __assert_fail(
-                    b"colorItemID < gainMapItemID\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    2163 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 129],
-                        [core::ffi::c_char; 129],
-                    >(
-                        *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_25287: {
                 if colorItemID < gainMapItemID {} else {
                     __assert_fail(
@@ -6164,21 +5561,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                 (*encoder).data as *mut avifEncoderData,
                 colorItemID,
             );
-            if !colorItem_0.is_null() {} else {
-                __assert_fail(
-                    b"colorItem\0" as *const u8 as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    2165 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 129],
-                        [core::ffi::c_char; 129],
-                    >(
-                        *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_25254: {
                 if !colorItem_0.is_null() {} else {
                     __assert_fail(
@@ -6196,22 +5578,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                     );
                 }
             };
-            if (*colorItem_0).dimgFromID == 0 as uint32_t {} else {
-                __assert_fail(
-                    b"colorItem->dimgFromID == 0\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    2166 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 129],
-                        [core::ffi::c_char; 129],
-                    >(
-                        *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                    ))
-                        .as_ptr(),
-                );
-            }
             'c_25212: {
                 if (*colorItem_0).dimgFromID == 0 as uint32_t {} else {
                     __assert_fail(
@@ -6320,22 +5686,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
         }
     }
     if (*(*encoder).data).frames.count == 1 as uint32_t {
-        if (*(*encoder).data).items.count > 0 as uint32_t {} else {
-            __assert_fail(
-                b"encoder->data->items.count > 0\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                2235 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 129],
-                    [core::ffi::c_char; 129],
-                >(
-                    *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_22207: {
             if (*(*encoder).data).items.count > 0 as uint32_t {} else {
                 __assert_fail(
@@ -6373,24 +5723,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
             if (*item).itemCategory as core::ffi::c_uint
                 == AVIF_ITEM_GAIN_MAP as core::ffi::c_int as core::ffi::c_uint
             {
-                if !((*cellImage_1).gainMap).is_null()
-                    && !((*(*cellImage_1).gainMap).image).is_null()
-                {} else {
-                    __assert_fail(
-                        b"cellImage->gainMap && cellImage->gainMap->image\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        2251 as core::ffi::c_uint,
-                        (::core::mem::transmute::<
-                            [u8; 129],
-                            [core::ffi::c_char; 129],
-                        >(
-                            *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                        ))
-                            .as_ptr(),
-                    );
-                }
                 'c_22099: {
                     if !((*cellImage_1).gainMap).is_null()
                         && !((*(*cellImage_1).gainMap).image).is_null()
@@ -6412,24 +5744,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                     }
                 };
                 cellImage_1 = (*(*cellImage_1).gainMap).image;
-                if !((*firstCell).gainMap).is_null()
-                    && !((*(*firstCell).gainMap).image).is_null()
-                {} else {
-                    __assert_fail(
-                        b"firstCell->gainMap && firstCell->gainMap->image\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        2253 as core::ffi::c_uint,
-                        (::core::mem::transmute::<
-                            [u8; 129],
-                            [core::ffi::c_char; 129],
-                        >(
-                            *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                        ))
-                            .as_ptr(),
-                    );
-                }
                 'c_22039: {
                     if !((*firstCell).gainMap).is_null()
                         && !((*(*firstCell).gainMap).image).is_null()
@@ -6513,19 +5827,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                     *encoderMinQuantizer = AVIF_QUANTIZER_LOSSLESS;
                     *encoderMaxQuantizer = AVIF_QUANTIZER_LOSSLESS;
                     if avifEncoderDetectChanges(encoder, &mut encoderChanges) == 0 {
-                        __assert_fail(
-                            b"AVIF_FALSE\0" as *const u8 as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            2291 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 129],
-                                [core::ffi::c_char; 129],
-                            >(
-                                *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                            ))
-                                .as_ptr(),
-                        );
                         'c_20903: {
                             __assert_fail(
                                 b"AVIF_FALSE\0" as *const u8 as *const core::ffi::c_char,
@@ -6561,22 +5862,6 @@ unsafe extern "C" fn avifEncoderAddImageInternal(
                     != AVIF_RESULT_OK as core::ffi::c_int as core::ffi::c_uint
                 {
                     return result___10;
-                }
-                if cellImagePlaceholder.is_null() {} else {
-                    __assert_fail(
-                        b"cellImagePlaceholder == NULL\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        2304 as core::ffi::c_uint,
-                        (::core::mem::transmute::<
-                            [u8; 129],
-                            [core::ffi::c_char; 129],
-                        >(
-                            *b"avifResult avifEncoderAddImageInternal(avifEncoder *, uint32_t, uint32_t, const avifImage *const *, uint64_t, avifAddImageFlags)\0",
-                        ))
-                            .as_ptr(),
-                    );
                 }
                 'c_19177: {
                     if cellImagePlaceholder.is_null() {} else {
@@ -6806,24 +6091,6 @@ unsafe extern "C" fn avifEncoderWriteMediaDataBox(
                         if (*encoder).extraLayerCount > 0 as uint32_t
                             && (*(*item).encodeOutput).samples.count > 0 as uint32_t
                         {
-                            if (*(*item).encodeOutput).samples.count
-                                == (*item).mdatFixups.count
-                            {} else {
-                                __assert_fail(
-                                    b"item->encodeOutput->samples.count == item->mdatFixups.count\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    2454 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 137],
-                                        [core::ffi::c_char; 137],
-                                    >(
-                                        *b"avifResult avifEncoderWriteMediaDataBox(avifEncoder *, avifRWStream *, avifEncoderItemReferenceArray *, avifEncoderItemReferenceArray *)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_8340: {
                                 if (*(*item).encodeOutput).samples.count
                                     == (*item).mdatFixups.count
@@ -7058,21 +6325,6 @@ unsafe extern "C" fn avifEncoderWriteMediaDataBox(
                 break;
             }
         }
-        if layerIndex <= 4 as uint32_t {} else {
-            __assert_fail(
-                b"layerIndex <= 4\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                2553 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 137],
-                    [core::ffi::c_char; 137],
-                >(
-                    *b"avifResult avifEncoderWriteMediaDataBox(avifEncoder *, avifRWStream *, avifEncoderItemReferenceArray *, avifEncoderItemReferenceArray *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_7480: {
             if layerIndex <= 4 as uint32_t {} else {
                 __assert_fail(
@@ -7269,24 +6521,6 @@ unsafe extern "C" fn avifRWStreamWriteProperties(
                     } else if (*item).itemCategory as core::ffi::c_uint
                         == AVIF_ITEM_GAIN_MAP as core::ffi::c_int as core::ffi::c_uint
                     {
-                        if !((*itemMetadata).gainMap).is_null()
-                            && !((*(*itemMetadata).gainMap).image).is_null()
-                        {} else {
-                            __assert_fail(
-                                b"itemMetadata->gainMap && itemMetadata->gainMap->image\0"
-                                    as *const u8 as *const core::ffi::c_char,
-                                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                    as *const u8 as *const core::ffi::c_char,
-                                3144 as core::ffi::c_uint,
-                                (::core::mem::transmute::<
-                                    [u8; 164],
-                                    [core::ffi::c_char; 164],
-                                >(
-                                    *b"avifResult avifRWStreamWriteProperties(avifItemPropertyDedup *const, avifRWStream *const, const avifEncoder *const, const avifImage *const, const avifImage *const)\0",
-                                ))
-                                    .as_ptr(),
-                            );
-                        }
                         'c_7045: {
                             if !((*itemMetadata).gainMap).is_null()
                                 && !((*(*itemMetadata).gainMap).image).is_null()
@@ -7392,22 +6626,6 @@ unsafe extern "C" fn avifRWStreamWriteProperties(
                             == AVIF_ITEM_SAMPLE_TRANSFORM as core::ffi::c_int
                                 as core::ffi::c_uint
                         {
-                            if depth as core::ffi::c_int == 16 as core::ffi::c_int
-                            {} else {
-                                __assert_fail(
-                                    b"depth == 16\0" as *const u8 as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    3182 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 164],
-                                        [core::ffi::c_char; 164],
-                                    >(
-                                        *b"avifResult avifRWStreamWriteProperties(avifItemPropertyDedup *const, avifRWStream *const, const avifEncoder *const, const avifImage *const, const avifImage *const)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_6734: {
                                 if depth as core::ffi::c_int == 16 as core::ffi::c_int
                                 {} else {
@@ -7438,28 +6656,6 @@ unsafe extern "C" fn avifRWStreamWriteProperties(
                         {
                             depth = 12 as uint8_t;
                         } else {
-                            if (*item).itemCategory as core::ffi::c_uint
-                                == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR
-                                    as core::ffi::c_int as core::ffi::c_uint
-                                || (*item).itemCategory as core::ffi::c_uint
-                                    == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA
-                                        as core::ffi::c_int as core::ffi::c_uint
-                            {} else {
-                                __assert_fail(
-                                    b"item->itemCategory == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR || item->itemCategory == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_ALPHA\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                        as *const u8 as *const core::ffi::c_char,
-                                    3190 as core::ffi::c_uint,
-                                    (::core::mem::transmute::<
-                                        [u8; 164],
-                                        [core::ffi::c_char; 164],
-                                    >(
-                                        *b"avifResult avifRWStreamWriteProperties(avifItemPropertyDedup *const, avifRWStream *const, const avifEncoder *const, const avifImage *const, const avifImage *const)\0",
-                                    ))
-                                        .as_ptr(),
-                                );
-                            }
                             'c_6637: {
                                 if (*item).itemCategory as core::ffi::c_uint
                                     == AVIF_ITEM_SAMPLE_TRANSFORM_INPUT_0_COLOR
@@ -7491,26 +6687,6 @@ unsafe extern "C" fn avifRWStreamWriteProperties(
                             as core::ffi::c_uint)
                     {
                         return AVIF_RESULT_NOT_IMPLEMENTED
-                    }
-                    if isSampleTransformImage
-                        == ((*item).itemCategory as core::ffi::c_uint
-                            == AVIF_ITEM_SAMPLE_TRANSFORM as core::ffi::c_int
-                                as core::ffi::c_uint) as core::ffi::c_int
-                    {} else {
-                        __assert_fail(
-                            b"isSampleTransformImage == (item->itemCategory == AVIF_ITEM_SAMPLE_TRANSFORM)\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            3198 as core::ffi::c_uint,
-                            (::core::mem::transmute::<
-                                [u8; 164],
-                                [core::ffi::c_char; 164],
-                            >(
-                                *b"avifResult avifRWStreamWriteProperties(avifItemPropertyDedup *const, avifRWStream *const, const avifEncoder *const, const avifImage *const, const avifImage *const)\0",
-                            ))
-                                .as_ptr(),
-                        );
                     }
                     'c_6529: {
                         if isSampleTransformImage
@@ -9042,22 +8218,6 @@ pub unsafe extern "C" fn avifEncoderFinish(
                     return result___77;
                 }
             }
-            if (*item_6).associations.count
-                < ((1 as core::ffi::c_int) << 8 as core::ffi::c_int) as uint32_t
-            {} else {
-                __assert_fail(
-                    b"item->associations.count < (1 << 8)\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    3784 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 58],
-                        [core::ffi::c_char; 58],
-                    >(*b"avifResult avifEncoderFinish(avifEncoder *, avifRWData *)\0"))
-                        .as_ptr(),
-                );
-            }
             'c_14922: {
                 if (*item_6).associations.count
                     < ((1 as core::ffi::c_int) << 8 as core::ffi::c_int) as uint32_t
@@ -9106,25 +8266,6 @@ pub unsafe extern "C" fn avifEncoderFinish(
                     != AVIF_RESULT_OK as core::ffi::c_int as core::ffi::c_uint
                 {
                     return result___79;
-                }
-                if (*association).property_index as core::ffi::c_int
-                    <= ((1 as core::ffi::c_int) << 7 as core::ffi::c_int)
-                        - 1 as core::ffi::c_int
-                {} else {
-                    __assert_fail(
-                        b"association->property_index <= ((1 << 7) - 1)\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        3789 as core::ffi::c_uint,
-                        (::core::mem::transmute::<
-                            [u8; 58],
-                            [core::ffi::c_char; 58],
-                        >(
-                            *b"avifResult avifEncoderFinish(avifEncoder *, avifRWData *)\0",
-                        ))
-                            .as_ptr(),
-                    );
                 }
                 'c_14799: {
                     if (*association).property_index as core::ffi::c_int
@@ -9175,20 +8316,6 @@ pub unsafe extern "C" fn avifEncoderFinish(
         return result___82;
     }
     if (*(*encoder).data).alternativeItemIDs.count != 0 {
-        if (*(*encoder).data).lastItemID < 4294967295 as uint32_t {} else {
-            __assert_fail(
-                b"encoder->data->lastItemID < (4294967295U)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                3807 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 58],
-                    [core::ffi::c_char; 58],
-                >(*b"avifResult avifEncoderFinish(avifEncoder *, avifRWData *)\0"))
-                    .as_ptr(),
-            );
-        }
         'c_14615: {
             if (*(*encoder).data).lastItemID < 4294967295 as uint32_t {} else {
                 __assert_fail(
@@ -9273,20 +8400,6 @@ pub unsafe extern "C" fn avifEncoderFinish(
         } else {
             let mut loopCount: uint64_t = ((*encoder).repetitionCount
                 + 1 as core::ffi::c_int) as uint64_t;
-            if framesDurationInTimescales != 0 as uint64_t {} else {
-                __assert_fail(
-                    b"framesDurationInTimescales != 0\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    3849 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 58],
-                        [core::ffi::c_char; 58],
-                    >(*b"avifResult avifEncoderFinish(avifEncoder *, avifRWData *)\0"))
-                        .as_ptr(),
-                );
-            }
             'c_14182: {
                 if framesDurationInTimescales != 0 as uint64_t {} else {
                     __assert_fail(
@@ -10872,21 +9985,6 @@ unsafe extern "C" fn writeCodecConfig(
         != AVIF_RESULT_OK as core::ffi::c_int as core::ffi::c_uint
     {
         return result___12;
-    }
-    if ((*s).offset).wrapping_sub(av1COffset) == 4 as size_t {} else {
-        __assert_fail(
-            b"s->offset - av1COffset == 4\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/write.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            4181 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 79],
-                [core::ffi::c_char; 79],
-            >(
-                *b"avifResult writeCodecConfig(avifRWStream *, const avifCodecConfigurationBox *)\0",
-            ))
-                .as_ptr(),
-        );
     }
     'c_5829: {
         if ((*s).offset).wrapping_sub(av1COffset) == 4 as size_t {} else {

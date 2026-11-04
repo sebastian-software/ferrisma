@@ -12,6 +12,7 @@ import subprocess
 
 from import_translation import translate
 from transpile_dav1d import current_variadic
+from root_assertions import single_evaluation
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +25,12 @@ def corrected(source, raw, native):
     # Darwin's long-double compatibility rule must never narrow a Linux value.
     if native == 'linux' and re.search(r'\bf128\b', raw):
         raise SystemExit(f'Linux long double requires a separately reviewed mapping: {source}')
+    assertion_count = 0
+    if native == 'linux':
+        raw, assertion_count, _ = single_evaluation(raw)
     text, changes = translate(source, raw)
+    if assertion_count:
+        changes['glibc-assert-single-evaluation'] = assertion_count
     text, count = current_variadic(text)
     if count:
         changes['current-rust-variadic-list'] = count

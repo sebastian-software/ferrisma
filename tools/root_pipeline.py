@@ -20,7 +20,7 @@ def main():
     parser.add_argument('--phase', choices=['all', 'references', 'generate', 'consumers', 'validate'], default='all')
     parser.add_argument('--profile', choices=['both', 'release', 'debug'], default='release')
     parser.add_argument('--variant', choices=['default', 'mini', 'extended-pixi', 'mini-extended-pixi'], default='default')
-    parser.add_argument('--tier', choices=['prepare', 'smoke', 'full'], default='smoke')
+    parser.add_argument('--tier', choices=['prepare', 'smoke', 'regression', 'full'], default='smoke')
     parser.add_argument('--clang-include', type=Path, required=True)
     parser.add_argument('--jobs', type=int, default=2)
     args = parser.parse_args()

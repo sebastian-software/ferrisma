@@ -1248,21 +1248,6 @@ unsafe extern "C" fn aomCodecGetNextImage(
     mut isLimitedRangeAlpha: *mut avifBool,
     mut image: *mut avifImage,
 ) -> avifBool {
-    if !sample.is_null() {} else {
-        __assert_fail(
-            b"sample\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/codec_aom.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            109 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 111],
-                [core::ffi::c_char; 111],
-            >(
-                *b"avifBool aomCodecGetNextImage(struct avifCodec *, const avifDecodeSample *, avifBool, avifBool *, avifImage *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_8530: {
         if !sample.is_null() {} else {
             __assert_fail(
@@ -1630,21 +1615,6 @@ unsafe extern "C" fn avifAOMOptionsContainExplicitTuning(
             isAnyTuneDefined = AVIF_TRUE as avifBool;
             let mut val: core::ffi::c_int = 0;
             if aomOptionParseEnum((*entry).value, core::ptr::addr_of!(tuneIqEnum).cast::<aomOptionEnumList>(), &mut val) != 0 {
-                if val == AOM_TUNE_IQ as core::ffi::c_int {} else {
-                    __assert_fail(
-                        b"val == AOM_TUNE_IQ\0" as *const u8 as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/codec_aom.c\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        416 as core::ffi::c_uint,
-                        (::core::mem::transmute::<
-                            [u8; 86],
-                            [core::ffi::c_char; 86],
-                        >(
-                            *b"avifBool avifAOMOptionsContainExplicitTuning(const avifCodec *, avifBool, avifBool *)\0",
-                        ))
-                            .as_ptr(),
-                    );
-                }
                 'c_7451: {
                     if val == AOM_TUNE_IQ as core::ffi::c_int {} else {
                         __assert_fail(

@@ -255,19 +255,6 @@ pub unsafe extern "C" fn avifArrayPush(
 #[no_mangle]
 pub unsafe extern "C" fn avifArrayPop(mut arrayStruct: *mut core::ffi::c_void) {
     let mut arr: *mut avifArrayInternal = arrayStruct as *mut avifArrayInternal;
-    if (*arr).count > 0 as uint32_t {} else {
-        __assert_fail(
-            b"arr->count > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/utils.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            135 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 26],
-                [core::ffi::c_char; 26],
-            >(*b"void avifArrayPop(void *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2747: {
         if (*arr).count > 0 as uint32_t {} else {
             __assert_fail(
@@ -418,22 +405,6 @@ unsafe extern "C" fn avifDoubleToUnsignedFractionImpl(
     while iter < maxIter {
         let numeratorDouble: core::ffi::c_double = *denominator as core::ffi::c_double
             * v;
-        if numeratorDouble <= maxNumerator as core::ffi::c_double {} else {
-            __assert_fail(
-                b"numeratorDouble <= maxNumerator\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/utils.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                259 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 84],
-                    [core::ffi::c_char; 84],
-                >(
-                    *b"avifBool avifDoubleToUnsignedFractionImpl(double, uint32_t, uint32_t *, uint32_t *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_808: {
             if numeratorDouble <= maxNumerator as core::ffi::c_double {} else {
                 __assert_fail(
@@ -464,21 +435,6 @@ unsafe extern "C" fn avifDoubleToUnsignedFractionImpl(
             return AVIF_TRUE;
         }
         previousD = *denominator;
-        if newD <= 4294967295 as core::ffi::c_uint as core::ffi::c_double {} else {
-            __assert_fail(
-                b"newD <= UINT32_MAX\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/utils.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                271 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 84],
-                    [core::ffi::c_char; 84],
-                >(
-                    *b"avifBool avifDoubleToUnsignedFractionImpl(double, uint32_t, uint32_t *, uint32_t *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_677: {
             if newD <= 4294967295 as core::ffi::c_uint as core::ffi::c_double {} else {
                 __assert_fail(

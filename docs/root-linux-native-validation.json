@@ -126,7 +126,25 @@
   },
   "debug_validation": {
     "run": 41839207776,
-    "status": "In progress; no complete Debug acceptance claimed"
+    "status": "Original C passes; Rust Debug has a confirmed duplicated glibc assertion evaluation defect",
+    "original_c_registrations_passed": 64,
+    "rust_ctest_registrations_failed": [
+      "avif16bittest",
+      "avifaltrtest",
+      "avifsampletransformtest"
+    ],
+    "actual_c_junit_sha256": "444eea3ea0d828040ff8443c99b3ee7d7aa6d72f89f3a2e1b6214386b0a4c498",
+    "actual_rust_junit_sha256": "ecd1a338e4021129d110463013005251e63a70bdb354caea1b2cf62401890212",
+    "original_assertion_sites": 231,
+    "correction": "Preserve one runtime statement expression and its unchanged failure call at every matched site",
+    "assertions_conditions_inputs_and_tests_unchanged": true,
+    "corrected_complete_native_execution_acceptance_claimed": false,
+    "failed_artifact": {
+      "id": 13332115215,
+      "github_zip_digest": "sha256:876b6335194a1be077489ddf36e405b8e7c3c3a14e7a2f8373b0eb06990985a9",
+      "actual_extracted_file_hashes_preserved": true
+    },
+    "decision": "docs/adr/0051-preserve-single-evaluation-of-glibc-assertions.md"
   },
   "remaining_gates": [
     "Native default Debug proof",

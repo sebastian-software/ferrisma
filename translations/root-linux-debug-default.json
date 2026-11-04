@@ -13,19 +13,22 @@
       "source_sha256": "17178aef49f93aebb010cecad255579ed4aa58d886ee6c9bbb96d2b7d90eb41c",
       "rust": "src/profiles/linux/debug/default/alpha.rs",
       "raw_sha256": "46d26f8334fa51c02514a6d808b78a038a7d57066338936c39e93a43d94588fa",
-      "rust_sha256": "766fb9155592a212cf72316bbbbd2f30ca4c4b163189d03f13af9c58aad14b37",
-      "corrections": {}
+      "rust_sha256": "b48c10055991b36568de23ddcdacefae8221a9f5174d8983c2d0665919fb3318",
+      "corrections": {
+        "glibc-assert-single-evaluation": 3
+      }
     },
     {
       "source": "upstream/libavif/src/avif.c",
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/debug/default/avif.rs",
       "raw_sha256": "8d8a97403f0deabb69d2a99171fef8cfb540401ebcee070706a9b09a528a6d18",
-      "rust_sha256": "70cb3aaf69b566f86340a8f0f087403de1b968b12aa46181e9441df8cb76cb1b",
+      "rust_sha256": "a3269f47f53579e2c111dcda658948f8c5ec38000eff01d1404ac09938b2f653",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
-        "codec-feature-guards": 3
+        "codec-feature-guards": 3,
+        "glibc-assert-single-evaluation": 5
       }
     },
     {
@@ -73,9 +76,10 @@
       "source_sha256": "8ffa5e626df0ea80fc99ab54d54c9a68b338b2f6e28e4a8fee97781e3711209e",
       "rust": "src/profiles/linux/debug/default/gainmap.rs",
       "raw_sha256": "4f8529a54d44d52e826a1a137266b588626667d0bdf2891ea26a41ddf72dab57",
-      "rust_sha256": "b9e701ff1b339255c1ec2e03e4e87fe91fea95a9eb4c8a93752fd3c15e7bd2c0",
+      "rust_sha256": "0b8ca31c2d0ae0671af6ae530c377ca6dfa5131f3189153f724887aa5dc9493c",
       "corrections": {
-        "canonical-cfg-labels": 8
+        "canonical-cfg-labels": 8,
+        "glibc-assert-single-evaluation": 1
       }
     },
     {
@@ -126,10 +130,11 @@
       "source_sha256": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
       "rust": "src/profiles/linux/debug/default/read.rs",
       "raw_sha256": "afe861e3c2fc2f730d92531fa25c6f22713622777f35640340bda5d15266818a",
-      "rust_sha256": "8345c794d6d310e3f1acea9d0af46b39962bb3f8f50a2400fe5f90c085bb9b12",
+      "rust_sha256": "e56e131bc8728f88956166b287552c46bfeab9a4785767cb6efc37fe835d042d",
       "corrections": {
         "canonical-cfg-labels": 4,
-        "static-raw-address": 1
+        "static-raw-address": 1,
+        "glibc-assert-single-evaluation": 58
       }
     },
     {
@@ -137,8 +142,10 @@
       "source_sha256": "e5e6a62a0a53f4e5eeb8866c6b40e7d9cfb71d52dcb649626d8de2a12779f581",
       "rust": "src/profiles/linux/debug/default/reformat.rs",
       "raw_sha256": "bd9eaddf97ee18d5385df65c8c8d83210b0b526798e12bf48f0c179083d93d23",
-      "rust_sha256": "685adb852749e0b9e5799c8e4cc24b6adbaac24be73c97ba018c3ede7544fd68",
-      "corrections": {}
+      "rust_sha256": "058146292ea0d287a7970d1410dc5f4a6ee7674d4180a2c2c542563de965ba39",
+      "corrections": {
+        "glibc-assert-single-evaluation": 12
+      }
     },
     {
       "source": "upstream/libavif/src/reformat_libsharpyuv.c",
@@ -161,8 +168,10 @@
       "source_sha256": "bd54548be80cfa963f2e5240f858c0a1f421ad4558de36c35b01ba94c6f8e599",
       "rust": "src/profiles/linux/debug/default/sampletransform.rs",
       "raw_sha256": "e89c7a29c111534b6d2e850cebbb9de55fff5b98e82a8aab3206a0e949be8ac7",
-      "rust_sha256": "003e24b36248d922aded450e5043e00f1e705100a4fec670be3f1bb2ecb7163a",
-      "corrections": {}
+      "rust_sha256": "59fe23a9e01d022b0c4def00ec2a835ad55a3917c59999de8d6b55ed85712ec0",
+      "corrections": {
+        "glibc-assert-single-evaluation": 30
+      }
     },
     {
       "source": "upstream/libavif/src/scale.c",
@@ -179,26 +188,31 @@
       "source_sha256": "23bc43bc6b5fcd7fc8dd8f50ea6418cdd028a3d6f088ea785ee90ba735947505",
       "rust": "src/profiles/linux/debug/default/stream.rs",
       "raw_sha256": "0679d0a3469382330804f018ce8eae4cd3f51c17079d4921b33514759c5db3a7",
-      "rust_sha256": "299c97dc35aa967ca8efc4fd8e7906199734010de320aa4455503a101fc2824c",
-      "corrections": {}
+      "rust_sha256": "5091b3b8649243561895583397f625cdcaa37b949e7513158e096bd0d741bd63",
+      "corrections": {
+        "glibc-assert-single-evaluation": 23
+      }
     },
     {
       "source": "upstream/libavif/src/utils.c",
       "source_sha256": "e7b542c1365b5ecdac49dfeed6ba40e17a4f0e7edf532dd653d367dde82d1970",
       "rust": "src/profiles/linux/debug/default/utils.rs",
       "raw_sha256": "beb3d3af68c1b22c747a610533b75e63c91d19ca83a410dbe4076dc1eff7494f",
-      "rust_sha256": "bab081c6e1b825c2de58ab46d11bc7874691a976355eec1ec66d0bf51b8e24cc",
-      "corrections": {}
+      "rust_sha256": "702e76ae13e76661b0f31bb5ef59b388a9763f0c2590819d0c985e63cc209c3a",
+      "corrections": {
+        "glibc-assert-single-evaluation": 3
+      }
     },
     {
       "source": "upstream/libavif/src/write.c",
       "source_sha256": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
       "rust": "src/profiles/linux/debug/default/write.rs",
       "raw_sha256": "7fffa5344825bfa27f08ffbd9a18b78f000f09889b3ce8c592306f06cc7b241b",
-      "rust_sha256": "1d37adf6eb52f2cb1c68fa633f0c5fd86483724f64946fc0590de3caa043c7cc",
+      "rust_sha256": "c179733cfbb84238071c08b9c053ddf8e0428c8895cb1657f124ea7360ff97f9",
       "corrections": {
         "canonical-cfg-labels": 4,
-        "static-raw-address": 13
+        "static-raw-address": 13,
+        "glibc-assert-single-evaluation": 55
       }
     },
     {
@@ -206,16 +220,20 @@
       "source_sha256": "7839fe2ceadcfe6a45e7014a499c8e6832b896a0ab2426ea0f9f03e1f2fdba20",
       "rust": "src/profiles/linux/debug/default/libyuv/scale.rs",
       "raw_sha256": "1e94d1b2e3eee1c36fee58d751234fb2a5739b4feeff2268b2b612db1ed1d062",
-      "rust_sha256": "e35f85e9942f19e975370a4c27d4d55bbcef03f5c671d95ccc25ed257935cde4",
-      "corrections": {}
+      "rust_sha256": "069dc52c4fa7e9de9f19bb50203ca17ceb3fae867e830ef9f094b25935196683",
+      "corrections": {
+        "glibc-assert-single-evaluation": 13
+      }
     },
     {
       "source": "upstream/libavif/third_party/libyuv/source/scale_common.c",
       "source_sha256": "1c4551062504bd15170e9d93b1fd22cb61b1b7d5af16a6f0baec38db7bb90b0c",
       "rust": "src/profiles/linux/debug/default/libyuv/scale_common.rs",
       "raw_sha256": "a68e88843f3665556e3b536c5af5e0377692da29e0ba90c5e00d412b123dad08",
-      "rust_sha256": "71632b11beab6cba6b1777c32a434b5501b1c2e2a5f912eac9dc281d030d837f",
-      "corrections": {}
+      "rust_sha256": "55e19f6ddda489906373ef22cb2282e622e69532d12b849a323430b15ff07b0f",
+      "corrections": {
+        "glibc-assert-single-evaluation": 22
+      }
     },
     {
       "source": "upstream/libavif/third_party/libyuv/source/scale_any.c",
@@ -230,8 +248,10 @@
       "source_sha256": "4d0865100908598d5767eeafd8fc16c10f50c7960131dfe230dbaa0aaf0cbd2e",
       "rust": "src/profiles/linux/debug/default/libyuv/row_common.rs",
       "raw_sha256": "6c215d8dde4df2718e5f1cc07dac80506a68299b42f87cc63695467f18a7b20e",
-      "rust_sha256": "0dcdd4f0e4c77cbc6d0836aec9495c38b59407fb53b8aff12906ef9af5de42a0",
-      "corrections": {}
+      "rust_sha256": "943adc02b81613f843a9bf05f7d167b2c6b5cde598ca2e061c077da15d1da19f",
+      "corrections": {
+        "glibc-assert-single-evaluation": 4
+      }
     },
     {
       "source": "upstream/libavif/third_party/libyuv/source/planar_functions.c",
@@ -256,10 +276,11 @@
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/linux/debug/default/codec_aom.rs",
       "raw_sha256": "7d4a0fbaeac33196c1f75aa6441bfd9e43ff94249007e49462546d5fdfd6b108",
-      "rust_sha256": "f5d1e2b807e807955d092ced044e9aea1db31a055fcf80ab2c75edb0d22e598b",
+      "rust_sha256": "4bb8be8987ed0fd97df610e3e0128a6d2de67496c49d0a41df01a44993b9417b",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
-        "static-raw-address": 2
+        "static-raw-address": 2,
+        "glibc-assert-single-evaluation": 2
       }
     }
   ],

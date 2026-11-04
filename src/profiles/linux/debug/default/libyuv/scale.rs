@@ -221,19 +221,6 @@ unsafe extern "C" fn SumPixels(
 ) -> uint32_t {
     let mut sum: uint32_t = 0 as uint32_t;
     let mut x: core::ffi::c_int = 0;
-    if iboxwidth > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"iboxwidth > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            31 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 42],
-                [core::ffi::c_char; 42],
-            >(*b"uint32_t SumPixels(int, const uint16_t *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2070: {
         if iboxwidth > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -263,19 +250,6 @@ unsafe extern "C" fn SumPixels_16(
 ) -> uint32_t {
     let mut sum: uint32_t = 0 as uint32_t;
     let mut x: core::ffi::c_int = 0;
-    if iboxwidth > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"iboxwidth > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            41 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 45],
-                [core::ffi::c_char; 45],
-            >(*b"uint32_t SumPixels_16(int, const uint32_t *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_4471: {
         if iboxwidth > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -332,24 +306,6 @@ unsafe extern "C" fn ScaleAddCols2_C(
             (x >> 16 as core::ffi::c_int) - ix
         };
         let mut scaletbl_index: core::ffi::c_int = boxwidth - minboxwidth;
-        if scaletbl_index == 0 as core::ffi::c_int
-            || scaletbl_index == 1 as core::ffi::c_int
-        {} else {
-            __assert_fail(
-                b"(scaletbl_index == 0) || (scaletbl_index == 1)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                65 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 70],
-                    [core::ffi::c_char; 70],
-                >(
-                    *b"void ScaleAddCols2_C(int, int, int, int, const uint16_t *, uint8_t *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_2196: {
             if scaletbl_index == 0 as core::ffi::c_int
                 || scaletbl_index == 1 as core::ffi::c_int
@@ -412,24 +368,6 @@ unsafe extern "C" fn ScaleAddCols2_16_C(
             (x >> 16 as core::ffi::c_int) - ix
         };
         let mut scaletbl_index: core::ffi::c_int = boxwidth - minboxwidth;
-        if scaletbl_index == 0 as core::ffi::c_int
-            || scaletbl_index == 1 as core::ffi::c_int
-        {} else {
-            __assert_fail(
-                b"(scaletbl_index == 0) || (scaletbl_index == 1)\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                89 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 74],
-                    [core::ffi::c_char; 74],
-                >(
-                    *b"void ScaleAddCols2_16_C(int, int, int, int, const uint32_t *, uint16_t *)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_4588: {
             if scaletbl_index == 0 as core::ffi::c_int
                 || scaletbl_index == 1 as core::ffi::c_int
@@ -1248,22 +1186,6 @@ unsafe extern "C" fn ScalePlaneUp2_Linear(
     let mut i: core::ffi::c_int = 0;
     let mut y: core::ffi::c_int = 0;
     let mut dy: core::ffi::c_int = 0;
-    if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width == ((dst_width + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            483 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 84],
-                [core::ffi::c_char; 84],
-            >(
-                *b"void ScalePlaneUp2_Linear(int, int, int, int, int, int, const uint8_t *, uint8_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1678: {
         if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1351,22 +1273,6 @@ unsafe extern "C" fn ScalePlaneUp2_Bilinear(
             ) -> (),
     );
     let mut x: core::ffi::c_int = 0;
-    if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width == ((dst_width + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            518 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 86],
-                [core::ffi::c_char; 86],
-            >(
-                *b"void ScalePlaneUp2_Bilinear(int, int, int, int, int, int, const uint8_t *, uint8_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1429: {
         if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1386,23 +1292,6 @@ unsafe extern "C" fn ScalePlaneUp2_Bilinear(
             );
         }
     };
-    if src_height == (dst_height + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"src_height == ((dst_height + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            519 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 86],
-                [core::ffi::c_char; 86],
-            >(
-                *b"void ScalePlaneUp2_Bilinear(int, int, int, int, int, int, const uint8_t *, uint8_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1367: {
         if src_height == (dst_height + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1473,22 +1362,6 @@ unsafe extern "C" fn ScalePlaneUp2_12_Linear(
     let mut i: core::ffi::c_int = 0;
     let mut y: core::ffi::c_int = 0;
     let mut dy: core::ffi::c_int = 0;
-    if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width == ((dst_width + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            556 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 89],
-                [core::ffi::c_char; 89],
-            >(
-                *b"void ScalePlaneUp2_12_Linear(int, int, int, int, int, int, const uint16_t *, uint16_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_5570: {
         if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1576,22 +1449,6 @@ unsafe extern "C" fn ScalePlaneUp2_12_Bilinear(
             ) -> (),
     );
     let mut x: core::ffi::c_int = 0;
-    if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width == ((dst_width + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            592 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 91],
-                [core::ffi::c_char; 91],
-            >(
-                *b"void ScalePlaneUp2_12_Bilinear(int, int, int, int, int, int, const uint16_t *, uint16_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_5338: {
         if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1611,23 +1468,6 @@ unsafe extern "C" fn ScalePlaneUp2_12_Bilinear(
             );
         }
     };
-    if src_height == (dst_height + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"src_height == ((dst_height + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            593 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 91],
-                [core::ffi::c_char; 91],
-            >(
-                *b"void ScalePlaneUp2_12_Bilinear(int, int, int, int, int, int, const uint16_t *, uint16_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_5288: {
         if src_height == (dst_height + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1698,22 +1538,6 @@ unsafe extern "C" fn ScalePlaneUp2_16_Linear(
     let mut i: core::ffi::c_int = 0;
     let mut y: core::ffi::c_int = 0;
     let mut dy: core::ffi::c_int = 0;
-    if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width == ((dst_width + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            623 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 89],
-                [core::ffi::c_char; 89],
-            >(
-                *b"void ScalePlaneUp2_16_Linear(int, int, int, int, int, int, const uint16_t *, uint16_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_4152: {
         if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1801,22 +1625,6 @@ unsafe extern "C" fn ScalePlaneUp2_16_Bilinear(
             ) -> (),
     );
     let mut x: core::ffi::c_int = 0;
-    if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width == ((dst_width + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            654 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 91],
-                [core::ffi::c_char; 91],
-            >(
-                *b"void ScalePlaneUp2_16_Bilinear(int, int, int, int, int, int, const uint16_t *, uint16_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3911: {
         if src_width == (dst_width + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {
@@ -1836,23 +1644,6 @@ unsafe extern "C" fn ScalePlaneUp2_16_Bilinear(
             );
         }
     };
-    if src_height == (dst_height + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"src_height == ((dst_height + 1) / 2)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            655 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 91],
-                [core::ffi::c_char; 91],
-            >(
-                *b"void ScalePlaneUp2_16_Bilinear(int, int, int, int, int, int, const uint16_t *, uint16_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3861: {
         if src_height == (dst_height + 1 as core::ffi::c_int) / 2 as core::ffi::c_int
         {} else {

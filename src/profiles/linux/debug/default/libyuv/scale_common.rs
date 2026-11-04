@@ -58,22 +58,6 @@ pub unsafe extern "C" fn ScaleRowUp2_Linear_C(
 ) {
     let mut src_width: core::ffi::c_int = dst_width >> 1 as core::ffi::c_int;
     let mut x: core::ffi::c_int = 0;
-    if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
-        && dst_width >= 0 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"(dst_width % 2 == 0) && (dst_width >= 0)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            34 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 59],
-                [core::ffi::c_char; 59],
-            >(*b"void ScaleRowUp2_Linear_C(const uint8_t *, uint8_t *, int)\0"))
-                .as_ptr(),
-        );
-    }
     'c_3483: {
         if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
             && dst_width >= 0 as core::ffi::c_int
@@ -123,24 +107,6 @@ pub unsafe extern "C" fn ScaleRowUp2_Bilinear_C(
     let mut e: *mut uint8_t = dst_ptr.offset(dst_stride as isize);
     let mut src_width: core::ffi::c_int = dst_width >> 1 as core::ffi::c_int;
     let mut x: core::ffi::c_int = 0;
-    if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
-        && dst_width >= 0 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"(dst_width % 2 == 0) && (dst_width >= 0)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            62 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 83],
-                [core::ffi::c_char; 83],
-            >(
-                *b"void ScaleRowUp2_Bilinear_C(const uint8_t *, ptrdiff_t, uint8_t *, ptrdiff_t, int)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3847: {
         if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
             && dst_width >= 0 as core::ffi::c_int
@@ -214,22 +180,6 @@ pub unsafe extern "C" fn ScaleRowUp2_Linear_16_C(
 ) {
     let mut src_width: core::ffi::c_int = dst_width >> 1 as core::ffi::c_int;
     let mut x: core::ffi::c_int = 0;
-    if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
-        && dst_width >= 0 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"(dst_width % 2 == 0) && (dst_width >= 0)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            81 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 64],
-                [core::ffi::c_char; 64],
-            >(*b"void ScaleRowUp2_Linear_16_C(const uint16_t *, uint16_t *, int)\0"))
-                .as_ptr(),
-        );
-    }
     'c_4011: {
         if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
             && dst_width >= 0 as core::ffi::c_int
@@ -279,24 +229,6 @@ pub unsafe extern "C" fn ScaleRowUp2_Bilinear_16_C(
     let mut e: *mut uint16_t = dst_ptr.offset(dst_stride as isize);
     let mut src_width: core::ffi::c_int = dst_width >> 1 as core::ffi::c_int;
     let mut x: core::ffi::c_int = 0;
-    if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
-        && dst_width >= 0 as core::ffi::c_int
-    {} else {
-        __assert_fail(
-            b"(dst_width % 2 == 0) && (dst_width >= 0)\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            100 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 88],
-                [core::ffi::c_char; 88],
-            >(
-                *b"void ScaleRowUp2_Bilinear_16_C(const uint16_t *, ptrdiff_t, uint16_t *, ptrdiff_t, int)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_4375: {
         if dst_width % 2 as core::ffi::c_int == 0 as core::ffi::c_int
             && dst_width >= 0 as core::ffi::c_int
@@ -636,19 +568,6 @@ pub unsafe extern "C" fn ScaleAddRow_C(
     mut src_width: core::ffi::c_int,
 ) {
     let mut x: core::ffi::c_int = 0;
-    if src_width > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            318 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 53],
-                [core::ffi::c_char; 53],
-            >(*b"void ScaleAddRow_C(const uint8_t *, uint16_t *, int)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5866: {
         if src_width > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -692,19 +611,6 @@ pub unsafe extern "C" fn ScaleAddRow_16_C(
     mut src_width: core::ffi::c_int,
 ) {
     let mut x: core::ffi::c_int = 0;
-    if src_width > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            334 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 57],
-                [core::ffi::c_char; 57],
-            >(*b"void ScaleAddRow_16_C(const uint16_t *, uint32_t *, int)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5982: {
         if src_width > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -779,21 +685,6 @@ pub unsafe extern "C" fn ScalePlaneVertical(
         0 as core::ffi::c_int
     };
     let mut j: core::ffi::c_int = 0;
-    if bpp >= 1 as core::ffi::c_int && bpp <= 4 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"bpp >= 1 && bpp <= 4\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            367 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 114],
-                [core::ffi::c_char; 114],
-            >(
-                *b"void ScalePlaneVertical(int, int, int, int, int, const uint8_t *, uint8_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1947: {
         if bpp >= 1 as core::ffi::c_int && bpp <= 4 as core::ffi::c_int {} else {
             __assert_fail(
@@ -811,21 +702,6 @@ pub unsafe extern "C" fn ScalePlaneVertical(
             );
         }
     };
-    if src_height != 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_height != 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            368 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 114],
-                [core::ffi::c_char; 114],
-            >(
-                *b"void ScalePlaneVertical(int, int, int, int, int, const uint8_t *, uint8_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1910: {
         if src_height != 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -843,21 +719,6 @@ pub unsafe extern "C" fn ScalePlaneVertical(
             );
         }
     };
-    if dst_width > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"dst_width > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            369 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 114],
-                [core::ffi::c_char; 114],
-            >(
-                *b"void ScalePlaneVertical(int, int, int, int, int, const uint8_t *, uint8_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1873: {
         if dst_width > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -875,21 +736,6 @@ pub unsafe extern "C" fn ScalePlaneVertical(
             );
         }
     };
-    if dst_height > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"dst_height > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            370 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 114],
-                [core::ffi::c_char; 114],
-            >(
-                *b"void ScalePlaneVertical(int, int, int, int, int, const uint8_t *, uint8_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_1832: {
         if dst_height > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -977,21 +823,6 @@ pub unsafe extern "C" fn ScalePlaneVertical_16(
         0 as core::ffi::c_int
     };
     let mut j: core::ffi::c_int = 0;
-    if wpp >= 1 as core::ffi::c_int && wpp <= 2 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"wpp >= 1 && wpp <= 2\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            407 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 119],
-                [core::ffi::c_char; 119],
-            >(
-                *b"void ScalePlaneVertical_16(int, int, int, int, int, const uint16_t *, uint16_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2252: {
         if wpp >= 1 as core::ffi::c_int && wpp <= 2 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1009,21 +840,6 @@ pub unsafe extern "C" fn ScalePlaneVertical_16(
             );
         }
     };
-    if src_height != 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_height != 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            408 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 119],
-                [core::ffi::c_char; 119],
-            >(
-                *b"void ScalePlaneVertical_16(int, int, int, int, int, const uint16_t *, uint16_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2216: {
         if src_height != 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1041,21 +857,6 @@ pub unsafe extern "C" fn ScalePlaneVertical_16(
             );
         }
     };
-    if dst_width > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"dst_width > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            409 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 119],
-                [core::ffi::c_char; 119],
-            >(
-                *b"void ScalePlaneVertical_16(int, int, int, int, int, const uint16_t *, uint16_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2180: {
         if dst_width > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1073,21 +874,6 @@ pub unsafe extern "C" fn ScalePlaneVertical_16(
             );
         }
     };
-    if dst_height > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"dst_height > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            410 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 119],
-                [core::ffi::c_char; 119],
-            >(
-                *b"void ScalePlaneVertical_16(int, int, int, int, int, const uint16_t *, uint16_t *, int, int, int, int, enum FilterMode)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2143: {
         if dst_height > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1210,21 +996,6 @@ pub unsafe extern "C" fn ScaleSlope(
     mut dx: *mut core::ffi::c_int,
     mut dy: *mut core::ffi::c_int,
 ) {
-    if !x.is_null() {} else {
-        __assert_fail(
-            b"x != NULL\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            493 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3333: {
         if !x.is_null() {} else {
             __assert_fail(
@@ -1242,21 +1013,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if !y.is_null() {} else {
-        __assert_fail(
-            b"y != NULL\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            494 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3290: {
         if !y.is_null() {} else {
             __assert_fail(
@@ -1274,21 +1030,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if !dx.is_null() {} else {
-        __assert_fail(
-            b"dx != NULL\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            495 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3248: {
         if !dx.is_null() {} else {
             __assert_fail(
@@ -1306,21 +1047,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if !dy.is_null() {} else {
-        __assert_fail(
-            b"dy != NULL\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            496 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3205: {
         if !dy.is_null() {} else {
             __assert_fail(
@@ -1338,21 +1064,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if src_width != 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_width != 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            497 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3169: {
         if src_width != 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1370,21 +1081,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if src_height != 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"src_height != 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            498 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3133: {
         if src_height != 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1402,21 +1098,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if dst_width > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"dst_width > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            499 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3097: {
         if dst_width > 0 as core::ffi::c_int {} else {
             __assert_fail(
@@ -1434,21 +1115,6 @@ pub unsafe extern "C" fn ScaleSlope(
             );
         }
     };
-    if dst_height > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"dst_height > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/third_party/libyuv/source/scale_common.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            500 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 81],
-                [core::ffi::c_char; 81],
-            >(
-                *b"void ScaleSlope(int, int, int, int, enum FilterMode, int *, int *, int *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_3060: {
         if dst_height > 0 as core::ffi::c_int {} else {
             __assert_fail(

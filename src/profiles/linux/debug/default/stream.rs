@@ -152,22 +152,6 @@ pub unsafe extern "C" fn avifROStreamStart(
     (*stream).numUsedBitsInPartialByte = 0 as size_t;
     (*stream).diag = diag;
     (*stream).diagContext = diagContext;
-    if ((*stream).diag).is_null() || !((*stream).diagContext).is_null() {} else {
-        __assert_fail(
-            b"!stream->diag || stream->diagContext\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            28 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 86],
-                [core::ffi::c_char; 86],
-            >(
-                *b"void avifROStreamStart(avifROStream *, avifROData *, avifDiagnostics *, const char *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2128: {
         if ((*stream).diag).is_null() || !((*stream).diagContext).is_null() {} else {
             __assert_fail(
@@ -210,20 +194,6 @@ pub unsafe extern "C" fn avifROStreamSetOffset(
     mut stream: *mut avifROStream,
     mut offset: size_t,
 ) {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            48 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 51],
-                [core::ffi::c_char; 51],
-            >(*b"void avifROStreamSetOffset(avifROStream *, size_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2267: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -250,20 +220,6 @@ pub unsafe extern "C" fn avifROStreamSkip(
     mut stream: *mut avifROStream,
     mut byteCount: size_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            57 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 50],
-                [core::ffi::c_char; 50],
-            >(*b"avifBool avifROStreamSkip(avifROStream *, size_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2398: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -299,20 +255,6 @@ pub unsafe extern "C" fn avifROStreamRead(
     mut data: *mut uint8_t,
     mut size: size_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            68 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 61],
-                [core::ffi::c_char; 61],
-            >(*b"avifBool avifROStreamRead(avifROStream *, uint8_t *, size_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2516: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -354,20 +296,6 @@ pub unsafe extern "C" fn avifROStreamReadUX8(
     mut v: *mut uint64_t,
     mut factor: uint64_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            81 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 67],
-                [core::ffi::c_char; 67],
-            >(*b"avifBool avifROStreamReadUX8(avifROStream *, uint64_t *, uint64_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_3187: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -429,20 +357,6 @@ pub unsafe extern "C" fn avifROStreamReadU16(
     mut stream: *mut avifROStream,
     mut v: *mut uint16_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            111 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 57],
-                [core::ffi::c_char; 57],
-            >(*b"avifBool avifROStreamReadU16(avifROStream *, uint16_t *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2602: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -476,22 +390,6 @@ pub unsafe extern "C" fn avifROStreamReadU16Endianness(
     mut v: *mut uint16_t,
     mut littleEndian: avifBool,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            119 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 77],
-                [core::ffi::c_char; 77],
-            >(
-                *b"avifBool avifROStreamReadU16Endianness(avifROStream *, uint16_t *, avifBool)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2699: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -530,20 +428,6 @@ pub unsafe extern "C" fn avifROStreamReadU32(
     mut stream: *mut avifROStream,
     mut v: *mut uint32_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            127 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 57],
-                [core::ffi::c_char; 57],
-            >(*b"avifBool avifROStreamReadU32(avifROStream *, uint32_t *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_2784: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -577,22 +461,6 @@ pub unsafe extern "C" fn avifROStreamReadU32Endianness(
     mut v: *mut uint32_t,
     mut littleEndian: avifBool,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            135 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 77],
-                [core::ffi::c_char; 77],
-            >(
-                *b"avifBool avifROStreamReadU32Endianness(avifROStream *, uint32_t *, avifBool)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_2877: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -627,20 +495,6 @@ pub unsafe extern "C" fn avifROStreamReadU64(
     mut stream: *mut avifROStream,
     mut v: *mut uint64_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            143 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 57],
-                [core::ffi::c_char; 57],
-            >(*b"avifBool avifROStreamReadU64(avifROStream *, uint64_t *)\0"))
-                .as_ptr(),
-        );
-    }
     'c_3033: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -674,20 +528,6 @@ pub unsafe extern "C" fn avifROStreamSkipBits(
     mut bitCount: size_t,
 ) -> avifBool {
     if (*stream).numUsedBitsInPartialByte != 0 as size_t {
-        if (*stream).numUsedBitsInPartialByte < 8 as size_t {} else {
-            __assert_fail(
-                b"stream->numUsedBitsInPartialByte < 8\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                152 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 54],
-                    [core::ffi::c_char; 54],
-                >(*b"avifBool avifROStreamSkipBits(avifROStream *, size_t)\0"))
-                    .as_ptr(),
-            );
-        }
         'c_3998: {
             if (*stream).numUsedBitsInPartialByte < 8 as size_t {} else {
                 __assert_fail(
@@ -781,21 +621,6 @@ pub unsafe extern "C" fn avifROStreamReadBitsU32(
                 return AVIF_FALSE;
             }
         }
-        if (*stream).offset > 0 as size_t {} else {
-            __assert_fail(
-                b"stream->offset > 0\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                192 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 69],
-                    [core::ffi::c_char; 69],
-                >(
-                    *b"avifBool avifROStreamReadBitsU32(avifROStream *, uint32_t *, size_t)\0",
-                ))
-                    .as_ptr(),
-            );
-        }
         'c_4209: {
             if (*stream).offset > 0 as size_t {} else {
                 __assert_fail(
@@ -842,20 +667,6 @@ pub unsafe extern "C" fn avifROStreamReadString(
     mut output: *mut core::ffi::c_char,
     mut outputSize: size_t,
 ) -> avifBool {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            216 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 64],
-                [core::ffi::c_char; 64],
-            >(*b"avifBool avifROStreamReadString(avifROStream *, char *, size_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_3380: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1106,20 +917,6 @@ pub unsafe extern "C" fn avifRWStreamWrite(
     mut data: *const core::ffi::c_void,
     mut size: size_t,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            383 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 67],
-                [core::ffi::c_char; 67],
-            >(*b"avifResult avifRWStreamWrite(avifRWStream *, const void *, size_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_4695: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1172,22 +969,6 @@ pub unsafe extern "C" fn avifRWStreamWriteFullBox(
     mut flags: uint32_t,
     mut marker: *mut avifBoxMarker,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            399 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 106],
-                [core::ffi::c_char; 106],
-            >(
-                *b"avifResult avifRWStreamWriteFullBox(avifRWStream *, const char *, size_t, int, uint32_t, avifBoxMarker *)\0",
-            ))
-                .as_ptr(),
-        );
-    }
     'c_5039: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1280,20 +1061,6 @@ pub unsafe extern "C" fn avifRWStreamFinishBox(
     mut stream: *mut avifRWStream,
     mut marker: avifBoxMarker,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            431 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 64],
-                [core::ffi::c_char; 64],
-            >(*b"avifResult avifRWStreamFinishBox(avifRWStream *, avifBoxMarker)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5188: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1311,21 +1078,6 @@ pub unsafe extern "C" fn avifRWStreamFinishBox(
         }
     };
     let mut boxSize: size_t = ((*stream).offset).wrapping_sub(marker as size_t);
-    if boxSize >= (::core::mem::size_of::<uint32_t>() as usize).wrapping_add(4 as usize)
-    {} else {
-        __assert_fail(
-            b"boxSize >= sizeof(uint32_t) + 4\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            437 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 64],
-                [core::ffi::c_char; 64],
-            >(*b"avifResult avifRWStreamFinishBox(avifRWStream *, avifBoxMarker)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5145: {
         if boxSize
             >= (::core::mem::size_of::<uint32_t>() as usize).wrapping_add(4 as usize)
@@ -1360,20 +1112,6 @@ pub unsafe extern "C" fn avifRWStreamWriteU8(
     mut stream: *mut avifRWStream,
     mut v: uint8_t,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            446 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 56],
-                [core::ffi::c_char; 56],
-            >(*b"avifResult avifRWStreamWriteU8(avifRWStream *, uint8_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5287: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1405,20 +1143,6 @@ pub unsafe extern "C" fn avifRWStreamWriteU16(
     mut stream: *mut avifRWStream,
     mut v: uint16_t,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            455 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 58],
-                [core::ffi::c_char; 58],
-            >(*b"avifResult avifRWStreamWriteU16(avifRWStream *, uint16_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5404: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1457,20 +1181,6 @@ pub unsafe extern "C" fn avifRWStreamWriteU32(
     mut stream: *mut avifRWStream,
     mut v: uint32_t,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            466 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 58],
-                [core::ffi::c_char; 58],
-            >(*b"avifResult avifRWStreamWriteU32(avifRWStream *, uint32_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5521: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1509,20 +1219,6 @@ pub unsafe extern "C" fn avifRWStreamWriteU64(
     mut stream: *mut avifRWStream,
     mut v: uint64_t,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            477 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 58],
-                [core::ffi::c_char; 58],
-            >(*b"avifResult avifRWStreamWriteU64(avifRWStream *, uint64_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5637: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1561,20 +1257,6 @@ pub unsafe extern "C" fn avifRWStreamWriteZeros(
     mut stream: *mut avifRWStream,
     mut byteCount: size_t,
 ) -> avifResult {
-    if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
-        __assert_fail(
-            b"stream->numUsedBitsInPartialByte == 0\0" as *const u8
-                as *const core::ffi::c_char,
-            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                as *const u8 as *const core::ffi::c_char,
-            488 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 58],
-                [core::ffi::c_char; 58],
-            >(*b"avifResult avifRWStreamWriteZeros(avifRWStream *, size_t)\0"))
-                .as_ptr(),
-        );
-    }
     'c_5739: {
         if (*stream).numUsedBitsInPartialByte == 0 as size_t {} else {
             __assert_fail(
@@ -1625,21 +1307,6 @@ pub unsafe extern "C" fn avifRWStreamWriteBits(
             }
             *((*(*stream).raw).data).offset((*stream).offset as isize) = 0 as uint8_t;
             (*stream).offset = ((*stream).offset).wrapping_add(1 as size_t);
-        }
-        if (*stream).offset > 0 as size_t {} else {
-            __assert_fail(
-                b"stream->offset > 0\0" as *const u8 as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/stream.c\0"
-                    as *const u8 as *const core::ffi::c_char,
-                504 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 67],
-                    [core::ffi::c_char; 67],
-                >(
-                    *b"avifResult avifRWStreamWriteBits(avifRWStream *, uint32_t, size_t)\0",
-                ))
-                    .as_ptr(),
-            );
         }
         'c_5901: {
             if (*stream).offset > 0 as size_t {} else {
