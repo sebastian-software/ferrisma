@@ -67,3 +67,22 @@ compilers and targets. The ten recorded decoded PNG scenarios now match the
 primary C reference exactly with the compiler contract in ADR 0024.
 No full cross-platform or release-certification
 claim is made. See `VALIDATION.md` for the exact evidence and residual gaps.
+
+## Native platform expansion
+
+The next milestone is the GNU Linux x86-64 root pipeline and shared PR/nightly
+validation infrastructure, followed by Windows x86-64. AOM, dav1d, and SharpYUV
+already have separate native Linux evidence. The root library still requires
+its own native translation profiles, original C reference builds, ABI probes,
+exact execution inventories, byte comparisons, and ELF implementation/runtime
+ownership checks. Removing the current target guard alone does not establish
+support.
+
+`root-translate-linux.yml` prepares isolated native root source profiles using
+the actual C compilation database and pinned original decoder/conversion
+archives. Its generated-source and typecheck artifacts are preparation evidence;
+they do not establish native execution acceptance. The profile guards reject
+missing source units, changed source/output hashes, cross-target evidence, and
+changed module selectors. Existing macOS translation bodies remain unchanged.
+The acceptance and CI boundaries are recorded in
+[ADR 0050](adr/0050-admit-root-targets-through-native-profile-parity.md).

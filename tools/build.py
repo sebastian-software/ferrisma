@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import subprocess
 import shlex
 import sys
@@ -49,6 +50,11 @@ def main():
     parser.add_argument("--native-dependency-root", type=Path, default=ROOT,
                         help="Read existing pinned test dependencies and optional engines from this checkout")
     parser.add_argument("--debug", action="store_true", help="Test unoptimized Rust with the same upstream Release configuration")
+    parser.add_argument("--upstream-debug", action="store_true",
+                        help="Use original Debug C preprocessing as well as unoptimized Rust; requires --debug")
+    parser.add_argument("--root-references", type=Path,
+                        help="Use the pinned original dav1d/SharpYUV archives from build_root_references.py")
+    parser.add_argument("--build-dir", type=Path, help="Isolated output directory inside this checkout's build directory")
     parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
     parser.add_argument("--compiler-default-diagnostic", action="store_true",
                         help="Build a separate original C baseline with compiler-default contraction")
@@ -57,14 +63,33 @@ def main():
     for feature in ["libgav1", "rav1e", "svt", "libyuv", "avm"]:
         parser.add_argument("--" + feature, action="store_true")
     args = parser.parse_args()
+    if args.upstream_debug and not args.debug:
+        parser.error('--upstream-debug requires --debug')
+    root_references = args.root_references.resolve() if args.root_references else None
+    if root_references:
+        record = json.loads((root_references / 'reference-profile.json').read_text())
+        expected_target = ('aarch64-apple-darwin' if sys.platform == 'darwin' and platform.machine() == 'arm64'
+                           else 'x86_64-unknown-linux-gnu' if sys.platform == 'linux' and platform.machine() == 'x86_64'
+                           else None)
+        expected_profile = 'debug' if args.upstream_debug else 'release'
+        if (record['target'] != expected_target or record['profile'] != expected_profile
+                or record['original_dav1d_units'] != 51 or record['original_sharpyuv_units'] != 7):
+            raise SystemExit('Original root references have a different target, C profile, or source closure')
+        for name, item in record['references'].items():
+            path = Path(item['path']).resolve()
+            if not path.is_relative_to(root_references) or hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
+                raise SystemExit(f'Original root reference identity differs: {name}')
+        for name, expected in record['source_manifests_sha256'].items():
+            if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected:
+                raise SystemExit(f'Original root reference source changed: {name}')
     if args.aom_reference_build:
         if args.implementation != 'baseline' or args.asan:
             parser.error('--aom-reference-build requires a nonsanitized original C baseline; ASan needs a separately instrumented AOM reference')
         args.aom_reference_build = args.aom_reference_build.resolve()
         profile = 'debug' if args.debug else 'release'
         reference = json.loads((args.aom_reference_build / 'reference-profile.json').read_text())
-        platform = 'macos' if sys.platform == 'darwin' else 'linux'
-        translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())
+        reference_platform = 'macos' if sys.platform == 'darwin' else 'linux'
+        translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{reference_platform}-{profile}.json').read_text())
         if (reference['profile'] != profile or reference['library_translation_units'] != 168
                 or '-ffp-contract=off' not in shlex.split(reference['c_flags'])
                 or not (args.aom_reference_build / 'libaom.a').is_file()):
@@ -90,9 +115,13 @@ def main():
         suffix += '-compiler-default'
     numeric_flags = '' if args.compiler_default_diagnostic else '-ffp-contract=off'
     build = ROOT / "build" / (args.implementation + suffix)
+    if args.build_dir:
+        build = args.build_dir.resolve()
+        if not build.is_relative_to((ROOT / 'build').resolve()):
+            parser.error('--build-dir must stay inside this checkout\'s build directory')
     command = [
         "cmake", "-S", ROOT / "upstream/libavif", "-B", build, "-G", "Ninja",
-        "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DCMAKE_BUILD_TYPE=" + ('Debug' if args.upstream_debug else 'Release'), "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DCMAKE_C_FLAGS=" + numeric_flags,
         "-DBUILD_SHARED_LIBS=OFF", "-DAVIF_BUILD_TESTS=ON", "-DAVIF_BUILD_APPS=ON",
         "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=SYSTEM", f"-DAVIF_LIBYUV={'SYSTEM' if args.libyuv else 'OFF'}",
@@ -108,6 +137,11 @@ def main():
         f"-DAVIF_CODEC_AVM={'SYSTEM' if args.avm else 'OFF'}",
         f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
+    if root_references:
+        command += [f'-DDAV1D_LIBRARY={root_references}/dav1d/src/libdav1d.a',
+                    f'-DDAV1D_INCLUDE_DIR={ROOT}/upstream/dav1d/include;{root_references}/dav1d/include',
+                    f'-DLIBSHARPYUV_LIBRARY={root_references}/sharpyuv/libsharpyuv.a',
+                    f'-DLIBSHARPYUV_INCLUDE_DIR={ROOT}/upstream/libwebp']
     if args.implementation == 'port':
         command += ['-DLIBAVIF_RS_AOM_IN_RUST=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
     if args.aom_reference_build:

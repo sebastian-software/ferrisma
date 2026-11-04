@@ -1,0 +1,98 @@
+name: Generate native Linux root profiles
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Original C preprocessing and Rust compilation profile
+        type: choice
+        options: [both, release, debug]
+        default: both
+      variant:
+        description: Original container configuration to generate
+        type: choice
+        options: [default, mini, extended-pixi, mini-extended-pixi]
+        default: default
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      CC: clang-16
+      CXX: clang++-16
+      LLVM_CONFIG_PATH: /usr/bin/llvm-config-16
+      LIBCLANG_PATH: /usr/lib/llvm-16/lib
+      RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install pinned translation and reference prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake libpng-dev libjpeg-dev libxml2-dev
+          rustup toolchain install nightly-2026-09-07 --profile minimal
+          rustup toolchain install 1.80.1 --profile minimal
+          cargo +1.80.1 install c2rust --version 0.21.0 --locked
+          python3 -m venv build/root-tools
+          build/root-tools/bin/python -m pip install meson==1.7.2
+          echo "$GITHUB_WORKSPACE/build/root-tools/bin" >> "$GITHUB_PATH"
+      - name: Verify source, provenance, and artifact guards
+        run: |
+          python3 tools/verify_upstream.py --tracked
+          python3 tools/check_translation.py
+          python3 tools/generate_licenses.py --check
+          python3 tests/ports/root_profile_test.py
+          cargo fetch --locked
+      - name: Build the pinned retained VMAF reference
+        run: |
+          python3 tools/build_aom_vmaf.py --fetch
+          echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
+      - name: Generate and typecheck complete native source profiles
+        env:
+          REQUESTED_PROFILE: ${{ inputs.profile }}
+          REQUESTED_VARIANT: ${{ inputs.variant }}
+        run: |
+          profiles="$REQUESTED_PROFILE"
+          if [ "$profiles" = both ]; then profiles="release debug"; fi
+          features=()
+          case "$REQUESTED_VARIANT" in
+            mini) features=(--mini) ;;
+            extended-pixi) features=(--extended-pixi) ;;
+            mini-extended-pixi) features=(--mini --extended-pixi) ;;
+          esac
+          for profile in $profiles; do
+            debug=()
+            original_debug=()
+            if [ "$profile" = debug ]; then debug=(--debug); original_debug=(--upstream-debug); fi
+            python3 tools/build_root_references.py --jobs 2 "${debug[@]}"
+            python3 tools/build_aom.py --jobs 2 "${debug[@]}"
+            reference="build/root-c-linux-$profile-$REQUESTED_VARIANT"
+            python3 tools/build.py baseline --fetch-deps --jobs 2 "${debug[@]}" "${original_debug[@]}" "${features[@]}" \
+              --aom-reference-build "build/aom-native-$profile" \
+              --root-references "build/root-references-x86_64-unknown-linux-gnu-$profile" --build-dir "$reference"
+            python3 tools/transpile_root.py --build "$reference" --profile "$profile" --variant "$REQUESTED_VARIANT" \
+              --clang-include /usr/lib/llvm-16/lib/clang/16/include
+            python3 tools/check_root_profile.py "translations/root-linux-$profile-$REQUESTED_VARIANT.json"
+          done
+      - name: Preserve generated source, exact C configuration, and typecheck evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: root-linux-generated-${{ inputs.profile }}-${{ inputs.variant }}
+          path: |
+            src/profiles/linux/
+            translations/root-linux-*.json
+            build/root-translate-linux-*/
+            build/root-c-linux-*/CMakeCache.txt
+            build/root-c-linux-*/compile_commands.json
+            build/root-references-*/reference-profile.json
+            build/root-typecheck-*/summary.json
+            build/aom-native-*/reference-profile.json
+          if-no-files-found: error
+          retention-days: 30
