@@ -29,6 +29,7 @@
 use super::base::data_parallel::ThreadPool;
 use super::base::status::StatusCode;
 use super::box_content_decoder::JxlBoxContentDecoder;
+use super::cms_interface::JxlCmsInterface;
 use super::codestream_header::{
     JxlBasicInfo, JxlBlendInfo, JxlBlendMode, JxlExtraChannelInfo, JxlExtraChannelType,
     JxlFrameHeader, JxlOrientation,
@@ -2851,6 +2852,133 @@ pub unsafe fn jxl_decoder_get_frame_name(
         name.add(frame_header.name.len()).write(0);
     }
 
+    JxlDecoderStatus::SUCCESS
+}
+
+pub fn jxl_decoder_set_preferred_color_profile(
+    dec: &mut JxlDecoder,
+    color_encoding: Option<&JxlColorEncoding>,
+) -> JxlDecoderStatus {
+    // SAFETY: No ICC data is passed.
+    unsafe { jxl_decoder_set_output_color_profile(dec, color_encoding, ptr::null(), 0) }
+}
+
+/// JxlDecoderSetOutputColorProfile.
+///
+/// # Safety
+/// A non-null `icc_data` is readable for `icc_size` initialized bytes. The CMS
+/// set with jxl_decoder_set_cms satisfies its contract when it is invoked.
+pub unsafe fn jxl_decoder_set_output_color_profile(
+    dec: &mut JxlDecoder,
+    color_encoding: Option<&JxlColorEncoding>,
+    icc_data: *const u8,
+    icc_size: usize,
+) -> JxlDecoderStatus {
+    if color_encoding.is_some() && !icc_data.is_null() {
+        return api_error!("cannot set both color_encoding and icc_data");
+    }
+    if color_encoding.is_none() && icc_data.is_null() {
+        return api_error!("one of color_encoding and icc_data must be set");
+    }
+    if !dec.got_all_headers {
+        return api_error!("color info not yet available");
+    }
+    if dec.post_headers {
+        return api_error!("too late to set the color encoding");
+    }
+    let output_encoding = &mut dec
+        .passes_state
+        .as_mut()
+        .expect("ReadAllHeaders allocates passes_state")
+        .output_encoding_info;
+    // SAFETY: No image bundle retains the output image metadata before the
+    // frame loop, which post_headers excludes above.
+    let image_metadata = unsafe { dec.image_metadata.get_mut() };
+    let mut c_out = ColorEncoding::default();
+    let mut same_encoding = false;
+    if let Some(color_encoding) = color_encoding {
+        api_return_if_status_error!(c_out.from_external(color_encoding));
+        same_encoding = c_out.same_color_encoding(&output_encoding.color_encoding);
+    }
+    if !output_encoding.cms_set
+        && (!icc_data.is_null() || (!image_metadata.xyb_encoded && !same_encoding))
+    {
+        return api_error!("must set color management system via JxlDecoderSetCms");
+    }
+    let orig_encoding = &mut image_metadata.color_encoding;
+    if !orig_encoding.have_fields() && output_encoding.cms_set {
+        let mut tmp_icc = orig_encoding.icc().to_vec();
+        // SAFETY: The caller's CMS contract covers this callback.
+        api_return_if_status_error!(unsafe {
+            orig_encoding.set_icc(&mut tmp_icc, Some(&output_encoding.color_management_system))
+        });
+        output_encoding.orig_color_encoding = orig_encoding.clone();
+    }
+    if let Some(color_encoding) = color_encoding {
+        if image_metadata.color_encoding.is_gray()
+            && color_encoding.color_space != ColorSpace::GRAY
+            && dec.image_out_buffer_set
+            && dec.image_out_format.num_channels < 3
+        {
+            return api_error!("Number of channels is too low for color output");
+        }
+        if color_encoding.color_space == ColorSpace::UNKNOWN {
+            return api_error!("Unknown output colorspace");
+        }
+        if c_out.icc().is_empty() {
+            return JxlDecoderStatus::ERROR;
+        }
+        api_return_if_status_error!(output_encoding.maybe_set_color_encoding(&c_out));
+        image_metadata.color_encoding = output_encoding.color_encoding.clone();
+        return JxlDecoderStatus::SUCCESS;
+    }
+    // icc_data != nullptr
+    // TODO(firsching): implement setting output color profile from icc_data.
+    let mut c_dst = ColorEncoding::default();
+    // SAFETY: The caller supplies icc_size readable bytes at icc_data.
+    let mut padded_icc = if icc_size == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(icc_data, icc_size) }.to_vec()
+    };
+    // SAFETY: The caller's CMS contract covers this callback.
+    if unsafe {
+        c_dst.set_icc(
+            &mut padded_icc,
+            Some(&output_encoding.color_management_system),
+        )
+    }
+    .is_err()
+    {
+        return api_error!("setting output color profile from icc_data not yet implemented.");
+    }
+    api_return_if_status_error!(output_encoding.maybe_set_color_encoding(&c_dst));
+
+    JxlDecoderStatus::SUCCESS
+}
+
+pub fn jxl_decoder_set_desired_intensity_target(
+    dec: &mut JxlDecoder,
+    desired_intensity_target: f32,
+) -> JxlDecoderStatus {
+    if desired_intensity_target < 0.0 {
+        return api_error!("negative intensity target requested");
+    }
+    dec.desired_intensity_target = desired_intensity_target;
+    JxlDecoderStatus::SUCCESS
+}
+
+/// JxlDecoderSetCms.
+///
+/// # Safety
+/// Every callback and opaque pointer of `cms` obeys cms_interface.h whenever
+/// the decoder invokes it, until the decoder is reset or destroyed.
+pub unsafe fn jxl_decoder_set_cms(dec: &mut JxlDecoder, cms: JxlCmsInterface) -> JxlDecoderStatus {
+    let passes_state = dec
+        .passes_state
+        .get_or_insert_with(|| Box::new(PassesDecoderState::new()));
+    passes_state.output_encoding_info.color_management_system = cms;
+    passes_state.output_encoding_info.cms_set = true;
     JxlDecoderStatus::SUCCESS
 }
 

@@ -5,6 +5,7 @@
 // replays caller histories on the original JxlDecoder; it implements no
 // decoder or container algorithm. The Rust driver in
 // tests/support/decoder_public.rs mirrors this protocol token for token.
+#include <jxl/cms.h>
 #include <jxl/codestream_header.h>
 #include <jxl/color_encoding.h>
 #include <jxl/decode.h>
@@ -285,6 +286,33 @@ struct Allocator {
   }
 };
 
+// cs.wp.prim.tf.gamma-bits.ri, with fixed custom white point and primaries.
+JxlColorEncoding ParseEncoding(const std::string& token) {
+  std::istringstream fields(token);
+  uint32_t cs, wp, prim, tf, ri;
+  uint64_t gamma_bits;
+  char dot;
+  fields >> cs >> dot >> wp >> dot >> prim >> dot >> tf >> dot >> gamma_bits >> dot >> ri;
+  if (!fields) throw std::runtime_error("color encoding token");
+  JxlColorEncoding color;
+  memset(&color, 0, sizeof(color));
+  color.color_space = JxlColorSpace(cs);
+  color.white_point = JxlWhitePoint(wp);
+  color.white_point_xy[0] = 0.3127;
+  color.white_point_xy[1] = 0.329;
+  color.primaries = JxlPrimaries(prim);
+  color.primaries_red_xy[0] = 0.68;
+  color.primaries_red_xy[1] = 0.32;
+  color.primaries_green_xy[0] = 0.265;
+  color.primaries_green_xy[1] = 0.69;
+  color.primaries_blue_xy[0] = 0.15;
+  color.primaries_blue_xy[1] = 0.06;
+  color.transfer_function = JxlTransferFunction(tf);
+  memcpy(&color.gamma, &gamma_bits, 8);
+  color.rendering_intent = JxlRenderingIntent(ri);
+  return color;
+}
+
 class Driver {
  public:
   Driver(std::vector<uint8_t> file, std::ostream& out) : file_(std::move(file)), out_(out) {}
@@ -367,8 +395,40 @@ class Driver {
         out_ << 0;
         break;
       }
+      case 'C': out_ << JxlDecoderSetCms(dec_, *JxlGetDefaultCms()); break;
+      case 'T': {
+        uint32_t bits = uint32_t(std::stoul(arg));
+        float target;
+        memcpy(&target, &bits, 4);
+        out_ << JxlDecoderSetDesiredIntensityTarget(dec_, target);
+        break;
+      }
+      case 'P': {
+        if (arg == "-") {
+          out_ << JxlDecoderSetPreferredColorProfile(dec_, nullptr);
+        } else {
+          JxlColorEncoding color = ParseEncoding(arg);
+          out_ << JxlDecoderSetPreferredColorProfile(dec_, &color);
+        }
+        break;
+      }
+      case 'Q': {
+        std::vector<uint8_t> icc = Unhex(arg);
+        icc.push_back(0);  // A non-null pointer for an empty profile.
+        out_ << JxlDecoderSetOutputColorProfile(dec_, nullptr, icc.data(), icc.size() - 1);
+        break;
+      }
+      case 'R': {
+        auto comma = arg.find(',');
+        JxlColorEncoding color = ParseEncoding(arg.substr(0, comma));
+        std::vector<uint8_t> icc = Unhex(arg.substr(comma + 1));
+        icc.push_back(0);
+        out_ << JxlDecoderSetOutputColorProfile(dec_, &color, icc.data(), icc.size() - 1);
+        break;
+      }
       case 'J': SetJpeg(std::stoul(arg)); break;
       case 'j': ReleaseJpeg(); break;
+      case 'G': out_ << 0; Info(); Color(); break;
       case 'L': Loop(arg); break;
       default: throw std::runtime_error("decoder public op");
     }

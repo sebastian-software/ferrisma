@@ -323,3 +323,125 @@ fn public_decoder_jpeg_reconstruction_boxes_match_original() {
     }
     compare("jpeg", requests);
 }
+
+/// Requested output encodings as cs.wp.prim.tf.gamma-bits.ri tokens,
+/// including every source rejection: unknown and XYB color spaces, invalid
+/// gamma and transfer values.
+fn output_encodings() -> Vec<String> {
+    let gamma = |g: f64| g.to_bits();
+    vec![
+        "0.1.1.13.0.0".into(),
+        "1.1.1.13.0.0".into(),
+        "0.1.1.8.0.1".into(),
+        "0.1.11.13.0.0".into(),
+        "0.1.9.16.0.0".into(),
+        "0.1.9.18.0.2".into(),
+        format!("0.1.1.65535.{}.0", gamma(1.0 / 2.2)),
+        format!("1.1.1.65535.{}.3", gamma(0.45)),
+        "0.2.2.1.0.3".into(),
+        "0.11.11.17.0.0".into(),
+        "1.2.1.8.0.0".into(),
+        "2.1.1.13.0.0".into(),
+        "3.1.1.13.0.0".into(),
+        "0.1.1.65535.0.0".into(),
+        "0.1.1.7.0.0".into(),
+    ]
+}
+
+const COLOR_SPECS: &[&str] = &[
+    "w=8 h=8 c=3",
+    "w=8 h=8 c=1 bits=16",
+    "w=8 h=8 c=3 icc=1",
+    "w=9 h=5 c=1 icc=1",
+    "w=8 h=8 c=3 lossless=0",
+    "w=8 h=8 c=1 lossless=0",
+    "w=8 h=8 c=3 icc=1 lossless=0",
+];
+
+#[test]
+fn public_decoder_color_profile_setters_match_original() {
+    let files = super::original_observations(
+        &COLOR_SPECS
+            .iter()
+            .map(|spec| format!("dpub-encode {spec}"))
+            .collect::<Vec<_>>(),
+    );
+    // Original embedded profiles, read back through the original public API.
+    let mut profiles = Vec::new();
+    for file in [&files[2], &files[3]] {
+        let size = super::original_observations(&[format!(
+            "dpub-run 0 0 {file} s256 L1,1000000,0,2,0 z0"
+        )])
+        .remove(0);
+        let size: usize = size
+            .rsplit_once(',')
+            .unwrap()
+            .1
+            .split(' ')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let icc = super::original_observations(&[format!(
+            "dpub-run 0 0 {file} s256 L1,1000000,0,2,0 Z0,{size}"
+        )])
+        .remove(0);
+        let hex = icc
+            .split(" Z:0,")
+            .nth(1)
+            .unwrap()
+            .split(' ')
+            .next()
+            .unwrap();
+        profiles.push(hex[..hex.len() - 2].to_owned());
+    }
+    profiles.push(driver::hex(
+        &(0..64).map(|i| (i * 37 + 5) as u8).collect::<Vec<_>>(),
+    ));
+    profiles.push("-".into());
+    let encodings = output_encodings();
+    let headers = "s256 L1,1000000,0,2,0";
+    let mut requests = Vec::new();
+    for file in &files {
+        for encoding in &encodings {
+            requests.push(format!("dpub-run 0 0 {file} {headers} P{encoding} G"));
+            requests.push(format!(
+                "dpub-run 0 0 {file} C {headers} P{encoding} G P{encoding} G"
+            ));
+            requests.push(format!(
+                "dpub-run 0 0 {file} {headers} C P{encoding} P0.1.1.13.0.0 G"
+            ));
+        }
+        for profile in &profiles {
+            requests.push(format!("dpub-run 0 0 {file} {headers} Q{profile} G"));
+            requests.push(format!("dpub-run 0 0 {file} {headers} C Q{profile} G"));
+            requests.push(format!(
+                "dpub-run 0 0 {file} C {headers} R0.1.1.13.0.0,{profile} G"
+            ));
+        }
+        for bits in [
+            0u32,
+            0x3f80_0000,
+            0x447a_0000,
+            0xbf80_0000,
+            0x7fc0_0000,
+            0x8000_0000,
+        ] {
+            requests.push(format!(
+                "dpub-run 0 0 {file} T{bits} s320 L1,1000000,0,3,0 G"
+            ));
+            requests.push(format!(
+                "dpub-run 0 0 {file} s320 L1,1000000,0,2,0 T{bits} G L1,1000000,0,2,0 G"
+            ));
+        }
+        // Timing errors: before the headers, after the frame loop began, and
+        // after Rewind and Reset.
+        requests.push(format!(
+            "dpub-run 0 0 {file} P0.1.1.8.0.0 C P- s16640 L1,1000000,0,2,0 P0.1.1.8.0.0 L1,1000000,0,100,1 P0.1.1.8.0.0 G"
+        ));
+        requests.push(format!(
+            "dpub-run 2 0 {file} C {headers} P0.1.9.16.0.0 w P0.1.1.8.0.0 {headers} G x {headers} P0.1.1.8.0.0 C P0.1.1.8.0.0 G"
+        ));
+    }
+    compare("color", requests);
+}

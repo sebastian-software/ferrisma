@@ -38,9 +38,13 @@ option setters, SubscribeEvents, SizeHintBasicInfo, ReadBundle, ReadBasicInfo,
 ReadAllHeaders, the basic-info, extra-channel and color getters, ProcessInput,
 HandleBoxes, the complete box API, the frame-index box storage, SkipFrames
 with GetFrameDependencies, the frame-header getters and the output-buffer and
-callback setters are translated. The serial ThreadPool from data_parallel.h
-and the public structures from codestream_header.h are new modules. ADR 0003
-records the object representation.
+callback setters are translated. The color setters SetCms,
+SetPreferredColorProfile, SetOutputColorProfile and SetDesiredIntensityTarget
+use the merged OutputEncodingInfo. SetJPEGBuffer, ReleaseJPEGBuffer, the jbrd
+stage with its Exif/XMP size checks and the Exif/XMP storage and JPEG output
+stages of HandleBoxes use the merged JxlToJpegDecoder. The serial ThreadPool
+from data_parallel.h and the public structures from codestream_header.h are
+new modules. ADR 0003 records the object representation.
 
 The original public C API of the complete archive is the reference. The
 oracle's `dpub-encode` produces genuine inputs with the original public
@@ -50,23 +54,24 @@ version 1, frame index boxes, embedded ICC profiles, extra channels with
 names, orientation, intrinsic size and animation. `dpub-run` replays the same
 caller history on both decoders, including byte-wise and random chunking,
 CloseInput, small box buffers, truncated and mutated inputs, Rewind and Reset
-mid-stream and API misuse. Statuses, events, getter outputs, consumed and
-released byte counts and box contents compare exactly. Where the original
-allocates only decoder and input storage, the complete custom allocator log
-and injected allocation failures compare too. Six differential groups compare
-8,144 histories locally; nine standalone original captures run without C++.
-`tools/decoder_public_reference.py` audits both original graphs and three
-Rust builds in its own nightly audit group.
+mid-stream and API misuse. JPEG reconstruction histories use genuine original
+JPEG transcodes with plain and brob Exif/XMP boxes; color histories set the
+default CMS, encoded and ICC output profiles, including every rejection, and
+intensity targets, then read every getter. Statuses, events, getter outputs,
+consumed and released byte counts and box contents compare exactly. Where the
+original allocates only decoder and input storage, the complete custom
+allocator log and injected allocation failures compare too. Eight
+differential groups compare 9,673 histories locally; nine standalone original
+captures run without C++. `tools/decoder_public_reference.py` audits both
+original graphs and three Rust builds in its own nightly audit group.
 
-This is not yet complete. The frame loop of ProcessCodestream, ProcessSections,
+This is not yet complete. The frame loop of ProcessCodestream (including its
+JPEG reconstruction and output-buffer checkpoints), ProcessSections,
 FlushImage, SkipCurrentFrame and the frame-reference updates wait for the
-incremental FrameDecoder and the low-memory pipeline selection. The color
-output setters (SetCms, SetPreferredColorProfile, SetOutputColorProfile and
-SetDesiredIntensityTarget) wait for whole-image color output. SetJPEGBuffer,
-ReleaseJPEGBuffer and the JPEG reconstruction stages of HandleBoxes wait for
-JxlToJpegDecoder. Until then, frame events and JPEG reconstruction are not
-supported and this decoder is not a complete public API. The C ABI exports and
-JxlDecoderSetParallelRunner remain separate boundaries.
+incremental FrameDecoder and the low-memory pipeline selection. Until then,
+frame, preview, progression and full-image events are not supported, JPEG
+bytes are never written, and this decoder is not a complete public API. The C
+ABI exports and JxlDecoderSetParallelRunner remain separate boundaries.
 
 ## Whole-image color output (2026-11-04)
 

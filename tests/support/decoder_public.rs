@@ -95,6 +95,26 @@ fn f64_bits(value: f64) -> u64 {
     value.to_bits()
 }
 
+/// cs.wp.prim.tf.gamma-bits.ri, with fixed custom white point and primaries.
+fn parse_encoding(token: &str) -> JxlColorEncoding {
+    use jxl::jxl::color_encoding::{
+        ColorSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
+    };
+    let fields: Vec<u64> = token.split('.').map(|v| v.parse().unwrap()).collect();
+    JxlColorEncoding {
+        color_space: ColorSpace(fields[0] as u32),
+        white_point: WhitePoint(fields[1] as u32),
+        white_point_xy: [0.3127, 0.329],
+        primaries: Primaries(fields[2] as u32),
+        primaries_red_xy: [0.68, 0.32],
+        primaries_green_xy: [0.265, 0.69],
+        primaries_blue_xy: [0.15, 0.06],
+        transfer_function: TransferFunction(fields[3] as u32),
+        gamma: f64::from_bits(fields[4]),
+        rendering_intent: RenderingIntent(fields[5] as u32),
+    }
+}
+
 pub struct Driver {
     file: Vec<u8>,
     out: String,
@@ -266,8 +286,64 @@ impl Driver {
                 self.restart();
                 self.out.push('0');
             }
+            'C' => {
+                // SAFETY: The translated default CMS is a static interface.
+                let s = unsafe {
+                    api::jxl_decoder_set_cms(self.dec(), *jxl::jxl::cms::jxl_cms::get_default_cms())
+                };
+                self.status(s);
+            }
+            'T' => {
+                let target = f32::from_bits(arg.parse().unwrap());
+                let s = api::jxl_decoder_set_desired_intensity_target(self.dec(), target);
+                self.status(s);
+            }
+            'P' => {
+                let s = if arg == "-" {
+                    api::jxl_decoder_set_preferred_color_profile(self.dec(), None)
+                } else {
+                    let color = parse_encoding(arg);
+                    api::jxl_decoder_set_preferred_color_profile(self.dec(), Some(&color))
+                };
+                self.status(s);
+            }
+            'Q' => {
+                let mut icc = unhex(arg);
+                icc.push(0); // A non-null pointer for an empty profile.
+                // SAFETY: The vector holds the profile bytes; the CMS is static.
+                let s = unsafe {
+                    api::jxl_decoder_set_output_color_profile(
+                        self.dec(),
+                        None,
+                        icc.as_ptr(),
+                        icc.len() - 1,
+                    )
+                };
+                self.status(s);
+            }
+            'R' => {
+                let (encoding, icc) = arg.split_once(',').unwrap();
+                let color = parse_encoding(encoding);
+                let mut icc = unhex(icc);
+                icc.push(0);
+                // SAFETY: As for 'Q'.
+                let s = unsafe {
+                    api::jxl_decoder_set_output_color_profile(
+                        self.dec(),
+                        Some(&color),
+                        icc.as_ptr(),
+                        icc.len() - 1,
+                    )
+                };
+                self.status(s);
+            }
             'J' => self.set_jpeg(arg.parse().unwrap()),
             'j' => self.release_jpeg(),
+            'G' => {
+                self.out.push('0');
+                self.info();
+                self.color();
+            }
             'L' => self.run_loop(arg),
             _ => panic!("decoder public op"),
         }
