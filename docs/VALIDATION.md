@@ -19,6 +19,12 @@ parity against the pinned portable C reference with `-ffp-contract=off`.
 The original baseline and intermediate matrices below remain historical results.
 The feature-specific intermediate rows below retain their earlier evidence.
 
+The subsequent [native root profiles](PLATFORMS.md) add complete default and
+combined Mini/Extended PIXI Release/Debug comparisons on Linux x86-64 and local
+macOS ARM64. Their evidence remains separate from production target admission
+and the existing macOS production record. PRs use bounded native gates; nightly
+and manual full tiers retain the complete original integration commands.
+
 ## Reference baseline
 
 - Upstream: `9b07a9d7a874b159bb4e14b80a6f08bb469d06f7` (libavif 1.4.2).

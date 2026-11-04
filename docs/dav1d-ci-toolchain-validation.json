@@ -20,5 +20,109 @@
   },
   "correction": "Select the already requested nightly-2026-09-07 through RUSTUP_TOOLCHAIN; preserve source toolchain settings and every test command",
   "toolchain_override_reference": "https://rust-lang.github.io/rustup/overrides.html",
-  "corrected_native_execution_verified": false
+  "corrected_native_execution_verified": true,
+  "recovery": {
+    "run": 41861383901,
+    "artifact": {
+      "id": 13346066268,
+      "name": "dav1d-macos-15-arm64",
+      "github_digest": "sha256:2678d90b207c8b7a6250ce1d2b8ccc1c36c6be626bcbda47a41d4602f9cb72a7"
+    },
+    "scope": {
+      "tier": "full",
+      "native_runner": "macOS",
+      "api_and_abi_profiles": [
+        "release",
+        "debug"
+      ],
+      "public_api_abi_and_ownership": true,
+      "complete_original_corpus_profiles": [
+        "release",
+        "debug"
+      ]
+    },
+    "profiles": {
+      "release": {
+        "corpus": {
+          "original_registrations_each": 1711,
+          "matching_case_and_command_inventory": true,
+          "rust_timeout_multiplier": 1,
+          "suites": {
+            "dav1d:headers": 6,
+            "dav1d:oss-fuzz-asan": 72,
+            "dav1d:oss-fuzz-msan": 37,
+            "dav1d:oss-fuzz-ubsan": 40,
+            "dav1d:testdata-10+dav1d:testdata": 145,
+            "dav1d:testdata-12+dav1d:testdata": 50,
+            "dav1d:testdata-8+dav1d:testdata": 606,
+            "dav1d:testdata-multi+dav1d:testdata": 2,
+            "dav1d:testdata_seek-stress": 753
+          },
+          "original_definitions_sha256": "8cd52b992b6966fb65af253c5b1950e2b70d04616611309e9adf32b4dbeb3ec5",
+          "rust_results_sha256": "d25d6ee789e794b61da816f509d8302cf0877ac931894f69f2c1d9778fe8c37a",
+          "c_results_sha256": "d850a74498de2457bfdbfb0952fe3fbf77e3bc5ed50a7d5c1c9c7b2f0df5bbae",
+          "c_junit_sha256": "97c862c596a287f1f9aabb65612b99777219975e4ece7c8df64928b5f070adad"
+        },
+        "api": {
+          "cases": 83,
+          "differences": [],
+          "sanitizer": null,
+          "driver_instrumented": false,
+          "driver_sha256": "48817b955e339aee7571c971f613d3213224f40970af14dee0ad994eb8dbf4a9",
+          "reference_sha256": "a07172a89b05b7eafa694274bbd670f3ee06207c3e1bd958397595970a573e49",
+          "candidate_archive_sha256": "a538ecda5e20bea5f7049906a3d8620f21d5d6a9f8640f9961c80fcc3b427ee8",
+          "summary_sha256": "dfc2f5e33f12ed32f129da9ec1bba9ee70b68f921cc047fe2ec1eb360f7e1b7e",
+          "tracked_resources_live_after_close": 0
+        },
+        "linkage_sha256": "428cd2daa0959b1069b3fb959d4d0b80e804627a8e47f5281cc014931cb7c55e",
+        "dsp_inventory_sha256": "442180c9595d90792e578cad68754bd879c0b138b715d279f9c5d1e438cb213a",
+        "dsp_results_sha256": "c34bad4982912fa0d9787ab403498983a8f9dfbbe4be4671085d6abb5f675594",
+        "dsp_groups": 17,
+        "dsp_function_selections_each": 3155
+      },
+      "debug": {
+        "corpus": {
+          "original_registrations_each": 1711,
+          "matching_case_and_command_inventory": true,
+          "rust_timeout_multiplier": 4,
+          "suites": {
+            "dav1d:headers": 6,
+            "dav1d:oss-fuzz-asan": 72,
+            "dav1d:oss-fuzz-msan": 37,
+            "dav1d:oss-fuzz-ubsan": 40,
+            "dav1d:testdata-10+dav1d:testdata": 145,
+            "dav1d:testdata-12+dav1d:testdata": 50,
+            "dav1d:testdata-8+dav1d:testdata": 606,
+            "dav1d:testdata-multi+dav1d:testdata": 2,
+            "dav1d:testdata_seek-stress": 753
+          },
+          "original_definitions_sha256": "58e6b9985c8534be894174c06ccae54ed40fafe641338bf5e441264a7242e6e6",
+          "rust_results_sha256": "65cfeee8d4de69d786f40340d09fe0228833c24bb21b04dc451eee3dad782c89",
+          "c_results_sha256": "4c169e6ded11152bd911953a5e991108e7443265e92627f5afa6204ec29404c0",
+          "c_junit_sha256": "faa1785edf24c927424712f8f942202cc8b824a2fb7c3753bb460555cfa6655a"
+        },
+        "api": {
+          "cases": 82,
+          "differences": [],
+          "sanitizer": null,
+          "driver_instrumented": false,
+          "driver_sha256": "48817b955e339aee7571c971f613d3213224f40970af14dee0ad994eb8dbf4a9",
+          "reference_sha256": "5dfe97ea5a16c83d6e7624e6f1d2efbe5d0595019814992c7db2ad0deb57fd5b",
+          "candidate_archive_sha256": "0dc37f16e6e884a10ffa1e5233d4c1cf707431aa2434651462f64787f1e8c30e",
+          "summary_sha256": "ad0a76520b58dcf997a38cf84f63e7c7fa54a3af36db7fae638dbcb77364ea2a",
+          "tracked_resources_live_after_close": 0
+        },
+        "linkage_sha256": "e04744fd39a233579a3c895963ea9ad86c09692c715579b93afb8e3f381555b4",
+        "dsp_inventory_sha256": "91a08f9d3d4a4d84d8547fc82b187deed14c9dbe4a12c40eca9a4df347318302",
+        "dsp_results_sha256": "b7c82fb85ef3c3462fcf6956b57a76fa926e7a40eb774a82c761c9ee5ad1821d",
+        "dsp_groups": 17,
+        "dsp_function_selections_each": 3155
+      }
+    },
+    "abi": {
+      "checks": 12157,
+      "record_instances": 1201,
+      "differences": []
+    }
+  }
 }

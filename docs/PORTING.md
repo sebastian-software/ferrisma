@@ -70,13 +70,18 @@ claim is made. See `VALIDATION.md` for the exact evidence and residual gaps.
 
 ## Native platform expansion
 
-The next milestone is the GNU Linux x86-64 root pipeline and shared PR/nightly
-validation infrastructure, followed by Windows x86-64. AOM, dav1d, and SharpYUV
-already have separate native Linux evidence. The root library still requires
-its own native translation profiles, original C reference builds, ABI probes,
-exact execution inventories, byte comparisons, and ELF implementation/runtime
-ownership checks. Removing the current target guard alone does not establish
-support.
+The shared native root harness now passes complete Release and matching Debug
+on GNU Linux x86-64 and macOS ARM64 for the default and combined Mini/Extended
+PIXI configurations. Each default pair covers 9,473 original cases; each
+combined pair covers 9,527, with exact ordered outcomes, ABI, strict bytes, and
+all consumer/runtime ownership audits. Linux uses verified hosted artifacts;
+the complete macOS proofs are local native executions, supplemented by the
+hosted bounded pilot. See [platform evidence](PLATFORMS.md).
+
+Linux production admission still requires the remaining feature configurations,
+applicable sanitizers, and production profile selection with final consumers.
+Windows x86-64 follows that milestone. Removing the current target guard alone
+does not establish support.
 
 `root-translate-linux.yml` prepares isolated native root source profiles using
 the actual C compilation database and pinned original decoder/conversion

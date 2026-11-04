@@ -6,7 +6,7 @@ native root evidence passes the admission gates in ADR 0050.
 
 | Target | Existing evidence | Current work | Remaining admission boundary |
 | --- | --- | --- | --- |
-| macOS ARM64 | Accepted production root and standalone default codecs. The shared native harness also passes complete Release/Debug locally: 64 registrations / 9,473 cases by default and 65 / 9,527 with combined Mini/Extended PIXI, plus ABI, all 55/56 consumers, and strict bytes. See [actual preparation evidence](root-profile-preparation.json). | Native nightly wiring is prepared; the first hosted attempts were not acquired because of ARM64 runner capacity. Local proofs remain explicitly separate from CI results. | Verify the hosted CI tier and other container configurations; keep the existing accepted production profile intact. |
+| macOS ARM64 | Accepted production root and standalone default codecs. The shared native harness also passes complete Release/Debug locally: 64 registrations / 9,473 cases by default and 65 / 9,527 with combined Mini/Extended PIXI, plus ABI, all 55/56 consumers, and strict bytes. See [actual preparation evidence](root-profile-preparation.json). | The hosted native pilot passes both default profiles after a runner-capacity retry; its bounded execution is recorded separately from local full proofs. | Other container configurations and expanded sanitizer automation; keep the existing accepted production profile intact. |
 | GNU Linux x86-64 | Complete standalone default codec acceptance; default root Release/Debug each pass 64 registrations / 9,473 ordered cases. Combined Mini/Extended PIXI Release/Debug each pass 65 / 9,527. Each has 31 matching skips, named ABI, all 55/56 consumer audits, and 20 strict byte pairs. See [actual native evidence](root-linux-native-validation.json). | The glibc assertion correction and both native container configurations have complete execution proofs; see [ADR 0051](adr/0051-preserve-single-evaluation-of-glibc-assertions.md). | Other supported feature configurations, applicable sanitizers, and production profile selection with final consumer checks. |
 | Windows x86-64 | No native root or workspace codec acceptance. | Follow Linux admission; start with the MSVC target. | Native headers/CRT layouts, variadic/thread/alignment mappings, pinned reference builds, PE/COFF ownership, all default codec profiles, and original C/Rust execution. |
 | Other architectures | No whole-pipeline acceptance. | Follow the first Linux and Windows targets. | Independent native evidence; cross-compilation alone is insufficient. |
@@ -35,6 +35,10 @@ original Release WebP integration suite. Their artifacts record the executed
 scope explicitly. A manual `runner` selection can validate one native target;
 the default runs both. The pinned `RUSTUP_TOOLCHAIN` selects the requested
 compiler without an implicit formatter installation from `rust-toolchain.toml`.
+The [actual tier validation](native-ci-tier-validation.json) records the native
+macOS root pilot, both native SharpYUV bounded gates, and the complete corrected
+macOS dav1d corpus and DSP checks. Earlier capacity failures and the original
+formatter failure remain preserved; bounded runs receive no full-suite credit.
 
 Only PR runs cancel an earlier run of the same PR. Pushes, manual runs, and
 nightlies have separate event concurrency groups. The two nightly container

@@ -82,7 +82,7 @@ versions and exact results are recorded in [docs/VALIDATION.md](docs/VALIDATION.
 
 ```sh
 cargo build --release --locked
-python3 tools/build_aom.py --jobs 1
+python3 tools/build_aom.py --jobs 1 --library-only
 python3 tools/build.py baseline --fetch-deps --aom-reference-build build/aom-native-release
 python3 tools/run_tests.py build/baseline-aom-reference
 python3 tools/build.py port
