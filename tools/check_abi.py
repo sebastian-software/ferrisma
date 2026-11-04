@@ -126,7 +126,7 @@ def main():
         '[package]\nname = "libavif-rs-abi-probe"\nversion = "0.0.0"\nedition = "2021"\n'
         '[workspace]\n[[bin]]\nname = "probe"\npath = "probe.rs"\n'
         f'[dependencies]\navif = {{ package = "libavif-rs", path = {json.dumps(str(ROOT))}, features = {json.dumps(features)} }}\n'
-        '[profile.release]\npanic = "abort"\noverflow-checks = false\n'
+        '[profile.release]\npanic = "unwind"\noverflow-checks = false\n'
     )
     # The probe is a Rust consumer of an rlib, so it owns the runtime search
     # path for the same locally built AVM dylib that CMake consumers link.
