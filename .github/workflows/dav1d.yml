@@ -4,29 +4,43 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '47 2 * * *'
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Native targets to execute
+        type: choice
+        options: [all, ubuntu-24.04, macos-15]
+        default: all
+      tier:
+        description: Bounded API checks or the complete original corpus
+        type: choice
+        options: [full, smoke]
+        default: full
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   parity:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            architecture: x86_64
-          - runner: macos-15
-            architecture: arm64
+        include: >-
+          ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
+              inputs.runner == 'ubuntu-24.04' && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
+              '[{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"macos-15","architecture":"arm64"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      CARGO_BUILD_JOBS: '2'
+      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'smoke') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -55,6 +69,7 @@ jobs:
           python3 tools/build_dav1d_consumers.py
           python3 tools/build_dav1d_consumers.py --debug
       - name: Original reference corpus inventories
+        if: env.CI_TIER == 'full'
         run: |
           build/dav1d-tools/bin/meson test -C build/dav1d-reference-release --no-rebuild --num-processes 2 --print-errorlogs
           build/dav1d-tools/bin/meson test -C build/dav1d-reference-debug --no-rebuild --num-processes 2 --print-errorlogs
@@ -66,25 +81,38 @@ jobs:
           python3 tools/check_dav1d_linkage.py
           python3 tools/check_dav1d_linkage.py --debug
       - name: All original test bodies with Rust decoder
+        if: env.CI_TIER == 'full'
         run: |
           python3 tools/run_dav1d_tests.py build/dav1d-rust-release --jobs 2
           python3 tools/run_dav1d_tests.py build/dav1d-rust-debug --jobs 2 --timeout-multiplier 4
       - name: Original DSP test bodies with verified C and Rust pointers
+        if: env.CI_TIER == 'full'
         run: |
           python3 tools/check_dav1d_dsp.py
           python3 tools/check_dav1d_dsp.py --debug
           python3 tools/verify_upstream.py
       - name: Original static allocation and thread-failure fuzzer
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && env.CI_TIER == 'full'
         run: |
           python3 tools/check_dav1d_faults.py
           python3 tools/check_dav1d_faults.py --debug
+      - name: Record executed CI scope
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tier = os.environ['CI_TIER']
+          Path('build/dav1d-ci-scope.json').write_text(json.dumps(dict(
+              tier=tier, native_runner=os.environ['RUNNER_OS'], api_and_abi_profiles=['release', 'debug'],
+              public_api_abi_and_ownership=True, complete_original_corpus_profiles=['release', 'debug'] if tier == 'full' else []), indent=2) + '\n')
+          PY
       - name: Preserve native comparison evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dav1d-${{ matrix.runner }}-${{ matrix.architecture }}
           path: |
+            build/dav1d-ci-scope.json
             build/dav1d-reference-*/reference-profile.json
             build/dav1d-reference-*/meson-logs/testlog*
             build/dav1d-rust-*/original-*.json

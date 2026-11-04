@@ -23,8 +23,18 @@ native root evidence passes the admission gates in ADR 0050.
 The Linux pipeline generates and builds isolated root profiles during admission;
 it does not remove the production target guard. Optional native engines and AV2
 are outside this initial matrix. Native CI execution of the new macOS wiring,
-Windows, and native root sanitizer expansion remain explicit gates. Existing standalone
-dependency workflows retain their own coverage.
+Windows, and native root sanitizer expansion remain explicit gates.
+
+The standalone dav1d and SharpYUV workflows also use two tiers on Linux x86-64
+and macOS ARM64. PRs and pushes build both profiles and retain their bounded
+API, ABI, and archive/consumer ownership checks. SharpYUV also retains its
+allocation and CPU-selection checks. Nightly runs at 02:47 UTC and manual
+full runs retain every existing original corpus command, including both dav1d
+profiles, original DSP bodies, Linux allocation/thread failures, and the
+original Release WebP integration suite. Their artifacts record the executed
+scope explicitly. A manual `runner` selection can validate one native target;
+the default runs both. The pinned `RUSTUP_TOOLCHAIN` selects the requested
+compiler without an implicit formatter installation from `rust-toolchain.toml`.
 
 Only PR runs cancel an earlier run of the same PR. Pushes, manual runs, and
 nightlies have separate event concurrency groups. The two nightly container

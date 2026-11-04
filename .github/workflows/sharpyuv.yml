@@ -4,29 +4,43 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '47 2 * * *'
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Native targets to execute
+        type: choice
+        options: [all, ubuntu-24.04, macos-15]
+        default: all
+      tier:
+        description: Bounded API checks or the complete original corpus
+        type: choice
+        options: [full, smoke]
+        default: full
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   parity:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            architecture: x86_64
-          - runner: macos-15
-            architecture: arm64
+        include: >-
+          ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
+              inputs.runner == 'ubuntu-24.04' && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
+              '[{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"macos-15","architecture":"arm64"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     env:
       RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      CARGO_BUILD_JOBS: '2'
+      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'smoke') }}
       FUZZTEST_PRNG_SEED: OffQXb8u5_vZtH4-7wgVOLu_HNAhPIbLz7CFF13u3nk
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -65,25 +79,38 @@ jobs:
           python3 tools/check_sharpyuv_cpu.py
           python3 tools/check_sharpyuv_linkage.py
       - name: Record compiler-default Clang diagnostic
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.CI_TIER == 'full'
         run: python3 tools/diagnose_sharpyuv_numerics.py
       - name: Original native WebP integration tests
+        if: env.CI_TIER == 'full'
         run: |
           python3 tools/build_sharpyuv_consumers.py c --fetch-deps
           python3 tools/run_tests.py build/sharpyuv-webp-c
       - name: Original WebP tests with Rust SharpYUV
+        if: env.CI_TIER == 'full'
         run: |
           python3 tools/build_sharpyuv_consumers.py rust
           python3 tools/run_tests.py build/sharpyuv-webp-rust
           python3 tools/compare_results.py --baseline build/sharpyuv-webp-c-results.xml --port build/sharpyuv-webp-rust-results.xml --report build/sharpyuv-webp-inventory.json
           python3 tools/check_sharpyuv_linkage.py --consumer build/sharpyuv-webp-rust --executable build/sharpyuv-webp-rust/tests/fuzzer/enc_dec_fuzzer
           python3 tools/verify_upstream.py
+      - name: Record executed CI scope
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tier = os.environ['CI_TIER']
+          Path('build/sharpyuv-ci-scope.json').write_text(json.dumps(dict(
+              tier=tier, native_runner=os.environ['RUNNER_OS'], api_and_abi_profiles=['release', 'debug'],
+              public_api_abi_and_ownership=True, complete_original_webp_corpus_profile='release' if tier == 'full' else None), indent=2) + '\n')
+          PY
       - name: Preserve comparison evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sharpyuv-${{ matrix.runner }}-${{ matrix.architecture }}
           path: |
+            build/sharpyuv-ci-scope.json
             build/sharpyuv-parity-*/
             build/sharpyuv-reference*/reference-profile.json
             build/sharpyuv-compiler-default/reference-profile.json
