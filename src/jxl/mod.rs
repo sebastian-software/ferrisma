@@ -35,6 +35,7 @@ pub mod dec_transforms;
 pub mod dec_xyb;
 pub mod dec_xyb_scalar;
 pub mod decode;
+pub mod decode_to_jpeg;
 pub mod decoder_input;
 pub mod decoder_input_cursor;
 pub mod enc_ans;
