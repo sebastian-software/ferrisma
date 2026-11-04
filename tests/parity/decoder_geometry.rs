@@ -99,7 +99,7 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
     )
 }
 
-fn bases() -> Vec<(String, Vec<u8>)> {
+pub(super) fn bases() -> Vec<(String, Vec<u8>)> {
     include_str!("../data/decoder-geometry.requests")
         .lines()
         .map(|row| {

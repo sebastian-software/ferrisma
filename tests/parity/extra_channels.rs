@@ -139,7 +139,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     }
     out
 }
-fn fixtures() -> Vec<(String, Vec<u8>)> {
+pub(super) fn fixtures() -> Vec<(String, Vec<u8>)> {
     include_str!("../data/extra-channels.requests")
         .lines()
         .filter(|line| !line.is_empty() && !line.starts_with('#'))

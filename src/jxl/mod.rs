@@ -25,6 +25,7 @@ pub mod dec_context_map;
 pub mod dec_external_image;
 pub mod dec_frame;
 pub mod dec_group;
+pub mod dec_group_border;
 pub mod dec_group_render;
 pub mod dec_huffman;
 pub mod dec_modular;

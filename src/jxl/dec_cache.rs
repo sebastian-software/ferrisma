@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! PixelCallback/ImageOutput and PassesDecoderState storage/constructor/Init
 //! from dec_cache.h, plus complete null-pool InitForAC from dec_cache.cc.
-//! Pipeline storage admits the original simple implementation; custom runners
-//! remain unported. The color, tone-mapping and CMS stage selection of
-//! PreparePipeline is translated below in three source-ordered segments; the
-//! frame decoder adds the interleaved blending and reference writers between
-//! them, retaining their original order.
+//! Pipeline storage holds either original implementation selected by
+//! RenderPipeline::Builder; custom runners remain unported. The color,
+//! tone-mapping and CMS stage selection of PreparePipeline is translated below
+//! in three source-ordered segments; the frame decoder adds the interleaved
+//! blending and reference writers between them, retaining their original order.
 //! Source-indeterminate scalar storage is initialized safely, without source
 //! meaning until assigned. Callback/output pointers remain non-owning carriers.
 use super::ac_strategy::NUM_VALID_STRATEGIES;
@@ -26,9 +26,9 @@ use super::image_bundle::ImageBundle;
 use super::image_metadata::Orientation;
 use super::memory_manager_internal::AlignedMemory;
 use super::passes_state::PassesSharedState;
+use super::render_pipeline::render_pipeline::RenderPipeline;
+use super::render_pipeline::render_pipeline::RenderPipelineBuilder;
 use super::render_pipeline::render_pipeline_stage::RenderPipelineStage;
-use super::render_pipeline::simple_render_pipeline::SimpleRenderPipeline;
-use super::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuilder;
 use super::render_pipeline::stage_cms::get_cms_stage;
 use super::render_pipeline::stage_from_linear::get_from_linear_stage;
 use super::render_pipeline::stage_to_linear::get_to_linear_stage;
@@ -283,7 +283,7 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub nonvisible_frame_index: usize,
     pub used_acs: AtomicU32,
     pub coefficients: Option<Box<AcImage>>,
-    pub render_pipeline: Option<Box<SimpleRenderPipeline<'pipeline>>>,
+    pub render_pipeline: Option<Box<dyn RenderPipeline<'pipeline> + 'pipeline>>,
     pub frame_storage_for_referencing: Rc<RefCell<ImageBundle<'a>>>,
     pub output_encoding_info: OutputEncodingInfo,
 }
@@ -385,7 +385,7 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
 pub fn add_color_transform_stage<'a>(
     color_transform: ColorTransform,
     info: &OutputEncodingInfo,
-    builder: &mut SimpleRenderPipelineBuilder<'a>,
+    builder: &mut RenderPipelineBuilder<'a>,
 ) -> super::base::status::StatusOr<bool> {
     let mut linear = false;
     if color_transform == ColorTransform::YCBCR {
@@ -403,7 +403,7 @@ pub fn add_color_transform_stage<'a>(
 /// blending stage and the post-color-transform reference writer.
 pub fn add_from_linear_stage_before_write<'a>(
     info: &OutputEncodingInfo,
-    builder: &mut SimpleRenderPipelineBuilder<'a>,
+    builder: &mut RenderPipelineBuilder<'a>,
     linear: &mut bool,
 ) -> Status {
     if *linear {
@@ -431,7 +431,7 @@ pub fn add_from_linear_stage_before_write<'a>(
 /// `cms_set` is false.
 pub unsafe fn add_output_color_stages<'a>(
     info: &mut OutputEncodingInfo,
-    builder: &mut SimpleRenderPipelineBuilder<'a>,
+    builder: &mut RenderPipelineBuilder<'a>,
     mut linear: bool,
 ) -> super::base::status::StatusOr<bool> {
     let mut cms_stage_added = false;

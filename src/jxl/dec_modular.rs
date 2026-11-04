@@ -37,7 +37,8 @@ use super::modular::transform::transform::{Transform, TransformId};
 use super::passes_state::PassesSharedState;
 use super::quant_weights::NUM_QUANT_TABLES;
 use super::quantizer::Quantizer;
-use super::render_pipeline::simple_render_pipeline::{RenderPipelineInput, SimpleRenderPipeline};
+use super::render_pipeline::render_pipeline::RenderPipeline;
+use super::render_pipeline::simple_render_pipeline::RenderPipelineInput;
 use std::sync::atomic::Ordering;
 
 fn shift_right(n: usize, shift: i32) -> usize {
@@ -1002,13 +1003,13 @@ impl ModularFrameDecoder {
         Ok(())
     }
     /// FinalizeDecoding's original full-image move/clone, transforms, and group
-    /// rendering with a null pool and the original simple implementation.
+    /// rendering with a null pool and either original pipeline implementation.
     /// The shared/pipeline field borrows replace the containing decoder pointer.
-    pub fn finalize_decoding(
+    pub fn finalize_decoding<'p>(
         &mut self,
         header: &FrameHeader<'_>,
         shared: &PassesSharedState<'_>,
-        pipeline: &mut SimpleRenderPipeline<'_>,
+        pipeline: &mut (dyn RenderPipeline<'p> + 'p),
         inplace: bool,
     ) -> Status {
         if !self.use_full_image {
