@@ -1,0 +1,38 @@
+name: Root platform validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  linux-pr:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    uses: ./.github/workflows/root-translate-linux.yml
+    with:
+      profile: release
+      variant: default
+      tier: smoke
+
+  linux-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [default, mini-extended-pixi]
+    uses: ./.github/workflows/root-translate-linux.yml
+    with:
+      profile: both
+      variant: ${{ matrix.variant }}
+      tier: full

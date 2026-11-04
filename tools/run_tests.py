@@ -12,6 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("build", type=Path)
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument('--tests-regex', help='Explicit bounded CTest selection; omitted for the complete original suite')
     args = parser.parse_args()
     build = args.build.resolve()
     temporary = build / "test-tmp"
@@ -26,6 +27,8 @@ def main():
         environment.setdefault("ASAN_OPTIONS", "allocator_may_return_null=1")
     command = ["ctest", "--test-dir", str(build), "--output-on-failure", "-j", str(args.jobs),
                "--output-junit", str(ROOT / "build" / f"{build.name}-results.xml")]
+    if args.tests_regex:
+        command += ['--tests-regex', args.tests_regex, '--no-tests=error']
     subprocess.run(command, cwd=ROOT, check=True, env=environment)
 
 

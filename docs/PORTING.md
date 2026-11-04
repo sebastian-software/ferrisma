@@ -84,5 +84,12 @@ archives. Its generated-source and typecheck artifacts are preparation evidence;
 they do not establish native execution acceptance. The profile guards reject
 missing source units, changed source/output hashes, cross-target evidence, and
 changed module selectors. Existing macOS translation bodies remain unchanged.
+Its `smoke` and `full` tiers additionally build isolated Rust libraries and run
+the original consumers, named ABI probes, complete AOM ownership/runtime audits,
+and strict AVIF/PNG comparisons. The smoke tier selects eight original test
+executables; the full tier requires every registration from the actual native
+CMake inventory and exact ordered original GoogleTest cases. Neither tier
+changes the production root target guard or claims optional-engine acceptance.
+See [platform CI](PLATFORMS.md) for the PR/nightly split and remaining gates.
 The acceptance and CI boundaries are recorded in
 [ADR 0050](adr/0050-admit-root-targets-through-native-profile-parity.md).

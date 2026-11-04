@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import platform
 
 from check_aom_linkage import consumer_owners, definitions
 
@@ -32,6 +33,8 @@ def dynamic_info(path):
 
 def dynamic_graph(start):
     """Resolve non-system Mach-O dependencies, including inherited rpaths."""
+    if sys.platform == 'linux':
+        return elf_dynamic_graph(start)
     graph, pending = {}, [(start.resolve(), [])]
     executable_directory = start.resolve().parent
     while pending:
@@ -62,6 +65,30 @@ def dynamic_graph(start):
     return graph
 
 
+def elf_dynamic_graph(start):
+    """Trace the owned binary with its native loader, then inspect every ELF edge."""
+    trace = subprocess.check_output(['ldd', str(start)], text=True, stderr=subprocess.STDOUT)
+    if 'not found' in trace:
+        raise SystemExit(f'Unresolved native ELF runtime dependency: {start}: {trace}')
+    resolved = dict(re.findall(r'^\s*(\S+) => (/\S+) \(', trace, re.M))
+    graph, pending = {}, [start.resolve()]
+    while pending:
+        path = pending.pop()
+        if str(path) in graph:
+            continue
+        dynamic = subprocess.check_output(['readelf', '-d', str(path)], text=True)
+        imports = re.findall(r'\(NEEDED\).*?\[(.+?)\]', dynamic)
+        graph[str(path)] = imports
+        for name in imports:
+            if FORBIDDEN.search(Path(name).name):
+                raise SystemExit(f'Native default implementation remains in the runtime closure: {path}: {name}')
+            candidate = Path(name) if Path(name).is_absolute() else Path(resolved.get(name, '/nonexistent'))
+            if not candidate.is_file():
+                raise SystemExit(f'Unresolved ELF DT_NEEDED entry: {path}: {name}')
+            pending.append(candidate.resolve())
+    return graph
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
@@ -69,11 +96,13 @@ def main():
     parser.add_argument('--consumer-build', required=True, type=Path)
     parser.add_argument('--reference-build', required=True, type=Path)
     args = parser.parse_args()
-    if sys.platform != 'darwin':
-        parser.error('The root libavif profiles currently support native macOS ARM64')
+    if not ((sys.platform == 'darwin' and platform.machine() == 'arm64')
+            or (sys.platform == 'linux' and platform.machine() == 'x86_64')):
+        parser.error('Root ownership audits require native macOS ARM64 or GNU Linux x86-64')
     profile = 'debug' if args.debug else 'release'
     archive, build, native = args.archive.resolve(), args.consumer_build.resolve(), args.reference_build.resolve()
-    manifest_path = ROOT / f'crates/aom/TRANSLATION-macos-{profile}.json'
+    native_platform = 'macos' if sys.platform == 'darwin' else 'linux'
+    manifest_path = ROOT / f'crates/aom/TRANSLATION-{native_platform}-{profile}.json'
     translation = json.loads(manifest_path.read_text())
     if json.loads((native / 'reference-profile.json').read_text())['profile'] != profile:
         raise SystemExit('The original AOM and root Rust preprocessing profiles differ')
@@ -114,12 +143,13 @@ def main():
         consumers.append(dict(executable=name, original_aom_globals_loaded=len(loaded),
                               executable_sha256=digest(binary), map_sha256=digest(link_map),
                               dynamic_dependencies=dynamic_graph(binary)))
-    shared = archive.with_suffix('.dylib')
+    shared = archive.with_suffix('.dylib' if sys.platform == 'darwin' else '.so')
     shared_graph = dynamic_graph(shared)
-    record = dict(profile=profile, original_aom_globals=len(reference),
+    record = dict(platform=native_platform, profile=profile, original_aom_globals=len(reference),
         original_aom_globals_in_rust=len(candidate), missing_original_globals=[],
         original_aom_globals_outside_rust=[], original_libavif_implementation_objects=[],
         native_default_engine_dependencies=[], native_vmaf_retained=True,
+        original_reference_archive_sha256=digest(native / 'libaom.a'),
         translation_manifest_sha256=digest(manifest_path), rust_root_archive_sha256=digest(archive),
         rust_shared_library_sha256=digest(shared), shared_library_dependencies=shared_graph, consumers=consumers)
     (build / 'aom-root-linkage.json').write_text(json.dumps(record, indent=2) + '\n')

@@ -54,6 +54,8 @@ def main():
                         help="Use original Debug C preprocessing as well as unoptimized Rust; requires --debug")
     parser.add_argument("--root-references", type=Path,
                         help="Use the pinned original dav1d/SharpYUV archives from build_root_references.py")
+    parser.add_argument("--root-profile", type=Path,
+                        help="Build an isolated native generated profile for pre-admission original consumer checks")
     parser.add_argument("--build-dir", type=Path, help="Isolated output directory inside this checkout's build directory")
     parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
     parser.add_argument("--compiler-default-diagnostic", action="store_true",
@@ -65,6 +67,9 @@ def main():
     args = parser.parse_args()
     if args.upstream_debug and not args.debug:
         parser.error('--upstream-debug requires --debug')
+    if args.root_profile and (args.implementation != 'port' or args.asan or args.compiler_default_diagnostic
+            or any([args.libgav1, args.rav1e, args.svt, args.libyuv, args.avm])):
+        parser.error('--root-profile requires nonsanitized port consumers with the generated default codec closure')
     root_references = args.root_references.resolve() if args.root_references else None
     if root_references:
         record = json.loads((root_references / 'reference-profile.json').read_text())
@@ -167,7 +172,25 @@ def main():
                     f"-DCMAKE_C_COMPILER={wrappers}/clang", f"-DCMAKE_CXX_COMPILER={wrappers}/clang++",
                     "-DCMAKE_EXE_LINKER_FLAGS=-fno-sanitize=address " + shlex.join([
                         "-L" + str(runtime_path), "-lrustc-nightly_rt.asan", "-Wl,-rpath," + str(runtime_path)])]
-    if args.implementation == "port":
+    if args.root_profile:
+        from check_root_profile import validate_profile, profile_work, digest
+        target_triple = ('aarch64-apple-darwin' if sys.platform == 'darwin' and platform.machine() == 'arm64'
+                         else 'x86_64-unknown-linux-gnu' if sys.platform == 'linux' and platform.machine() == 'x86_64'
+                         else None)
+        generated = validate_profile(args.root_profile.resolve(), target_triple)
+        variant = '-'.join(features) or 'default'
+        if (generated['preprocessing_profile'] != ('debug' if args.debug else 'release')
+                or args.debug != args.upstream_debug or generated['variant'] != variant):
+            parser.error('The isolated Rust root profile must match original C preprocessing and container features')
+        run(['python3', ROOT / 'tools/check_root_profile.py', args.root_profile.resolve(), '--build'])
+        proof = json.loads((profile_work(generated) / 'summary.json').read_text())
+        item = proof['artifacts']['libavif.a']
+        archive = Path(item['path'])
+        if (proof['translation_manifest_sha256'] != digest(args.root_profile.resolve())
+                or digest(archive) != item['sha256']):
+            raise SystemExit('The isolated root archive does not match its actual generated build proof')
+        command += [f'-DLIBAVIF_RS_ARCHIVE={archive}']
+    elif args.implementation == "port":
         cargo = ["cargo", "build", "--locked"]
         if not args.debug:
             cargo.append("--release")

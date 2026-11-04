@@ -1,4 +1,4 @@
-name: Generate native Linux root profiles
+name: Native Linux root profiles
 
 on:
   workflow_dispatch:
@@ -13,6 +13,22 @@ on:
         type: choice
         options: [default, mini, extended-pixi, mini-extended-pixi]
         default: default
+      tier:
+        description: Preparation only, bounded original smoke suite, or complete original root suite
+        type: choice
+        options: [prepare, smoke, full]
+        default: prepare
+  workflow_call:
+    inputs:
+      profile:
+        type: string
+        default: release
+      variant:
+        type: string
+        default: default
+      tier:
+        type: string
+        default: smoke
 
 permissions:
   contents: read
@@ -20,7 +36,7 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 300
     env:
       CC: clang-16
       CXX: clang++-16
@@ -57,7 +73,10 @@ jobs:
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
+          REQUESTED_TIER: ${{ inputs.tier }}
         run: |
+          case "$REQUESTED_TIER" in prepare|smoke|full) ;; *) exit 2 ;; esac
+          case "$REQUESTED_PROFILE" in both|release|debug) ;; *) exit 2 ;; esac
           profiles="$REQUESTED_PROFILE"
           if [ "$profiles" = both ]; then profiles="release debug"; fi
           features=()
@@ -65,13 +84,15 @@ jobs:
             mini) features=(--mini) ;;
             extended-pixi) features=(--extended-pixi) ;;
             mini-extended-pixi) features=(--mini --extended-pixi) ;;
+            default) ;;
+            *) exit 2 ;;
           esac
           for profile in $profiles; do
             debug=()
             original_debug=()
             if [ "$profile" = debug ]; then debug=(--debug); original_debug=(--upstream-debug); fi
             python3 tools/build_root_references.py --jobs 2 "${debug[@]}"
-            python3 tools/build_aom.py --jobs 2 "${debug[@]}"
+            python3 tools/build_aom.py --jobs 2 --library-only "${debug[@]}"
             reference="build/root-c-linux-$profile-$REQUESTED_VARIANT"
             python3 tools/build.py baseline --fetch-deps --jobs 2 "${debug[@]}" "${original_debug[@]}" "${features[@]}" \
               --aom-reference-build "build/aom-native-$profile" \
@@ -79,18 +100,35 @@ jobs:
             python3 tools/transpile_root.py --build "$reference" --profile "$profile" --variant "$REQUESTED_VARIANT" \
               --clang-include /usr/lib/llvm-16/lib/clang/16/include
             python3 tools/check_root_profile.py "translations/root-linux-$profile-$REQUESTED_VARIANT.json"
+            if [ "$REQUESTED_TIER" != prepare ]; then
+              candidate="build/root-rust-linux-$profile-$REQUESTED_VARIANT"
+              python3 tools/build.py port --jobs 2 "${debug[@]}" "${original_debug[@]}" "${features[@]}" \
+                --root-references "build/root-references-x86_64-unknown-linux-gnu-$profile" \
+                --root-profile "translations/root-linux-$profile-$REQUESTED_VARIANT.json" --build-dir "$candidate"
+              python3 tools/validate_root_profile.py --baseline "$reference" --port "$candidate" \
+                --root-profile "translations/root-linux-$profile-$REQUESTED_VARIANT.json" --tier "$REQUESTED_TIER" --jobs 2
+            fi
           done
       - name: Preserve generated source, exact C configuration, and typecheck evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: root-linux-generated-${{ inputs.profile }}-${{ inputs.variant }}
+          name: root-linux-${{ inputs.tier }}-${{ inputs.profile }}-${{ inputs.variant }}
           path: |
             src/profiles/linux/
             translations/root-linux-*.json
             build/root-translate-linux-*/
             build/root-c-linux-*/CMakeCache.txt
             build/root-c-linux-*/compile_commands.json
+            build/root-c-linux-*/Testing/Temporary/
+            build/root-c-linux-*-results.xml
+            build/root-rust-linux-*/CMakeCache.txt
+            build/root-rust-linux-*/compile_commands.json
+            build/root-rust-linux-*/Testing/Temporary/
+            build/root-rust-linux-*-results.xml
+            build/root-rust-linux-*/aom-root-linkage.json
+            build/root-rust-linux-*/root-validation/
+            build/abi-x86_64-unknown-linux-*/summary.json
             build/root-references-*/reference-profile.json
             build/root-references-*/dav1d/meson-logs/
             build/root-references-*/dav1d/config.h

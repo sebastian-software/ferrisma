@@ -48,6 +48,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--jobs', type=int, default=8)
+    parser.add_argument('--library-only', action='store_true',
+                        help='Build all 168 original library units for root validation without building standalone test binaries')
     args = parser.parse_args()
     subprocess.run(['python3', ROOT / 'tools/verify_upstream.py'], check=True)
     source = ROOT / 'build/aom-native-source'
@@ -62,7 +64,7 @@ def main():
                '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
                f'-DCMAKE_C_FLAGS={flags}', f'-DCMAKE_CXX_FLAGS={flags}', *options]
     subprocess.run([str(item) for item in command], check=True)
-    subprocess.run(['ninja', '-C', build, '-j', str(args.jobs)], check=True)
+    subprocess.run(['ninja', '-C', build, '-j', str(args.jobs), *(['libaom.a'] if args.library_only else [])], check=True)
     entries = library_entries(build)
     if len(entries) != 168:
         raise SystemExit(f'Unexpected complete portable source closure: {len(entries)}')
@@ -80,7 +82,7 @@ def main():
                 raise SystemExit(f'Unexpected optimized implementation: {line}')
     (build / 'library-compile-commands.json').write_text(json.dumps(entries, indent=2) + '\n')
     inventories = {}
-    for name in ['test_libaom', 'test_aom_rc', 'test_intra_pred_speed']:
+    for name in ([] if args.library_only else ['test_libaom', 'test_aom_rc', 'test_intra_pred_speed']):
         listing = subprocess.check_output([build / name, '--gtest_list_tests'], text=True)
         (build / f'{name}-inventory.txt').write_text(listing)
         names = test_names(listing)
@@ -102,6 +104,7 @@ def main():
                   options=options, c_flags=flags.replace(str(source), '<source>'),
                   compiler=subprocess.check_output([os.environ.get('CC', 'cc'), '--version'],
                                                    text=True).splitlines()[0],
+                  library_only_reference=args.library_only, original_tests_executed=False,
                   library_translation_units=len(entries), generated_units=3,
                   original_test_inventories=inventories, original_test_inputs=len(data),
                   config_sha256=hashlib.sha256(config.encode()).hexdigest(),

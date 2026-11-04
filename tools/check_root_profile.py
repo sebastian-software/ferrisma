@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Typecheck one complete native generated root profile before integration."""
+"""Check or build an isolated native root profile before production admission."""
 import argparse
 import hashlib
 import json
@@ -42,15 +42,21 @@ def validate_profile(path, target):
     return record
 
 
+def profile_work(record):
+    return ROOT / (f'build/root-typecheck-{record["generation_target"]}-'
+                   f'{record["preprocessing_profile"]}-{record["variant"]}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
+    parser.add_argument('--build', action='store_true', help='Produce native archives for the original consumer harness')
     args = parser.parse_args()
     target = ('x86_64-unknown-linux-gnu' if platform.system() == 'Linux' and platform.machine() == 'x86_64'
               else 'aarch64-apple-darwin' if platform.system() == 'Darwin' and platform.machine() == 'arm64'
               else None)
     record = validate_profile(args.manifest.resolve(), target)
-    work = ROOT / f'build/root-typecheck-{target}-{record["preprocessing_profile"]}-{record["variant"]}'
+    work = profile_work(record)
     work.mkdir(parents=True, exist_ok=True)
     selector = ROOT / record['selector']
     (work / 'lib.rs').write_text('#![feature(extern_types, c_variadic)]\n'
@@ -59,15 +65,22 @@ def main():
         'extern crate aom as _;\nextern crate dav1d as _;\nextern crate sharpyuv as _;\n'
         + f'include!({json.dumps(str(selector))});\n')
     manifest = ('[package]\nname="libavif-native-root-profile"\nversion="0.0.0"\nedition="2021"\n'
-                '[workspace]\n[lib]\npath="lib.rs"\n[dependencies]\nlibc="=0.2.191"\n')
+                '[workspace]\n[lib]\nname="avif"\npath="lib.rs"\n'
+                'crate-type=["staticlib","rlib","cdylib"]\n[dependencies]\nlibc="=0.2.191"\n')
     for alias, name in [('aom', 'aom'), ('dav1d', 'dav1d'), ('sharpyuv', 'sharpyuv')]:
         manifest += f'{alias}={{package="libavif-{name}",path={json.dumps(str(ROOT / "crates" / name))}}}\n'
     manifest += ('[features]\ndefault=[]\nmini=[]\nextended-pixi=[]\nlibgav1=[]\nrav1e=[]\nsvt=[]\nlibyuv=[]\navm=[]\n'
                  '[profile.dev]\noverflow-checks=false\npanic="unwind"\n'
                  '[profile.release]\noverflow-checks=false\npanic="unwind"\n')
     (work / 'Cargo.toml').write_text(manifest)
-    command = ['cargo', 'check', '--offline', '--manifest-path', str(work / 'Cargo.toml'),
-               '--target-dir', str(ROOT / 'build/root-typecheck-target')]
+    # Bind translated ELF globals locally when an independent C oracle is also
+    # loaded by a differential consumer. This supplies no codec implementation.
+    (work / 'build.rs').write_text('fn main() {\n'
+        '    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {\n'
+        '        println!("cargo:rustc-link-arg-cdylib=-Wl,-Bsymbolic");\n    }\n}\n')
+    destination = ROOT / 'build/root-typecheck-target'
+    command = ['cargo', 'build' if args.build else 'check', '--offline', '--manifest-path', str(work / 'Cargo.toml'),
+               '--target-dir', str(destination)]
     if record['preprocessing_profile'] == 'release':
         command.append('--release')
     if record['variant'] != 'default':
@@ -76,8 +89,15 @@ def main():
     proof = dict(target=target, profile=record['preprocessing_profile'], variant=record['variant'],
                  complete_source_profile_typechecked=True, native_execution_acceptance_claimed=False,
                  translation_manifest_sha256=digest(args.manifest), units=28)
+    if args.build:
+        suffix = '.so' if target == 'x86_64-unknown-linux-gnu' else '.dylib'
+        names = ['libavif.a', 'libavif.rlib', 'libavif' + suffix]
+        proof['artifacts'] = {name: dict(path=str(path), sha256=digest(path)) for name, path in
+            [(name, destination / record['preprocessing_profile'] / name) for name in names]}
+    proof['command'] = command
     (work / 'summary.json').write_text(json.dumps(proof, indent=2) + '\n')
-    print('Complete native root profile typechecks; original execution/ABI/linkage acceptance remains separate')
+    print('Complete native root profile ' + ('built' if args.build else 'typechecked')
+          + '; original execution/ABI/linkage acceptance remains separate')
 
 
 if __name__ == '__main__':

@@ -14,6 +14,38 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY / 'tools'))
 import check_root_profile as subject
 import build_root_references as reference
+import check_aom_root_linkage as linkage
+
+
+class ElfRuntimeGuards(unittest.TestCase):
+    def graph(self, native=False, missing=False):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            binary, dependency = root / 'avifenc', root / 'libretained.so'
+            binary.touch()
+            dependency.touch()
+
+            def output(command, **kwargs):
+                if command[0] == 'ldd':
+                    return f'libretained.so => {dependency} (0x1)\n'
+                name = 'libaom.so.3' if native else 'libmissing.so' if missing else None
+                if str(command[-1]) == str(binary):
+                    name = 'libretained.so'
+                return '' if name is None else f' (NEEDED) Shared library: [{name}]\n'
+
+            with patch.object(linkage.subprocess, 'check_output', side_effect=output):
+                return linkage.elf_dynamic_graph(binary)
+
+    def test_runtime_proof_includes_transitive_elf_objects(self):
+        self.assertEqual(len(self.graph()), 2)
+
+    def test_transitive_native_codec_is_rejected(self):
+        with self.assertRaisesRegex(SystemExit, 'Native default implementation'):
+            self.graph(native=True)
+
+    def test_unresolved_transitive_runtime_cannot_be_omitted(self):
+        with self.assertRaisesRegex(SystemExit, 'Unresolved ELF DT_NEEDED'):
+            self.graph(missing=True)
 
 
 class ScalarReferenceGuards(unittest.TestCase):

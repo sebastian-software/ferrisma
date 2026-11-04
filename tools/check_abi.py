@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
+import platform
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,11 +36,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", type=Path, default=ROOT / "build/baseline")
     parser.add_argument("--features", default="", help="Comma-separated Cargo features matching the C reference configuration")
+    parser.add_argument('--root-profile', type=Path, help='Native generated profile used by the isolated consumer build')
     args = parser.parse_args()
     entries = [entry for entry in json.loads((args.build / "compile_commands.json").read_text())
                if "avif_obj.dir" in entry["command"]]
     manifest = {unit["source"]: unit for unit in json.loads((ROOT / "TRANSLATION.json").read_text())["units"]}
     features = [feature for feature in args.features.split(",") if feature]
+    rust_package, rust_root, rust_profile = 'libavif-rs', ROOT, 'release'
     profile = "-".join(feature for feature in ["mini", "extended-pixi", "avm"] if feature in features)
     if profile:
         manifest.update({unit["source"]: unit for unit in json.loads((ROOT / "translations" / f"{profile}.json").read_text())["units"]})
@@ -48,6 +51,20 @@ def main():
             if Path(unit["source"]).stem.startswith("codec_") or "libyuv" in features:
                 manifest[unit["source"]] = unit
     work = ROOT / "build/abi"
+    if args.root_profile:
+        from check_root_profile import validate_profile, profile_work
+        target = ('aarch64-apple-darwin' if platform.system() == 'Darwin' and platform.machine() == 'arm64'
+                  else 'x86_64-unknown-linux-gnu' if platform.system() == 'Linux' and platform.machine() == 'x86_64'
+                  else None)
+        generated = validate_profile(args.root_profile.resolve(), target)
+        if generated['variant'] != ('-'.join(features) or 'default'):
+            parser.error('ABI probe features must match the generated native root profile')
+        manifest = {unit['source']: unit for unit in generated['units']}
+        rust_package, rust_root = 'libavif-native-root-profile', profile_work(generated)
+        if not (rust_root / 'Cargo.toml').is_file():
+            parser.error('Build the isolated native root profile before probing its ABI')
+        rust_profile = generated['preprocessing_profile']
+        work = ROOT / f'build/abi-{target}-{rust_profile}-{generated["variant"]}'
     work.mkdir(parents=True, exist_ok=True)
     expected, rust = [], ["fn main() {"]
     checked_records, skipped = 0, []
@@ -85,6 +102,12 @@ def main():
                             if reference in by_id:
                                 record = by_id[reference]
                                 break
+            if record is None and name == '__va_list_tag':
+                # Clang exposes the builtin array's real element layout through
+                # typeof even though the implicit tag has no source declaration.
+                c_type = '__typeof__(((__builtin_va_list){0})[0])'
+                record = {'inner': [{'kind': 'FieldDecl', 'name': field} for field in
+                                    re.findall(r'^\s*pub (\w+):', body, re.M)]}
             if record is None:
                 raise SystemExit(f"Cannot resolve original C record: {unit['source']}::{name}")
             c_fields = [node for node in record.get("inner", []) if node.get("kind") == "FieldDecl"]
@@ -92,7 +115,7 @@ def main():
             if len(c_fields) != len(rust_fields) or any(field.get("isBitfield") or not field.get("name") for field in c_fields):
                 skipped.append(f"{unit['rust']}::{name}: anonymous fields or bitfields")
                 continue
-            module = "avif::" + ("libyuv::" if unit["rust"].startswith("src/libyuv/") else "") + Path(unit["rust"]).stem
+            module = "avif::" + ("libyuv::" if '/third_party/libyuv/' in unit['source'] else "") + Path(unit["rust"]).stem
             pairs = [(f"sizeof({c_type})", f"core::mem::size_of::<{module}::{name}>()", "size"),
                      (f"_Alignof({c_type})", f"core::mem::align_of::<{module}::{name}>()", "alignment")]
             pairs += [(f"__builtin_offsetof({c_type}, {c_field['name']})",
@@ -125,7 +148,8 @@ def main():
     (work / "Cargo.toml").write_text(
         '[package]\nname = "libavif-rs-abi-probe"\nversion = "0.0.0"\nedition = "2021"\n'
         '[workspace]\n[[bin]]\nname = "probe"\npath = "probe.rs"\n'
-        f'[dependencies]\navif = {{ package = "libavif-rs", path = {json.dumps(str(ROOT))}, features = {json.dumps(features)} }}\n'
+        f'[dependencies]\navif = {{ package = {json.dumps(rust_package)}, path = {json.dumps(str(rust_root))}, features = {json.dumps(features)} }}\n'
+        '[profile.dev]\npanic = "unwind"\noverflow-checks = false\n'
         '[profile.release]\npanic = "unwind"\noverflow-checks = false\n'
     )
     # The probe is a Rust consumer of an rlib, so it owns the runtime search
@@ -135,8 +159,10 @@ def main():
     (work / "build.rs").write_text(
         "fn main() {" + (f" println!({json.dumps(link)});" if link else "") + " }\n"
     )
-    command = ["cargo", "run", "--release", "--offline", "--quiet", "--manifest-path", str(work / "Cargo.toml"),
-               "--target-dir", str(ROOT / "target")]
+    command = ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(work / "Cargo.toml"),
+               "--target-dir", str(ROOT / ('build/root-typecheck-target' if args.root_profile else 'target'))]
+    if rust_profile == 'release':
+        command.append('--release')
     actual = [int(line) for line in subprocess.check_output(command, cwd=ROOT, text=True).splitlines()]
     if len(actual) != len(expected):
         raise SystemExit("Layout probes returned different numbers of checks")
@@ -146,7 +172,7 @@ def main():
     report = {"records": checked_records, "checks": len(expected), "skipped": skipped}
     (work / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
     print(f"ABI layouts match: {checked_records} named record instances, {len(expected)} size/alignment/field-offset checks")
-    print(f"Explicitly excluded anonymous/bitfield records: {len(skipped)} (see build/abi/summary.json)")
+    print(f"Explicitly excluded anonymous/bitfield records: {len(skipped)} (see {work / 'summary.json'})")
 
 
 if __name__ == "__main__":
