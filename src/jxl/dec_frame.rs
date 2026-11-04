@@ -10,8 +10,13 @@
 //! DC/AC setup, scalar reconstruction, output and reader-close checkpoints.
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
+use super::cms_interface::JxlCmsInterface;
+use super::color_encoding_internal::ColorEncoding;
 use super::dec_bit_reader::BitReader;
-use super::dec_cache::{GroupDecCache, PassesDecoderState};
+use super::dec_cache::{
+    GroupDecCache, PassesDecoderState, add_color_transform_stage,
+    add_from_linear_stage_before_write, add_output_color_stages,
+};
 use super::dec_modular::{ModularFrameDecoder, ModularStreamId};
 use super::enc_frame::LosslessThunderConfig;
 use super::frame_dimensions::FrameDimensions;
@@ -25,8 +30,6 @@ use super::passes_state::initialize_passes_shared_state;
 use super::quant_weights::DequantMatrices;
 use super::render_pipeline::render_pipeline::RenderPipelineBuilder;
 use super::render_pipeline::render_pipeline_stage::WriteToImageBundleStage;
-use super::render_pipeline::stage_cms::get_cms_stage;
-use super::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
 use super::toc::{num_toc_entries, read_toc};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -756,43 +759,35 @@ impl FrameDecoder<'_, '_, '_> {
                 FrameWriteTarget::ReferenceStorage,
             )))?;
         }
-        let info = &self.state.output_encoding_info;
-        let tone = get_tone_mapping_stage(info);
-        assert!(
-            tone.is_none(),
-            "closed metadata has equal source/desired intensity"
-        );
-        let mut linear = false;
-        if self.storage.header.0.color_transform == ColorTransform::YCBCR {
-            builder.add_stage(Some(super::render_pipeline::stage_ycbcr::get_ycbcr_stage()))?;
-        } else if self.storage.header.0.color_transform == ColorTransform::XYB {
-            builder.add_stage(Some(super::render_pipeline::stage_xyb::get_xyb_stage(info)))?;
-            linear = true;
-        }
+        // Color selection from dec_cache.cc, with the original interleaved
+        // blending and reference writers.
+        let mut linear = add_color_transform_stage(
+            self.storage.header.0.color_transform,
+            &self.state.output_encoding_info,
+            &mut builder,
+        )?;
         if super::blending::needs_blending(&self.storage.header.0) {
-            if linear {
-                builder.add_stage(Some(
-                    super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
-                ))?;
-                linear = false;
-            }
+            add_from_linear_stage_before_write(
+                &self.state.output_encoding_info,
+                &mut builder,
+                &mut linear,
+            )?;
             builder.add_stage(Some(
                 super::render_pipeline::stage_blending::get_blending_stage_shared(
                     self.storage.header.0.clone(),
                     self.state,
-                    &info.color_encoding,
+                    &self.state.output_encoding_info.color_encoding,
                 ),
             ))?;
         }
         if self.storage.header.0.can_be_referenced()
             && !self.storage.header.0.save_before_color_transform
         {
-            if linear {
-                builder.add_stage(Some(
-                    super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
-                ))?;
-                linear = false;
-            }
+            add_from_linear_stage_before_write(
+                &self.state.output_encoding_info,
+                &mut builder,
+                &mut linear,
+            )?;
             builder.add_stage(Some(trace_bundle_writer(
                 Box::new(WriteToImageBundleStage::from_owned(
                     self.state.frame_storage_for_referencing.clone(),
@@ -828,20 +823,25 @@ impl FrameDecoder<'_, '_, '_> {
                 ))?;
             }
         }
-        if linear {
-            // Admission proves sRGB output. This is the original
-            // FromLinearStage<OpRgb>, including its scalar approximation.
-            builder.add_stage(Some(
-                super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
-            ))?;
+        // SAFETY: Decoder states are private to this module's entry points.
+        // The fixed profiles never set cms_set. SequenceDecoder sets it only
+        // through set_default_cms, whose translated default CMS is static and
+        // obeys cms_interface.h, or the unsafe set_cms, whose caller keeps the
+        // interface valid until the decoder and its pipeline are dropped.
+        let cms_stage = unsafe {
+            add_output_color_stages(&mut self.state.output_encoding_info, &mut builder, linear)
+        }?;
+        if cms_stage {
+            // The original simple pipeline prepares stages for threads before
+            // its first SetInputSizes, so CmsStage::PrepareForThreads would
+            // initialize the CMS with its indeterminate xsize_. That sequence
+            // has no defined source behavior; admission stops before it. The
+            // low-memory pipeline's Init sets input sizes during Finalize,
+            // before PrepareForThreads, so it is defined there; admitting CMS
+            // frames for that pipeline belongs to the decode.cc boundary.
+            return Err(StatusCode::Unsupported);
         }
-        // SAFETY: State is private to this fixed entry point. SetFromMetadata
-        // leaves cms_set=false, so the actual factory invokes no foreign code
-        // and creates no context with a foreign lifetime obligation.
-        let cms = unsafe { get_cms_stage(info, false) };
-        if cms.is_some() {
-            builder.add_stage(cms)?;
-        }
+        let info = &self.state.output_encoding_info;
         let writer = match &self.storage.output {
             FrameOutput::Borrowed(output) => {
                 WriteToImageBundleStage::from_shared(output, &info.color_encoding)
@@ -1423,12 +1423,18 @@ pub struct SequenceFrameDecode<'m> {
 /// The shared-state loop around the original DecodeFrame/InitFrame boundary.
 /// Metadata is supplied once and borrowed unchanged by all frames. The output
 /// and every retained pipeline writer share one bundle allocation owner.
-/// This boundary admits sRGB NONE/XYB frames and every parsed YCbCr channel mode,
+/// This boundary admits NONE/XYB frames and every parsed YCbCr channel mode,
 /// references, DC frames, animation and previews, including source early/late
 /// extra-channel and main spatial upsampling, associated/subsampled alpha,
 /// and all source-defined extra-channel types. Orientation/intrinsic metadata
 /// stays attached to the bundle; external conversion applies orientation.
-/// Other color configurations remain separate boundaries.
+/// Every metadata color encoding, ICC profile and intensity target is
+/// admitted. The output-encoding setters below perform the OutputEncodingInfo
+/// operations that decode.cc's color-profile, CMS and intensity-target API
+/// applies; that API's own argument and state checks belong to its caller.
+/// A frame whose source pipeline needs a CMS stage returns Unsupported when
+/// its pipeline is prepared: the selected simple pipeline would initialize
+/// that stage before its input sizes are defined (see prepare_pipeline).
 pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
     output: Rc<RefCell<ImageBundle<'m>>>,
@@ -1446,17 +1452,9 @@ impl<'m> SequenceDecoder<'m> {
         metadata: &'m super::image_metadata::CodecMetadata,
         use_slow_rendering_pipeline: bool,
     ) -> Result<Self, StatusCode> {
-        use super::color_encoding::RenderingIntent;
         let m = &metadata.m;
         if !(1..=32).contains(&m.bit_depth.bits_per_sample)
             || m.num_extra_channels as usize != m.extra_channel_info.len()
-            || m.color_encoding.want_icc()
-            || !m.color_encoding.is_srgb()
-            || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
-            || m.tone_mapping.intensity_target != 255.0
-            || m.tone_mapping.min_nits != 0.0
-            || m.tone_mapping.relative_to_max_display
-            || m.tone_mapping.linear_below != 0.0
         {
             return Err(StatusCode::Unsupported);
         }
@@ -1468,6 +1466,37 @@ impl<'m> SequenceDecoder<'m> {
             metadata,
             use_slow_rendering_pipeline,
         })
+    }
+    /// decode.cc's `output_encoding_info.desired_intensity_target` assignment.
+    pub fn set_desired_intensity_target(&mut self, desired_intensity_target: f32) {
+        self.state.output_encoding_info.desired_intensity_target = desired_intensity_target;
+    }
+    /// decode.cc's `output_encoding.orig_color_encoding` replacement after it
+    /// parses a raw original ICC profile with the selected CMS.
+    pub fn set_orig_color_encoding(&mut self, orig_color_encoding: ColorEncoding) {
+        self.state.output_encoding_info.orig_color_encoding = orig_color_encoding;
+    }
+    /// OutputEncodingInfo::MaybeSetColorEncoding on the decoder's state.
+    pub fn maybe_set_color_encoding(&mut self, c_desired: &ColorEncoding) -> Status {
+        self.state
+            .output_encoding_info
+            .maybe_set_color_encoding(c_desired)
+    }
+    /// JxlDecoderSetCms's state effect with the translated default CMS.
+    pub fn set_default_cms(&mut self) {
+        // SAFETY: The translated default CMS is a static interface whose
+        // callbacks implement cms_interface.h for every profile/buffer request.
+        unsafe { self.set_cms(*super::cms::jxl_cms::get_default_cms()) };
+    }
+    /// JxlDecoderSetCms's state effect: store the interface and set cms_set.
+    ///
+    /// # Safety
+    /// Every CMS callback and opaque pointer must satisfy `get_cms_stage`'s
+    /// contract and stay valid until this decoder, and every pipeline it
+    /// built, is dropped. Later frames reuse the stored interface.
+    pub unsafe fn set_cms(&mut self, cms: JxlCmsInterface) {
+        self.state.output_encoding_info.color_management_system = cms;
+        self.state.output_encoding_info.cms_set = true;
     }
     pub fn decode_frame(&mut self, bytes: &[u8], preview: bool) -> SequenceFrameDecode<'m> {
         let mut header = None;
