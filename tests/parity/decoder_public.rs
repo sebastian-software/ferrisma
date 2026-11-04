@@ -17,7 +17,8 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
 pub(super) const NULL_COPY_DIAGNOSTIC: &str = "box_content_decoder.cc:110:23: runtime error: \
      null pointer passed as argument 2, which is declared to never be null";
 
-/// Compares one family and retains its requests for the independent source
+/// Compares one family, its runner-free histories also through the exported C
+/// ABI of both libraries, and retains its requests for the independent source
 /// audit when JXL_DECODER_PUBLIC_CAPTURE names a directory.
 ///
 /// A history whose ProcessInput reaches the original's raw-box memcpy with a
@@ -44,7 +45,12 @@ pub(super) fn compare(family: &str, requests: Vec<String>) {
             }
         }
     }
-    super::compare(defined);
+    let originals = super::original_observations(&defined);
+    for (request, cpp) in defined.iter().zip(&originals) {
+        assert_eq!(&super::observe(request), cpp, "request: {request}");
+    }
+    println!("{} C++/Rust differential cases matched", defined.len());
+    super::decoder_abi::compare_runner_free(family, &defined, &originals);
     null_copy_probes(&undefined);
 }
 

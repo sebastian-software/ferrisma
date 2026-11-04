@@ -10,7 +10,7 @@ raw JPEG XL codestreams. Rust parses their global metadata and frames and
 recovers the original integer pixels. Encoded bytes, metadata, samples, and
 error paths are compared with pinned libjxl, including cross-decoding in both
 directions. See the [first-image evidence](docs/FIRST_IMAGE.md). General encoder
-configurations, the public encoder API and the C ABI exports remain unported.
+configurations, the public encoder API and its C ABI remain unported.
 
 **The first complete VarDCT decode path is also implemented.** `decode_vardct`
 parses raw original codestreams through DC/AC groups, dequantization and scalar
@@ -26,8 +26,16 @@ HDR output through the translated default CMS, and JPEG reconstruction. Caller
 histories, including every test in the pinned `decode_test.cc`, compare exactly
 with the original public API. The thread and resizable runners are ported, and
 `jxl_decoder_set_parallel_runner` runs the decoder's parallel schedules through
-them; the task bodies still run one at a time. The C ABI exports are not
-ported yet. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
+them; the task bodies still run one at a time. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
+
+**The decoder C ABI is exported.** The crate's static and dynamic libraries
+(`libjxl.a`, `libjxl.so` or `libjxl.dylib`) export the functions of the pinned
+`decode.h` under their original names, so a C program written against those
+headers can link the Rust library instead of libjxl. Only
+`JxlDecoderSetParallelRunner` and the runner functions are not exported yet,
+and `JxlGetDefaultCms` comes from the separate original `jxl_cms` library. A C
+driver linked against either library compares every runner-free public
+decoder history exactly. See [the port status](docs/PORT_STATUS.md#exported-decoder-c-abi-2026-11-04).
 
 ## Port checklist
 
@@ -117,7 +125,11 @@ sequence and acceptance gates for this work.
 - [ ] Port `JxlEncoderSetParallelRunner` with the encoder's parallel schedules.
 - [ ] Run the decoder's parallel task bodies concurrently, with thread-safe
   owners and measured performance.
-- [ ] Export the public decoder and encoder C ABI.
+- [x] Export the public decoder C ABI of `decode.h`, except
+  `JxlDecoderSetParallelRunner`.
+- [ ] Export `JxlDecoderSetParallelRunner` and the `JxlThreadParallelRunner*`
+  and `JxlResizableParallelRunner*` C ABI of the ported runners.
+- [ ] Export the public encoder C ABI.
 - [ ] Translate the remaining original SIMD target specializations and dispatch,
   and accept the translated skcms SKX engine on an AVX-512 host.
 - [ ] Pass the full upstream-derived test inventory and codec conformance corpus,
@@ -144,6 +156,15 @@ bytes, decoded values, statuses, bit counts, truncated headers, and lifecycle
 checkpoints in an optimized Rust build with overflow checks and debug
 assertions. Missing oracle prerequisites are an error. All binary16 input
 patterns are compared against the original code.
+
+To link a C program against the decoder C ABI, `cargo build --release --lib`
+writes `target/release/libjxl.a` and the dynamic library. Compile against the
+pinned headers in `upstream/libjxl/lib/include` and the export and version
+headers that upstream's CMake configuration generates (the oracle build writes
+them to `target/oracle/upstream/lib/include`). With the static library, define
+`JXL_STATIC_DEFINE` and link the system libraries that
+`cargo rustc --release --lib --crate-type staticlib -- --print native-static-libs`
+lists.
 
 The provisional Rust API follows upstream's low-level module structure under
 `jxl::jxl`. It is not a stable public API, and the crate is not publishable yet.

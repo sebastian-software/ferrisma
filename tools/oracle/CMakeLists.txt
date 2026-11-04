@@ -200,3 +200,45 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/skcms_parser_private"
 add_custom_target(skcms_parser_private_observer
   DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/skcms_parser_private")
 add_dependencies(jxl_oracle skcms_parser_private_observer)
+
+# The decoder C ABI drivers. One driver, written against the pinned public
+# headers only, links either the original archive (jxl_abi_original) or the
+# Rust static library that exports src/jxl/decode_abi.rs (jxl_abi_rust). Both
+# link the original default CMS for JxlGetDefaultCms. Cargo builds the Rust
+# library with the profile and features of the checked-profile tests, which
+# therefore reuse it; Cargo decides whether it is current. Ordinary Rust
+# builds still compile and link no C or C++ code.
+set(ORACLE_RUST_PROFILE "checked" CACHE STRING
+  "Cargo profile of the Rust library that jxl_abi_rust links")
+find_program(CARGO_EXECUTABLE cargo REQUIRED)
+if(ORACLE_RUST_PROFILE STREQUAL "dev")
+  set(rust_profile_directory debug)
+else()
+  set(rust_profile_directory "${ORACLE_RUST_PROFILE}")
+endif()
+set(RUST_DECODER_ABI_LIBRARY
+  "${PORT_ROOT}/target/${rust_profile_directory}/${CMAKE_STATIC_LIBRARY_PREFIX}jxl${CMAKE_STATIC_LIBRARY_SUFFIX}")
+add_custom_target(rust_decoder_abi
+  COMMAND "${CARGO_EXECUTABLE}" build --locked --offline --lib
+          --profile "${ORACLE_RUST_PROFILE}" --features cpp-oracle
+          --target-dir "${PORT_ROOT}/target"
+  WORKING_DIRECTORY "${PORT_ROOT}"
+  BYPRODUCTS "${RUST_DECODER_ABI_LIBRARY}"
+  COMMENT "Building the Rust decoder C ABI library"
+  VERBATIM)
+foreach(variant original rust)
+  add_executable(jxl_abi_${variant} decoder_abi.cc decoder_abi_layout.c)
+  target_compile_features(jxl_abi_${variant} PRIVATE cxx_std_17 c_std_11)
+  target_include_directories(jxl_abi_${variant} PRIVATE "${UPSTREAM}/lib/include"
+    "${CMAKE_CURRENT_BINARY_DIR}/upstream/lib/include")
+  target_compile_definitions(jxl_abi_${variant} PRIVATE JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE)
+endforeach()
+target_link_libraries(jxl_abi_original PRIVATE jxl-internal jxl_cms)
+add_dependencies(jxl_abi_rust rust_decoder_abi)
+target_link_libraries(jxl_abi_rust PRIVATE "${RUST_DECODER_ABI_LIBRARY}" jxl_cms)
+if(NOT APPLE)
+  # The Rust standard library's system dependencies on Linux.
+  find_package(Threads REQUIRED)
+  target_link_libraries(jxl_abi_rust PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
+endif()
+add_dependencies(jxl_oracle jxl_abi_original jxl_abi_rust)

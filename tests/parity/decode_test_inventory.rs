@@ -171,7 +171,8 @@ fn file_len(file: &str) -> usize {
     if file == "-" { 0 } else { file.len() / 2 }
 }
 
-/// Compares Rust with already observed original histories and retains them
+/// Compares Rust, in-process and, for runner-free histories, through the
+/// exported C ABI, with already observed original histories and retains them
 /// for the public decoder audit.
 fn compare_observed(family: &str, requests: &[String], originals: &[String]) {
     if let Some(path) = std::env::var_os("JXL_DECODER_PUBLIC_CAPTURE") {
@@ -193,6 +194,7 @@ fn compare_observed(family: &str, requests: &[String], originals: &[String]) {
         "{family}: {} C++/Rust differential cases matched",
         requests.len()
     );
+    super::decoder_abi::compare_runner_free(family, requests, originals);
 }
 
 fn compare(family: &str, requests: Vec<String>) {

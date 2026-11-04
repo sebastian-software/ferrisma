@@ -6,8 +6,10 @@ ordinary graph and again with `--sanitizers` first: the parity tests capture
 their exact request corpus, whose inputs come from the original encoder. This
 audit binds the original public decoder and encoder entry points to the
 complete archive, checks the reference compile configuration, replays every
-request on both original graphs and on the actual Rust library in debug,
-release and minimum-version builds, and requires identical observations.
+request on both original graphs, through the C ABI drivers of both graphs
+linked to the original and to the Rust library, and on the actual Rust library
+in debug, release and minimum-version builds, and requires identical
+observations.
 """
 import argparse
 import hashlib
@@ -35,6 +37,11 @@ def run(command, directory, name, *, data=None, cwd=ROOT):
     if result.returncode:
         raise RuntimeError(f"{name} failed: {result.returncode}")
     return result
+
+
+def runner_free(request):
+    """Whether a dpub-run request sets or sizes no parallel runner."""
+    return not any(op.startswith((b"@", b"#")) for op in request.split(b" ")[1:])
 
 
 def flags_of(entry):
@@ -67,6 +74,7 @@ def main():
     if corpora["oracle"] != corpora["oracle-asan"] or undefined_corpora["oracle"] != undefined_corpora["oracle-asan"]:
         raise RuntimeError("Captured request corpora differ between the original graphs")
     requests = b"".join(corpora["oracle"][family] for family in FAMILIES)
+    request_lines = requests.splitlines()
     count = len(requests.splitlines())
     # Histories reaching the original's raw-box memcpy with a null input are
     # undefined in the source and run original-only (see ADR 0003).
@@ -82,7 +90,9 @@ def main():
              "tests/support/decoder_public.rs", "tests/parity/decoder_public.rs",
              "tools/decoder_public_probe.rs", "tools/decoder_public_reference.py",
              "tools/decoder_public_captures.py", "tools/captures/decoder_public.tsv",
-             "tests/decoder_public.rs", "tools/oracle/decoder_public.cc"]
+             "tests/decoder_public.rs", "tools/oracle/decoder_public.cc",
+             "tools/oracle/decoder_public_driver.h", "tools/oracle/decoder_abi.cc",
+             "src/jxl/decode_abi.rs"]
     before = {str(ROOT / p): sha((ROOT / p).read_bytes()) for p in owned}
     sources = {}
     original = None
@@ -141,6 +151,21 @@ def main():
         original = result.stdout
         run(["python3", "tools/decoder_public_captures.py", "--check", "--oracle", str(binary)],
             directory, "standalone-captures")
+        # The same histories through the exported C ABI of either library. The
+        # ABI does not export JxlDecoderSetParallelRunner yet, so the drivers
+        # replay only the runner-free histories.
+        abi = {}
+        free = [i for i, line in enumerate(request_lines) if runner_free(line)]
+        abi_requests = b"".join(request_lines[i] + b"\n" for i in free)
+        original_lines = original.splitlines()
+        abi_expected = b"".join(original_lines[i] + b"\n" for i in free)
+        for variant in ["original", "rust"]:
+            driver = build / f"jxl_abi_{variant}"
+            observed = run([str(driver)], directory, f"abi-{variant}-observations", data=abi_requests)
+            if observed.stdout != abi_expected or observed.stderr:
+                raise RuntimeError(f"The {variant} C ABI differs from the original public API")
+            abi[variant] = {"binary_sha256": sha(driver.read_bytes()),
+                            "observation_sha256": sha(observed.stdout)}
         detects = graph == "oracle-asan" and platform.system() == "Linux"
         diagnosed = 0
         for request in undefined_requests:
@@ -153,6 +178,7 @@ def main():
             elif probe.returncode or probe.stderr:
                 raise RuntimeError("Original null raw-box copy probe must complete on this graph")
         sources[graph] = {"bindings": bindings, "compile_commands": [adapter, *(m[0] for m in units.values())],
+                          "c_abi_drivers": abi,
                           "instrumented_original_units": len(original_units),
                           "binary_sha256": sha(binary.read_bytes()),
                           "observation_sha256": sha(original),
@@ -189,7 +215,8 @@ def main():
               "request_sha256": sha(requests), "source_graphs": sources, "rust_graphs": rust,
               "all_five_exact": True, "unchanged_artifacts": before}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Both original graphs and three Rust builds match {count:,} public decoder histories")
+    print(f"Both original graphs, their four C ABI drivers and three Rust builds match "
+          f"{count:,} public decoder histories")
 
 
 if __name__ == "__main__":

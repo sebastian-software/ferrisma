@@ -38,18 +38,21 @@ codestreams and containers with their boxes. The
 on the merged PR #50 tree passes the ordinary and ASan/UBSan oracles and its
 source audits on Linux and macOS. Every test definition in the pinned
 `decode_test.cc` runs as a differential case
-([PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52)). The thread
+([PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52)). The
+crate exports the decoder C ABI of `decode.h` from a static and a dynamic
+library, so a C program can link it instead of libjxl
+([PR #54](https://github.com/sebastian-software/libjxl-rs/pull/54)). The thread
 and resizable runners and JxlDecoderSetParallelRunner are ported, and the
 public decoder runs its RunOnPool schedules through them. The sections below
 record each slice, its evidence and its not-applicable checks.
 
 Remaining decoder-side gaps: the decoder's RunOnPool task bodies are
-serialized under a runner, so a runner brings no parallel speedup yet; the
-C ABI exports of the decoder, encoder and runners are absent; the ICC reader
-and frame owners allocate through the global allocator rather than the
-caller's memory manager; and the translated skcms SKX engine has no AVX-512
-acceptance. Container writing, general encoding, the public encoder API and
-JxlEncoderSetParallelRunner remain unported.
+serialized under a runner, so a runner brings no parallel speedup yet; the C
+ABI lacks JxlDecoderSetParallelRunner and the runner exports; the encoder C
+ABI is absent; the ICC reader and frame owners allocate through the global
+allocator rather than the caller's memory manager; and the translated skcms
+SKX engine has no AVX-512 acceptance. Container writing, general encoding, the
+public encoder API and JxlEncoderSetParallelRunner remain unported.
 
 ## Thread runners and JxlDecoderSetParallelRunner (2026-11-04)
 
@@ -96,11 +99,56 @@ runner histories now also run on Rust with the translated runner (see below),
 and two retained captures replay runner histories without C++.
 
 Not established: concurrent execution of the decoder's task bodies and its
-performance, the C ABI exports, JxlEncoderSetParallelRunner and encoder-side
-RunOnPool. Default thread counts come from `available_parallelism`, which can
+performance, the C ABI exports of JxlDecoderSetParallelRunner and the runners
+(the C ABI drivers therefore replay only runner-free histories),
+JxlEncoderSetParallelRunner and encoder-side RunOnPool. Default thread counts come from `available_parallelism`, which can
 differ from libc++'s `hardware_concurrency` on restricted hosts; no decoded
 output depends on them. The runner tests check properties, not schedules, and
 no thread sanitizer runs on Rust.
+
+## Exported decoder C ABI (2026-11-04)
+
+`src/jxl/decode_abi.rs` exports 51 of the 52 functions that the pinned
+`lib/include/jxl/decode.h` declares, under their original unmangled names, from
+the crate's static library (`libjxl.a`) and dynamic library (`libjxl.so` or
+`libjxl.dylib`). Each wrapper only maps C pointers to the references and
+options of the Rust functions in `decode.rs`, which keep every original
+argument check in source order. Pointers that the source dereferences without
+a check now reach those functions as options, unwrapped where the source
+dereferences them; the Rust signatures changed accordingly. Structs crossing
+the ABI are the existing `#[repr(C)]` header types, with compile-time size,
+alignment and offset assertions on 64-bit targets. ADR 0003 records the
+representation, the null-pointer and panic boundary, and the per-decoder
+reentrancy guard.
+
+Open: the runners and JxlDecoderSetParallelRunner are ported as Rust
+functions (see above), but JxlDecoderSetParallelRunner and the
+`JxlThreadParallelRunner*` and `JxlResizableParallelRunner*` exports of
+`thread_parallel_runner.h` and `resizable_parallel_runner.h` are not exported
+yet. A C program that calls
+them does not link against the Rust library yet; no placeholder is exported.
+The encoder C ABI of `encode.h` is out of scope until the encoder API is
+ported. `JxlGetDefaultCms` belongs to the separate `jxl_cms` library: a C
+program links the original one alongside the Rust decoder.
+
+Evidence: the oracle-tier driver `tools/oracle/decoder_abi.cc` includes only
+the pinned public headers and shares the dpub-run driver of the original
+oracle (`decoder_public_driver.h`). It is linked twice, as `jxl_abi_original`
+against the original archive and as `jxl_abi_rust` against the Rust static
+library, both with the original default CMS. Every runner-free history of the
+public decoder families and of the `decode_test.cc` inventory also runs through
+both executables: 17,737 histories in 46 families (10,662 public decoder,
+6,304 inventory and 771 runner-free histories of the inventory's runner
+families) reproduce the original oracle's statuses, events,
+getters, consumed and released byte counts, box and JPEG bytes, output
+digests, callback sequences and, where compared, allocator logs exactly. The
+C unit `decoder_abi_layout.c` measures 215 values from the headers: the size
+and alignment of 31 public structs, enums and typedefs, every field offset of
+the public structs, every enumerator, the version, and the presence of all 51
+exported functions. They equal the Rust definitions for both libraries. The 839 histories that reach the original's undefined
+null raw-box copy remain original-only. Local evidence covers macOS AArch64;
+the public decoder audit additionally replays its corpus through the C ABI
+drivers of both original graphs.
 
 ## Public incremental decoder API (2026-11-04)
 
@@ -163,8 +211,8 @@ sample and one ExtraChannelInfo per channel; parsed frame headers always have
 a valid encoding and color transform, 4:4:4 sampling unless YCbCr, and one
 upsampling and blending entry per extra channel. No compared file is rejected
 by them. The ICC reader and frame owners allocate through the global allocator
-rather than the memory manager. The C ABI exports remain a separate boundary;
-JxlDecoderSetParallelRunner is covered in the section above.
+rather than the memory manager. The C ABI exports and the runners are
+recorded above.
 
 ## Public decoder API test inventory (2026-11-04)
 
@@ -611,6 +659,7 @@ followed in PRs #46 to #50.
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `decode.cc` signature/container-header helpers, constants in `lib/include/jxl/decode.h` | `decode.rs`, signature bytes in `common.rs` | Complete OutOfBounds, InitialBasicInfoSizeHint, ReadSignature, JxlSignatureCheck and ParseBoxHeader; public incremental decoder state/events and C ABI entry points remain separate |
+| `JXL_EXPORT` functions of `decode.cc` declared in `lib/include/jxl/decode.h` | `decode_abi.rs` | Unmangled C ABI exports of all decode.h functions except JxlDecoderSetParallelRunner, with layout assertions for every public struct |
 | `decode_to_jpeg.h`, `.cc` | `decode_to_jpeg.rs`, tag constants in `jpeg/jpeg_data.rs` | Complete JxlToJpegDecoder: output buffer set/release, Reset/StartBox, jbrd Process buffering and decoding, Exif/XMP marker counts, box sizes and payload injection, SetImageBundleJpegData and chunked WriteOutput; JxlDecoder events and JxlDecoderSetJPEGBuffer integration remain separate |
 | `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete source common helpers and command tables from main |
 | `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete command decoding and defined partial output from main; streaming reader/CMS remain separate |
@@ -1066,7 +1115,8 @@ The pinned Highway CMake file emits a CMP0111 deprecation warning. It does not
 fail the build; the reference source has not been edited to suppress it.
 
 Not yet established: general Rust image decoding and encoding,
-public C ABI compatibility,
+the encoder and runner C ABI, decoder C ABI compatibility beyond the measured
+64-bit Linux and macOS targets,
 thread runners, SIMD parity, full upstream test inventory, external conformance
 corpus, fuzzing, Rust sanitizer/Miri results, or performance/memory parity.
 Test passing here does not establish any of those. Native Linux/macOS hosted
