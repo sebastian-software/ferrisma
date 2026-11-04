@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import runpy
 import shlex
 import shutil
 import subprocess
@@ -162,8 +163,9 @@ def main():
         observe(binary,capture_path,out/f'captures-{graph}.txt')
         assert (out/f'captures-{graph}.txt').read_bytes()==expected_capture
     env=dict(os.environ,CARGO_BUILD_JOBS='2',RUST_TEST_THREADS='2')
-    for profile,toolchain,release in [('debug','stable',False),('release','stable',True),('msrv','1.85',False)]:
-        cargo=['cargo']+(['+1.85'] if toolchain=='1.85' else [])
+    msrv=runpy.run_path(str(ROOT/'tools/check.py'))['rust_version']()
+    for profile,toolchain,release in [('debug','stable',False),('release','stable',True),('msrv',msrv,False)]:
+        cargo=['cargo']+([f'+{msrv}'] if toolchain==msrv else [])
         flags=['--locked','--offline','--all-features']+(['--release'] if release else [])
         run(profile+'-library',cargo+['build',*flags],env)
         run(profile+'-tests',cargo+['test',*flags,'--test','box_content_decoder','--','--nocapture'],env)
