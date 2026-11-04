@@ -1,0 +1,24 @@
+{
+  "run": 41844325416,
+  "head": "f0891818b73b7a58c24c5b8ab386df7fc05a4138",
+  "failed_native_job": "parity (macos-15, arm64)",
+  "failure": "Implicit Rustfmt component installation conflicts with existing bin/cargo-fmt before Cargo builds the Rust decoder",
+  "original_sources_and_tests_changed": false,
+  "failed_rust_test_execution_credit": false,
+  "linux_job_conclusion": "success",
+  "preserved_failure_log_sha256": "96af82ff6e3fde10356aee48eb85c8310a764e64a36d6bf29c39812a0eabf282",
+  "all_paginated_job_metadata_sha256": "6a5ef17ab4e462bb98976e3a1587c5893816d16e0839abb75d7ea08432fbc701",
+  "failed_job_artifact": {
+    "id": 13329854467,
+    "name": "dav1d-macos-15-arm64",
+    "zip_sha256": "8ba4d86abb645dd960f340b7002d1b3a8151b3e7d2c7fdd47a4086a2f63dc7d7",
+    "github_digest": "sha256:8ba4d86abb645dd960f340b7002d1b3a8151b3e7d2c7fdd47a4086a2f63dc7d7",
+    "files_sha256": {
+      "dav1d-reference-release/reference-profile.json": "ddd4c2d53d17ad4d9fb39d276f3abb787884b7189fd62fe367399aa46ad509ed",
+      "dav1d-reference-debug/reference-profile.json": "acf31ed5ff03d39b480fd25d47c140cf87cd604cfe38547fccf2b2a59b20d8db"
+    }
+  },
+  "correction": "Select the already requested nightly-2026-09-07 through RUSTUP_TOOLCHAIN; preserve source toolchain settings and every test command",
+  "toolchain_override_reference": "https://rust-lang.github.io/rustup/overrides.html",
+  "corrected_native_execution_verified": false
+}
