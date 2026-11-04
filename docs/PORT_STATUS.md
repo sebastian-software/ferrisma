@@ -115,6 +115,115 @@ by them. The ICC reader and frame owners allocate through the global allocator
 rather than the memory manager. The C ABI exports and
 JxlDecoderSetParallelRunner remain separate boundaries.
 
+## Public decoder API test inventory (2026-11-04)
+
+Every test in the pinned `lib/jxl/decode_test.cc` runs as a differential
+case: 64 test definitions, five of them parameterized into 2,836 instances.
+`tests/parity/decode_test_inventory.rs` replays each test's call history on the
+original public API and on the Rust port and compares statuses, events, getter
+outputs, consumed and released byte counts, box and JPEG bytes, and digests of
+every output buffer exactly. For callback output, each call's position, length
+and pixels also compare in order. The two JxlBoxContentDecoder tests run as
+captures of the separate box-content oracle in `tests/box_content_decoder.rs`.
+
+The inputs are the tests' own. The oracle's `dti-*` commands build them with
+CreateTestJXLCodestream, GetTestHeader, AnalyzeCodestream, GetSomeTestImage,
+test::EncodeFile, AllEncodings and JpegDataToCodecInOut, extracted verbatim
+from `decode_test.cc`, `test_utils.cc` and `test_image.cc` and hash checked.
+The frame-sequence tests copy their bodies up to the EncodeFile call. Five files
+from the pinned testdata submodule (an 80 MiB pack, 110 MiB checked out) are
+copied unchanged into `tests/data/decode-test/` (543 KiB), with their CC BY 4.0
+and CC0 notices; the submodule is not needed to run the tests.
+
+The original-only parts are listed in the table. Not applicable: (a)
+JxlDecoderSetParallelRunner and the thread and resizable runners are not
+ported. The original runs each runner history, and the runner-free history must
+match it exactly; Rust runs the runner-free history serially, as the original
+does with a null runner. That covers 1,909 runner histories. (b) Butteraugli,
+DistanceRMS and ComparePixels against the encoder input, and the CodecInOut
+conversions that prepare those comparisons, measure the encoder. The exact
+comparison with the original decoder's output replaces them. (c) The extras
+libjpeg encoder is not part of the oracle. CreateTestJXLCodestream's JPEG
+inputs therefore start from the genuine cjpeg file
+`tests/data/jpeg-writer/progressive.jpg` instead of a libjpeg encoding of the
+test image; the pinned code after the encoder call is unchanged. (d) Encoder
+expectations in the test bodies, such as frame counts of AnalyzeCodestream,
+are not repeated. The extracted helpers' own expectations throw in the oracle.
+
+All 6,304 Rust histories match the original locally on macOS AArch64, in 31
+families and 29 tests. Most families also require that the original's statuses
+follow the test's own expectations, so each history takes the path of the test
+it ports. No history reaches the original's undefined raw-box copy with a null
+input, which would run original-only as in the public decoder families. No
+deviation in the Rust port was found.
+
+| decode_test.cc test | Status | API sequence and checks |
+| --- | --- | --- |
+| JxlSignatureCheckTest | ported | JxlSignatureCheck on the ten vectors |
+| DefaultAllocTest | ported | Create and Destroy with the default manager |
+| CustomAllocTest | ported | Custom manager; the complete allocation and free log compares |
+| DefaultParallelRunnerTest | not applicable (a) | SetParallelRunner(nullptr, nullptr) only on the original; equals the runner-free history |
+| BasicInfoTest | ported | Every prefix of two GetTestHeader headers: GetBasicInfo, extra-channel info and name, late SubscribeEvents, Reset |
+| BufferSizeTest | ported | ImageOutBufferSize after the header |
+| BasicInfoSizeHintTest | ported | SizeHintBasicInfo before and after an inserted box |
+| IccProfileTestOriginal | ported | Encoded-profile and ICC getters for both targets, null outputs |
+| IccProfileTestXybEncoded | ported | The same, then SetPreferredColorProfile to sRGB and linear |
+| ICCPartialTest | ported | One more byte per call through basic info and the ICC profile |
+| DecodeTestParam/PixelTest (1,532) | ported; (a), (b) | DecodeWithAPI over formats, callbacks, upsampling, boxes, previews, intrinsic sizes, early buffers and orientations; thread and resizable runners on the original |
+| PixelTestWithICCProfileLossless | ported; (a), (b) | Six DecodeWithAPI calls on one decoder with Reset between |
+| PixelTestWithICCProfileLossy | ported; (a), (b) | DecodeWithAPI with the data ICC profile |
+| DecodeAllEncodingsTest/PreserveOriginalProfileTest (216) | ported; (b) | 54 relative-intent encodings decode; the others return before any API call |
+| SetPreferredColorProfileTestFromGray | ported; (b) | SetPreferredColorProfile or SetOutputColorProfile with ICC, with and without the CMS |
+| DecodeAllEncodingsVariantsTest/SetPreferredColorProfileTest (864) | ported; (b) | The 72 instances with relative D65 sources run every destination; the others return before any API call |
+| DecodeAllEncodingsWithCMSTest/DecodeWithCMS (216) | ported; (b) | SetOutputColorProfile by ICC with the CMS and by encoding without it |
+| PixelTestOpaqueSrgbLossy | ported; (a), (b) | DecodeWithAPI with callbacks to RGB and RGBA |
+| PixelTestOpaqueSrgbLossyNoise | ported; (a), (b) | DecodeWithAPI with early buffers, noise frame |
+| ProcessEmptyInputWithBoxes | ported | ProcessInput before input and after releasing it, every box format |
+| ExtraBytesAfterCompressedStream | ported; (a), (b) | DecodeWithAPI with trailing bytes; the unconsumed count |
+| BrobBoxInputIsRestrictedToBoxSize | ported | JxlBoxContentDecoder capture `decode-test` |
+| BrobBoxTruncatedStreamWithExactBoxSizeReturnsError | ported | JxlBoxContentDecoder capture `decode-test` |
+| ExtraBytesAfterCompressedStreamRequireBoxes | ported; (a), (b) | The same with box events |
+| ConcatenatedCompressedStreams | ported; (a), (b) | 100 box-format pairs; the second decoder starts at the first one's remainder |
+| PixelPartialTest | ported | TestPartialStream: seven increments, eleven box formats, the increment carried as in the test |
+| JPEGPartialTest | ported; (c) | The same with JPEG reconstruction and the growing JPEG buffer |
+| DCNotGettableTest | ported | The 68-byte literal |
+| PreviewTest | ported; (b) | Preview buffer size, NEED_PREVIEW_OUT_BUFFER, PREVIEW_IMAGE, small and big previews |
+| AlignTest | ported; (a), (b) | Row alignment 17 with buffer and callback |
+| AnimationTest | ported; (a), (b) | Frame headers and names per frame |
+| AnimationTestStreaming | ported; (a), (b) | 16-byte input steps |
+| ExtraChannelTest | ported; (b) | Extra-channel buffer with aligned rows |
+| SkipCurrentFrameTest | ported | SkipCurrentFrame before, during and after progressive passes |
+| SkipCurrentFrameForgetsExtraChannelBuffers | ported | The skipped frame's extra-channel buffer stays untouched |
+| SkipFrameTest | ported; (a), (b) | SkipFrames, Rewind and a second skipping pass |
+| SkipFrameWithBlendingTest | ported; (a), (b) | Reference decode, rewind mid-way, both skipping passes |
+| SkipFrameWithAlphaBlendingTest | ported; (a), (b) | The same with cropped alpha layers, coalesced and not |
+| OrientedCroppedFrameTest | ported; (a), (b) | Eight orientations, four resamplings, kept or applied, coalesced and not |
+| ProgressionTest | ported; (b) | VerifyProgression at the AnalyzeCodestream breakpoints, with FlushImage |
+| ProgressionTestLosslessAlpha | ported; (b) | The same for responsive lossless alpha |
+| InputHandlingTestOneShot | ported | Released positions after every event, eleven box formats, six event sets |
+| InputHandlingTestJPEGOneshot | ported; (c) | The same with JPEG reconstruction, ten box formats |
+| InputHandlingTestStreaming | ported | Growing input windows of 1, 7, 27 and 1024 bytes, box events |
+| FlushTest | ported; (b) | FlushImage before the output, on partial input, then the rest |
+| FlushTestImageOutCallback | ported; (b) | The same through the image-out callback |
+| FlushTestLossyProgressiveAlpha | ported; (b) | The same with alpha |
+| FlushTestLossyProgressiveAlphaUpsampling | ported; (b) | The same with color and alpha upsampling |
+| FlushTestLosslessProgressiveAlpha | ported; (b) | The same for responsive lossless alpha |
+| DecodeProgressiveTest/ProgressiveEventTest (8) | ported; (b) | Progressive-detail errors and FRAME_PROGRESSION events with FlushImage for kDC, kLastPasses and kPasses |
+| JPEGReconstructTestCodestream | ported; (c) | VerifyJPEGReconstruction with a preview |
+| JPEGReconstructionBufferNotKeptAcrossReset | ported; (c) | The released buffer of the first decode stays untouched |
+| JPEGReconstructionRewindInsideBox | ported; (c) | Rewind inside the jbrd box, then a complete reconstruction |
+| JPEGReconstructionTest | ported | Container built from the testdata JPEG; reconstructs it exactly |
+| JPEGReconstructionMetadataTest | ported | The testdata file reconstructs its JPEG exactly |
+| ContinueFinalNonEssentialBoxTest | ported | SUCCESS before the final box, then after it |
+| ExtendedBoxSizeTest | ported | Box types and sizes of the testdata file |
+| BoxTest | ported | Box getters, SetBoxBuffer and ReleaseBoxBuffer per box, CloseInput |
+| ExifBrobBoxTest | ported | Raw and decompressed brob boxes, all at once and in 64-byte steps |
+| PartialCodestreamBoxTest | ported; (b) | jxlp contents through growing box buffers, then their codestream |
+| OutOfOrderJxlpDuplicateIndexTest | ported | The duplicate out-of-order index is an error |
+| SpotColorTest | ported; (b) | Spot colors rendered and not |
+| CloseInput | ported | CloseInput on a one-byte file |
+| Non444AdaptiveDCSmoothing | ported | The malformed 62-byte file is an error |
+
 ## Low-memory render pipeline (2026-11-04)
 
 LowMemoryRenderPipeline and GroupBorderAssigner are ported from

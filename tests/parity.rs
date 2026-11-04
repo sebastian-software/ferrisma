@@ -67,6 +67,8 @@ mod chroma_image;
 mod chroma_stages;
 #[path = "parity/color_output.rs"]
 mod color_output;
+#[path = "parity/decode_test_inventory.rs"]
+mod decode_test_inventory;
 #[path = "parity/decoder_api.rs"]
 mod decoder_api;
 #[path = "parity/decoder_geometry.rs"]

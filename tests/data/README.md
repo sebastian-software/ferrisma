@@ -230,3 +230,25 @@ words from run 41550202739's original declaration-only concat configuration.
 `skcms-concat-x86-source-config.json` records the source/artifact hashes and all
 48 changed paired-NaN observations per graph. No finite or prior observation
 changed. The isolated complete-body observer must reproduce these captures.
+
+## decode_test.cc testdata files
+
+`decode-test/` holds the five files that `lib/jxl/decode_test.cc` reads from
+the pinned libjxl testdata submodule, revision
+`73695d303670c90e4d506ea89d9901b081385089`, copied unchanged:
+
+| File | Testdata path | SHA-256 |
+| --- | --- | --- |
+| `scRGB-v2.icc` | `external/Compact-ICC-Profiles/profiles/scRGB-v2.icc` | `8ae25bd986ea0dc396540762a6aa8c7fbeab7ac777cfdf242fa7c35874f4b383` |
+| `flower.png.im_q85_420.jpg` | `jxl/flower/flower.png.im_q85_420.jpg` | `6ad9a79e9f26d2723ef954a0dca774429606655ab7184f8ab400016f228ca2ce` |
+| `1x1_exif_xmp.jpg` | `jxl/jpeg_reconstruction/1x1_exif_xmp.jpg` | `c6d30276e37711069950d50b8d8c94c037f5b7a1fdcc36235c6f3f066487bed8` |
+| `1x1_exif_xmp.jxl` | `jxl/jpeg_reconstruction/1x1_exif_xmp.jxl` | `30966de3d58f38a4b9f29a26483f5839b32c283c69552cf5d6aa1ec18e5f77b2` |
+| `square-extended-size-container.jxl` | `jxl/boxes/square-extended-size-container.jxl` | `c324d018c375f291230831fe27ba14e8ee39f3a1142d51b658a37227a6c1d850` |
+
+The ICC profile is from Compact-ICC-Profiles under CC0; see
+`LICENSE-Compact-ICC-Profiles-CC0.txt`. The other files are part of the libjxl
+testdata repository (https://github.com/libjxl/testdata) by the JPEG XL Project
+Authors under the Creative Commons Attribution 4.0 International license; see
+`LICENSE-testdata-CC-BY-4.0.txt`. Only the testdata submodule's pinned revision
+was used; it is not needed to run the tests. `tests/parity/decode_test_inventory.rs`
+passes the files to the oracle and replays the test histories on them.
