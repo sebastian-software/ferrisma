@@ -9,8 +9,8 @@ Thunder configuration encodes 8-/16-bit grayscale or RGB buffers into complete
 raw JPEG XL codestreams. Rust parses their global metadata and frames and
 recovers the original integer pixels. Encoded bytes, metadata, samples, and
 error paths are compared with pinned libjxl, including cross-decoding in both
-directions. See the [first-image evidence](docs/FIRST_IMAGE.md). General codec
-configurations and the public C API remain unported.
+directions. See the [first-image evidence](docs/FIRST_IMAGE.md). General encoder
+configurations, the public encoder API and the C ABI exports remain unported.
 
 **The first complete VarDCT decode path is also implemented.** `decode_vardct`
 parses raw original codestreams through DC/AC groups, dequantization and scalar
@@ -18,6 +18,14 @@ inverse transforms to exact sRGB float and integer pixels. Its admitted profile
 includes gray/RGB, 8/16-bit samples, optional full-resolution alpha, progressive
 AC passes and optional Gaborish. See [the VarDCT milestone](docs/VARDCT_IMAGE.md)
 for the precise configuration, source mapping, evidence and remaining scope.
+
+**The public decoder API is ported to Rust.** `jxl::jxl::decode` translates
+`decode.cc`: incremental input, raw codestreams and containers with their
+boxes, events, output buffers and callbacks, progressive output, color and
+HDR output through the translated default CMS, and JPEG reconstruction. Caller
+histories, including every test in the pinned `decode_test.cc`, compare exactly
+with the original public API. It runs serially: parallel runners and the C ABI
+exports are not ported yet. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
 
 ## Port checklist
 
@@ -59,7 +67,7 @@ the items vary in size and do not represent equal amounts of work.
   Ordinary Rust builds have no external crate dependencies and do not compile
   or link C/C++.
 
-### Remaining decoder work
+### Decoder work
 
 The [decoder expansion plan](docs/DECODER_EXPANSION.md) records the delivery
 sequence and acceptance gates for this work.
@@ -74,11 +82,13 @@ sequence and acceptance gates for this work.
 - [x] Connect chroma subsampling, cropping, resampling and orientation in general
   complete-image decoding.
 - [x] Support associated/subsampled alpha and the remaining extra-channel types.
-- [ ] Connect alternate color profiles and HDR/tone-mapping paths beyond the
-  admitted sRGB profiles.
-- [ ] Reconstruct original JPEG bitstreams and restore their metadata.
-- [ ] Port the public decoder API, including incremental input, events, callbacks
-  and progressive output.
+- [x] Connect alternate color profiles and HDR/tone-mapping paths beyond the
+  admitted sRGB profiles, including CMS output conversions through the
+  public decoder.
+- [x] Reconstruct original JPEG bitstreams and restore their Exif/XMP metadata.
+- [x] Port the public decoder API from `decode.cc` to Rust, including incremental
+  input, events, callbacks and progressive output. It runs serially without a
+  parallel runner.
 
 ### Remaining encoder work
 
@@ -93,10 +103,18 @@ sequence and acceptance gates for this work.
 
 - [ ] Complete the remaining core helpers and source boundaries listed in
   [the source mapping](docs/PORT_STATUS.md).
-- [ ] Read and write JPEG XL containers and their boxes.
-- [ ] Resolve default CMS backend and ICC parsing integration.
-- [ ] Complete custom allocators, thread runners and the low-memory rendering pipeline.
-- [ ] Translate the remaining original SIMD target specializations and dispatch.
+- [x] Read JPEG XL containers and their boxes.
+- [ ] Write JPEG XL containers and their boxes.
+- [x] Connect the translated default CMS backend (the skcms branch of
+  `jxl_cms.cc`) and incremental ICC parsing to the public decoder.
+- [x] Port the low-memory rendering pipeline and select it as `decode.cc` does.
+- [ ] Route custom allocators through every owner; the ICC reader and frame
+  owners still allocate through the global allocator.
+- [ ] Port the thread runners and `JxlDecoderSetParallelRunner`/
+  `JxlEncoderSetParallelRunner`, with their parallel schedules.
+- [ ] Export the public decoder and encoder C ABI.
+- [ ] Translate the remaining original SIMD target specializations and dispatch,
+  and accept the translated skcms SKX engine on an AVX-512 host.
 - [ ] Pass the full upstream-derived test inventory and codec conformance corpus,
   including image samples, metadata, frame sequences, JPEG reconstruction,
   encoder bitstreams and public API transitions.

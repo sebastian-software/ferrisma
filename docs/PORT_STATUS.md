@@ -11,8 +11,7 @@ sequence decoder also connects patches, general NONE/XYB Modular frames,
 reference/DC frames, blending, animation, previews and the admitted YCbCr/chroma
 paths. Associated/subsampled alpha and every source-defined extra-channel type are
 connected at this internal boundary. Complete geometry/orientation is connected
-through the verified source boundary below. ICC/default CMS, JPEG reconstruction,
-containers and public APIs remain separate work.
+through the verified source boundary below.
 See [VARDCT_IMAGE.md](VARDCT_IMAGE.md) for the complete configuration and evidence.
 The lossless encoder/decoder profile and its existing corpus remain unchanged.
 There are no C++ runtime fallbacks and no placeholder codec APIs. The source revision is pinned in
@@ -27,6 +26,28 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 514 tests per configuration; macOS runs 513. The independent original-source
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
+
+The public decoder API from `decode.cc` is ported in `src/jxl/decode.rs`
+([PR #50](https://github.com/sebastian-software/libjxl-rs/pull/50)). It drives
+the incremental FrameDecoder (PR #49) with the low-memory render pipeline
+(PR #48), whole-image color output, tone mapping and CMS output conversions
+through the translated default CMS (PR #47), and JPEG reconstruction with
+Exif/XMP restoration through JxlToJpegDecoder (PR #46). It reads raw
+codestreams and containers with their boxes. The
+[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+on the merged PR #50 tree passes the ordinary and ASan/UBSan oracles and its
+source audits on Linux and macOS. Every test definition in the pinned
+`decode_test.cc` runs as a differential case
+([PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52)). The
+sections below record each slice, its evidence and its not-applicable checks.
+
+Remaining decoder-side gaps: the thread and resizable runners and
+JxlDecoderSetParallelRunner are not ported, so the decoder runs serially; the
+C ABI exports of the decoder and encoder are absent; the ICC reader and frame
+owners allocate through the global allocator rather than the caller's memory
+manager; and the translated skcms SKX engine has no AVX-512 acceptance.
+Container writing, general encoding and the public encoder API remain
+unported.
 
 ## Public incremental decoder API (2026-11-04)
 
@@ -214,8 +235,8 @@ only when `use_slow_render_pipeline` is set, as in `dec_cache.cc`. The flag
 comes from the FrameDecoder's `use_slow_rendering_pipeline`. The fixed profiles
 and `SequenceDecoder::new` keep the simple pipeline and their parity cases.
 `SequenceDecoder::with_rendering_pipeline(metadata, false)` selects the
-low-memory pipeline, as `decode.cc` does. The public decoder API does not use it
-yet. Execution is sequential with a null pool.
+low-memory pipeline, as `decode.cc` does. The public decoder API (PR #50) uses
+it for every frame. Execution is sequential with a null pool.
 
 The oracle's `fs-decode-lm` command runs the original FrameDecoder with
 `use_slow_rendering_pipeline=false` on genuine original encodings: reference,
@@ -282,8 +303,10 @@ writers: malformed, CMYK, gray-on-RGB and garbage. They also cover truncated
 and corrupted ICC and frame bytes. Twelve CMS-stage configurations stop at
 the documented checkpoint, while the original public decoder completes them.
 These are local macOS AArch64 results; native Linux CI acceptance is listed
-in the pull request. Decoder checklist step 9 stays open until CMS-stage
-conversions are verified through the low-memory pipeline.
+in the pull request. PR #50 admits these CMS-stage conversions on the
+low-memory pipeline that the public decoder uses. Its color-profile and frame
+groups and the decode_test.cc CMS tests (PR #52) compare them exactly, which
+completes decoder checklist step 9.
 
 ## JxlToJpegDecoder (2026-11-04)
 
@@ -312,8 +335,8 @@ stops at its bounds check.
 
 The complete ordinary and instrumented local checks pass on macOS AArch64: 439
 parity tests and 879 tests in total each, with zero failures or ignored tests.
-Native Linux acceptance runs in CI. JxlDecoder events,
-JxlDecoderSetJPEGBuffer and the Exif/XMP box stages in `decode.cc` remain open.
+Native Linux acceptance runs in CI. PR #50 connects it to the JxlDecoder
+events, JxlDecoderSetJPEGBuffer and the Exif/XMP box stages of `decode.cc`.
 
 ## Recovered decoder state and reconstruction (2026-11-03)
 
@@ -327,8 +350,8 @@ and repeated-owner histories: 4,740 defined requests compare exactly. When an
 earlier call on the same owner leaves an SOS marker behind, the original
 validation reads one scan_info element past its end. Those 24 requests run as
 separate original-only probes, and every instrumented graph must report that
-heap-buffer-overflow; they have no C++/Rust comparison (ADR 0003). Public
-container/event orchestration and complete JPEG-file API admission remain open.
+heap-buffer-overflow; they have no C++/Rust comparison (ADR 0003). The public
+container/event orchestration and JPEG reconstruction API followed in PR #50.
 
 ## Recovered Brotli decoder (2026-11-03)
 
@@ -338,9 +361,10 @@ the pinned dictionary bytes match the saved implementation. The complete local
 ordinary check passes Debug, Release and Rust 1.85: 765 tests per configuration,
 including the unchanged 374 libjxl differential groups and 1,455,093 exact
 comparisons, plus the Brotli tests and 16 independently bound source observers.
-The instrumented check and complete streaming/API audits are being rerun; native
-Linux and macOS admission remains required. Dedicated streaming and API audits
-are now required in CI. The stack-based one-shot decoder remains unported.
+Dedicated streaming and API audits are now required in CI. The later
+[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+on the merged PR #50 tree passes them, with the instrumented checks, on native
+Linux and macOS. The stack-based one-shot decoder remains unported.
 
 ## Recovered CMS work (2026-11-03)
 
@@ -352,8 +376,11 @@ earlier component counts below describe their original trees. The original
 optimized Linux concat graphs disagree on new paired-NaN products. A dedicated
 complete-source observer and preserved native investigation now pin that
 boundary without changing the original archive, previous requests, or finite
-results. Native acceptance of the combined tree remains required.
-Complete-image ICC admission remains separate work.
+results. The later
+[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+on the merged PR #50 tree passes these groups and the skcms and default CMS
+audits on native Linux and macOS. Complete-image ICC admission followed in
+PRs #47 and #50.
 
 The HSW (N=8) and SKX (N=16) skcms stage engines and the original cpu_type()
 dispatch are now translated. Native Linux x86_64 CI previously failed three
@@ -366,8 +393,8 @@ configuration; neither is claimed yet.
 
 The combined Brotli and CMS recovery passes the complete ordinary local check
 on macOS AArch64 in Debug and Release: 833 tests per configuration, with zero
-failures or ignored tests. Native Linux and macOS CI acceptance of this
-combined tree remains required.
+failures or ignored tests. Native Linux and macOS acceptance is covered by the
+later deep gate above; SKX remains unaccepted.
 
 ## Reviewed decoder integration (2026-11-03)
 
@@ -406,7 +433,8 @@ outside this integration. Native Linux matrix concatenation still fails exact
 comparisons, and original ordinary/instrumented matrix observations disagree.
 No relaxed comparison, changed expected word or unaccepted reference
 configuration is used to admit these ports. Whole-image ICC/HDR, default CMS,
-JPEG reconstruction, containers and the public incremental decoder remain open.
+JPEG reconstruction, container input and the public incremental decoder
+followed in PRs #46 to #50.
 
 ## Source mapping
 
@@ -2692,12 +2720,13 @@ source audits also pass their 617,526 retained requests and original-only
 undefined-operation diagnostics. The final local gates retain every inherited
 case after the source-defined empty destination-copy correction. Sixteen
 independent macOS ARM source captures pass without invoking a C++ process.
-Native two-platform acceptance and integration review remain required.
+Native two-platform acceptance is covered by the later deep gate listed under
+the recovered CMS work; SKX remains unaccepted.
 
-This backend does not complete decoder checklist step 9. Real decoding still
-needs accepted streaming ICCReader integration, alternate requested output
-profiles, HDR transfer pipeline integration and complete successful/malformed
-ICC/HDR files with exact pixels/statuses on both native platforms.
+This backend alone did not complete decoder checklist step 9. The public
+decoder (PR #50) later connected it with the streaming ICCReader, requested
+output profiles and the HDR transfer stages. It compares statuses and output
+sample digests of complete files exactly on both native platforms.
 Additional concatenation coverage keeps all 24,324 prior requests and adds 432
 paired quiet/signaling NaN products at every output-cell/term position. Native
 ARM focused diagnostics compare all 24,756 calls exactly in Debug, Release and
@@ -2764,5 +2793,5 @@ output-buffer byte, callback counts, covered bundle samples and the
 reference/DC state are compared exactly: 1,046 multipass and 1,824 sequence
 requests, each mode run with both the simple and the low-memory pipeline, with
 278 DC and 308 pass pauses, 1,392 successful and 196 rejected flushes, and 886
-truncated decodes. This interface does not complete the public decoder API:
-`decode.cc` orchestration and containers remain separate slices.
+truncated decodes. The `decode.cc` orchestration and container input on top of
+this interface followed in PR #50.

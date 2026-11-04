@@ -2,8 +2,8 @@
 
 This work completes the decoder expansion after the first complete VarDCT
 profile. The fixed Thunder and VarDCT profiles are the starting point, not the
-acceptance boundary for this work. The remaining decoder items in the
-[README checklist](../README.md#remaining-decoder-work) define the scope.
+acceptance boundary for this work. The decoder items in the
+[README checklist](../README.md#decoder-work) define the scope.
 The [porting contract](PORTING.md) and accepted [ADRs](adr/README.md) continue to
 apply: translate the pinned implementation mechanically, preserve defined
 behavior, and keep C++ exclusively in the independent test oracle.
@@ -52,8 +52,8 @@ complete only when every step has source-mapped implementation and matching
 acceptance evidence; an intermediate EPF or effects PR does not complete it.
 
 General encoding, the public encoder API, remaining optimized SIMD targets,
-custom allocators/runners, the low-memory pipeline, and full-library release
-acceptance remain separate checklist items. Dependencies reached by the decoder
+custom allocator propagation, thread runners, the C ABI exports, and
+full-library release acceptance remain separate checklist items. Dependencies reached by the decoder
 work must still be translated before exposing the corresponding decoder path.
 
 ## Current integration
@@ -102,7 +102,38 @@ requests. All 55,488 prior requests remain present with 3,200 cross-feature case
 The merged runtime, fixtures, observers and CI are identical to the tested source;
 the main merge updates only the checklist and acceptance documentation.
 
-Steps nine through eleven remain open: ICC/default CMS and HDR, original JPEG
-reconstruction, and the public incremental decoder/container API. Direct
-output-stage callbacks remain part of step eleven. The fixed first-image and
-VarDCT profile records retain their existing, narrower admission contracts.
+Steps nine through eleven are merged through the public decoder slices.
+[PR #47](https://github.com/sebastian-software/libjxl-rs/pull/47) translates the
+color, tone-mapping and CMS stage selection of PreparePipeline and admits every
+enum and ICC color encoding.
+[PR #46](https://github.com/sebastian-software/libjxl-rs/pull/46) ports
+JxlToJpegDecoder from `decode_to_jpeg.cc`.
+[PR #48](https://github.com/sebastian-software/libjxl-rs/pull/48) ports the
+low-memory render pipeline, and
+[PR #49](https://github.com/sebastian-software/libjxl-rs/pull/49) the
+incremental FrameDecoder interface that `decode.cc` drives.
+[PR #50](https://github.com/sebastian-software/libjxl-rs/pull/50) ports
+`decode.cc` itself: the JxlDecoder state machine, events, buffers and
+callbacks, progressive detail, box and container input, the color setters with
+CMS output on the low-memory pipeline, JxlDecoderSetJPEGBuffer with Exif/XMP
+restoration, and the serial ThreadPool. Its caller histories compare exactly
+with the original public C API: 10,662 histories in eleven differential groups,
+plus 839 original-only probes of an undefined original box copy. The
+[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+on its merged tree passes the ordinary and ASan/UBSan oracles on Linux and
+macOS, including the new `public-decoder` audit.
+[PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52) runs all 64
+test definitions of the pinned `decode_test.cc` as differential cases, with
+6,304 Rust histories in 31 families matching the original.
+
+The decoder API still runs serially. The thread and resizable runners and
+JxlDecoderSetParallelRunner are not ported; `decode_test.cc` histories that set
+a runner (1,909 of them) run only on the original and must match their
+runner-free history, which Rust runs. Butteraugli and pixel-distance checks
+against the encoder input are replaced by exact equality with the original
+decoder, and JPEG inputs start from a genuine cjpeg file because the oracle
+does not build the extras libjpeg encoder. The C ABI exports, allocator
+propagation to the ICC reader and frame owners, and SKX acceptance of the
+translated skcms engine stay open as shared-runtime items. The fixed
+first-image and VarDCT profile records retain their existing, narrower
+admission contracts.
