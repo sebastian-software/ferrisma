@@ -6,7 +6,7 @@ native root evidence passes the admission gates in ADR 0050.
 
 | Target | Existing evidence | Current work | Remaining admission boundary |
 | --- | --- | --- | --- |
-| macOS ARM64 | Complete root Release and supported-feature suites, focused Debug, ASan, ABI, ownership, and strict bytes; standalone default codecs accepted. | Validate the shared isolated-profile harness locally. | Full root Debug with matching original Debug preprocessing for the new nightly profile; keep the existing accepted profile intact. |
+| macOS ARM64 | Complete root Release and supported-feature suites, focused Debug, ASan, ABI, ownership, and strict bytes; standalone default codecs accepted. | Shared isolated-default harness passes complete Release and matching original Debug: 64 registrations and 9,473 ordered cases each. See [actual preparation evidence](root-profile-preparation.json). | Automate the new profiles on macOS CI and extend matching Debug preprocessing to feature configurations; keep the existing accepted profile intact. |
 | GNU Linux x86-64 | Complete standalone AOM, dav1d, and SharpYUV acceptance. | Native root generation and C/Rust integration pilot on `ubuntu-24.04`. | Actual root Release/Debug inventories, ABI, ownership/runtime closure, strict bytes, supported features, and applicable sanitizers. |
 | Windows x86-64 | No native root or workspace codec acceptance. | Follow Linux admission; start with the MSVC target. | Native headers/CRT layouts, variadic/thread/alignment mappings, pinned reference builds, PE/COFF ownership, all default codec profiles, and original C/Rust execution. |
 | Other architectures | No whole-pipeline acceptance. | Follow the first Linux and Windows targets. | Independent native evidence; cross-compilation alone is insufficient. |
@@ -32,6 +32,10 @@ configurations may run concurrently; each job limits compiler/test processes to
 two. XML, complete CTest logs, paired summaries, source profiles, configuration
 records, and binary hashes are retained as artifacts, including on failure.
 Workflow status alone is not evidence of complete target acceptance.
+Inventory queries use copies of the generated CTest registrations because even
+CTest's metadata-only mode rewrites `LastTest.log`. Each validation attempt
+preserves its actual XML, complete logs, configurations, paired report, and byte
+products separately. Later tests do not replace that retained execution proof.
 
 The original AOM video suite retains ADR 0048's complete Release and focused
 Debug policy. Root CI builds all 168 original portable AOM library units as its
