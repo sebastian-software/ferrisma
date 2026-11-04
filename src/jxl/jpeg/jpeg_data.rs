@@ -16,6 +16,10 @@ pub const JPEG_HUFFMAN_ALPHABET_SIZE: usize = 256;
 pub const JPEG_DC_ALPHABET_SIZE: usize = 12;
 pub const MAX_DHT_MARKERS: usize = 512;
 pub const MAX_DIM_PIXELS: usize = 65535;
+// Source jpeg_data.h byte arrays include their terminating NUL bytes.
+pub const ICC_PROFILE_TAG: &[u8; 12] = b"ICC_PROFILE\0";
+pub const EXIF_TAG: &[u8; 6] = b"Exif\0\0";
+pub const XMP_TAG: &[u8; 29] = b"http://ns.adobe.com/xap/1.0/\0";
 pub const JPEG_NATURAL_ORDER: [usize; 80] = [
     0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20,
     13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59,
