@@ -64,6 +64,7 @@ jobs:
           python3 tools/check_translation.py
           python3 tools/generate_licenses.py --check
           python3 tests/ports/root_profile_test.py
+          python3 tests/ports/root_link_order_test.py
           cargo fetch --locked
       - name: Build the pinned retained VMAF reference
         run: |
