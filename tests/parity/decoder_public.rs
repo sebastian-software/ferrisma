@@ -15,7 +15,7 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
 
 /// Compares one family and retains its requests for the independent source
 /// audit when JXL_DECODER_PUBLIC_CAPTURE names a directory.
-fn compare(family: &str, requests: Vec<String>) {
+pub(super) fn compare(family: &str, requests: Vec<String>) {
     if let Some(path) = std::env::var_os("JXL_DECODER_PUBLIC_CAPTURE") {
         use std::io::Write;
         let path = std::path::PathBuf::from(path);

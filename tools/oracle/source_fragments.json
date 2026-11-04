@@ -131,5 +131,89 @@
     "end": "\n\n#if defined(__clang__)",
     "sha256": "8358a075cf4eee85a55fcbc6ff595adc7debaa0d05563984eac9faa49151699b",
     "output": "original_skcms_concat.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "void AppendU32BE(uint32_t u32, std::vector<uint8_t>* bytes) {",
+    "end": "\n}  // namespace\n\nnamespace jxl {\nnamespace {\n\nvoid AppendTestBox",
+    "sha256": "d632c4a1c8631e10099613e2ff989771ca41cafafa41538b9cfeb0d76516a07f",
+    "output": "original_dt_constants.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "void AppendTestBox(",
+    "end": "    if (jxl::extras::CanDecode(jxl::extras::Codec::kJPG)) {\n",
+    "sha256": "2e18353ab9f5f86a673ea31d21c64796178d82e60533940702cf42d4f12e2d0e",
+    "output": "original_dt_codestream_head.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "      Bytes(jpeg_bytes).AppendTo(*params.jpeg_codestream);",
+    "end": "    } else {\n      ADD_FAILURE();",
+    "sha256": "b5505fa043ee793dd31b4f2b9d2ebe109f78e8fd6d67e2aa9c5aac6e0a1d1163",
+    "output": "original_dt_codestream_jpeg.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "  if (params.preview_mode) {\n",
+    "end": "\nJxlDecoderStatus ProcessInputIgnoreBoxes(",
+    "sha256": "47e3fbe75c69300cdcba3922d07933976e2aa307cc09b087918d3eaf463a91a0",
+    "output": "original_dt_codestream_tail.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "std::vector<uint8_t> GetTestHeader(size_t xsize",
+    "end": "\n\nTEST(DecodeTest, BasicInfoTest)",
+    "sha256": "21741818b48329998c0ec2fa696988f0569a4e9cbb37460dd9501ef998fcba8e",
+    "output": "original_dt_test_header.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "struct FramePositions {",
+    "end": "\n\nenum ExpectedFlushState",
+    "sha256": "03f683ea6620aa2b699544cef27c50d495bbf19ff800bf5d09cf936c1ccd968a",
+    "output": "original_dt_analyze.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "void CheckImpl(bool ok",
+    "end": "\n\n#if defined(TEST_DATA_PATH)",
+    "sha256": "5c56beeea99b64a4d11fca95c1703ccdd0c9221fd4bf6c8bf320b7b693866fe3",
+    "output": "original_check_impl.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "ColorEncoding ColorEncodingFromDescriptor(const",
+    "end": "\n\nnamespace {\nvoid CheckSameEncodings",
+    "sha256": "bda051ffcc83c6a3ae61da5c9ddb97d4b29f4f5f92355db799875dbb7ad165a6",
+    "output": "original_encoding_from_descriptor.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "std::vector<ColorEncodingDescriptor> AllEncodings() {",
+    "end": "\n\nstd::unique_ptr<jxl::CodecInOut> SomeTestImageToCodecInOut(",
+    "sha256": "b261f4184dd10941d66b29bbe49f4dbf58043dd42e7cfffb76d9de97969669b5",
+    "output": "original_all_encodings.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "namespace {  // For EncodeFile",
+    "end": "\n\nextras::JXLCompressParams CompressParamsForLossless() {",
+    "sha256": "7d6d060ce819195c3eecb0af5dd0ed7fd98d250f42ec91e951a7d22ba876a5f6",
+    "output": "original_encode_file.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "Status JpegDataToCodecInOut(",
+    "end": "\n\n}  // namespace test",
+    "sha256": "9fff3c290d1a0b45a4a599abff29938a68a174744e639777ee3c8f04a84c7e5e",
+    "output": "original_jpeg_data_to_codec_in_out.inc"
+  },
+  {
+    "path": "lib/jxl/test_image.cc",
+    "start": "std::vector<uint8_t> GetSomeTestImage(size_t xsize",
+    "end": "\n\nTestImage::TestImage() {",
+    "sha256": "e71c4d22d2b6fa07cdd33af3b3b0f235e1fc6413caa7ddf8c476ca4060be45e2",
+    "output": "original_some_test_image.inc"
   }
 ]
