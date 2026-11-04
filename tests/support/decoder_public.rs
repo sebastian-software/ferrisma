@@ -788,7 +788,7 @@ impl Driver {
                 size_of::<JxlExtraChannelInfo>(),
             );
         }
-        let status = api::jxl_decoder_get_extra_channel_info(self.dec(), index, &mut info);
+        let status = api::jxl_decoder_get_extra_channel_info(self.dec(), index, Some(&mut info));
         self.status(status);
         if status != JxlDecoderStatus::SUCCESS {
             return;
@@ -895,7 +895,7 @@ impl Driver {
 
     fn box_type(&mut self, decompressed: i32) {
         let mut box_type = *b"????";
-        let status = api::jxl_decoder_get_box_type(self.dec(), &mut box_type, decompressed);
+        let status = api::jxl_decoder_get_box_type(self.dec(), Some(&mut box_type), decompressed);
         write!(self.out, "{},{}", status.0, hex(&box_type)).unwrap();
     }
 
@@ -942,7 +942,7 @@ impl Driver {
             self.out.push_str(" e:");
             self.extra_info(i);
             let mut ec = JxlExtraChannelInfo::default();
-            if api::jxl_decoder_get_extra_channel_info(self.dec(), i, &mut ec)
+            if api::jxl_decoder_get_extra_channel_info(self.dec(), i, Some(&mut ec))
                 == JxlDecoderStatus::SUCCESS
             {
                 self.out.push_str(" n:");
@@ -1010,9 +1010,9 @@ impl Driver {
         let format = self.format;
         let mut size = 0usize;
         let s = if preview {
-            api::jxl_decoder_preview_out_buffer_size(self.dec(), &format, &mut size)
+            api::jxl_decoder_preview_out_buffer_size(self.dec(), Some(&format), Some(&mut size))
         } else {
-            api::jxl_decoder_image_out_buffer_size(self.dec(), &format, &mut size)
+            api::jxl_decoder_image_out_buffer_size(self.dec(), Some(&format), Some(&mut size))
         };
         write!(self.out, " q:{},{}", s.0, size).unwrap();
         if s != JxlDecoderStatus::SUCCESS {
@@ -1047,7 +1047,7 @@ impl Driver {
             unsafe {
                 api::jxl_decoder_set_image_out_callback(
                     self.dec(),
-                    &format,
+                    Some(&format),
                     Some(test_callback),
                     opaque,
                 )
@@ -1059,9 +1059,9 @@ impl Driver {
             // until the next output request.
             unsafe {
                 if preview {
-                    api::jxl_decoder_set_preview_out_buffer(self.dec(), &format, data, size)
+                    api::jxl_decoder_set_preview_out_buffer(self.dec(), Some(&format), data, size)
                 } else {
-                    api::jxl_decoder_set_image_out_buffer(self.dec(), &format, data, size)
+                    api::jxl_decoder_set_image_out_buffer(self.dec(), Some(&format), data, size)
                 }
             }
         } else if self.out_mode == 1 {
@@ -1070,7 +1070,7 @@ impl Driver {
             unsafe {
                 api::jxl_decoder_set_image_out_callback(
                     self.dec(),
-                    &format,
+                    Some(&format),
                     Some(simple_callback),
                     opaque,
                 )
@@ -1081,7 +1081,7 @@ impl Driver {
             unsafe {
                 api::jxl_decoder_set_multithreaded_image_out_callback(
                     self.dec(),
-                    &format,
+                    Some(&format),
                     Some(init_callback),
                     Some(run_callback),
                     Some(destroy_callback),
@@ -1099,7 +1099,12 @@ impl Driver {
         }
         for i in 0..self.extras {
             let mut es = 0usize;
-            let s = api::jxl_decoder_extra_channel_buffer_size(self.dec(), &format, &mut es, i);
+            let s = api::jxl_decoder_extra_channel_buffer_size(
+                self.dec(),
+                Some(&format),
+                Some(&mut es),
+                i,
+            );
             write!(self.out, " v:{},{}", s.0, es).unwrap();
             if s != JxlDecoderStatus::SUCCESS {
                 continue;
@@ -1108,12 +1113,12 @@ impl Driver {
             let data = self.extra[i as usize].as_mut_ptr().cast::<c_void>();
             // SAFETY: As for the image buffer.
             let s = unsafe {
-                api::jxl_decoder_set_extra_channel_buffer(self.dec(), &format, data, es, i)
+                api::jxl_decoder_set_extra_channel_buffer(self.dec(), Some(&format), data, es, i)
             };
             write!(self.out, ",{}", s.0).unwrap();
         }
         if let Some(depth) = self.depth {
-            let s = api::jxl_decoder_set_image_out_bit_depth(self.dec(), &depth);
+            let s = api::jxl_decoder_set_image_out_bit_depth(self.dec(), Some(&depth));
             write!(self.out, " W:{}", s.0).unwrap();
         }
         true
@@ -1154,7 +1159,7 @@ impl Driver {
                 size_of::<JxlFrameHeader>(),
             );
         }
-        let s = api::jxl_decoder_get_frame_header(self.dec(), &mut header);
+        let s = api::jxl_decoder_get_frame_header(self.dec(), Some(&mut header));
         write!(self.out, " h:{}", s.0).unwrap();
         if s != JxlDecoderStatus::SUCCESS {
             return;
@@ -1204,7 +1209,7 @@ impl Driver {
                     size_of::<JxlBlendInfo>(),
                 );
             }
-            let s = api::jxl_decoder_get_extra_channel_blend_info(self.dec(), i, &mut blend);
+            let s = api::jxl_decoder_get_extra_channel_blend_info(self.dec(), i, Some(&mut blend));
             write!(self.out, " B:{}", s.0).unwrap();
             if s == JxlDecoderStatus::SUCCESS {
                 write!(
@@ -1224,12 +1229,17 @@ impl Driver {
         let format = self.format;
         let mut size = 0xA5A5usize;
         let s = if arg.is_empty() {
-            api::jxl_decoder_image_out_buffer_size(self.dec(), &format, &mut size)
+            api::jxl_decoder_image_out_buffer_size(self.dec(), Some(&format), Some(&mut size))
         } else if arg == "1" {
-            api::jxl_decoder_preview_out_buffer_size(self.dec(), &format, &mut size)
+            api::jxl_decoder_preview_out_buffer_size(self.dec(), Some(&format), Some(&mut size))
         } else {
             let index: u32 = arg[2..].parse().unwrap();
-            api::jxl_decoder_extra_channel_buffer_size(self.dec(), &format, &mut size, index)
+            api::jxl_decoder_extra_channel_buffer_size(
+                self.dec(),
+                Some(&format),
+                Some(&mut size),
+                index,
+            )
         };
         write!(self.out, "{},{}", s.0, size).unwrap();
     }
@@ -1386,7 +1396,7 @@ impl Driver {
                 if box_type != "-"
                     && api::jxl_decoder_get_box_type(
                         self.dec(),
-                        &mut current,
+                        Some(&mut current),
                         i32::from(flags & 16 != 0),
                     ) == JxlDecoderStatus::SUCCESS
                     && current == box_type.as_bytes()

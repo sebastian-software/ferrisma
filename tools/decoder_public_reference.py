@@ -6,8 +6,10 @@ ordinary graph and again with `--sanitizers` first: the parity tests capture
 their exact request corpus, whose inputs come from the original encoder. This
 audit binds the original public decoder and encoder entry points to the
 complete archive, checks the reference compile configuration, replays every
-request on both original graphs and on the actual Rust library in debug,
-release and minimum-version builds, and requires identical observations.
+request on both original graphs, through the C ABI drivers of both graphs
+linked to the original and to the Rust library, and on the actual Rust library
+in debug, release and minimum-version builds, and requires identical
+observations.
 """
 import argparse
 import hashlib
@@ -80,7 +82,9 @@ def main():
              "tests/support/decoder_public.rs", "tests/parity/decoder_public.rs",
              "tools/decoder_public_probe.rs", "tools/decoder_public_reference.py",
              "tools/decoder_public_captures.py", "tools/captures/decoder_public.tsv",
-             "tests/decoder_public.rs", "tools/oracle/decoder_public.cc"]
+             "tests/decoder_public.rs", "tools/oracle/decoder_public.cc",
+             "tools/oracle/decoder_public_driver.h", "tools/oracle/decoder_abi.cc",
+             "src/jxl/decode_abi.rs"]
     before = {str(ROOT / p): sha((ROOT / p).read_bytes()) for p in owned}
     sources = {}
     original = None
@@ -139,6 +143,15 @@ def main():
         original = result.stdout
         run(["python3", "tools/decoder_public_captures.py", "--check", "--oracle", str(binary)],
             directory, "standalone-captures")
+        # The same histories through the exported C ABI of either library.
+        abi = {}
+        for variant in ["original", "rust"]:
+            driver = build / f"jxl_abi_{variant}"
+            observed = run([str(driver)], directory, f"abi-{variant}-observations", data=requests)
+            if observed.stdout != original or observed.stderr:
+                raise RuntimeError(f"The {variant} C ABI differs from the original public API")
+            abi[variant] = {"binary_sha256": sha(driver.read_bytes()),
+                            "observation_sha256": sha(observed.stdout)}
         detects = graph == "oracle-asan" and platform.system() == "Linux"
         diagnosed = 0
         for request in undefined_requests:
@@ -151,6 +164,7 @@ def main():
             elif probe.returncode or probe.stderr:
                 raise RuntimeError("Original null raw-box copy probe must complete on this graph")
         sources[graph] = {"bindings": bindings, "compile_commands": [adapter, *(m[0] for m in units.values())],
+                          "c_abi_drivers": abi,
                           "instrumented_original_units": len(original_units),
                           "binary_sha256": sha(binary.read_bytes()),
                           "observation_sha256": sha(original),
@@ -187,7 +201,8 @@ def main():
               "request_sha256": sha(requests), "source_graphs": sources, "rust_graphs": rust,
               "all_five_exact": True, "unchanged_artifacts": before}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Both original graphs and three Rust builds match {count:,} public decoder histories")
+    print(f"Both original graphs, their four C ABI drivers and three Rust builds match "
+          f"{count:,} public decoder histories")
 
 
 if __name__ == "__main__":
