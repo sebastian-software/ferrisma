@@ -219,9 +219,19 @@ fn loop_statuses(observation: &str) -> Vec<&str> {
         .collect()
 }
 
+/// Whether the Rust port's history reaches the original's undefined raw-box
+/// memcpy with a null input; such histories run original-only.
+fn reaches_null_copy(request: &str) -> bool {
+    jxl::jxl::box_content_decoder::take_null_input_copies();
+    super::observe(request);
+    jxl::jxl::box_content_decoder::take_null_input_copies() != 0
+}
+
 /// Also requires that the original follows the test's expectations, so each
 /// history takes the path of the test it ports.
 fn compare_expecting(family: &str, requests: Vec<String>, expected: impl Fn(&str) -> bool) {
+    let (undefined, requests): (Vec<String>, Vec<String>) =
+        requests.into_iter().partition(|r| reaches_null_copy(r));
     let originals = oracle(&requests);
     for (request, original) in requests.iter().zip(&originals) {
         assert!(
@@ -230,6 +240,7 @@ fn compare_expecting(family: &str, requests: Vec<String>, expected: impl Fn(&str
         );
     }
     compare_observed(family, &requests, &originals);
+    super::decoder_public::null_copy_probes(&undefined);
 }
 
 fn is_runner_op(op: &str) -> bool {
@@ -247,6 +258,10 @@ fn without_runner(request: &str) -> String {
 /// Histories with parallel runners: the original with each runner must match
 /// its own runner-free history, which Rust then reproduces serially.
 fn compare_with_runners(family: &str, requests: Vec<String>, expected: impl Fn(&str) -> bool) {
+    let (undefined, requests): (Vec<String>, Vec<String>) = requests
+        .into_iter()
+        .partition(|r| reaches_null_copy(&without_runner(r)));
+    let undefined: Vec<String> = undefined.iter().map(|r| without_runner(r)).collect();
     let plain: Vec<String> = requests.iter().map(|r| without_runner(r)).collect();
     let serial = oracle(&plain);
     for (request, original) in plain.iter().zip(&serial) {
@@ -268,6 +283,7 @@ fn compare_with_runners(family: &str, requests: Vec<String>, expected: impl Fn(&
         );
     }
     compare_observed(family, &plain, &serial);
+    super::decoder_public::null_copy_probes(&undefined);
 }
 
 /// DecodeWithAPI's expectations: basic info, then optional color, preview and
@@ -1067,8 +1083,11 @@ fn decode_test_concatenated_streams() {
             concatenated.push(concat);
         }
     }
-    let plain: Vec<String> = first.iter().map(|r| without_runner(r)).collect();
-    let observed = oracle(&plain);
+    // The Rust history gives the remainder; it compares exactly below.
+    let observed: Vec<String> = first
+        .iter()
+        .map(|r| super::observe(&without_runner(r)))
+        .collect();
     let mut second = Vec::new();
     for (concat, observation) in concatenated.iter().zip(&observed) {
         let remaining: usize = observation
@@ -1119,7 +1138,8 @@ fn partial_stream(reconstructible_jpeg: bool) -> Vec<String> {
                 file,
                 &format!("s{events} F{channels}.3.2.0.0 A{increment},1,-,{jpeg_size},100000000"),
             );
-            let observation = oracle(std::slice::from_ref(&request)).remove(0);
+            // The Rust history gives the feedback; it compares exactly below.
+            let observation = super::observe(&request);
             // The test reduces its increment when the last chunk is shorter,
             // and its JPEG buffer keeps its doubled size.
             let size = file_len(file);
@@ -1757,15 +1777,15 @@ fn decode_test_jpeg_reconstruction() {
     requests.push(verify_jpeg(&hex(&test_data(
         "decode-test/1x1_exif_xmp.jxl",
     ))));
-    let observations = oracle(&requests);
-    // The original reconstructs the pinned JPEG files exactly.
-    for (observation, original) in [
-        (&observations[3], "decode-test/flower.png.im_q85_420.jpg"),
-        (&observations[4], "decode-test/1x1_exif_xmp.jpg"),
+    // Both reconstruct the pinned JPEG files exactly.
+    for (request, original) in [
+        (&requests[3], "decode-test/flower.png.im_q85_420.jpg"),
+        (&requests[4], "decode-test/1x1_exif_xmp.jpg"),
     ] {
-        assert!(observation.contains(&format!(",{} ", hex(&test_data(original)))));
+        let jpeg = format!(",{} ", hex(&test_data(original)));
+        assert!(super::observe(request).contains(&jpeg));
     }
-    compare_observed("dt-jpeg", &requests, &observations);
+    compare("dt-jpeg", requests);
 }
 
 #[test]

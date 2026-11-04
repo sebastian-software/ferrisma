@@ -14,7 +14,17 @@ fn capture(index: usize) {
     let (request, expected) = row.split_once('\t').unwrap();
     let mut args = request.split_whitespace();
     assert_eq!(args.next(), Some("dpub-run"));
+    #[cfg(feature = "cpp-oracle")]
+    jxl::jxl::box_content_decoder::take_null_input_copies();
     assert_eq!(driver::observe(&mut args), expected, "{request}");
+    // Retained captures stay within the source-defined domain: none reaches
+    // the original's undefined null raw-box copy.
+    #[cfg(feature = "cpp-oracle")]
+    assert_eq!(
+        jxl::jxl::box_content_decoder::take_null_input_copies(),
+        0,
+        "{request}"
+    );
 }
 
 #[test]

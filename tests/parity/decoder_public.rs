@@ -13,21 +13,87 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
     driver::observe(args)
 }
 
+/// The UBSan diagnostic of the original's raw-box memcpy with a null input.
+pub(super) const NULL_COPY_DIAGNOSTIC: &str = "box_content_decoder.cc:110:23: runtime error: \
+     null pointer passed as argument 2, which is declared to never be null";
+
 /// Compares one family and retains its requests for the independent source
 /// audit when JXL_DECODER_PUBLIC_CAPTURE names a directory.
+///
+/// A history whose ProcessInput reaches the original's raw-box memcpy with a
+/// null input (the caller released its input, so `next_in` is null and zero
+/// bytes are copied) makes an undefined source call. The Rust port reports
+/// each such call through a test observation; those histories run
+/// original-only, and every other history compares exactly.
 pub(super) fn compare(family: &str, requests: Vec<String>) {
+    let (undefined, defined): (Vec<String>, Vec<String>) = requests.into_iter().partition(|r| {
+        jxl::jxl::box_content_decoder::take_null_input_copies();
+        super::observe(r);
+        jxl::jxl::box_content_decoder::take_null_input_copies() != 0
+    });
     if let Some(path) = std::env::var_os("JXL_DECODER_PUBLIC_CAPTURE") {
         use std::io::Write;
         let path = std::path::PathBuf::from(path);
         std::fs::create_dir_all(&path).unwrap();
-        let mut output = std::io::BufWriter::new(
-            std::fs::File::create(path.join(format!("{family}.requests"))).unwrap(),
-        );
-        for request in &requests {
-            writeln!(output, "{request}").unwrap();
+        for (suffix, list) in [("requests", &defined), ("undefined", &undefined)] {
+            let mut output = std::io::BufWriter::new(
+                std::fs::File::create(path.join(format!("{family}.{suffix}"))).unwrap(),
+            );
+            for request in list {
+                writeln!(output, "{request}").unwrap();
+            }
         }
     }
-    super::compare(requests);
+    super::compare(defined);
+    null_copy_probes(&undefined);
+}
+
+/// Runs each undefined history in its own original process. Instrumented
+/// Linux graphs must report exactly the null memcpy argument; the macOS libc
+/// declares no nonnull memcpy arguments, so there the probe must complete.
+pub(super) fn null_copy_probes(requests: &[String]) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    if requests.is_empty() {
+        return;
+    }
+    let instrumented = super::original_observations(&["patch-sanitizers".into()])[0] == "1";
+    let oracle = std::env::var_os("JXL_CPP_ORACLE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/oracle/jxl_oracle")
+        });
+    let detects = instrumented && cfg!(target_os = "linux");
+    for request in requests {
+        let mut child = Command::new(&oracle)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start original null-copy probe");
+        writeln!(child.stdin.take().unwrap(), "{request}").expect("write the exact request");
+        let output = child
+            .wait_with_output()
+            .expect("observe the original probe");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if detects {
+            assert!(
+                !output.status.success()
+                    && stderr.contains(NULL_COPY_DIAGNOSTIC)
+                    && stderr.matches("runtime error:").count() == 1,
+                "instrumented original must diagnose the null raw-box copy: {request}\n{stderr}"
+            );
+        } else {
+            assert!(
+                output.status.success() && stderr.is_empty(),
+                "the original null-copy probe must complete here: {request}\n{stderr}"
+            );
+        }
+    }
+    println!(
+        "{} original-only null raw-box copy histories; diagnosed={detects}",
+        requests.len()
+    );
 }
 
 /// Genuine inputs: raw codestreams and containers, with metadata, compressed

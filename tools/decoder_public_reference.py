@@ -52,18 +52,28 @@ def main():
     msrv = check["rust_version"]()
 
     corpora = {}
+    undefined_corpora = {}
     for graph in ["oracle", "oracle-asan"]:
         captured = {}
+        undefined = {}
         for family in FAMILIES:
-            path = ROOT / "target" / graph / "decoder-public-corpus" / f"{family}.requests"
-            captured[family] = path.read_bytes()
+            base = ROOT / "target" / graph / "decoder-public-corpus"
+            captured[family] = (base / f"{family}.requests").read_bytes()
+            undefined[family] = (base / f"{family}.undefined").read_bytes()
             if not captured[family]:
                 raise RuntimeError(f"Empty captured family {family} in {graph}")
         corpora[graph] = captured
-    if corpora["oracle"] != corpora["oracle-asan"]:
+        undefined_corpora[graph] = undefined
+    if corpora["oracle"] != corpora["oracle-asan"] or undefined_corpora["oracle"] != undefined_corpora["oracle-asan"]:
         raise RuntimeError("Captured request corpora differ between the original graphs")
     requests = b"".join(corpora["oracle"][family] for family in FAMILIES)
     count = len(requests.splitlines())
+    # Histories reaching the original's raw-box memcpy with a null input are
+    # undefined in the source and run original-only (see ADR 0003).
+    undefined_requests = [line for family in FAMILIES
+                          for line in undefined_corpora["oracle"][family].splitlines()]
+    null_copy = (b"box_content_decoder.cc:110:23: runtime error: null pointer passed as argument 2, "
+                 b"which is declared to never be null")
 
     owned = ["src/jxl/decode.rs", "src/jxl/codestream_header.rs", "src/jxl/base/data_parallel.rs",
              "src/jxl/decoder_input.rs", "src/jxl/decoder_input_cursor.rs",
@@ -129,10 +139,23 @@ def main():
         original = result.stdout
         run(["python3", "tools/decoder_public_captures.py", "--check", "--oracle", str(binary)],
             directory, "standalone-captures")
+        detects = graph == "oracle-asan" and platform.system() == "Linux"
+        diagnosed = 0
+        for request in undefined_requests:
+            probe = subprocess.run([str(binary)], input=request + b"\n", capture_output=True)
+            if detects:
+                if (probe.returncode == 0 or null_copy not in probe.stderr
+                        or probe.stderr.count(b"runtime error:") != 1):
+                    raise RuntimeError("Instrumented original must diagnose the null raw-box copy")
+                diagnosed += 1
+            elif probe.returncode or probe.stderr:
+                raise RuntimeError("Original null raw-box copy probe must complete on this graph")
         sources[graph] = {"bindings": bindings, "compile_commands": [adapter, *(m[0] for m in units.values())],
                           "instrumented_original_units": len(original_units),
                           "binary_sha256": sha(binary.read_bytes()),
-                          "observation_sha256": sha(original)}
+                          "observation_sha256": sha(original),
+                          "undefined_null_copy_probes": len(undefined_requests),
+                          "undefined_null_copy_diagnosed": diagnosed}
 
     rust = {}
     for profile, prefix, cargo_flags, rust_flags in [("debug", [], [], []),

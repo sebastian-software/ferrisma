@@ -1914,6 +1914,20 @@ processed; ProcessSections does not change the TOC. FrameDecoder construction
 admits every parsed metadata header, so a construction failure is an
 unreachable precondition and panics instead of inventing a decoder status.
 
+A caller that releases its input leaves `next_in` null. When ProcessInput then
+continues an uncompressed box being written to a box buffer or stored as
+Exif/XMP for JPEG reconstruction, the original JxlBoxContentDecoder::Process
+calls `memcpy(*next_out, nullptr, 0)`. That call is undefined:
+instrumented Linux graphs report the nonnull memcpy argument
+(box_content_decoder.cc:110), while the macOS libc declares none and the probe
+completes. The Rust copy is defined for zero bytes with any pointer, so its
+behavior is unchanged. Under `cpp-oracle`, the box decoder counts that copy
+for test observation only. Histories that reach it run original-only, each in
+its own process: instrumented Linux graphs must report exactly that
+diagnostic, and every other graph must complete. All other histories compare
+exactly. The instrumented Linux runs report no other null memcpy or memmove
+argument for the remaining corpus.
+
 The public entry points are Rust functions with the original names in snake
 case. Caller buffers, callback opaque values and input remain raw pointers on
 unsafe entry points that state their lifetime contracts. Output structs that
