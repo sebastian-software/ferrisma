@@ -71,6 +71,10 @@ def elf_dynamic_graph(start):
     if 'not found' in trace:
         raise SystemExit(f'Unresolved native ELF runtime dependency: {start}: {trace}')
     resolved = dict(re.findall(r'^\s*(\S+) => (/\S+) \(', trace, re.M))
+    # The ELF interpreter is printed as an absolute path without an => alias.
+    # It can also be a DT_NEEDED entry and must be inspected, not ignored.
+    for value in re.findall(r'^\s*(/\S+) \(', trace, re.M):
+        resolved[Path(value).name] = value
     graph, pending = {}, [start.resolve()]
     while pending:
         path = pending.pop()

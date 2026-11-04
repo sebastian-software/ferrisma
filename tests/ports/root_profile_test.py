@@ -22,22 +22,26 @@ class ElfRuntimeGuards(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
             binary, dependency = root / 'avifenc', root / 'libretained.so'
+            loader = root / 'ld-linux-x86-64.so.2'
             binary.touch()
             dependency.touch()
+            loader.touch()
 
             def output(command, **kwargs):
                 if command[0] == 'ldd':
-                    return f'libretained.so => {dependency} (0x1)\n'
+                    return f'libretained.so => {dependency} (0x1)\n  {loader} (0x2)\n'
                 name = 'libaom.so.3' if native else 'libmissing.so' if missing else None
                 if str(command[-1]) == str(binary):
                     name = 'libretained.so'
+                elif str(command[-1]) == str(dependency) and name is None:
+                    name = loader.name
                 return '' if name is None else f' (NEEDED) Shared library: [{name}]\n'
 
             with patch.object(linkage.subprocess, 'check_output', side_effect=output):
                 return linkage.elf_dynamic_graph(binary)
 
     def test_runtime_proof_includes_transitive_elf_objects(self):
-        self.assertEqual(len(self.graph()), 2)
+        self.assertEqual(len(self.graph()), 3)
 
     def test_transitive_native_codec_is_rejected(self):
         with self.assertRaisesRegex(SystemExit, 'Native default implementation'):
