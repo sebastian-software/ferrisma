@@ -529,6 +529,11 @@
     "status": "in_progress",
     "final_conclusion_verified": false,
     "native_release_and_debug_actual_artifact_proofs_verified": true,
-    "all_paginated_jobs": 1
+    "all_paginated_jobs": 1,
+    "final_job_conclusion_verified": true,
+    "job_id": 126661655926,
+    "job_conclusion": "success",
+    "job_completed_at": "2026-11-04T15:59:29Z",
+    "direct_job_metadata_sha256": "2ab093c284db9071e8e27caeedb89be2a36d269db06e8f6d6b989593a22922bd"
   }
 }
