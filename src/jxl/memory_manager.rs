@@ -34,7 +34,7 @@ impl Default for JxlMemoryManager {
 // not pass through these functions and receive no prefix or extra request.
 const DEFAULT_ALIGNMENT: usize = std::mem::align_of::<u128>();
 const DEFAULT_HEADER: usize = DEFAULT_ALIGNMENT;
-unsafe extern "C" fn default_alloc(_opaque: *mut c_void, size: usize) -> *mut c_void {
+pub(crate) unsafe extern "C" fn default_alloc(_opaque: *mut c_void, size: usize) -> *mut c_void {
     let Some(physical_size) = size.max(1).checked_add(DEFAULT_HEADER) else {
         return std::ptr::null_mut();
     };
@@ -54,7 +54,7 @@ unsafe extern "C" fn default_alloc(_opaque: *mut c_void, size: usize) -> *mut c_
         base.add(DEFAULT_HEADER).cast()
     }
 }
-unsafe extern "C" fn default_free(_opaque: *mut c_void, address: *mut c_void) {
+pub(crate) unsafe extern "C" fn default_free(_opaque: *mut c_void, address: *mut c_void) {
     if address.is_null() {
         return;
     }

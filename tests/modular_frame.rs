@@ -96,7 +96,7 @@ fn transform_cost_rejection_restores_pixels_while_fast_selection_keeps_the_stack
     assert_eq!(image.transform.len(), 1);
     assert_ne!(samples(&image), original);
     assert_eq!(transform.rct_type, 6);
-    image.undo_transforms(&header);
+    image.undo_transforms(&header, None);
     assert_eq!(samples(&image), original);
     assert!(!do_transform(
         &mut image,
@@ -122,7 +122,7 @@ fn palette_selection_and_transform_undo_recover_the_original_rgb_image() {
     assert_eq!(image.transform.len(), 1);
     assert_eq!(image.transform[0].id, TransformId::PALETTE);
     assert_eq!(image.transform[0].nb_colors, 4);
-    image.undo_transforms(&weighted::Header::default());
+    image.undo_transforms(&weighted::Header::default(), None);
     assert!(!image.error);
     assert_eq!(samples(&image), original);
 }
@@ -208,7 +208,7 @@ fn lossless_thunder_preparation_recovers_integer_pixels_through_the_selected_tra
         assert_eq!(e.cparams.responsive, 0);
         assert_eq!(e.stream_params.len(), 3);
         let mut restored = Image::clone_image(&e.stream_images[0]).unwrap();
-        restored.undo_transforms(&weighted::Header::default());
+        restored.undo_transforms(&weighted::Header::default(), None);
         assert!(!restored.error);
         assert_eq!(restored.channel.len(), if gray { 1 } else { 3 });
         for (c, channel) in restored.channel.iter().enumerate() {

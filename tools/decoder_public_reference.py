@@ -20,7 +20,7 @@ import subprocess
 from skcms_binding import live_bindings
 
 ROOT = Path(__file__).resolve().parent.parent
-FAMILIES = ["events", "box-buffers", "truncated", "misuse", "rewind", "allocations", "jpeg", "color", "frames", "frame-mutations", "jpeg-output"]
+FAMILIES = ["events", "box-buffers", "truncated", "misuse", "rewind", "allocations", "jpeg", "color", "frames", "frame-mutations", "jpeg-output", "runners"]
 ARCHIVE = r"libjxl-internal\.a(?:\[\d+\])?\((?:.*/)?{}\.o\)$"
 
 
@@ -77,6 +77,8 @@ def main():
 
     owned = ["src/jxl/decode.rs", "src/jxl/codestream_header.rs", "src/jxl/base/data_parallel.rs",
              "src/jxl/decoder_input.rs", "src/jxl/decoder_input_cursor.rs",
+             "src/threads/thread_parallel_runner.rs", "src/threads/thread_parallel_runner_internal.rs",
+             "src/threads/resizable_parallel_runner.rs",
              "tests/support/decoder_public.rs", "tests/parity/decoder_public.rs",
              "tools/decoder_public_probe.rs", "tools/decoder_public_reference.py",
              "tools/decoder_public_captures.py", "tools/captures/decoder_public.tsv",

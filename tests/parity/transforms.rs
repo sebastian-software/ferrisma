@@ -154,7 +154,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             let mut out = format!("{} {colors} {deltas} {}", status_code(&status), pred.0);
             image::modular(&mut out, &image);
             if status.is_ok() && undo {
-                let s = inv_palette(&mut image, begin, colors, deltas, pred, &header);
+                let s = inv_palette(&mut image, begin, colors, deltas, pred, &header, None);
                 write!(out, " {}", status_code(&s)).unwrap();
                 image::modular(&mut out, &image);
             }
@@ -189,7 +189,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             let s = if kind == "tr-meta" {
                 t.meta_apply(&mut image)
             } else {
-                t.inverse(&mut image, &header)
+                t.inverse(&mut image, &header, None)
             };
             let mut out = status_code(&s).to_string();
             image::transform(&mut out, &t);
@@ -208,7 +208,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             image.transform = t;
             let mut header = weighted::Header::default();
             weighted::predictor_mode(preset, &mut header);
-            image.undo_transforms(&header);
+            image.undo_transforms(&header, None);
             let mut out = "U".to_owned();
             image::modular(&mut out, &image);
             out
@@ -237,7 +237,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 image.transform.push(squeeze);
             }
             image::modular(&mut out, &image);
-            image.undo_transforms(&weighted::Header::default());
+            image.undo_transforms(&weighted::Header::default(), None);
             out.push_str(" U");
             image::modular(&mut out, &image);
             out
@@ -276,7 +276,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             }
             let s = match kind {
                 "sq-meta" => meta_squeeze(&mut image, &mut p),
-                "sq-inverse" => inv_squeeze(&mut image, &p),
+                "sq-inverse" => inv_squeeze(&mut image, &p, None),
                 _ => fwd_squeeze(&mut image, p.clone()),
             };
             let mut out = status_code(&s).to_string();
@@ -287,7 +287,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 image::modular(&mut out, &image);
             }
             if kind == "sq-roundtrip" && s.is_ok() {
-                let s = inv_squeeze(&mut image, &p);
+                let s = inv_squeeze(&mut image, &p, None);
                 write!(out, " {}", status_code(&s)).unwrap();
                 image::modular(&mut out, &image);
             }
@@ -326,7 +326,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             let mut image = read_image(args);
             let mut h = weighted::Header::default();
             weighted::predictor_mode(preset, &mut h);
-            let s = inv_palette(&mut image, b, colors, deltas, p, &h);
+            let s = inv_palette(&mut image, b, colors, deltas, p, &h, None);
             let mut out = status_code(&s).to_string();
             image::modular(&mut out, &image);
             out

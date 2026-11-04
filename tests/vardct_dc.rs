@@ -33,6 +33,7 @@ fn smoothing_retains_the_selected_original_nan_payload() {
         &[0.125, 0.5, 2.0],
         &mut image,
         &YCbCrChromaSubsampling::default(),
+        None,
     )
     .unwrap();
     for c in 0..3 {

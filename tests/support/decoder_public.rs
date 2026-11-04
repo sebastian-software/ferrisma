@@ -11,6 +11,15 @@ use jxl::jxl::color_encoding::JxlColorEncoding;
 use jxl::jxl::decode::{self as api, JxlColorProfileTarget, JxlDecoder, JxlDecoderStatus};
 use jxl::jxl::memory_manager::JxlMemoryManager;
 use jxl::jxl::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlEndianness, JxlPixelFormat};
+use jxl::threads::resizable_parallel_runner::{
+    jxl_resizable_parallel_runner, jxl_resizable_parallel_runner_create,
+    jxl_resizable_parallel_runner_destroy, jxl_resizable_parallel_runner_set_threads,
+    jxl_resizable_parallel_runner_suggest_threads,
+};
+use jxl::threads::thread_parallel_runner::{
+    jxl_thread_parallel_runner, jxl_thread_parallel_runner_create,
+    jxl_thread_parallel_runner_default_num_worker_threads, jxl_thread_parallel_runner_destroy,
+};
 use std::alloc::{Layout, alloc, dealloc};
 use std::collections::BTreeMap;
 use std::ffi::c_void;
@@ -109,7 +118,8 @@ fn digest(v: &[u8]) -> u64 {
 }
 
 /// Pixel-callback observations in a stable heap cell, so callbacks never
-/// alias a live borrow of the driver.
+/// alias a live borrow of the driver. Under a runner the decoder calls them
+/// from runner threads, one at a time, while the driver waits in the decoder.
 struct CallbackState {
     pixel_bytes: usize,
     hash: u64,
@@ -121,6 +131,10 @@ struct CallbackState {
     test_len: usize,
     test_stride: usize,
     test_overflow: bool,
+    /// Mode 5: the latest init's thread count, run calls and thread-id checks.
+    mt_threads: usize,
+    mt_calls: usize,
+    mt_bad_thread: bool,
 }
 impl CallbackState {
     fn record(&mut self, thread: usize, x: usize, y: usize, n: usize, pixels: *const c_void) {
@@ -196,6 +210,38 @@ unsafe extern "C" fn test_callback(
     unsafe {
         std::ptr::copy_nonoverlapping(pixels.cast::<u8>(), state.test_image.add(offset), bytes);
     }
+}
+
+/// Mode 5: the multithreaded callback writing into the caller buffer.
+unsafe extern "C" fn buffer_init_callback(
+    opaque: *mut c_void,
+    threads: usize,
+    pixels: usize,
+) -> *mut c_void {
+    // SAFETY: opaque is the driver's live callback cell.
+    unsafe { (*opaque.cast::<CallbackState>()).mt_threads = threads };
+    // SAFETY: As above.
+    unsafe { init_callback(opaque, threads, pixels) }
+}
+unsafe extern "C" fn buffer_run_callback(
+    opaque: *mut c_void,
+    thread: usize,
+    x: usize,
+    y: usize,
+    n: usize,
+    pixels: *const c_void,
+) {
+    {
+        // SAFETY: opaque is the driver's live callback cell; this borrow ends
+        // before test_callback forms its own.
+        let state = unsafe { &mut *opaque.cast::<CallbackState>() };
+        state.mt_calls += 1;
+        if thread >= state.mt_threads {
+            state.mt_bad_thread = true;
+        }
+    }
+    // SAFETY: The decoder's callback arguments, forwarded.
+    unsafe { test_callback(opaque, x, y, n, pixels) };
 }
 
 fn f32_bits(value: f32) -> u32 {
@@ -275,6 +321,8 @@ pub struct Driver {
     /// Streaming loop input window and the total bytes made available.
     a_avail: usize,
     a_total: usize,
+    runner_kind: i32,
+    runner: *mut c_void,
 }
 
 impl Drop for Driver {
@@ -283,6 +331,7 @@ impl Drop for Driver {
             // SAFETY: The driver's own live decoder.
             unsafe { api::jxl_decoder_destroy(self.dec) };
         }
+        self.destroy_runner();
         // SAFETY: The cell from Box::into_raw is released once, after the
         // decoder that could call into it.
         drop(unsafe { Box::from_raw(self.cb) });
@@ -332,6 +381,9 @@ impl Driver {
                 test_len: 0,
                 test_stride: 0,
                 test_overflow: false,
+                mt_threads: 0,
+                mt_calls: 0,
+                mt_bad_thread: false,
             })),
             print_events: false,
             retired: Vec::new(),
@@ -340,6 +392,8 @@ impl Driver {
             grow_box: Vec::new(),
             a_avail: 0,
             a_total: 0,
+            runner_kind: 0,
+            runner: std::ptr::null_mut(),
         }
     }
 
@@ -629,9 +683,106 @@ impl Driver {
             }
             'A' => self.stream_loop(arg),
             'B' => self.progression_loop(arg),
-            '@' | '#' => panic!("parallel runners exist only in the original"),
+            '@' => {
+                let status = self.set_runner(arg);
+                self.status(status);
+            }
+            '#' => {
+                let result = self.resize_runner();
+                write!(self.out, "{result}").unwrap();
+            }
             _ => panic!("decoder public op"),
         }
+    }
+
+    /// @0: jxl_decoder_set_parallel_runner(dec, None, null); @1: the thread
+    /// runner with min(hardware, 16) workers; @2: the resizable runner; @3:
+    /// the thread runner with the default worker count; @t<n>: the thread
+    /// runner with n workers; @r<n>: the resizable runner after
+    /// SetThreads(n). As in the oracle, the previous runner is destroyed
+    /// first.
+    fn set_runner(&mut self, arg: &str) -> JxlDecoderStatus {
+        self.destroy_runner();
+        let explicit = arg
+            .strip_prefix('t')
+            .map(|n| (1, n))
+            .or_else(|| arg.strip_prefix('r').map(|n| (2, n)));
+        let (kind, threads) = match explicit {
+            Some((kind, n)) => (kind, Some(n.parse::<usize>().unwrap())),
+            None => (arg.parse::<i32>().unwrap(), None),
+        };
+        self.runner_kind = kind;
+        if kind == 0 {
+            // SAFETY: No runner.
+            return unsafe {
+                api::jxl_decoder_set_parallel_runner(self.dec(), None, std::ptr::null_mut())
+            };
+        }
+        if kind == 2 {
+            self.runner = jxl_resizable_parallel_runner_create(std::ptr::null());
+            if let Some(n) = threads {
+                // SAFETY: The new runner is idle.
+                unsafe { jxl_resizable_parallel_runner_set_threads(self.runner, n) };
+            }
+            let runner = self.runner;
+            // SAFETY: The translated runner obeys parallel_runner.h and lives
+            // until destroy_runner, after the decoder stops using it.
+            return unsafe {
+                api::jxl_decoder_set_parallel_runner(
+                    self.dec(),
+                    Some(jxl_resizable_parallel_runner),
+                    runner,
+                )
+            };
+        }
+        let threads = threads.unwrap_or_else(|| {
+            let default = jxl_thread_parallel_runner_default_num_worker_threads();
+            if kind == 1 { default.min(16) } else { default }
+        });
+        // SAFETY: A null manager selects the default allocator.
+        self.runner = unsafe { jxl_thread_parallel_runner_create(std::ptr::null(), threads) };
+        let runner = self.runner;
+        // SAFETY: As above.
+        unsafe {
+            api::jxl_decoder_set_parallel_runner(
+                self.dec(),
+                Some(jxl_thread_parallel_runner),
+                runner,
+            )
+        }
+    }
+
+    /// #: size the resizable runner for the image, as DecodeWithAPI does.
+    fn resize_runner(&mut self) -> i32 {
+        let mut info = JxlBasicInfo::zeroed();
+        if self.runner_kind != 2
+            || api::jxl_decoder_get_basic_info(self.dec(), Some(&mut info))
+                != JxlDecoderStatus::SUCCESS
+        {
+            return 1;
+        }
+        let threads = jxl_resizable_parallel_runner_suggest_threads(
+            u64::from(info.xsize),
+            u64::from(info.ysize),
+        );
+        // SAFETY: The driver's idle resizable runner.
+        unsafe { jxl_resizable_parallel_runner_set_threads(self.runner, threads as usize) };
+        0
+    }
+
+    fn destroy_runner(&mut self) {
+        if self.runner.is_null() {
+            return;
+        }
+        // SAFETY: The driver's idle runner, not used again.
+        unsafe {
+            if self.runner_kind == 2 {
+                jxl_resizable_parallel_runner_destroy(self.runner);
+            } else {
+                jxl_thread_parallel_runner_destroy(self.runner);
+            }
+        }
+        self.runner = std::ptr::null_mut();
     }
 
     fn status(&mut self, status: JxlDecoderStatus) {
@@ -1023,7 +1174,7 @@ impl Driver {
         // decoder's callbacks and this driver access, never concurrently.
         unsafe { (*self.cb).pixel_bytes = pixel_bytes };
         let opaque = self.cb.cast::<c_void>();
-        let s = if !preview && self.out_mode == 4 {
+        let s = if !preview && (self.out_mode == 4 || self.out_mode == 5) {
             let mut info = JxlBasicInfo::zeroed();
             if api::jxl_decoder_get_basic_info(self.dec(), Some(&mut info))
                 != JxlDecoderStatus::SUCCESS
@@ -1045,12 +1196,23 @@ impl Driver {
             // SAFETY: The image buffer stays alive and unmoved until the next
             // output request, which replaces the callback.
             unsafe {
-                api::jxl_decoder_set_image_out_callback(
-                    self.dec(),
-                    &format,
-                    Some(test_callback),
-                    opaque,
-                )
+                if self.out_mode == 4 {
+                    api::jxl_decoder_set_image_out_callback(
+                        self.dec(),
+                        &format,
+                        Some(test_callback),
+                        opaque,
+                    )
+                } else {
+                    api::jxl_decoder_set_multithreaded_image_out_callback(
+                        self.dec(),
+                        &format,
+                        Some(buffer_init_callback),
+                        Some(buffer_run_callback),
+                        Some(destroy_callback),
+                        opaque,
+                    )
+                }
             }
         } else if preview || self.out_mode == 0 {
             self.image = vec![0xA5; size + 1];
@@ -1142,6 +1304,10 @@ impl Driver {
             cb.calls, cb.inits, cb.destroys, cb.hash
         )
         .unwrap();
+        if self.out_mode == 5 {
+            let mt = format!(",mt{},{}", cb.mt_calls, i32::from(cb.mt_bad_thread));
+            self.out.push_str(&mt);
+        }
     }
 
     fn frame_info(&mut self) {

@@ -261,7 +261,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 .unwrap();
             }
             if status.is_ok() && roundtrip {
-                image.undo_transforms(&weighted::Header::default());
+                image.undo_transforms(&weighted::Header::default(), None);
                 assert!(!image.error);
                 let mut decoded =
                     Image::create(image.w, image.h, image.bitdepth, image.channel.len() as i32)

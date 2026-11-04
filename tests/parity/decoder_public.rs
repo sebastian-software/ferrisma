@@ -664,3 +664,120 @@ fn public_decoder_jpeg_output_matches_original() {
     }
     compare("jpeg-output", requests);
 }
+
+/// Genuine inputs whose decoding reaches every RunOnPool site of the decoder:
+/// several DC and AC groups, adaptive DC smoothing, progressive passes and
+/// flushes, noise and filters, and full-image modular frames at least a group
+/// in size, whose inverse RCT, palette and squeeze and group conversion use
+/// the pool. Modular groups are 128 pixels (option 26); a 4x-resampled alpha
+/// channel keeps the global transforms in the full image. Each VarDCT decoder
+/// computes its dequantization tables first, so the lossy images stay small
+/// and run fewer runner variants.
+const RUNNER_SPECS: &[&str] = &[
+    "w=8 h=8 c=3",
+    "w=300 h=280 c=3 opt=26:0",
+    "w=300 h=280 c=3 a=1 ec=1 effort=3 opt=26:0 opt=25:6",
+    "w=300 h=280 c=1 bits=16 effort=2 opt=26:0",
+    "w=300 h=280 c=3 a=1 bits=2 opt=26:0 opt=3:4",
+    "w=300 h=280 c=3 a=1 effort=3 opt=26:0 opt=3:4",
+    "w=300 h=220 c=3 lossless=0 opt=11:1 opt=26:0",
+    "w=290 h=40 c=3 lossless=0",
+    "w=290 h=40 c=3 lossless=0 opt=16:1",
+    "w=290 h=40 c=3 lossless=0 opt=17:1 opt=18:1",
+    "w=290 h=40 c=3 lossless=0 opt=19:1",
+    "w=290 h=40 c=3 lossless=0 opt=6:1 opt=9:3 opt=10:1",
+    "w=280 h=40 c=3 a=1 lossless=0 frames=2 duration=1",
+    "w=2305 h=8 c=3 lossless=0 container=1 mode=2 box=xml:10:0",
+];
+
+/// The thread runner with 0, 1, 2 and 5 workers and the resizable runner
+/// after SetThreads(0, 1, 3, 8); 0 runs every task on the caller.
+const EXPLICIT_RUNNERS: &[&str] = &["@t0", "@t1", "@t2", "@t5", "@r0", "@r1", "@r3", "@r8"];
+
+/// Histories decoded with each Rust thread runner must equal the original's
+/// with the same runner. The call order and threads under a runner are
+/// nondeterministic, so outputs compare through caller buffers or the
+/// order-independent callback buffer (output mode 4). For those histories,
+/// the original with a runner must also reproduce its runner-free history.
+/// The multithreaded callback (output mode 5) also writes into a caller
+/// buffer; its init thread counts depend on the runner, are deterministic for
+/// a given runner and thread count, and enter the comparison, as does a run
+/// call whose thread id is not below the latest init's count. Every runner
+/// decodes each modular file at once and in chunks; the other histories and
+/// the VarDCT files rotate through the runners.
+#[test]
+fn public_decoder_parallel_runners_match_original() {
+    let files = super::original_observations(
+        &RUNNER_SPECS
+            .iter()
+            .map(|spec| format!("dpub-encode {spec}"))
+            .collect::<Vec<_>>(),
+    );
+    // Output formats: channels.type.endianness.align.mode.
+    let scripts = [
+        "s5120 F4.2.0.0.0 V1 L1,1000000,0,1000,1",
+        "s5184 F3.0.0.0.4 L3,1024,0,1000,1",
+        "s38400 D2 M2 F3.3.0.0.0 L2,4096,0,1000,1",
+        "s38400 D4 F4.2.0.0.4 L4,1000000,0,10,1",
+        "s5120 F3.2.0.0.0 L1,1000000,0,4,0 K f x s5120 L2,7000,0,1000,1",
+    ];
+    let mut runners: Vec<&str> = EXPLICIT_RUNNERS.to_vec();
+    // DecodeWithAPI's runners and the explicit null runner.
+    runners.extend(["@0", "@1", "@2", "@3"]);
+    let mut requests = Vec::new();
+    let mut serial = Vec::new();
+    let mut rotation = 0;
+    let mut next = |list: &[&'static str]| {
+        rotation += 5;
+        list[rotation % list.len()]
+    };
+    for (spec, file) in RUNNER_SPECS.iter().zip(&files) {
+        let lossy = spec.contains("lossless=0");
+        for (index, script) in scripts.iter().enumerate() {
+            let count = match (lossy, index) {
+                (false, 0 | 1) => runners.len(),
+                (false, _) | (true, 0) => 3,
+                (true, _) => 1,
+            };
+            for i in 0..count {
+                let runner = if count == runners.len() {
+                    runners[i]
+                } else {
+                    next(&runners)
+                };
+                serial.push(format!("dpub-run 0 0 {file} {script}"));
+                requests.push(format!("dpub-run 0 0 {file} {runner} {script}"));
+            }
+        }
+    }
+    let serial = super::original_observations(&serial);
+    let threaded = super::original_observations(&requests);
+    for ((request, threaded), serial) in requests.iter().zip(&threaded).zip(&serial) {
+        let stripped = threaded
+            .split(' ')
+            .filter(|token| !token.starts_with("@:"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(
+            &stripped, serial,
+            "the runner changes the original history: {request}"
+        );
+    }
+    for (spec, file) in RUNNER_SPECS.iter().zip(&files) {
+        let selected: Vec<&str> = if spec.contains("lossless=0") {
+            (0..2).map(|_| next(EXPLICIT_RUNNERS)).collect()
+        } else {
+            EXPLICIT_RUNNERS.to_vec()
+        };
+        for runner in selected {
+            requests.push(format!(
+                "dpub-run 0 0 {file} {runner} s5120 F4.3.1.0.5 L1,1000000,0,1000,1"
+            ));
+        }
+        let runner = next(EXPLICIT_RUNNERS);
+        requests.push(format!(
+            "dpub-run 0 0 {file} {runner} s38400 D2 M2 F3.2.0.0.5 L5,4096,0,1000,1"
+        ));
+    }
+    compare("runners", requests);
+}

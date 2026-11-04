@@ -113,7 +113,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 }
             }
         }
-        let status = adaptive_dc_smoothing(&factors, &mut p, &chroma(mode));
+        let status = adaptive_dc_smoothing(&factors, &mut p, &chroma(mode), None);
         write!(out, "{}", status_code(&status)).unwrap();
         for c in 0..3 {
             let cs = chroma(mode);

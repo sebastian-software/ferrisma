@@ -75,3 +75,11 @@ fn animation_frames_through_multithreaded_callbacks() {
 fn filtered_vardct_frame_with_cms_output_profile() {
     capture(11);
 }
+#[test]
+fn vardct_groups_through_the_thread_runner() {
+    capture(12);
+}
+#[test]
+fn multithreaded_callbacks_through_the_resizable_runner() {
+    capture(13);
+}

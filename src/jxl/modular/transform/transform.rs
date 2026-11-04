@@ -3,7 +3,7 @@
 
 //! Transform storage/fields, channel validation, and PixelAdd from
 //! lib/jxl/modular/transform/transform.{h,cc}, including MetaApply/Inverse
-//! dispatch to the scalar null-pool kernels. Rust initializes
+//! dispatch to the scalar kernels with the caller's pool. Rust initializes
 //! nonserialized max_delta_error storage that has no defined initial C++ value.
 
 use super::super::modular_image::Image;
@@ -12,6 +12,7 @@ use super::palette::{inv_palette, meta_palette};
 use super::rct::inv_rct;
 use super::squeeze::{inv_squeeze, meta_squeeze};
 use super::squeeze_params::SqueezeParams;
+use crate::jxl::base::data_parallel::ThreadPool;
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::field_encodings::{Fields, U32Enc, bits, bits_offset, val};
 use crate::jxl::fields::{Visitor, bundle};
@@ -62,10 +63,15 @@ impl Transform {
         value.id = id;
         value
     }
-    pub fn inverse(&self, input: &mut Image, wp_header: &weighted::Header) -> Status {
+    pub fn inverse(
+        &self,
+        input: &mut Image,
+        wp_header: &weighted::Header,
+        pool: Option<&ThreadPool>,
+    ) -> Status {
         match self.id {
-            TransformId::RCT => inv_rct(input, self.begin_c as usize, self.rct_type as usize),
-            TransformId::SQUEEZE => inv_squeeze(input, &self.squeezes),
+            TransformId::RCT => inv_rct(input, self.begin_c as usize, self.rct_type as usize, pool),
+            TransformId::SQUEEZE => inv_squeeze(input, &self.squeezes, pool),
             TransformId::PALETTE => inv_palette(
                 input,
                 self.begin_c,
@@ -73,6 +79,7 @@ impl Transform {
                 self.nb_deltas,
                 self.predictor,
                 wp_header,
+                pool,
             ),
             _ => Err(StatusCode::GenericError),
         }

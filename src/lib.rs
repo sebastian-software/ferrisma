@@ -8,3 +8,4 @@
 pub mod brotli;
 pub mod jxl;
 pub mod skcms;
+pub mod threads;

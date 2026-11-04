@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Palette lookup, inverse pixels, and metadata from modular/transform/
-//! palette.{h,cc}, with the original null-pool task order. Plane owners move
-//! through the source index-buffer swap; short shared borrows end before each
-//! output write. Custom runners and allocator callbacks remain unported.
+//! palette.{h,cc}. RunOnPool keeps the original task order with a null pool;
+//! a runner's tasks are serialized by `run_on_pool_exclusive`. Plane owners
+//! move through the source index-buffer swap; short shared borrows end before
+//! each output write. Allocator callbacks remain unported.
 
 use super::transform::check_equal_channels;
+use crate::jxl::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::image::ImageI;
 use crate::jxl::modular::encoding::context_predict::{
@@ -156,6 +158,7 @@ pub fn inv_palette(
     nb_deltas: u32,
     predictor: Predictor,
     wp_header: &weighted::Header,
+    pool: Option<&ThreadPool>,
 ) -> Status {
     if input.nb_meta_channels < 1 {
         return Err(StatusCode::GenericError);
@@ -183,7 +186,7 @@ pub fn inv_palette(
         // Avoid touching empty channels with nonzero height, as in the source.
     } else if nb_deltas == 0 && predictor == Predictor::ZERO {
         if nb == 1 {
-            for task in 0..h as u32 {
+            let process_row = |input: &mut Image, task: u32, _thread: usize| -> Status {
                 let y = task as usize;
                 for x in 0..w {
                     // Clamp1 preserves this order even when palette_size==0.
@@ -205,9 +208,13 @@ pub fn inv_palette(
                     );
                     input.channel[c0i].row_mut(y)[x] = value;
                 }
-            }
+                Ok(())
+            };
+            // SAFETY: The rows borrow only the image's channel owners, which
+            // hold no thread-affine values.
+            unsafe { run_on_pool_exclusive_no_init(pool, 0, h as u32, input, process_row) }?;
         } else {
-            for task in 0..h as u32 {
+            let process_row = |input: &mut Image, task: u32, _thread: usize| -> Status {
                 let y = task as usize;
                 for x in 0..w {
                     let index = input.channel[c0i].row(y)[x];
@@ -223,14 +230,17 @@ pub fn inv_palette(
                         input.channel[c0i + c].row_mut(y)[x] = value;
                     }
                 }
-            }
+                Ok(())
+            };
+            // SAFETY: As above.
+            unsafe { run_on_pool_exclusive_no_init(pool, 0, h as u32, input, process_row) }?;
         }
     } else {
         let plane = &mut input.channel[c0i].plane;
         let mut indices = ImageI::create(plane.xsize(), plane.ysize())?;
         plane.swap(&mut indices);
         if predictor == Predictor::WEIGHTED {
-            for c in 0..nb as u32 {
+            let process_channel = |input: &mut Image, c: u32, _thread: usize| -> Status {
                 let ci = c0i + c as usize;
                 let (cw, ch) = (input.channel[ci].w, input.channel[ci].h);
                 let mut state = weighted::State::new(wp_header, cw, ch);
@@ -262,9 +272,13 @@ pub fn inv_palette(
                         state.update_errors(i64::from(input.channel[ci].row(y)[x]), x, y, cw);
                     }
                 }
-            }
+                Ok(())
+            };
+            // SAFETY: The channels borrow the image's owners and the local
+            // index plane, which hold no thread-affine values.
+            unsafe { run_on_pool_exclusive_no_init(pool, 0, nb as u32, input, process_channel) }?;
         } else {
-            for c in 0..nb as u32 {
+            let process_channel = |input: &mut Image, c: u32, _thread: usize| -> Status {
                 let ci = c0i + c as usize;
                 let (cw, ch) = (input.channel[ci].w, input.channel[ci].h);
                 for y in 0..ch {
@@ -293,7 +307,10 @@ pub fn inv_palette(
                         input.channel[ci].row_mut(y)[x] = val as i32;
                     }
                 }
-            }
+                Ok(())
+            };
+            // SAFETY: As above.
+            unsafe { run_on_pool_exclusive_no_init(pool, 0, nb as u32, input, process_channel) }?;
         }
     }
     if c0 as usize >= input.nb_meta_channels {
