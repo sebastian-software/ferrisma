@@ -1,7 +1,7 @@
 # Portable libaom port
 
-Status: native Linux Release and focused Debug acceptance passes under
-ADR 0048; native macOS completion and final root integration are pending.
+Status: native Linux and macOS Release and focused Debug acceptance passes
+under ADR 0048; final root integration is pending.
 All 168 portable C
 translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug and
 Release, with a raw Rust API and passing focused native comparisons. Before
@@ -536,8 +536,22 @@ classified original rate-control failure, and successful fixture repair remain
 preserved. Exact evidence hashes and the independent ABI/oracle checkpoint are
 recorded in
 [`aom-linux-release-acceptance.json`](aom-linux-release-acceptance.json).
-This completes the native Linux gate. Native macOS completion and final
-default root validation are still required before changing the default.
+This completes the native Linux gate.
+
+The native macOS composition also passes all 120 original main partitions,
+the 38 rate-control cases, the unchanged disabled-speed boundary, and the
+69 focused Debug cases. It combines five unchanged source-run pairs with
+verified continuation and local native executions of the same frozen binaries.
+All 17,228 active main registrations and 23 matching dynamic skips are retained.
+Independently passing duplicate executions remain separate; their differing
+XML timings and logs are never mixed or overwritten. Exact origins and actual
+report/XML/log hashes are recorded in
+[`aom-macos-release-acceptance.json`](aom-macos-release-acceptance.json).
+The original named-layout ABI evidence is retained only after checking that
+the complete source difference is the four scalar unaligned-load corrections;
+no type definition, signature, original source, or header changed.
+Both native standalone gates and the finite correspondence review are complete.
+Final default root integration and validation remain required.
 
 The hosted `macos-26` build now passes both original profiles and verifies
 18,207 Debug / 18,157 Release named record instances with 204,984 / 204,684
