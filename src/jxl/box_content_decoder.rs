@@ -15,6 +15,20 @@ use crate::brotli::status::{
 };
 use std::mem::MaybeUninit;
 
+#[cfg(feature = "cpp-oracle")]
+thread_local! {
+    static NULL_INPUT_COPIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Test observation for the differential oracle: how many times this thread
+/// reached the original's raw-box memcpy with a null input pointer since the
+/// last call. That source call is undefined, so such histories run
+/// original-only. Observation only; it changes no decoder behavior.
+#[cfg(feature = "cpp-oracle")]
+pub fn take_null_input_copies() -> usize {
+    NULL_INPUT_COPIES.with(|count| count.replace(0))
+}
+
 pub struct JxlBoxContentDecoder {
     brotli_dec: usize,
     header_done: MaybeUninit<bool>,
@@ -211,6 +225,13 @@ impl JxlBoxContentDecoder {
             // SAFETY: Exact original caller count/pointer reads; raw storage
             // retains their actual aliases and no whole output slice is formed.
             let to_write = can_read.min(unsafe { avail_out.read() });
+            #[cfg(feature = "cpp-oracle")]
+            if next_in.is_null() {
+                NULL_INPUT_COPIES.with(|count| count.set(count.get() + 1));
+            }
+            // A null input reaches this copy only with zero bytes; the source
+            // memcpy is then undefined, while a zero-sized Rust copy accepts
+            // any pointer (see ADR 0003).
             unsafe { std::ptr::copy_nonoverlapping(next_in, next_out.read(), to_write) };
             // SAFETY: Each source reload occurs after memcpy, not before it.
             unsafe {

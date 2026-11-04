@@ -885,14 +885,14 @@ impl FrameDecoderScope<'_, '_, '_> {
         let cms_stage = unsafe {
             add_output_color_stages(&mut self.state.output_encoding_info, &mut builder, linear)
         }?;
-        if cms_stage {
+        if cms_stage && options.use_slow_render_pipeline {
             // The original simple pipeline prepares stages for threads before
             // its first SetInputSizes, so CmsStage::PrepareForThreads would
             // initialize the CMS with its indeterminate xsize_. That sequence
             // has no defined source behavior; admission stops before it. The
             // low-memory pipeline's Init sets input sizes during Finalize,
-            // before PrepareForThreads, so it is defined there; admitting CMS
-            // frames for that pipeline belongs to the decode.cc boundary.
+            // before PrepareForThreads, so it is defined and admitted there;
+            // decode.cc always selects that pipeline.
             return Err(StatusCode::Unsupported);
         }
         let info = &self.state.output_encoding_info;
@@ -2060,9 +2060,10 @@ pub struct SequenceFrameDecode<'m> {
 /// admitted. The output-encoding setters below perform the OutputEncodingInfo
 /// operations that decode.cc's color-profile, CMS and intensity-target API
 /// applies; that API's own argument and state checks belong to its caller.
-/// A frame whose source pipeline needs a CMS stage returns Unsupported when
-/// its pipeline is prepared: the selected simple pipeline would initialize
-/// that stage before its input sizes are defined (see prepare_pipeline).
+/// With the simple pipeline, a frame whose source pipeline needs a CMS stage
+/// returns Unsupported when its pipeline is prepared: that pipeline would
+/// initialize the stage before its input sizes are defined. The low-memory
+/// pipeline (`with_rendering_pipeline(metadata, false)`) admits such frames.
 pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
     output: Rc<RefCell<ImageBundle<'m>>>,
@@ -2070,8 +2071,8 @@ pub struct SequenceDecoder<'m> {
     use_slow_rendering_pipeline: bool,
 }
 // Metadata admission of the sequence profile. Every color encoding, ICC
-// profile and intensity target is admitted; a frame that needs a CMS stage
-// returns Unsupported when its pipeline is prepared.
+// profile and intensity target is admitted; with the simple pipeline, a frame
+// that needs a CMS stage returns Unsupported when its pipeline is prepared.
 fn admit_sequence_metadata(metadata: &super::image_metadata::CodecMetadata) -> Status {
     let m = &metadata.m;
     if !(1..=32).contains(&m.bit_depth.bits_per_sample)

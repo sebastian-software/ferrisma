@@ -121,7 +121,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        group: [decoder, decoder-state, extra-channels, geometry, components, brotli, diagnostics]
+        group: [decoder, decoder-state, public-decoder, extra-channels, geometry, components, brotli, diagnostics]
         exclude:
           - { os: macos-latest, group: diagnostics }
     runs-on: ${{ matrix.os }}
@@ -257,6 +257,27 @@ jobs:
             target/decoder-input-acceptance
             target/box-content-acceptance
             target/jpeg-reconstruction-reference
+          if-no-files-found: error
+          retention-days: 7
+
+      # The public decoder audit replays the requests that its parity tests
+      # capture against the original public C API in both graphs.
+      - name: Capture the public decoder parity requests
+        if: matrix.group == 'public-decoder'
+        run: |
+          python3 tools/check.py --stage test --filter decoder_public::
+          python3 tools/check.py --stage test --filter decoder_public:: --sanitizers
+      - name: Audit the public decoder against the original public C API
+        if: matrix.group == 'public-decoder'
+        run: python3 tools/decoder_public_reference.py --output target/decoder-public-acceptance
+      - name: Retain public decoder source evidence
+        if: ${{ !cancelled() && matrix.group == 'public-decoder' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: decoder-public-${{ runner.os }}
+          path: |
+            target/decoder-public-acceptance
+            !target/decoder-public-acceptance/**/build
           if-no-files-found: error
           retention-days: 7
 

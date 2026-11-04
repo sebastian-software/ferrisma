@@ -1863,6 +1863,78 @@ Callbacks cannot unwind or reenter the input owner. This does not establish a
 general private-state/caller-buffer alias contract or the complete decoder's
 reset, allocation or callback APIs. Source size_t additions wrap explicitly;
 PaddedBytes allocation geometry retains the original checked additions.
+
+### Public decoder object
+
+JxlDecoderCreate allocates the decoder object through the caller's memory
+manager and constructs it in place; JxlDecoderDestroy copies the manager,
+destroys the object and frees it through that copy. The object's size is the
+Rust layout's, so observers name that first allocation `Adec` instead of
+comparing its size. The allocation must be aligned for the Rust object, as the
+source's placement new requires; a misaligned block panics instead of creating
+an invalid object.
+
+Fields keep the source order. The persistent input fields stay in the existing
+DecoderInput owner at the codestream_copy position. The memory manager, codec
+metadata, output image metadata and the simple image-callback record live in
+stable Rust heap cells beside the object. Other owners retain raw pointers to
+those fields: the input copy, frame headers, image bundles and the simple
+callback's opaque value. A reference derived from an inline field would be
+invalidated whenever an API call borrows the decoder exclusively. The cells are
+global-allocator storage, not memory-manager allocations. A retained reference
+is never read after a later mutation of its cell: Rewind releases the bundle
+and codec state before replacing the metadata, and the frame header created by
+Rewind is replaced before any reader of its metadata pointer can run.
+
+Destruction releases every owner explicitly in reverse declaration order, so
+the jxlp payloads and the codestream copy keep their original free order
+relative to each other and to the remaining owners. std::map destroys its
+nodes in a standard-library-dependent order, so the public-API observers
+compare the releases of one destruction checkpoint (Destroy, Rewind or Reset)
+in ascending allocation order. Source-indeterminate scalars that the original
+first assigns during decoding receive safe initial values with no meaning
+before that assignment.
+
+A codestream bit reader borrows its span for its scope. GetBitReader's deleter
+runs AllReadsWithinBounds and Close with discarded results. Where the source
+calls RequestMoreInput while that reader is still alive, the Rust scope ends
+first, because RequestMoreInput may reallocate the borrowed copy. The deleter
+has no observable effect, so the reordering is unobservable. ReadAllHeaders
+uses the ICC reader's existing global-allocator output storage. Propagating the
+memory manager into the ICC reader and the frame owners is separate work, and
+allocator logs are compared only where the original allocates nothing else.
+
+The decoder's image bundle is an `Rc<RefCell>` owner shared with the frame
+decoder, which retains it as the source's `decoded_` pointer; releasing the
+decoder's handle can therefore outlive the source's `ib.reset()` until the
+frame decoder is replaced. That storage is global-allocator memory, so the
+difference is unobservable. ProcessSections copies the frame decoder's TOC so
+that the frame decoder can be borrowed mutably while its sections are
+processed; ProcessSections does not change the TOC. FrameDecoder construction
+admits every parsed metadata header, so a construction failure is an
+unreachable precondition and panics instead of inventing a decoder status.
+
+A caller that releases its input leaves `next_in` null. When ProcessInput then
+continues an uncompressed box being written to a box buffer or stored as
+Exif/XMP for JPEG reconstruction, the original JxlBoxContentDecoder::Process
+calls `memcpy(*next_out, nullptr, 0)`. That call is undefined:
+instrumented Linux graphs report the nonnull memcpy argument
+(box_content_decoder.cc:110), while the macOS libc declares none and the probe
+completes. The Rust copy is defined for zero bytes with any pointer, so its
+behavior is unchanged. Under `cpp-oracle`, the box decoder counts that copy
+for test observation only. Histories that reach it run original-only, each in
+its own process: instrumented Linux graphs must report exactly that
+diagnostic, and every other graph must complete. All other histories compare
+exactly. The instrumented Linux runs report no other null memcpy or memmove
+argument for the remaining corpus.
+
+The public entry points are Rust functions with the original names in snake
+case. Caller buffers, callback opaque values and input remain raw pointers on
+unsafe entry points that state their lifetime contracts. Output structs that
+the source accepts as null are `Option<&mut T>`. C enums use transparent
+integer carriers. Exporting these functions through the C ABI is a separate
+boundary.
+
 JPEG reconstruction writing retains borrowed marker/tail payloads and owned
 bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
 storage with a separate active prefix length; output callbacks receive None for

@@ -48,6 +48,7 @@ fn find_aspect_ratio(xsize: u32, ysize: u32) -> u32 {
     0
 }
 
+#[derive(Clone)]
 pub struct SizeHeader {
     small: bool,
     ysize_div8_minus_1: u32,
@@ -157,6 +158,7 @@ fn size_encoding() -> U32Enc {
     )
 }
 
+#[derive(Clone)]
 pub struct PreviewHeader {
     div8: bool,
     ysize_div8: u32,
@@ -259,6 +261,7 @@ impl Fields for PreviewHeader {
     }
 }
 
+#[derive(Clone)]
 pub struct AnimationHeader {
     pub tps_numerator: u32,
     pub tps_denominator: u32,

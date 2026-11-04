@@ -1,6 +1,7 @@
 pub mod bits;
 pub mod byte_order;
 pub(crate) mod cache_control;
+pub mod data_parallel;
 pub mod fast_math;
 pub mod float;
 pub(crate) mod hwy_scalar;
