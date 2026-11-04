@@ -28,6 +28,15 @@ def text_sha(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def normalize(text, substitutions, message):
+    """Undo exactly the listed substitutions, each of which must occur once."""
+    for new, old in substitutions:
+        if text.count(new) != 1:
+            raise RuntimeError(message)
+        text = text.replace(new, old)
+    return text
+
+
 def verify_existing_methods():
     source = (ROOT / 'src/jxl/dec_ans.rs').read_text()
     suffix = source[source.index('    pub fn create(\n'):]
@@ -39,12 +48,45 @@ def verify_existing_methods():
     if suffix.count('code.use_prefix_code') != 2:
         raise RuntimeError('Constructor argument mode checks changed')
     suffix = suffix.replace(initializer, '').replace('self.use_prefix_code', 'self.code.use_prefix_code')
+    # Memory-manager propagation (PR #56): the LZ77 window allocates through
+    # the code's memory manager. Only this one call differs.
+    suffix = normalize(suffix, [
+        ('            Some(AlignedMemory::create(\n                code.memory_manager,\n'
+         '                WINDOW_SIZE * 4,\n                0,\n            )?)\n',
+         '            Some(AlignedMemory::create(WINDOW_SIZE * 4, 0)?)\n'),
+    ], 'ANS window allocation substitution changed')
     # The Rust 1.95 lint expectation on read_hybrid_uint_clustered_inlined is the
     # only change since ac734e93...; without it the bodies hash as before.
     if text_sha(suffix) != '48b995a3edccb5d9669fb4028560c16853d1345fa08cf477b3452872313792a5':
         raise RuntimeError('Existing ANS decoding/checkpoint bodies changed')
     source = (ROOT / 'src/jxl/icc_codec.rs').read_text()
     commands = source[source.index('pub fn shuffle('):source.index('/// Incremental reader')].strip()
+    # Memory-manager propagation (PR #56): Shuffle and UnpredictICC allocate
+    # their PaddedBytes through the result's memory manager, as the source's
+    # memory_manager arguments do. Only these eight sites differ.
+    commands = normalize(commands, [
+        ('pub fn shuffle(memory_manager: MemoryManagerPtr, data: &mut [u8], width: usize) -> Status {',
+         'pub fn shuffle(data: &mut [u8], width: usize) -> Status {'),
+        ('    let mut result = PaddedBytes::with_initial_space_in(memory_manager, size)?;',
+         '    let mut result = PaddedBytes::with_initial_space(size)?;'),
+        ('    let memory_manager = result.memory_manager();\n', ''),
+        ('    let mut header = PaddedBytes::new(memory_manager);',
+         '    let mut header = PaddedBytes::default();'),
+        ('                    let mut shuffled =\n'
+         '                        PaddedBytes::with_initial_space_in(memory_manager, num as usize)?;',
+         '                    let mut shuffled = PaddedBytes::with_initial_space(num as usize)?;'),
+        ('                    shuffle(\n                        memory_manager,\n'
+         '                        &mut shuffled.bytes_mut()[..num as usize],\n                        if command',
+         '                    shuffle(\n'
+         '                        &mut shuffled.bytes_mut()[..num as usize],\n                        if command'),
+        ('                let mut shuffled =\n'
+         '                    PaddedBytes::with_initial_space_in(memory_manager, num as usize)?;',
+         '                let mut shuffled = PaddedBytes::with_initial_space(num as usize)?;'),
+        ('                    shuffle(\n                        memory_manager,\n'
+         '                        &mut shuffled.bytes_mut()[..num as usize],\n                        width,\n'
+         '                    )?;',
+         '                    shuffle(&mut shuffled.bytes_mut()[..num as usize], width)?;'),
+    ], 'ICC command memory-manager substitutions changed')
     if text_sha(commands) != '871d116b5173938e95d92512b81549fa3db5652547cc1b7034763489d04679a2':
         raise RuntimeError('Frozen ICC command prerequisites changed')
     return {'ans_methods_sha256': text_sha(suffix), 'icc_commands_sha256': text_sha(commands),
