@@ -149,7 +149,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 }
             }
             for _ in 0..repeats {
-                let status = decoder.finalize_decoding(header, &shared, &mut pipe, inplace);
+                let status = decoder.finalize_decoding(header, &shared, &mut *pipe, inplace);
                 write!(out, " F {}", status_code(&status)).unwrap();
                 status?;
             }

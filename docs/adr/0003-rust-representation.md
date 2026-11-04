@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-03
+- Updated: 2026-11-04
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -211,7 +211,7 @@ than replacing its Box, so patch and blending bindings keep their object
 identity. Existing borrowed writer constructors and the externally borrowed
 RefCell constructor keep their original lifetimes. All dynamic writer borrows
 end before return, with no callbacks or concurrent writes while borrowed; this
-mapping covers the sequential simple pipeline.
+mapping covers both sequential pipeline implementations.
 
 Row sizing keeps the scalar source's four-byte MaxVectorSize, including rejection
 of positive widths with eight-byte samples. Zero-sized planes have no allocation
@@ -629,10 +629,15 @@ The RGB-from-gray kernel receives three disjoint mutable pipeline plane borrows
 from one ordered iterator, preserving its single computation per sample without
 cloning pixel storage or duplicating the kernel.
 
-The simple render builder represents the original Builder followed by
-UseSimpleImplementation; the default low-memory branch remains absent. Stage
-trait defaults translate the original base bodies, including its actual empty
-hooks. A mutable stage borrow expresses its SetInputSizes/PrepareForThreads and
+The abstract RenderPipeline becomes a trait over a shared base struct that
+owns the protected members. RenderPipelineBuilder is the original Builder:
+Finalize computes the same padding and shift tables, then constructs the
+SimpleRenderPipeline after UseSimpleImplementation and the
+LowMemoryRenderPipeline otherwise, and calls the selected Init. The pipeline
+owner is a boxed trait object. SimpleRenderPipelineBuilder is the Builder after
+UseSimpleImplementation and keeps the concrete type for storage observers.
+Stage trait defaults translate the original base bodies, including its actual
+empty hooks. A mutable stage borrow expresses its SetInputSizes/PrepareForThreads and
 output writes. Preserve settings reads across callbacks: border_y is captured
 after SetInputSizes, and output-row shifts are read at their source checkpoints.
 Do not cache an earlier settings value across that mutable callback.
@@ -645,6 +650,19 @@ scratch allocations. The horizontal offset retains the original architecture
 guard (ARM 24, other supported targets 32). Allocation padding uses hwy/base.h's
 kMaxVectorSize (x86 64, other baseline targets 16), independently of the scalar
 MaxVectorSize() function. RVV intrinsic builds remain unported.
+
+The low-memory pipeline keeps the source's per-group input planes, border
+storage, per-thread ring buffers and out-of-frame rows. Its row pointers may
+point before their row or into a ring slot computed from a negative row, so a
+descriptor keeps the absolute row and the signed column offset as a wrapping
+column; only the final in-row index is resolved. RenderRect lends the group
+planes and that thread's ring buffers to one ordered slice by moving their
+owner headers, without copying pixels, so the stages' existing RowBuffers view
+resolves every row of a call. They return to their owners before RenderRect
+returns, including on errors. RenderPadding views the per-thread out-of-frame
+image directly. GroupBorderAssigner keeps its atomic counters and the source's
+sequentially consistent operations. The pinned NDEBUG graph omits the
+debug-build ring-slot tracking and JXL_DASSERTs, so neither is translated.
 
 The scalar upsampling stage keeps three vectors of aligned temporary owners,
 with the original resize/allocation order and byte counts. Existing u32 views
@@ -808,8 +826,8 @@ channel-reduction case without aliased mutable slices. Context/profile members
 are released in source order. The original IsNeeded early return invokes no
 foreign function, including for the fixed lossless profile with cms_set=false.
 
-RenderPipelineInput borrows its simple pipeline and stores owner-relative
-buffer indices/rectangles. Done retains its binding on success or failure, as
+RenderPipelineInput borrows its pipeline trait object and stores owner-relative
+buffer-set/channel indices and rectangles. Done retains its binding on success or failure, as
 in C++; explicit move_from nulls the old binding and transfers its buffer vector.
 Ordinary Rust moves invalidate the old name. The borrowed token prevents moving
 or aliasing pipeline storage while mutable buffers are live. This establishes

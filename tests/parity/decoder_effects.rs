@@ -14,7 +14,7 @@ fn encode(
     encode_with_splines(size, channels, depth, effects, mode, 0)
 }
 
-fn encode_with_splines(
+pub(super) fn encode_with_splines(
     size: (usize, usize),
     channels: (bool, bool),
     depth: usize,

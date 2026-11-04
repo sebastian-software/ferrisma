@@ -63,7 +63,7 @@ jxl::Status Header(jxl::BitReader& reader,jxl::CodecMetadata& metadata,JxlMemory
  if(metadata.m.color_encoding.WantICC()){jxl::ICCReader icc(mm);jxl::PaddedBytes bytes(mm);JXL_RETURN_IF_ERROR(icc.Init(&reader));JXL_RETURN_IF_ERROR(icc.Process(&reader,&bytes));std::vector<uint8_t> profile(bytes.begin(),bytes.end());JXL_RETURN_IF_ERROR(metadata.m.color_encoding.SetICC(std::move(profile),JxlGetDefaultCms()));}
  JXL_RETURN_IF_ERROR(reader.JumpToByteBoundary());return reader.AllReadsWithinBounds();
 }
-void Decode(const std::vector<uint8_t>& bytes,JxlMemoryManager* mm) {
+void Decode(const std::vector<uint8_t>& bytes,JxlMemoryManager* mm,bool use_slow_rendering_pipeline=true) {
  std::vector<uint8_t> backing(bytes.size()+16);std::copy(bytes.begin(),bytes.end(),backing.begin()+8);const auto* data=backing.data()+8;
  jxl::CodecMetadata metadata;jxl::BitReader reader(jxl::Bytes(data,bytes.size()));auto status=Header(reader,metadata,mm);size_t offset=reader.TotalBitsConsumed()/8;auto close=reader.Close();std::cout<<" H "<<int(status.code())<<' '<<reader.TotalBitsConsumed()<<' '<<int(close.code());if(!status||!close)return;
  std::cout<<" M "<<metadata.size.xsize()<<' '<<metadata.size.ysize();MetadataObservation(metadata.m);
@@ -72,7 +72,7 @@ void Decode(const std::vector<uint8_t>& bytes,JxlMemoryManager* mm) {
  jxl::ImageBundle output(mm,&metadata.m);
  FrameSequenceWriteObservation writes(state.shared_storage,output,state.frame_storage_for_referencing);bool preview=metadata.m.have_preview,last_main=false;size_t frames=0;
  while(status&&!last_main&&frames<64){
-  jxl::FrameDecoder frame(&state,metadata,nullptr,true);
+  jxl::FrameDecoder frame(&state,metadata,nullptr,use_slow_rendering_pipeline);
   jxl::BitReader header(jxl::Bytes(data+offset,bytes.size()-offset));
   status=frame.InitFrame(&header,&output,preview);
   writes.AfterInitFrame();
@@ -108,6 +108,9 @@ void Decode(const std::vector<uint8_t>& bytes,JxlMemoryManager* mm) {
 }
 bool FrameSequencesCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
  if(command=="fs-decode"){std::string hex;in>>hex;Decode(Unhex(hex),mm);return true;}
+ // The same DecodeFrame caller with the public API's default rendering selection:
+ // FrameDecoder(..., use_slow_rendering_pipeline=false) and LowMemoryRenderPipeline.
+ if(command=="fs-decode-lm"){std::string hex;in>>hex;Decode(Unhex(hex),mm,false);return true;}
  if(command=="fs-dc-state"){
   size_t w,h,level;bool use,existing;in>>w>>h>>level>>use>>existing;jxl::CodecMetadata metadata;if(!metadata.size.Set(w,h))throw std::runtime_error("DC dimensions");jxl::FrameHeader header(&metadata);header.frame_type=jxl::FrameType::kDCFrame;header.dc_level=level;header.UpdateFlag(use,jxl::FrameHeader::kUseDcFrame);jxl::PassesSharedState state(mm);
   if(existing&&level<4){auto made=jxl::Image3F::Create(mm,2,3);if(!made.ok())throw std::runtime_error("DC slot");state.dc_frames[level]=std::move(made).value_();jxl::ZeroFillImage(&state.dc_frames[level]);}

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! PixelCallback/ImageOutput and PassesDecoderState storage/constructor/Init
 //! from dec_cache.h, plus complete null-pool InitForAC from dec_cache.cc.
-//! Pipeline storage admits the original simple implementation; general pipeline
-//! preparation and custom runners remain unported.
+//! Pipeline storage holds either original implementation selected by
+//! RenderPipeline::Builder; custom runners remain unported.
 //! Source-indeterminate scalar storage is initialized safely, without source
 //! meaning until assigned. Callback/output pointers remain non-owning carriers.
 use super::ac_strategy::NUM_VALID_STRATEGIES;
@@ -21,8 +21,8 @@ use super::image_bundle::ImageBundle;
 use super::image_metadata::Orientation;
 use super::memory_manager_internal::AlignedMemory;
 use super::passes_state::PassesSharedState;
+use super::render_pipeline::render_pipeline::RenderPipeline;
 use super::render_pipeline::render_pipeline_stage::RenderPipelineStage;
-use super::render_pipeline::simple_render_pipeline::SimpleRenderPipeline;
 use super::render_pipeline::stage_upsampling::get_upsampling_stage;
 use super::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 use std::cell::RefCell;
@@ -271,7 +271,7 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub nonvisible_frame_index: usize,
     pub used_acs: AtomicU32,
     pub coefficients: Option<Box<AcImage>>,
-    pub render_pipeline: Option<Box<SimpleRenderPipeline<'pipeline>>>,
+    pub render_pipeline: Option<Box<dyn RenderPipeline<'pipeline> + 'pipeline>>,
     pub frame_storage_for_referencing: Rc<RefCell<ImageBundle<'a>>>,
     pub output_encoding_info: OutputEncodingInfo,
 }

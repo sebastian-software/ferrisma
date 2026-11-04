@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! DecodeFrame/FrameDecoder from dec_frame.{h,cc}, with closed lossless Thunder
 //! and first VarDCT raw-codestream profiles plus an admitted shared-state
-//! sequence boundary. The original simple pipeline is
-//! explicitly selected. Private metadata/header admission excludes unported
+//! sequence boundary. The fixed profiles explicitly select the original simple
+//! pipeline; the sequence boundary takes the FrameDecoder constructor's
+//! use_slow_rendering_pipeline flag. Private metadata/header admission excludes unported
 //! configurations before output initialization; it is not a general decoder
 //! status replacement. Admitted paths retain original section scheduling,
 //! DC/AC setup, scalar reconstruction, output and reader-close checkpoints.
@@ -22,8 +23,8 @@ use super::image::Image3;
 use super::image_bundle::ImageBundle;
 use super::passes_state::initialize_passes_shared_state;
 use super::quant_weights::DequantMatrices;
+use super::render_pipeline::render_pipeline::RenderPipelineBuilder;
 use super::render_pipeline::render_pipeline_stage::WriteToImageBundleStage;
-use super::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuilder;
 use super::render_pipeline::stage_cms::get_cms_stage;
 use super::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
 use super::toc::{num_toc_entries, read_toc};
@@ -385,6 +386,8 @@ struct FrameDecoderStorage<'m, 'p> {
     group_caches: Vec<GroupDecCache>,
     use_task_id: bool,
     write_trace: Option<FrameWriteTrace>,
+    // Testing setting: whether or not to use the slow rendering pipeline.
+    use_slow_rendering_pipeline: bool,
 }
 // The processing scope lends disjoint frame and codec state. This view owns
 // no frame payload and ends before the caller accesses either owner again.
@@ -579,9 +582,15 @@ impl FrameDecoder<'_, '_, '_> {
                 &self.storage.header.0.nonserialized_metadata.unwrap().m,
             ));
         }
-        // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
-        // render_spotcolors=true, render_noise=true. Header admission proves
-        // only the explicitly connected filter/transform branches are reachable.
+        // PreparePipeline with coalescing=true, render_spotcolors=true and
+        // render_noise=true. Header admission proves only the explicitly
+        // connected filter/transform branches are reachable.
+        let options = super::dec_cache::PipelineOptions {
+            use_slow_render_pipeline: self.storage.use_slow_rendering_pipeline,
+            coalescing: true,
+            render_spotcolors: true,
+            render_noise: true,
+        };
         let num_c = 3 + self
             .storage
             .header
@@ -591,8 +600,10 @@ impl FrameDecoder<'_, '_, '_> {
             .m
             .num_extra_channels as usize;
         let render_noise = self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0;
-        let mut builder =
-            SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        let mut builder = RenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        if options.use_slow_render_pipeline {
+            builder.use_simple_implementation();
+        }
         if !self.storage.header.0.chroma_subsampling.is_444() {
             for c in 0..3 {
                 if self.storage.header.0.chroma_subsampling.h_shift(c) != 0 {
@@ -1282,7 +1293,7 @@ impl FrameDecoder<'_, '_, '_> {
         self.storage.modular.finalize_decoding(
             &self.storage.header.0,
             &self.state.shared_storage,
-            self.state.render_pipeline.as_mut().unwrap(),
+            &mut **self.state.render_pipeline.as_mut().unwrap(),
             true,
         )?;
         if self.storage.header.0.can_be_referenced() {
@@ -1422,9 +1433,19 @@ pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
     output: Rc<RefCell<ImageBundle<'m>>>,
     metadata: &'m super::image_metadata::CodecMetadata,
+    use_slow_rendering_pipeline: bool,
 }
 impl<'m> SequenceDecoder<'m> {
+    /// Decode with the original simple pipeline (use_slow_rendering_pipeline).
     pub fn new(metadata: &'m super::image_metadata::CodecMetadata) -> Result<Self, StatusCode> {
+        Self::with_rendering_pipeline(metadata, true)
+    }
+    /// Construct every frame's FrameDecoder with the given original
+    /// use_slow_rendering_pipeline flag; false selects LowMemoryRenderPipeline.
+    pub fn with_rendering_pipeline(
+        metadata: &'m super::image_metadata::CodecMetadata,
+        use_slow_rendering_pipeline: bool,
+    ) -> Result<Self, StatusCode> {
         use super::color_encoding::RenderingIntent;
         let m = &metadata.m;
         if !(1..=32).contains(&m.bit_depth.bits_per_sample)
@@ -1445,12 +1466,13 @@ impl<'m> SequenceDecoder<'m> {
             state,
             output: Rc::new(RefCell::new(ImageBundle::new(Some(&metadata.m)))),
             metadata,
+            use_slow_rendering_pipeline,
         })
     }
     pub fn decode_frame(&mut self, bytes: &[u8], preview: bool) -> SequenceFrameDecode<'m> {
         let mut header = None;
         let mut trace = FrameDecodeTrace::default();
-        let status = decode_frame_into(
+        let status = decode_frame_with_pipeline(
             self.metadata,
             bytes,
             &mut self.state,
@@ -1458,6 +1480,7 @@ impl<'m> SequenceDecoder<'m> {
             &mut header,
             DecodeProfile::Sequence { preview },
             Some(&mut trace),
+            self.use_slow_rendering_pipeline,
         );
         SequenceFrameDecode {
             status,
@@ -1512,10 +1535,7 @@ fn decode_profile_frame_into<'m, 'p>(
     )
 }
 
-#[expect(
-    clippy::manual_is_multiple_of,
-    reason = "Mirror the source modulo test."
-)]
+// The fixed profiles construct their FrameDecoder with the simple pipeline.
 fn decode_frame_into<'m, 'p>(
     metadata: &'m super::image_metadata::CodecMetadata,
     bytes: &[u8],
@@ -1523,7 +1543,37 @@ fn decode_frame_into<'m, 'p>(
     output: FrameOutput<'p, 'm>,
     copied_header: &mut Option<FrameHeader<'m>>,
     profile: DecodeProfile,
+    trace: Option<&mut FrameDecodeTrace>,
+) -> Status {
+    decode_frame_with_pipeline(
+        metadata,
+        bytes,
+        state,
+        output,
+        copied_header,
+        profile,
+        trace,
+        true,
+    )
+}
+
+#[expect(
+    clippy::manual_is_multiple_of,
+    reason = "Mirror the source modulo test."
+)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Add the FrameDecoder constructor's pipeline flag to the original caller."
+)]
+fn decode_frame_with_pipeline<'m, 'p>(
+    metadata: &'m super::image_metadata::CodecMetadata,
+    bytes: &[u8],
+    state: &mut PassesDecoderState<'m, 'p>,
+    output: FrameOutput<'p, 'm>,
+    copied_header: &mut Option<FrameHeader<'m>>,
+    profile: DecodeProfile,
     mut trace: Option<&mut FrameDecodeTrace>,
+    use_slow_rendering_pipeline: bool,
 ) -> Status {
     let write_trace = trace.as_ref().map(|_| Rc::new(RefCell::new(Vec::new())));
     let status = (|| {
@@ -1639,6 +1689,7 @@ fn decode_frame_into<'m, 'p>(
             group_caches: Vec::new(),
             use_task_id: false,
             write_trace: write_trace.clone(),
+            use_slow_rendering_pipeline,
         };
         let mut decoder = FrameDecoder {
             state,
