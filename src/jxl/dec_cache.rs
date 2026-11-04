@@ -2,18 +2,23 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! PixelCallback/ImageOutput and PassesDecoderState storage/constructor/Init
 //! from dec_cache.h, plus complete null-pool InitForAC from dec_cache.cc.
-//! Pipeline storage admits the original simple implementation; general pipeline
-//! preparation and custom runners remain unported.
+//! Pipeline storage admits the original simple implementation; custom runners
+//! remain unported. The color, tone-mapping and CMS stage selection of
+//! PreparePipeline is translated below in three source-ordered segments; the
+//! frame decoder adds the interleaved blending and reference writers between
+//! them, retaining their original order.
 //! Source-indeterminate scalar storage is initialized safely, without source
 //! meaning until assigned. Callback/output pointers remain non-owning carriers.
 use super::ac_strategy::NUM_VALID_STRATEGIES;
-use super::base::status::Status;
+use super::base::status::{Status, StatusCode};
 use super::coeff_order::{COEFF_ORDER_OFFSET, STRATEGY_ORDER};
+use super::color_encoding::ColorSpace;
 use super::common::MAX_NUM_PASSES;
 use super::dct_util::{AcImage, AcType};
 use super::dec_ans::ANSCode;
 use super::dec_xyb::OutputEncodingInfo;
 use super::frame_dimensions::DCT_BLOCK_SIZE;
+use super::frame_header::ColorTransform;
 use super::frame_header::FrameHeader;
 use super::image::Image3;
 use super::image::Plane;
@@ -23,7 +28,14 @@ use super::memory_manager_internal::AlignedMemory;
 use super::passes_state::PassesSharedState;
 use super::render_pipeline::render_pipeline_stage::RenderPipelineStage;
 use super::render_pipeline::simple_render_pipeline::SimpleRenderPipeline;
+use super::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuilder;
+use super::render_pipeline::stage_cms::get_cms_stage;
+use super::render_pipeline::stage_from_linear::get_from_linear_stage;
+use super::render_pipeline::stage_to_linear::get_to_linear_stage;
+use super::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
 use super::render_pipeline::stage_upsampling::get_upsampling_stage;
+use super::render_pipeline::stage_xyb::get_xyb_stage;
+use super::render_pipeline::stage_ycbcr::get_ycbcr_stage;
 use super::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 use std::cell::RefCell;
 use std::ffi::c_void;
@@ -361,4 +373,107 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
         }
         Ok(())
     }
+}
+
+// PassesDecoderState::PreparePipeline, the non-fast-XYB color branch. The
+// fast_xyb_srgb8_conversion branch exists only without JXL_HIGH_PRECISION; the
+// pinned reference builds with JXL_HIGH_PRECISION=1 and Init clears the flag.
+
+/// Color-transform selection: the YCbCr stage, or the XYB stage followed by
+/// linear output unless the requested encoding is XYB itself. kNone adds
+/// nothing. Returns the source's local `linear` flag.
+pub fn add_color_transform_stage<'a>(
+    color_transform: ColorTransform,
+    info: &OutputEncodingInfo,
+    builder: &mut SimpleRenderPipelineBuilder<'a>,
+) -> super::base::status::StatusOr<bool> {
+    let mut linear = false;
+    if color_transform == ColorTransform::YCBCR {
+        builder.add_stage(Some(get_ycbcr_stage()))?;
+    } else if color_transform == ColorTransform::XYB {
+        builder.add_stage(Some(get_xyb_stage(info)))?;
+        if info.color_encoding.get_color_space() != ColorSpace::XYB {
+            linear = true;
+        }
+    }
+    Ok(linear)
+}
+
+/// The `if (linear)` FromLinear insertion that precedes the coalescing
+/// blending stage and the post-color-transform reference writer.
+pub fn add_from_linear_stage_before_write<'a>(
+    info: &OutputEncodingInfo,
+    builder: &mut SimpleRenderPipelineBuilder<'a>,
+    linear: &mut bool,
+) -> Status {
+    if *linear {
+        builder.add_stage(get_from_linear_stage(info))?;
+        *linear = false;
+    }
+    Ok(())
+}
+
+/// Tone mapping, linear-to-output conversion and CMS selection, from
+/// GetToneMappingStage through the final CMS stage, before the output writer.
+/// CreateICC caches the linear profile in `info`, as in the source member.
+/// Returns whether a CMS stage was added, so the caller can apply its
+/// pipeline-specific preparation contract.
+///
+/// GetToLinearStage returns a stage for every transfer function, including
+/// its OpInvalid identity, so the source's null-stage CMS fallback inside the
+/// tone-mapping branch is unreachable. The Rust factory's non-optional return
+/// type encodes that; no reachable branch is omitted.
+///
+/// # Safety
+/// When `info.cms_set` is true, `info.color_management_system` must satisfy
+/// the `get_cms_stage` contract for every stage added here until the built
+/// pipeline and its stages are dropped. No CMS function is invoked while
+/// `cms_set` is false.
+pub unsafe fn add_output_color_stages<'a>(
+    info: &mut OutputEncodingInfo,
+    builder: &mut SimpleRenderPipelineBuilder<'a>,
+    mut linear: bool,
+) -> super::base::status::StatusOr<bool> {
+    let mut cms_stage_added = false;
+    let tone_mapping_stage = get_tone_mapping_stage(info);
+    if let Some(tone_mapping_stage) = tone_mapping_stage {
+        if !linear {
+            builder.add_stage(Some(get_to_linear_stage(info)))?;
+            linear = true;
+        }
+        builder.add_stage(Some(tone_mapping_stage))?;
+    }
+    if linear {
+        let channels_src = if info.orig_color_encoding.is_cmyk() {
+            4
+        } else {
+            info.orig_color_encoding.channels()
+        };
+        let channels_dst = info.color_encoding.channels();
+        let mixing_color_and_grey = channels_dst != channels_src;
+        if info.color_encoding_is_original || !info.cms_set || mixing_color_and_grey {
+            // The original/no-CMS/gray-mixing cases need only a linear stage.
+            builder.add_stage(get_from_linear_stage(info))?;
+        } else {
+            if info.linear_color_encoding.create_icc().is_err() {
+                return Err(StatusCode::GenericError);
+            }
+            // SAFETY: cms_set is true here; the caller guarantees the CMS
+            // contract for the lifetime of the stage this factory may build.
+            let cms_stage = unsafe { get_cms_stage(info, true) };
+            if cms_stage.is_some() {
+                builder.add_stage(cms_stage)?;
+                cms_stage_added = true;
+            }
+        }
+    } else {
+        // SAFETY: The factory calls no CMS function unless cms_set is true; in
+        // that case the caller guarantees the contract for the stage lifetime.
+        let cms_stage = unsafe { get_cms_stage(info, false) };
+        if cms_stage.is_some() {
+            builder.add_stage(cms_stage)?;
+            cms_stage_added = true;
+        }
+    }
+    Ok(cms_stage_added)
 }
