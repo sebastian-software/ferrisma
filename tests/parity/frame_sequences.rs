@@ -53,23 +53,23 @@ fn bundle(out: &mut String, b: &ImageBundle<'_>, pixels: bool) {
     }
 }
 #[derive(Default)]
-struct DcCoverage {
+pub(super) struct DcCoverage {
     width: usize,
     height: usize,
     initialized: Vec<bool>,
 }
 #[derive(Default)]
-struct BundleCoverage {
+pub(super) struct BundleCoverage {
     planes: Vec<DcCoverage>,
     moved_color_slot: Option<usize>,
 }
 #[derive(Default)]
-struct WriteCoverage {
+pub(super) struct WriteCoverage {
     dc: [DcCoverage; 4],
-    bundles: [BundleCoverage; 2],
+    pub(super) bundles: [BundleCoverage; 2],
 }
 impl WriteCoverage {
-    fn update(&mut self, events: &[jxl::jxl::dec_frame::FrameWriteEvent]) {
+    pub(super) fn update(&mut self, events: &[jxl::jxl::dec_frame::FrameWriteEvent]) {
         use jxl::jxl::dec_frame::{FrameWriteEvent, FrameWriteTarget};
         for event in events.iter().cloned() {
             match event {
@@ -121,7 +121,8 @@ impl WriteCoverage {
                     .mark(x, y, width),
                 FrameWriteEvent::BundleMoveToReference { slot } => {
                     self.bundles[1].moved_color_slot = Some(slot);
-                    self.bundles[1].planes.truncate(3);
+                    // The C++ observer resizes the moved color planes to three.
+                    self.bundles[1].planes.resize_with(3, DcCoverage::default);
                 }
             }
         }
@@ -132,7 +133,7 @@ impl DcCoverage {
         self.initialized[y * self.width + x..y * self.width + x + width].fill(true);
     }
 }
-fn covered_bundle(
+pub(super) fn covered_bundle(
     out: &mut String,
     bundle_image: &ImageBundle<'_>,
     coverage: &BundleCoverage,
@@ -162,14 +163,13 @@ fn covered_bundle(
     }
 }
 
-fn state(
+pub(super) fn state(
     out: &mut String,
-    decoder: &SequenceDecoder<'_>,
+    s: &jxl::jxl::dec_cache::PassesDecoderState<'_, '_>,
     _pixels: bool,
     identities: &[usize; 4],
     coverage: &WriteCoverage,
 ) {
-    let s = decoder.state();
     let refs = s.shared_storage.reference_frames.borrow();
     let dc = s.shared_storage.dc_frames.borrow();
     let patches = s.shared_storage.image_features.patches.borrow();
@@ -370,7 +370,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             || t.header_close != Some(Ok(()))
         {
             covered_bundle(&mut out, &decoder.output(), &coverage.bundles[0], None);
-            state(&mut out, &decoder, false, &identities, &coverage);
+            state(&mut out, decoder.state(), false, &identities, &coverage);
             break;
         }
         let h = decoded.header.as_ref().unwrap();
@@ -446,7 +446,13 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             last = !preview && h.is_last;
         }
         covered_bundle(&mut out, &decoder.output(), &coverage.bundles[0], None);
-        state(&mut out, &decoder, status.is_ok(), &identities, &coverage);
+        state(
+            &mut out,
+            decoder.state(),
+            status.is_ok(),
+            &identities,
+            &coverage,
+        );
         preview = false;
     }
     let eof = offset == bytes.len();

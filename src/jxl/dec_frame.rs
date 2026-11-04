@@ -1,17 +1,40 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-//! DecodeFrame/FrameDecoder from dec_frame.{h,cc}, with closed lossless Thunder
-//! and first VarDCT raw-codestream profiles plus an admitted shared-state
-//! sequence boundary. The original simple pipeline is
-//! explicitly selected. Private metadata/header admission excludes unported
-//! configurations before output initialization; it is not a general decoder
-//! status replacement. Admitted paths retain original section scheduling,
-//! DC/AC setup, scalar reconstruction, output and reader-close checkpoints.
+//! DecodeFrame and the complete incremental FrameDecoder from dec_frame.{h,cc},
+//! with closed lossless Thunder and first VarDCT raw-codestream profiles plus an
+//! admitted shared-state sequence boundary. FrameDecoder exposes the original
+//! InitFrame/InitFrameOutput, ProcessSections (partial input, permuted section
+//! order, progressive pauses), Flush, FinalizeFrame, References/SavedAs, TOC,
+//! pass-completion and output-descriptor methods used by decode.cc.
+//!
+//! Language-required deviations:
+//! - Frame-owned fields live in `FrameDecoder`; each call borrows the original
+//!   `PassesDecoderState` pointer target explicitly (ADR 0003), so no exclusive
+//!   borrow of codec state outlives a call. `decoded_` is an `Rc<RefCell>`
+//!   bundle owner shared with the retained pipeline writers.
+//! - The source's null ThreadPool is the only runner: RunOnPool calls run
+//!   sequentially on thread 0, as with a null pool.
+//! - The Rust PassesSharedState records manager presence only, so the decoder's
+//!   JxlMemoryManager is supplied to `FrameDecoder::new` for the one reached
+//!   consumer of `dec_state_->memory_manager()` (WriteToOutputStage scratch).
+//! - Only the original simple pipeline is translated; `new` rejects
+//!   `use_slow_rendering_pipeline == false` as an admission result.
+//! - Private metadata/header admission excludes unported configurations before
+//!   output initialization; Unsupported is an admission result, not a general
+//!   decoder status. Admitted paths retain original section scheduling, DC/AC
+//!   setup, scalar reconstruction, output and reader-close checkpoints.
+//! - InitFrame parses into a fresh header owner initialized like the
+//!   constructor's; earlier pipelines may still retain the previous header.
+//! - JXL_HIGH_PRECISION=1 (the pinned default) compiles out the fast XYB->sRGB8
+//!   branch of SetImageOutput/PreparePipeline.
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
 use super::dec_bit_reader::BitReader;
-use super::dec_cache::{GroupDecCache, PassesDecoderState};
+use super::dec_cache::{
+    GroupDecCache, ImageOutput, PassesDecoderState, PipelineOptions, PixelCallback,
+};
 use super::dec_modular::{ModularFrameDecoder, ModularStreamId};
+use super::decode::JxlProgressiveDetail;
 use super::enc_frame::LosslessThunderConfig;
 use super::frame_dimensions::FrameDimensions;
 use super::frame_header::{
@@ -20,6 +43,7 @@ use super::frame_header::{
 };
 use super::image::Image3;
 use super::image_bundle::ImageBundle;
+use super::memory_manager::JxlMemoryManager;
 use super::passes_state::initialize_passes_shared_state;
 use super::quant_weights::DequantMatrices;
 use super::render_pipeline::render_pipeline_stage::WriteToImageBundleStage;
@@ -27,7 +51,9 @@ use super::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuilder;
 use super::render_pipeline::stage_cms::get_cms_stage;
 use super::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
 use super::toc::{num_toc_entries, read_toc};
+use super::types::{JxlDataType, JxlPixelFormat};
 use std::cell::RefCell;
+use std::ffi::c_void;
 use std::rc::Rc;
 
 pub struct LosslessThunderFrameDecode<'m> {
@@ -36,22 +62,34 @@ pub struct LosslessThunderFrameDecode<'m> {
     // DecodeFrame copies this only after successful InitFrameOutput.
     pub header: Option<FrameHeader<'m>>,
 }
-#[derive(Clone, Copy, Default)]
-struct TocEntry {
-    size: usize,
-    id: usize,
+/// FrameDecoder::SectionInfo. The reader borrows only this section's bytes.
+pub struct SectionInfo<'r, 'b> {
+    pub br: &'r mut BitReader<'b>,
+    /// Logical section index, independent of TOC permutation or file position.
+    pub id: usize,
+    /// Index of the section in the byte order of the frame.
+    pub index: usize,
 }
-#[derive(Clone, Copy, PartialEq)]
-enum SectionStatus {
-    Done,
-    Skipped,
-    Duplicate,
-    Partial,
+/// FrameDecoder::TocEntry.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct TocEntry {
+    pub size: usize,
+    pub id: usize,
 }
-struct Section<'a> {
-    reader: BitReader<'a>,
-    id: usize,
-    index: usize,
+/// FrameDecoder::SectionStatus with its original values. Default mirrors the
+/// caller's value-initialized element (kDone), which ProcessSections overwrites.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[repr(u8)]
+pub enum SectionStatus {
+    /// Processed correctly.
+    #[default]
+    Done = 0,
+    /// Skipped because other required sections were not yet processed.
+    Skipped = 1,
+    /// Skipped because the section was already processed.
+    Duplicate = 2,
+    /// Only partially decoded: the section must be processed again.
+    Partial = 3,
 }
 
 enum FrameOutput<'p, 'm> {
@@ -68,15 +106,16 @@ impl<'m> std::ops::Deref for FrameOutput<'_, 'm> {
     }
 }
 
-// Admission owns each parsed header and bounds the implemented source paths.
+// Owns each parsed header. Admission bounds the implemented source paths; the
+// decoder processes a header only after its profile predicate succeeds.
 // Fixed configurations own their metadata; sequential metadata is borrowed
-// immutably for the decoder lifetime. Decoder/output state remains private.
+// immutably for the decoder lifetime.
 struct AdmittedHeader<'m>(Rc<FrameHeader<'m>>);
-impl<'m> AdmittedHeader<'m> {
+impl AdmittedHeader<'_> {
     // FrameHeader::VisitFields reads the complete U64 flag field. The original
     // decoder tests individual known bits and accepts reserved bits unchanged;
     // rejecting those here would precede its output initialization and errors.
-    fn admit_sequence(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+    fn admit_sequence(h: &FrameHeader<'_>) -> Status {
         if !matches!(h.encoding, FrameEncoding::MODULAR | FrameEncoding::VAR_DCT)
             || !matches!(
                 h.color_transform,
@@ -90,9 +129,9 @@ impl<'m> AdmittedHeader<'m> {
         {
             return Err(StatusCode::Unsupported);
         }
-        Ok(Self(Rc::new(h)))
+        Ok(())
     }
-    fn admit(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+    fn admit(h: &FrameHeader<'_>) -> Status {
         if h.encoding != FrameEncoding::MODULAR
             || h.frame_type != FrameType::REGULAR
             || h.nonserialized_is_preview
@@ -120,9 +159,9 @@ impl<'m> AdmittedHeader<'m> {
         {
             return Err(StatusCode::Unsupported);
         }
-        Ok(Self(Rc::new(h)))
+        Ok(())
     }
-    fn admit_modular(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+    fn admit_modular(h: &FrameHeader<'_>) -> Status {
         if h.encoding != FrameEncoding::MODULAR
             || h.frame_type != FrameType::REGULAR
             || h.nonserialized_is_preview
@@ -154,9 +193,9 @@ impl<'m> AdmittedHeader<'m> {
         {
             return Err(StatusCode::Unsupported);
         }
-        Ok(Self(Rc::new(h)))
+        Ok(())
     }
-    fn admit_vardct(h: FrameHeader<'m>) -> Result<Self, StatusCode> {
+    fn admit_vardct(h: &FrameHeader<'_>) -> Status {
         if h.encoding != FrameEncoding::VAR_DCT
             || h.frame_type != FrameType::REGULAR
             || h.nonserialized_is_preview
@@ -185,7 +224,7 @@ impl<'m> AdmittedHeader<'m> {
         {
             return Err(StatusCode::Unsupported);
         }
-        Ok(Self(Rc::new(h)))
+        Ok(())
     }
 }
 #[derive(Clone, Copy)]
@@ -227,7 +266,7 @@ pub enum FrameWriteEvent {
         width: usize,
     },
 }
-type FrameWriteTrace = Rc<RefCell<Vec<FrameWriteEvent>>>;
+pub type FrameWriteTrace = Rc<RefCell<Vec<FrameWriteEvent>>>;
 struct TracedDcWriter<'a> {
     original: super::render_pipeline::render_pipeline_stage::WriteToImage3FStage<'a>,
     events: FrameWriteTrace,
@@ -365,14 +404,26 @@ fn trace_bundle_writer<'a>(
         original
     }
 }
-// Source frame fields retain their owner independently of the current
-// processing scope's codec-state loan. Field and drop order remain unchanged.
-struct FrameDecoderStorage<'m, 'p> {
-    output: FrameOutput<'p, 'm>,
+/// FrameDecoder from dec_frame.h. Source frame fields retain their owner
+/// independently of each call's `PassesDecoderState` loan (the source's
+/// `dec_state_` pointer). The existing frame fields keep their relative order.
+/// `'m` is the codestream metadata lifetime; `'p` that of a borrowed output.
+pub struct FrameDecoder<'m, 'p> {
+    // Supplied explicitly; see the module deviations. Read only by the
+    // WriteToOutputStage factory, under FrameDecoder::new's contract.
+    memory_manager: *const JxlMemoryManager,
+    metadata: &'m super::image_metadata::CodecMetadata,
+    // decoded_; set by InitFrame.
+    output: Option<FrameOutput<'p, 'm>>,
     header: AdmittedHeader<'m>,
+    // Whether `header` passed the profile admission after a successful InitFrame.
+    admitted: bool,
     dim: FrameDimensions,
     modular: ModularFrameDecoder,
+    render_spotcolors: bool,
+    coalescing: bool,
     toc: Vec<TocEntry>,
+    section_sizes_sum: u64,
     processed: Vec<u8>,
     passes: Vec<u8>,
     dc_groups: Vec<u8>,
@@ -384,22 +435,33 @@ struct FrameDecoderStorage<'m, 'p> {
     allocated: bool,
     group_caches: Vec<GroupDecCache>,
     use_task_id: bool,
+    use_slow_rendering_pipeline: bool,
+    progressive_detail: JxlProgressiveDetail,
+    passes_to_pause: Vec<i32>,
+    profile: DecodeProfile,
     write_trace: Option<FrameWriteTrace>,
 }
 // The processing scope lends disjoint frame and codec state. This view owns
 // no frame payload and ends before the caller accesses either owner again.
-struct FrameDecoder<'s, 'm, 'p> {
+struct FrameDecoderScope<'s, 'm, 'p> {
     state: &'s mut PassesDecoderState<'m, 'p>,
-    storage: &'s mut FrameDecoderStorage<'m, 'p>,
+    storage: &'s mut FrameDecoder<'m, 'p>,
+}
+impl<'m, 'p> FrameDecoder<'m, 'p> {
+    fn decoded(&self) -> &RefCell<ImageBundle<'m>> {
+        self.output
+            .as_deref()
+            .expect("source InitFrame sets the decoded bundle")
+    }
 }
 
-impl FrameDecoder<'_, '_, '_> {
+impl FrameDecoderScope<'_, '_, '_> {
     fn init_output(&mut self) -> Status {
         let h = &self.storage.header.0;
         initialize_passes_shared_state(h, &mut self.state.shared_storage, false)?;
         self.state.init(h)?;
         self.storage.modular.init(&self.storage.dim);
-        if let Some(jpeg) = self.storage.output.borrow_mut().jpeg_data.as_deref_mut() {
+        if let Some(jpeg) = self.storage.decoded().borrow_mut().jpeg_data.as_deref_mut() {
             if h.encoding == FrameEncoding::MODULAR {
                 return Err(StatusCode::GenericError);
             }
@@ -495,7 +557,7 @@ impl FrameDecoder<'_, '_, '_> {
             shared.quantizer.decode(&shared.matrices, reader)?;
             super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
             shared.cmap.decode_dc(reader)?;
-            if self.storage.output.borrow().jpeg_data.is_some() {
+            if self.storage.decoded().borrow().jpeg_data.is_some() {
                 shared.quantizer.clear_dc_mul();
             }
             shared.ac_strategy.fill_invalid();
@@ -568,7 +630,9 @@ impl FrameDecoder<'_, '_, '_> {
         self.storage.dc_groups[g] = 1;
         Ok(())
     }
-    fn prepare_pipeline(&mut self) -> Status {
+    fn prepare_pipeline(&mut self, options: PipelineOptions) -> Status {
+        // FrameDecoder::new admits only the simple implementation.
+        assert!(options.use_slow_render_pipeline);
         if self.storage.header.0.can_be_referenced() {
             if let Some(events) = &self.storage.write_trace {
                 events.borrow_mut().push(FrameWriteEvent::BundleClear {
@@ -579,9 +643,9 @@ impl FrameDecoder<'_, '_, '_> {
                 &self.storage.header.0.nonserialized_metadata.unwrap().m,
             ));
         }
-        // PreparePipeline with use_slow_render_pipeline=true, coalescing=true,
-        // render_spotcolors=true, render_noise=true. Header admission proves
-        // only the explicitly connected filter/transform branches are reachable.
+        // PassesDecoderState::PreparePipeline with the simple implementation.
+        // Header admission proves only the explicitly connected filter and
+        // transform branches are reachable.
         let num_c = 3 + self
             .storage
             .header
@@ -590,7 +654,8 @@ impl FrameDecoder<'_, '_, '_> {
             .unwrap()
             .m
             .num_extra_channels as usize;
-        let render_noise = self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0;
+        let render_noise = options.render_noise
+            && self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0;
         let mut builder =
             SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
         if !self.storage.header.0.chroma_subsampling.is_444() {
@@ -758,7 +823,7 @@ impl FrameDecoder<'_, '_, '_> {
             builder.add_stage(Some(super::render_pipeline::stage_xyb::get_xyb_stage(info)))?;
             linear = true;
         }
-        if super::blending::needs_blending(&self.storage.header.0) {
+        if options.coalescing && super::blending::needs_blending(&self.storage.header.0) {
             if linear {
                 builder.add_stage(Some(
                     super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
@@ -773,7 +838,8 @@ impl FrameDecoder<'_, '_, '_> {
                 ),
             ))?;
         }
-        if self.storage.header.0.can_be_referenced()
+        if options.coalescing
+            && self.storage.header.0.can_be_referenced()
             && !self.storage.header.0.save_before_color_transform
         {
             if linear {
@@ -800,21 +866,21 @@ impl FrameDecoder<'_, '_, '_> {
         }
         // dec_cache.cc retains coefficients in the immutable metadata owner.
         // The reference writer above observes color before spot rendering.
-        for (ec, eci) in self
-            .storage
-            .header
-            .0
-            .nonserialized_metadata
-            .unwrap()
-            .m
-            .extra_channel_info
-            .iter()
-            .enumerate()
+        let m = &self.storage.header.0.nonserialized_metadata.unwrap().m;
+        if options.render_spotcolors
+            && m.find(super::image_metadata::ExtraChannel::SPOT_COLOR)
+                .is_some()
         {
-            if eci.channel_type == super::image_metadata::ExtraChannel::SPOT_COLOR {
-                builder.add_stage(Some(
-                    super::render_pipeline::stage_spot::get_spot_color_stage(ec, &eci.spot_color),
-                ))?;
+            for (ec, eci) in m.extra_channel_info.iter().enumerate() {
+                // Not Find: there may be multiple spot color channels.
+                if eci.channel_type == super::image_metadata::ExtraChannel::SPOT_COLOR {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_spot::get_spot_color_stage(
+                            ec,
+                            &eci.spot_color,
+                        ),
+                    ))?;
+                }
             }
         }
         if linear {
@@ -824,26 +890,58 @@ impl FrameDecoder<'_, '_, '_> {
                 super::render_pipeline::stage_from_linear::get_srgb_from_linear_stage(),
             ))?;
         }
-        // SAFETY: State is private to this fixed entry point. SetFromMetadata
-        // leaves cms_set=false, so the actual factory invokes no foreign code
-        // and creates no context with a foreign lifetime obligation.
+        // SAFETY: The fixed entry points own their state, where SetFromMetadata
+        // leaves cms_set=false, so the factory invokes no foreign code. Public
+        // decoders carry FrameDecoder::new's contract for an installed CMS.
         let cms = unsafe { get_cms_stage(info, false) };
         if cms.is_some() {
             builder.add_stage(cms)?;
         }
-        let writer = match &self.storage.output {
-            FrameOutput::Borrowed(output) => {
-                WriteToImageBundleStage::from_shared(output, &info.color_encoding)
+        let main = &self.state.main_output;
+        if main.callback.is_present() || !main.buffer.is_null() {
+            let mut has_alpha = false;
+            let mut alpha_c = 0;
+            for (i, eci) in m.extra_channel_info.iter().enumerate() {
+                if eci.channel_type == super::image_metadata::ExtraChannel::ALPHA {
+                    has_alpha = true;
+                    alpha_c = 3 + i;
+                    break;
+                }
             }
-            FrameOutput::Owned(output) => {
-                WriteToImageBundleStage::from_owned(output.clone(), &info.color_encoding)
-            }
-        };
-        builder.add_stage(Some(trace_bundle_writer(
-            Box::new(writer),
-            &self.storage.write_trace,
-            FrameWriteTarget::Output,
-        )))?;
+            // SAFETY: The fixed entry points never install descriptors after
+            // InitFrameOutput's dec_state_->Init cleared them, so they cannot
+            // reach this branch. For public decoders, FrameDecoder::new's
+            // contract makes every present descriptor's buffers/callbacks and
+            // the supplied manager valid until this pipeline is destroyed.
+            let stage = unsafe {
+                super::render_pipeline::stage_write::get_write_to_output_stage(
+                    main,
+                    self.state.width,
+                    self.state.height,
+                    has_alpha,
+                    self.state.unpremul_alpha,
+                    alpha_c,
+                    self.state.undo_orientation,
+                    &self.state.extra_output,
+                    self.storage.memory_manager,
+                )
+            };
+            builder.add_stage(Some(stage))?;
+        } else {
+            let writer = match self.storage.output.as_ref().unwrap() {
+                FrameOutput::Borrowed(output) => {
+                    WriteToImageBundleStage::from_shared(output, &info.color_encoding)
+                }
+                FrameOutput::Owned(output) => {
+                    WriteToImageBundleStage::from_owned(output.clone(), &info.color_encoding)
+                }
+            };
+            builder.add_stage(Some(trace_bundle_writer(
+                Box::new(writer),
+                &self.storage.write_trace,
+                FrameWriteTarget::Output,
+            )))?;
+        }
         self.state.render_pipeline = Some(builder.finalize(self.state.shared().frame_dim)?);
         self.state
             .render_pipeline
@@ -856,7 +954,7 @@ impl FrameDecoder<'_, '_, '_> {
             return Ok(());
         }
         self.storage.modular.maybe_drop_full_image();
-        self.storage.output.borrow_mut().origin = self.storage.header.0.frame_origin;
+        self.storage.decoded().borrow_mut().origin = self.storage.header.0.frame_origin;
         self.state
             .init_for_ac(self.storage.header.0.passes.num_passes as usize)?;
         self.storage.allocated = true;
@@ -930,7 +1028,7 @@ impl FrameDecoder<'_, '_, '_> {
             }
             max_bits +=
                 super::base::bits::ceil_log2_nonzero(self.storage.header.0.passes.num_passes);
-            let kind = if max_bits < 16 && self.storage.output.borrow().jpeg_data.is_none() {
+            let kind = if max_bits < 16 && self.storage.decoded().borrow().jpeg_data.is_none() {
                 super::dct_util::AcType::I16
             } else {
                 super::dct_util::AcType::I32
@@ -953,7 +1051,7 @@ impl FrameDecoder<'_, '_, '_> {
                 self.state.coefficients.as_mut().unwrap().zero_fill();
             }
         }
-        let mut decoded = self.storage.output.borrow_mut();
+        let mut decoded = self.storage.decoded().borrow_mut();
         if decoded.jpeg_data.is_some() {
             decoded.color_transform = self.storage.header.0.color_transform;
             decoded.chroma_subsampling = self.storage.header.0.chroma_subsampling.clone();
@@ -1009,13 +1107,21 @@ impl FrameDecoder<'_, '_, '_> {
         }
         Ok(())
     }
+    // ProcessACGroup. `sections[indices[pass]]` supplies each new pass reader;
+    // Flush passes no sections, zero passes and force_draw.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep the original group, reader, pass, thread and draw parameters."
+    )]
     fn process_ac_group(
         &mut self,
         g: usize,
-        readers: &mut [Section<'_>],
+        sections: &mut [SectionInfo<'_, '_>],
         indices: &[usize],
-        count: usize,
+        num_passes: usize,
         thread: usize,
+        force_draw: bool,
+        dc_only: bool,
     ) -> Status {
         let d = &self.storage.dim;
         let mut input = self
@@ -1039,8 +1145,8 @@ impl FrameDecoder<'_, '_, '_> {
                     .used_acs
                     .load(std::sync::atomic::Ordering::SeqCst) as usize,
             )?;
-            let mut pass_readers: Vec<_> = (pass0..pass0 + count)
-                .map(|i| std::mem::take(&mut readers[indices[i]].reader))
+            let mut pass_readers: Vec<_> = (pass0..pass0 + num_passes)
+                .map(|i| std::mem::take(&mut *sections[indices[i]].br))
                 .collect();
             let group_state = super::dec_group::AcGroupDecoderState {
                 shared: &self.state.shared_storage,
@@ -1050,48 +1156,73 @@ impl FrameDecoder<'_, '_, '_> {
                 x_dm_multiplier: self.state.x_dm_multiplier,
                 b_dm_multiplier: self.state.b_dm_multiplier,
                 quant_biases: &self.state.output_encoding_info.opsin_params.quant_biases,
+                upsampler8x: self.state.upsampler8x.as_deref_mut(),
             };
-            let mut decoded = self.storage.output.borrow_mut();
+            let mut decoded = self.storage.output.as_deref().unwrap().borrow_mut();
             let result = super::dec_group::decode_ac_group(
                 &self.storage.header.0,
                 &mut pass_readers,
-                std::num::NonZeroUsize::new(count).unwrap(),
+                num_passes,
                 g,
                 group_state,
                 &mut self.storage.group_caches[thread],
+                thread,
                 &mut input,
                 decoded.jpeg_data.as_deref_mut(),
                 pass0,
-                false,
+                force_draw,
+                dc_only,
                 Some(&mut should_run_pipeline),
             );
-            for (i, reader) in (pass0..pass0 + count).zip(pass_readers) {
-                readers[indices[i]].reader = reader;
+            for (i, reader) in (pass0..pass0 + num_passes).zip(pass_readers) {
+                *sections[indices[i]].br = reader;
             }
             result?;
         }
-        let mut ready = false;
-        for i in pass0..pass0 + count {
+        // Modular rectangles are not limited to the image here (DecodeGroup does).
+        let mut modular_ready = false;
+        let pass1 = if force_draw {
+            self.storage.header.0.passes.num_passes as usize
+        } else {
+            pass0 + num_passes
+        };
+        for i in pass0..pass1 {
             let (min, max) = self.storage.header.0.passes.get_downsampling_bracket(i);
-            let mut pass_ready = true;
-            self.storage.modular.decode_group(
-                &self.storage.header.0,
-                rect,
-                Some(&mut readers[indices[i]].reader),
-                min,
-                max,
-                &ModularStreamId::modular_ac(g, i),
-                false,
-                Some(&self.state.shared_storage),
-                Some(&mut input),
-                false,
-                Some(&mut pass_ready),
-            )?;
-            if pass_ready {
-                ready = true;
+            let mut modular_pass_ready = true;
+            if i < pass0 + num_passes {
+                self.storage.modular.decode_group(
+                    &self.storage.header.0,
+                    rect,
+                    Some(&mut *sections[indices[i]].br),
+                    min,
+                    max,
+                    &ModularStreamId::modular_ac(g, i),
+                    false,
+                    Some(&self.state.shared_storage),
+                    Some(&mut input),
+                    false,
+                    Some(&mut modular_pass_ready),
+                )?;
+            } else {
+                self.storage.modular.decode_group(
+                    &self.storage.header.0,
+                    rect,
+                    None,
+                    min,
+                    max,
+                    &ModularStreamId::modular_ac(g, i),
+                    true,
+                    Some(&self.state.shared_storage),
+                    Some(&mut input),
+                    false,
+                    Some(&mut modular_pass_ready),
+                )?;
+            }
+            if modular_pass_ready {
+                modular_ready = true;
             }
         }
-        self.storage.passes[g] = self.storage.passes[g].wrapping_add(count as u8);
+        self.storage.passes[g] = self.storage.passes[g].wrapping_add(num_passes as u8);
         if self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0 {
             super::dec_noise::prepare_noise_input(
                 self.state.visible_frame_index,
@@ -1103,15 +1234,17 @@ impl FrameDecoder<'_, '_, '_> {
             );
         }
         if !self.storage.modular.uses_full_image()
-            && self.storage.output.borrow().jpeg_data.is_none()
-            && should_run_pipeline
-            && ready
+            && self.storage.decoded().borrow().jpeg_data.is_none()
         {
-            input.done()?;
+            if should_run_pipeline && modular_ready {
+                input.done()?;
+            } else if force_draw {
+                return Err(StatusCode::GenericError);
+            }
         }
         Ok(())
     }
-    fn mark_sections(&mut self, sections: &[Section<'_>], statuses: &[SectionStatus]) {
+    fn mark_sections(&mut self, sections: &[SectionInfo<'_, '_>], statuses: &[SectionStatus]) {
         self.storage.num_sections_done =
             self.storage.num_sections_done.wrapping_add(sections.len());
         for (section, status) in sections.iter().zip(statuses) {
@@ -1127,7 +1260,7 @@ impl FrameDecoder<'_, '_, '_> {
     )]
     fn process_sections(
         &mut self,
-        sections: &mut [Section<'_>],
+        sections: &mut [SectionInfo<'_, '_>],
         statuses: &mut [SectionStatus],
     ) -> Status {
         let num = sections.len();
@@ -1142,7 +1275,8 @@ impl FrameDecoder<'_, '_, '_> {
             vec![num; self.storage.header.0.passes.num_passes as usize];
             self.storage.dim.num_groups
         ];
-        let mut desired = vec![0; self.storage.dim.num_groups];
+        // The number of AC passes to process for each group during this call.
+        let mut desired = vec![0usize; self.storage.dim.num_groups];
         let single =
             self.storage.dim.num_groups == 1 && self.storage.header.0.passes.num_passes == 1;
         if single {
@@ -1188,6 +1322,7 @@ impl FrameDecoder<'_, '_, '_> {
                 }
                 self.storage.processed[id] = 1;
             }
+            // Count the number of new passes per group.
             for g in 0..ac.len() {
                 let mut j = 0;
                 while j + (self.storage.passes[g] as usize)
@@ -1202,7 +1337,7 @@ impl FrameDecoder<'_, '_, '_> {
             }
         }
         if dc_global != num {
-            let status = self.process_dc_global(&mut sections[dc_global].reader);
+            let status = self.process_dc_global(&mut *sections[dc_global].br);
             if let Err(e) = status {
                 if e.is_fatal_error() {
                     return Err(e);
@@ -1215,19 +1350,28 @@ impl FrameDecoder<'_, '_, '_> {
             };
         }
         if self.storage.decoded_dc_global {
+            // RunOnPool with the null pool: tasks in order on thread 0.
             for i in 0..dc.len() {
                 if dc[i] != num {
-                    self.process_dc_group(i, &mut sections[dc[i]].reader)?;
+                    self.process_dc_group(i, &mut *sections[dc[i]].br)?;
                     statuses[dc[i]] = SectionStatus::Done;
                 }
             }
         }
         if !self.storage.dc_groups.contains(&0) && !self.storage.finalized_dc {
-            self.prepare_pipeline()?;
+            let options = PipelineOptions {
+                use_slow_render_pipeline: self.storage.use_slow_rendering_pipeline,
+                coalescing: self.storage.coalescing,
+                render_spotcolors: self.storage.render_spotcolors,
+                render_noise: true,
+            };
+            self.prepare_pipeline(options)?;
+            // FinalizeDC: adaptive DC smoothing must happen between all DC and
+            // AC group processing.
             if self.storage.header.0.encoding == FrameEncoding::VAR_DCT
                 && self.storage.header.0.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0
                 && self.storage.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
-                && self.storage.output.borrow().jpeg_data.is_none()
+                && self.storage.decoded().borrow().jpeg_data.is_none()
             {
                 let shared = &mut self.state.shared_storage;
                 super::compressed_dc::adaptive_dc_smoothing(
@@ -1238,21 +1382,35 @@ impl FrameDecoder<'_, '_, '_> {
             }
             self.storage.finalized_dc = true;
             self.allocate_output()?;
+            if self.storage.progressive_detail >= JxlProgressiveDetail::DC {
+                self.mark_sections(sections, statuses);
+                return Ok(());
+            }
         }
         if self.storage.finalized_dc && ac_global != num && !self.storage.decoded_ac_global {
-            self.process_ac_global(&mut sections[ac_global].reader)?;
+            self.process_ac_global(&mut *sections[ac_global].br)?;
             self.storage.decoded_ac_global = true;
             statuses[ac_global] = SectionStatus::Done;
         }
+        if self.storage.progressive_detail >= JxlProgressiveDetail::LAST_PASSES {
+            // Only process the next progression step.
+            let target = self.storage.next_num_passes_to_pause();
+            for (g, count) in desired.iter_mut().enumerate() {
+                *count = (*count).min(target.wrapping_sub(self.storage.passes[g] as usize));
+            }
+        }
         if self.storage.decoded_ac_global {
+            // Mark all received AC groups as not complete yet.
             for (g, &count) in desired.iter().enumerate() {
                 if count != 0 {
                     self.state.render_pipeline.as_mut().unwrap().clear_done(g);
                 }
             }
+            // RunOnPool with the null pool: init(1), then tasks on thread 0.
             self.prepare_storage(1, self.storage.passes.len())?;
             for g in 0..ac.len() {
                 if desired[g] == 0 {
+                    // No new AC pass, nothing to do.
                     continue;
                 }
                 let first = self.storage.passes[g] as usize;
@@ -1262,7 +1420,7 @@ impl FrameDecoder<'_, '_, '_> {
                     }
                 }
                 let thread = if self.storage.use_task_id { g } else { 0 };
-                self.process_ac_group(g, sections, &ac[g], desired[g], thread)?;
+                self.process_ac_group(g, sections, &ac[g], desired[g], thread, false, false)?;
                 for i in 0..desired[g] {
                     statuses[ac[g][first + i]] = SectionStatus::Done;
                 }
@@ -1271,12 +1429,63 @@ impl FrameDecoder<'_, '_, '_> {
         self.mark_sections(sections, statuses);
         Ok(())
     }
+    fn flush(&mut self) -> Status {
+        let h = &self.storage.header.0;
+        let mut has_blending =
+            h.blending_info.mode != BlendMode::REPLACE || h.custom_size_or_origin;
+        for info in &h.extra_channel_blending_info {
+            if info.mode != BlendMode::REPLACE {
+                has_blending = true;
+            }
+        }
+        // No early Flush() if blending is enabled.
+        if has_blending && !self.storage.is_finalized {
+            return Err(StatusCode::GenericError);
+        }
+        // No early Flush() - nothing to do - for a kSkipProgressive frame.
+        if h.frame_type == FrameType::SKIP_PROGRESSIVE && !self.storage.is_finalized {
+            return Ok(());
+        }
+        if self.storage.decoded().borrow().jpeg_data.is_some() {
+            // Nothing to do.
+            return Ok(());
+        }
+        self.allocate_output()?;
+        let num_passes = self.storage.header.0.passes.num_passes as usize;
+        let completely_decoded_ac_pass = *self.storage.passes.iter().min().unwrap() as usize;
+        if completely_decoded_ac_pass < num_passes {
+            // Not all AC is available yet: force a draw of all missing areas.
+            for g in 0..self.storage.passes.len() {
+                if (self.storage.passes[g] as usize) < num_passes {
+                    self.state.render_pipeline.as_mut().unwrap().clear_done(g);
+                }
+            }
+            // RunOnPool with the null pool: init(1), then tasks on thread 0.
+            self.prepare_storage(1, self.storage.passes.len())?;
+            for g in 0..self.storage.passes.len() {
+                if self.storage.passes[g] as usize == num_passes {
+                    // This group was drawn already, nothing to do.
+                    continue;
+                }
+                let thread = if self.storage.use_task_id { g } else { 0 };
+                let dc_only = !self.storage.decoded_ac_global;
+                self.process_ac_group(g, &mut [], &[], 0, thread, true, dc_only)?;
+            }
+        }
+        // Undo global modular transforms and copy int pixel buffers to floats.
+        self.storage.modular.finalize_decoding(
+            &self.storage.header.0,
+            &self.state.shared_storage,
+            self.state.render_pipeline.as_mut().unwrap(),
+            self.storage.is_finalized,
+        )
+    }
     fn finalize_frame(&mut self) -> Status {
         if self.storage.is_finalized {
             return Err(StatusCode::GenericError);
         }
         self.storage.is_finalized = true;
-        if self.storage.output.borrow().jpeg_data.is_some() {
+        if self.storage.decoded().borrow().jpeg_data.is_some() {
             return Ok(());
         }
         self.storage.modular.finalize_decoding(
@@ -1303,22 +1512,275 @@ impl FrameDecoder<'_, '_, '_> {
         }
         Ok(())
     }
-    fn has_everything(&self) -> bool {
-        self.storage.decoded_dc_global
-            && self.storage.decoded_ac_global
-            && !self.storage.dc_groups.contains(&0)
-            && self
-                .storage
-                .passes
-                .iter()
-                .all(|&pass| pass >= self.storage.header.0.passes.num_passes as u8)
+}
+
+impl<'m, 'p> FrameDecoder<'m, 'p> {
+    fn with_profile(
+        metadata: &'m super::image_metadata::CodecMetadata,
+        memory_manager: *const JxlMemoryManager,
+        use_slow_rendering_pipeline: bool,
+        profile: DecodeProfile,
+    ) -> Self {
+        Self {
+            memory_manager,
+            metadata,
+            output: None,
+            header: AdmittedHeader(Rc::new(FrameHeader::new(Some(metadata)))),
+            admitted: false,
+            dim: FrameDimensions::default(),
+            modular: ModularFrameDecoder::new(),
+            render_spotcolors: true,
+            coalescing: true,
+            toc: Vec::new(),
+            section_sizes_sum: 0,
+            processed: Vec::new(),
+            passes: Vec::new(),
+            dc_groups: Vec::new(),
+            decoded_dc_global: false,
+            decoded_ac_global: false,
+            finalized_dc: true,
+            num_sections_done: 0,
+            is_finalized: true,
+            allocated: false,
+            group_caches: Vec::new(),
+            use_task_id: false,
+            use_slow_rendering_pipeline,
+            progressive_detail: JxlProgressiveDetail::FRAMES,
+            passes_to_pause: Vec::new(),
+            profile,
+            write_trace: None,
+        }
     }
-    fn references(&self) -> i32 {
-        if self.storage.is_finalized || !self.has_everything() {
+    /// The FrameDecoder constructor. Metadata must outlive the decoder; the
+    /// state passed to each call is the source's `dec_state`. Metadata outside
+    /// the admitted sequence profile, or the unported low-memory pipeline
+    /// (`use_slow_rendering_pipeline == false`), returns Unsupported.
+    ///
+    /// # Safety
+    /// For every `PassesDecoderState` passed to this decoder, until each render
+    /// pipeline built during those calls is destroyed or replaced:
+    /// - every present main/extra output descriptor (see `set_image_output`)
+    ///   must satisfy `WriteToOutputStage::new`'s buffer and callback contract;
+    /// - `memory_manager`, when such a descriptor is present, must be null or
+    ///   satisfy that same contract's manager requirements;
+    /// - an output encoding with `cms_set` must satisfy `get_cms_stage`'s CMS
+    ///   callback contract.
+    pub unsafe fn new(
+        metadata: &'m super::image_metadata::CodecMetadata,
+        memory_manager: *const JxlMemoryManager,
+        use_slow_rendering_pipeline: bool,
+    ) -> Result<Self, StatusCode> {
+        admit_sequence_metadata(metadata)?;
+        if !use_slow_rendering_pipeline {
+            return Err(StatusCode::Unsupported);
+        }
+        Ok(Self::with_profile(
+            metadata,
+            memory_manager,
+            use_slow_rendering_pipeline,
+            DecodeProfile::Sequence,
+        ))
+    }
+    fn scope<'s>(
+        &'s mut self,
+        state: &'s mut PassesDecoderState<'m, 'p>,
+    ) -> Result<FrameDecoderScope<'s, 'm, 'p>, StatusCode> {
+        if !self.admitted {
+            return Err(StatusCode::Unsupported);
+        }
+        Ok(FrameDecoderScope {
+            state,
+            storage: self,
+        })
+    }
+    /// Retain allocation and row-write checkpoints for test observation.
+    pub fn set_write_trace(&mut self, trace: Option<FrameWriteTrace>) {
+        self.write_trace = trace;
+    }
+    pub fn set_render_spotcolors(&mut self, rsc: bool) {
+        self.render_spotcolors = rsc;
+    }
+    pub fn set_coalescing(&mut self, c: bool) {
+        self.coalescing = c;
+    }
+    /// Read the FrameHeader and table of contents. A successfully parsed header
+    /// outside the admitted profile returns Unsupported.
+    pub fn init_frame(
+        &mut self,
+        state: &mut PassesDecoderState<'m, 'p>,
+        br: &mut BitReader<'_>,
+        decoded: Rc<RefCell<ImageBundle<'m>>>,
+        is_preview: bool,
+    ) -> Status {
+        self.init_frame_source(state, br, FrameOutput::Owned(decoded), is_preview)?;
+        self.admit()
+    }
+    // The original InitFrame body, before profile admission.
+    #[expect(
+        clippy::manual_is_multiple_of,
+        reason = "Mirror the source modulo test."
+    )]
+    fn init_frame_source(
+        &mut self,
+        state: &mut PassesDecoderState<'m, 'p>,
+        br: &mut BitReader<'_>,
+        decoded: FrameOutput<'p, 'm>,
+        is_preview: bool,
+    ) -> Status {
+        self.output = Some(decoded);
+        // JXL_ENSURE(is_finalized_) leaves the current frame unchanged.
+        if !self.is_finalized {
+            return Err(StatusCode::GenericError);
+        }
+        self.admitted = false;
+        // Reset the dequantization matrices to their default values.
+        state.shared_storage.matrices = DequantMatrices::default();
+        let mut header = FrameHeader::new(Some(self.metadata));
+        header.nonserialized_is_preview = is_preview;
+        let read = read_frame_header(br, &mut header);
+        self.header = AdmittedHeader(Rc::new(header));
+        read?;
+        let header = &self.header.0;
+        self.dim = header.to_frame_dimensions();
+        let num_passes = header.passes.num_passes as usize;
+        let num_groups = self.dim.num_groups;
+        // If the previous frame was not a kRegularFrame, `decoded` may have
+        // different dimensions; reset it to avoid errors.
+        {
+            let mut decoded = self.decoded().borrow_mut();
+            *decoded.color_mut() = Image3::default();
+            decoded.extra_channels_mut().clear();
+            if let Some(events) = &self.write_trace {
+                events.borrow_mut().push(FrameWriteEvent::BundleClear {
+                    target: FrameWriteTarget::Output,
+                });
+            }
+            decoded.duration = header.animation_frame.duration;
+        }
+        if !header.nonserialized_is_preview
+            && (header.is_last || header.animation_frame.duration > 0)
+            && (header.frame_type == FrameType::REGULAR
+                || header.frame_type == FrameType::SKIP_PROGRESSIVE)
+        {
+            state.visible_frame_index = state.visible_frame_index.wrapping_add(1);
+            state.nonvisible_frame_index = 0;
+        } else {
+            state.nonvisible_frame_index = state.nonvisible_frame_index.wrapping_add(1);
+        }
+        // Read the TOC.
+        let toc_entries = num_toc_entries(num_groups, self.dim.num_dc_groups, num_passes);
+        let mut sizes = Vec::new();
+        let mut permutation = Vec::new();
+        read_toc(toc_entries, br, &mut sizes, &mut permutation)?;
+        let have_permutation = !permutation.is_empty();
+        self.toc.resize(toc_entries, TocEntry::default());
+        self.section_sizes_sum = 0;
+        for i in 0..toc_entries {
+            self.toc[i].size = sizes[i] as usize;
+            let index = if have_permutation {
+                permutation[i] as usize
+            } else {
+                i
+            };
+            self.toc[index].id = i;
+            let next = self.section_sizes_sum.wrapping_add(self.toc[i].size as u64);
+            if next < self.section_sizes_sum {
+                return Err(StatusCode::GenericError);
+            }
+            self.section_sizes_sum = next;
+        }
+        if br.total_bits_consumed() % 8 != 0 {
+            return Err(StatusCode::GenericError);
+        }
+        let group_codes_begin = br.total_bits_consumed() / 8;
+        if self.toc.is_empty() {
+            return Err(StatusCode::GenericError);
+        }
+        // Overflow check.
+        if (group_codes_begin as u64).wrapping_add(self.section_sizes_sum)
+            < group_codes_begin as u64
+        {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(())
+    }
+    // Profile admission of a successfully parsed header.
+    fn admit(&mut self) -> Status {
+        let header = self.header.0.as_ref();
+        let admitted = match self.profile {
+            DecodeProfile::VarDct => AdmittedHeader::admit_vardct(header),
+            DecodeProfile::LosslessThunder => AdmittedHeader::admit(header),
+            DecodeProfile::Modular => AdmittedHeader::admit_modular(header),
+            DecodeProfile::Sequence => AdmittedHeader::admit_sequence(header),
+            DecodeProfile::Jpeg => Ok(()),
+        };
+        self.admitted = admitted.is_ok();
+        admitted
+    }
+    /// InitFrameOutput: initialize shared/decoder state and the frame's own
+    /// section, pass and group bookkeeping.
+    pub fn init_frame_output(&mut self, state: &mut PassesDecoderState<'m, 'p>) -> Status {
+        self.scope(state)?.init_output()
+    }
+    /// ProcessSections over `sections`, filling one status per section. Each
+    /// reader must contain exactly its section's bytes.
+    pub fn process_sections(
+        &mut self,
+        state: &mut PassesDecoderState<'m, 'p>,
+        sections: &mut [SectionInfo<'_, '_>],
+        section_status: &mut [SectionStatus],
+    ) -> Status {
+        assert_eq!(sections.len(), section_status.len());
+        if sections.is_empty() {
+            // Nothing to process.
+            return Ok(());
+        }
+        self.scope(state)?
+            .process_sections(sections, section_status)
+    }
+    /// Flush all data decoded so far to pixels. The source requires a decoded
+    /// DC (HasDecodedDC); decode.cc checks it before calling.
+    pub fn flush(&mut self, state: &mut PassesDecoderState<'m, 'p>) -> Status {
+        self.scope(state)?.flush()
+    }
+    /// FinalizeFrame; must be called exactly once per frame after all
+    /// ProcessSections calls.
+    pub fn finalize_frame(&mut self, state: &mut PassesDecoderState<'m, 'p>) -> Status {
+        self.scope(state)?.finalize_frame()
+    }
+    fn has_dc_group_to_decode(&self) -> bool {
+        self.dc_groups.contains(&0)
+    }
+    fn has_everything(&self) -> bool {
+        if !self.decoded_dc_global {
+            return false;
+        }
+        if !self.decoded_ac_global {
+            return false;
+        }
+        if self.has_dc_group_to_decode() {
+            return false;
+        }
+        for &nb_passes in &self.passes {
+            if (nb_passes as u32) < self.header.0.passes.num_passes {
+                return false;
+            }
+        }
+        true
+    }
+    /// Reference ids this frame depends on as a bit mask: bits 0-3 for patch
+    /// and blending references, bits 4-7 for DC frames. Valid after all
+    /// ProcessSections calls and before FinalizeFrame.
+    pub fn references(&self, state: &PassesDecoderState<'m, 'p>) -> i32 {
+        if self.is_finalized {
             return 0;
         }
-        let h = &self.storage.header.0;
+        if !self.has_everything() {
+            return 0;
+        }
+        let h = &self.header.0;
         let mut result = 0;
+        // Blending.
         if h.frame_type == FrameType::REGULAR || h.frame_type == FrameType::SKIP_PROGRESSIVE {
             let cropped = h.custom_size_or_origin;
             if cropped || h.blending_info.mode != BlendMode::REPLACE {
@@ -1330,20 +1792,200 @@ impl FrameDecoder<'_, '_, '_> {
                 }
             }
         }
+        // Patches.
         if h.flags & super::frame_header::FLAG_PATCHES != 0 {
-            result |= self
-                .state
+            result |= state
                 .shared()
                 .image_features
                 .patches
                 .borrow()
                 .get_references();
         }
+        // DC level: reads from the next DC level.
         if h.flags & super::frame_header::FLAG_USE_DC_FRAME != 0 {
-            result |= 16 << h.dc_level;
+            let dc_level = h.dc_level + 1;
+            result |= 16 << (dc_level - 1);
         }
         result
     }
+    /// SavedAs: the storage location bit of this frame, or 0.
+    pub fn saved_as(header: &FrameHeader<'_>) -> i32 {
+        frame_saved_as(header)
+    }
+    pub fn sum_section_sizes(&self) -> u64 {
+        self.section_sizes_sum
+    }
+    pub fn toc(&self) -> &[TocEntry] {
+        &self.toc
+    }
+    pub fn get_frame_header(&self) -> &FrameHeader<'m> {
+        &self.header.0
+    }
+    /// Whether the DC image has been decoded (FinalizeDC has run).
+    pub fn has_decoded_dc(&self) -> bool {
+        self.finalized_dc
+    }
+    pub fn has_decoded_all(&self) -> bool {
+        self.toc.len() == self.num_sections_done
+    }
+    pub fn num_complete_passes(&self) -> usize {
+        *self
+            .passes
+            .iter()
+            .min()
+            .expect("source min_element requires an AC group") as usize
+    }
+    /// SetPauseAtProgressive; returns the progressive detail effective for the
+    /// frame. Pause points accumulate as in the source.
+    pub fn set_pause_at_progressive(
+        &mut self,
+        prog_detail: JxlProgressiveDetail,
+    ) -> JxlProgressiveDetail {
+        let h = &self.header.0;
+        let single_section = self.dim.num_groups == 1 && h.passes.num_passes == 1;
+        if h.frame_type != FrameType::SKIP_PROGRESSIVE
+            // A single group and pass has no separate DC section.
+            && !single_section
+            // Extra channels and Modular DC do not support a DC pause.
+            && self
+                .decoded()
+                .borrow()
+                .metadata()
+                .expect("source decoded bundle has metadata")
+                .extra_channel_info
+                .is_empty()
+            && h.encoding == FrameEncoding::VAR_DCT
+        {
+            self.progressive_detail = prog_detail;
+        } else {
+            self.progressive_detail = JxlProgressiveDetail::FRAMES;
+        }
+        if self.progressive_detail >= JxlProgressiveDetail::PASSES {
+            for i in 1..h.passes.num_passes {
+                self.passes_to_pause.push(i as i32);
+            }
+        } else if self.progressive_detail >= JxlProgressiveDetail::LAST_PASSES {
+            for i in 0..h.passes.num_downsample as usize {
+                self.passes_to_pause.push(h.passes.last_pass[i] as i32 + 1);
+            }
+            // The format does not guarantee that these values are sorted.
+            self.passes_to_pause.sort_unstable();
+        }
+        self.progressive_detail
+    }
+    pub fn next_num_passes_to_pause(&self) -> usize {
+        let complete = self.num_complete_passes() as i32;
+        let index = self
+            .passes_to_pause
+            .partition_point(|&value| value <= complete);
+        match self.passes_to_pause.get(index) {
+            Some(&value) => value as usize,
+            None => usize::MAX,
+        }
+    }
+    /// SetImageOutput: install the pixel callback or image buffer for the
+    /// state's next PreparePipeline. `undo_orientation` applies the metadata
+    /// orientation. The descriptors are subject to `FrameDecoder::new`'s
+    /// contract.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Original SetImageOutput boundary."
+    )]
+    pub fn set_image_output(
+        &self,
+        state: &mut PassesDecoderState<'m, 'p>,
+        pixel_callback: PixelCallback,
+        image_buffer: *mut c_void,
+        image_buffer_size: usize,
+        xsize: usize,
+        ysize: usize,
+        format: JxlPixelFormat,
+        bits_per_sample: usize,
+        unpremul_alpha: bool,
+        undo_orientation: bool,
+    ) -> Status {
+        state.width = xsize;
+        state.height = ysize;
+        state.main_output.format = format;
+        state.main_output.bits_per_sample = bits_per_sample;
+        state.main_output.callback = pixel_callback;
+        state.main_output.buffer = image_buffer;
+        state.main_output.buffer_size = image_buffer_size;
+        state.main_output.stride = get_stride(xsize, format)?;
+        let decoded = self.decoded().borrow();
+        let metadata = decoded
+            .metadata()
+            .expect("source decoded bundle has metadata");
+        let alpha = metadata.find(super::image_metadata::ExtraChannel::ALPHA);
+        if alpha.is_some_and(|alpha| alpha.alpha_associated) && unpremul_alpha {
+            state.unpremul_alpha = true;
+        }
+        if undo_orientation {
+            state.undo_orientation = metadata.get_orientation();
+            if state.undo_orientation.0 > 4 {
+                std::mem::swap(&mut state.width, &mut state.height);
+            }
+        }
+        state.extra_output.clear();
+        Ok(())
+    }
+    /// AddExtraChannelOutput, subject to `FrameDecoder::new`'s contract.
+    pub fn add_extra_channel_output(
+        &mut self,
+        state: &mut PassesDecoderState<'m, 'p>,
+        buffer: *mut c_void,
+        buffer_size: usize,
+        xsize: usize,
+        format: JxlPixelFormat,
+        bits_per_sample: usize,
+    ) -> Status {
+        let out = ImageOutput {
+            format,
+            bits_per_sample,
+            buffer,
+            buffer_size,
+            stride: get_stride(xsize, format)?,
+            ..ImageOutput::default()
+        };
+        state.extra_output.push(out);
+        Ok(())
+    }
+}
+
+// FrameDecoder::BytesPerChannel.
+fn bytes_per_channel(data_type: JxlDataType) -> usize {
+    if data_type == JxlDataType::UINT8 {
+        1
+    } else if data_type == JxlDataType::FLOAT {
+        4
+    } else {
+        2
+    }
+}
+// FrameDecoder::GetStride with SafeMul and SafeRoundUpTo.
+fn get_stride(xsize: usize, format: JxlPixelFormat) -> Result<usize, StatusCode> {
+    let safe_mul = |a: usize, b: usize| -> Option<usize> {
+        if a == 0 || b == 0 {
+            return Some(0);
+        }
+        a.checked_mul(b)
+    };
+    let x_stride = safe_mul(
+        bytes_per_channel(format.data_type),
+        format.num_channels as usize,
+    )
+    .ok_or(StatusCode::GenericError)?;
+    let y_stride = safe_mul(x_stride, xsize).ok_or(StatusCode::GenericError)?;
+    if format.align < 2 {
+        return Ok(y_stride);
+    }
+    let reminder = y_stride % format.align;
+    if reminder == 0 {
+        return Ok(y_stride);
+    }
+    y_stride
+        .checked_add(format.align - reminder)
+        .ok_or(StatusCode::GenericError)
 }
 
 impl LosslessThunderConfig {
@@ -1423,22 +2065,29 @@ pub struct SequenceDecoder<'m> {
     output: Rc<RefCell<ImageBundle<'m>>>,
     metadata: &'m super::image_metadata::CodecMetadata,
 }
+// Metadata admission of the sequence profile: sRGB without ICC and default
+// tone mapping. Other color configurations remain separate boundaries.
+fn admit_sequence_metadata(metadata: &super::image_metadata::CodecMetadata) -> Status {
+    use super::color_encoding::RenderingIntent;
+    let m = &metadata.m;
+    if !(1..=32).contains(&m.bit_depth.bits_per_sample)
+        || m.num_extra_channels as usize != m.extra_channel_info.len()
+        || m.color_encoding.want_icc()
+        || !m.color_encoding.is_srgb()
+        || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
+        || m.tone_mapping.intensity_target != 255.0
+        || m.tone_mapping.min_nits != 0.0
+        || m.tone_mapping.relative_to_max_display
+        || m.tone_mapping.linear_below != 0.0
+    {
+        return Err(StatusCode::Unsupported);
+    }
+    Ok(())
+}
+
 impl<'m> SequenceDecoder<'m> {
     pub fn new(metadata: &'m super::image_metadata::CodecMetadata) -> Result<Self, StatusCode> {
-        use super::color_encoding::RenderingIntent;
-        let m = &metadata.m;
-        if !(1..=32).contains(&m.bit_depth.bits_per_sample)
-            || m.num_extra_channels as usize != m.extra_channel_info.len()
-            || m.color_encoding.want_icc()
-            || !m.color_encoding.is_srgb()
-            || m.color_encoding.to_external().rendering_intent != RenderingIntent::RELATIVE
-            || m.tone_mapping.intensity_target != 255.0
-            || m.tone_mapping.min_nits != 0.0
-            || m.tone_mapping.relative_to_max_display
-            || m.tone_mapping.linear_below != 0.0
-        {
-            return Err(StatusCode::Unsupported);
-        }
+        admit_sequence_metadata(metadata)?;
         let mut state = PassesDecoderState::new();
         state.output_encoding_info.set_from_metadata(metadata)?;
         Ok(Self {
@@ -1456,7 +2105,8 @@ impl<'m> SequenceDecoder<'m> {
             &mut self.state,
             FrameOutput::Owned(self.output.clone()),
             &mut header,
-            DecodeProfile::Sequence { preview },
+            DecodeProfile::Sequence,
+            preview,
             Some(&mut trace),
         );
         SequenceFrameDecode {
@@ -1489,7 +2139,7 @@ enum DecodeProfile {
     LosslessThunder,
     VarDct,
     Modular,
-    Sequence { preview: bool },
+    Sequence,
     Jpeg,
 }
 
@@ -1508,13 +2158,16 @@ fn decode_profile_frame_into<'m, 'p>(
         FrameOutput::Borrowed(output),
         copied_header,
         profile,
+        false,
         None,
     )
 }
 
+/// DecodeFrame from dec_frame.cc over the FrameDecoder methods, with the null
+/// pool and the simple pipeline. The optional trace records reached checkpoints.
 #[expect(
-    clippy::manual_is_multiple_of,
-    reason = "Mirror the source modulo test."
+    clippy::too_many_arguments,
+    reason = "DecodeFrame arguments plus the private profile, preview and trace."
 )]
 fn decode_frame_into<'m, 'p>(
     metadata: &'m super::image_metadata::CodecMetadata,
@@ -1523,128 +2176,30 @@ fn decode_frame_into<'m, 'p>(
     output: FrameOutput<'p, 'm>,
     copied_header: &mut Option<FrameHeader<'m>>,
     profile: DecodeProfile,
+    is_preview: bool,
     mut trace: Option<&mut FrameDecodeTrace>,
 ) -> Status {
     let write_trace = trace.as_ref().map(|_| Rc::new(RefCell::new(Vec::new())));
     let status = (|| {
-        let mut header = FrameHeader::new(Some(metadata));
-        let modular = ModularFrameDecoder::new();
+        // The internal state never receives output descriptors or a CMS, so
+        // no memory manager is reached and no foreign callback is installed.
+        let mut decoder = FrameDecoder::with_profile(metadata, std::ptr::null(), true, profile);
+        decoder.set_write_trace(write_trace.clone());
         let mut reader = BitReader::new(bytes);
         // InitFrame: header and TOC parsing precede profile admission.
-        state.shared_storage.matrices = DequantMatrices::default();
-        let initialized = (|| {
-            header.nonserialized_is_preview =
-                matches!(profile, DecodeProfile::Sequence { preview: true });
-            read_frame_header(&mut reader, &mut header)?;
-            let dim = header.to_frame_dimensions();
-            {
-                let mut decoded = output.borrow_mut();
-                *decoded.color_mut() = Image3::default();
-                decoded.extra_channels_mut().clear();
-                if let Some(events) = &write_trace {
-                    events.borrow_mut().push(FrameWriteEvent::BundleClear {
-                        target: FrameWriteTarget::Output,
-                    });
-                }
-                decoded.duration = header.animation_frame.duration;
-            }
-            if !header.nonserialized_is_preview
-                && (header.is_last || header.animation_frame.duration > 0)
-                && (header.frame_type == FrameType::REGULAR
-                    || header.frame_type == FrameType::SKIP_PROGRESSIVE)
-            {
-                state.visible_frame_index = state.visible_frame_index.wrapping_add(1);
-                state.nonvisible_frame_index = 0;
-            } else {
-                state.nonvisible_frame_index = state.nonvisible_frame_index.wrapping_add(1);
-            }
-            let n = num_toc_entries(
-                dim.num_groups,
-                dim.num_dc_groups,
-                header.passes.num_passes as usize,
-            );
-            let mut sizes = Vec::new();
-            let mut permutation = Vec::new();
-            read_toc(n, &mut reader, &mut sizes, &mut permutation)?;
-            let mut toc = vec![TocEntry::default(); n];
-            let mut sum = 0u64;
-            for i in 0..n {
-                toc[i].size = sizes[i] as usize;
-                let index = if permutation.is_empty() {
-                    i
-                } else {
-                    permutation[i] as usize
-                };
-                toc[index].id = i;
-                let next = sum.wrapping_add(toc[i].size as u64);
-                if next < sum {
-                    return Err(StatusCode::GenericError);
-                }
-                sum = next;
-            }
-            if reader.total_bits_consumed() % 8 != 0 || toc.is_empty() {
-                return Err(StatusCode::GenericError);
-            }
-            let begin = reader.total_bits_consumed() / 8;
-            if (begin as u64).wrapping_add(sum) < begin as u64 {
-                return Err(StatusCode::GenericError);
-            }
-            Ok((dim, toc))
-        })();
+        let initialized = decoder.init_frame_source(state, &mut reader, output, is_preview);
         if let Some(trace) = &mut trace {
-            trace.init_status = Some(initialized.as_ref().map(|_| ()).map_err(|e| *e));
+            trace.init_status = Some(initialized);
             trace.header_bits = reader.total_bits_consumed();
         }
-        let (dim, toc) = match initialized {
-            Ok(v) => v,
-            Err(e) => {
-                let close = reader.close();
-                if let Some(trace) = &mut trace {
-                    trace.header_close = Some(close);
-                }
-                return Err(e);
+        if let Err(e) = initialized.and_then(|()| decoder.admit()) {
+            let close = reader.close();
+            if let Some(trace) = &mut trace {
+                trace.header_close = Some(close);
             }
-        };
-        let admitted = match match profile {
-            DecodeProfile::VarDct => AdmittedHeader::admit_vardct(header),
-            DecodeProfile::LosslessThunder => AdmittedHeader::admit(header),
-            DecodeProfile::Modular => AdmittedHeader::admit_modular(header),
-            DecodeProfile::Sequence { .. } => AdmittedHeader::admit_sequence(header),
-            DecodeProfile::Jpeg => Ok(AdmittedHeader(Rc::new(header))),
-        } {
-            Ok(v) => v,
-            Err(e) => {
-                let close = reader.close();
-                if let Some(trace) = &mut trace {
-                    trace.header_close = Some(close);
-                }
-                return Err(e);
-            }
-        };
-        let mut storage = FrameDecoderStorage {
-            output,
-            header: admitted,
-            dim,
-            modular,
-            toc,
-            processed: Vec::new(),
-            passes: Vec::new(),
-            dc_groups: Vec::new(),
-            decoded_dc_global: false,
-            decoded_ac_global: false,
-            finalized_dc: true,
-            num_sections_done: 0,
-            is_finalized: true,
-            allocated: false,
-            group_caches: Vec::new(),
-            use_task_id: false,
-            write_trace: write_trace.clone(),
-        };
-        let mut decoder = FrameDecoder {
-            state,
-            storage: &mut storage,
-        };
-        let initialized = decoder.init_output();
+            return Err(e);
+        }
+        let initialized = decoder.init_frame_output(state);
         if let Some(trace) = &mut trace {
             trace.output_status = Some(initialized);
         }
@@ -1655,7 +2210,7 @@ fn decode_frame_into<'m, 'p>(
             }
             return Err(e);
         }
-        *copied_header = Some(decoder.storage.header.0.as_ref().clone());
+        *copied_header = Some(decoder.get_frame_header().clone());
         let bounds = reader.all_reads_within_bounds();
         if let Some(trace) = &mut trace {
             trace.header_bounds = Some(bounds);
@@ -1674,23 +2229,30 @@ fn decode_frame_into<'m, 'p>(
         }
         close?;
         let mut processed_bytes = header_bytes;
-        let mut sections = Vec::new();
+        let mut readers = Vec::new();
         let mut pos = header_bytes;
+        let toc = decoder.toc().to_vec();
         let work = (|| {
-            for (index, entry) in decoder.storage.toc.iter().enumerate() {
+            for entry in &toc {
                 let end = pos.wrapping_add(entry.size);
                 if end > bytes.len() {
                     return Err(StatusCode::GenericError);
                 }
-                sections.push(Section {
-                    reader: BitReader::new(&bytes[pos..end]),
-                    id: entry.id,
-                    index,
-                });
+                readers.push(BitReader::new(&bytes[pos..end]));
                 pos = end;
             }
+            let mut sections: Vec<_> = readers
+                .iter_mut()
+                .zip(&toc)
+                .enumerate()
+                .map(|(index, (br, entry))| SectionInfo {
+                    br,
+                    id: entry.id,
+                    index,
+                })
+                .collect();
             let mut statuses = vec![SectionStatus::Skipped; sections.len()];
-            let status = decoder.process_sections(&mut sections, &mut statuses);
+            let status = decoder.process_sections(state, &mut sections, &mut statuses);
             if let Some(trace) = &mut trace {
                 trace.sections_status = Some(status);
                 trace.section_statuses = statuses.iter().map(|status| *status as u8).collect();
@@ -1700,21 +2262,21 @@ fn decode_frame_into<'m, 'p>(
                 if *status != SectionStatus::Done {
                     return Err(StatusCode::GenericError);
                 }
-                processed_bytes = processed_bytes.wrapping_add(decoder.storage.toc[i].size);
+                processed_bytes = processed_bytes.wrapping_add(toc[i].size);
             }
             Ok(())
         })();
         let mut close_ok = Ok(());
         if let Some(trace) = &mut trace {
-            trace.section_readers.resize(sections.len(), (0, Ok(())));
+            trace.section_readers.resize(readers.len(), (0, Ok(())));
         }
-        for section in sections.iter_mut().rev() {
-            // index is retained at its original physical-order checkpoint.
-            let _ = section.index;
-            let bits = section.reader.total_bits_consumed();
-            let closed = section.reader.close();
+        // Scoped closers run in reverse construction order at the physical
+        // section index checkpoints.
+        for (index, reader) in readers.iter_mut().enumerate().rev() {
+            let bits = reader.total_bits_consumed();
+            let closed = reader.close();
             if let Some(trace) = &mut trace {
-                trace.section_readers[section.index] = (bits, closed);
+                trace.section_readers[index] = (bits, closed);
             }
             if let Err(e) = closed {
                 close_ok = Err(e);
@@ -1723,18 +2285,17 @@ fn decode_frame_into<'m, 'p>(
         work?;
         close_ok?;
         if let Some(trace) = &mut trace {
-            trace.references = Some(decoder.references());
-            trace.has_decoded_dc = decoder.storage.finalized_dc;
-            trace.has_decoded_all = decoder.storage.toc.len() == decoder.storage.num_sections_done;
+            trace.references = Some(decoder.references(state));
+            trace.has_decoded_dc = decoder.has_decoded_dc();
+            trace.has_decoded_all = decoder.has_decoded_all();
         }
-        let finalized = decoder.finalize_frame();
+        let finalized = decoder.finalize_frame(state);
         if let Some(trace) = &mut trace {
             trace.finalize_status = Some(finalized);
         }
         finalized?;
         decoder
-            .storage
-            .output
+            .decoded()
             .borrow_mut()
             .set_decoded_bytes(processed_bytes);
         Ok(())
@@ -2366,6 +2927,7 @@ pub fn decode_jpeg_frame<'m>(
         FrameOutput::Borrowed(&output),
         &mut header,
         DecodeProfile::Jpeg,
+        false,
         Some(&mut trace),
     );
     drop(state);
