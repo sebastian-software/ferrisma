@@ -70,10 +70,20 @@ events, getter outputs, consumed and released byte counts, box contents, JPEG
 bytes, output sample digests and callback sequences compare exactly. Where
 the original allocates only decoder and input storage, the complete custom
 allocator log and injected allocation failures compare too. Eleven
-differential groups compare 11,501 histories locally; twelve standalone
+differential groups compare 10,662 histories locally; twelve standalone
 original captures run without C++. `tools/decoder_public_reference.py`
 audits both original graphs and three Rust builds in its own nightly audit
 group.
+
+Another 839 histories (830 truncated or mutated inputs and 9 JPEG
+reconstruction histories) release their input and then continue an
+uncompressed box being written or stored. The original then calls
+`memcpy(*next_out, nullptr, 0)` in JxlBoxContentDecoder::Process, which is
+undefined. They run as separate original-only probes: instrumented Linux
+graphs must report exactly the UBSan nonnull-argument diagnostic at
+box_content_decoder.cc:110, and the other graphs, including macOS, whose libc
+declares no nonnull memcpy arguments, must complete. They have no C++/Rust
+comparison; the Rust copy is defined for zero bytes and unchanged (ADR 0003).
 
 Admission: the sequence-profile checks that FrameDecoder retains cannot reject
 a successfully parsed codestream. Parsed metadata always has 1 to 32 bits per
