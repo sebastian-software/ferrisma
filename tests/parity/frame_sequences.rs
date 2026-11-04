@@ -7,7 +7,7 @@ use jxl::jxl::image_bundle::ImageBundle;
 use jxl::jxl::image_metadata::CodecMetadata;
 
 pub(super) fn handles(kind: &str) -> bool {
-    matches!(kind, "fs-decode" | "fs-dc-state")
+    matches!(kind, "fs-decode" | "fs-decode-lm" | "fs-dc-state")
 }
 fn image(out: &mut String, image: &Image3<f32>, pixels: bool) {
     write!(out, " I {} {}", image.xsize(), image.ysize()).unwrap();
@@ -325,7 +325,8 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     }
     write!(out, " M {} {}", m.size.xsize(), m.size.ysize()).unwrap();
     metadata::metadata(&mut out, &m.m);
-    let mut decoder = match SequenceDecoder::new(&m) {
+    // fs-decode-lm constructs each FrameDecoder with use_slow_rendering_pipeline=false.
+    let mut decoder = match SequenceDecoder::with_rendering_pipeline(&m, kind != "fs-decode-lm") {
         Ok(v) => {
             write!(out, " P 0").unwrap();
             v
@@ -722,13 +723,13 @@ fn original_section_reader_close_keeps_written_output_and_uncommitted_reference_
     );
 }
 
-struct EncodedSequence {
-    bytes: Vec<u8>,
-    header: usize,
-    ends: Vec<usize>,
-    status: i32,
+pub(super) struct EncodedSequence {
+    pub(super) bytes: Vec<u8>,
+    pub(super) header: usize,
+    pub(super) ends: Vec<usize>,
+    pub(super) status: i32,
 }
-fn extended_encodings(prefix: &str) -> Vec<(String, String, EncodedSequence)> {
+pub(super) fn extended_encodings(prefix: &str) -> Vec<(String, String, EncodedSequence)> {
     let fixtures: Vec<_> = include_str!("../data/frame-sequences-extended.requests")
         .lines()
         .map(|line| line.split_once('\t').unwrap())
@@ -783,7 +784,7 @@ fn extended_encodings(prefix: &str) -> Vec<(String, String, EncodedSequence)> {
         })
         .collect()
 }
-fn sequence_variants(encoded: &EncodedSequence) -> Vec<String> {
+pub(super) fn sequence_variants(encoded: &EncodedSequence) -> Vec<String> {
     let bytes = &encoded.bytes;
     let mut cases = vec![
         format!("fs-decode {}", hex(bytes)),

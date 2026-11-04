@@ -130,6 +130,7 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
     let undo = flag(args);
     let extra = flag(args);
     let callback = flag(args);
+    let slow = flag(args);
     assert!(limit <= bytes.len() && delivery <= 3 && flush <= 2);
     let data = &bytes[..limit];
     let mut m = CodecMetadata::default();
@@ -202,7 +203,7 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
         // buffer that outlives `state` and therefore every pipeline. The
         // manager is a live initialized local default manager, and the state
         // receives no CMS (SetFromMetadata leaves cms_set false).
-        let mut frame = unsafe { FrameDecoder::new(&m, &manager, true) }
+        let mut frame = unsafe { FrameDecoder::new(&m, &manager, slow) }
             .expect("incremental fixtures are inside the admitted profile");
         frame.set_write_trace(Some(trace.clone()));
         let mut header = BitReader::new(&data[offset..]);
@@ -734,6 +735,7 @@ struct Mode {
     undo: bool,
     extra: bool,
     callback: bool,
+    slow: bool,
 }
 impl Mode {
     fn new(channels: u32) -> Self {
@@ -751,11 +753,12 @@ impl Mode {
             undo: false,
             extra: false,
             callback: false,
+            slow: true,
         }
     }
     fn request(self, bytes: &[u8], limit: usize) -> String {
         format!(
-            "ifd-decode {} {limit} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+            "ifd-decode {} {limit} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
             hex(bytes),
             self.delivery,
             self.seed,
@@ -769,7 +772,8 @@ impl Mode {
             u8::from(self.unpremul),
             u8::from(self.undo),
             u8::from(self.extra),
-            u8::from(self.callback)
+            u8::from(self.callback),
+            u8::from(self.slow)
         )
     }
 }
@@ -924,6 +928,9 @@ fn incremental_multipass_sections_truncation_and_flush_match_original() {
                 ..base
             });
         }
+        // The same modes with the low-memory pipeline (use_slow_rendering_pipeline=false).
+        let low: Vec<_> = modes.iter().map(|m| Mode { slow: false, ..*m }).collect();
+        modes.extend(low);
         let requests: Vec<_> = modes
             .iter()
             .map(|m| m.request(bytes, bytes.len()))
@@ -948,6 +955,12 @@ fn incremental_multipass_sections_truncation_and_flush_match_original() {
             .flat_map(|&cut| {
                 [
                     Mode { flush: 1, ..base }.request(bytes, cut),
+                    Mode {
+                        flush: 1,
+                        slow: false,
+                        ..base
+                    }
+                    .request(bytes, cut),
                     Mode {
                         delivery: 1,
                         detail: 3,
@@ -1073,6 +1086,9 @@ fn incremental_sequences_coalescing_skips_and_permutations_match_original() {
                 ..base
             });
         }
+        // The same modes with the low-memory pipeline (use_slow_rendering_pipeline=false).
+        let low: Vec<_> = modes.iter().map(|m| Mode { slow: false, ..*m }).collect();
+        modes.extend(low);
         let requests: Vec<_> = modes
             .iter()
             .map(|m| m.request(bytes, bytes.len()))
@@ -1099,6 +1115,12 @@ fn incremental_sequences_coalescing_skips_and_permutations_match_original() {
                 .flat_map(|&cut| {
                     [
                         Mode { flush: 1, ..base }.request(bytes, cut),
+                        Mode {
+                            flush: 1,
+                            slow: false,
+                            ..base
+                        }
+                        .request(bytes, cut),
                         Mode {
                             flush: 1,
                             coalescing: false,

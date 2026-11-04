@@ -17,8 +17,8 @@
 //! - The Rust PassesSharedState records manager presence only, so the decoder's
 //!   JxlMemoryManager is supplied to `FrameDecoder::new` for the one reached
 //!   consumer of `dec_state_->memory_manager()` (WriteToOutputStage scratch).
-//! - Only the original simple pipeline is translated; `new` rejects
-//!   `use_slow_rendering_pipeline == false` as an admission result.
+//! - The constructor's use_slow_rendering_pipeline flag selects the simple
+//!   or low-memory pipeline; the fixed profiles select the simple one.
 //! - Private metadata/header admission excludes unported configurations before
 //!   output initialization; Unsupported is an admission result, not a general
 //!   decoder status. Admitted paths retain original section scheduling, DC/AC
@@ -49,8 +49,8 @@ use super::image_bundle::ImageBundle;
 use super::memory_manager::JxlMemoryManager;
 use super::passes_state::initialize_passes_shared_state;
 use super::quant_weights::DequantMatrices;
+use super::render_pipeline::render_pipeline::RenderPipelineBuilder;
 use super::render_pipeline::render_pipeline_stage::WriteToImageBundleStage;
-use super::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuilder;
 use super::toc::{num_toc_entries, read_toc};
 use super::types::{JxlDataType, JxlPixelFormat};
 use std::cell::RefCell;
@@ -632,8 +632,6 @@ impl FrameDecoderScope<'_, '_, '_> {
         Ok(())
     }
     fn prepare_pipeline(&mut self, options: PipelineOptions) -> Status {
-        // FrameDecoder::new admits only the simple implementation.
-        assert!(options.use_slow_render_pipeline);
         if self.storage.header.0.can_be_referenced() {
             if let Some(events) = &self.storage.write_trace {
                 events.borrow_mut().push(FrameWriteEvent::BundleClear {
@@ -657,8 +655,10 @@ impl FrameDecoderScope<'_, '_, '_> {
             .num_extra_channels as usize;
         let render_noise = options.render_noise
             && self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0;
-        let mut builder =
-            SimpleRenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        let mut builder = RenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        if options.use_slow_render_pipeline {
+            builder.use_simple_implementation();
+        }
         if !self.storage.header.0.chroma_subsampling.is_444() {
             for c in 0..3 {
                 if self.storage.header.0.chroma_subsampling.h_shift(c) != 0 {
@@ -890,7 +890,9 @@ impl FrameDecoderScope<'_, '_, '_> {
             // its first SetInputSizes, so CmsStage::PrepareForThreads would
             // initialize the CMS with its indeterminate xsize_. That sequence
             // has no defined source behavior; admission stops before it. The
-            // low-memory pipeline sets input sizes first and remains unported.
+            // low-memory pipeline's Init sets input sizes during Finalize,
+            // before PrepareForThreads, so it is defined there; admitting CMS
+            // frames for that pipeline belongs to the decode.cc boundary.
             return Err(StatusCode::Unsupported);
         }
         let info = &self.state.output_encoding_info;
@@ -1473,7 +1475,7 @@ impl FrameDecoderScope<'_, '_, '_> {
         self.storage.modular.finalize_decoding(
             &self.storage.header.0,
             &self.state.shared_storage,
-            self.state.render_pipeline.as_mut().unwrap(),
+            &mut **self.state.render_pipeline.as_mut().unwrap(),
             self.storage.is_finalized,
         )
     }
@@ -1488,7 +1490,7 @@ impl FrameDecoderScope<'_, '_, '_> {
         self.storage.modular.finalize_decoding(
             &self.storage.header.0,
             &self.state.shared_storage,
-            self.state.render_pipeline.as_mut().unwrap(),
+            &mut **self.state.render_pipeline.as_mut().unwrap(),
             true,
         )?;
         if self.storage.header.0.can_be_referenced() {
@@ -1550,8 +1552,9 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
     }
     /// The FrameDecoder constructor. Metadata must outlive the decoder; the
     /// state passed to each call is the source's `dec_state`. Metadata outside
-    /// the admitted sequence profile, or the unported low-memory pipeline
-    /// (`use_slow_rendering_pipeline == false`), returns Unsupported.
+    /// the admitted sequence profile returns Unsupported.
+    /// `use_slow_rendering_pipeline` selects the simple (true) or low-memory
+    /// (false) render pipeline, as the original constructor flag does.
     ///
     /// # Safety
     /// For every `PassesDecoderState` passed to this decoder, until each render
@@ -1568,9 +1571,6 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         use_slow_rendering_pipeline: bool,
     ) -> Result<Self, StatusCode> {
         admit_sequence_metadata(metadata)?;
-        if !use_slow_rendering_pipeline {
-            return Err(StatusCode::Unsupported);
-        }
         Ok(Self::with_profile(
             metadata,
             memory_manager,
@@ -2067,6 +2067,7 @@ pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
     output: Rc<RefCell<ImageBundle<'m>>>,
     metadata: &'m super::image_metadata::CodecMetadata,
+    use_slow_rendering_pipeline: bool,
 }
 // Metadata admission of the sequence profile. Every color encoding, ICC
 // profile and intensity target is admitted; a frame that needs a CMS stage
@@ -2082,7 +2083,16 @@ fn admit_sequence_metadata(metadata: &super::image_metadata::CodecMetadata) -> S
 }
 
 impl<'m> SequenceDecoder<'m> {
+    /// Decode with the original simple pipeline (use_slow_rendering_pipeline).
     pub fn new(metadata: &'m super::image_metadata::CodecMetadata) -> Result<Self, StatusCode> {
+        Self::with_rendering_pipeline(metadata, true)
+    }
+    /// Construct every frame's FrameDecoder with the given original
+    /// use_slow_rendering_pipeline flag; false selects LowMemoryRenderPipeline.
+    pub fn with_rendering_pipeline(
+        metadata: &'m super::image_metadata::CodecMetadata,
+        use_slow_rendering_pipeline: bool,
+    ) -> Result<Self, StatusCode> {
         admit_sequence_metadata(metadata)?;
         let mut state = PassesDecoderState::new();
         state.output_encoding_info.set_from_metadata(metadata)?;
@@ -2090,6 +2100,7 @@ impl<'m> SequenceDecoder<'m> {
             state,
             output: Rc::new(RefCell::new(ImageBundle::new(Some(&metadata.m)))),
             metadata,
+            use_slow_rendering_pipeline,
         })
     }
     /// decode.cc's `output_encoding_info.desired_intensity_target` assignment.
@@ -2126,7 +2137,7 @@ impl<'m> SequenceDecoder<'m> {
     pub fn decode_frame(&mut self, bytes: &[u8], preview: bool) -> SequenceFrameDecode<'m> {
         let mut header = None;
         let mut trace = FrameDecodeTrace::default();
-        let status = decode_frame_into(
+        let status = decode_frame_with_pipeline(
             self.metadata,
             bytes,
             &mut self.state,
@@ -2135,6 +2146,7 @@ impl<'m> SequenceDecoder<'m> {
             DecodeProfile::Sequence,
             preview,
             Some(&mut trace),
+            self.use_slow_rendering_pipeline,
         );
         SequenceFrameDecode {
             status,
@@ -2191,7 +2203,8 @@ fn decode_profile_frame_into<'m, 'p>(
 }
 
 /// DecodeFrame from dec_frame.cc over the FrameDecoder methods, with the null
-/// pool and the simple pipeline. The optional trace records reached checkpoints.
+/// pool. The fixed profiles construct their FrameDecoder with the simple
+/// pipeline. The optional trace records reached checkpoints.
 #[expect(
     clippy::too_many_arguments,
     reason = "DecodeFrame arguments plus the private profile, preview and trace."
@@ -2204,13 +2217,46 @@ fn decode_frame_into<'m, 'p>(
     copied_header: &mut Option<FrameHeader<'m>>,
     profile: DecodeProfile,
     is_preview: bool,
+    trace: Option<&mut FrameDecodeTrace>,
+) -> Status {
+    decode_frame_with_pipeline(
+        metadata,
+        bytes,
+        state,
+        output,
+        copied_header,
+        profile,
+        is_preview,
+        trace,
+        true,
+    )
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Add the FrameDecoder constructor's pipeline flag to the original caller."
+)]
+fn decode_frame_with_pipeline<'m, 'p>(
+    metadata: &'m super::image_metadata::CodecMetadata,
+    bytes: &[u8],
+    state: &mut PassesDecoderState<'m, 'p>,
+    output: FrameOutput<'p, 'm>,
+    copied_header: &mut Option<FrameHeader<'m>>,
+    profile: DecodeProfile,
+    is_preview: bool,
     mut trace: Option<&mut FrameDecodeTrace>,
+    use_slow_rendering_pipeline: bool,
 ) -> Status {
     let write_trace = trace.as_ref().map(|_| Rc::new(RefCell::new(Vec::new())));
     let status = (|| {
         // The internal state never receives output descriptors or a CMS, so
         // no memory manager is reached and no foreign callback is installed.
-        let mut decoder = FrameDecoder::with_profile(metadata, std::ptr::null(), true, profile);
+        let mut decoder = FrameDecoder::with_profile(
+            metadata,
+            std::ptr::null(),
+            use_slow_rendering_pipeline,
+            profile,
+        );
         decoder.set_write_trace(write_trace.clone());
         let mut reader = BitReader::new(bytes);
         // InitFrame: header and TOC parsing precede profile admission.

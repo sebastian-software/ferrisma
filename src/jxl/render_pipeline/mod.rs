@@ -1,5 +1,11 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
+pub mod low_memory_render_pipeline;
+#[expect(
+    clippy::module_inception,
+    reason = "Retain the source render_pipeline/render_pipeline.{h,cc} module path."
+)]
+pub mod render_pipeline;
 pub mod render_pipeline_stage;
 pub mod simple_render_pipeline;
 pub mod stage_blending;

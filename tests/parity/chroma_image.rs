@@ -63,7 +63,7 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
     write!(out, " {}", status_code(&reader.close())).unwrap();
     out
 }
-fn fixtures() -> [(&'static str, &'static [u8]); 25] {
+pub(super) fn fixtures() -> [(&'static str, &'static [u8]); 25] {
     [
         ("444", include_bytes!("../data/ycbcr-jpeg-444.jxl")),
         ("422", include_bytes!("../data/ycbcr-jpeg-422.jxl")),
