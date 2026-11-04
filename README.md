@@ -16,17 +16,60 @@ C/C++ applications and tests consume the Rust implementation through the C ABI.
 The default AOM, dav1d, and SharpYUV implementations are workspace Rust crates.
 libvmaf and the separately scoped optional engines remain native dependencies.
 
-SharpYUV is now a separate mechanical Rust crate in
-[`crates/sharpyuv`](crates/sharpyuv), used directly by libavif-rs. Its portable
-configuration is validated on macOS ARM64 and Linux x86-64 independently of the
-root package. See [SharpYUV validation](docs/SHARPYUV-VALIDATION.md).
+## Port checklist
 
-The complete portable dav1d 1.5.4 decoder is a separate mechanical Rust crate in
-[`crates/dav1d`](crates/dav1d), used by the existing libavif decoder adapter.
-Its Debug and Release profiles cover both upstream bit-depth instantiations,
-including 8/10/12-bit decoding and film grain. See
-[dav1d port and validation](docs/DAV1D-PORT.md) for the original test inventories,
-native target evidence, and remaining limits.
+The selected portable library implementations and their default integration
+are complete. The tables distinguish delivered code, verified configurations,
+and remaining work. Complete applies to the stated scope; milestones vary in
+size and are not a percentage of the entire port. Keep affected rows and their
+linked evidence current when delivering a milestone on `main`.
+
+### Implementation and default dependencies
+
+| Work item | Status | Delivered scope and evidence |
+| --- | --- | --- |
+| Source provenance and licenses | Complete | Pinned original sources, unchanged tests and fixtures, translation manifests, and generated notices. See [the porting contract](docs/PORTING.md) and [notice generator](tools/generate_licenses.py). |
+| libavif library | Complete | All 27 original C library files, including allocation, I/O, metadata, encoding, decoding, and the C ABI. See [the contract](docs/PORTING.md) and [feature manifests](translations). |
+| Container features and codec adapters | Complete | Mini, Extended PIXI, AV2 container branches, and all six codec adapters. Optional engine implementations retain their separate scope below. |
+| Bundled scalar libyuv | Complete | The five bundled conversion/scaling files; full external libyuv remains a separate dependency. See [dependency boundaries](docs/NATIVE-PORTS.md). |
+| Portable SharpYUV | Complete | Workspace Rust crate; native macOS ARM64 and Linux x86-64 validation. See [SharpYUV evidence](docs/SHARPYUV-VALIDATION.md). |
+| Portable dav1d | Complete | Workspace Rust decoder, including 8/10/12-bit output and film grain; native macOS ARM64 and Linux x86-64 validation. See [dav1d evidence](docs/DAV1D-PORT.md). |
+| Portable AOM | Complete | Workspace Rust encoder/decoder; complete original native Release suites and focused Debug checks on both targets. See [AOM evidence](docs/AOM-PORT.md). |
+| Default Rust integration | Complete | AOM, dav1d, and SharpYUV are mandatory Rust dependencies, with no native implementation fallback. Native VMAF remains enabled. See [the default-switch decision](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md). |
+
+### Validation and platform support
+
+The root integration rows below describe the final mandatory Rust-AOM build on
+macOS ARM64. Standalone Linux validation of the three dependency crates is
+recorded separately and does not enable the root package on Linux.
+
+| Gate | Status | Verified scope and evidence |
+| --- | --- | --- |
+| Original default Release suite | Passing | C and Rust: 64 CTest registrations and 9,473 ordered GoogleTest cases. See [final root validation](docs/aom-default-validation.json). |
+| All supported Cargo features | Passing | C and Rust: 70 registrations and 9,555 cases, including the optional codec adapters. See [final root validation](docs/aom-default-validation.json). |
+| Focused root Debug regressions | Passing | Eight unchanged original executables and 64 cases. Complete unoptimized Debug execution is outside the [ADR 0048 acceptance gate](docs/adr/0048-require-complete-release-and-focused-debug-aom-acceptance.md). |
+| Root AddressSanitizer | Passing | Complete default C/Rust suites: 64 registrations and 9,473 cases. The original AOM reference includes all 168 instrumented units; native VMAF remains uninstrumented. See [final root validation](docs/aom-default-validation.json). |
+| ABI and implementation ownership | Passing | Named-layout probes, shared C ABI smoke test, every original AOM global, and all 55 default / 59 feature-enabled consumers and runtime closures. Probe exclusions are explicit in [the evidence](docs/aom-default-validation.json). |
+| Exact AVIF and decoded PNG output | Passing | Ten default-decoder and ten explicit-AOM-decoder comparisons match the C reference byte-for-byte with `-ffp-contract=off`. See [final root validation](docs/aom-default-validation.json). |
+| Whole-pipeline platform support | macOS ARM64 | The root configuration is validated for `aarch64-apple-darwin`. Linux root integration and other targets remain open. See [current limits](#current-limits). |
+
+### Remaining work
+
+| Work item | Status | Remaining boundary |
+| --- | --- | --- |
+| libvmaf | Native dependency | Separate port preserving the selected VMAF modes and model inputs. See [the dependency plan](docs/NATIVE-PORTS.md). |
+| libgav1, SVT-AV1, full libyuv, and AVM | Native optional engines | Adapters are ported and tested; engine implementations and their selected transitive dependencies remain separate milestones. See [the dependency plan](docs/NATIVE-PORTS.md). |
+| rav1e packaging | Retained C API integration | The encoder is already Rust. Direct workspace/dependency integration is separate work, rather than another mechanical codec port. See [the dependency plan](docs/NATIVE-PORTS.md). |
+| Linux whole-pipeline support | Open | Add and validate the root platform translation, ABI, and complete integration suite; standalone crate passes cover their own boundaries. |
+| Windows and additional targets | Open | Platform-specific translations, runtime mappings, ABI checks, and native execution evidence. |
+| Broader upstream validation | Open | Optional MP4Box golden tests, libavif FuzzTest, ComplianceWarden, continuous fuzzing, additional sanitizer coverage, and the wider upstream platform matrix. See [validation limits](docs/VALIDATION.md). |
+| SIMD and performance work | Deferred | Architecture-specific optimized paths, benchmarks, and measured optimization follow the portable mechanical port. See [deferred work](docs/FUTURE.md). |
+| Safe Rust API and stable toolchain | Deferred | The current interface retains unsafe C ownership/callback contracts and requires nightly Rust. See [deferred work](docs/FUTURE.md). |
+| Registry publication and release validation | Open | Workspace crates currently set `publish = false`; packaging and release acceptance are separate from source-port completion. See [the milestone boundary](docs/NATIVE-PORTS.md). |
+
+Original C/C++ applications, tests, and reference implementations remain
+validation infrastructure. PNG, JPEG, libxml2, and normal system facilities
+retain the boundaries documented in [the dependency plan](docs/NATIVE-PORTS.md).
 
 ## Build and test
 
@@ -87,22 +130,6 @@ noncontracting C reference byte-for-byte. The source expressions remain unchange
 C references explicitly use `-ffp-contract=off`, and Rust uses normal arithmetic.
 Clang-default differences are recorded separately. No upstream test or tolerance
 was changed; see [ADR 0024](docs/adr/0024-use-noncontracting-c-references-for-portable-ports.md).
-
-## Planned dependency ports
-
-The [dependency porting plan](docs/NATIVE-PORTS.md) defines separate mechanical
-Rust crates in a shared workspace. Portable SharpYUV and dav1d are implemented;
-portable libaom has passed complete native macOS and GNU Linux standalone
-Release acceptance and focused Debug checks (see
-[the libaom milestone](docs/AOM-PORT.md)). The plan records
-bit-exact reference checks, original-test correspondence,
-license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
-
-Rust AOM is mandatory in the default build; no temporary feature or production
-system-AOM discovery is required. The selected portable configuration preserves
-native VMAF and the separate optional-engine scope. See
-[ADR 0049](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md) and the
-[acceptance policy](docs/adr/0048-require-complete-release-and-focused-debug-aom-acceptance.md).
 
 ## License
 

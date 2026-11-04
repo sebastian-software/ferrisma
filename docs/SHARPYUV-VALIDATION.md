@@ -110,7 +110,8 @@ remain allowed infrastructure/dependencies at this milestone.
 
 ## Remaining scope
 
-The subsequent [dav1d milestone](DAV1D-PORT.md) is implemented; libaom is next.
+The subsequent [dav1d](DAV1D-PORT.md) and [libaom](AOM-PORT.md) milestones are
+implemented and integrated. See the current [port checklist](../README.md#port-checklist).
 Other targets, SharpYUV SIMD,
 safe API design, optimization, a broader external corpus, continuous fuzzing,
 and registry publication remain separate work. Linux support of this crate

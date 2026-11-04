@@ -129,9 +129,10 @@ fuzz, complete leak, race, or undefined-behavior sanitizer coverage. Fault-fuzze
 sampling does not enumerate every failure position or possible thread schedule.
 
 Linux validation of this crate does not enable the root libavif package on Linux.
-libaom is the next planned default-pipeline crate. Optional libavif golden tests,
-FuzzTest, ComplianceWarden, and the broader upstream platform matrix retain their
-previous gaps.
+The subsequent [libaom milestone](AOM-PORT.md) is implemented and integrated.
+Optional libavif golden tests, FuzzTest, ComplianceWarden, and the broader
+upstream platform matrix retain their previous gaps. See the current
+[port checklist](../README.md#port-checklist).
 
 ## Current reproduction commands
 

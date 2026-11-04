@@ -288,14 +288,14 @@ porting step.
 | SharpYUV | Complete selected portable SharpYUV implementation and its integration | The selected milestone above; no dedicated upstream SharpYUV suite is invented. |
 | dav1d | Portable original AV1 decoder as its own crate | Public behavior, bit depths, frame/thread state, film grain, ownership, errors, and internal DSP evidence; assembly-gated checkasm coverage cannot silently disappear. |
 | libaom | Portable original AV1 encoder and decoder as its own crate | Pin enabled features and reference builds; preserve full selected-library behavior rather than only AVIF still-image smoke paths. |
-| Default integration | libavif's default codec/conversion implementations resolve to Rust crates | Audit actual linked implementations and rerun original suites and bit-exact end-to-end comparisons; existing RGB rounding and root Linux gaps remain visible until resolved. |
+| Default integration | libavif's default codec/conversion implementations resolve to Rust crates | Complete on macOS ARM64, including actual linked-implementation audits, original suites, and strict AVIF/PNG comparisons against the noncontracting C reference; root Linux support remains separate. |
 | Later library ports | Full libyuv, libgav1, and SVT-AV1 in a separately detailed sequence | Prove internal C++ test correspondence before scaling C++ ports; resolve optional transitive features explicitly. |
 | Separate AV2 work | AVM and its selected experiment/dependency closure | Resolve ML and transitive scope before accepting an AVM completion contract. |
 
 rav1e is already Rust. Its existing implementation can be integrated as a pinned
 Rust dependency rather than mechanically ported again; any change from its
 current native-library packaging still needs matching behavior and feature
-evidence. It does not replace the planned libaom port.
+evidence. It does not replace the selected libaom implementation.
 
 Full libyuv's MJPEG path delegates to JPEG and therefore needs a separate JPEG
 implementation decision. AVM's configured ML experiments introduce another
@@ -305,10 +305,12 @@ full-library completion claims remain blocked until the selected closure is
 explicitly implemented and tested.
 
 Detailed contracts for later optional libraries will be prepared before their
-implementation. SharpYUV and dav1d are implemented. The libaom contract pins the
-complete portable 3.15.2 archive and original test closure in `AOM-PORT.md`;
-standalone validation is in progress. Its VMAF modes remain enabled with native
-libvmaf, whose separate port follows libaom.
+implementation. SharpYUV, dav1d, and libaom are implemented and integrated.
+The libaom contract pins the complete portable 3.15.2 archive and original test
+closure in [AOM-PORT.md](AOM-PORT.md). Native macOS/Linux standalone acceptance
+and final macOS root validation pass. Its VMAF modes remain enabled with native
+libvmaf, whose separate port follows libaom. The current overview is the
+[port checklist](../README.md#port-checklist).
 
 ## Evidence for each milestone
 

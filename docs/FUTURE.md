@@ -16,9 +16,6 @@ the mechanical translation:
   adapt the preserved upstream CI matrix to the Rust build.
 - Stabilize translated opaque external types and the nightly toolchain choice
   without changing allocation or callback behavior.
-- Complete libaom's standalone acceptance and default integration gates in
-  AOM-PORT before considering optimization, declaration consolidation, safe
-  wrappers, or alternative Rust encoder crates.
 - Port libvmaf separately after libaom while retaining the optional VMAF modes,
   original model inputs, and applicable third-party notices.
 - Fix libaom's original `motion_force_zero="1"` float-model integration error
