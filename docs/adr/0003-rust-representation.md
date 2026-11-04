@@ -1885,6 +1885,19 @@ decoder for the complete call, preserves every partial JPEG marker mutation, and
 uses only the final probe's one writable sink byte without reading unwritten
 storage. Neither boundary calls C/C++ at runtime.
 
+JxlToJpegDecoder owns its reconstruction-box buffer, optional JPEGData box and
+box scalars. Process takes one borrowed slice cursor for the source's
+next_in/avail_in pair, which always advance together. Each decode attempt
+replaces the owner with a fresh JPEGData, so the stale-scan history above is
+not reachable through it. The caller's JPEG output buffer remains a raw pointer
+and count. Setting and releasing it only store values; WriteOutput alone writes
+through it under an unsafe caller contract. A null pointer with a nonzero size
+stays representable and, as in the source, is not an output buffer. A failed
+write keeps its copied prefix but not the advanced position. SetExif and SetXmp
+borrow their payloads. A matching Exif marker shorter than nine bytes overflows
+both original SetExif copies; that call runs only as an original sanitizer
+probe, and Rust stops at a bounds check instead of returning a status.
+
 ### Baseline skcms stages and source-reached initialization
 
 PixelFormat and AlphaFormat use transparent i32 carriers with the original

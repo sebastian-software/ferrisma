@@ -5,7 +5,7 @@
 //! The original caller supplies independent encoded and JPEGData owners.
 //! Every marker mutation and Brotli cursor survives a later source failure.
 
-use super::jpeg_data::{AppMarkerType, JpegData};
+use super::jpeg_data::{AppMarkerType, EXIF_TAG, ICC_PROFILE_TAG, JpegData, XMP_TAG};
 use crate::brotli::compound_dictionary::CompoundDictionaryBindings;
 use crate::brotli::instance::DecoderInstance;
 use crate::brotli::status::{
@@ -16,11 +16,6 @@ use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::dec_bit_reader::BitReader;
 use crate::jxl::fields::bundle;
 use std::mem::MaybeUninit;
-
-// Source jpeg_data.h byte arrays include the terminating NUL bytes.
-const ICC_PROFILE_TAG: &[u8; 12] = b"ICC_PROFILE\0";
-const EXIF_TAG: &[u8; 6] = b"Exif\0\0";
-const XMP_TAG: &[u8; 29] = b"http://ns.adobe.com/xap/1.0/\0";
 
 fn br_read<'a>(
     decoder: &mut DecoderInstance<'a>,
