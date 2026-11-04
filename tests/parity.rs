@@ -24,6 +24,8 @@ use std::str::FromStr;
 #[path = "common/bundles.rs"]
 mod bundles;
 
+#[path = "parity/decode_to_jpeg.rs"]
+mod decode_to_jpeg;
 #[path = "parity/from_linear.rs"]
 mod from_linear;
 #[path = "parity/icc_reader.rs"]
@@ -829,6 +831,7 @@ fn observe(request: &str) -> String {
         kind if quantizer::handles(kind) => quantizer::observe(kind, &mut args),
         kind if icc_reader::handles(kind) => icc_reader::observe(kind, &mut args),
         kind if jpeg_metadata::handles(kind) => jpeg_metadata::observe(kind, &mut args),
+        kind if decode_to_jpeg::handles(kind) => decode_to_jpeg::observe(kind, &mut args),
         kind if skcms_parser::handles(kind) => skcms_parser::observe(kind, &mut args),
         kind if to_linear::handles(kind) => to_linear::observe(kind, &mut args),
         kind if from_linear::handles(kind) => from_linear::observe(kind, &mut args),

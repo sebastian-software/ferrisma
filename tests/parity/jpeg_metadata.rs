@@ -102,7 +102,7 @@ fn read_data(args: &mut std::str::SplitWhitespace<'_>) -> JpegData {
     j.padding_bits = unhex(args.next().unwrap());
     j
 }
-fn data(out: &mut String, j: &JpegData) {
+pub(super) fn data(out: &mut String, j: &JpegData) {
     write!(out, " {} {} {}", j.width, j.height, j.restart_interval).unwrap();
     vectors(out, &j.app_data);
     write!(out, " {}", j.app_marker_type.len()).unwrap();
@@ -229,13 +229,13 @@ pub(super) fn observe(_: &str, args: &mut std::str::SplitWhitespace<'_>) -> Stri
     }
     out
 }
-fn request(j: &JpegData, ops: &str, n: usize) -> String {
+pub(super) fn request(j: &JpegData, ops: &str, n: usize) -> String {
     let mut s = "jm-ops".to_owned();
     data(&mut s, j);
     write!(s, " {n} {ops}").unwrap();
     s
 }
-fn fixture(name: &str) -> JpegData {
+pub(super) fn fixture(name: &str) -> JpegData {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/data/jpeg-metadata")
         .join(name);
