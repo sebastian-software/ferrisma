@@ -36,3 +36,17 @@ jobs:
       profile: both
       variant: ${{ matrix.variant }}
       tier: full
+
+  macos-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [default, mini-extended-pixi]
+    uses: ./.github/workflows/root-translate-linux.yml
+    with:
+      runner: macos-26
+      profile: both
+      variant: ${{ matrix.variant }}
+      tier: full

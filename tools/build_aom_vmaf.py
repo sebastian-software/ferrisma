@@ -14,7 +14,10 @@ REVISION = 'f85a853692a8c730d0270cd733c8bb30b5b93b7c'
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fetch', action='store_true')
+    parser.add_argument('--jobs', type=int, default=4)
     args = parser.parse_args()
+    if args.jobs < 1:
+        parser.error('--jobs must be positive')
     source = ROOT / 'build/deps/vmaf'
     if not source.exists():
         if not args.fetch:
@@ -39,7 +42,7 @@ def main():
     if (build / 'build.ninja').exists():
         command.append('--reconfigure')
     subprocess.run([str(value) for value in command], check=True)
-    subprocess.run(['ninja', '-C', build, '-j', '4', 'install'], check=True)
+    subprocess.run(['ninja', '-C', build, '-j', str(args.jobs), 'install'], check=True)
     environment = dict(os.environ, PKG_CONFIG_PATH=str(prefix / 'lib/pkgconfig'))
     version = subprocess.check_output(['pkg-config', '--modversion', 'libvmaf'], env=environment, text=True).strip()
     if version != '3.2.0':
