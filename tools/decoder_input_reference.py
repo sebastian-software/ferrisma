@@ -124,7 +124,8 @@ def main():
             raise RuntimeError('Native source captures changed')
         sources[graph]={'bindings':bindings,'compile_commands':[adapter,decoder,memory],'instrumented_original_units':len(original_units),'binary_sha256':sha(binary),'map_sha256':sha(mapping),'observation_sha256':hashlib.sha256(original).hexdigest(),'observation_bytes':len(original)}
     rust={}
-    for profile,prefix,cargo_flags,rust_flags in [('debug',[],[],[]),('release',[],['--release'],['-O']),('msrv',['+1.85'],[],[])]:
+    msrv='+'+runpy.run_path(str(ROOT/'tools/check.py'))['rust_version']()
+    for profile,prefix,cargo_flags,rust_flags in [('debug',[],[],[]),('release',[],['--release'],['-O']),('msrv',[msrv],[],[])]:
         directory=output/profile;directory.mkdir()
         built=run(['cargo',*prefix,'build','--locked','--offline','--lib','--all-features','--message-format=json','--target-dir',str(directory/'build'),*cargo_flags],directory,'build')
         artifacts=[r for line in built.stdout.splitlines() if (r:=json.loads(line)).get('reason')=='compiler-artifact' and r['target']['name']=='jxl']
