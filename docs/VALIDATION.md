@@ -9,6 +9,13 @@ The dependency-port extension has separate
 all-feature, and sanitizer libavif runs after replacing native SharpYUV.
 The subsequent [dav1d evidence](DAV1D-PORT.md) records fresh runs of those four
 configurations after replacing the decoder with its Rust workspace crate.
+The [AOM milestone](AOM-PORT.md) and
+[final default validation](aom-default-validation.json) record complete native
+standalone Release acceptance on macOS ARM64 and Linux x86-64, followed by
+fresh macOS root Release, supported-feature, focused Debug, and AddressSanitizer
+checks with mandatory Rust AOM. The final root record includes exact original
+case inventories, all consumer/runtime ownership audits, and strict AVIF/PNG
+parity against the pinned portable C reference with `-ffp-contract=off`.
 The original baseline and intermediate matrices below remain historical results.
 The feature-specific intermediate rows below retain their earlier evidence.
 

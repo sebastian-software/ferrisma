@@ -2398,5 +2398,15 @@
   "finite_correspondence_review": "docs/aom-subject-oracle-correspondence.json",
   "native_vmaf_retained": true,
   "root_default_engine_switched": false,
-  "final_root_validation_pending": true
+  "final_root_validation_pending": true,
+  "redundant_hosted_continuation_preserved_after_local_acceptance": {
+    "run": 41609949081,
+    "status": "completed",
+    "conclusion": "cancelled",
+    "paginated_jobs": 120,
+    "published_artifacts_preserved": 61,
+    "actual_manifest_sha256": "5bb245c24fbc588c084b82a4b5112d89356273836d202e011200de21823ad67e",
+    "no_explicit_original_xml_failures": true,
+    "cancellation_partials_not_used_as_acceptance": true
+  }
 }

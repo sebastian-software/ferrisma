@@ -5,11 +5,29 @@ separately. Keep algorithms, names, data layout, numeric behavior, and ownership
 close to the pinned C source. Record lasting decisions in `docs/adr/` and later
 redesign or optimization candidates in `docs/FUTURE.md`.
 
-Treat `upstream/libavif`, `upstream/libwebp`, and `upstream/dav1d` as immutable.
+Treat `upstream/libavif`, `upstream/libwebp`, `upstream/dav1d`, and `upstream/aom` as immutable.
 `tools/verify_upstream.py` checks every file, including tests and fixtures.
 Do not replace missing functionality with
 stubs or a C fallback. The original C/C++ tests and applications are deliberately
 retained as independent consumers of the Rust library.
+
+Normal Rust builds always use the workspace AOM, dav1d, and SharpYUV crates.
+They require native libvmaf and any selected optional engines, with no system
+AOM implementation fallback. Use the complete pinned portable C AOM reference
+for acceptance comparisons:
+
+```sh
+python3 tools/build_aom.py --jobs 1
+python3 tools/build.py baseline --aom-reference-build build/aom-native-release
+python3 tools/build.py port
+```
+
+The matching C results live under `build/baseline-aom-reference`. Pass that
+directory to the differential tool and its results/log paths to the comparison
+tool. The original standalone AOM suite includes long video-encoding cases;
+ADR 0048 requires complete Release acceptance and focused Debug checks rather
+than exhaustive unoptimized Debug execution. ASan acceptance requires the
+separate complete instrumented C AOM reference closure.
 
 ## Generate source
 
@@ -90,14 +108,39 @@ installation does.
 
 ```sh
 python3 tools/build.py baseline --asan
+CARGO_BUILD_JOBS=1 python3 - <<'PY'
+import pathlib
+import sys
+sys.path.insert(0, 'tools')
+from aom_sanitizer import instrumented_libraries
+original, _, _, _, _ = instrumented_libraries()
+directory = pathlib.Path('build/aom-root-asan-libs')
+directory.mkdir(exist_ok=True)
+archive = directory / 'libaom.a'
+if not archive.exists():
+    archive.symlink_to(original.resolve())
+assert archive.resolve() == original.resolve()
+PY
+cmake -S upstream/libavif -B build/baseline-asan-llvm16 \
+  -DLIBAVIF_RS_AOM_REFERENCE_BUILD="$PWD/build/aom-root-asan-libs" \
+  -DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE
+cmake --build build/baseline-asan-llvm16 --parallel 1
 python3 tools/run_tests.py build/baseline-asan-llvm16
 python3 tools/build.py port --asan
 python3 tools/run_tests.py build/port-asan-llvm16
 python3 tools/compare_results.py \
   --baseline build/baseline-asan-llvm16-results.xml \
   --port build/port-asan-llvm16-results.xml
-python3 tools/differential.py
+python3 tools/differential.py --baseline build/baseline-aom-reference \
+  --port build/port --decoder-codec aom
 ```
+
+Build the ordinary pinned AOM reference first. The sanitizer helper instruments
+all 168 original portable units and the Rust crate with one matching runtime.
+The explicit CMake overlay relinks the original baseline against that complete
+instrumented archive without changing original test objects or parameters.
+Native VMAF remains outside instrumentation. The differential command uses the
+ordinary Release references and requires exact AVIF and decoded PNG bytes.
 
 The sanitizer runner defaults to the same allocation-failure setting as upstream
 CI. It does not disable memory findings. Run separate suites through

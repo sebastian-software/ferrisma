@@ -13,7 +13,8 @@ The complete upstream snapshot, including its tests and fixtures, lives in
 
 The currently supported and tested target is **macOS on AArch64**. The original
 C/C++ applications and tests consume the Rust implementation through the C ABI.
-libaom and optional codec engines remain native dependencies.
+The default AOM, dav1d, and SharpYUV implementations are workspace Rust crates.
+libvmaf and the separately scoped optional engines remain native dependencies.
 
 SharpYUV is now a separate mechanical Rust crate in
 [`crates/sharpyuv`](crates/sharpyuv), used directly by libavif-rs. Its portable
@@ -30,20 +31,22 @@ native target evidence, and remaining limits.
 ## Build and test
 
 Use Rust nightly, CMake, Ninja, Python 3.9+, pkg-config, and development packages
-for libaom, PNG, JPEG, and libxml2. The original C baseline and CMake test setup
+for libvmaf, PNG, JPEG, and libxml2. The original C baseline and CMake test setup
 also require native dav1d and SharpYUV development packages; the Rust library
-uses their workspace crates. The validated dependency
+uses their workspace crates. The pinned portable C AOM archive supplies the
+independent reference in the commands below. The validated dependency
 versions and exact results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ```sh
 cargo build --release --locked
-python3 tools/build.py baseline --fetch-deps
-python3 tools/run_tests.py build/baseline
+python3 tools/build_aom.py --jobs 1
+python3 tools/build.py baseline --fetch-deps --aom-reference-build build/aom-native-release
+python3 tools/run_tests.py build/baseline-aom-reference
 python3 tools/build.py port
 python3 tools/run_tests.py build/port
-python3 tools/compare_results.py
+python3 tools/compare_results.py --baseline build/baseline-aom-reference-results.xml
 python3 tools/check_translation.py
-python3 tools/check_abi.py
+python3 tools/check_abi.py --build build/baseline-aom-reference
 python3 tools/smoke_shared.py
 ```
 
@@ -89,19 +92,17 @@ was changed; see [ADR 0024](docs/adr/0024-use-noncontracting-c-references-for-po
 
 The [dependency porting plan](docs/NATIVE-PORTS.md) defines separate mechanical
 Rust crates in a shared workspace. Portable SharpYUV and dav1d are implemented;
-libaom has complete macOS and GNU Linux standalone source profiles under
-validation (see [the libaom milestone](docs/AOM-PORT.md)). The plan records
+portable libaom has passed complete native macOS and GNU Linux standalone
+Release acceptance and focused Debug checks (see
+[the libaom milestone](docs/AOM-PORT.md)). The plan records
 bit-exact reference checks, original-test correspondence,
 license provenance, and the macOS ARM64 / Linux x86-64 validation gates.
 
-The temporary `port-aom-candidate` feature already connects the existing
-adapter to the Rust AOM crate for validation. It has passed the original
-libavif Debug, Release, full-feature, and ASan suites. The subsequent external
-input-alignment correction requires fresh standalone acceptance and final
-root revalidation before the default dependency switch.
-The current acceptance policy requires complete original Release suites on
-both native platforms plus focused Debug and sanitizer checks, preserving all
-original tests. See [ADR 0048](docs/adr/0048-require-complete-release-and-focused-debug-aom-acceptance.md).
+Rust AOM is mandatory in the default build; no temporary feature or production
+system-AOM discovery is required. The selected portable configuration preserves
+native VMAF and the separate optional-engine scope. See
+[ADR 0049](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md) and the
+[acceptance policy](docs/adr/0048-require-complete-release-and-focused-debug-aom-acceptance.md).
 
 ## License
 

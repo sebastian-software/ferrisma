@@ -2,7 +2,10 @@
 
 Status: portable SharpYUV and dav1d are implemented and integrated. See
 [SharpYUV validation](SHARPYUV-VALIDATION.md) and the
-[dav1d port and validation](DAV1D-PORT.md). The [libaom milestone](AOM-PORT.md) is in progress.
+[dav1d port and validation](DAV1D-PORT.md). Portable libaom has passed complete
+native macOS/Linux standalone acceptance and is the mandatory root dependency;
+see the [libaom milestone](AOM-PORT.md). Native VMAF and optional engines retain
+their separate later milestones.
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
@@ -26,7 +29,7 @@ recorded baseline, not a selected source revision for a future port.
 
 | Library | Existing use | Porting considerations |
 | --- | --- | --- |
-| libaom | Default AV1 encoding and decoding | C implementation with architecture-specific assembly and intrinsics; broader than still images. |
+| libaom | Default AV1 encoding and decoding | Replaced by the portable `libavif-aom` workspace crate; original C remains the independent reference, with native libvmaf retained. |
 | dav1d | Default AV1 decoding | Replaced by the portable `libavif-dav1d` workspace crate; original C remains its reference. |
 | SharpYUV | Default pixel conversion | Replaced by the portable `libavif-sharpyuv` workspace crate; the original libwebp target remains its reference. |
 | libgav1 | Optional AV1 decoding | C++ with platform-specific DSP implementations. |

@@ -16,9 +16,9 @@ messages, metadata, image planes, encoder/decoder behavior, I/O callbacks,
 cleanup, and threading behavior. Preserve the complete upstream test tree and
 its feature gates. AV1/AV2 codec implementations and external libraries remain
 dependencies as they are upstream; their adapter code belongs to the port.
-SharpYUV and the portable dav1d decoder are now delivered by separate Rust
-workspace crates. Their standalone references and evidence are linked from
-`NATIVE-PORTS.md`. The remaining
+SharpYUV, the portable dav1d decoder, and portable libaom are now delivered by
+separate Rust workspace crates. Their standalone references and evidence are
+linked from `NATIVE-PORTS.md`. The remaining
 engine dependencies follow the accepted sequence in `NATIVE-PORTS.md`.
 Applications and C/C++ test harnesses remain original consumers of the port.
 

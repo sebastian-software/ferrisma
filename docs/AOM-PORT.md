@@ -1,15 +1,16 @@
 # Portable libaom port
 
 Status: native Linux and macOS Release and focused Debug acceptance passes
-under ADR 0048; final root integration is pending.
+under ADR 0048. Rust AOM is the mandatory root dependency under ADR 0049;
+final root validation is recorded separately below.
 All 168 portable C
 translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug and
 Release, with a raw Rust API and passing focused native comparisons. Before
 the input-alignment correction in ADR 0046, the explicit root candidate passed
 libavif Debug, Release, supported-feature, and AddressSanitizer suites. Those
-root checks require final revalidation. Default libavif builds still link native
-libaom while the complete original Release suites, focused Debug checks, and
-final runtime gates run under ADR 0048. Exhaustive unoptimized
+root checks are historical. Default Rust builds use the portable workspace AOM
+implementation with native VMAF retained. Complete original Release suites,
+focused Debug checks, and final runtime gates follow ADR 0048. Exhaustive unoptimized
 Debug execution is no longer a default-switch prerequisite.
 
 The first hosted macOS full Debug shard exposed an additional Rust alignment
@@ -158,11 +159,11 @@ Supplemental comparisons in each profile preserve exact output:
   consumers, with no original codec objects or globals supplied outside Rust.
   This ownership audit does not establish header-inline test coverage.
 
-Durable results and remaining gates are recorded in
-[`aom-validation-results.json`](aom-validation-results.json). Full-suite
-execution and final default root integration, including its focused Debug and
-ASan checks, remain open. The finite source-role review below is closed for
-its declared inventory; complete native execution remains a separate gate.
+[`aom-validation-results.json`](aom-validation-results.json) retains the historical
+pilot results. Complete native standalone results are recorded in
+[`aom-macos-release-acceptance.json`](aom-macos-release-acceptance.json) and
+[`aom-linux-release-acceptance.json`](aom-linux-release-acceptance.json). The
+finite source-role review below is closed for its declared inventory.
 Native C++ rate-control, libyuv, WebM, and GoogleTest code in original consumers
 must not be counted as Rust implementation coverage.
 
@@ -378,15 +379,13 @@ and cannot replace the full-corpus record. See [the optical-flow record](aom-opt
 
 ## Execution and acceptance
 
-The temporary root feature `port-aom-candidate` links the existing adapter to
-the workspace Rust engine without changing its translated body. The matching
-`tools/build.py port --aom-candidate --jobs 1` path disables system AOM discovery
-for the original CMake consumers and keeps their Cargo artifacts separate from
-standalone shards. `tools/check_aom_root_linkage.py` checks every original AOM
-global, every original consumer map, and non-system runtime dependencies.
-ADR 0045 defines the gate for making this dependency unconditional and removing
-the temporary feature. Default root integration remains pending standalone
-acceptance.
+Normal `cargo build` and `tools/build.py port --jobs 1` builds use the mandatory
+workspace Rust engine without changing the translated adapter body. Production
+system-AOM discovery and the temporary candidate feature are removed.
+`tools/check_aom_root_linkage.py` checks every original AOM global, every original
+consumer map, and non-system runtime dependencies. ADR 0049 records the default
+switch after complete native standalone acceptance; native VMAF and optional
+engines retain their separate port boundaries.
 
 The original C integration baseline can be rebuilt directly with
 `tools/build.py baseline --aom-reference-build build/aom-native-release --jobs 1`.
@@ -396,14 +395,14 @@ The helper checks all generated headers, source-unit count, profile, and
 noncontracting flags and disables system AOM discovery. With `--debug`, select
 the matching `build/aom-native-debug` reference. AddressSanitizer requires its
 separately instrumented AOM closure rather than this ordinary reference option.
-A fresh Release build through this path passes all 64 registrations and
+A historical Release build through this path passed all 64 registrations and
 9,473 ordered case identities against the Rust candidate, with ten exact
 AVIF/PNG comparisons. All 55 original C consumers link the selected portable
 archive and have no dynamic system-AOM fallback. The Rust candidate's 55 maps
 and runtime graphs pass again. See
 [`aom-reproducible-root-reference.json`](aom-reproducible-root-reference.json).
 
-The root candidate passes all 64 default registrations (9,473 GoogleTest
+The historical root candidate passed all 64 default registrations (9,473 GoogleTest
 cases) with both Debug and Release AOM, all 70 registrations with the complete
 supported feature set (9,555 cases), and all 64 AddressSanitizer registrations.
 Complete CTest logs establish identical ordered GoogleTest case names in all
@@ -418,8 +417,23 @@ all 55 default and 59 full-feature original consumers and their non-system
 runtime dependencies. Three strict end-to-end matrices each match ten AVIF
 files and ten decoded PNGs, including explicit AOM decoder selection in both
 profiles.
-The default dependency switch and complete standalone acceptance remain
-pending. See [the candidate validation](aom-root-candidate-validation.json).
+These results predate the input-alignment correction and do not establish final
+default acceptance. See [the historical candidate validation](aom-root-candidate-validation.json).
+Current standalone and default validation records supersede that checkpoint.
+
+The mandatory default passes fresh complete C/Rust root Release suites
+(64 CTest registrations and 9,473 ordered GoogleTest cases), all supported
+features (70 registrations and 9,555 cases), focused Debug regressions
+(eight registrations and 64 cases), and the complete root AddressSanitizer
+suites. Every original AOM global is supplied by Rust in all 55 default
+consumers and all 59 feature-enabled consumers, including their runtime
+closures and the shared library. Ten default-decoder and ten explicit-AOM-decoder
+comparisons match both AVIF and decoded PNG bytes against the portable C
+reference with `-ffp-contract=off`. Source, translation, license, and named root
+ABI checks also pass. See [the final default validation](aom-default-validation.json).
+These root results cover native macOS ARM64; standalone Linux acceptance does
+not establish a supported Linux root pipeline. Native VMAF and the approved
+optional engines remain separate porting milestones.
 
 Work proceeds in a dedicated linked worktree with a Solo profile, coherent commits, generated
 corrections, narrow comparisons after each correction, and full-suite
