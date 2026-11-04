@@ -105,6 +105,7 @@ pub struct Driver {
     closed: bool,
     box_set: bool,
     box_buffer: Vec<u8>,
+    jpeg_buffer: Vec<u8>,
     print_events: bool,
 }
 
@@ -135,6 +136,7 @@ impl Driver {
             closed: false,
             box_set: false,
             box_buffer: Vec::new(),
+            jpeg_buffer: Vec::new(),
             print_events: false,
         }
     }
@@ -264,6 +266,8 @@ impl Driver {
                 self.restart();
                 self.out.push('0');
             }
+            'J' => self.set_jpeg(arg.parse().unwrap()),
+            'j' => self.release_jpeg(),
             'L' => self.run_loop(arg),
             _ => panic!("decoder public op"),
         }
@@ -282,6 +286,29 @@ impl Driver {
             self.box_buffer.clear();
             self.box_set = false;
         }
+        // Rewind and Reset forget the JPEG output buffer.
+        if !self.jpeg_buffer.is_empty() {
+            write!(self.out, "{},", hex(&self.jpeg_buffer)).unwrap();
+            self.jpeg_buffer.clear();
+        }
+    }
+
+    fn set_jpeg(&mut self, size: usize) {
+        let mut buffer = vec![0xA5u8; size + 1];
+        let data = buffer.as_mut_ptr();
+        // SAFETY: The buffer's heap storage stays live and unmoved in the
+        // driver until it is released or forgotten by Rewind/Reset.
+        let status = unsafe { api::jxl_decoder_set_jpeg_buffer(self.dec(), data, size) };
+        self.status(status);
+        if status == JxlDecoderStatus::SUCCESS {
+            self.jpeg_buffer = buffer;
+        }
+    }
+
+    fn release_jpeg(&mut self) {
+        let remaining = api::jxl_decoder_release_jpeg_buffer(self.dec());
+        write!(self.out, "{},{}", remaining, hex(&self.jpeg_buffer)).unwrap();
+        self.jpeg_buffer.clear();
     }
 
     fn set_input(&mut self, arg: &str) {
@@ -620,6 +647,8 @@ impl Driver {
                 self.info();
             } else if status == JxlDecoderStatus::COLOR_ENCODING {
                 self.color();
+            } else if status == JxlDecoderStatus::JPEG_RECONSTRUCTION {
+                // The event carries no getter; decoding continues.
             } else {
                 if status == JxlDecoderStatus::SUCCESS && self.box_set {
                     self.out.push_str(" o:");

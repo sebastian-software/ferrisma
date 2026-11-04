@@ -39,6 +39,7 @@ use super::common::JXL_SIGNATURE_BOX;
 use super::dec_bit_reader::BitReader;
 use super::dec_cache::PassesDecoderState;
 use super::dec_cache::{ImageOutDestroyCallback, ImageOutInitCallback, ImageOutRunCallback};
+use super::decode_to_jpeg::JxlToJpegDecoder;
 use super::decoder_input::{CodestreamSpan, DecoderInput};
 use super::field_encodings::Fields;
 use super::fields::bundle;
@@ -322,6 +323,8 @@ enum BoxStage {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum JpegReconStage {
     None,
+    SettingMetadata,
+    Outputting,
 }
 
 /// For each internal frame, which storage locations it references and which
@@ -562,6 +565,7 @@ pub struct JxlDecoder {
     buffering_jxlp_index: u32,
     buffering_jxlp_is_last: bool,
     box_content_decoder: JxlBoxContentDecoder,
+    jpeg_decoder: JxlToJpegDecoder,
     metadata_decoder: JxlBoxContentDecoder,
     exif_metadata: Vec<u8>,
     xmp_metadata: Vec<u8>,
@@ -668,6 +672,7 @@ impl JxlDecoder {
             buffering_jxlp_index: 0,
             buffering_jxlp_is_last: false,
             box_content_decoder: JxlBoxContentDecoder::new(),
+            jpeg_decoder: JxlToJpegDecoder::new(),
             metadata_decoder: JxlBoxContentDecoder::new(),
             exif_metadata: Vec::new(),
             xmp_metadata: Vec::new(),
@@ -775,6 +780,7 @@ impl Drop for JxlDecoder {
         drop(std::mem::take(&mut self.xmp_metadata));
         drop(std::mem::take(&mut self.exif_metadata));
         drop(std::mem::take(&mut self.metadata_decoder));
+        drop(std::mem::take(&mut self.jpeg_decoder));
         drop(std::mem::take(&mut self.box_content_decoder));
         // The input owner releases the jxlp map before the codestream copy.
         // SAFETY: The empty replacement never allocates, so it never calls
@@ -863,6 +869,7 @@ pub fn jxl_decoder_rewind_decoding_state(dec: &mut JxlDecoder) {
     dec.recon_exif_size = 0;
     dec.recon_xmp_size = 0;
     dec.recon_output_jpeg = JpegReconStage::None;
+    dec.jpeg_decoder.reset();
 
     dec.events_wanted = dec.orig_events_wanted;
     dec.basic_info_size_hint = initial_basic_info_size_hint();
@@ -1410,6 +1417,33 @@ pub fn jxl_decoder_close_input(dec: &mut JxlDecoder) {
     dec.input.close_input();
 }
 
+/// JxlDecoderSetJPEGBuffer.
+///
+/// # Safety
+/// When `size` is nonzero, `data` is writable for `size` bytes until
+/// jxl_decoder_release_jpeg_buffer, and is disjoint from the decoder and its
+/// input. A null `data` is permitted only with a zero size.
+pub unsafe fn jxl_decoder_set_jpeg_buffer(
+    dec: &mut JxlDecoder,
+    data: *mut u8,
+    size: usize,
+) -> JxlDecoderStatus {
+    // JPEG reconstruction buffer can only set and updated before or during the
+    // first frame, the reconstruction box refers to the first frame and in
+    // theory multi-frame images should not be used with a jbrd box.
+    if dec.internal_frames > 1 {
+        return api_error!("JPEG reconstruction only works for the first frame");
+    }
+    if dec.jpeg_decoder.is_output_set() {
+        return api_error!("Already set JPEG buffer");
+    }
+    dec.jpeg_decoder.set_output_buffer(data, size)
+}
+
+pub fn jxl_decoder_release_jpeg_buffer(dec: &mut JxlDecoder) -> usize {
+    dec.jpeg_decoder.release_output_buffer()
+}
+
 /// HandleBoxes; this includes handling the codestream if it is not a
 /// box-based jxl file.
 ///
@@ -1542,8 +1576,49 @@ unsafe fn handle_boxes(dec: &mut JxlDecoder) -> JxlDecoderStatus {
                 }
             }
         }
-        // WIP: the JPEG reconstruction output stages are ported with
-        // JxlToJpegDecoder.
+        if dec.recon_output_jpeg == JpegReconStage::SettingMetadata && !dec.jbrd_need_more_boxes() {
+            // The source dereferences the image bundle's JPEG data.
+            let jpeg_data = dec
+                .ib
+                .as_mut()
+                .and_then(|ib| ib.jpeg_data.as_deref_mut())
+                .expect("the source dereferences the reconstruction JPEG data");
+            if dec.recon_exif_size != 0 {
+                let status = JxlToJpegDecoder::set_exif(&dec.exif_metadata, jpeg_data);
+                if status != JxlDecoderStatus::SUCCESS {
+                    return status;
+                }
+            }
+            if dec.recon_xmp_size != 0 {
+                let status = JxlToJpegDecoder::set_xmp(&dec.xmp_metadata, jpeg_data);
+                if status != JxlDecoderStatus::SUCCESS {
+                    return status;
+                }
+            }
+            dec.recon_output_jpeg = JpegReconStage::Outputting;
+        }
+
+        if dec.recon_output_jpeg == JpegReconStage::Outputting && !dec.jbrd_need_more_boxes() {
+            let jpeg_data = dec
+                .ib
+                .as_ref()
+                .and_then(|ib| ib.jpeg_data.as_deref())
+                .expect("the source dereferences the reconstruction JPEG data");
+            // SAFETY: jxl_decoder_set_jpeg_buffer's caller contract covers the
+            // stored output buffer, which is disjoint from the JPEG data.
+            let status = unsafe { dec.jpeg_decoder.write_output(jpeg_data) };
+            if status != JxlDecoderStatus::SUCCESS {
+                return status;
+            }
+            dec.recon_output_jpeg = JpegReconStage::None;
+            dec.ib = None;
+            if (dec.events_wanted & DEC_FULL_IMAGE) != 0 {
+                // Return the full image event here now, this may be delayed if
+                // this could only be done after decoding an exif or xmp box
+                // after the codestream.
+                return JxlDecoderStatus::FULL_IMAGE;
+            }
+        }
 
         if dec.box_stage == BoxStage::Header {
             if !dec.have_container {
@@ -1857,8 +1932,60 @@ unsafe fn handle_boxes(dec: &mut JxlDecoder) -> JxlDecoderStatus {
             // Box fully buffered; parse the next box header.
             dec.box_stage = BoxStage::Header;
         } else if dec.box_stage == BoxStage::JpegRecon {
-            // WIP: ported with JxlToJpegDecoder.
-            return api_error!("WIP: JPEG reconstruction awaits JxlToJpegDecoder");
+            if !dec.jpeg_decoder.is_parsing_box() {
+                // This is a new JPEG reconstruction metadata box.
+                dec.jpeg_decoder
+                    .start_box(dec.input.box_contents_unbounded, dec.box_contents_size);
+            }
+            // SAFETY: The SetInput contract covers the current input range.
+            let mut next_in = unsafe { dec.input_bytes() };
+            let avail_in = next_in.len();
+            let recon_result = dec.jpeg_decoder.process(&mut next_in);
+            let consumed = avail_in - next_in.len();
+            dec.advance_input(consumed);
+            if recon_result == JxlDecoderStatus::JPEG_RECONSTRUCTION {
+                let jpeg_data = dec
+                    .jpeg_decoder
+                    .get_jpeg_data()
+                    .expect("the source dereferences the parsed JPEG data");
+                let num_exif = JxlToJpegDecoder::num_exif_markers(jpeg_data);
+                let num_xmp = JxlToJpegDecoder::num_xmp_markers(jpeg_data);
+                if num_exif != 0 {
+                    if num_exif > 1 {
+                        return input_error!(
+                            "multiple exif markers for JPEG reconstruction not supported"
+                        );
+                    }
+                    if JxlToJpegDecoder::exif_box_content_size(jpeg_data, &mut dec.recon_exif_size)
+                        != JxlDecoderStatus::SUCCESS
+                    {
+                        return input_error!("invalid jbrd exif size");
+                    }
+                }
+                if num_xmp != 0 {
+                    if num_xmp > 1 {
+                        return input_error!(
+                            "multiple XMP markers for JPEG reconstruction not supported"
+                        );
+                    }
+                    if JxlToJpegDecoder::xml_box_content_size(jpeg_data, &mut dec.recon_xmp_size)
+                        != JxlDecoderStatus::SUCCESS
+                    {
+                        return input_error!("invalid jbrd XMP size");
+                    }
+                }
+
+                dec.box_stage = BoxStage::Header;
+                // If successful JPEG reconstruction, return the success if the
+                // user cares about it, otherwise continue.
+                if (dec.events_wanted & DEC_JPEG_RECONSTRUCTION) != 0 {
+                    dec.events_wanted &= !DEC_JPEG_RECONSTRUCTION;
+                    return JxlDecoderStatus::JPEG_RECONSTRUCTION;
+                }
+            } else {
+                // If anything else, return the result.
+                return recon_result;
+            }
         } else if dec.box_stage == BoxStage::Skip {
             if dec.input.box_contents_unbounded {
                 if dec.input_closed() {

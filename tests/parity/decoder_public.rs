@@ -213,3 +213,113 @@ fn public_decoder_input_allocations_match_original() {
     }
     compare("allocations", requests);
 }
+
+fn segment(marker: u8, payload: &[u8]) -> Vec<u8> {
+    let length = payload.len() + 2;
+    let mut s = vec![0xff, marker, (length >> 8) as u8, length as u8];
+    s.extend_from_slice(payload);
+    s
+}
+
+/// Insert whole marker segments after SOI and an initial APP0 segment.
+fn with_segments(jpeg: &[u8], segments: &[Vec<u8>]) -> Vec<u8> {
+    let mut pos = 2;
+    if jpeg[2..4] == [0xff, 0xe0] {
+        pos += 2 + usize::from(u16::from_be_bytes([jpeg[4], jpeg[5]]));
+    }
+    let mut out = jpeg[..pos].to_vec();
+    for s in segments {
+        out.extend_from_slice(s);
+    }
+    out.extend_from_slice(&jpeg[pos..]);
+    out
+}
+
+/// Genuine JPEG reconstruction containers from the original encoder: jbrd,
+/// partial codestream, and uncompressed or brob Exif/XMP boxes.
+fn jpeg_files() -> Vec<String> {
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let exif = {
+        let mut p = b"Exif\0\0".to_vec();
+        p.extend_from_slice(&[0x49, 0x49, 0x2a, 0, 8, 0, 0, 0, 1, 0]);
+        p.extend_from_slice(&[0x12, 0x01, 3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
+        p.extend((0..29).map(|i| (i * 7 + 3) as u8));
+        p
+    };
+    let xmp = {
+        let mut p = b"http://ns.adobe.com/xap/1.0/\0".to_vec();
+        p.extend_from_slice(b"<x:xmpmeta xmlns:x='adobe:ns:meta/'>public decoder</x:xmpmeta>");
+        p
+    };
+    let mut requests = Vec::new();
+    for path in [
+        "jpeg-writer/baseline.jpg",
+        "jpeg-writer/gray.jpg",
+        "jpeg-writer/progressive.jpg",
+    ] {
+        let jpeg = std::fs::read(root.join(path)).unwrap();
+        for segments in [
+            vec![],
+            vec![segment(0xe1, &exif)],
+            vec![segment(0xe1, &xmp)],
+            vec![
+                segment(0xe1, &exif),
+                segment(0xe1, &xmp),
+                segment(0xfe, b"comment"),
+            ],
+        ] {
+            for compress in 0..2 {
+                let input = with_segments(&jpeg, &segments);
+                requests.push(format!("jtj-encode {} 7 {compress}", driver::hex(&input)));
+            }
+        }
+    }
+    super::original_observations(&requests)
+        .into_iter()
+        .map(|observed| {
+            let (prefix, wire) = observed.rsplit_once(' ').unwrap();
+            assert_eq!(prefix, "API 0 0 0 0 0 W 0 0");
+            wire.to_owned()
+        })
+        .collect()
+}
+
+#[test]
+fn public_decoder_jpeg_reconstruction_boxes_match_original() {
+    let files = jpeg_files();
+    let mut requests = Vec::new();
+    let mut seed = 31u64;
+    for (index, file) in files.iter().enumerate() {
+        for events in [8192, 8256, 8512, 24576, 90112, 24640] {
+            for (chunk_seed, max) in [(1, 1), (4, 23), (9, 1 << 20)] {
+                let boxbuf = [0, 3, 64][(index + chunk_seed) % 3];
+                requests.push(format!(
+                    "dpub-run 0 0 {file} s{events} d{} J{} L{chunk_seed},{max},{boxbuf},100000,{} j",
+                    index % 2,
+                    index * 13 % 50,
+                    chunk_seed % 2
+                ));
+            }
+        }
+        // Buffer misuse and a second jbrd subscription across Rewind/Reset.
+        requests.push(format!(
+            "dpub-run 2 0 {file} j J4 J4 j j s8192 L1,40,0,3,0 J0 w L1,40,0,100000,1 x s8256 L2,9,0,100000,1"
+        ));
+        let bytes = driver::unhex(file);
+        for _ in 0..12 {
+            let mut mutated = bytes.clone();
+            let position = (super::next(&mut seed) as usize) % mutated.len().min(400);
+            mutated[position] ^= 1 << (super::next(&mut seed) % 8);
+            requests.push(format!(
+                "dpub-run 0 0 {} s24640 d1 L{position},17,5,100000,1",
+                driver::hex(&mutated)
+            ));
+            let cut = (super::next(&mut seed) as usize) % bytes.len();
+            requests.push(format!(
+                "dpub-run 0 0 {} s8256 L{cut},7,0,100000,1",
+                driver::hex(&bytes[..cut])
+            ));
+        }
+    }
+    compare("jpeg", requests);
+}

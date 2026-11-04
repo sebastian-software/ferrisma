@@ -367,6 +367,8 @@ class Driver {
         out_ << 0;
         break;
       }
+      case 'J': SetJpeg(std::stoul(arg)); break;
+      case 'j': ReleaseJpeg(); break;
       case 'L': Loop(arg); break;
       default: throw std::runtime_error("decoder public op");
     }
@@ -381,6 +383,11 @@ class Driver {
       out_ << Hex(jxl::Bytes(box_.data(), box_.size())) << ',';
       box_.clear();
       box_set_ = false;
+    }
+    // Rewind and Reset forget the JPEG output buffer.
+    if (!jpeg_.empty()) {
+      out_ << Hex(jxl::Bytes(jpeg_.data(), jpeg_.size())) << ',';
+      jpeg_.clear();
     }
   }
 
@@ -510,6 +517,21 @@ class Driver {
     }
   }
 
+  void SetJpeg(size_t size) {
+    std::vector<uint8_t> buffer(size + 1, 0xA5);
+    JxlDecoderStatus status = JxlDecoderSetJPEGBuffer(dec_, buffer.data(), size);
+    out_ << status;
+    if (status == JXL_DEC_SUCCESS) {
+      jpeg_ = std::move(buffer);
+    }
+  }
+
+  void ReleaseJpeg() {
+    size_t remaining = JxlDecoderReleaseJPEGBuffer(dec_);
+    out_ << remaining << ',' << Hex(jxl::Bytes(jpeg_.data(), jpeg_.size()));
+    jpeg_.clear();
+  }
+
   void ReleaseBox() {
     size_t remaining = JxlDecoderReleaseBoxBuffer(dec_);
     out_ << remaining << ',' << Hex(jxl::Bytes(box_.data(), box_.size()));
@@ -610,6 +632,8 @@ class Driver {
         Info();
       } else if (status == JXL_DEC_COLOR_ENCODING) {
         Color();
+      } else if (status == JXL_DEC_JPEG_RECONSTRUCTION) {
+        // The event carries no getter; decoding continues.
       } else {
         if (status == JXL_DEC_SUCCESS && box_set_) {
           out_ << " o:";
@@ -627,6 +651,9 @@ class Driver {
   size_t pos_ = 0, set_len_ = 0;
   bool closed_ = false, box_set_ = false, print_events_ = false;
   std::vector<uint8_t> box_;
+  // A JPEG buffer stays alive until released, as a caller retains it; the
+  // decoder writes it only during ProcessInput.
+  std::vector<uint8_t> jpeg_;
 };
 
 }  // namespace
