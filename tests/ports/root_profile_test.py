@@ -8,10 +8,38 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY / 'tools'))
 import check_root_profile as subject
+import build_root_references as reference
+
+
+class ScalarReferenceGuards(unittest.TestCase):
+    entry = dict(command='clang -DHAVE_CONFIG_H -mno-sse2 -msse2 -o dsp.o -c /original/sharpyuv_dsp.c',
+                 file='/original/sharpyuv_dsp.c', directory='/original')
+
+    def macros(self, definitions):
+        result = subprocess.CompletedProcess([], 0, stdout=definitions, stderr='')
+        with patch.object(reference.subprocess, 'run', return_value=result):
+            return reference.scalar_macros(self.entry)
+
+    def test_scalar_dsp_can_retain_the_required_x86_64_compiler_abi(self):
+        self.macros('#define HAVE_CONFIG_H 1\n#define __SSE2__ 1\n')
+
+    def test_a_defined_zero_dsp_macro_still_enables_original_ifdef_code(self):
+        with self.assertRaises(SystemExit):
+            self.macros('#define HAVE_CONFIG_H 1\n#define WEBP_HAVE_SSE2 0\n')
+
+    def test_each_manual_dsp_path_is_rejected(self):
+        for suffix in ['SSE2', 'SSE41', 'AVX2', 'NEON', 'MIPS32', 'MIPS_DSP_R2', 'MSA']:
+            with self.subTest(suffix=suffix), self.assertRaises(SystemExit):
+                self.macros('#define HAVE_CONFIG_H 1\n#define WEBP_USE_' + suffix + ' 1\n')
+
+    def test_missing_generated_configuration_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            self.macros('#define __SSE2__ 1\n')
 
 
 class RootProfileGuards(unittest.TestCase):

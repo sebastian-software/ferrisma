@@ -92,6 +92,14 @@ jobs:
             build/root-c-linux-*/CMakeCache.txt
             build/root-c-linux-*/compile_commands.json
             build/root-references-*/reference-profile.json
+            build/root-references-*/dav1d/meson-logs/
+            build/root-references-*/dav1d/config.h
+            build/root-references-*/dav1d/compile_commands.json
+            build/root-references-*/sharpyuv/CMakeCache.txt
+            build/root-references-*/sharpyuv/CMakeFiles/CMakeConfigureLog.yaml
+            build/root-references-*/sharpyuv/compile_commands.json
+            build/root-references-*/sharpyuv/src/webp/config.h
+            build/root-references-*/sharpyuv/scalar-macros.txt
             build/root-typecheck-*/summary.json
             build/aom-native-*/reference-profile.json
           if-no-files-found: error
