@@ -316,19 +316,26 @@ pub struct AcGroupDecoderState<'a, 'metadata> {
     pub x_dm_multiplier: f32,
     pub b_dm_multiplier: f32,
     pub quant_biases: &'a [f32; 4],
+    /// PassesDecoderState::upsampler8x; only the zero-pass first draw uses it.
+    pub upsampler8x: Option<
+        &'a mut (dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage + 'static),
+    >,
 }
 
-/// The nonzero-pass branch of DecodeGroup, with optional original JPEG output.
-/// The caller supplies genuine AC passes, an initialized cache, and i32 AC
-/// storage for JPEG. DC-only preview remains a separate source boundary.
+/// Complete DecodeGroup, with optional original JPEG output. Zero new passes
+/// with a draw and no earlier pass render the 8x-upsampled DC image (Flush).
+/// Otherwise the caller supplies `num_passes` genuine AC readers (zero for a
+/// forced draw of stored coefficients) and an initialized cache. `thread` is
+/// the storage location the source passes to the upsampler.
 #[allow(clippy::too_many_arguments)] // Preserve the reached source arguments.
 pub fn decode_ac_group(
     frame_header: &super::frame_header::FrameHeader<'_>,
     readers: &mut [BitReader<'_>],
-    num_passes: std::num::NonZeroUsize,
+    num_passes: usize,
     group_idx: usize,
     state: AcGroupDecoderState<'_, '_>,
     group_dec_cache: &mut super::dec_cache::GroupDecCache,
+    thread: usize,
     render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<
         '_,
         '_,
@@ -336,9 +343,9 @@ pub fn decode_ac_group(
     jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
     first_pass: usize,
     force_draw: bool,
+    dc_only: bool,
     should_run_pipeline: Option<&mut bool>,
 ) -> Status {
-    let num_passes = num_passes.get();
     let draw = if num_passes + first_pass == frame_header.passes.num_passes as usize || force_draw {
         DrawMode::Draw
     } else {
@@ -347,14 +354,31 @@ pub fn decode_ac_group(
     if let Some(should_run_pipeline) = should_run_pipeline {
         *should_run_pipeline = draw != DrawMode::DontDraw;
     }
-    if state.shared.num_histograms == 0 {
-        return Err(StatusCode::GenericError);
+    if draw == DrawMode::Draw && num_passes == 0 && first_pass == 0 {
+        return draw_upsampled_dc(
+            frame_header,
+            group_idx,
+            state,
+            group_dec_cache,
+            thread,
+            render_pipeline_input,
+        );
     }
-    let histo_selector_bits = if state.shared.num_histograms == 1 {
-        0
+    let mut histo_selector_bits = 0;
+    if dc_only {
+        if num_passes != 0 {
+            return Err(StatusCode::GenericError);
+        }
     } else {
-        usize::BITS as usize - (state.shared.num_histograms - 1).leading_zeros() as usize
-    };
+        if state.shared.num_histograms == 0 {
+            return Err(StatusCode::GenericError);
+        }
+        histo_selector_bits = if state.shared.num_histograms == 1 {
+            0
+        } else {
+            usize::BITS as usize - (state.shared.num_histograms - 1).leading_zeros() as usize
+        };
+    }
     let (buffers, num_nzeroes) = group_dec_cache.split_buffers();
     let mut get_block = GetBlockFromBitstream::init(
         frame_header,
@@ -385,6 +409,124 @@ pub fn decode_ac_group(
     get_block.check_ans_final_state()
 }
 
+/// DecodeGroup's zero-pass first-draw branch: copy the group's DC rectangle with
+/// two padding samples into the cache buffer, mirror-pad it and run the 8x
+/// upsampler into each color input buffer. Owner-relative rows replace the
+/// source's dc_buffer and pipeline row pointers, including its minus-offset rows.
+fn draw_upsampled_dc(
+    frame_header: &super::frame_header::FrameHeader<'_>,
+    group_idx: usize,
+    state: AcGroupDecoderState<'_, '_>,
+    group_dec_cache: &mut super::dec_cache::GroupDecCache,
+    thread: usize,
+    render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<
+        '_,
+        '_,
+    >,
+) -> Status {
+    use super::base::rect::Rect;
+    use super::render_pipeline::render_pipeline_stage::{
+        RENDER_PIPELINE_X_OFFSET, Row, RowBuffers, RowStorage,
+    };
+    group_dec_cache.init_dc_buffer_once()?;
+    let upsampler = state
+        .upsampler8x
+        .expect("source Init creates the 8x upsampler before any group draw");
+    let dc = state.shared.dc();
+    let cs = &frame_header.chroma_subsampling;
+    for c in [0, 1, 2] {
+        let hs = cs.h_shift(c);
+        let vs = cs.v_shift(c);
+        // The source reuses the cache's filter input storage here.
+        let src_rect_precs = state.shared.frame_dim.block_group_rect(group_idx);
+        let src_rect = Rect::new(
+            src_rect_precs.x0() >> hs,
+            src_rect_precs.y0() >> vs,
+            src_rect_precs.xsize() >> hs,
+            src_rect_precs.ysize() >> vs,
+        );
+        let copy_rect = Rect::new(
+            RENDER_PIPELINE_X_OFFSET,
+            2,
+            src_rect.xsize(),
+            src_rect.ysize(),
+        );
+        super::image_ops::copy_image_to_with_padding(
+            src_rect,
+            dc.plane(c),
+            2,
+            copy_rect,
+            &mut group_dec_cache.dc_buffer,
+        )?;
+        // Mirror padding. Interleaving left and right padding handles DC size 1.
+        for y in 0..src_rect.ysize().wrapping_add(4) {
+            let xend = RENDER_PIPELINE_X_OFFSET
+                .wrapping_add(dc.plane(c).xsize() >> hs)
+                .wrapping_sub(src_rect.x0());
+            for ix in 0..2 {
+                let row = group_dec_cache.dc_buffer.row_mut(y);
+                if src_rect.x0() == 0 {
+                    row[RENDER_PIPELINE_X_OFFSET - ix - 1] = row[RENDER_PIPELINE_X_OFFSET + ix];
+                }
+                if src_rect.x0() + src_rect.xsize() + 2 >= (dc.xsize() >> hs) {
+                    row[xend + ix] = row[xend - ix - 1];
+                }
+            }
+        }
+        let (upsampling_dst, dst_rect) = render_pipeline_input.get_buffer_mut(c);
+        if !dst_rect.is_inside(Rect::new(
+            0,
+            0,
+            upsampling_dst.xsize(),
+            upsampling_dst.ysize(),
+        )) {
+            return Err(StatusCode::GenericError);
+        }
+        let dc_ysize = (dc.plane(c).ysize() >> vs) as i64;
+        for y in src_rect.y0()..src_rect.y0() + src_rect.ysize() {
+            let input_rows = vec![
+                (0..5i64)
+                    .map(|iy| Row {
+                        storage: RowStorage::Input,
+                        channel: 0,
+                        y: (super::image_ops::mirror(y as i64 + iy - 2, dc_ysize) as usize)
+                            .wrapping_add(2)
+                            .wrapping_sub(src_rect.y0()),
+                        x: 0,
+                    })
+                    .collect(),
+            ];
+            let output_rows = vec![
+                (0..8)
+                    .map(|iy| Row {
+                        storage: RowStorage::Output,
+                        channel: 0,
+                        y: dst_rect.y0() + ((y - src_rect.y0()) << 3) + iy,
+                        x: dst_rect.x0().wrapping_sub(RENDER_PIPELINE_X_OFFSET),
+                    })
+                    .collect(),
+            ];
+            let mut buffers = RowBuffers {
+                input: std::slice::from_mut(&mut group_dec_cache.dc_buffer),
+                output: std::slice::from_mut(&mut *upsampling_dst),
+            };
+            // Arguments set to zero are not used by the upsampler.
+            upsampler.process_row(
+                &input_rows,
+                &output_rows,
+                &mut buffers,
+                0,
+                0,
+                src_rect.xsize(),
+                0,
+                0,
+                thread,
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// Original null-JPEG specialization retained for existing pixel callers.
 #[allow(clippy::too_many_arguments)]
 pub fn decode_ac_group_pixels(
@@ -405,14 +547,16 @@ pub fn decode_ac_group_pixels(
     decode_ac_group(
         frame_header,
         readers,
-        num_passes,
+        num_passes.get(),
         group_idx,
         state,
         group_dec_cache,
+        0,
         render_pipeline_input,
         None,
         first_pass,
         force_draw,
+        false,
         should_run_pipeline,
     )
 }

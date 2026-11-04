@@ -45,6 +45,8 @@ mod retained_frame_owners;
 #[path = "parity/noise_render.rs"]
 mod noise_render;
 
+#[path = "parity/frame_decoder.rs"]
+mod frame_decoder;
 #[path = "parity/frame_sequences.rs"]
 mod frame_sequences;
 
@@ -844,6 +846,7 @@ fn observe(request: &str) -> String {
         kind if external_image::handles(kind) => external_image::observe(kind, &mut args),
         kind if frame_buffers::handles(kind) => frame_buffers::observe(kind, &mut args),
         kind if frame_sequences::handles(kind) => frame_sequences::observe(kind, &mut args),
+        kind if frame_decoder::handles(kind) => frame_decoder::observe(kind, &mut args),
         kind if retained_frame_owners::handles(kind) => {
             retained_frame_owners::observe(kind, &mut args)
         }

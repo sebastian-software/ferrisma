@@ -326,7 +326,7 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, retained shared reference temporary, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
-| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, pipeline preparation with the FrameDecoder use_slow_rendering_pipeline selection (fixed profiles select the simple pipeline), cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; the first VarDCT profile is connected through the same original scheduling below; general/progressive public APIs and JPEG remain unported |
+| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | DecodeFrame and the complete public incremental FrameDecoder: InitFrame/InitFrameOutput, SectionInfo/TocEntry/SectionStatus, ProcessSections with partial and permuted input and progressive DC/pass pauses, Flush, FinalizeFrame, References/SavedAs, TOC/pass/DC accessors, SetPauseAtProgressive/NextNumPassesToPause, SetRenderSpotcolors/SetCoalescing, SetImageOutput/AddExtraChannelOutput with the original output-stage selection; null pool with the constructor's simple/low-memory pipeline selection (fixed profiles select the simple pipeline), explicit profile admission; `decode.cc` orchestration remains separate |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
@@ -348,7 +348,7 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; first VarDCT frame/group integration connected; general frame profiles remain separate |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
 | `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
-| `dec_group.cc` (`DecodeACVarBlock`, `GetBlockFromBitstream`, group orchestration) | `dec_group.rs`, `dec_group_render.rs`, `quantizer_inl.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; GetBlockFromBitstream, reached AC-group orchestration and final ANS validation are connected to scalar dequantization/traversal in dec_group_render.rs; JPEG and DC-preview drawing remain separate |
+| `dec_group.cc` (`DecodeACVarBlock`, `GetBlockFromBitstream`, group orchestration) | `dec_group.rs`, `dec_group_render.rs`, `quantizer_inl.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; GetBlockFromBitstream, complete DecodeGroup (including the zero-pass 8x-upsampled DC draw and stored-coefficient forced draw used by Flush) and final ANS validation are connected to scalar dequantization/traversal in dec_group_render.rs |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata connected to the first VarDCT frame profile; general frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
@@ -2583,3 +2583,56 @@ original 24,324 concatenation observations stay unchanged. Temporary source
 configuration diagnostics retain every raw word before selecting a reproducible
 reference profile. Native acceptance and the decoder color milestone remain
 open; these additional cases are not undefined and retain exact comparisons.
+
+## Incremental FrameDecoder interface (2026-11-04)
+
+`dec_frame.rs` now exposes the complete incremental `FrameDecoder` from
+`dec_frame.{h,cc}` that `decode.cc` drives: `new` (the constructor),
+`set_render_spotcolors`, `set_coalescing`, `init_frame`, `init_frame_output`,
+`process_sections` with `SectionInfo`/`SectionStatus`, `flush`,
+`finalize_frame`, `references`, `saved_as`, `sum_section_sizes`, `toc`
+(`TocEntry`), `get_frame_header`, `has_decoded_dc`, `has_decoded_all`,
+`num_complete_passes`, `set_pause_at_progressive`, `next_num_passes_to_pause`,
+`set_image_output` and `add_extra_channel_output`. `JxlProgressiveDetail`
+follows `decode.h`. ProcessSections keeps the original section ordering,
+duplicate/skipped/partial statuses, the kDC pause after FinalizeDC and the
+kLastPasses/kPasses pass limits. Flush keeps the blending and skip-progressive
+early returns, the forced zero-pass group draw and the non-in-place modular
+finalization. `dec_group.rs` now carries the complete `DecodeGroup`, including
+its zero-pass 8x-upsampled DC branch and the stored-coefficient forced draw.
+PreparePipeline takes the original coalescing, spot-color and noise options and
+selects the original WriteToOutputStage when an output descriptor is installed.
+
+The previous `DecodeFrame` path (`SequenceDecoder` and every fixed `decode_*`
+entry point) now runs over these public methods with unchanged behavior; all
+existing frame-level parity groups pass unchanged. Language-required
+deviations are listed in the module header and ADR 0003: per-call codec-state
+borrows, the null pool, the explicit memory manager argument for the output
+stage, and an unsafe constructor whose contract covers output descriptors and an
+installed CMS. The constructor flag selects the simple or the low-memory
+pipeline from PR #48 (the fixed profiles keep the simple one), and
+metadata/header admission follows the sequence profile
+from PR #47, including its whole-image color output and the Unsupported
+result when the simple pipeline would need a CMS stage.
+At the pinned revision `MaybeSetUnpremultiplyAlpha`, `MaybeSetFloatCallback`,
+`MaybeSetRGB8OutputBuffer`, `GetProgressiveDetail`, `NumSections`,
+`SectionOffsets` and `SectionSizes` do not exist, so none is added.
+
+Two differential groups drive the original FrameDecoder in the oracle exactly as
+`decode.cc` does: one decoder and image bundle per frame, input that grows one
+section at a time, sections offered from `next_section`, reader bounds and close
+checks, progressive pause events, FlushImage and skipped frames. Further modes
+offer sections one at a time or all at once in a seeded permutation, truncate at
+every frame, header and section boundary (and one byte before), turn coalescing
+and spot rendering off, and use buffer or pixel-callback output in uint8,
+uint16 and float with extra-channel outputs. Ten new genuine encoder fixtures
+cover three-pass and two-pass VarDCT (XYB, gray, NONE, alpha, three groups, a
+DC frame and a blended animation) and two- and three-pass Modular frames.
+The sequence group reuses 87 genuine fixtures from the existing manifests plus
+the two all-extra-channel files. Statuses, pass counts, section flags, every
+output-buffer byte, callback counts, covered bundle samples and the
+reference/DC state are compared exactly: 1,046 multipass and 1,824 sequence
+requests, each mode run with both the simple and the low-memory pipeline, with
+278 DC and 308 pass pauses, 1,392 successful and 196 rejected flushes, and 886
+truncated decodes. This interface does not complete the public decoder API:
+`decode.cc` orchestration and containers remain separate slices.

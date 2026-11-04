@@ -89,6 +89,20 @@ impl JxlDecoderStatus {
     pub const BOX_COMPLETE: Self = Self(0x10000);
 }
 
+/// JxlProgressiveDetail from decode.h, in its original ascending order.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct JxlProgressiveDetail(pub u32);
+impl JxlProgressiveDetail {
+    pub const FRAMES: Self = Self(0);
+    pub const DC: Self = Self(1);
+    pub const LAST_PASSES: Self = Self(2);
+    pub const PASSES: Self = Self(3);
+    pub const DC_PROGRESSIVE: Self = Self(4);
+    pub const DC_GROUPS: Self = Self(5);
+    pub const GROUPS: Self = Self(6);
+}
+
 pub fn out_of_bounds(a: usize, b: usize, size: usize) -> bool {
     let pos = a.wrapping_add(b);
     if pos > size {
