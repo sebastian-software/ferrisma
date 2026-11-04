@@ -21,9 +21,13 @@
 //!   result-discarding bounds/close checkpoint runs first, because the request
 //!   may reallocate the borrowed copy. The guard has no observable effect.
 //! - The image bundle is an `Rc<RefCell>` shared with the frame decoder's
-//!   retained `decoded_` pointer, and ProcessSections borrows a copy of the
+//!   retained `decoded_` pointer, which is released with the bundle at the
+//!   source's `ib.reset()`, and ProcessSections borrows a copy of the
 //!   unchanged TOC; see ADR 0003. The frame decoder receives the decoder's
 //!   PassesDecoderState per call and always selects the low-memory pipeline.
+//! - The ICC reader, its decoded profile, the codec state, the image bundle
+//!   and the frame owners allocate through the decoder's memory manager, as
+//!   in the source.
 //! - JXL_API_ERROR/JXL_INPUT_ERROR return JXL_DEC_ERROR; the release
 //!   reference's debug diagnostics are not translated.
 //! - Caller buffers and callback opaque values are raw pointers whose
@@ -58,7 +62,8 @@ use super::image_metadata::{CodecMetadata, ExtraChannel, ImageMetadata};
 use super::memory_manager::{
     JxlMemoryManager, memory_manager_alloc, memory_manager_free, memory_manager_init,
 };
-use super::padded_bytes::PaddedBytes as GlobalPaddedBytes;
+use super::memory_manager_internal::MemoryManagerPtr;
+use super::padded_bytes::PaddedBytes;
 use super::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlPixelFormat};
 use std::cell::RefCell;
 use std::ffi::c_void;
@@ -708,6 +713,27 @@ impl JxlDecoder {
         self.memory_manager.as_ptr()
     }
 
+    /// `&dec->memory_manager` as the allocation context of the decoder's
+    /// owners: the ICC reader and its output, the codec state, the image
+    /// bundle and, through FrameDecoder::new, the frame owners.
+    fn memory_manager(&self) -> MemoryManagerPtr {
+        // SAFETY: The manager cell is stable and is dropped after every owner
+        // that retains it (Drop releases them first). jxl_decoder_create's
+        // caller keeps the callbacks valid, thread-callable and non-reentrant
+        // for the decoder's lifetime.
+        unsafe { MemoryManagerPtr::from_raw(self.memory_manager.as_ptr()) }
+    }
+
+    /// `ib.reset()`: the bundle's planes are released here, as in the source.
+    /// The frame decoder and its output stage only point at the bundle, so
+    /// their handles are released with it rather than extending its lifetime.
+    fn release_image_bundle(&mut self) {
+        if let Some(frame_dec) = self.frame_dec.as_mut() {
+            frame_dec.release_output();
+        }
+        self.ib = None;
+    }
+
     fn metadata(&self) -> &CodecMetadata {
         self.metadata.get()
     }
@@ -818,7 +844,8 @@ impl Drop for JxlDecoder {
         drop(self.ib.take());
         // The metadata cells, the simple-callback cell and the manager cell
         // then drop with the remaining fields in declaration order; none owns
-        // a memory-manager allocation, so that order is unobservable.
+        // a memory-manager allocation, so that order is unobservable, and the
+        // manager cell outlives every owner that allocates through it.
         drop(std::mem::take(&mut self.extra_channel_output));
         drop(std::mem::take(&mut self.frame_index_box.entries));
         drop(self.icc_reader.take());
@@ -962,8 +989,8 @@ pub fn jxl_decoder_reset(dec: &mut JxlDecoder) {
 ///
 /// # Safety
 /// A non-null `memory_manager` is readable and initialized. Its callbacks
-/// obey memory_manager.h for the decoder's whole lifetime, never unwind and
-/// never reenter the decoder. An allocation returned for the decoder object is
+/// obey memory_manager.h for the decoder's whole lifetime, are callable from
+/// any thread the decoder runs on, never unwind and never reenter the decoder. An allocation returned for the decoder object is
 /// aligned for `JxlDecoder`, as the source's placement new requires.
 pub unsafe fn jxl_decoder_create(memory_manager: *const JxlMemoryManager) -> *mut JxlDecoder {
     let mut local_memory_manager = JxlMemoryManager::default();
@@ -1312,9 +1339,7 @@ fn jxl_decoder_read_all_headers(dec: &mut JxlDecoder) -> JxlDecoderStatus {
         if status.is_err() {
             return JxlDecoderStatus::ERROR;
         }
-        // The ICC reader's existing output representation uses the global
-        // allocator; its memory-manager propagation is a separate boundary.
-        let mut decoded_icc = GlobalPaddedBytes::default();
+        let mut decoded_icc = PaddedBytes::new(dec.memory_manager());
         let icc_reader = dec
             .icc_reader
             .as_mut()
@@ -1347,7 +1372,7 @@ fn jxl_decoder_read_all_headers(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     drop(reader);
 
     if dec.passes_state.is_none() {
-        dec.passes_state = Some(Box::new(PassesDecoderState::new()));
+        dec.passes_state = Some(Box::new(PassesDecoderState::new_in(dec.memory_manager())));
     }
 
     let metadata = dec.metadata.get();
@@ -1488,7 +1513,7 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     }
 
     if dec.icc_reader.is_none() {
-        dec.icc_reader = Some(Box::new(ICCReader::new()));
+        dec.icc_reader = Some(Box::new(ICCReader::new_in(dec.memory_manager())));
     }
 
     if !dec.got_all_headers {
@@ -1539,9 +1564,10 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
                 // (Drop and Rewind order), and the cell is not mutated after
                 // post_headers while a bundle exists.
                 let image_metadata = unsafe { dec.image_metadata.retained() };
-                dec.ib = Some(Rc::new(RefCell::new(ImageBundle::new(Some(
-                    image_metadata,
-                )))));
+                dec.ib = Some(Rc::new(RefCell::new(ImageBundle::new_in(
+                    dec.memory_manager(),
+                    Some(image_metadata),
+                ))));
             }
             // If JPEG reconstruction is wanted and possible, set the jpeg_data
             // of the ImageBundle.
@@ -1899,7 +1925,7 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
 
         // The pixels have been output or are not needed, do not keep them in
         // memory here.
-        dec.ib = None;
+        dec.release_image_bundle();
         if dec.preview_frame {
             dec.got_preview_image = true;
             dec.preview_frame = false;
@@ -2147,7 +2173,7 @@ unsafe fn handle_boxes(dec: &mut JxlDecoder) -> JxlDecoderStatus {
                 return status;
             }
             dec.recon_output_jpeg = JpegReconStage::None;
-            dec.ib = None;
+            dec.release_image_bundle();
             if (dec.events_wanted & DEC_FULL_IMAGE) != 0 {
                 // Return the full image event here now, this may be delayed if
                 // this could only be done after decoding an exif or xmp box
@@ -3542,9 +3568,10 @@ pub fn jxl_decoder_set_desired_intensity_target(
 /// Every callback and opaque pointer of `cms` obeys cms_interface.h whenever
 /// the decoder invokes it, until the decoder is reset or destroyed.
 pub unsafe fn jxl_decoder_set_cms(dec: &mut JxlDecoder, cms: JxlCmsInterface) -> JxlDecoderStatus {
+    let memory_manager = dec.memory_manager();
     let passes_state = dec
         .passes_state
-        .get_or_insert_with(|| Box::new(PassesDecoderState::new()));
+        .get_or_insert_with(|| Box::new(PassesDecoderState::new_in(memory_manager)));
     passes_state.output_encoding_info.color_management_system = cms;
     passes_state.output_encoding_info.cms_set = true;
     JxlDecoderStatus::SUCCESS

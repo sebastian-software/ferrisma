@@ -3,7 +3,7 @@
 
 //! ColorCorrelation and ColorCorrelationMap from lib/jxl/chroma_from_luma.{h,cc}.
 //! The scalar reference's contraction sites and partial DecodeDC state remain
-//! explicit. Image planes use the existing native allocator mapping.
+//! explicit. Image planes allocate through the given memory manager.
 
 use super::base::float::mul_add_f32;
 use super::base::status::{Status, StatusCode, StatusOr};
@@ -14,6 +14,7 @@ use super::fields::{f16_coder, u32_coder};
 use super::frame_dimensions::BLOCK_DIM;
 use super::image::Plane;
 use super::image_ops::zero_fill_image;
+use super::memory_manager_internal::MemoryManagerPtr;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
@@ -140,11 +141,20 @@ pub struct ColorCorrelationMap {
 }
 impl ColorCorrelationMap {
     pub fn create(xsize: usize, ysize: usize, xyb: bool) -> StatusOr<Self> {
+        Self::create_in(MemoryManagerPtr::NATIVE, xsize, ysize, xyb)
+    }
+    /// The source ColorCorrelationMap::Create(memory_manager, xsize, ysize, XYB).
+    pub fn create_in(
+        memory_manager: MemoryManagerPtr,
+        xsize: usize,
+        ysize: usize,
+        xyb: bool,
+    ) -> StatusOr<Self> {
         let mut result = Self::default();
         let xblocks = xsize.wrapping_add(COLOR_TILE_DIM - 1) / COLOR_TILE_DIM;
         let yblocks = ysize.wrapping_add(COLOR_TILE_DIM - 1) / COLOR_TILE_DIM;
-        result.ytox_map = Plane::create(xblocks, yblocks)?;
-        result.ytob_map = Plane::create(xblocks, yblocks)?;
+        result.ytox_map = Plane::create_in(xblocks, yblocks, 0, memory_manager)?;
+        result.ytob_map = Plane::create_in(xblocks, yblocks, 0, memory_manager)?;
         zero_fill_image(&mut result.ytox_map);
         zero_fill_image(&mut result.ytob_map);
         if !xyb {

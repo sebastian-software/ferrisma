@@ -8,6 +8,7 @@ use super::base::status::{Status, StatusCode};
 use super::dec_ans::{ANSCode, ANSSymbolReader, decode_histograms};
 use super::dec_bit_reader::BitReader;
 use super::inverse_mtf::inverse_move_to_front_transform;
+use super::memory_manager_internal::MemoryManagerPtr;
 
 fn verify_context_map(context_map: &[u8], num_htrees: usize) -> Status {
     let mut have_htree = vec![false; num_htrees];
@@ -29,6 +30,7 @@ fn verify_context_map(context_map: &[u8], num_htrees: usize) -> Status {
 }
 
 pub fn decode_context_map(
+    memory_manager: MemoryManagerPtr,
     context_map: &mut [u8],
     num_htrees: &mut usize,
     input: &mut BitReader<'_>,
@@ -49,6 +51,7 @@ pub fn decode_context_map(
         let mut code = ANSCode::default();
         let mut sink_ctx_map = Vec::new();
         decode_histograms(
+            memory_manager,
             input,
             1,
             &mut code,

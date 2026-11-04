@@ -275,7 +275,7 @@ pub fn downsample_image(image: &Plane<f32>, factor: usize) -> StatusOr<Plane<f32
         div_ceil(image.xsize(), factor).wrapping_add(BLOCK_DIM),
         div_ceil(image.ysize(), factor).wrapping_add(BLOCK_DIM),
         0,
-        image.have_memory_manager(),
+        image.memory_manager(),
     )?;
     do_downsample_image(image, factor, &mut downsampled)?;
     Ok(downsampled)
@@ -288,7 +288,7 @@ pub fn downsample_image3(image: &Image3<f32>, factor: usize) -> StatusOr<Image3<
     let mut downsampled = Image3::create_in(
         div_ceil(image.xsize(), factor).wrapping_add(BLOCK_DIM),
         div_ceil(image.ysize(), factor).wrapping_add(BLOCK_DIM),
-        image.plane(0).have_memory_manager(),
+        image.memory_manager(),
     )?;
     downsampled.shrink_to(
         downsampled.xsize() - BLOCK_DIM,

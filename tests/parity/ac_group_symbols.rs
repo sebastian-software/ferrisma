@@ -95,6 +95,7 @@ pub(super) fn observe(_: &str, args: &mut std::str::SplitWhitespace<'_>) -> Stri
     let mut code = ANSCode::default();
     let mut contexts = Vec::new();
     let status = decode_histograms(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
         &mut br,
         ctx_offset + map.num_ac_contexts() as usize + 16,
         &mut code,

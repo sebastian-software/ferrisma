@@ -72,7 +72,12 @@ fn seed_tree() -> Tree {
 }
 fn decode(out: &mut String, br: &mut BitReader<'_>, limit: usize) {
     let mut t = seed_tree();
-    let s = decode_tree(br, &mut t, limit);
+    let s = decode_tree(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        br,
+        &mut t,
+        limit,
+    );
     write!(
         out,
         " {} {} {}",
@@ -183,7 +188,14 @@ fn raster_decode(
     let mut map = Vec::new();
     let mut header = weighted::Header::default();
     weighted::predictor_mode(preset, &mut header);
-    let s = decode_histograms(br, t.len().div_ceil(2), &mut code, &mut map, false);
+    let s = decode_histograms(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        br,
+        t.len().div_ceil(2),
+        &mut code,
+        &mut map,
+        false,
+    );
     write!(out, " {} {}", status_code(&s), br.total_bits_consumed()).unwrap();
     if s.is_ok() {
         let mut reader = ANSSymbolReader::create(&code, br, w).unwrap();

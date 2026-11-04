@@ -428,7 +428,7 @@ fn draw_upsampled_dc(
     use super::render_pipeline::render_pipeline_stage::{
         RENDER_PIPELINE_X_OFFSET, Row, RowBuffers, RowStorage,
     };
-    group_dec_cache.init_dc_buffer_once()?;
+    group_dec_cache.init_dc_buffer_once_in(state.shared.memory_manager())?;
     let upsampler = state
         .upsampler8x
         .expect("source Init creates the 8x upsampler before any group draw");

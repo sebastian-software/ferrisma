@@ -24,7 +24,7 @@ use super::image::Image3;
 use super::image::Plane;
 use super::image_bundle::ImageBundle;
 use super::image_metadata::Orientation;
-use super::memory_manager_internal::AlignedMemory;
+use super::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
 use super::passes_state::PassesSharedState;
 use super::render_pipeline::render_pipeline::RenderPipeline;
 use super::render_pipeline::render_pipeline::RenderPipelineBuilder;
@@ -33,7 +33,7 @@ use super::render_pipeline::stage_cms::get_cms_stage;
 use super::render_pipeline::stage_from_linear::get_from_linear_stage;
 use super::render_pipeline::stage_to_linear::get_to_linear_stage;
 use super::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
-use super::render_pipeline::stage_upsampling::get_upsampling_stage;
+use super::render_pipeline::stage_upsampling::get_upsampling_stage_in;
 use super::render_pipeline::stage_xyb::get_xyb_stage;
 use super::render_pipeline::stage_ycbcr::get_ycbcr_stage;
 use super::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
@@ -76,6 +76,19 @@ impl Default for GroupDecCache {
         }
     }
 }
+impl Drop for GroupDecCache {
+    /// The implicit destructor's reverse member order: the three aligned
+    /// buffers, dc_buffer, then the nonzero-count images last first.
+    fn drop(&mut self) {
+        self.int16_memory = None;
+        self.int32_memory = None;
+        self.float_memory = None;
+        drop(std::mem::take(&mut self.dc_buffer));
+        for image in self.num_nzeroes.iter_mut().rev() {
+            drop(std::mem::take(image));
+        }
+    }
+}
 /// Disjoint typed views of the source cache's three aligned allocation owners.
 /// Nzero images are borrowed separately while entropy decoding uses these buffers.
 pub struct GroupDecBuffers<'a> {
@@ -86,10 +99,19 @@ pub struct GroupDecBuffers<'a> {
 }
 impl GroupDecCache {
     pub fn init_once(&mut self, num_passes: usize, used_acs: usize) -> Status {
+        self.init_once_in(MemoryManagerPtr::NATIVE, num_passes, used_acs)
+    }
+    /// The source InitOnce(memory_manager, num_passes, used_acs).
+    pub fn init_once_in(
+        &mut self,
+        memory_manager: MemoryManagerPtr,
+        num_passes: usize,
+        used_acs: usize,
+    ) -> Status {
         for i in 0..num_passes {
             if self.num_nzeroes[i].xsize() == 0 {
                 let dim = super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
-                self.num_nzeroes[i] = Image3::create(dim, dim)?;
+                self.num_nzeroes[i].assign(Image3::create_in(dim, dim, memory_manager)?);
             }
         }
         let mut max_block_area = 0;
@@ -106,9 +128,21 @@ impl GroupDecCache {
         if max_block_area > self.max_block_area {
             // Preserve assignment before the three allocation/failure points.
             self.max_block_area = max_block_area;
-            self.float_memory = Some(AlignedMemory::create(self.max_block_area * 7 * 4, 0)?);
-            self.int32_memory = Some(AlignedMemory::create(self.max_block_area * 3 * 4, 0)?);
-            self.int16_memory = Some(AlignedMemory::create(self.max_block_area * 3 * 2, 0)?);
+            self.float_memory = Some(AlignedMemory::create(
+                memory_manager,
+                self.max_block_area * 7 * 4,
+                0,
+            )?);
+            self.int32_memory = Some(AlignedMemory::create(
+                memory_manager,
+                self.max_block_area * 3 * 4,
+                0,
+            )?);
+            self.int16_memory = Some(AlignedMemory::create(
+                memory_manager,
+                self.max_block_area * 3 * 2,
+                0,
+            )?);
         }
         self.dec_group_block = self.float_memory.as_ref().map(|_| 0);
         self.scratch_space = self.float_memory.as_ref().map(|_| self.max_block_area * 3);
@@ -140,7 +174,12 @@ impl GroupDecCache {
             unsafe { std::slice::from_raw_parts_mut(bytes.as_mut_ptr().cast(), bytes.len() / 2) }
         }
         let float = floats(&mut self.float_memory);
-        let (block, scratch) = float.split_at_mut(self.max_block_area * 3);
+        // After a failed InitOnce allocation the source keeps the new
+        // max_block_area_ with a null or smaller buffer, and its pointers are
+        // only invalid if used. Absent storage gives empty views here, so a
+        // Rust bounds check stops exactly at such a use.
+        let mid = (self.max_block_area * 3).min(float.len());
+        let (block, scratch) = float.split_at_mut(mid);
         (
             GroupDecBuffers {
                 block,
@@ -152,10 +191,14 @@ impl GroupDecCache {
         )
     }
     pub fn init_dc_buffer_once(&mut self) -> Status {
+        self.init_dc_buffer_once_in(MemoryManagerPtr::NATIVE)
+    }
+    /// The source InitDCBufferOnce(memory_manager).
+    pub fn init_dc_buffer_once_in(&mut self, memory_manager: MemoryManagerPtr) -> Status {
         if self.dc_buffer.xsize() == 0 {
             let dim = super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
             let offset = super::render_pipeline::render_pipeline_stage::RENDER_PIPELINE_X_OFFSET;
-            self.dc_buffer = Plane::create(dim + offset * 2, dim + 4)?;
+            self.dc_buffer = Plane::create_in(dim + offset * 2, dim + 4, 0, memory_manager)?;
         }
         Ok(())
     }
@@ -294,8 +337,12 @@ impl Default for PassesDecoderState<'_, '_> {
 }
 impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
     pub fn new() -> Self {
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+    /// The source PassesDecoderState(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
         Self {
-            shared_storage: PassesSharedState::new(),
+            shared_storage: PassesSharedState::new_in(memory_manager),
             shared: DecoderShared::Own,
             upsampler8x: None,
             code: Vec::new(),
@@ -315,7 +362,10 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
             used_acs: AtomicU32::new(0),
             coefficients: Some(Box::new(AcImage::empty(AcType::I32))),
             render_pipeline: None,
-            frame_storage_for_referencing: Rc::new(RefCell::new(ImageBundle::new(None))),
+            frame_storage_for_referencing: Rc::new(RefCell::new(ImageBundle::new_in(
+                memory_manager,
+                None,
+            ))),
             output_encoding_info: OutputEncodingInfo::default(),
         }
     }
@@ -328,7 +378,11 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
     pub fn have_memory_manager(&self) -> bool {
         self.shared().have_memory_manager()
     }
+    pub fn memory_manager(&self) -> MemoryManagerPtr {
+        self.shared().memory_manager()
+    }
     pub fn init(&mut self, header: &FrameHeader<'_>) -> Status {
+        let memory_manager = self.memory_manager();
         self.x_dm_multiplier = (1.0f32 / 1.25f32).powf(header.x_qm_scale as f32 - 2.0f32);
         self.b_dm_multiplier = (1.0f32 / 1.25f32).powf(header.b_qm_scale as f32 - 2.0f32);
         self.main_output.callback = PixelCallback::default();
@@ -338,7 +392,8 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
         self.unpremul_alpha = false;
         self.undo_orientation = Orientation::IDENTITY;
         self.used_acs.store(0, Ordering::SeqCst);
-        self.upsampler8x = get_upsampling_stage(
+        self.upsampler8x = get_upsampling_stage_in(
+            memory_manager,
             &self
                 .shared()
                 .metadata
@@ -349,9 +404,11 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
         );
         if header.loop_filter.epf_iters > 0 {
             let dim = &self.shared().frame_dim;
-            *self.sigma.borrow_mut() = Plane::create(
+            *self.sigma.borrow_mut() = Plane::create_in(
                 dim.xsize_blocks.wrapping_add(2 * SIGMA_PADDING),
                 dim.ysize_blocks.wrapping_add(2 * SIGMA_PADDING),
+                0,
+                memory_manager,
             )?;
         }
         Ok(())

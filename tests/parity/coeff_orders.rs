@@ -21,7 +21,13 @@ pub(super) fn observe(_: &str, args: &mut std::str::SplitWhitespace<'_>) -> Stri
         let bytes = unhex(args.next().unwrap());
         let mut br = BitReader::new(&bytes);
         br.skip_bits(prefix);
-        let status = decode_coeff_orders(used, acs, &mut order, &mut br);
+        let status = decode_coeff_orders(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            used,
+            acs,
+            &mut order,
+            &mut br,
+        );
         if a != 0 {
             out.push(' ');
         }

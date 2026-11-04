@@ -96,7 +96,15 @@ fn round_trip(image: &Image, t: &Tree, skip: bool, force: bool, rle: bool) -> (V
     let mut br = BitReader::new(writer.get_span());
     let mut dc = ANSCode::default();
     let mut map = Vec::new();
-    decode_histograms(&mut br, tree.len().div_ceil(2), &mut dc, &mut map, false).unwrap();
+    decode_histograms(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        &mut br,
+        tree.len().div_ceil(2),
+        &mut dc,
+        &mut map,
+        false,
+    )
+    .unwrap();
     let mut reader = ANSSymbolReader::create(&dc, &mut br, width).unwrap();
     let huff_rle = reader.is_huff_rle_only();
     let mut lut = Box::new(TreeLut::<u8, false, false>::default());

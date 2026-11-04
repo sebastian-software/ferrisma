@@ -11,6 +11,7 @@ use super::coeff_order_fwd::CoeffOrder;
 use super::dec_ans::{ANSCode, ANSSymbolReader, HybridUintConfig, decode_histograms};
 use super::dec_bit_reader::BitReader;
 use super::lehmer_code::decode_lehmer_code;
+use super::memory_manager_internal::MemoryManagerPtr;
 pub const PERMUTATION_CONTEXTS: u32 = 8;
 pub const COEFF_ORDER_LIMIT: usize = 6156;
 pub const COEFF_ORDER_MAX_SIZE: usize = COEFF_ORDER_LIMIT * super::frame_dimensions::DCT_BLOCK_SIZE;
@@ -99,6 +100,7 @@ fn read_permutation(
     Ok(())
 }
 pub fn decode_permutation(
+    memory_manager: MemoryManagerPtr,
     skip: usize,
     size: usize,
     order: Option<&mut [CoeffOrder]>,
@@ -107,6 +109,7 @@ pub fn decode_permutation(
     let mut context_map = Vec::new();
     let mut code = ANSCode::default();
     decode_histograms(
+        memory_manager,
         br,
         PERMUTATION_CONTEXTS as usize,
         &mut code,
@@ -148,6 +151,7 @@ fn decode_coeff_order(
     reason = "Mirror the source nested conditions."
 )]
 pub fn decode_coeff_orders(
+    memory_manager: MemoryManagerPtr,
     used_orders: u16,
     used_acs: u32,
     order: &mut [CoeffOrder],
@@ -159,6 +163,7 @@ pub fn decode_coeff_orders(
     let mut natural_order = Vec::new();
     let mut reader = if used_orders != 0 {
         decode_histograms(
+            memory_manager,
             br,
             PERMUTATION_CONTEXTS as usize,
             &mut code,

@@ -8,12 +8,13 @@ use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };
 use crate::jxl::base::status::{Status, StatusCode};
-use crate::jxl::blending::perform_blending;
+use crate::jxl::blending::perform_blending_in;
 use crate::jxl::color_encoding_internal::ColorEncoding;
 use crate::jxl::dec_cache::PassesDecoderState;
 use crate::jxl::dec_patch_dictionary::{PatchBlendMode, PatchBlending, ReferenceFrame};
 use crate::jxl::frame_header::{BlendMode, BlendingInfo, FrameHeader, FrameOrigin};
 use crate::jxl::image_metadata::ExtraChannelInfo;
+use crate::jxl::memory_manager_internal::MemoryManagerPtr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -42,6 +43,7 @@ impl<'m> References<'_, 'm> {
     }
 }
 pub struct BlendingStage<'a, 'm> {
+    memory_manager: MemoryManagerPtr,
     frame_header: Header<'a, 'm>,
     references: References<'a, 'm>,
     info: BlendingInfo,
@@ -54,6 +56,7 @@ pub struct BlendingStage<'a, 'm> {
 }
 impl<'a, 'm> BlendingStage<'a, 'm> {
     fn new(
+        memory_manager: MemoryManagerPtr,
         header: Header<'a, 'm>,
         references: References<'a, 'm>,
         metadata_xyb: bool,
@@ -68,6 +71,7 @@ impl<'a, 'm> BlendingStage<'a, 'm> {
         let image_ysize = metadata.ysize();
         let info = h.blending_info.clone();
         let mut result = Self {
+            memory_manager,
             frame_header: header,
             references,
             info,
@@ -240,7 +244,8 @@ impl RenderPipelineStage for BlendingStage<'_, '_> {
                 background.push(row);
             }
             let foreground: Vec<_> = rows.iter().map(|&r| buffers.row(r)).collect();
-            perform_blending(
+            perform_blending_in(
+                self.memory_manager,
                 &background,
                 &foreground,
                 0,
@@ -311,6 +316,7 @@ pub fn get_blending_stage<'a, 'm: 'a>(
     frame_color_encoding: &ColorEncoding,
 ) -> Box<BlendingStage<'a, 'm>> {
     Box::new(BlendingStage::new(
+        state.shared().memory_manager(),
         Header::Borrowed(header),
         References::Shared(state.shared().reference_frames.clone()),
         state.shared().metadata.unwrap().m.xyb_encoded,
@@ -326,6 +332,7 @@ pub fn get_blending_stage_borrowed<'a, 'm: 'a>(
     frame_color_encoding: &ColorEncoding,
 ) -> Box<BlendingStage<'a, 'm>> {
     Box::new(BlendingStage::new(
+        MemoryManagerPtr::NATIVE,
         Header::Borrowed(header),
         References::Borrowed(references),
         metadata_xyb,
@@ -339,6 +346,7 @@ pub fn get_blending_stage_shared<'m>(
     frame_color_encoding: &ColorEncoding,
 ) -> Box<BlendingStage<'m, 'm>> {
     Box::new(BlendingStage::new(
+        state.shared().memory_manager(),
         Header::Shared(header),
         References::Shared(state.shared().reference_frames.clone()),
         state.shared().metadata.unwrap().m.xyb_encoded,

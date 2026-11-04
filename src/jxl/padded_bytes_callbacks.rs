@@ -3,8 +3,9 @@
 
 //! Callback-owned PaddedBytes from `lib/jxl/padded_bytes.h` and the reached
 //! AlignedMemory allocation/move/free path in `memory_manager_internal.cc`.
-//! Unlike the existing global-allocator representation, unwritten padding is
-//! unknown. Only append's initialized logical prefix is exposed as bytes.
+//! Unlike the zero-initialized `padded_bytes` representation, unwritten
+//! padding is unknown. Only append's initialized logical prefix is exposed as
+//! bytes.
 use super::base::status::{Status, StatusCode};
 use super::memory_manager_internal::next_alignment_offset;
 use std::marker::PhantomData;

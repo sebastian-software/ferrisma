@@ -187,6 +187,7 @@ fn whole_codestream_prefixes_marker_trailing_bytes_and_payload_errors_match_orig
             let mut sizes = Vec::new();
             let mut perm = Vec::new();
             jxl::jxl::toc::read_toc(
+                jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
                 jxl::jxl::toc::num_toc_entries(d.num_groups, d.num_dc_groups, 1),
                 &mut r,
                 &mut sizes,
@@ -333,6 +334,7 @@ fn alpha_codestream_prefixes_and_modular_payload_errors_match_original_partial_s
             let mut sizes = Vec::new();
             let mut permutation = Vec::new();
             jxl::jxl::toc::read_toc(
+                jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
                 jxl::jxl::toc::num_toc_entries(d.num_groups, d.num_dc_groups, 1),
                 &mut r,
                 &mut sizes,

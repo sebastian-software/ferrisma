@@ -104,6 +104,21 @@ pub struct LowMemoryRenderPipeline<'a> {
     first_image_dim_stage: usize,
 }
 
+impl Drop for LowMemoryRenderPipeline<'_> {
+    /// The implicit destructors: the derived buffers in reverse member order,
+    /// each vector last first, then the base's stages.
+    fn drop(&mut self) {
+        use crate::jxl::base::libcpp_vector::{clear, clear_nested};
+        clear(&mut self.out_of_frame_data);
+        while let Some(mut per_thread) = self.stage_data.pop() {
+            clear_nested(&mut per_thread);
+        }
+        clear_nested(&mut self.group_data);
+        clear(&mut self.borders_vertical);
+        clear(&mut self.borders_horizontal);
+        clear(&mut self.base.stages);
+    }
+}
 impl<'a> LowMemoryRenderPipeline<'a> {
     /// Members without a source initializer are assigned by Init or
     /// PrepareForThreadsInternal before their first read.
@@ -429,12 +444,21 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             let downsampled_ysize = div_ceil(fd.ysize_upsampled_padded, 1 << shifts.1);
             let horizontal = Rect::new(0, 0, downsampled_xsize, bordery.wrapping_mul(num_yborders));
             if !same_size(horizontal, &self.borders_horizontal[c]) {
-                self.borders_horizontal[c] =
-                    ImageF::create(horizontal.xsize(), horizontal.ysize())?;
+                self.borders_horizontal[c] = ImageF::create_in(
+                    horizontal.xsize(),
+                    horizontal.ysize(),
+                    0,
+                    self.base.memory_manager,
+                )?;
             }
             let vertical = Rect::new(0, 0, borderx.wrapping_mul(num_xborders), downsampled_ysize);
             if !same_size(vertical, &self.borders_vertical[c]) {
-                self.borders_vertical[c] = ImageF::create(vertical.xsize(), vertical.ysize())?;
+                self.borders_vertical[c] = ImageF::create_in(
+                    vertical.xsize(),
+                    vertical.ysize(),
+                    0,
+                    self.base.memory_manager,
+                )?;
             }
         }
         Ok(())
@@ -696,12 +720,13 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             self.group_data.push(Vec::new());
             self.group_data[t].resize_with(num_shifts, ImageF::default);
             for c in 0..num_shifts {
-                self.group_data[t][c] = ImageF::create_with_pre_padding(
+                self.group_data[t][c] = ImageF::create_in(
                     self.group_input_x_size(c)
                         .wrapping_add(self.group_data_x_border * 2),
                     self.group_input_y_size(c)
                         .wrapping_add(self.group_data_y_border * 2),
                     X_OFFSET,
+                    self.base.memory_manager,
                 )?;
             }
         }
@@ -728,8 +753,12 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 self.stage_data[t][c].resize_with(num_stages, ImageF::default);
                 for i in (0..num_stages).rev() {
                     if self.base.stages[i].get_channel_mode(c) == Mode::InOut {
-                        self.stage_data[t][c][i] =
-                            ImageF::create(stage_buffer_xsize, stage_buffer_ysize[c][i])?;
+                        self.stage_data[t][c][i] = ImageF::create_in(
+                            stage_buffer_xsize,
+                            stage_buffer_ysize[c][i],
+                            0,
+                            self.base.memory_manager,
+                        )?;
                     }
                 }
             }
@@ -754,7 +783,8 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 padding.wrapping_add(left_padding.max(middle_padding.max(right_padding)));
             self.out_of_frame_data.resize_with(num, ImageF::default);
             for t in 0..num {
-                self.out_of_frame_data[t] = ImageF::create(out_of_frame_xsize, num_shifts)?;
+                self.out_of_frame_data[t] =
+                    ImageF::create_in(out_of_frame_xsize, num_shifts, 0, self.base.memory_manager)?;
             }
         }
         Ok(())

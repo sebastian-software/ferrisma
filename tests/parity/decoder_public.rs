@@ -31,11 +31,18 @@ pub(super) fn compare(family: &str, requests: Vec<String>) {
         super::observe(r);
         jxl::jxl::box_content_decoder::take_null_input_copies() != 0
     });
+    capture(family, &defined, &undefined);
+    super::compare(defined);
+    null_copy_probes(&undefined);
+}
+
+/// Retains a family's compared and undefined requests for the audit.
+fn capture(family: &str, defined: &[String], undefined: &[String]) {
     if let Some(path) = std::env::var_os("JXL_DECODER_PUBLIC_CAPTURE") {
         use std::io::Write;
         let path = std::path::PathBuf::from(path);
         std::fs::create_dir_all(&path).unwrap();
-        for (suffix, list) in [("requests", &defined), ("undefined", &undefined)] {
+        for (suffix, list) in [("requests", defined), ("undefined", undefined)] {
             let mut output = std::io::BufWriter::new(
                 std::fs::File::create(path.join(format!("{family}.{suffix}"))).unwrap(),
             );
@@ -44,8 +51,6 @@ pub(super) fn compare(family: &str, requests: Vec<String>) {
             }
         }
     }
-    super::compare(defined);
-    null_copy_probes(&undefined);
 }
 
 /// Runs each undefined history in its own original process. Instrumented
@@ -127,8 +132,7 @@ fn files() -> Vec<String> {
     )
 }
 
-#[test]
-fn public_decoder_header_and_box_events_match_original() {
+fn events_requests() -> Vec<String> {
     let files = files();
     let mut requests = Vec::new();
     for (index, file) in files.iter().enumerate() {
@@ -143,11 +147,15 @@ fn public_decoder_header_and_box_events_match_original() {
             }
         }
     }
-    compare("events", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_box_buffers_and_close_match_original() {
+fn public_decoder_header_and_box_events_match_original() {
+    compare("events", events_requests());
+}
+
+fn box_buffers_requests() -> Vec<String> {
     let files = files();
     let mut requests = Vec::new();
     for file in files.iter().skip(4) {
@@ -163,11 +171,15 @@ fn public_decoder_box_buffers_and_close_match_original() {
             }
         }
     }
-    compare("box-buffers", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_truncated_and_mutated_inputs_match_original() {
+fn public_decoder_box_buffers_and_close_match_original() {
+    compare("box-buffers", box_buffers_requests());
+}
+
+fn truncated_requests() -> Vec<String> {
     let files = files();
     let mut requests = Vec::new();
     let mut seed = 77u64;
@@ -199,11 +211,15 @@ fn public_decoder_truncated_and_mutated_inputs_match_original() {
             }
         }
     }
-    compare("truncated", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_api_misuse_matches_original() {
+fn public_decoder_truncated_and_mutated_inputs_match_original() {
+    compare("truncated", truncated_requests());
+}
+
+fn misuse_requests() -> Vec<String> {
     let files = files();
     let mut requests = Vec::new();
     let scripts = [
@@ -228,11 +244,15 @@ fn public_decoder_api_misuse_matches_original() {
             requests.push(format!("dpub-run {} 0 {file} {script}", index % 2 * 2));
         }
     }
-    compare("misuse", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_rewind_and_reset_mid_stream_match_original() {
+fn public_decoder_api_misuse_matches_original() {
+    compare("misuse", misuse_requests());
+}
+
+fn rewind_requests() -> Vec<String> {
     let files = files();
     let mut requests = Vec::new();
     for file in &files {
@@ -250,23 +270,24 @@ fn public_decoder_rewind_and_reset_mid_stream_match_original() {
             }
         }
     }
-    compare("rewind", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_input_allocations_match_original() {
-    // The custom manager's complete event log is compared where the original
-    // allocates only decoder and input storage: no ICC profile is read.
+fn public_decoder_rewind_and_reset_mid_stream_match_original() {
+    compare("rewind", rewind_requests());
+}
+
+fn allocations_requests() -> Vec<String> {
+    // The custom manager's complete event log and the first injected
+    // allocation failures, for decoder, input and (with the color encoding
+    // event, s320) ICC reader storage.
     let files = files();
     let mut requests = Vec::new();
-    for (index, spec) in SPECS.iter().enumerate() {
-        if spec.contains("icc=1") {
-            continue;
-        }
-        let file = &files[index];
+    for file in &files {
         for fail in 0..12 {
             for (seed, max) in [(1, 1), (2, 7), (5, 1 << 20)] {
-                for events in [64, 16448, 81984] {
+                for events in [64, 320, 16448, 81984] {
                     requests.push(format!(
                         "dpub-run 1 {fail} {file} s{events} d1 L{seed},{max},4,100000,1"
                     ));
@@ -277,7 +298,12 @@ fn public_decoder_input_allocations_match_original() {
             ));
         }
     }
-    compare("allocations", requests);
+    requests
+}
+
+#[test]
+fn public_decoder_input_allocations_match_original() {
+    compare("allocations", allocations_requests());
 }
 
 fn segment(marker: u8, payload: &[u8]) -> Vec<u8> {
@@ -350,8 +376,7 @@ fn jpeg_files() -> Vec<String> {
         .collect()
 }
 
-#[test]
-fn public_decoder_jpeg_reconstruction_boxes_match_original() {
+fn jpeg_requests() -> Vec<String> {
     let files = jpeg_files();
     let mut requests = Vec::new();
     let mut seed = 31u64;
@@ -387,7 +412,12 @@ fn public_decoder_jpeg_reconstruction_boxes_match_original() {
             ));
         }
     }
-    compare("jpeg", requests);
+    requests
+}
+
+#[test]
+fn public_decoder_jpeg_reconstruction_boxes_match_original() {
+    compare("jpeg", jpeg_requests());
 }
 
 /// Requested output encodings as cs.wp.prim.tf.gamma-bits.ri tokens,
@@ -424,8 +454,7 @@ const COLOR_SPECS: &[&str] = &[
     "w=8 h=8 c=3 icc=1 lossless=0",
 ];
 
-#[test]
-fn public_decoder_color_profile_setters_match_original() {
+fn color_requests() -> Vec<String> {
     let files = super::original_observations(
         &COLOR_SPECS
             .iter()
@@ -509,7 +538,12 @@ fn public_decoder_color_profile_setters_match_original() {
             "dpub-run 2 0 {file} C {headers} P0.1.9.16.0.0 w P0.1.1.8.0.0 {headers} G x {headers} P0.1.1.8.0.0 C P0.1.1.8.0.0 G"
         ));
     }
-    compare("color", requests);
+    requests
+}
+
+#[test]
+fn public_decoder_color_profile_setters_match_original() {
+    compare("color", color_requests());
 }
 
 /// Genuine inputs for frame decoding: original public encoder outputs with
@@ -558,8 +592,7 @@ fn retained_files() -> Vec<String> {
         .collect()
 }
 
-#[test]
-fn public_decoder_frame_events_and_outputs_match_original() {
+fn frames_requests() -> Vec<String> {
     let files = super::original_observations(
         &FRAME_SPECS
             .iter()
@@ -603,11 +636,15 @@ fn public_decoder_frame_events_and_outputs_match_original() {
             requests.push(format!("dpub-run 0 0 {file} {script}"));
         }
     }
-    compare("frames", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_frame_truncation_and_cms_match_original() {
+fn public_decoder_frame_events_and_outputs_match_original() {
+    compare("frames", frames_requests());
+}
+
+fn frame_mutations_requests() -> Vec<String> {
     let files = super::original_observations(
         &FRAME_SPECS
             .iter()
@@ -642,11 +679,15 @@ fn public_decoder_frame_truncation_and_cms_match_original() {
             "dpub-run 0 0 {file} C s4352 L1,1000000,0,2,0 T1148846080 F4.0.0.0.0 L2,1000000,0,1000,1"
         ));
     }
-    compare("frame-mutations", requests);
+    requests
 }
 
 #[test]
-fn public_decoder_jpeg_output_matches_original() {
+fn public_decoder_frame_truncation_and_cms_match_original() {
+    compare("frame-mutations", frame_mutations_requests());
+}
+
+fn jpeg_output_requests() -> Vec<String> {
     let files = jpeg_files();
     let mut requests = Vec::new();
     for file in &files {
@@ -662,5 +703,205 @@ fn public_decoder_jpeg_output_matches_original() {
             "dpub-run 0 0 {file} s12288 L3,1000000,0,1000,1 J100000 L3,1000000,0,1000,1 j"
         ));
     }
-    compare("jpeg-output", requests);
+    requests
+}
+
+#[test]
+fn public_decoder_jpeg_output_matches_original() {
+    compare("jpeg-output", jpeg_output_requests());
+}
+
+/// The same history with the logging custom manager and no injected failure.
+fn with_logged_manager(request: &str) -> String {
+    let mut fields = request.splitn(4, ' ');
+    assert_eq!(fields.next(), Some("dpub-run"));
+    let (_manager, _fail) = (fields.next(), fields.next());
+    format!("dpub-run 1 0 {}", fields.next().unwrap())
+}
+
+/// Like `compare`, but observes each Rust history once. A Rust panic marks a
+/// history in which the original dereferences a null buffer (see
+/// `allocation_failures`); those and the undefined raw-box copies run
+/// original-only, and every other history compares exactly.
+fn compare_observed(family: &str, requests: Vec<String>) {
+    let mut defined = Vec::new();
+    let mut observed = Vec::new();
+    let mut undefined = Vec::new();
+    let mut null_buffer = Vec::new();
+    for request in requests {
+        jxl::jxl::box_content_decoder::take_null_input_copies();
+        let observation =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| super::observe(&request)));
+        if jxl::jxl::box_content_decoder::take_null_input_copies() != 0 {
+            undefined.push(request);
+        } else if let Ok(observation) = observation {
+            observed.push(observation);
+            defined.push(request);
+        } else {
+            null_buffer.push(request);
+        }
+    }
+    capture(family, &defined, &undefined);
+    let originals = super::original_observations(&defined);
+    for ((request, rust), cpp) in defined.iter().zip(&observed).zip(originals) {
+        assert_eq!(rust, &cpp, "request: {request}");
+    }
+    println!("{} C++/Rust differential cases matched", defined.len());
+    null_copy_probes(&undefined);
+    null_buffer_probes(&null_buffer);
+}
+
+/// Every other family again with the logging custom manager. The decoder,
+/// its input, the ICC reader, the codec state, the image bundle and the frame
+/// owners allocate through it, so every request size and the complete
+/// allocation and free order compare.
+#[test]
+fn public_decoder_custom_manager_logs_match_original() {
+    let requests = [
+        events_requests(),
+        box_buffers_requests(),
+        truncated_requests(),
+        misuse_requests(),
+        rewind_requests(),
+        jpeg_requests(),
+        color_requests(),
+        frames_requests(),
+        frame_mutations_requests(),
+        jpeg_output_requests(),
+    ]
+    .concat()
+    .iter()
+    .map(|request| with_logged_manager(request))
+    .collect();
+    compare_observed("custom-manager", requests);
+}
+
+/// The number of allocation calls in an observation's custom-manager log.
+fn allocation_calls(observation: &str) -> usize {
+    let log = observation.rsplit_once(" E ").map_or("", |(_, log)| log);
+    log.split(' ')
+        .filter(|event| event.starts_with('A'))
+        .count()
+}
+
+/// Fails each allocation call of every base history in turn, from the decoder
+/// object to the last frame owner; statuses, outputs and the complete
+/// allocation and free log compare.
+///
+/// When a failed allocation leaves a render-pipeline or group-cache buffer
+/// empty and the caller continues (here after FlushImage failed), the original
+/// later dereferences that null buffer, which is undefined. The Rust port
+/// panics at the same use instead. Those histories run original-only.
+fn allocation_failures(family: &str, bases: Vec<String>) {
+    let observations = super::original_observations(&bases);
+    let mut requests = Vec::new();
+    for (base, observation) in bases.iter().zip(&observations) {
+        let history = base.strip_prefix("dpub-run 1 0 ").unwrap();
+        for fail in 1..=allocation_calls(observation) {
+            requests.push(format!("dpub-run 1 {fail} {history}"));
+        }
+    }
+    compare_observed(family, requests);
+}
+
+fn frame_files() -> Vec<String> {
+    super::original_observations(
+        &FRAME_SPECS
+            .iter()
+            .map(|spec| format!("dpub-encode {spec}"))
+            .collect::<Vec<_>>(),
+    )
+}
+
+/// Whole-frame decoding of every frame input and retained original encoding.
+#[test]
+fn public_decoder_frame_allocation_failures_match_original() {
+    let bases = frame_files()
+        .iter()
+        .chain(&retained_files())
+        .map(|file| format!("dpub-run 1 0 {file} s4096 F4.2.0.0.0 L1,1000000,0,1000,1"))
+        .collect();
+    allocation_failures("frame-allocation-failures", bases);
+}
+
+/// Progressive flushing, frame skipping, rewinding and resetting. The three
+/// 300x280 inputs, whose whole-frame failures are compared above, are left out
+/// to bound the run time.
+#[test]
+fn public_decoder_progressive_allocation_failures_match_original() {
+    let mut bases = Vec::new();
+    for (spec, file) in FRAME_SPECS.iter().zip(frame_files()) {
+        if spec.starts_with("w=300") {
+            continue;
+        }
+        for script in [
+            "s38400 D1 M2 F3.2.0.0.0 L1,97,0,1000,1",
+            "s5120 M1 F3.2.0.0.0 L8,1000000,0,1000,1",
+            "s5120 F3.2.0.0.0 L1,1000000,0,4,0 w L2,7,0,1000,1",
+            "s5120 F3.2.0.0.0 L1,1000000,0,4,0 K f x s5120 L2,7,0,1000,1",
+        ] {
+            bases.push(format!("dpub-run 1 0 {file} {script}"));
+        }
+    }
+    allocation_failures("progressive-allocation-failures", bases);
+}
+
+/// Headers with the ICC profile, in one and in small chunks, JPEG
+/// reconstruction and CMS output conversion.
+#[test]
+fn public_decoder_header_and_jpeg_allocation_failures_match_original() {
+    let mut bases = Vec::new();
+    for file in files() {
+        for script in ["s320 d1 L5,1048576,4,100000,1", "s320 d1 L1,7,4,100000,1"] {
+            bases.push(format!("dpub-run 1 0 {file} {script}"));
+        }
+    }
+    for file in jpeg_files() {
+        for script in [
+            "s4096 F3.2.0.0.0 L2,1000000,0,1000,1",
+            "s12288 L3,1000000,0,1000,1 J100000 L3,1000000,0,1000,1 j",
+        ] {
+            bases.push(format!("dpub-run 1 0 {file} {script}"));
+        }
+    }
+    for file in &frame_files()[15..17] {
+        for encoding in ["0.1.1.8.0.1", "0.1.9.16.0.0"] {
+            bases.push(format!(
+                "dpub-run 1 0 {file} C s4352 L1,1000000,0,2,0 P{encoding} F3.0.0.0.0 L2,1000000,0,1000,1 G"
+            ));
+        }
+    }
+    allocation_failures("header-allocation-failures", bases);
+}
+
+/// Runs each null-buffer history in its own original process, which must
+/// terminate abnormally: a signal, or an instrumented graph's report.
+fn null_buffer_probes(requests: &[String]) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let oracle = std::env::var_os("JXL_CPP_ORACLE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/oracle/jxl_oracle")
+        });
+    for request in requests {
+        let mut child = Command::new(&oracle)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start original null-buffer probe");
+        writeln!(child.stdin.take().unwrap(), "{request}").expect("write the exact request");
+        let output = child
+            .wait_with_output()
+            .expect("observe the original probe");
+        assert!(
+            !output.status.success(),
+            "the original must not complete a null-buffer history: {request}"
+        );
+    }
+    println!(
+        "{} original-only null-buffer allocation-failure histories",
+        requests.len()
+    );
 }

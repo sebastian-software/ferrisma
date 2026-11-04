@@ -106,7 +106,14 @@ pub(super) fn encode_with_splines(
         d.num_dc_groups,
         header.passes.num_passes as usize,
     );
-    jxl::jxl::toc::read_toc(n, &mut r, &mut Vec::new(), &mut Vec::new()).unwrap();
+    jxl::jxl::toc::read_toc(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        n,
+        &mut r,
+        &mut Vec::new(),
+        &mut Vec::new(),
+    )
+    .unwrap();
     let payload = r.total_bits_consumed() / 8;
     r.close().unwrap();
     drop(r);

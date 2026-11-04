@@ -81,7 +81,11 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         "ic-shuffle" => {
             let width = number(args);
             let mut data = unhex(args.next().unwrap());
-            let s = codec::shuffle(&mut data, width);
+            let s = codec::shuffle(
+                jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+                &mut data,
+                width,
+            );
             write!(out, "{} {}", status_code(&s), hex(&data)).unwrap();
         }
         "ic-preamble" => {

@@ -10,6 +10,7 @@ use super::base::status::{Status, StatusCode, StatusOr};
 use super::frame_dimensions::BLOCK_DIM;
 use super::image::Plane;
 use super::image_ops::{fill_image, fill_plane};
+use super::memory_manager_internal::MemoryManagerPtr;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(transparent)]
@@ -59,8 +60,17 @@ impl AcStrategyImage {
     // Retain the source default construction before allocating its layer owner.
     #[allow(clippy::field_reassign_with_default)]
     pub fn create(xsize: usize, ysize: usize) -> StatusOr<Self> {
+        Self::create_in(MemoryManagerPtr::NATIVE, xsize, ysize)
+    }
+    /// The source AcStrategyImage::Create(memory_manager, xsize, ysize).
+    #[allow(clippy::field_reassign_with_default)]
+    pub fn create_in(
+        memory_manager: MemoryManagerPtr,
+        xsize: usize,
+        ysize: usize,
+    ) -> StatusOr<Self> {
         let mut image = Self::default();
-        image.layers = Plane::create(xsize, ysize)?;
+        image.layers = Plane::create_in(xsize, ysize, 0, memory_manager)?;
         // The source caches Row(0). Offset zero remains tied to this owner
         // across native moves; no long-lived raw pointer or aliased view exists.
         let _ = image.layers.row(0);

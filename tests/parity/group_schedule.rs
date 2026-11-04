@@ -132,6 +132,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     for p in 0..passes {
         readers[p].skip_bits(offsets[p]);
         let status = decode_histograms(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
             &mut readers[p],
             histograms * shared.block_ctx_map.num_ac_contexts() as usize + 16,
             &mut state.code[p + first],

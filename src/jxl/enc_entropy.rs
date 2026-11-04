@@ -175,7 +175,11 @@ impl EntropyEncodingData {
                     .unwrap_or(0),
             );
         }
-        let mut tmp = AlignedMemory::create((max_volume + MAX_VEC_SIZE) * 4, 0)?;
+        let mut tmp = AlignedMemory::create(
+            super::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            (max_volume + MAX_VEC_SIZE) * 4,
+            0,
+        )?;
         for h in 0..num_histo {
             let mut best_cost = f32::MAX;
             for &cfg in &configs {

@@ -272,7 +272,15 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         let bytes = unhex(args.next().unwrap());
         let mut reader = BitReader::new(&bytes);
         reader.skip_bits(prefix);
-        let status = pd.decode(&mut reader, w, h, n, &mut uses, &refs);
+        let status = pd.decode(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut reader,
+            w,
+            h,
+            n,
+            &mut uses,
+            &refs,
+        );
         drop(pd);
         let pd = dictionary.borrow();
         let consumed = reader.total_bits_consumed();
