@@ -10,9 +10,12 @@
 #include <jxl/color_encoding.h>
 #include <jxl/decode.h>
 #include <jxl/encode.h>
+#include <jxl/resizable_parallel_runner.h>
+#include <jxl/thread_parallel_runner.h>
 #include <jxl/types.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -323,8 +326,39 @@ struct Allocator {
   }
 };
 
-// cs.wp.prim.tf.gamma-bits.ri, with fixed custom white point and primaries.
+// cs.wp.prim.tf.gamma-bits.ri, with fixed custom white point and primaries,
+// or x:cs:wp:wx:wy:prim:rx:ry:gx:gy:bx:by:tf:gamma:ri with every double as
+// its bit pattern.
 JxlColorEncoding ParseEncoding(const std::string& token) {
+  if (token.rfind("x:", 0) == 0) {
+    std::vector<uint64_t> f;
+    std::istringstream fields(token.substr(2));
+    std::string field;
+    while (std::getline(fields, field, ':')) f.push_back(std::stoull(field));
+    if (f.size() != 14) throw std::runtime_error("color encoding token");
+    auto d = [](uint64_t bits) {
+      double v;
+      memcpy(&v, &bits, 8);
+      return v;
+    };
+    JxlColorEncoding color;
+    memset(&color, 0, sizeof(color));
+    color.color_space = JxlColorSpace(f[0]);
+    color.white_point = JxlWhitePoint(f[1]);
+    color.white_point_xy[0] = d(f[2]);
+    color.white_point_xy[1] = d(f[3]);
+    color.primaries = JxlPrimaries(f[4]);
+    color.primaries_red_xy[0] = d(f[5]);
+    color.primaries_red_xy[1] = d(f[6]);
+    color.primaries_green_xy[0] = d(f[7]);
+    color.primaries_green_xy[1] = d(f[8]);
+    color.primaries_blue_xy[0] = d(f[9]);
+    color.primaries_blue_xy[1] = d(f[10]);
+    color.transfer_function = JxlTransferFunction(f[11]);
+    color.gamma = d(f[12]);
+    color.rendering_intent = JxlRenderingIntent(f[13]);
+    return color;
+  }
   std::istringstream fields(token);
   uint32_t cs, wp, prim, tf, ri;
   uint64_t gamma_bits;
@@ -355,6 +389,7 @@ class Driver {
   Driver(std::vector<uint8_t> file, std::ostream& out) : file_(std::move(file)), out_(out) {}
   ~Driver() {
     if (dec_) JxlDecoderDestroy(dec_);
+    DestroyRunner();
   }
 
   // mm 0: default manager; 1: custom manager with its event log; 2: custom
@@ -403,7 +438,16 @@ class Driver {
       case 'I': SetInput(arg); break;
       case 'i': out_ << Release(); break;
       case 'c': JxlDecoderCloseInput(dec_); closed_ = true; out_ << 0; break;
-      case 'p': out_ << JxlDecoderProcessInput(dec_); break;
+      case 'p': {
+        // p1: ProcessInputIgnoreBoxes of decode_test.cc.
+        JxlDecoderStatus status = JxlDecoderProcessInput(dec_);
+        out_ << status;
+        while (arg == "1" && status == JXL_DEC_BOX) {
+          status = JxlDecoderProcessInput(dec_);
+          out_ << ',' << status;
+        }
+        break;
+      }
       case 'h': out_ << JxlDecoderSizeHintBasicInfo(dec_); break;
       case 'b': BasicInfo(arg != "0"); break;
       case 'e': ExtraInfo(std::stoul(arg)); break;
@@ -450,6 +494,10 @@ class Driver {
         break;
       }
       case 'Q': {
+        if (arg == "~") {
+          out_ << JxlDecoderSetOutputColorProfile(dec_, nullptr, nullptr, 0);
+          break;
+        }
         std::vector<uint8_t> icc = Unhex(arg);
         icc.push_back(0);  // A non-null pointer for an empty profile.
         out_ << JxlDecoderSetOutputColorProfile(dec_, nullptr, icc.data(), icc.size() - 1);
@@ -458,6 +506,10 @@ class Driver {
       case 'R': {
         auto comma = arg.find(',');
         JxlColorEncoding color = ParseEncoding(arg.substr(0, comma));
+        if (arg.substr(comma + 1) == "~") {
+          out_ << JxlDecoderSetOutputColorProfile(dec_, &color, nullptr, 0);
+          break;
+        }
         std::vector<uint8_t> icc = Unhex(arg.substr(comma + 1));
         icc.push_back(0);
         out_ << JxlDecoderSetOutputColorProfile(dec_, &color, icc.data(), icc.size() - 1);
@@ -475,6 +527,26 @@ class Driver {
       case 'K': out_ << JxlDecoderSkipCurrentFrame(dec_); break;
       case 'f': out_ << JxlDecoderFlushImage(dec_); Outputs(); break;
       case 'L': Loop(arg); break;
+      // Operations of the decode_test.cc histories.
+      case 'q': BufferSize(arg); break;
+      case 'U': out_ << 0; SetOutputs(false); break;
+      case 'H': out_ << 0; SetOutputs(true); break;
+      case 'X': out_ << 0; Outputs(); break;
+      case 'N': out_ << 0; FrameInfo(); break;
+      case 'm': out_ << JxlDecoderGetIntendedDownsamplingRatio(dec_); break;
+      case 'l': ReleaseAndContinue(arg); break;
+      case '!': out_ << JxlSignatureCheck(file_.data(), std::stoul(arg)); break;
+      case 'a': GrowJpegOp(arg); break;
+      case 'v': GrowBoxOp(arg); break;
+      case '~': {
+        out_ << retired_.size();
+        for (const auto& buffer : retired_) out_ << ',' << Hex(jxl::Bytes(buffer.data(), buffer.size()));
+        break;
+      }
+      case '@': out_ << SetRunner(std::stoi(arg)); break;
+      case '#': out_ << ResizeRunner(); break;
+      case 'A': StreamLoop(arg); break;
+      case 'B': ProgressionLoop(arg); break;
       default: throw std::runtime_error("decoder public op");
     }
   }
@@ -489,16 +561,35 @@ class Driver {
       box_.clear();
       box_set_ = false;
     }
-    // Rewind and Reset forget the JPEG output buffer.
+    // Rewind and Reset forget the JPEG output buffer. The caller keeps it
+    // alive; '~' prints whether a later decode wrote to it.
     if (!jpeg_.empty()) {
       out_ << Hex(jxl::Bytes(jpeg_.data(), jpeg_.size())) << ',';
+      retired_.push_back(std::move(jpeg_));
       jpeg_.clear();
     }
+    a_avail_ = 0;
+    a_total_ = 0;
   }
 
   void SetInput(const std::string& arg) {
     if (arg == "-") {
       out_ << JxlDecoderSetInput(dec_, nullptr, 0);
+      return;
+    }
+    if (arg == "+" || arg == "h" || arg[0] == '@') {
+      // From the current position: the rest of the file, the basic-info size
+      // hint, or up to an absolute end.
+      size_t len = file_.size() - pos_;
+      if (arg == "h") len = std::min(len, JxlDecoderSizeHintBasicInfo(dec_));
+      if (arg[0] == '@') {
+        size_t end = std::stoul(arg.substr(1));
+        if (end < pos_ || end > file_.size()) throw std::runtime_error("input end");
+        len = end - pos_;
+      }
+      JxlDecoderStatus status = JxlDecoderSetInput(dec_, file_.data() + pos_, len);
+      if (status == JXL_DEC_SUCCESS) set_len_ = len;
+      out_ << status;
       return;
     }
     auto comma = arg.find(',');
@@ -589,7 +680,12 @@ class Driver {
   void Icc(const std::string& arg) {
     auto comma = arg.find(',');
     int target = std::stoi(arg.substr(0, comma));
-    size_t size = std::stoul(arg.substr(comma + 1));
+    size_t size = 0;
+    if (arg.substr(comma + 1) == "?") {
+      JxlDecoderGetICCProfileSize(dec_, JxlColorProfileTarget(target), &size);
+    } else {
+      size = std::stoul(arg.substr(comma + 1));
+    }
     std::vector<uint8_t> icc(size + 1, 0xA5);
     JxlDecoderStatus status =
         JxlDecoderGetColorAsICCProfile(dec_, JxlColorProfileTarget(target), icc.data(), size);
@@ -753,7 +849,19 @@ class Driver {
                                  : JxlDecoderImageOutBufferSize(dec_, &format_, &size);
     out_ << " q:" << s << ',' << size;
     if (s != JXL_DEC_SUCCESS) return false;
-    if (preview || out_mode_ == 0) {
+    if (!preview && out_mode_ == 4) {
+      // The pixel callback of decode_test.cc: rows land in a caller buffer
+      // at their stride, so the result does not depend on the call order.
+      JxlBasicInfo info;
+      if (JxlDecoderGetBasicInfo(dec_, &info) != JXL_DEC_SUCCESS) return false;
+      test_bpp_ = PixelBytes();
+      test_stride_ = test_bpp_ * info.xsize;
+      if (format_.align > 1) {
+        test_stride_ = (test_stride_ + format_.align - 1) / format_.align * format_.align;
+      }
+      image_.assign(size, 0);
+      s = JxlDecoderSetImageOutCallback(dec_, &format_, TestCallback, this);
+    } else if (preview || out_mode_ == 0) {
       image_.assign(size + 1, 0xA5);
       s = preview ? JxlDecoderSetPreviewOutBuffer(dec_, &format_, image_.data(), size)
                   : JxlDecoderSetImageOutBuffer(dec_, &format_, image_.data(), size);
@@ -782,6 +890,7 @@ class Driver {
 
   void Outputs() {
     out_ << " o:" << image_.size() << ',' << Digest(image_);
+    if (test_overflow_) out_ << ",overflow";
     for (uint32_t i = 0; i < extras_ && i < extra_.size(); ++i) {
       out_ << ',' << extra_[i].size() << ',' << Digest(extra_[i]);
     }
@@ -921,6 +1030,325 @@ class Driver {
     }
   }
 
+  // ---- decode_test.cc operations.
+
+  // q: image out buffer size; q1: preview; q2,<i>: extra channel i.
+  void BufferSize(const std::string& arg) {
+    size_t size = 0xA5A5;
+    JxlDecoderStatus s;
+    if (arg.empty()) {
+      s = JxlDecoderImageOutBufferSize(dec_, &format_, &size);
+    } else if (arg == "1") {
+      s = JxlDecoderPreviewOutBufferSize(dec_, &format_, &size);
+    } else {
+      s = JxlDecoderExtraChannelBufferSize(dec_, &format_, &size,
+                                           uint32_t(std::stoul(arg.substr(2))));
+    }
+    out_ << s << ',' << size;
+  }
+
+  // l[<end>]: release the input, then continue from the new position up to
+  // an absolute end, by default the end of the file.
+  void ReleaseAndContinue(const std::string& arg) {
+    size_t remaining = Release();
+    size_t end = arg.empty() ? file_.size() : std::stoul(arg);
+    if (end < pos_ || end > file_.size()) throw std::runtime_error("input end");
+    JxlDecoderStatus status = JxlDecoderSetInput(dec_, file_.data() + pos_, end - pos_);
+    if (status == JXL_DEC_SUCCESS) set_len_ = end - pos_;
+    out_ << remaining << ',' << status;
+  }
+
+  void SetGrowJpeg(size_t size) {
+    grow_jpeg_.assign(size, 0);
+    JxlDecoderStatus status = JxlDecoderSetJPEGBuffer(dec_, grow_jpeg_.data(), size);
+    grow_jpeg_set_ = status == JXL_DEC_SUCCESS;
+    out_ << status;
+  }
+  void GrowJpeg() {
+    size_t remaining = JxlDecoderReleaseJPEGBuffer(dec_);
+    size_t used = grow_jpeg_.size() - remaining;
+    grow_jpeg_.resize(grow_jpeg_.size() * 2);
+    JxlDecoderStatus status =
+        JxlDecoderSetJPEGBuffer(dec_, grow_jpeg_.data() + used, grow_jpeg_.size() - used);
+    grow_jpeg_set_ = status == JXL_DEC_SUCCESS;
+    out_ << remaining << ',' << status << ',' << grow_jpeg_.size();
+  }
+  void ReleaseGrowJpeg() {
+    size_t remaining = JxlDecoderReleaseJPEGBuffer(dec_);
+    size_t used = grow_jpeg_.size() - remaining;
+    grow_jpeg_set_ = false;
+    out_ << remaining << ',' << Hex(jxl::Bytes(grow_jpeg_.data(), used));
+  }
+  // a<size>: set a new growing JPEG buffer; a+: extend it; a-: release it.
+  void GrowJpegOp(const std::string& arg) {
+    if (arg == "+") GrowJpeg();
+    else if (arg == "-") ReleaseGrowJpeg();
+    else SetGrowJpeg(std::stoul(arg));
+  }
+
+  void SetGrowBox(size_t size) {
+    grow_box_.resize(size);
+    out_ << JxlDecoderSetBoxBuffer(dec_, grow_box_.data(), grow_box_.size());
+  }
+  void GrowBox() {
+    size_t remaining = JxlDecoderReleaseBoxBuffer(dec_);
+    size_t used = grow_box_.size() - remaining;
+    grow_box_.resize(grow_box_.size() * 2);
+    out_ << remaining << ','
+         << JxlDecoderSetBoxBuffer(dec_, grow_box_.data() + used, grow_box_.size() - used);
+  }
+  void ReleaseGrowBox() {
+    size_t remaining = JxlDecoderReleaseBoxBuffer(dec_);
+    size_t used = grow_box_.size() - remaining;
+    out_ << remaining << ',' << Hex(jxl::Bytes(grow_box_.data(), used));
+    grow_box_.clear();
+  }
+  // v<size>: set a growing box buffer; v+: extend it; v-: release it.
+  void GrowBoxOp(const std::string& arg) {
+    if (arg == "+") GrowBox();
+    else if (arg == "-") ReleaseGrowBox();
+    else SetGrowBox(std::stoul(arg));
+  }
+
+  // @0: JxlDecoderSetParallelRunner(dec, nullptr, nullptr); @1: the thread
+  // runner with min(hardware, 16) workers, as DecodeWithAPI; @2: the
+  // resizable runner; @3: the thread runner with the default worker count.
+  // Only the original implements runners; these requests are compared with
+  // the same history without a runner.
+  JxlDecoderStatus SetRunner(int kind) {
+    DestroyRunner();
+    runner_kind_ = kind;
+    if (kind == 0) return JxlDecoderSetParallelRunner(dec_, nullptr, nullptr);
+    if (kind == 2) {
+      runner_ = JxlResizableParallelRunnerCreate(nullptr);
+      return JxlDecoderSetParallelRunner(dec_, JxlResizableParallelRunner, runner_);
+    }
+    size_t threads = JxlThreadParallelRunnerDefaultNumWorkerThreads();
+    if (kind == 1) threads = std::min<size_t>(threads, 16);
+    runner_ = JxlThreadParallelRunnerCreate(nullptr, threads);
+    return JxlDecoderSetParallelRunner(dec_, JxlThreadParallelRunner, runner_);
+  }
+  // #: size the resizable runner for the image, as DecodeWithAPI does.
+  int ResizeRunner() {
+    JxlBasicInfo info;
+    if (runner_kind_ != 2 || JxlDecoderGetBasicInfo(dec_, &info) != JXL_DEC_SUCCESS) return 1;
+    JxlResizableParallelRunnerSetThreads(
+        runner_, JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize));
+    return 0;
+  }
+  void DestroyRunner() {
+    if (!runner_) return;
+    if (runner_kind_ == 2) JxlResizableParallelRunnerDestroy(runner_);
+    else JxlThreadParallelRunnerDestroy(runner_);
+    runner_ = nullptr;
+  }
+
+  static void TestCallback(void* opaque, size_t x, size_t y, size_t n, const void* pixels) {
+    auto* d = static_cast<Driver*>(opaque);
+    size_t offset = d->test_stride_ * y + d->test_bpp_ * x, bytes = n * d->test_bpp_;
+    if (offset > d->image_.size() || bytes > d->image_.size() - offset) {
+      d->test_overflow_ = true;
+      return;
+    }
+    memcpy(d->image_.data() + offset, pixels, bytes);
+  }
+
+  // Event handling shared by the decode_test.cc streaming loops. Returns false
+  // to stop the loop.
+  bool HandleEvent(JxlDecoderStatus status, int flags, const std::string& box, size_t jpeg0) {
+    switch (status) {
+      case JXL_DEC_BASIC_INFO: Info(); return true;
+      case JXL_DEC_COLOR_ENCODING: Color(); return true;
+      case JXL_DEC_FRAME:
+        ++frames_;
+        FrameInfo();
+        if (flags & 4) out_ << " D:" << JxlDecoderSetProgressiveDetail(dec_, kDC);
+        return true;
+      case JXL_DEC_NEED_IMAGE_OUT_BUFFER: return SetOutputs(false);
+      case JXL_DEC_NEED_PREVIEW_OUT_BUFFER: return SetOutputs(true);
+      case JXL_DEC_PREVIEW_IMAGE: Outputs(); return true;
+      case JXL_DEC_FULL_IMAGE:
+        Outputs();
+        if (grow_jpeg_set_) {
+          out_ << " a-:";
+          ReleaseGrowJpeg();
+        }
+        return !(flags & 8);
+      case JXL_DEC_FRAME_PROGRESSION:
+        out_ << " r:" << JxlDecoderGetIntendedDownsamplingRatio(dec_);
+        if (policy_ & 2) {
+          out_ << " f:" << JxlDecoderFlushImage(dec_);
+          Outputs();
+        }
+        return true;
+      case JXL_DEC_JPEG_RECONSTRUCTION:
+        if (jpeg0) {
+          out_ << " a:";
+          SetGrowJpeg(jpeg0);
+        }
+        return true;
+      case JXL_DEC_JPEG_NEED_MORE_OUTPUT:
+        out_ << " a+:";
+        GrowJpeg();
+        return true;
+      case JXL_DEC_BOX: {
+        if (!grow_box_.empty()) {
+          out_ << " v-:";
+          ReleaseGrowBox();
+        }
+        out_ << ' ';
+        BoxType(0);
+        out_ << ' ';
+        BoxType(1);
+        out_ << ' ';
+        BoxSize(false, true);
+        out_ << ' ';
+        BoxSize(true, true);
+        JxlBoxType type;
+        if (box != "-" &&
+            JxlDecoderGetBoxType(dec_, type, (flags & 16) ? JXL_TRUE : JXL_FALSE) ==
+                JXL_DEC_SUCCESS &&
+            memcmp(type, box.data(), 4) == 0) {
+          out_ << " v:";
+          SetGrowBox(8);
+        }
+        return true;
+      }
+      case JXL_DEC_BOX_NEED_MORE_OUTPUT:
+        out_ << " v+:";
+        GrowBox();
+        return true;
+      case JXL_DEC_SUCCESS:
+        if (!grow_box_.empty()) {
+          out_ << " v-:";
+          ReleaseGrowBox();
+        }
+        return false;
+      default: return false;
+    }
+  }
+
+  // A<inc>,<flags>,<box>,<jpeg0>,<steps>: the input loops of decode_test.cc.
+  // flags 1: set the input before and release it after every ProcessInput
+  // (else only on NEED_MORE_INPUT); 2: close the input once all of it is set;
+  // 4: SetProgressiveDetail(kDC) at each frame; 8: stop after FULL_IMAGE;
+  // 16: match the decompressed box type; 64: grow the window by inc after
+  // every call without subtracting consumed bytes (InputHandlingTestStreaming);
+  // 128: return at the first status other than NEED_MORE_INPUT. Each
+  // NEED_MORE_INPUT adds inc more bytes. Contents of boxes of type <box> go
+  // to a growing buffer; JPEG reconstruction uses a growing buffer of jpeg0
+  // bytes.
+  void StreamLoop(const std::string& arg) {
+    std::istringstream fields(arg);
+    size_t inc, flags, jpeg0, steps;
+    std::string box;
+    char comma;
+    fields >> inc >> comma >> flags >> comma;
+    std::getline(fields, box, ',');
+    fields >> jpeg0 >> comma >> steps;
+    if (!fields || (box != "-" && box.size() != 4)) throw std::runtime_error("stream loop");
+    out_ << 0;
+    for (size_t step = 0; step < steps; ++step) {
+      JxlDecoderStatus status;
+      if (flags & (1 | 64)) {
+        JxlDecoderStatus set = JxlDecoderSetInput(dec_, file_.data() + pos_, a_avail_);
+        if (set == JXL_DEC_SUCCESS) set_len_ = a_avail_;
+        status = JxlDecoderProcessInput(dec_);
+        size_t remaining = Release();
+        out_ << " A" << set << ':' << status << ',' << remaining;
+        if (flags & 64) {
+          a_avail_ = std::min(a_avail_ + inc, file_.size() - pos_);
+          if (status == JXL_DEC_NEED_MORE_INPUT) {
+            if (pos_ == file_.size()) break;
+            continue;
+          }
+        } else {
+          a_avail_ = remaining;
+          if (status == JXL_DEC_NEED_MORE_INPUT) {
+            if (a_total_ >= file_.size()) break;
+            size_t amount = std::min(inc, file_.size() - a_total_);
+            a_total_ += amount;
+            a_avail_ += amount;
+            continue;
+          }
+        }
+      } else {
+        status = JxlDecoderProcessInput(dec_);
+        out_ << " A" << status;
+        if (status == JXL_DEC_NEED_MORE_INPUT) {
+          if (inc == 0) break;
+          size_t remaining = Release();
+          size_t amount = std::min(inc, file_.size() - a_total_);
+          a_total_ += amount;
+          a_avail_ = remaining + amount;
+          JxlDecoderStatus set = JxlDecoderSetInput(dec_, file_.data() + pos_, a_avail_);
+          if (set == JXL_DEC_SUCCESS) set_len_ = a_avail_;
+          out_ << ',' << remaining << ',' << set << ',' << a_avail_;
+          if ((flags & 2) && a_total_ == file_.size() && !closed_) {
+            JxlDecoderCloseInput(dec_);
+            closed_ = true;
+            out_ << ",c";
+          }
+          continue;
+        }
+      }
+      if (flags & 128) break;
+      if (!HandleEvent(status, int(flags), box, jpeg0)) break;
+    }
+  }
+
+  // B<end>:<flush>/...: VerifyProgression of decode_test.cc. The input ends at
+  // each breakpoint in turn; flush 0 expects no flush, 1 the same and 2 a new
+  // progressive image.
+  void ProgressionLoop(const std::string& arg) {
+    std::vector<std::pair<size_t, int>> breakpoints;
+    std::istringstream fields(arg);
+    std::string item;
+    while (std::getline(fields, item, '/')) {
+      auto colon = item.find(':');
+      breakpoints.push_back({std::stoul(item.substr(0, colon)), std::stoi(item.substr(colon + 1))});
+    }
+    if (breakpoints.empty() || breakpoints[0].first > file_.size()) {
+      throw std::runtime_error("progression breakpoints");
+    }
+    size_t bp = 0;
+    JxlDecoderStatus set = JxlDecoderSetInput(dec_, file_.data(), breakpoints[0].first);
+    if (set == JXL_DEC_SUCCESS) {
+      pos_ = 0;
+      set_len_ = breakpoints[0].first;
+    }
+    out_ << set;
+    for (size_t step = 0; step < 10000; ++step) {
+      JxlDecoderStatus status = JxlDecoderProcessInput(dec_);
+      out_ << " B" << status;
+      if (status == JXL_DEC_BASIC_INFO) {
+        out_ << ' ';
+        BasicInfo(true);
+        out_ << " f:" << JxlDecoderFlushImage(dec_);
+        Outputs();
+        SetOutputs(false);
+      } else if (status == JXL_DEC_FRAME) {
+      } else if (status == JXL_DEC_SUCCESS) {
+        break;
+      } else if (status == JXL_DEC_NEED_MORE_INPUT || status == JXL_DEC_FULL_IMAGE) {
+        if (breakpoints[bp].second == 0 || status != JXL_DEC_FULL_IMAGE) {
+          out_ << " f:" << JxlDecoderFlushImage(dec_);
+        }
+        Outputs();
+        if (status == JXL_DEC_FULL_IMAGE) continue;
+        if (++bp >= breakpoints.size()) break;
+        size_t remaining = Release();
+        size_t end = breakpoints[bp].first;
+        if (end < pos_ || end > file_.size()) throw std::runtime_error("progression input");
+        set = JxlDecoderSetInput(dec_, file_.data() + pos_, end - pos_);
+        if (set == JXL_DEC_SUCCESS) set_len_ = end - pos_;
+        out_ << ',' << remaining << ',' << set;
+      } else {
+        break;
+      }
+    }
+  }
+
   std::vector<uint8_t> file_;
   std::ostream& out_;
   Allocator allocator_;
@@ -941,6 +1369,18 @@ class Driver {
   // A JPEG buffer stays alive until released, as a caller retains it; the
   // decoder writes it only during ProcessInput.
   std::vector<uint8_t> jpeg_;
+  // JPEG buffers forgotten by Rewind/Reset, still owned by the caller.
+  std::vector<std::vector<uint8_t>> retired_;
+  // Growing caller buffers of decode_test.cc: the decoder writes behind the
+  // used prefix, and each extension doubles the buffer.
+  std::vector<uint8_t> grow_jpeg_, grow_box_;
+  bool grow_jpeg_set_ = false;
+  // Streaming loop input window and the total bytes made available.
+  size_t a_avail_ = 0, a_total_ = 0;
+  size_t test_bpp_ = 0, test_stride_ = 0;
+  std::atomic<bool> test_overflow_{false};
+  int runner_kind_ = 0;
+  void* runner_ = nullptr;
 };
 
 }  // namespace

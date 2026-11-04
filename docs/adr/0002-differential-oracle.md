@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-03
+- Updated: 2026-11-04
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -55,6 +55,21 @@ This requires a C++ toolchain and the reference's pinned dependencies for
 the checks. Review the oracle whenever a source revision, compile configuration,
 protocol, or ported boundary changes. Never turn missing oracle evidence into a
 passing test.
+
+Upstream test inventories run as differential histories on the inputs their
+own pinned helpers build. Helpers such as CreateTestJXLCodestream,
+GetTestHeader, AnalyzeCodestream, GetSomeTestImage and test::EncodeFile are
+extracted verbatim and hash checked, without gtest: an adapter supplies
+expectations that throw, the pinned testdata bytes instead of file readers, and
+a genuine cjpeg file where a helper would call the extras libjpeg encoder,
+which the oracle does not build. A check that compares output with the encoder
+input (Butteraugli, pixel distances) is replaced by exact equality with the
+original decoder's output, not by a tolerance. Parallel runners are not ported:
+a history that sets one runs only on the original, which must reproduce its own
+runner-free history exactly, and Rust runs that runner-free history, as the
+original does with a null runner. Callback output under a runner compares
+through a caller buffer, which is independent of the call order; the runner-free
+history also compares every call in order.
 
 The scalar Clang build retains upstream `lib/CMakeLists.txt`'s
 `-fno-slp-vectorize -fno-vectorize` settings. Repository Rust builds mirror them

@@ -116,6 +116,11 @@ struct CallbackState {
     calls: usize,
     inits: usize,
     destroys: usize,
+    /// The decode_test.cc callback's caller buffer, row stride and overflow.
+    test_image: *mut u8,
+    test_len: usize,
+    test_stride: usize,
+    test_overflow: bool,
 }
 impl CallbackState {
     fn record(&mut self, thread: usize, x: usize, y: usize, n: usize, pixels: *const c_void) {
@@ -168,6 +173,30 @@ unsafe extern "C" fn destroy_callback(opaque: *mut c_void) {
     // SAFETY: As above.
     unsafe { &mut *opaque.cast::<CallbackState>() }.destroys += 1;
 }
+/// The pixel callback of decode_test.cc: rows land in a caller buffer at their
+/// stride, so the result does not depend on the call order.
+unsafe extern "C" fn test_callback(
+    opaque: *mut c_void,
+    x: usize,
+    y: usize,
+    n: usize,
+    pixels: *const c_void,
+) {
+    // SAFETY: opaque is the driver's live callback cell.
+    let state = unsafe { &mut *opaque.cast::<CallbackState>() };
+    let offset = state.test_stride * y + state.pixel_bytes * x;
+    let bytes = n * state.pixel_bytes;
+    if offset > state.test_len || bytes > state.test_len - offset {
+        state.test_overflow = true;
+        return;
+    }
+    // SAFETY: The callback contract provides n pixels in the format; the
+    // destination range was checked against the live caller buffer, which no
+    // reference aliases during ProcessInput or FlushImage.
+    unsafe {
+        std::ptr::copy_nonoverlapping(pixels.cast::<u8>(), state.test_image.add(offset), bytes);
+    }
+}
 
 fn f32_bits(value: f32) -> u32 {
     value.to_bits()
@@ -177,11 +206,29 @@ fn f64_bits(value: f64) -> u64 {
     value.to_bits()
 }
 
-/// cs.wp.prim.tf.gamma-bits.ri, with fixed custom white point and primaries.
+/// cs.wp.prim.tf.gamma-bits.ri, with fixed custom white point and primaries,
+/// or x:cs:wp:wx:wy:prim:rx:ry:gx:gy:bx:by:tf:gamma:ri with every double as
+/// its bit pattern.
 fn parse_encoding(token: &str) -> JxlColorEncoding {
     use jxl::jxl::color_encoding::{
         ColorSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
     };
+    if let Some(full) = token.strip_prefix("x:") {
+        let f: Vec<u64> = full.split(':').map(|v| v.parse().unwrap()).collect();
+        assert_eq!(f.len(), 14, "color encoding token");
+        return JxlColorEncoding {
+            color_space: ColorSpace(f[0] as u32),
+            white_point: WhitePoint(f[1] as u32),
+            white_point_xy: [f64::from_bits(f[2]), f64::from_bits(f[3])],
+            primaries: Primaries(f[4] as u32),
+            primaries_red_xy: [f64::from_bits(f[5]), f64::from_bits(f[6])],
+            primaries_green_xy: [f64::from_bits(f[7]), f64::from_bits(f[8])],
+            primaries_blue_xy: [f64::from_bits(f[9]), f64::from_bits(f[10])],
+            transfer_function: TransferFunction(f[11] as u32),
+            gamma: f64::from_bits(f[12]),
+            rendering_intent: RenderingIntent(f[13] as u32),
+        };
+    }
     let fields: Vec<u64> = token.split('.').map(|v| v.parse().unwrap()).collect();
     JxlColorEncoding {
         color_space: ColorSpace(fields[0] as u32),
@@ -219,6 +266,15 @@ pub struct Driver {
     extra: Vec<Vec<u8>>,
     cb: *mut CallbackState,
     print_events: bool,
+    /// JPEG buffers forgotten by Rewind/Reset, still owned by the caller.
+    retired: Vec<Vec<u8>>,
+    /// Growing caller buffers of decode_test.cc.
+    grow_jpeg: Vec<u8>,
+    grow_jpeg_set: bool,
+    grow_box: Vec<u8>,
+    /// Streaming loop input window and the total bytes made available.
+    a_avail: usize,
+    a_total: usize,
 }
 
 impl Drop for Driver {
@@ -272,8 +328,18 @@ impl Driver {
                 calls: 0,
                 inits: 0,
                 destroys: 0,
+                test_image: std::ptr::null_mut(),
+                test_len: 0,
+                test_stride: 0,
+                test_overflow: false,
             })),
             print_events: false,
+            retired: Vec::new(),
+            grow_jpeg: Vec::new(),
+            grow_jpeg_set: false,
+            grow_box: Vec::new(),
+            a_avail: 0,
+            a_total: 0,
         }
     }
 
@@ -367,9 +433,15 @@ impl Driver {
                 self.out.push('0');
             }
             'p' => {
+                // p1: ProcessInputIgnoreBoxes of decode_test.cc.
                 // SAFETY: Input and box buffers are driver-owned and live.
-                let s = unsafe { api::jxl_decoder_process_input(self.dec()) };
+                let mut s = unsafe { api::jxl_decoder_process_input(self.dec()) };
                 self.status(s);
+                while arg == "1" && s == JxlDecoderStatus::BOX {
+                    // SAFETY: As above.
+                    s = unsafe { api::jxl_decoder_process_input(self.dec()) };
+                    write!(self.out, ",{}", s.0).unwrap();
+                }
             }
             'h' => {
                 let h = api::jxl_decoder_size_hint_basic_info(self.dec());
@@ -423,6 +495,13 @@ impl Driver {
                 };
                 self.status(s);
             }
+            'Q' if arg == "~" => {
+                // SAFETY: A null profile with size zero; the CMS is static.
+                let s = unsafe {
+                    api::jxl_decoder_set_output_color_profile(self.dec(), None, std::ptr::null(), 0)
+                };
+                self.status(s);
+            }
             'Q' => {
                 let mut icc = unhex(arg);
                 icc.push(0); // A non-null pointer for an empty profile.
@@ -440,6 +519,19 @@ impl Driver {
             'R' => {
                 let (encoding, icc) = arg.split_once(',').unwrap();
                 let color = parse_encoding(encoding);
+                if icc == "~" {
+                    // SAFETY: A null profile with size zero; the CMS is static.
+                    let s = unsafe {
+                        api::jxl_decoder_set_output_color_profile(
+                            self.dec(),
+                            Some(&color),
+                            std::ptr::null(),
+                            0,
+                        )
+                    };
+                    self.status(s);
+                    return;
+                }
                 let mut icc = unhex(icc);
                 icc.push(0);
                 // SAFETY: As for 'Q'.
@@ -491,6 +583,53 @@ impl Driver {
                 self.color();
             }
             'L' => self.run_loop(arg),
+            // Operations of the decode_test.cc histories.
+            'q' => self.buffer_size(arg),
+            'U' => {
+                self.out.push('0');
+                self.set_outputs(false);
+            }
+            'H' => {
+                self.out.push('0');
+                self.set_outputs(true);
+            }
+            'X' => {
+                self.out.push('0');
+                self.outputs();
+            }
+            'N' => {
+                self.out.push('0');
+                self.frame_info();
+            }
+            'm' => {
+                let ratio = api::jxl_decoder_get_intended_downsampling_ratio(self.dec());
+                write!(self.out, "{ratio}").unwrap();
+            }
+            'l' => self.release_and_continue(arg),
+            '!' => {
+                let len: usize = arg.parse().unwrap();
+                let signature = api::jxl_signature_check(&self.file[..len]);
+                write!(self.out, "{}", signature.0).unwrap();
+            }
+            'a' => match arg {
+                "+" => self.grow_jpeg_buffer(),
+                "-" => self.release_grow_jpeg(),
+                size => self.set_grow_jpeg(size.parse().unwrap()),
+            },
+            'v' => match arg {
+                "+" => self.grow_box_buffer(),
+                "-" => self.release_grow_box(),
+                size => self.set_grow_box(size.parse().unwrap()),
+            },
+            '~' => {
+                write!(self.out, "{}", self.retired.len()).unwrap();
+                for buffer in &self.retired {
+                    write!(self.out, ",{}", hex(buffer)).unwrap();
+                }
+            }
+            'A' => self.stream_loop(arg),
+            'B' => self.progression_loop(arg),
+            '@' | '#' => panic!("parallel runners exist only in the original"),
             _ => panic!("decoder public op"),
         }
     }
@@ -508,11 +647,14 @@ impl Driver {
             self.box_buffer.clear();
             self.box_set = false;
         }
-        // Rewind and Reset forget the JPEG output buffer.
+        // Rewind and Reset forget the JPEG output buffer. The caller keeps it
+        // alive; '~' prints whether a later decode wrote to it.
         if !self.jpeg_buffer.is_empty() {
             write!(self.out, "{},", hex(&self.jpeg_buffer)).unwrap();
-            self.jpeg_buffer.clear();
+            self.retired.push(std::mem::take(&mut self.jpeg_buffer));
         }
+        self.a_avail = 0;
+        self.a_total = 0;
     }
 
     fn set_jpeg(&mut self, size: usize) {
@@ -538,6 +680,27 @@ impl Driver {
             // SAFETY: A null empty input is the source's distinct identity.
             let s = unsafe { api::jxl_decoder_set_input(self.dec(), std::ptr::null(), 0) };
             self.status(s);
+            return;
+        }
+        if arg == "+" || arg == "h" || arg.starts_with('@') {
+            // From the current position: the rest of the file, the basic-info
+            // size hint, or up to an absolute end.
+            let mut len = self.file.len() - self.pos;
+            if arg == "h" {
+                len = len.min(api::jxl_decoder_size_hint_basic_info(self.dec()));
+            }
+            if let Some(end) = arg.strip_prefix('@') {
+                let end: usize = end.parse().unwrap();
+                assert!(end >= self.pos && end <= self.file.len(), "input end");
+                len = end - self.pos;
+            }
+            let data = self.file[self.pos..].as_ptr();
+            // SAFETY: The driver's file outlives the decoder and is not mutated.
+            let status = unsafe { api::jxl_decoder_set_input(self.dec(), data, len) };
+            if status == JxlDecoderStatus::SUCCESS {
+                self.set_len = len;
+            }
+            self.status(status);
             return;
         }
         let (off, len) = arg.split_once(',').unwrap();
@@ -715,7 +878,13 @@ impl Driver {
     fn icc(&mut self, arg: &str) {
         let (target, size) = arg.split_once(',').unwrap();
         let target = JxlColorProfileTarget(target.parse().unwrap());
-        let size: usize = size.parse().unwrap();
+        let size: usize = if size == "?" {
+            let mut size = 0usize;
+            api::jxl_decoder_get_icc_profile_size(self.dec(), target, Some(&mut size));
+            size
+        } else {
+            size.parse().unwrap()
+        };
         let mut icc = vec![0xA5u8; size + 1];
         // SAFETY: The buffer holds size + 1 writable bytes.
         let status = unsafe {
@@ -854,7 +1023,36 @@ impl Driver {
         // decoder's callbacks and this driver access, never concurrently.
         unsafe { (*self.cb).pixel_bytes = pixel_bytes };
         let opaque = self.cb.cast::<c_void>();
-        let s = if preview || self.out_mode == 0 {
+        let s = if !preview && self.out_mode == 4 {
+            let mut info = JxlBasicInfo::zeroed();
+            if api::jxl_decoder_get_basic_info(self.dec(), Some(&mut info))
+                != JxlDecoderStatus::SUCCESS
+            {
+                return false;
+            }
+            let mut stride = pixel_bytes * info.xsize as usize;
+            if format.align > 1 {
+                stride = stride.div_ceil(format.align) * format.align;
+            }
+            self.image = vec![0; size];
+            // SAFETY: The callback cell is only accessed by this driver and the
+            // decoder's callbacks, never concurrently.
+            unsafe {
+                (*self.cb).test_image = self.image.as_mut_ptr();
+                (*self.cb).test_len = size;
+                (*self.cb).test_stride = stride;
+            }
+            // SAFETY: The image buffer stays alive and unmoved until the next
+            // output request, which replaces the callback.
+            unsafe {
+                api::jxl_decoder_set_image_out_callback(
+                    self.dec(),
+                    &format,
+                    Some(test_callback),
+                    opaque,
+                )
+            }
+        } else if preview || self.out_mode == 0 {
             self.image = vec![0xA5; size + 1];
             let data = self.image.as_mut_ptr().cast::<c_void>();
             // SAFETY: The driver keeps the image buffer alive and unmoved
@@ -923,6 +1121,10 @@ impl Driver {
 
     fn outputs(&mut self) {
         write!(self.out, " o:{},{}", self.image.len(), digest(&self.image)).unwrap();
+        // SAFETY: No callback runs during this read of the callback cell.
+        if unsafe { (*self.cb).test_overflow } {
+            self.out.push_str(",overflow");
+        }
         for i in 0..(self.extras as usize).min(self.extra.len()) {
             write!(
                 self.out,
@@ -1011,6 +1213,357 @@ impl Driver {
                     blend.blendmode.0, blend.source, blend.alpha, blend.clamp
                 )
                 .unwrap();
+            }
+        }
+    }
+
+    // ---- decode_test.cc operations.
+
+    /// q: image out buffer size; q1: preview; q2,<i>: extra channel i.
+    fn buffer_size(&mut self, arg: &str) {
+        let format = self.format;
+        let mut size = 0xA5A5usize;
+        let s = if arg.is_empty() {
+            api::jxl_decoder_image_out_buffer_size(self.dec(), &format, &mut size)
+        } else if arg == "1" {
+            api::jxl_decoder_preview_out_buffer_size(self.dec(), &format, &mut size)
+        } else {
+            let index: u32 = arg[2..].parse().unwrap();
+            api::jxl_decoder_extra_channel_buffer_size(self.dec(), &format, &mut size, index)
+        };
+        write!(self.out, "{},{}", s.0, size).unwrap();
+    }
+
+    /// l[<end>]: release the input, then continue from the new position up to
+    /// an absolute end, by default the end of the file.
+    fn release_and_continue(&mut self, arg: &str) {
+        let remaining = self.release();
+        let end = if arg.is_empty() {
+            self.file.len()
+        } else {
+            arg.parse().unwrap()
+        };
+        assert!(end >= self.pos && end <= self.file.len(), "input end");
+        let data = self.file[self.pos..].as_ptr();
+        let len = end - self.pos;
+        // SAFETY: The driver's file outlives the decoder and is not mutated.
+        let status = unsafe { api::jxl_decoder_set_input(self.dec(), data, len) };
+        if status == JxlDecoderStatus::SUCCESS {
+            self.set_len = len;
+        }
+        write!(self.out, "{remaining},{}", status.0).unwrap();
+    }
+
+    fn set_grow_jpeg(&mut self, size: usize) {
+        self.grow_jpeg = vec![0; size];
+        let data = self.grow_jpeg.as_mut_ptr();
+        // SAFETY: The growing buffer stays alive and unmoved until it is
+        // released or extended, which first releases it from the decoder.
+        let status = unsafe { api::jxl_decoder_set_jpeg_buffer(self.dec(), data, size) };
+        self.grow_jpeg_set = status == JxlDecoderStatus::SUCCESS;
+        self.status(status);
+    }
+
+    fn grow_jpeg_buffer(&mut self) {
+        let remaining = api::jxl_decoder_release_jpeg_buffer(self.dec());
+        let used = self.grow_jpeg.len() - remaining;
+        let size = self.grow_jpeg.len() * 2;
+        self.grow_jpeg.resize(size, 0);
+        // SAFETY: used is at most the old length; the window lies within the
+        // resized buffer, which stays alive and unmoved as for set_grow_jpeg.
+        let status = unsafe {
+            let data = self.grow_jpeg.as_mut_ptr().add(used);
+            api::jxl_decoder_set_jpeg_buffer(self.dec(), data, size - used)
+        };
+        self.grow_jpeg_set = status == JxlDecoderStatus::SUCCESS;
+        write!(self.out, "{remaining},{},{size}", status.0).unwrap();
+    }
+
+    fn release_grow_jpeg(&mut self) {
+        let remaining = api::jxl_decoder_release_jpeg_buffer(self.dec());
+        let used = self.grow_jpeg.len() - remaining;
+        self.grow_jpeg_set = false;
+        write!(self.out, "{remaining},{}", hex(&self.grow_jpeg[..used])).unwrap();
+    }
+
+    fn set_grow_box(&mut self, size: usize) {
+        self.grow_box.resize(size, 0);
+        let data = self.grow_box.as_mut_ptr();
+        // SAFETY: The growing buffer stays alive and unmoved until it is
+        // released or extended, which first releases it from the decoder.
+        let status = unsafe { api::jxl_decoder_set_box_buffer(self.dec(), data, size) };
+        self.status(status);
+    }
+
+    fn grow_box_buffer(&mut self) {
+        let remaining = api::jxl_decoder_release_box_buffer(self.dec());
+        let used = self.grow_box.len() - remaining;
+        let size = self.grow_box.len() * 2;
+        self.grow_box.resize(size, 0);
+        // SAFETY: As for grow_jpeg_buffer.
+        let status = unsafe {
+            let data = self.grow_box.as_mut_ptr().add(used);
+            api::jxl_decoder_set_box_buffer(self.dec(), data, size - used)
+        };
+        write!(self.out, "{remaining},{}", status.0).unwrap();
+    }
+
+    fn release_grow_box(&mut self) {
+        let remaining = api::jxl_decoder_release_box_buffer(self.dec());
+        let used = self.grow_box.len() - remaining;
+        write!(self.out, "{remaining},{}", hex(&self.grow_box[..used])).unwrap();
+        self.grow_box.clear();
+    }
+
+    /// Event handling shared by the decode_test.cc streaming loops. Returns
+    /// false to stop the loop.
+    fn handle_event(
+        &mut self,
+        status: JxlDecoderStatus,
+        flags: u64,
+        box_type: &str,
+        jpeg0: usize,
+    ) -> bool {
+        match status {
+            JxlDecoderStatus::BASIC_INFO => self.info(),
+            JxlDecoderStatus::COLOR_ENCODING => self.color(),
+            JxlDecoderStatus::FRAME => {
+                self.frames += 1;
+                self.frame_info();
+                if flags & 4 != 0 {
+                    let s = api::jxl_decoder_set_progressive_detail(
+                        self.dec(),
+                        api::JxlProgressiveDetail::DC,
+                    );
+                    write!(self.out, " D:{}", s.0).unwrap();
+                }
+            }
+            JxlDecoderStatus::NEED_IMAGE_OUT_BUFFER => return self.set_outputs(false),
+            JxlDecoderStatus::NEED_PREVIEW_OUT_BUFFER => return self.set_outputs(true),
+            JxlDecoderStatus::PREVIEW_IMAGE => self.outputs(),
+            JxlDecoderStatus::FULL_IMAGE => {
+                self.outputs();
+                if self.grow_jpeg_set {
+                    self.out.push_str(" a-:");
+                    self.release_grow_jpeg();
+                }
+                return flags & 8 == 0;
+            }
+            JxlDecoderStatus::FRAME_PROGRESSION => {
+                let ratio = api::jxl_decoder_get_intended_downsampling_ratio(self.dec());
+                write!(self.out, " r:{ratio}").unwrap();
+                if self.policy & 2 != 0 {
+                    // SAFETY: Driver-owned outputs remain live.
+                    let s = unsafe { api::jxl_decoder_flush_image(self.dec()) };
+                    write!(self.out, " f:{}", s.0).unwrap();
+                    self.outputs();
+                }
+            }
+            JxlDecoderStatus::JPEG_RECONSTRUCTION => {
+                if jpeg0 != 0 {
+                    self.out.push_str(" a:");
+                    self.set_grow_jpeg(jpeg0);
+                }
+            }
+            JxlDecoderStatus::JPEG_NEED_MORE_OUTPUT => {
+                self.out.push_str(" a+:");
+                self.grow_jpeg_buffer();
+            }
+            JxlDecoderStatus::BOX => {
+                if !self.grow_box.is_empty() {
+                    self.out.push_str(" v-:");
+                    self.release_grow_box();
+                }
+                self.out.push(' ');
+                self.box_type(0);
+                self.out.push(' ');
+                self.box_type(1);
+                self.out.push(' ');
+                self.box_size(false, true);
+                self.out.push(' ');
+                self.box_size(true, true);
+                let mut current = [0u8; 4];
+                if box_type != "-"
+                    && api::jxl_decoder_get_box_type(
+                        self.dec(),
+                        &mut current,
+                        i32::from(flags & 16 != 0),
+                    ) == JxlDecoderStatus::SUCCESS
+                    && current == box_type.as_bytes()
+                {
+                    self.out.push_str(" v:");
+                    self.set_grow_box(8);
+                }
+            }
+            JxlDecoderStatus::BOX_NEED_MORE_OUTPUT => {
+                self.out.push_str(" v+:");
+                self.grow_box_buffer();
+            }
+            JxlDecoderStatus::SUCCESS => {
+                if !self.grow_box.is_empty() {
+                    self.out.push_str(" v-:");
+                    self.release_grow_box();
+                }
+                return false;
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// A<inc>,<flags>,<box>,<jpeg0>,<steps>: the input loops of decode_test.cc,
+    /// as documented in the oracle observer.
+    fn stream_loop(&mut self, arg: &str) {
+        let fields: Vec<&str> = arg.split(',').collect();
+        assert_eq!(fields.len(), 5, "stream loop");
+        let inc: usize = fields[0].parse().unwrap();
+        let flags: u64 = fields[1].parse().unwrap();
+        let box_type = fields[2];
+        assert!(box_type == "-" || box_type.len() == 4, "stream loop");
+        let jpeg0: usize = fields[3].parse().unwrap();
+        let steps: usize = fields[4].parse().unwrap();
+        self.out.push('0');
+        for _ in 0..steps {
+            let status;
+            if flags & (1 | 64) != 0 {
+                let data = self.file[self.pos..].as_ptr();
+                let avail = self.a_avail;
+                // SAFETY: The driver's file outlives the decoder.
+                let set = unsafe { api::jxl_decoder_set_input(self.dec(), data, avail) };
+                if set == JxlDecoderStatus::SUCCESS {
+                    self.set_len = avail;
+                }
+                // SAFETY: Input and output buffers are driver-owned and live.
+                status = unsafe { api::jxl_decoder_process_input(self.dec()) };
+                let remaining = self.release();
+                write!(self.out, " A{}:{},{remaining}", set.0, status.0).unwrap();
+                if flags & 64 != 0 {
+                    self.a_avail = (self.a_avail + inc).min(self.file.len() - self.pos);
+                    if status == JxlDecoderStatus::NEED_MORE_INPUT {
+                        if self.pos == self.file.len() {
+                            break;
+                        }
+                        continue;
+                    }
+                } else {
+                    self.a_avail = remaining;
+                    if status == JxlDecoderStatus::NEED_MORE_INPUT {
+                        if self.a_total >= self.file.len() {
+                            break;
+                        }
+                        let amount = inc.min(self.file.len() - self.a_total);
+                        self.a_total += amount;
+                        self.a_avail += amount;
+                        continue;
+                    }
+                }
+            } else {
+                // SAFETY: Input and output buffers are driver-owned and live.
+                status = unsafe { api::jxl_decoder_process_input(self.dec()) };
+                write!(self.out, " A{}", status.0).unwrap();
+                if status == JxlDecoderStatus::NEED_MORE_INPUT {
+                    if inc == 0 {
+                        break;
+                    }
+                    let remaining = self.release();
+                    let amount = inc.min(self.file.len() - self.a_total);
+                    self.a_total += amount;
+                    self.a_avail = remaining + amount;
+                    let data = self.file[self.pos..].as_ptr();
+                    let avail = self.a_avail;
+                    // SAFETY: The driver's file outlives the decoder.
+                    let set = unsafe { api::jxl_decoder_set_input(self.dec(), data, avail) };
+                    if set == JxlDecoderStatus::SUCCESS {
+                        self.set_len = avail;
+                    }
+                    write!(self.out, ",{remaining},{},{avail}", set.0).unwrap();
+                    if flags & 2 != 0 && self.a_total == self.file.len() && !self.closed {
+                        api::jxl_decoder_close_input(self.dec());
+                        self.closed = true;
+                        self.out.push_str(",c");
+                    }
+                    continue;
+                }
+            }
+            if flags & 128 != 0 {
+                break;
+            }
+            if !self.handle_event(status, flags, box_type, jpeg0) {
+                break;
+            }
+        }
+    }
+
+    /// B<end>:<flush>/...: VerifyProgression of decode_test.cc, as documented
+    /// in the oracle observer.
+    fn progression_loop(&mut self, arg: &str) {
+        let breakpoints: Vec<(usize, i32)> = arg
+            .split('/')
+            .map(|item| {
+                let (end, flush) = item.split_once(':').unwrap();
+                (end.parse().unwrap(), flush.parse().unwrap())
+            })
+            .collect();
+        assert!(
+            !breakpoints.is_empty() && breakpoints[0].0 <= self.file.len(),
+            "progression breakpoints"
+        );
+        let mut bp = 0;
+        let data = self.file.as_ptr();
+        // SAFETY: The driver's file outlives the decoder.
+        let mut set = unsafe { api::jxl_decoder_set_input(self.dec(), data, breakpoints[0].0) };
+        if set == JxlDecoderStatus::SUCCESS {
+            self.pos = 0;
+            self.set_len = breakpoints[0].0;
+        }
+        self.status(set);
+        for _ in 0..10000 {
+            // SAFETY: Input and output buffers are driver-owned and live.
+            let status = unsafe { api::jxl_decoder_process_input(self.dec()) };
+            write!(self.out, " B{}", status.0).unwrap();
+            if status == JxlDecoderStatus::BASIC_INFO {
+                self.out.push(' ');
+                self.basic_info(true);
+                // SAFETY: Driver-owned outputs remain live.
+                let s = unsafe { api::jxl_decoder_flush_image(self.dec()) };
+                write!(self.out, " f:{}", s.0).unwrap();
+                self.outputs();
+                self.set_outputs(false);
+            } else if status == JxlDecoderStatus::FRAME {
+            } else if status == JxlDecoderStatus::SUCCESS {
+                break;
+            } else if status == JxlDecoderStatus::NEED_MORE_INPUT
+                || status == JxlDecoderStatus::FULL_IMAGE
+            {
+                if breakpoints[bp].1 == 0 || status != JxlDecoderStatus::FULL_IMAGE {
+                    // SAFETY: Driver-owned outputs remain live.
+                    let s = unsafe { api::jxl_decoder_flush_image(self.dec()) };
+                    write!(self.out, " f:{}", s.0).unwrap();
+                }
+                self.outputs();
+                if status == JxlDecoderStatus::FULL_IMAGE {
+                    continue;
+                }
+                bp += 1;
+                if bp >= breakpoints.len() {
+                    break;
+                }
+                let remaining = self.release();
+                let end = breakpoints[bp].0;
+                assert!(
+                    end >= self.pos && end <= self.file.len(),
+                    "progression input"
+                );
+                let data = self.file[self.pos..].as_ptr();
+                let len = end - self.pos;
+                // SAFETY: The driver's file outlives the decoder.
+                set = unsafe { api::jxl_decoder_set_input(self.dec(), data, len) };
+                if set == JxlDecoderStatus::SUCCESS {
+                    self.set_len = len;
+                }
+                write!(self.out, ",{remaining},{}", set.0).unwrap();
+            } else {
+                break;
             }
         }
     }

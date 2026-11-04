@@ -178,11 +178,11 @@ def main():
         assert sha(out/f'rust-{profile}.txt')==sha(out/'ordinary.txt')
         for graph in originals:
             report['gates'][f'{profile}-{graph}']={'tests':5,'ignored':0,'requests':6165,
-                'source_captures':34,'actual_registered_crate_library_sha256':sha(lib),
+                'source_captures':36,'actual_registered_crate_library_sha256':sha(lib),
                 'rust_binary_sha256':sha(binary),'source_binary_sha256':sha(originals[graph]),
                 'observation_sha256':sha(out/f'rust-{profile}.txt')}
     run('clippy',['cargo','clippy','--locked','--offline','--all-targets','--all-features','--','-D','warnings'],env)
-    report.update({'requests':6165,'encoder_requests':84,'capture_requests':34,
+    report.update({'requests':6165,'encoder_requests':84,'capture_requests':36,
                    'observation_bytes':(out/'ordinary.txt').stat().st_size,
                    'observation_sha256':sha(out/'ordinary.txt'),
                    'files':{str(p.relative_to(out)):sha(p) for p in out.iterdir() if p.is_file()}})

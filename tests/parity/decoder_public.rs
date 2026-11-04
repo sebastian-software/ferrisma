@@ -25,7 +25,7 @@ pub(super) const NULL_COPY_DIAGNOSTIC: &str = "box_content_decoder.cc:110:23: ru
 /// bytes are copied) makes an undefined source call. The Rust port reports
 /// each such call through a test observation; those histories run
 /// original-only, and every other history compares exactly.
-fn compare(family: &str, requests: Vec<String>) {
+pub(super) fn compare(family: &str, requests: Vec<String>) {
     let (undefined, defined): (Vec<String>, Vec<String>) = requests.into_iter().partition(|r| {
         jxl::jxl::box_content_decoder::take_null_input_copies();
         super::observe(r);
@@ -51,7 +51,7 @@ fn compare(family: &str, requests: Vec<String>) {
 /// Runs each undefined history in its own original process. Instrumented
 /// Linux graphs must report exactly the null memcpy argument; the macOS libc
 /// declares no nonnull memcpy arguments, so there the probe must complete.
-fn null_copy_probes(requests: &[String]) {
+pub(super) fn null_copy_probes(requests: &[String]) {
     use std::io::Write;
     use std::process::{Command, Stdio};
     if requests.is_empty() {

@@ -71,7 +71,9 @@ fn original_brob_header_order_and_output_backpressure() {
 #[cfg(feature = "cpp-oracle")]
 #[test]
 fn original_truncation_malformed_trailing_and_reset_partial_state() {
-    for group in ["truncated", "malformed", "trailing", "reset"] {
+    // decode-test: decode_test.cc's BrobBoxInputIsRestrictedToBoxSize and
+    // BrobBoxTruncatedStreamWithExactBoxSizeReturnsError.
+    for group in ["truncated", "malformed", "trailing", "reset", "decode-test"] {
         captures(group);
     }
 }
