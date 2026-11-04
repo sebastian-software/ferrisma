@@ -1,8 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Unsigned coordinate operations from `lib/jxl/base/rect.h`'s Rect alias.
-//! Signed RectT instantiations and image/row accessors remain unported.
+//! Unsigned coordinate operations from `lib/jxl/base/rect.h`'s Rect alias,
+//! plus the RectT<ptrdiff_t> operations reached by the low-memory render
+//! pipeline (`SignedRect`). Image/row accessors remain unported; callers
+//! resolve row descriptors against their own owners.
 
 use super::status::{StatusCode, StatusOr};
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -139,5 +141,114 @@ impl Rect {
             self.y1().wrapping_add(border)
         };
         Self::new(x0, y0, x1.wrapping_sub(x0), y1.wrapping_sub(y0))
+    }
+}
+
+/// RectT<ptrdiff_t>. Origins are signed while sizes stay size_t; the source's
+/// mixed signed/unsigned expressions are kept as explicit wrapping casts.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SignedRect {
+    x0: isize,
+    y0: isize,
+    xsize: usize,
+    ysize: usize,
+}
+// ClampedSize: `static_cast<T>(begin + size_max) <= end`, where the sum is
+// computed in size_t, then `end > begin ? end - begin : 0`.
+const fn signed_clamped_size(begin: isize, size_max: usize, end: isize) -> usize {
+    if ((begin as usize).wrapping_add(size_max) as isize) <= end {
+        size_max
+    } else if end > begin {
+        end.wrapping_sub(begin) as usize
+    } else {
+        0
+    }
+}
+impl SignedRect {
+    pub const fn new(x0: isize, y0: isize, xsize: usize, ysize: usize) -> Self {
+        Self {
+            x0,
+            y0,
+            xsize,
+            ysize,
+        }
+    }
+    pub const fn new_clamped(
+        x0: isize,
+        y0: isize,
+        xsize: usize,
+        ysize: usize,
+        xend: isize,
+        yend: isize,
+    ) -> Self {
+        Self::new(
+            x0,
+            y0,
+            signed_clamped_size(x0, xsize, xend),
+            signed_clamped_size(y0, ysize, yend),
+        )
+    }
+    /// RectT::As<ptrdiff_t>() of an unsigned Rect.
+    pub const fn from_rect(r: Rect) -> Self {
+        Self::new(r.x0 as isize, r.y0 as isize, r.xsize, r.ysize)
+    }
+    pub fn intersection(self, other: Self) -> Self {
+        Self::new_clamped(
+            self.x0.max(other.x0),
+            self.y0.max(other.y0),
+            self.xsize,
+            self.ysize,
+            self.x1().min(other.x1()),
+            self.y1().min(other.y1()),
+        )
+    }
+    pub fn translate(self, x: i64, y: i64) -> Self {
+        Self::new(
+            (self.x0 as i64).wrapping_add(x) as isize,
+            (self.y0 as i64).wrapping_add(y) as isize,
+            self.xsize,
+            self.ysize,
+        )
+    }
+    pub const fn x0(self) -> isize {
+        self.x0
+    }
+    pub const fn y0(self) -> isize {
+        self.y0
+    }
+    pub const fn xsize(self) -> usize {
+        self.xsize
+    }
+    pub const fn ysize(self) -> usize {
+        self.ysize
+    }
+    pub const fn x1(self) -> isize {
+        (self.x0 as usize).wrapping_add(self.xsize) as isize
+    }
+    pub const fn y1(self) -> isize {
+        (self.y0 as usize).wrapping_add(self.ysize) as isize
+    }
+    pub fn shift_left(self, x: usize, y: usize) -> Self {
+        Self::new(
+            self.x0.wrapping_mul(1isize << x),
+            self.y0.wrapping_mul(1isize << y),
+            self.xsize.wrapping_shl(x as u32),
+            self.ysize.wrapping_shl(y as u32),
+        )
+    }
+    /// Signed `%` and `/` truncate toward zero, as in C++.
+    pub fn ceil_shift_right(self, shift: (usize, usize)) -> StatusOr<Self> {
+        let (x, y) = shift;
+        let dx = 1isize << x;
+        let dy = 1isize << y;
+        if self.x0 % dx != 0 || self.y0 % dy != 0 {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(Self::new(
+            self.x0 / dx,
+            self.y0 / dy,
+            self.xsize.wrapping_add(dx as usize - 1) / dx as usize,
+            self.ysize.wrapping_add(dy as usize - 1) / dy as usize,
+        ))
     }
 }

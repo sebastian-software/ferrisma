@@ -51,6 +51,9 @@ mod frame_sequences;
 #[path = "parity/decoder_effects.rs"]
 mod decoder_effects;
 
+#[path = "parity/low_memory_pipeline.rs"]
+mod low_memory_pipeline;
+
 #[path = "parity/patches.rs"]
 mod patches;
 

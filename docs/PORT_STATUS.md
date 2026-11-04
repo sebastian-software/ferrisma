@@ -73,6 +73,42 @@ frame, preview, progression and full-image events are not supported, JPEG
 bytes are never written, and this decoder is not a complete public API. The C
 ABI exports and JxlDecoderSetParallelRunner remain separate boundaries.
 
+## Low-memory render pipeline (2026-11-04)
+
+LowMemoryRenderPipeline and GroupBorderAssigner are ported from
+`render_pipeline/low_memory_render_pipeline.{h,cc}` and
+`dec_group_border.{h,cc}`, together with the RenderPipeline base, Builder and
+RenderPipelineInput from `render_pipeline.{h,cc}`. The Builder now selects the
+simple pipeline only after UseSimpleImplementation. PreparePipeline calls it
+only when `use_slow_render_pipeline` is set, as in `dec_cache.cc`. The flag
+comes from the FrameDecoder's `use_slow_rendering_pipeline`. The fixed profiles
+and `SequenceDecoder::new` keep the simple pipeline and their parity cases.
+`SequenceDecoder::with_rendering_pipeline(metadata, false)` selects the
+low-memory pipeline, as `decode.cc` does. The public decoder API does not use it
+yet. Execution is sequential with a null pool.
+
+The oracle's `fs-decode-lm` command runs the original FrameDecoder with
+`use_slow_rendering_pipeline=false` on genuine original encodings: reference,
+blending, crop, animation and preview sequences, main and extra-channel
+upsampling, multigroup and DC-ladder files, every chroma/YCbCr mode, JPEG
+chroma files, all extra-channel types including spot colors, patches, and
+VarDCT files with EPF 1 to 3, Gaborish, noise and splines on single and several
+groups and DC groups. Frames left of, above, right of and below the image
+reach RenderPadding. Truncated, corrupted and trailing-data variants compare
+the partial output. All 1,986 low-memory observations match their original
+exactly, including every initialized output, reference and DC sample word.
+When the two original pipelines agree, the Rust simple and low-memory outputs
+also agree (1,882 cases). The original pipelines differ in 100 cases, and Rust
+reproduces each original result. The simple pipeline rejects early-upsampled
+odd-sized extra channels that the low-memory pipeline renders, and keeps
+different samples for frames entirely left of or above the image. For frames
+entirely right of or below the image, the original simple pipeline's
+foreground copy has no defined result (the reference build crashes), so those
+four files are compared with the low-memory pipeline only.
+
+Local evidence: `python3 tools/check.py` passes on macOS AArch64. Hosted CI
+evidence for this change is recorded in its pull request.
+
 ## Whole-image color output (2026-11-04)
 
 The color, tone-mapping and CMS stage selection of
@@ -290,12 +326,14 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, retained shared reference temporary, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
-| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, original simple pipeline preparation, cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; the first VarDCT profile is connected through the same original scheduling below; general/progressive public APIs and JPEG remain unported |
+| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | Closed lossless Thunder raw-frame DecodeFrame/FrameDecoder path: complete frame header/TOC parsing, output initialization, global/DC/AC scheduling, pipeline preparation with the FrameDecoder use_slow_rendering_pipeline selection (fixed profiles select the simple pipeline), cache/thread setup, section-reader close lifecycle, and modular finalization; explicit profile admission; the first VarDCT profile is connected through the same original scheduling below; general/progressive public APIs and JPEG remain unported |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage is mapped separately below; remaining concrete stages unported |
-| `render_pipeline/render_pipeline.h`, `.cc`, `simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Explicit simple-builder selection, base input/counter/thread-preparation operations, and complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; default low-memory implementation and concurrency unported |
+| `render_pipeline/render_pipeline.h`, `.cc` | `render_pipeline/render_pipeline.rs` | Complete RenderPipeline base, Builder (UseSimpleImplementation selection, padding/shift tables, Init), and RenderPipelineInput with input/counter/thread-preparation operations; concurrent pipeline access unported |
+| `render_pipeline/simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; SimpleRenderPipelineBuilder keeps the concrete type after UseSimpleImplementation |
+| `render_pipeline/low_memory_render_pipeline.h`, `.cc`, `dec_group_border.h`, `.cc` | `render_pipeline/low_memory_render_pipeline.rs`, `dec_group_border.rs` | Complete LowMemoryRenderPipeline: Init border/padding/trailing-stage/image-dimension setup, ring-buffer sizing replay, per-group/per-thread storage, border save/load, GroupBorderAssigner scheduling, RenderRect virtual-row scheduling with mirroring and x-padding, out-of-frame RenderPadding; null-pool sequential execution only |
 | `render_pipeline/stage_from_linear.h`, `.cc`, `render_pipeline/stage_to_linear.h`, `.cc` | `render_pipeline/stage_from_linear.rs`, `render_pipeline/stage_to_linear.rs` | Complete scalar factory-reached Linear/sRGB/PQ/HLG/BT709/gamma/DCI conversion stages, copied operation state, row guards and load-transform-store order; legacy sRGB factory retained; general HDR/CMS and ICC whole-file integration remains separate |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
@@ -328,7 +366,7 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and reconstruction unported |
 | `jpeg/jpeg_data.cc`: complete `VisitFields` and `SetJPEGDataFromICC` | `jpeg/jpeg_data_fields.rs` | Complete metadata bundle field order, component/marker/table validation, delta-coded reset/zero-run indices, postponed buffer sizes, padding bits and ICC byte injection; complete Brotli DecodeJPEGData payload reconstruction is registered beside the bundle; full JPEG parsing and public reconstruction remain separate |
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
-| `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; signed instantiations and image/row accessors unported |
+| `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; the RectT<ptrdiff_t> constructors, intersection, translation and shifts reached by the low-memory pipeline; image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
 | `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and null-pool row traversal |
 | `epf.cc`, `render_pipeline/stage_epf.h`, `.cc` | `epf.rs`, `render_pipeline/stage_epf.rs` | Complete block sigma generation and mirrored borders; complete scalar EPF0/1/2 stages and live shared sigma binding are connected for the expanded VarDCT profile |
@@ -828,8 +866,8 @@ require their own current-head CI evidence.
 
 The [first-image milestone](FIRST_IMAGE.md) is verified for its fixed original
 configuration. The component slices alone are distinct from that whole-file
-evidence. Subsequent full-port boundaries include the default low-memory
-pipeline, remaining modular and VarDCT paths, other image/frame configurations,
+evidence. Subsequent full-port boundaries include connecting the low-memory
+pipeline to the public decoder API, remaining modular and VarDCT paths, other image/frame configurations,
 ICC/default CMS integration, progressive/streaming APIs, the public C ABI,
 threading, and target-specific kernels. Full-library and release gates remain
 in [PORTING.md](PORTING.md).
