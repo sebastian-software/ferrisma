@@ -28,6 +28,46 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
+## Public incremental decoder API (2026-11-04, in progress)
+
+`src/jxl/decode.rs` now holds the original JxlDecoder object from decode.cc,
+with every field in source order and the existing DecoderInput owner at the
+codestream_copy position. Create/Destroy allocate and release the object
+through the caller's memory manager. Reset, Rewind, RewindDecodingState, the
+option setters, SubscribeEvents, SizeHintBasicInfo, ReadBundle, ReadBasicInfo,
+ReadAllHeaders, the basic-info, extra-channel and color getters, ProcessInput,
+HandleBoxes, the complete box API, the frame-index box storage, SkipFrames
+with GetFrameDependencies, the frame-header getters and the output-buffer and
+callback setters are translated. The serial ThreadPool from data_parallel.h
+and the public structures from codestream_header.h are new modules. ADR 0003
+records the object representation.
+
+The original public C API of the complete archive is the reference. The
+oracle's `dpub-encode` produces genuine inputs with the original public
+encoder: raw codestreams and containers with Exif, XMP and jumb boxes, brob
+boxes, jxll level boxes, jxlp splits, out-of-order jxlp boxes with ftyp
+version 1, frame index boxes, embedded ICC profiles, extra channels with
+names, orientation, intrinsic size and animation. `dpub-run` replays the same
+caller history on both decoders, including byte-wise and random chunking,
+CloseInput, small box buffers, truncated and mutated inputs, Rewind and Reset
+mid-stream and API misuse. Statuses, events, getter outputs, consumed and
+released byte counts and box contents compare exactly. Where the original
+allocates only decoder and input storage, the complete custom allocator log
+and injected allocation failures compare too. Six differential groups compare
+8,144 histories locally; nine standalone original captures run without C++.
+`tools/decoder_public_reference.py` audits both original graphs and three
+Rust builds in its own nightly audit group.
+
+This is not yet complete. The frame loop of ProcessCodestream, ProcessSections,
+FlushImage, SkipCurrentFrame and the frame-reference updates wait for the
+incremental FrameDecoder and the low-memory pipeline selection. The color
+output setters (SetCms, SetPreferredColorProfile, SetOutputColorProfile and
+SetDesiredIntensityTarget) wait for whole-image color output. SetJPEGBuffer,
+ReleaseJPEGBuffer and the JPEG reconstruction stages of HandleBoxes wait for
+JxlToJpegDecoder. Until then, frame events and JPEG reconstruction are not
+supported and this decoder is not a complete public API. The C ABI exports and
+JxlDecoderSetParallelRunner remain separate boundaries.
+
 ## Recovered decoder state and reconstruction (2026-11-03)
 
 The recovery combines persistent incremental input, callback-backed PaddedBytes,

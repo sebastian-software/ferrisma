@@ -515,6 +515,7 @@ bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 
 bool DecoderInputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderApiCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool DecoderPublicCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool SkcmsTransformCommand(const std::string&, std::istringstream&);
 bool SkcmsFittingCommand(const std::string&, std::istringstream&);
 bool SkcmsMatrixCommand(const std::string&, std::istringstream&);
@@ -625,6 +626,7 @@ int main() {
       else if (PatchesCommand(command, in, &mm)) {}
       else if (DecoderInputCommand(command, in, &mm)) {}
       else if (DecoderApiCommand(command, in, &mm)) {}
+      else if (DecoderPublicCommand(command, in, &mm)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
       else if (DecoderGeometryCommand(command, in, &mm)) {}
       else if (ChromaImageCommand(command, in, &mm)) {}

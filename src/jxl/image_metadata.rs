@@ -334,6 +334,7 @@ impl Fields for CustomTransformData {
         Ok(())
     }
 }
+#[derive(Clone)]
 pub struct ImageMetadata {
     pub all_default: bool,
     pub bit_depth: BitDepth,

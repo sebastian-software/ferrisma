@@ -123,7 +123,8 @@ def build_oracle(sanitizers):
                JXL_SKCMS_TRANSFORM_ORACLE=str(transform_helper),
                JXL_DEFAULT_CMS_ORACLE=str(default_cms_public),
                JXL_DEFAULT_CMS_PRIVATE_ORACLE=str(default_cms_private),
-               JXL_DEFAULT_CMS_CAPTURE=str(build / "default-cms-corpus"))
+               JXL_DEFAULT_CMS_CAPTURE=str(build / "default-cms-corpus"),
+               JXL_DECODER_PUBLIC_CAPTURE=str(build / "decoder-public-corpus"))
     env.update(prepare_brotli_observers(sanitizers))
     return env
 

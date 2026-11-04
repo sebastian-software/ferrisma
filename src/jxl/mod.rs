@@ -8,6 +8,7 @@ pub mod blending;
 pub mod chroma_from_luma;
 pub mod cms;
 pub mod cms_interface;
+pub mod codestream_header;
 pub mod coeff_order;
 pub mod coeff_order_fwd;
 pub mod color_encoding;

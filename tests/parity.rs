@@ -64,6 +64,8 @@ mod decoder_api;
 mod decoder_geometry;
 #[path = "parity/decoder_input.rs"]
 mod decoder_input;
+#[path = "parity/decoder_public.rs"]
+mod decoder_public;
 #[path = "parity/default_cms.rs"]
 mod default_cms;
 #[path = "parity/extra_channels.rs"]
@@ -852,6 +854,7 @@ fn observe(request: &str) -> String {
         kind if chroma_stages::handles(kind) => chroma_stages::observe(kind, &mut args),
         kind if decoder_input::handles(kind) => decoder_input::observe(kind, &mut args),
         kind if decoder_api::handles(kind) => decoder_api::observe(kind, &mut args),
+        kind if decoder_public::handles(kind) => decoder_public::observe(kind, &mut args),
         kind if skcms_transform::handles(kind) => skcms_transform::observe(kind, &mut args),
         kind if default_cms::handles(kind) => default_cms::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),
