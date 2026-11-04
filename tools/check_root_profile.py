@@ -47,6 +47,12 @@ def profile_work(record):
                    f'{record["preprocessing_profile"]}-{record["variant"]}')
 
 
+def profile_target(record):
+    # A new feature configuration must not replace archives or shared libraries
+    # referenced by an earlier native validation proof on the same host.
+    return ROOT / 'build/root-typecheck-target' / record['generation_target'] / record['variant']
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
@@ -78,7 +84,7 @@ def main():
     (work / 'build.rs').write_text('fn main() {\n'
         '    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {\n'
         '        println!("cargo:rustc-link-arg-cdylib=-Wl,-Bsymbolic");\n    }\n}\n')
-    destination = ROOT / 'build/root-typecheck-target'
+    destination = profile_target(record)
     command = ['cargo', 'build' if args.build else 'check', '--offline', '--manifest-path', str(work / 'Cargo.toml'),
                '--target-dir', str(destination)]
     if record['preprocessing_profile'] == 'release':

@@ -51,6 +51,9 @@ Inventory queries use copies of the generated CTest registrations because even
 CTest's metadata-only mode rewrites `LastTest.log`. Each validation attempt
 preserves its actual XML, complete logs, configurations, paired report, and byte
 products separately. Later tests do not replace that retained execution proof.
+Native target and container configuration also have separate Cargo output
+directories, so building another feature profile cannot replace the earlier
+proof's archive or shared library.
 Compare each ordered GoogleTest case's terminal result and dynamic skip from
 the complete logs; truncated passing JUnit output alone cannot establish that
 inventory. The [retained-log recheck](root-complete-log-validation.json) records

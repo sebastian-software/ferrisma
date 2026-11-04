@@ -52,7 +52,7 @@ def main():
                 manifest[unit["source"]] = unit
     work = ROOT / "build/abi"
     if args.root_profile:
-        from check_root_profile import validate_profile, profile_work
+        from check_root_profile import validate_profile, profile_work, profile_target
         target = ('aarch64-apple-darwin' if platform.system() == 'Darwin' and platform.machine() == 'arm64'
                   else 'x86_64-unknown-linux-gnu' if platform.system() == 'Linux' and platform.machine() == 'x86_64'
                   else None)
@@ -160,7 +160,7 @@ def main():
         "fn main() {" + (f" println!({json.dumps(link)});" if link else "") + " }\n"
     )
     command = ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(work / "Cargo.toml"),
-               "--target-dir", str(ROOT / ('build/root-typecheck-target' if args.root_profile else 'target'))]
+               "--target-dir", str(profile_target(generated) if args.root_profile else ROOT / 'target')]
     if rust_profile == 'release':
         command.append('--release')
     actual = [int(line) for line in subprocess.check_output(command, cwd=ROOT, text=True).splitlines()]
