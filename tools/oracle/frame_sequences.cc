@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 // Fixture orchestration calls actual pinned encoder/decoder entry points.
 // Section order and close checkpoints follow dec_frame.cc::DecodeFrame; preview
-// selection uses the production FrameDecoder::InitFrame argument directly.
+// selection uses the production FrameDecoder::InitFrame argument directly. The
+// incremental driver follows decode.cc around the same production FrameDecoder.
 #include <jxl/cms.h>
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -105,8 +107,132 @@ void Decode(const std::vector<uint8_t>& bytes,JxlMemoryManager* mm,bool use_slow
  }
  bool eof=offset==bytes.size();if(status&&(!last_main||!eof))status=false;std::cout<<" E "<<int(status.code())<<' '<<offset<<' '<<bytes.size()<<' '<<frames<<' '<<last_main<<' '<<eof<<' '<<state.visible_frame_index<<' '<<state.nonvisible_frame_index;
 }
+
+// Drive the production FrameDecoder incrementally as decode.cc's
+// JxlDecoderProcessCodestream/ProcessSections/FlushImage do: one decoder and
+// image bundle per frame, partial input, section selection from next_section,
+// reader bounds/close checks, progressive pause events and Flush. Delivery 2
+// and 3 offer sections in a seeded permutation (one per call, or all at once).
+size_t IncrementalBytesPerChannel(JxlDataType type){return type==JXL_TYPE_UINT8?1:type==JXL_TYPE_FLOAT?4:2;}
+void IncrementalBuffer(const char* tag,const std::vector<uint8_t>& buffer){std::cout<<' '<<tag<<' '<<buffer.size()<<' '<<Hex(jxl::Bytes(buffer));}
+// Pixel callback records: rows are stored at the same buffer layout.
+struct IncrementalCallback{uint8_t* out;size_t size,stride,pixel_bytes,inits=0,threads=0,pixels=0,runs=0,destroys=0;};
+void* IncrementalInit(void* opaque,size_t threads,size_t pixels){auto* r=static_cast<IncrementalCallback*>(opaque);++r->inits;r->threads=threads;r->pixels=pixels;return opaque;}
+void IncrementalRun(void* opaque,size_t,size_t x,size_t y,size_t n,const void* pixels){auto* r=static_cast<IncrementalCallback*>(opaque);size_t at=y*r->stride+x*r->pixel_bytes;if(at>r->size||n*r->pixel_bytes>r->size-at)std::abort();std::memcpy(r->out+at,pixels,n*r->pixel_bytes);++r->runs;}
+void IncrementalDestroy(void* opaque){++static_cast<IncrementalCallback*>(opaque)->destroys;}
+void Incremental(const std::vector<uint8_t>& bytes,std::istringstream& in,JxlMemoryManager* mm) {
+ size_t limit,delivery,seed,detail,flush,skip,channels,data_type;bool coalescing,spot,unpremul,undo,extra,callback,slow;
+ in>>limit>>delivery>>seed>>coalescing>>spot>>detail>>flush>>skip>>channels>>data_type>>unpremul>>undo>>extra>>callback>>slow;
+ if(!in||limit>bytes.size()||delivery>3||flush>2)throw std::runtime_error("incremental request");
+ // Callback records and output buffers outlive the state's retained pipelines.
+ std::deque<IncrementalCallback> records;std::vector<std::vector<uint8_t>> keep;
+ std::vector<uint8_t> backing(limit+16);std::copy(bytes.begin(),bytes.begin()+limit,backing.begin()+8);const auto* data=backing.data()+8;
+ jxl::CodecMetadata metadata;jxl::BitReader reader(jxl::Bytes(data,limit));auto status=Header(reader,metadata,mm);size_t offset=reader.TotalBitsConsumed()/8;auto close=reader.Close();std::cout<<" H "<<int(status.code())<<' '<<reader.TotalBitsConsumed()<<' '<<int(close.code());if(!status||!close)return;
+ std::cout<<" M "<<metadata.size.xsize()<<' '<<metadata.size.ysize();MetadataObservation(metadata.m);
+ jxl::PassesDecoderState state(mm);status=state.output_encoding_info.SetFromMetadata(metadata);std::cout<<" P "<<int(status.code());if(!status)return;
+ std::array<const jxl::ImageBundle*,4> identities;for(size_t i=0;i<4;++i)identities[i]=state.shared_storage.reference_frames[i].frame.get();
+ jxl::ImageBundle placeholder(mm,&metadata.m);std::unique_ptr<jxl::ImageBundle> ib;
+ FrameSequenceWriteObservation writes(state.shared_storage,placeholder,state.frame_storage_for_referencing);
+
+ uint64_t rng=seed*2+1;
+ bool preview=metadata.m.have_preview,last_total=false;size_t frames=0;
+ while(frames<64&&!last_total){
+  if(offset>limit){std::cout<<" @N";break;}
+  ib=jxl::make_unique<jxl::ImageBundle>(mm,&metadata.m);writes.bundles[0]=ib.get();
+  jxl::FrameDecoder frame(&state,metadata,nullptr,slow);
+  jxl::BitReader header(jxl::Bytes(data+offset,limit-offset));
+  status=frame.InitFrame(&header,ib.get(),preview);writes.AfterInitFrame();
+  bool inb=bool(header.AllReadsWithinBounds());size_t bits=header.TotalBitsConsumed();close=header.Close();
+  std::cout<<" @F "<<frames++<<' '<<preview<<' '<<int(status.code())<<' '<<inb<<' '<<bits<<' '<<int(close.code());
+  if(!inb||status.code()==jxl::StatusCode::kNotEnoughBytes){std::cout<<" @N";break;}
+  if(!status)break;
+  offset+=bits/8;
+  const auto& h=frame.GetFrameHeader();const auto d=h.ToFrameDimensions();
+  std::cout<<" @K "<<unsigned(h.frame_type)<<' '<<unsigned(h.encoding)<<' '<<h.flags<<' '<<h.dc_level<<' '<<h.is_last<<' '<<h.save_as_reference<<' '<<h.save_before_color_transform<<' '<<jxl::FrameDecoder::SavedAs(h)<<' '<<h.animation_frame.duration<<' '<<h.custom_size_or_origin<<' '<<unsigned(h.blending_info.mode)<<' '<<h.passes.num_passes<<' '<<h.passes.num_downsample<<' '<<d.xsize<<' '<<d.ysize<<' '<<d.num_groups<<' '<<d.num_dc_groups;
+  status=frame.InitFrameOutput();std::cout<<" @A "<<int(status.code());if(!status)break;
+  const auto& toc=frame.Toc();const size_t n=toc.size();const size_t remaining=frame.SumSectionSizes();
+  std::cout<<" @T "<<n<<' '<<remaining;for(const auto& entry:toc)std::cout<<' '<<entry.size<<' '<<entry.id;
+  bool skipping=false,last_still=false;
+  if(!preview){
+   last_total=h.is_last;last_still=h.is_last||h.animation_frame.duration>0||(!coalescing&&h.frame_type==jxl::FrameType::kRegularFrame);
+   if(skip>0){skipping=true;if(last_still)--skip;}
+   if(skipping&&!(h.CanBeReferenced()||h.frame_type==jxl::FrameType::kDCFrame)){std::cout<<" @X";offset+=remaining;continue;}
+  }
+  frame.SetRenderSpotcolors(spot);frame.SetCoalescing(coalescing);
+  JxlProgressiveDetail effective=preview?JxlProgressiveDetail::kFrames:frame.SetPauseAtProgressive(static_cast<JxlProgressiveDetail>(detail));
+  std::cout<<" @G "<<int(effective);
+  const bool want=channels!=0&&(preview||(last_still&&!skipping));
+  size_t xsize=0,ysize=0;JxlPixelFormat format{uint32_t(channels),JxlDataType(data_type),JXL_NATIVE_ENDIAN,0};
+  JxlPixelFormat ec_format{1,JxlDataType(data_type),JXL_NATIVE_ENDIAN,0};const size_t bpc=IncrementalBytesPerChannel(JxlDataType(data_type));
+  size_t main_index=0,first_extra=0;IncrementalCallback* record=nullptr;
+  if(want){
+   if(preview){xsize=metadata.oriented_preview_xsize(!undo);ysize=metadata.oriented_preview_ysize(!undo);}
+   else{xsize=metadata.oriented_xsize(!undo);ysize=metadata.oriented_ysize(!undo);
+    if(!coalescing){xsize=d.xsize_upsampled;ysize=d.ysize_upsampled;if(undo&&static_cast<int>(metadata.m.GetOrientation())>4)std::swap(xsize,ysize);}}
+   main_index=keep.size();keep.emplace_back(bpc*channels*xsize*ysize,0xA5);first_extra=keep.size();
+   if(callback){records.push_back({keep[main_index].data(),keep[main_index].size(),bpc*channels*xsize,bpc*channels});record=&records.back();}
+   if(extra)for(size_t i=0;i<metadata.m.extra_channel_info.size();++i)keep.emplace_back(bpc*xsize*ysize,0x5A);
+  }
+  const size_t extras=want&&extra?metadata.m.extra_channel_info.size():0;
+  std::cout<<" @W "<<want<<' '<<xsize<<' '<<ysize;
+  const auto dump=[&]{IncrementalBuffer("@Y",keep[main_index]);if(record)std::cout<<" @C "<<record->inits<<' '<<record->threads<<' '<<record->pixels<<' '<<record->runs<<' '<<record->destroys;for(size_t i=0;i<extras;++i)IncrementalBuffer("@YE",keep[first_extra+i]);};
+  std::vector<size_t> starts(n);size_t position=offset;for(size_t i=0;i<n;++i){starts[i]=position;position+=toc[i].size;}
+  std::vector<size_t> order(n);for(size_t i=0;i<n;++i)order[i]=i;
+  if(delivery>=2)for(size_t i=n;i-->1;){rng^=rng<<13;rng^=rng>>7;rng^=rng<<17;std::swap(order[i],order[rng%(i+1)]);}
+  std::cout<<" @Q";for(size_t i:order)std::cout<<' '<<i;
+  std::vector<uint8_t> processed(n);size_t next_section=0,available=1,cursor=0,idle=0;bool dc_done=false,done=false;
+  const auto end_of=[&](size_t k){return std::min(limit,k==0?offset:starts[k-1]+toc[k-1].size);};
+  size_t avail_end=delivery==1?end_of(available):limit;
+  for(size_t call=0;;++call){
+   if(call==4096)throw std::runtime_error("incremental call limit");
+   if(want){
+    // decode.cc installs the output on every kFull iteration.
+    auto set=record?frame.SetImageOutput(jxl::PixelCallback{IncrementalInit,IncrementalRun,IncrementalDestroy,record},nullptr,0,xsize,ysize,format,bpc*8,unpremul,undo):frame.SetImageOutput(jxl::PixelCallback{},keep[main_index].data(),keep[main_index].size(),xsize,ysize,format,bpc*8,unpremul,undo);
+    std::cout<<" @I "<<int(set.code());
+    for(size_t i=0;i<extras;++i){auto added=frame.AddExtraChannelOutput(keep[first_extra+i].data(),keep[first_extra+i].size(),xsize,ec_format,bpc*8);std::cout<<' '<<int(added.code());}
+   }
+   const size_t next_pause=frame.NextNumPassesToPause();
+   std::vector<size_t> chosen;
+   if(delivery<=1){for(size_t i=next_section;i<n;++i){if(processed[i])continue;if(starts[i]+toc[i].size>avail_end)break;chosen.push_back(i);}}
+   else if(delivery==2){for(size_t k=0;k<n;++k){size_t i=order[(cursor+k)%n];if(!processed[i]&&starts[i]+toc[i].size<=limit){chosen.push_back(i);cursor=(cursor+k+1)%n;break;}}}
+   else{for(size_t i:order)if(!processed[i]&&starts[i]+toc[i].size<=limit)chosen.push_back(i);}
+   std::vector<std::unique_ptr<jxl::BitReader>> readers;std::vector<jxl::FrameDecoder::SectionInfo> sections;std::vector<jxl::FrameDecoder::SectionStatus> section_status;
+   for(size_t i:chosen){readers.emplace_back(jxl::make_unique<jxl::BitReader>(jxl::Bytes(data+starts[i],toc[i].size)));sections.push_back({readers.back().get(),toc[i].id,i});section_status.emplace_back();}
+   status=frame.ProcessSections(sections.data(),sections.size(),section_status.data());writes.AfterSections();
+   std::cout<<" @S "<<int(status.code())<<' '<<sections.size();for(size_t i=0;i<sections.size();++i)std::cout<<' '<<sections[i].index<<' '<<sections[i].id<<' '<<unsigned(section_status[i]);
+   bool out_of_bounds=false,close_error=false;
+   for(auto& section:readers){bool within=bool(section->AllReadsWithinBounds());if(!within)out_of_bounds=true;size_t consumed=section->TotalBitsConsumed();auto closed=section->Close();if(!closed)close_error=true;std::cout<<" @B "<<consumed<<' '<<within<<' '<<int(closed.code());}
+   int outcome=close_error?1:out_of_bounds?2:!status?3:0;size_t progress=0;
+   if(!outcome)for(size_t i=0;i<section_status.size();++i){if(section_status[i]==jxl::FrameDecoder::kDone){processed[sections[i].index]=1;++progress;}else if(section_status[i]!=jxl::FrameDecoder::kSkipped){outcome=4;break;}}
+   std::cout<<" @O "<<outcome;if(outcome)break;
+   while(next_section<n&&processed[next_section])++next_section;
+   const bool all=frame.HasDecodedAll(),dc=frame.HasDecodedDC();const size_t passes=frame.NumCompletePasses();
+   std::cout<<" @D "<<dc<<' '<<all<<' '<<passes<<' '<<frame.NextNumPassesToPause()<<' '<<next_section;
+   int event=0;
+   if(effective>=JxlProgressiveDetail::kDC&&!dc_done&&!all&&dc){dc_done=true;event=1;std::cout<<" @V 1 8";}
+   else if(!all&&effective>=JxlProgressiveDetail::kLastPasses&&passes>=next_pause){event=2;std::cout<<" @V 2 "<<h.passes.GetDownsamplingTargetForCompletedPasses(passes);}
+   if(want&&((event&&flush>=1)||(!event&&!all&&flush==2&&dc))){auto flushed=frame.Flush();writes.AfterSections();std::cout<<" @L "<<int(flushed.code());dump();}
+   if(event)continue;
+   if(all){done=true;break;}
+   bool more=false;
+   if(delivery==1){if(available<n&&avail_end<limit){++available;avail_end=end_of(available);more=true;}}
+   else if(delivery==2){idle=progress?0:idle+1;size_t left=0;for(auto v:processed)left+=!v;more=left!=0&&idle<left;}
+   if(!more){std::cout<<" @N";if(want&&flush>=1&&dc){auto flushed=frame.Flush();writes.AfterSections();std::cout<<" @L "<<int(flushed.code());dump();}break;}
+  }
+  if(!done){CoveredBundle(*ib,writes.bundle_coverage[0]);State(state,false,identities,writes);break;}
+  if(!preview)std::cout<<" @R "<<frame.References();
+  status=frame.FinalizeFrame();std::cout<<" @Z "<<int(status.code());
+  if(status&&h.CanBeReferenced())writes.AfterReferenceMove(h.save_as_reference);
+  if(want)dump();
+  CoveredBundle(*ib,writes.bundle_coverage[0]);State(state,bool(status),identities,writes);
+  if(!status)break;
+  offset+=remaining;preview=false;writes.bundles[0]=&placeholder;ib.reset();
+ }
+ std::cout<<" @E "<<frames<<' '<<offset<<' '<<last_total<<' '<<state.visible_frame_index<<' '<<state.nonvisible_frame_index;
+}
 }
 bool FrameSequencesCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
+ if(command=="ifd-decode"){std::string hex;in>>hex;Incremental(Unhex(hex),in,mm);return true;}
  if(command=="fs-decode"){std::string hex;in>>hex;Decode(Unhex(hex),mm);return true;}
  // The same DecodeFrame caller with the public API's default rendering selection:
  // FrameDecoder(..., use_slow_rendering_pipeline=false) and LowMemoryRenderPipeline.
@@ -224,7 +350,7 @@ bool FrameSequencesCommand(const std::string& command,std::istringstream& in,Jxl
   }
   throw std::runtime_error("source section-size frame absent");
  }
- const bool extended=command=="fs-encode-ext",patches=command=="fs-encode-patches";
+ const bool with_passes=command=="fs-encode-passes",extended=command=="fs-encode-ext"||with_passes,patches=command=="fs-encode-patches";
  if(command!="fs-encode"&&!extended&&!patches)return false;
  size_t w,h,preview_w,preview_h,n;bool gray,alpha,xyb,animation;in>>w>>h>>gray>>alpha>>xyb>>animation>>preview_w>>preview_h>>n;
  jxl::CodecMetadata metadata;if(!metadata.size.Set(w,h))throw std::runtime_error("sequence size");metadata.m.SetUintSamples(8);metadata.m.xyb_encoded=xyb;if(alpha)metadata.m.SetAlphaBits(8,false);metadata.m.color_encoding=jxl::ColorEncoding::SRGB(gray);metadata.m.have_animation=animation;metadata.m.animation.have_timecodes=animation;metadata.m.animation.tps_numerator=1000;metadata.m.animation.tps_denominator=1;metadata.m.animation.num_loops=3;
@@ -233,10 +359,13 @@ bool FrameSequencesCommand(const std::string& command,std::istringstream& in,Jxl
  size_t header_bytes=writer.BitsWritten()/8;std::vector<size_t> ends;std::vector<int> statuses;std::vector<std::array<int,3>> postinit_resampling;
  for(size_t i=0;i<n;++i){bool modular,preview;unsigned type,blendmode;size_t fw,fh,seed;int progressive;jxl::FrameInfo info;in>>modular>>type>>info.dc_level>>info.is_last>>info.save_as_reference>>info.source>>info.save_before_color_transform>>info.blend>>blendmode>>info.clamp>>info.origin.x0>>info.origin.y0>>fw>>fh>>info.duration>>info.timecode>>seed>>progressive>>preview;info.frame_type=static_cast<jxl::FrameType>(type);info.blendmode=static_cast<jxl::BlendMode>(blendmode);info.is_preview=preview;info.name="sequence-"+std::to_string(i);
   int requested_resampling=1,requested_ec_resampling=1,requested_group_shift=1;if(extended)in>>requested_resampling>>requested_ec_resampling>>requested_group_shift;
+  int progressive_mode=-1,qprogressive_mode=-1;if(with_passes)in>>progressive_mode>>qprogressive_mode;
   if(!status){statuses.push_back(-1);continue;}
   jxl::CompressParams params;params.cms=*JxlGetDefaultCms();params.debug_image_opaque=nullptr;params.buffering=0;params.level=10;params.speed_tier=patches?jxl::SpeedTier::kSquirrel:jxl::SpeedTier::kThunder;params.patches=patches?jxl::Override::kOn:jxl::Override::kOff;params.dots=params.noise=jxl::Override::kOff;params.gaborish=jxl::Override::kOff;params.epf=0;params.progressive_dc=progressive;
   if(modular&&!xyb)params.SetLossless();else{params.modular_mode=modular;params.butteraugli_distance=1.f;params.color_transform=xyb?jxl::ColorTransform::kXYB:jxl::ColorTransform::kNone;}
   if(extended){params.resampling=requested_resampling;params.ec_resampling=requested_ec_resampling;params.modular_group_size_shift=requested_group_shift;}
+  // Actual encoder progressive AC pass selection (enc_frame.cc).
+  if(with_passes){params.progressive_mode=static_cast<jxl::Override>(progressive_mode);params.qprogressive_mode=static_cast<jxl::Override>(qprogressive_mode);}
   status=jxl::ParamsPostInit(&params);if(extended)postinit_resampling.push_back({params.resampling,params.ec_resampling,params.modular_group_size_shift});size_t channels=(gray?1:3)+(alpha?1:0);std::vector<uint8_t> pixels(fw*fh*channels);for(size_t y=0;y<fh;++y)for(size_t x=0;x<fw;++x)for(size_t c=0;c<channels;++c)pixels[(y*fw+x)*channels+c]=patches?uint8_t((x%24>=5&&x%24<13&&y%24>=5&&y%24<17&&(x%24<7||x%24>=11||y%24==10||y%24==11))?0:255):uint8_t((seed*31+x*17+y*23+c*47)%256);
   jxl::JxlEncoderChunkedFrameAdapter input(fw,fh,alpha?1:0);JxlPixelFormat format{unsigned(channels),JXL_TYPE_UINT8,JXL_NATIVE_ENDIAN,0};if(status)status=input.SetFromBuffer(0,pixels.data(),pixels.size(),format);
   JxlEncoderOutputProcessorWrapper output(mm);if(status)status=jxl::EncodeFrame(mm,params,info,&metadata,input,*JxlGetDefaultCms(),nullptr,&output,nullptr,nullptr);if(status)status=output.SetFinalizedPosition();std::vector<uint8_t> bytes;if(status)status=output.CopyOutput(bytes);if(status)status=writer.AppendByteAligned(jxl::Bytes(bytes));statuses.push_back(int(status.code()));ends.push_back(writer.BitsWritten()/8);

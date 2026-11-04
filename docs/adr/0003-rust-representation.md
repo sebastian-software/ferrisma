@@ -1516,15 +1516,27 @@ input pointer/length pairs without copying bytes or introducing unsafe code.
 The source's separate JxlDecoderStatus values are not internal StatusCode errors.
 Transparent-u32 public values follow the existing pixel-format descriptor mapping;
 this component does not yet export C ABI entry points or a decoder object.
-Frame-owned decoder fields stay in `FrameDecoderStorage`, in their original
-field and destruction order. The `FrameDecoder` processing view borrows that
-owner and `PassesDecoderState` separately. This represents the original retained
-frame object and codec-state pointer without retaining an exclusive Rust borrow
-of codec state between processing scopes. The mapping adds no allocation, clone,
-reset, shared-mutation wrapper, or algorithm change. Existing whole-frame calls
-use one scope; the incremental API must end the scope before exposing either
-owner to another API call or callback. Owned vector allocations and render
-references retain their existing identities.
+Frame-owned decoder fields stay in the public `FrameDecoder` owner, in their
+original relative order. Each public method receives the caller's
+`PassesDecoderState` (the source's `dec_state_` pointer) and opens a private
+`FrameDecoderScope` view for that call only. This represents the original
+retained frame object and codec-state pointer without retaining an exclusive
+Rust borrow of codec state between calls, callbacks or frames. The mapping adds
+no allocation, clone, reset, shared-mutation wrapper, or algorithm change.
+DecodeFrame and the fixed entry points call the same public methods. Owned
+vector allocations and render references retain their existing identities;
+`decoded_` is an `Rc<RefCell>` bundle shared with the retained writer stages.
+The Rust `PassesSharedState` records only manager presence, so the decoder's
+`JxlMemoryManager` is passed to `FrameDecoder::new` for the single reached
+consumer of `dec_state_->memory_manager()`, the WriteToOutputStage factory.
+Raw output descriptors and an installed CMS reach foreign code through retained
+pipeline stages, so `FrameDecoder::new` is unsafe: its contract covers every
+descriptor, the manager and the CMS for each state passed to the decoder until
+the pipelines built from them are destroyed. The fixed entry points own their
+state and never install either. The constructor flag selects the simple or
+low-memory pipeline exactly as in the source; a header
+outside the profile is an Unsupported admission result, and the processing
+methods then refuse to run instead of using an unadmitted header.
 
 Scalar FromLinearStage and ToLinearStage factories copy only their selected
 operation state. PQ captures the original intensity target; HLG captures the
