@@ -69,46 +69,44 @@ jobs:
         run: |
           python3 tools/build_aom_vmaf.py --fetch
           echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
-      - name: Generate and typecheck complete native source profiles
+      - name: Build complete pinned original root references
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
         run: |
-          case "$REQUESTED_TIER" in prepare|smoke|full) ;; *) exit 2 ;; esac
-          case "$REQUESTED_PROFILE" in both|release|debug) ;; *) exit 2 ;; esac
-          profiles="$REQUESTED_PROFILE"
-          if [ "$profiles" = both ]; then profiles="release debug"; fi
-          features=()
-          case "$REQUESTED_VARIANT" in
-            mini) features=(--mini) ;;
-            extended-pixi) features=(--extended-pixi) ;;
-            mini-extended-pixi) features=(--mini --extended-pixi) ;;
-            default) ;;
-            *) exit 2 ;;
-          esac
-          for profile in $profiles; do
-            debug=()
-            original_debug=()
-            if [ "$profile" = debug ]; then debug=(--debug); original_debug=(--upstream-debug); fi
-            python3 tools/build_root_references.py --jobs 2 "${debug[@]}"
-            python3 tools/build_aom.py --jobs 2 --library-only "${debug[@]}"
-            reference="build/root-c-linux-$profile-$REQUESTED_VARIANT"
-            python3 tools/build.py baseline --fetch-deps --jobs 2 "${debug[@]}" "${original_debug[@]}" "${features[@]}" \
-              --aom-reference-build "build/aom-native-$profile" \
-              --root-references "build/root-references-x86_64-unknown-linux-gnu-$profile" --build-dir "$reference"
-            python3 tools/transpile_root.py --build "$reference" --profile "$profile" --variant "$REQUESTED_VARIANT" \
-              --clang-include /usr/lib/llvm-16/lib/clang/16/include
-            python3 tools/check_root_profile.py "translations/root-linux-$profile-$REQUESTED_VARIANT.json"
-            if [ "$REQUESTED_TIER" != prepare ]; then
-              candidate="build/root-rust-linux-$profile-$REQUESTED_VARIANT"
-              python3 tools/build.py port --jobs 2 "${debug[@]}" "${original_debug[@]}" "${features[@]}" \
-                --root-references "build/root-references-x86_64-unknown-linux-gnu-$profile" \
-                --root-profile "translations/root-linux-$profile-$REQUESTED_VARIANT.json" --build-dir "$candidate"
-              python3 tools/validate_root_profile.py --baseline "$reference" --port "$candidate" \
-                --root-profile "translations/root-linux-$profile-$REQUESTED_VARIANT.json" --tier "$REQUESTED_TIER" --jobs 2
-            fi
-          done
+          python3 tools/root_pipeline.py --phase references --profile "$REQUESTED_PROFILE" \
+            --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+            --clang-include /usr/lib/llvm-16/lib/clang/16/include
+      - name: Generate and typecheck native root source profiles
+        env:
+          REQUESTED_PROFILE: ${{ inputs.profile }}
+          REQUESTED_VARIANT: ${{ inputs.variant }}
+          REQUESTED_TIER: ${{ inputs.tier }}
+        run: |
+          python3 tools/root_pipeline.py --phase generate --profile "$REQUESTED_PROFILE" \
+            --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+            --clang-include /usr/lib/llvm-16/lib/clang/16/include
+      - name: Build unchanged original consumers against native Rust profiles
+        if: inputs.tier != 'prepare'
+        env:
+          REQUESTED_PROFILE: ${{ inputs.profile }}
+          REQUESTED_VARIANT: ${{ inputs.variant }}
+          REQUESTED_TIER: ${{ inputs.tier }}
+        run: |
+          python3 tools/root_pipeline.py --phase consumers --profile "$REQUESTED_PROFILE" \
+            --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+            --clang-include /usr/lib/llvm-16/lib/clang/16/include
+      - name: Run original C/Rust suites, ABI, ownership, and strict bytes
+        if: inputs.tier != 'prepare'
+        env:
+          REQUESTED_PROFILE: ${{ inputs.profile }}
+          REQUESTED_VARIANT: ${{ inputs.variant }}
+          REQUESTED_TIER: ${{ inputs.tier }}
+        run: |
+          python3 tools/root_pipeline.py --phase validate --profile "$REQUESTED_PROFILE" \
+            --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+            --clang-include /usr/lib/llvm-16/lib/clang/16/include
       - name: Preserve generated source, exact C configuration, and typecheck evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
