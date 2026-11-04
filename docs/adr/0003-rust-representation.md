@@ -1904,6 +1904,16 @@ uses the ICC reader's existing global-allocator output storage. Propagating the
 memory manager into the ICC reader and the frame owners is separate work, and
 allocator logs are compared only where the original allocates nothing else.
 
+The decoder's image bundle is an `Rc<RefCell>` owner shared with the frame
+decoder, which retains it as the source's `decoded_` pointer; releasing the
+decoder's handle can therefore outlive the source's `ib.reset()` until the
+frame decoder is replaced. That storage is global-allocator memory, so the
+difference is unobservable. ProcessSections copies the frame decoder's TOC so
+that the frame decoder can be borrowed mutably while its sections are
+processed; ProcessSections does not change the TOC. FrameDecoder construction
+admits every parsed metadata header, so a construction failure is an
+unreachable precondition and panics instead of inventing a decoder status.
+
 The public entry points are Rust functions with the original names in snake
 case. Caller buffers, callback opaque values and input remain raw pointers on
 unsafe entry points that state their lifetime contracts. Output structs that

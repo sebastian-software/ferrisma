@@ -445,3 +445,156 @@ fn public_decoder_color_profile_setters_match_original() {
     }
     compare("color", requests);
 }
+
+/// Genuine inputs for frame decoding: original public encoder outputs with
+/// progressive, layered, resampled, filtered and effect frames.
+const FRAME_SPECS: &[&str] = &[
+    "w=8 h=8 c=3",
+    "w=13 h=7 c=1 bits=16",
+    "w=16 h=12 c=3 a=1 ec=2 names=1 orient=6 intrinsic=1 container=1 box=Exif:40:1",
+    "w=12 h=10 c=3 frames=3 duration=5 timecodes=1 container=1 index=1",
+    "w=40 h=30 c=3 lossless=0",
+    "w=8 h=8 c=3 a=1 premul=1 orient=3",
+    "w=20 h=14 c=3 a=1 frames=4 layers=1 container=1",
+    "w=20 h=14 c=3 frames=4 layers=1 duration=2",
+    "w=300 h=280 c=3 lossless=0 opt=16:1",
+    "w=300 h=280 c=3 lossless=0 opt=17:1 opt=18:1",
+    "w=300 h=280 c=3 lossless=0 opt=19:1",
+    "w=64 h=48 c=3 lossless=0 opt=2:2",
+    "w=64 h=48 c=3 lossless=0 opt=6:1",
+    "w=64 h=64 c=3 opt=8:1",
+    "w=64 h=48 c=3 lossless=0 opt=9:3 opt=10:1",
+    "w=8 h=8 c=3 icc=1",
+    "w=8 h=8 c=3 icc=1 lossless=0",
+    "w=8 h=8 c=1 lossless=0",
+    "w=2305 h=8 c=3 lossless=0 container=1 mode=2 box=xml:10:0",
+];
+
+/// Original encoder outputs retained in tests/data (see its README).
+fn retained_files() -> Vec<String> {
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let mut paths: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .chain(std::fs::read_dir(root.join("decoder-geometry")).unwrap())
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension().is_some_and(|e| e == "jxl")
+                && path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| !n.starts_with("sampling-") || n.contains("13x11"))
+        })
+        .collect();
+    paths.sort();
+    paths
+        .into_iter()
+        .map(|path| driver::hex(&std::fs::read(path).unwrap()))
+        .collect()
+}
+
+#[test]
+fn public_decoder_frame_events_and_outputs_match_original() {
+    let files = super::original_observations(
+        &FRAME_SPECS
+            .iter()
+            .map(|spec| format!("dpub-encode {spec}"))
+            .collect::<Vec<_>>(),
+    );
+    // Output formats: channels.type.endianness.align.mode, with types FLOAT=0,
+    // UINT8=2, UINT16=3, FLOAT16=5; mode 0 buffer, 1 simple callback, 2
+    // multithreaded callback, 3 no output.
+    let scripts = [
+        "s4096 F4.2.0.0.0 L1,1000000,0,1000,1",
+        "s5184 F3.2.0.0.0 V2 L3,17,0,1000,1",
+        "s5120 F4.3.1.0.1 L2,64,0,1000,1",
+        "s5120 F3.0.2.8.2 L1,1,0,100000,1",
+        "s5120 F1.5.0.0.0 V3 L5,9,0,1000,1",
+        "s5120 g0 F4.2.0.0.0 V1 L4,33,0,1000,1",
+        "s5120 k1 u1 r0 F4.3.0.0.0 L6,1000000,0,1000,1",
+        "s5120 S1 F3.2.0.0.0 L7,29,0,1000,1",
+        "s5120 M1 F3.2.0.0.0 L8,1000000,0,1000,1",
+        "s5120 F3.3.0.0.0 W1.0.0 L9,1000000,0,1000,1",
+        "s5120 F3.3.0.0.0 W2.12.0 L10,1000000,0,1000,1",
+        "s5120 F3.2.0.0.0 W2.12.0 L10,1000000,0,1000,1",
+        "s1024 L11,40,0,1000,1",
+        "s5120 F3.2.0.0.3 L12,1000000,0,1000,1",
+        "s38400 D1 M2 F3.2.0.0.0 L1,97,0,1000,1",
+        "s38400 D2 M2 F3.3.0.0.2 L2,211,0,1000,1",
+        "s38400 D3 M6 F4.2.0.0.0 L3,331,0,1000,1",
+        "s38400 D4 L4,1000000,0,10,1",
+        "s5632 F3.2.0.0.0 L5,1000000,0,1000,1",
+        "s5120 F3.2.0.0.0 L1,1000000,0,4,0 w L2,7,0,1000,1",
+        "s5120 F3.2.0.0.0 L1,1000000,0,4,0 K f x s5120 L2,7,0,1000,1",
+    ];
+    let mut requests = Vec::new();
+    for file in &files {
+        for script in scripts {
+            requests.push(format!("dpub-run 0 0 {file} {script}"));
+        }
+    }
+    for file in retained_files() {
+        for script in [scripts[0], scripts[5], scripts[18]] {
+            requests.push(format!("dpub-run 0 0 {file} {script}"));
+        }
+    }
+    compare("frames", requests);
+}
+
+#[test]
+fn public_decoder_frame_truncation_and_cms_match_original() {
+    let files = super::original_observations(
+        &FRAME_SPECS
+            .iter()
+            .map(|spec| format!("dpub-encode {spec}"))
+            .collect::<Vec<_>>(),
+    );
+    let encodings = output_encodings();
+    let mut requests = Vec::new();
+    let mut seed = 97u64;
+    for file in &files {
+        let bytes = driver::unhex(file);
+        for _ in 0..6 {
+            let cut = (super::next(&mut seed) as usize) % bytes.len();
+            requests.push(format!(
+                "dpub-run 0 0 {} s5120 F3.2.0.0.0 L{cut},13,0,1000,1",
+                driver::hex(&bytes[..cut])
+            ));
+            let mut mutated = bytes.clone();
+            let position = (super::next(&mut seed) as usize) % mutated.len();
+            mutated[position] ^= 1 << (super::next(&mut seed) % 8);
+            requests.push(format!(
+                "dpub-run 0 0 {} s5120 F3.2.0.0.0 L{position},13,0,1000,1",
+                driver::hex(&mutated)
+            ));
+        }
+        for encoding in &encodings {
+            requests.push(format!(
+                "dpub-run 0 0 {file} C s4352 L1,1000000,0,2,0 P{encoding} F3.0.0.0.0 L2,1000000,0,1000,1 G"
+            ));
+        }
+        requests.push(format!(
+            "dpub-run 0 0 {file} C s4352 L1,1000000,0,2,0 T1148846080 F4.0.0.0.0 L2,1000000,0,1000,1"
+        ));
+    }
+    compare("frame-mutations", requests);
+}
+
+#[test]
+fn public_decoder_jpeg_output_matches_original() {
+    let files = jpeg_files();
+    let mut requests = Vec::new();
+    for file in &files {
+        for (events, jpeg) in [(12288, 100000), (12288, 64), (12352, 7), (28672, 4096)] {
+            requests.push(format!(
+                "dpub-run 0 0 {file} s{events} J{jpeg} F3.2.0.0.0 L1,53,32,1000,1 j"
+            ));
+        }
+        requests.push(format!(
+            "dpub-run 0 0 {file} s4096 F3.2.0.0.0 L2,1000000,0,1000,1"
+        ));
+        requests.push(format!(
+            "dpub-run 0 0 {file} s12288 L3,1000000,0,1000,1 J100000 L3,1000000,0,1000,1 j"
+        ));
+    }
+    compare("jpeg-output", requests);
+}

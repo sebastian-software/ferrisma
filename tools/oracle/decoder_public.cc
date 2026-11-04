@@ -76,6 +76,10 @@ struct Spec {
   uint32_t gray_icc = 0, names = 0, timecodes = 0;
   std::vector<std::pair<std::string, std::pair<uint32_t, uint32_t>>> boxes;
   std::vector<uint32_t> box_after;  // 0: before frames, 1: after frames
+  std::vector<std::pair<int, int64_t>> options;
+  // layers=1: later frames are cropped layers with alternating blend modes,
+  // names and reference slots.
+  uint32_t layers = 0;
 };
 
 Spec ParseSpec(std::istringstream& in) {
@@ -94,6 +98,13 @@ Spec ParseSpec(std::istringstream& in) {
                             {uint32_t(std::stoul(value.substr(c1 + 1, c2 - c1 - 1))),
                              uint32_t(std::stoul(value.substr(c2 + 1)))}});
       spec.box_after.push_back(key == "late");
+      continue;
+    }
+    if (key == "opt") {
+      // opt=ID:VALUE, a JxlEncoderFrameSettingsSetOption call.
+      auto colon = value.find(':');
+      spec.options.push_back({int(std::stoi(value.substr(0, colon))),
+                              int64_t(std::stoll(value.substr(colon + 1)))});
       continue;
     }
     uint32_t v = uint32_t(std::stoul(value));
@@ -117,6 +128,7 @@ Spec ParseSpec(std::istringstream& in) {
     else if (key == "premul") spec.premultiplied = v;
     else if (key == "names") spec.names = v;
     else if (key == "timecodes") spec.timecodes = v;
+    else if (key == "layers") spec.layers = v;
     else throw std::runtime_error("encode spec key");
   }
   in.clear();
@@ -211,29 +223,54 @@ std::vector<uint8_t> Encode(const Spec& spec) {
     check(JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_OUTPUT_MODE,
                                            spec.mode),
           "mode");
+  for (const auto& option : spec.options) {
+    check(JxlEncoderFrameSettingsSetOption(settings, JxlEncoderFrameSettingId(option.first),
+                                           option.second),
+          "option");
+  }
   uint32_t colors = spec.channels + spec.alpha;
   JxlPixelFormat format{colors, spec.bits > 8 ? JXL_TYPE_UINT16 : JXL_TYPE_UINT8,
                         JXL_NATIVE_ENDIAN, 0};
   size_t sample = spec.bits > 8 ? 2 : 1;
   uint64_t seed = 0x1234567ull + spec.xsize * 31 + spec.ysize;
   for (uint32_t f = 0; f < spec.frames; ++f) {
-    if (info.have_animation) {
+    uint32_t fw = spec.xsize, fh = spec.ysize;
+    if (info.have_animation || spec.layers) {
       JxlFrameHeader header;
       JxlEncoderInitFrameHeader(&header);
-      header.duration = spec.duration ? spec.duration : 1;
+      header.duration = info.have_animation ? (spec.duration ? spec.duration : 1) : 0;
+      if (spec.layers && f + 1 < spec.frames) header.duration = 0;
       header.timecode = f * 7;
+      if (spec.layers && f > 0) {
+        fw = spec.xsize / 2 + f;
+        fh = spec.ysize / 2 + 1;
+        header.layer_info.have_crop = JXL_TRUE;
+        header.layer_info.crop_x0 = int32_t(f) - 1;
+        header.layer_info.crop_y0 = int32_t(f % 3);
+        header.layer_info.xsize = fw;
+        header.layer_info.ysize = fh;
+        header.layer_info.blend_info.blendmode = JxlBlendMode(f % 2 ? JXL_BLEND_BLEND : JXL_BLEND_ADD);
+        header.layer_info.blend_info.source = 1;
+        header.layer_info.save_as_reference = f % 2 ? 0 : 1;
+      } else if (spec.layers) {
+        header.layer_info.save_as_reference = 1;
+      }
       check(JxlEncoderSetFrameHeader(settings, &header), "frame header");
+      if (spec.layers) {
+        std::string name = "layer" + std::to_string(f);
+        check(JxlEncoderSetFrameName(settings, name.c_str()), "frame name");
+      }
       if (spec.index && f == spec.frames - 1)
         check(JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_INDEX_BOX, 1), "index");
     }
-    std::vector<uint8_t> pixels(size_t(spec.xsize) * spec.ysize * colors * sample);
+    std::vector<uint8_t> pixels(size_t(fw) * fh * colors * sample);
     for (size_t i = 0; i < pixels.size(); ++i) {
       pixels[i] = uint8_t((i * 13 + f * 29 + (Next(seed) & 15)) & 0xff);
     }
     check(JxlEncoderAddImageFrame(settings, &format, pixels.data(), pixels.size()), "frame");
     for (uint32_t i = 0; i < spec.extra; ++i) {
       JxlPixelFormat ec_format{1, format.data_type, JXL_NATIVE_ENDIAN, 0};
-      std::vector<uint8_t> plane(size_t(spec.xsize) * spec.ysize * sample);
+      std::vector<uint8_t> plane(size_t(fw) * fh * sample);
       for (size_t j = 0; j < plane.size(); ++j) plane[j] = uint8_t((j * 5 + i * 3) & 0xff);
       check(JxlEncoderSetExtraChannelBuffer(settings, &ec_format, plane.data(), plane.size(),
                                             spec.alpha + i),
@@ -429,6 +466,14 @@ class Driver {
       case 'J': SetJpeg(std::stoul(arg)); break;
       case 'j': ReleaseJpeg(); break;
       case 'G': out_ << 0; Info(); Color(); break;
+      case 'F': SetFormat(arg); break;
+      case 'V': extras_ = uint32_t(std::stoul(arg)); out_ << 0; break;
+      case 'M': policy_ = std::stoi(arg); out_ << 0; break;
+      case 'S': JxlDecoderSkipFrames(dec_, std::stoul(arg)); out_ << 0; break;
+      case 'D': out_ << JxlDecoderSetProgressiveDetail(dec_, JxlProgressiveDetail(std::stoi(arg))); break;
+      case 'W': SetDepth(arg); break;
+      case 'K': out_ << JxlDecoderSkipCurrentFrame(dec_); break;
+      case 'f': out_ << JxlDecoderFlushImage(dec_); Outputs(); break;
       case 'L': Loop(arg); break;
       default: throw std::runtime_error("decoder public op");
     }
@@ -630,6 +675,150 @@ class Driver {
     }
   }
 
+  // ---- Pixel output observation. Pixel data and callback sequences are
+  // compared through a 64-bit FNV-1a digest over little-endian words.
+  static void Fnv(uint64_t& h, const uint8_t* p, size_t n) {
+    for (size_t i = 0; i < n; ++i) {
+      h ^= p[i];
+      h *= 1099511628211ull;
+    }
+  }
+  static void FnvWord(uint64_t& h, uint64_t v) {
+    uint8_t bytes[8];
+    for (int i = 0; i < 8; ++i) bytes[i] = uint8_t(v >> (8 * i));
+    Fnv(h, bytes, 8);
+  }
+  static uint64_t Digest(const std::vector<uint8_t>& v) {
+    uint64_t h = 14695981039346656037ull;
+    Fnv(h, v.data(), v.size());
+    return h;
+  }
+  size_t PixelBytes() const {
+    size_t bpc = format_.data_type == JXL_TYPE_UINT8   ? 1
+                 : format_.data_type == JXL_TYPE_FLOAT ? 4
+                                                       : 2;
+    return format_.num_channels * bpc;
+  }
+  void Record(size_t thread, size_t x, size_t y, size_t n, const void* pixels) {
+    ++cb_calls_;
+    FnvWord(cb_hash_, thread);
+    FnvWord(cb_hash_, x);
+    FnvWord(cb_hash_, y);
+    FnvWord(cb_hash_, n);
+    Fnv(cb_hash_, static_cast<const uint8_t*>(pixels), n * PixelBytes());
+  }
+  static void SimpleCallback(void* opaque, size_t x, size_t y, size_t n, const void* pixels) {
+    static_cast<Driver*>(opaque)->Record(0, x, y, n, pixels);
+  }
+  static void* InitCallback(void* opaque, size_t threads, size_t pixels) {
+    auto* d = static_cast<Driver*>(opaque);
+    ++d->cb_inits_;
+    FnvWord(d->cb_hash_, threads);
+    FnvWord(d->cb_hash_, pixels);
+    return opaque;
+  }
+  static void RunCallback(void* opaque, size_t thread, size_t x, size_t y, size_t n,
+                          const void* pixels) {
+    static_cast<Driver*>(opaque)->Record(thread, x, y, n, pixels);
+  }
+  static void DestroyCallback(void* opaque) { ++static_cast<Driver*>(opaque)->cb_destroys_; }
+
+  void SetFormat(const std::string& arg) {
+    std::istringstream fields(arg);
+    uint32_t channels, type, endian, mode;
+    size_t align;
+    char dot;
+    fields >> channels >> dot >> type >> dot >> endian >> dot >> align >> dot >> mode;
+    if (!fields) throw std::runtime_error("format token");
+    format_ = {channels, JxlDataType(type), JxlEndianness(endian), align};
+    out_mode_ = int(mode);
+    out_ << 0;
+  }
+
+  void SetDepth(const std::string& arg) {
+    std::istringstream fields(arg);
+    uint32_t type, bits, exponent;
+    char dot;
+    fields >> type >> dot >> bits >> dot >> exponent;
+    if (!fields) throw std::runtime_error("bit depth token");
+    depth_ = {JxlBitDepthType(type), bits, exponent};
+    depth_set_ = true;
+    out_ << 0;
+  }
+
+  bool SetOutputs(bool preview) {
+    if (out_mode_ == 3) return false;
+    size_t size = 0;
+    JxlDecoderStatus s = preview ? JxlDecoderPreviewOutBufferSize(dec_, &format_, &size)
+                                 : JxlDecoderImageOutBufferSize(dec_, &format_, &size);
+    out_ << " q:" << s << ',' << size;
+    if (s != JXL_DEC_SUCCESS) return false;
+    if (preview || out_mode_ == 0) {
+      image_.assign(size + 1, 0xA5);
+      s = preview ? JxlDecoderSetPreviewOutBuffer(dec_, &format_, image_.data(), size)
+                  : JxlDecoderSetImageOutBuffer(dec_, &format_, image_.data(), size);
+    } else if (out_mode_ == 1) {
+      image_.clear();
+      s = JxlDecoderSetImageOutCallback(dec_, &format_, SimpleCallback, this);
+    } else {
+      image_.clear();
+      s = JxlDecoderSetMultithreadedImageOutCallback(dec_, &format_, InitCallback, RunCallback,
+                                                     DestroyCallback, this);
+    }
+    out_ << " Q:" << s;
+    if (preview) return true;
+    extra_.resize(std::max<size_t>(extra_.size(), extras_));
+    for (uint32_t i = 0; i < extras_; ++i) {
+      size_t es = 0;
+      s = JxlDecoderExtraChannelBufferSize(dec_, &format_, &es, i);
+      out_ << " v:" << s << ',' << es;
+      if (s != JXL_DEC_SUCCESS) continue;
+      extra_[i].assign(es + 1, 0xA5);
+      out_ << ',' << JxlDecoderSetExtraChannelBuffer(dec_, &format_, extra_[i].data(), es, i);
+    }
+    if (depth_set_) out_ << " W:" << JxlDecoderSetImageOutBitDepth(dec_, &depth_);
+    return true;
+  }
+
+  void Outputs() {
+    out_ << " o:" << image_.size() << ',' << Digest(image_);
+    for (uint32_t i = 0; i < extras_ && i < extra_.size(); ++i) {
+      out_ << ',' << extra_[i].size() << ',' << Digest(extra_[i]);
+    }
+    out_ << ",cb" << cb_calls_ << ',' << cb_inits_ << ',' << cb_destroys_ << ',' << cb_hash_;
+  }
+
+  void FrameInfo() {
+    JxlFrameHeader header;
+    memset(&header, 0xA5, sizeof(header));
+    JxlDecoderStatus s = JxlDecoderGetFrameHeader(dec_, &header);
+    out_ << " h:" << s;
+    if (s != JXL_DEC_SUCCESS) return;
+    out_ << ',' << header.duration << ',' << header.timecode << ',' << header.name_length << ','
+         << header.is_last << ',' << header.layer_info.have_crop << ','
+         << header.layer_info.crop_x0 << ',' << header.layer_info.crop_y0 << ','
+         << header.layer_info.xsize << ',' << header.layer_info.ysize << ','
+         << header.layer_info.blend_info.blendmode << ','
+         << header.layer_info.blend_info.source << ',' << header.layer_info.blend_info.alpha
+         << ',' << header.layer_info.blend_info.clamp << ','
+         << header.layer_info.save_as_reference;
+    std::vector<char> name(header.name_length + 2, char(0xA5));
+    s = JxlDecoderGetFrameName(dec_, name.data(), header.name_length + 1);
+    out_ << " N:" << s << ','
+         << Hex(jxl::Bytes(reinterpret_cast<uint8_t*>(name.data()), name.size()));
+    JxlBasicInfo info;
+    if (JxlDecoderGetBasicInfo(dec_, &info) != JXL_DEC_SUCCESS) return;
+    for (uint32_t i = 0; i <= info.num_extra_channels; ++i) {
+      JxlBlendInfo blend;
+      memset(&blend, 0xA5, sizeof(blend));
+      s = JxlDecoderGetExtraChannelBlendInfo(dec_, i, &blend);
+      out_ << " B:" << s;
+      if (s == JXL_DEC_SUCCESS)
+        out_ << ',' << blend.blendmode << ',' << blend.source << ',' << blend.alpha << ','
+             << blend.clamp;
+    }
+  }
+
   // L<seed>,<max>,<boxbuf>,<steps>,<close>: the caller loop of a typical
   // incremental application with deterministic chunk sizes.
   void Loop(const std::string& arg) {
@@ -694,6 +883,34 @@ class Driver {
         Color();
       } else if (status == JXL_DEC_JPEG_RECONSTRUCTION) {
         // The event carries no getter; decoding continues.
+      } else if (status == JXL_DEC_FRAME) {
+        ++frames_;
+        FrameInfo();
+      } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+        if ((policy_ & 1) && frames_ % 2 == 0) {
+          out_ << " K:" << JxlDecoderSkipCurrentFrame(dec_);
+          continue;
+        }
+        if (!SetOutputs(false)) break;
+      } else if (status == JXL_DEC_NEED_PREVIEW_OUT_BUFFER) {
+        if (!SetOutputs(true)) break;
+      } else if (status == JXL_DEC_FULL_IMAGE || status == JXL_DEC_PREVIEW_IMAGE) {
+        Outputs();
+      } else if (status == JXL_DEC_FRAME_PROGRESSION) {
+        out_ << " r:" << JxlDecoderGetIntendedDownsamplingRatio(dec_);
+        if (policy_ & 2) {
+          out_ << " f:" << JxlDecoderFlushImage(dec_);
+          Outputs();
+        }
+        if ((policy_ & 4) && progressions_++ == 0) {
+          out_ << " K:" << JxlDecoderSkipCurrentFrame(dec_);
+        }
+      } else if (status == JXL_DEC_JPEG_NEED_MORE_OUTPUT) {
+        out_ << " j:";
+        size_t size = jpeg_.empty() ? 1 : (jpeg_.size() - 1);
+        ReleaseJpeg();
+        out_ << " J:";
+        SetJpeg(size);
       } else {
         if (status == JXL_DEC_SUCCESS && box_set_) {
           out_ << " o:";
@@ -711,6 +928,16 @@ class Driver {
   size_t pos_ = 0, set_len_ = 0;
   bool closed_ = false, box_set_ = false, print_events_ = false;
   std::vector<uint8_t> box_;
+  JxlPixelFormat format_{4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+  int out_mode_ = 0, policy_ = 0;
+  uint32_t extras_ = 0;
+  size_t frames_ = 0, progressions_ = 0;
+  bool depth_set_ = false;
+  JxlBitDepth depth_{};
+  std::vector<uint8_t> image_;
+  std::vector<std::vector<uint8_t>> extra_;
+  uint64_t cb_hash_ = 14695981039346656037ull;
+  size_t cb_calls_ = 0, cb_inits_ = 0, cb_destroys_ = 0;
   // A JPEG buffer stays alive until released, as a caller retains it; the
   // decoder writes it only during ProcessInput.
   std::vector<uint8_t> jpeg_;

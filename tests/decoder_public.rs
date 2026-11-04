@@ -53,3 +53,15 @@ fn subscription_and_input_misuse() {
 fn input_copy_allocation_failure() {
     capture(8);
 }
+#[test]
+fn uncoalesced_layers_with_extra_channel_buffers() {
+    capture(9);
+}
+#[test]
+fn animation_frames_through_multithreaded_callbacks() {
+    capture(10);
+}
+#[test]
+fn filtered_vardct_frame_with_cms_output_profile() {
+    capture(11);
+}

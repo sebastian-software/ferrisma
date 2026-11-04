@@ -20,7 +20,7 @@ import subprocess
 from skcms_binding import live_bindings
 
 ROOT = Path(__file__).resolve().parent.parent
-FAMILIES = ["events", "box-buffers", "truncated", "misuse", "rewind", "allocations", "jpeg", "color"]
+FAMILIES = ["events", "box-buffers", "truncated", "misuse", "rewind", "allocations", "jpeg", "color", "frames", "frame-mutations", "jpeg-output"]
 ARCHIVE = r"libjxl-internal\.a(?:\[\d+\])?\((?:.*/)?{}\.o\)$"
 
 

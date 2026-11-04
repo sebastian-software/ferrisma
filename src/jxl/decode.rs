@@ -20,6 +20,10 @@
 //!   source requests more input while its reader is still alive, the reader's
 //!   result-discarding bounds/close checkpoint runs first, because the request
 //!   may reallocate the borrowed copy. The guard has no observable effect.
+//! - The image bundle is an `Rc<RefCell>` shared with the frame decoder's
+//!   retained `decoded_` pointer, and ProcessSections borrows a copy of the
+//!   unchanged TOC; see ADR 0003. The frame decoder receives the decoder's
+//!   PassesDecoderState per call and always selects the low-memory pipeline.
 //! - JXL_API_ERROR/JXL_INPUT_ERROR return JXL_DEC_ERROR; the release
 //!   reference's debug diagnostics are not translated.
 //! - Caller buffers and callback opaque values are raw pointers whose
@@ -39,7 +43,9 @@ use super::color_encoding_internal::ColorEncoding;
 use super::common::JXL_SIGNATURE_BOX;
 use super::dec_bit_reader::BitReader;
 use super::dec_cache::PassesDecoderState;
+use super::dec_cache::PixelCallback;
 use super::dec_cache::{ImageOutDestroyCallback, ImageOutInitCallback, ImageOutRunCallback};
+use super::dec_frame::{FrameDecoder, SectionInfo, SectionStatus};
 use super::decode_to_jpeg::JxlToJpegDecoder;
 use super::decoder_input::{CodestreamSpan, DecoderInput};
 use super::field_encodings::Fields;
@@ -54,8 +60,10 @@ use super::memory_manager::{
 };
 use super::padded_bytes::PaddedBytes as GlobalPaddedBytes;
 use super::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlPixelFormat};
+use std::cell::RefCell;
 use std::ffi::c_void;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(transparent)]
@@ -205,19 +213,6 @@ pub fn jxl_decoder_version() -> u32 {
     JPEGXL_MAJOR_VERSION * 1_000_000 + JPEGXL_MINOR_VERSION * 1000 + JPEGXL_PATCH_VERSION
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(transparent)]
-pub struct JxlProgressiveDetail(pub u32);
-impl JxlProgressiveDetail {
-    pub const FRAMES: Self = Self(0);
-    pub const DC: Self = Self(1);
-    pub const LAST_PASSES: Self = Self(2);
-    pub const PASSES: Self = Self(3);
-    pub const DC_PROGRESSIVE: Self = Self(4);
-    pub const DC_GROUPS: Self = Self(5);
-    pub const GROUPS: Self = Self(6);
-}
-
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct JxlColorProfileTarget(pub u32);
@@ -268,6 +263,7 @@ const DEC_FRAME: i32 = JxlDecoderStatus::FRAME.0 as i32;
 const DEC_FULL_IMAGE: i32 = JxlDecoderStatus::FULL_IMAGE.0 as i32;
 const DEC_JPEG_RECONSTRUCTION: i32 = JxlDecoderStatus::JPEG_RECONSTRUCTION.0 as i32;
 const DEC_BOX: i32 = JxlDecoderStatus::BOX.0 as i32;
+const DEC_FRAME_PROGRESSION: i32 = JxlDecoderStatus::FRAME_PROGRESSION.0 as i32;
 const DEC_BOX_COMPLETE: i32 = JxlDecoderStatus::BOX_COMPLETE.0 as i32;
 
 fn bits_per_channel(data_type: JxlDataType) -> usize {
@@ -322,6 +318,8 @@ enum DecoderStage {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum FrameStage {
     Header,
+    Toc,
+    Full,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -544,6 +542,7 @@ pub struct JxlDecoder {
     have_container: bool,
     box_count: usize,
     prog_detail: JxlProgressiveDetail,
+    frame_prog_detail: JxlProgressiveDetail,
     downsampling_target: usize,
     image_out_buffer_set: bool,
     image_out_buffer: *mut c_void,
@@ -558,13 +557,15 @@ pub struct JxlDecoder {
     extra_channel_output: Vec<ExtraChannelOutput>,
     metadata: Aliased<CodecMetadata>,
     image_metadata: Aliased<ImageMetadata>,
-    ib: Option<Box<ImageBundle<'static>>>,
+    ib: Option<Rc<RefCell<ImageBundle<'static>>>>,
     passes_state: Option<Box<PassesDecoderState<'static, 'static>>>,
+    frame_dec: Option<Box<FrameDecoder<'static, 'static>>>,
     next_section: usize,
     section_processed: Vec<u8>,
     frame_header: Option<Box<FrameHeader<'static>>>,
     remaining_frame_size: usize,
     frame_stage: FrameStage,
+    dc_frame_progression_done: bool,
     is_last_of_still: bool,
     is_last_total: bool,
     skip_frames: usize,
@@ -641,6 +642,7 @@ impl JxlDecoder {
             have_container: false,
             box_count: 0,
             prog_detail: JxlProgressiveDetail::DC,
+            frame_prog_detail: JxlProgressiveDetail::FRAMES,
             downsampling_target: 0,
             image_out_buffer_set: false,
             image_out_buffer: ptr::null_mut(),
@@ -665,11 +667,13 @@ impl JxlDecoder {
             image_metadata: Aliased::new(ImageMetadata::default()),
             ib: None,
             passes_state: None,
+            frame_dec: None,
             next_section: 0,
             section_processed: Vec::new(),
             frame_header: None,
             remaining_frame_size: 0,
             frame_stage: FrameStage::Header,
+            dc_frame_progression_done: false,
             is_last_of_still: false,
             is_last_total: false,
             skip_frames: 0,
@@ -809,6 +813,7 @@ impl Drop for JxlDecoder {
         drop(std::mem::take(&mut self.frame_refs));
         drop(self.frame_header.take());
         drop(std::mem::take(&mut self.section_processed));
+        drop(self.frame_dec.take());
         drop(self.passes_state.take());
         drop(self.ib.take());
         // The metadata cells, the simple-callback cell and the manager cell
@@ -905,6 +910,7 @@ pub fn jxl_decoder_rewind_decoding_state(dec: &mut JxlDecoder) {
     dec.input.input.input_closed.write(false);
 
     dec.passes_state = None;
+    dec.frame_dec = None;
     dec.next_section = 0;
     dec.section_processed.clear();
 
@@ -1028,6 +1034,25 @@ pub fn jxl_decoder_skip_frames(dec: &mut JxlDecoder, amount: usize) {
             }
         }
     }
+}
+
+/// JxlDecoderSkipCurrentFrame.
+///
+/// # Safety
+/// The current input satisfies the jxl_decoder_set_input contract.
+pub unsafe fn jxl_decoder_skip_current_frame(dec: &mut JxlDecoder) -> JxlDecoderStatus {
+    if dec.frame_stage != FrameStage::Full {
+        return api_error!("JxlDecoderSkipCurrentFrame called at the wrong time");
+    }
+    debug_assert!(dec.frame_dec.is_some());
+    dec.frame_stage = FrameStage::Header;
+    dec.advance_codestream(dec.remaining_frame_size);
+    if dec.is_last_of_still {
+        // The output buffers only apply to the frame that was skipped.
+        dec.image_out_buffer_set = false;
+        dec.extra_channel_output.clear();
+    }
+    JxlDecoderStatus::SUCCESS
 }
 
 pub fn jxl_decoder_size_hint_basic_info(dec: &JxlDecoder) -> usize {
@@ -1343,6 +1368,100 @@ fn jxl_decoder_read_all_headers(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     JxlDecoderStatus::SUCCESS
 }
 
+fn jxl_decoder_process_sections(dec: &mut JxlDecoder) -> JxlDecoderStatus {
+    let mut span = CodestreamSpan {
+        data: ptr::null(),
+        size: 0,
+    };
+    api_return_if_error!(dec.get_codestream_input(&mut span));
+    // SAFETY: The section readers end before the input mutation below.
+    let data = unsafe { span_bytes(span) };
+    // A copy of the frame decoder's TOC, unchanged by ProcessSections, so that
+    // the frame decoder can be borrowed mutably meanwhile.
+    let toc = dec
+        .frame_dec
+        .as_ref()
+        .expect("the header stage allocates frame_dec")
+        .toc()
+        .to_vec();
+    let mut pos = 0usize;
+    let mut readers = Vec::new();
+    let mut section_ids = Vec::new();
+    for (i, entry) in toc.iter().enumerate().skip(dec.next_section) {
+        if dec.section_processed[i] != 0 {
+            pos = pos.wrapping_add(entry.size);
+            continue;
+        }
+        let id = entry.id;
+        let size = entry.size;
+        if out_of_bounds(pos, size, span.size) {
+            break;
+        }
+        readers.push(BitReader::new(&data[pos..pos + size]));
+        section_ids.push((id, i));
+        pos = pos.wrapping_add(size);
+    }
+    let mut section_info: Vec<SectionInfo<'_, '_>> = readers
+        .iter_mut()
+        .zip(&section_ids)
+        .map(|(br, &(id, index))| SectionInfo { br, id, index })
+        .collect();
+    let mut section_status = vec![SectionStatus::default(); section_info.len()];
+    let frame_dec = dec
+        .frame_dec
+        .as_mut()
+        .expect("the header stage allocates frame_dec");
+    let passes_state = dec
+        .passes_state
+        .as_mut()
+        .expect("ReadAllHeaders allocates passes_state");
+    let status = frame_dec.process_sections(passes_state, &mut section_info, &mut section_status);
+    drop(section_info);
+    let mut out_of_bounds_section = false;
+    let mut has_error = false;
+    for mut br in readers {
+        if br.all_reads_within_bounds().is_err() {
+            // Mark out of bounds section, but keep closing and deleting the
+            // next ones as well.
+            out_of_bounds_section = true;
+        }
+        if br.close().is_err() {
+            has_error = true;
+        }
+    }
+    if has_error {
+        return input_error!("internal: bit-reader failed to close");
+    }
+    if out_of_bounds_section {
+        // If any bit reader indicates out of bounds, it's an error, not just
+        // needing more input, since we ensure only bit readers containing a
+        // complete section are provided to the FrameDecoder.
+        return input_error!("frame out of bounds");
+    }
+    if status.is_err() {
+        return input_error!("frame processing failed");
+    }
+    for (i, s_status) in section_status.iter().enumerate() {
+        if *s_status == SectionStatus::Done {
+            dec.section_processed[section_ids[i].1] = 1;
+        } else if *s_status != SectionStatus::Skipped {
+            return input_error!("unexpected section status");
+        }
+    }
+    let mut completed_prefix_bytes = 0usize;
+    while dec.next_section < dec.section_processed.len()
+        && dec.section_processed[dec.next_section] == 1
+    {
+        completed_prefix_bytes = completed_prefix_bytes.wrapping_add(toc[dec.next_section].size);
+        dec.next_section += 1;
+    }
+    dec.remaining_frame_size = dec
+        .remaining_frame_size
+        .wrapping_sub(completed_prefix_bytes);
+    dec.advance_codestream(completed_prefix_bytes);
+    JxlDecoderStatus::SUCCESS
+}
+
 // TODO(eustas): no CodecInOut -> no image size reinforcement -> possible OOM.
 fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     // If no parallel runner is set, use the default
@@ -1396,11 +1515,402 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     }
 
     // Handle frames
-    // WIP: the complete frame loop is ported with the incremental
-    // FrameDecoder; until then only its first two exits are present.
-    let parse_frames = dec.events_wanted & (DEC_PREVIEW_IMAGE | DEC_FRAME | DEC_FULL_IMAGE);
-    if parse_frames != 0 && !(dec.frame_stage == FrameStage::Header && dec.is_last_total) {
-        return api_error!("WIP: frame decoding awaits the incremental frame decoder");
+    loop {
+        let parse_frames =
+            (dec.events_wanted & (DEC_PREVIEW_IMAGE | DEC_FRAME | DEC_FULL_IMAGE)) != 0;
+        if !parse_frames {
+            break;
+        }
+        if dec.frame_stage == FrameStage::Header && dec.is_last_total {
+            break;
+        }
+        if dec.frame_stage == FrameStage::Header {
+            if dec.recon_output_jpeg == JpegReconStage::SettingMetadata
+                || dec.recon_output_jpeg == JpegReconStage::Outputting
+            {
+                // The image bundle contains the JPEG reconstruction frame, but
+                // the decoder is still waiting to decode an EXIF or XMP box.
+                // It's not implemented to decode additional frames during this,
+                // and a JPEG reconstruction image should have only one frame.
+                return api_error!("cannot decode a next frame after JPEG reconstruction frame");
+            }
+            if dec.ib.is_none() {
+                // SAFETY: Bundles are released before the image metadata cell
+                // (Drop and Rewind order), and the cell is not mutated after
+                // post_headers while a bundle exists.
+                let image_metadata = unsafe { dec.image_metadata.retained() };
+                dec.ib = Some(Rc::new(RefCell::new(ImageBundle::new(Some(
+                    image_metadata,
+                )))));
+            }
+            // If JPEG reconstruction is wanted and possible, set the jpeg_data
+            // of the ImageBundle.
+            let ib = dec.ib.clone().expect("allocated above");
+            if dec
+                .jpeg_decoder
+                .set_image_bundle_jpeg_data(&mut ib.borrow_mut())
+                .is_err()
+            {
+                return JxlDecoderStatus::ERROR;
+            }
+            // SAFETY: The frame decoder and every frame header are released
+            // before the metadata cell, which is not mutated after the headers.
+            let metadata = unsafe { dec.metadata.retained() };
+            // SAFETY: FrameDecoder::new's output and CMS contract is the public
+            // decoder's: the image-out buffer, callbacks and extra-channel
+            // buffers (jxl_decoder_set_*_buffer/callback), the memory manager
+            // (jxl_decoder_create) and the CMS (jxl_decoder_set_cms) stay valid
+            // until the pipelines built from them are replaced or the decoder
+            // is destroyed. The manager cell outlives the frame decoder.
+            let frame_dec = unsafe { FrameDecoder::new(metadata, dec.manager_ptr(), false) }
+                .expect("parsed metadata has 1..=32 bits per sample and matching extra channels");
+            dec.frame_dec = Some(Box::new(frame_dec));
+            dec.frame_header = Some(Box::new(FrameHeader::new(Some(metadata))));
+            let mut span = CodestreamSpan {
+                data: ptr::null(),
+                size: 0,
+            };
+            api_return_if_error!(dec.get_codestream_input(&mut span));
+            // SAFETY: The span is not used after the input mutations below.
+            let data = unsafe { span_bytes(span) };
+            let mut reader = ScopedReader::new(data);
+            let frame_dec = dec.frame_dec.as_mut().expect("allocated above");
+            let passes_state = dec
+                .passes_state
+                .as_mut()
+                .expect("ReadAllHeaders allocates passes_state");
+            let status =
+                frame_dec.init_frame(passes_state, &mut reader.reader, ib, dec.preview_frame);
+            if reader.reader.all_reads_within_bounds().is_err()
+                || status == Err(StatusCode::NotEnoughBytes)
+            {
+                drop(reader);
+                return dec.request_more_input();
+            } else if status.is_err() {
+                return input_error!("invalid frame header");
+            }
+            let consumed = reader.reader.total_bits_consumed() / 8;
+            drop(reader);
+            dec.advance_codestream(consumed);
+            let frame_dec = dec.frame_dec.as_mut().expect("allocated above");
+            let frame_header = dec.frame_header.as_mut().expect("allocated above");
+            **frame_header = frame_dec.get_frame_header().clone();
+            let frame_dim = frame_header.to_frame_dimensions();
+            if !check_size_limit(
+                frame_dim.xsize_upsampled_padded,
+                frame_dim.ysize_upsampled_padded,
+            ) {
+                return input_error!("frame is too large");
+            }
+            let output_type = if dec.preview_frame {
+                DEC_PREVIEW_IMAGE
+            } else {
+                DEC_FULL_IMAGE
+            };
+            let output_needed = (dec.events_wanted & output_type) != 0;
+            let passes_state = dec
+                .passes_state
+                .as_mut()
+                .expect("ReadAllHeaders allocates passes_state");
+            if output_needed {
+                api_return_if_status_error!(frame_dec.init_frame_output(passes_state));
+            }
+            dec.remaining_frame_size = frame_dec.sum_section_sizes() as usize;
+
+            dec.frame_stage = FrameStage::Toc;
+            if dec.preview_frame {
+                if (dec.events_wanted & DEC_PREVIEW_IMAGE) == 0 {
+                    dec.frame_stage = FrameStage::Header;
+                    dec.advance_codestream(dec.remaining_frame_size);
+                    dec.got_preview_image = true;
+                    dec.preview_frame = false;
+                }
+                continue;
+            }
+
+            let frame_header = dec.frame_header.as_deref().expect("allocated above");
+            let saved_as = FrameDecoder::saved_as(frame_header);
+            // is last in entire codestream
+            dec.is_last_total = frame_header.is_last;
+            // is last of current still
+            dec.is_last_of_still = dec.is_last_total || frame_header.animation_frame.duration > 0;
+            // is kRegularFrame and coalescing is disabled
+            dec.is_last_of_still |= !dec.coalescing
+                && frame_header.frame_type == super::frame_header::FrameType::REGULAR;
+            let internal_frame_index = dec.internal_frames;
+            let external_frame_index = dec.external_frames;
+            if dec.is_last_of_still {
+                dec.external_frames = dec.external_frames.wrapping_add(1);
+            }
+            dec.internal_frames = dec.internal_frames.wrapping_add(1);
+
+            if dec.skip_frames > 0 {
+                dec.skipping_frame = true;
+                if dec.is_last_of_still {
+                    dec.skip_frames -= 1;
+                }
+            } else {
+                dec.skipping_frame = false;
+            }
+
+            if external_frame_index >= dec.frame_external_to_internal.len() {
+                dec.frame_external_to_internal.push(internal_frame_index);
+                if dec.frame_external_to_internal.len() != external_frame_index.wrapping_add(1) {
+                    return api_error!("internal");
+                }
+            }
+
+            if internal_frame_index >= dec.frame_refs.len() {
+                // add the value 0xff (which means all references) to new slots:
+                // we only know the references of the frame at FinalizeFrame, and
+                // fill in the correct values there. As long as this information
+                // is not known, the worst case where the frame depends on all
+                // storage slots is assumed.
+                dec.frame_refs.push(FrameRef {
+                    reference: 0xFF,
+                    saved_as,
+                });
+                if dec.frame_refs.len() != internal_frame_index.wrapping_add(1) {
+                    return api_error!("internal");
+                }
+            }
+
+            if dec.skipping_frame {
+                // Whether this frame could be referenced by any future frame:
+                // either because it's a frame saved for blending or patches, or
+                // because it's a DC frame.
+                let mut referenceable = frame_header.can_be_referenced()
+                    || frame_header.frame_type == super::frame_header::FrameType::DC;
+                if internal_frame_index < dec.frame_required.len()
+                    && dec.frame_required[internal_frame_index] == 0
+                {
+                    referenceable = false;
+                }
+                if !referenceable {
+                    // Skip all decoding for this frame, since the user is
+                    // skipping this frame and no future frames can reference it.
+                    dec.frame_stage = FrameStage::Header;
+                    dec.advance_codestream(dec.remaining_frame_size);
+                    continue;
+                }
+            }
+
+            if (dec.events_wanted & DEC_FRAME) != 0 && dec.is_last_of_still {
+                // Only return this for the last of a series of stills: patches
+                // frames etc... before this one do not contain the correct
+                // information such as animation timing, ...
+                if !dec.skipping_frame {
+                    return JxlDecoderStatus::FRAME;
+                }
+            }
+        }
+
+        if dec.frame_stage == FrameStage::Toc {
+            let frame_dec = dec
+                .frame_dec
+                .as_mut()
+                .expect("the header stage allocates frame_dec");
+            frame_dec.set_render_spotcolors(dec.render_spotcolors);
+            frame_dec.set_coalescing(dec.coalescing);
+
+            if !dec.preview_frame && (dec.events_wanted & DEC_FRAME_PROGRESSION) != 0 {
+                dec.frame_prog_detail = frame_dec.set_pause_at_progressive(dec.prog_detail);
+            } else {
+                dec.frame_prog_detail = JxlProgressiveDetail::FRAMES;
+            }
+            dec.dc_frame_progression_done = false;
+
+            dec.next_section = 0;
+            dec.section_processed.clear();
+            dec.section_processed.resize(frame_dec.toc().len(), 0);
+
+            // If we don't need pixels, we can skip actually decoding the frames.
+            if dec.preview_frame || (dec.events_wanted & DEC_FULL_IMAGE) != 0 {
+                dec.frame_stage = FrameStage::Full;
+            } else if !dec.is_last_total {
+                dec.frame_stage = FrameStage::Header;
+                dec.advance_codestream(dec.remaining_frame_size);
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        if dec.frame_stage == FrameStage::Full {
+            if !dec.image_out_buffer_set {
+                if dec.preview_frame {
+                    return JxlDecoderStatus::NEED_PREVIEW_OUT_BUFFER;
+                }
+                let jpeg_output = dec.jpeg_decoder.is_output_set()
+                    && dec
+                        .ib
+                        .as_ref()
+                        .expect("the header stage allocates the bundle")
+                        .borrow()
+                        .jpeg_data
+                        .is_some();
+                if !jpeg_output && dec.is_last_of_still && !dec.skipping_frame {
+                    // TODO(lode): remove the dec->is_last_of_still condition if
+                    // the frame decoder needs the image buffer as working space
+                    // for decoding non-visible or blending frames too
+                    return JxlDecoderStatus::NEED_IMAGE_OUT_BUFFER;
+                }
+            }
+
+            if dec.image_out_buffer_set {
+                let mut xsize = 0usize;
+                let mut ysize = 0usize;
+                get_current_dimensions(dec, &mut xsize, &mut ysize);
+                let bits_per_sample = get_bit_depth(
+                    dec.image_out_bit_depth,
+                    &dec.metadata().m,
+                    dec.image_out_format,
+                );
+                let frame_dec = dec
+                    .frame_dec
+                    .as_mut()
+                    .expect("the header stage allocates frame_dec");
+                let passes_state = dec
+                    .passes_state
+                    .as_mut()
+                    .expect("ReadAllHeaders allocates passes_state");
+                api_return_if_status_error!(frame_dec.set_image_output(
+                    passes_state,
+                    PixelCallback::new(
+                        dec.image_out_init_callback,
+                        dec.image_out_run_callback,
+                        dec.image_out_destroy_callback,
+                        dec.image_out_init_opaque,
+                    ),
+                    dec.image_out_buffer,
+                    dec.image_out_size,
+                    xsize,
+                    ysize,
+                    dec.image_out_format,
+                    bits_per_sample as usize,
+                    dec.unpremul_alpha,
+                    !dec.keep_orientation,
+                ));
+                for i in 0..dec.extra_channel_output.len() {
+                    let extra = dec.extra_channel_output[i];
+                    let ec_bits_per_sample = get_bit_depth(
+                        dec.image_out_bit_depth,
+                        &dec.metadata.get().m.extra_channel_info[i],
+                        extra.format,
+                    );
+                    api_return_if_status_error!(frame_dec.add_extra_channel_output(
+                        passes_state,
+                        extra.buffer,
+                        extra.buffer_size,
+                        xsize,
+                        extra.format,
+                        ec_bits_per_sample as usize,
+                    ));
+                }
+            }
+
+            let next_num_passes_to_pause = dec
+                .frame_dec
+                .as_ref()
+                .expect("the header stage allocates frame_dec")
+                .next_num_passes_to_pause();
+
+            api_return_if_error!(jxl_decoder_process_sections(dec));
+
+            let frame_dec = dec
+                .frame_dec
+                .as_mut()
+                .expect("the header stage allocates frame_dec");
+            let all_sections_done = frame_dec.has_decoded_all();
+            let got_dc_only = !all_sections_done && frame_dec.has_decoded_dc();
+
+            if dec.frame_prog_detail >= JxlProgressiveDetail::DC
+                && !dec.dc_frame_progression_done
+                && got_dc_only
+            {
+                dec.dc_frame_progression_done = true;
+                dec.downsampling_target = 8;
+                return JxlDecoderStatus::FRAME_PROGRESSION;
+            }
+
+            let new_progression_step_done =
+                frame_dec.num_complete_passes() >= next_num_passes_to_pause;
+
+            if !all_sections_done
+                && dec.frame_prog_detail >= JxlProgressiveDetail::LAST_PASSES
+                && new_progression_step_done
+            {
+                dec.downsampling_target = dec
+                    .frame_header
+                    .as_ref()
+                    .expect("the header stage replaces frame_header")
+                    .passes
+                    .get_downsampling_target_for_completed_passes(
+                        frame_dec.num_complete_passes() as u32
+                    ) as usize;
+                return JxlDecoderStatus::FRAME_PROGRESSION;
+            }
+
+            if !all_sections_done {
+                // Not all sections have been processed yet
+                return dec.request_more_input();
+            }
+
+            let passes_state = dec
+                .passes_state
+                .as_mut()
+                .expect("ReadAllHeaders allocates passes_state");
+            if !dec.preview_frame {
+                let internal_index = dec.internal_frames.wrapping_sub(1);
+                if dec.frame_refs.len() <= internal_index {
+                    return api_error!("internal");
+                }
+                // Always fill this in, even if it was already written, it could
+                // be that this frame was skipped before and set to 255, while
+                // only now we know the true value.
+                dec.frame_refs[internal_index].reference = frame_dec.references(passes_state);
+            }
+
+            if frame_dec.finalize_frame(passes_state).is_err() {
+                return input_error!("decoding frame failed");
+            }
+            // If jpeg output was requested, we merely return the
+            // JXL_DEC_FULL_IMAGE status without outputting pixels.
+            if dec.jpeg_decoder.is_output_set()
+                && dec
+                    .ib
+                    .as_ref()
+                    .expect("the header stage allocates the bundle")
+                    .borrow()
+                    .jpeg_data
+                    .is_some()
+            {
+                dec.frame_stage = FrameStage::Header;
+                dec.recon_output_jpeg = JpegReconStage::SettingMetadata;
+                return JxlDecoderStatus::FULL_IMAGE;
+            }
+            if dec.preview_frame || dec.is_last_of_still {
+                dec.image_out_buffer_set = false;
+                dec.extra_channel_output.clear();
+            }
+        }
+
+        dec.frame_stage = FrameStage::Header;
+
+        // The pixels have been output or are not needed, do not keep them in
+        // memory here.
+        dec.ib = None;
+        if dec.preview_frame {
+            dec.got_preview_image = true;
+            dec.preview_frame = false;
+            dec.events_wanted &= !DEC_PREVIEW_IMAGE;
+            return JxlDecoderStatus::PREVIEW_IMAGE;
+        } else if dec.is_last_of_still
+            && (dec.events_wanted & DEC_FULL_IMAGE) != 0
+            && !dec.skipping_frame
+        {
+            return JxlDecoderStatus::FULL_IMAGE;
+        }
     }
 
     dec.stage = DecoderStage::CodestreamFinished;
@@ -1593,10 +2103,14 @@ unsafe fn handle_boxes(dec: &mut JxlDecoder) -> JxlDecoderStatus {
         }
         if dec.recon_output_jpeg == JpegReconStage::SettingMetadata && !dec.jbrd_need_more_boxes() {
             // The source dereferences the image bundle's JPEG data.
-            let jpeg_data = dec
+            let ib = dec
                 .ib
-                .as_mut()
-                .and_then(|ib| ib.jpeg_data.as_deref_mut())
+                .clone()
+                .expect("the source dereferences the reconstruction bundle");
+            let mut ib = ib.borrow_mut();
+            let jpeg_data = ib
+                .jpeg_data
+                .as_deref_mut()
                 .expect("the source dereferences the reconstruction JPEG data");
             if dec.recon_exif_size != 0 {
                 let status = JxlToJpegDecoder::set_exif(&dec.exif_metadata, jpeg_data);
@@ -1614,14 +2128,21 @@ unsafe fn handle_boxes(dec: &mut JxlDecoder) -> JxlDecoderStatus {
         }
 
         if dec.recon_output_jpeg == JpegReconStage::Outputting && !dec.jbrd_need_more_boxes() {
-            let jpeg_data = dec
+            let ib = dec
                 .ib
-                .as_ref()
-                .and_then(|ib| ib.jpeg_data.as_deref())
-                .expect("the source dereferences the reconstruction JPEG data");
-            // SAFETY: jxl_decoder_set_jpeg_buffer's caller contract covers the
-            // stored output buffer, which is disjoint from the JPEG data.
-            let status = unsafe { dec.jpeg_decoder.write_output(jpeg_data) };
+                .clone()
+                .expect("the source dereferences the reconstruction bundle");
+            let status = {
+                let ib = ib.borrow();
+                let jpeg_data = ib
+                    .jpeg_data
+                    .as_deref()
+                    .expect("the source dereferences the reconstruction JPEG data");
+                // SAFETY: jxl_decoder_set_jpeg_buffer's caller contract covers
+                // the stored output buffer, which is disjoint from the JPEG data.
+                unsafe { dec.jpeg_decoder.write_output(jpeg_data) }
+            };
+            drop(ib);
             if status != JxlDecoderStatus::SUCCESS {
                 return status;
             }
@@ -2382,6 +2903,39 @@ fn prepare_size_check(
 
 pub fn jxl_decoder_get_intended_downsampling_ratio(dec: &JxlDecoder) -> usize {
     dec.downsampling_target
+}
+
+/// JxlDecoderFlushImage.
+///
+/// # Safety
+/// The registered output buffers and callbacks satisfy their contracts.
+pub unsafe fn jxl_decoder_flush_image(dec: &mut JxlDecoder) -> JxlDecoderStatus {
+    if !dec.image_out_buffer_set {
+        return JxlDecoderStatus::ERROR;
+    }
+    if dec.frame_stage != FrameStage::Full {
+        return JxlDecoderStatus::ERROR;
+    }
+    debug_assert!(dec.frame_dec.is_some());
+    let frame_dec = dec
+        .frame_dec
+        .as_mut()
+        .expect("the full stage has a frame decoder");
+    if !frame_dec.has_decoded_dc() {
+        // FrameDecoder::Flush currently requires DC to have been decoded
+        // already to work correctly.
+        return JxlDecoderStatus::ERROR;
+    }
+
+    let passes_state = dec
+        .passes_state
+        .as_mut()
+        .expect("ReadAllHeaders allocates passes_state");
+    if frame_dec.flush(passes_state).is_err() {
+        return JxlDecoderStatus::ERROR;
+    }
+
+    JxlDecoderStatus::SUCCESS
 }
 
 fn safe_mul(a: usize, b: usize, product: &mut usize) -> bool {

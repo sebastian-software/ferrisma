@@ -25,6 +25,10 @@ CAPTURES = [
     ("w=8 h=8 c=3 container=1 level=10", "s320 O4 t0 y L1,1,0,1000,0 w L2,3,0,1000,1"),
     ("w=8 h=8 c=3 container=1", "s1 s64 I0,4 I0,4 i c I0,1 p p"),
     ("w=8 h=8 c=3 container=1", "s16448 L1,1,2,1000,1"),
+    ("w=20 h=14 c=3 a=1 frames=4 layers=1 container=1", "s5184 g0 F4.2.0.0.0 V1 L3,17,0,1000,1"),
+    ("w=12 h=10 c=3 frames=3 duration=5 timecodes=1 container=1 index=1",
+     "s5120 F3.0.2.8.2 L1,1000000,0,1000,1"),
+    ("w=64 h=48 c=3 lossless=0 opt=9:3 opt=10:1", "C s4352 L1,1000000,0,2,0 P0.1.9.16.0.0 F3.0.0.0.0 L2,1000000,0,1000,1 G"),
 ]
 
 
@@ -41,9 +45,12 @@ def generate(oracle):
     files = dict(zip(specs, oracle_lines(oracle, [f"dpub-encode {s}" for s in specs])))
     requests = []
     for index, (spec, script) in enumerate(CAPTURES):
+        # Allocator logs are compared only without ICC and frame owners.
         mm = "1 0" if "icc=1" not in spec else "2 0"
-        if index == len(CAPTURES) - 1:
+        if index == 8:
             mm = "1 3"
+        if index > 8:
+            mm = "0 0"
         requests.append(f"dpub-run {mm} {files[spec]} {script}")
     observations = oracle_lines(oracle, requests)
     return "".join(f"{r}\t{o}\n" for r, o in zip(requests, observations))

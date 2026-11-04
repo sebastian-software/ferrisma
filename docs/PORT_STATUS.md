@@ -28,50 +28,61 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
-## Public incremental decoder API (2026-11-04, in progress)
+## Public incremental decoder API (2026-11-04)
 
-`src/jxl/decode.rs` now holds the original JxlDecoder object from decode.cc,
-with every field in source order and the existing DecoderInput owner at the
-codestream_copy position. Create/Destroy allocate and release the object
-through the caller's memory manager. Reset, Rewind, RewindDecodingState, the
-option setters, SubscribeEvents, SizeHintBasicInfo, ReadBundle, ReadBasicInfo,
-ReadAllHeaders, the basic-info, extra-channel and color getters, ProcessInput,
-HandleBoxes, the complete box API, the frame-index box storage, SkipFrames
-with GetFrameDependencies, the frame-header getters and the output-buffer and
-callback setters are translated. The color setters SetCms,
-SetPreferredColorProfile, SetOutputColorProfile and SetDesiredIntensityTarget
-use the merged OutputEncodingInfo. SetJPEGBuffer, ReleaseJPEGBuffer, the jbrd
-stage with its Exif/XMP size checks and the Exif/XMP storage and JPEG output
-stages of HandleBoxes use the merged JxlToJpegDecoder. The serial ThreadPool
-from data_parallel.h and the public structures from codestream_header.h are
-new modules. ADR 0003 records the object representation.
+`src/jxl/decode.rs` holds the complete original JxlDecoder object and public
+functions from decode.cc, with every field in source order and the existing
+DecoderInput owner at the codestream_copy position. Create/Destroy allocate
+and release the object through the caller's memory manager. Reset, Rewind,
+RewindDecodingState, the option setters, SubscribeEvents, SizeHintBasicInfo,
+ReadBundle, ReadBasicInfo, ReadAllHeaders, ProcessInput, HandleBoxes and
+ProcessCodestream with its complete frame loop, ProcessSections, the basic-info,
+extra-channel, color and frame-header getters, the box API, the frame-index box
+storage, SkipFrames with GetFrameDependencies, SkipCurrentFrame, the frame
+reference updates, FlushImage, the preview/image/extra-channel buffer and
+callback setters (the multithreaded callback API runs serially without a
+runner), SetProgressiveDetail, SetImageOutBitDepth, the color output setters
+(SetCms, SetPreferredColorProfile, SetOutputColorProfile and
+SetDesiredIntensityTarget), and SetJPEGBuffer/ReleaseJPEGBuffer with the jbrd,
+Exif/XMP and JPEG output stages are translated. The frame loop uses the merged
+incremental FrameDecoder with the low-memory pipeline, as decode.cc does; the
+CMS stage is admitted on that pipeline. The serial ThreadPool from
+data_parallel.h and the public structures from codestream_header.h are new
+modules. ADR 0003 records the object representation.
 
 The original public C API of the complete archive is the reference. The
 oracle's `dpub-encode` produces genuine inputs with the original public
 encoder: raw codestreams and containers with Exif, XMP and jumb boxes, brob
 boxes, jxll level boxes, jxlp splits, out-of-order jxlp boxes with ftyp
 version 1, frame index boxes, embedded ICC profiles, extra channels with
-names, orientation, intrinsic size and animation. `dpub-run` replays the same
-caller history on both decoders, including byte-wise and random chunking,
-CloseInput, small box buffers, truncated and mutated inputs, Rewind and Reset
-mid-stream and API misuse. JPEG reconstruction histories use genuine original
-JPEG transcodes with plain and brob Exif/XMP boxes; color histories set the
-default CMS, encoded and ICC output profiles, including every rejection, and
-intensity targets, then read every getter. Statuses, events, getter outputs,
-consumed and released byte counts and box contents compare exactly. Where the
-original allocates only decoder and input storage, the complete custom
-allocator log and injected allocation failures compare too. Eight
-differential groups compare 9,673 histories locally; nine standalone original
-captures run without C++. `tools/decoder_public_reference.py` audits both
-original graphs and three Rust builds in its own nightly audit group.
+names, orientation, intrinsic size, animation, cropped and blended layers,
+progressive DC/AC, resampling, noise, patches and EPF/Gaborish frames. The
+retained original encodings in `tests/data`, including previews, references,
+crops and every extra-channel type, are decoded too, as are original JPEG
+transcodes. `dpub-run` replays the same caller history on both decoders:
+byte-wise and random chunking, CloseInput, small box and JPEG buffers,
+truncated and mutated inputs, Rewind and Reset mid-stream, API misuse, every
+event subscription, image-out buffers, simple and multithreaded callbacks,
+extra-channel buffers, output bit depths, coalescing off, kept orientation,
+unpremultiplied alpha, SkipFrames, SkipCurrentFrame, progressive detail with
+FlushImage, JPEG reconstruction to bytes and CMS output profiles. Statuses,
+events, getter outputs, consumed and released byte counts, box contents, JPEG
+bytes, output sample digests and callback sequences compare exactly. Where
+the original allocates only decoder and input storage, the complete custom
+allocator log and injected allocation failures compare too. Eleven
+differential groups compare 11,501 histories locally; twelve standalone
+original captures run without C++. `tools/decoder_public_reference.py`
+audits both original graphs and three Rust builds in its own nightly audit
+group.
 
-This is not yet complete. The frame loop of ProcessCodestream (including its
-JPEG reconstruction and output-buffer checkpoints), ProcessSections,
-FlushImage, SkipCurrentFrame and the frame-reference updates wait for the
-incremental FrameDecoder and the low-memory pipeline selection. Until then,
-frame, preview, progression and full-image events are not supported, JPEG
-bytes are never written, and this decoder is not a complete public API. The C
-ABI exports and JxlDecoderSetParallelRunner remain separate boundaries.
+Admission: the sequence-profile checks that FrameDecoder retains cannot reject
+a successfully parsed codestream. Parsed metadata always has 1 to 32 bits per
+sample and one ExtraChannelInfo per channel; parsed frame headers always have
+a valid encoding and color transform, 4:4:4 sampling unless YCbCr, and one
+upsampling and blending entry per extra channel. No compared file is rejected
+by them. The ICC reader and frame owners allocate through the global allocator
+rather than the memory manager. The C ABI exports and
+JxlDecoderSetParallelRunner remain separate boundaries.
 
 ## Low-memory render pipeline (2026-11-04)
 
