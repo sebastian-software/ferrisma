@@ -126,6 +126,7 @@ jobs:
             build/root-rust-linux-*/Testing/Temporary/
             build/root-rust-linux-*-results.xml
             build/root-rust-linux-*/aom-root-linkage.json
+            build/root-rust-linux-*/**/*.map
             build/root-rust-linux-*/root-validation/
             build/abi-x86_64-unknown-linux-*/summary.json
             build/root-references-*/reference-profile.json

@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -13,8 +14,12 @@ def main():
     parser.add_argument("build", type=Path)
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument('--tests-regex', help='Explicit bounded CTest selection; omitted for the complete original suite')
+    parser.add_argument('--evidence-dir', type=Path, help='Preserve this actual XML and complete log in a separate immutable directory')
     args = parser.parse_args()
     build = args.build.resolve()
+    directory = args.evidence_dir.resolve() if args.evidence_dir else None
+    if directory and not directory.is_relative_to((ROOT / 'build').resolve()):
+        parser.error('--evidence-dir must remain inside the checkout build directory')
     temporary = build / "test-tmp"
     temporary.mkdir(exist_ok=True)
     environment = os.environ.copy()
@@ -29,7 +34,18 @@ def main():
                "--output-junit", str(ROOT / "build" / f"{build.name}-results.xml")]
     if args.tests_regex:
         command += ['--tests-regex', args.tests_regex, '--no-tests=error']
-    subprocess.run(command, cwd=ROOT, check=True, env=environment)
+    result = subprocess.run(command, cwd=ROOT, env=environment)
+    if directory:
+        directory.mkdir(parents=True, exist_ok=True)
+        for source, name in [(ROOT / 'build' / f'{build.name}-results.xml', 'results.xml'),
+                             (build / 'Testing/Temporary/LastTest.log', 'LastTest.log')]:
+            if source.is_file():
+                destination = directory / name
+                if destination.exists() and destination.read_bytes() != source.read_bytes():
+                    raise SystemExit('Refusing to overwrite different preserved CTest execution evidence')
+                if not destination.exists():
+                    shutil.copyfile(source, destination)
+    result.check_returncode()
 
 
 if __name__ == "__main__":

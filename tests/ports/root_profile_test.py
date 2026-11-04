@@ -15,6 +15,20 @@ sys.path.insert(0, str(REPOSITORY / 'tools'))
 import check_root_profile as subject
 import build_root_references as reference
 import check_aom_root_linkage as linkage
+import validate_root_profile as validator
+
+
+class CTestInventoryGuards(unittest.TestCase):
+    def test_metadata_query_preserves_actual_execution_logs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            build = Path(directory).resolve()
+            (build / 'CTestTestfile.cmake').write_text('add_test(original_case "cmake" "-E" "true")\n')
+            log = build / 'Testing/Temporary/LastTest.log'
+            log.parent.mkdir(parents=True)
+            original = b'Preserved original execution evidence\x00\xff\n'
+            log.write_bytes(original)
+            self.assertEqual(validator.inventory(build), ['original_case'])
+            self.assertEqual(log.read_bytes(), original)
 
 
 class ElfRuntimeGuards(unittest.TestCase):
