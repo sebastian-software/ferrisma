@@ -36,6 +36,10 @@ Inventory queries use copies of the generated CTest registrations because even
 CTest's metadata-only mode rewrites `LastTest.log`. Each validation attempt
 preserves its actual XML, complete logs, configurations, paired report, and byte
 products separately. Later tests do not replace that retained execution proof.
+Compare each ordered GoogleTest case's terminal result and dynamic skip from
+the complete logs; truncated passing JUnit output alone cannot establish that
+inventory. The [retained-log recheck](root-complete-log-validation.json) records
+the existing complete native runs and their actual matching skip lists.
 
 The original AOM video suite retains ADR 0048's complete Release and focused
 Debug policy. Root CI builds all 168 original portable AOM library units as its

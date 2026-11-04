@@ -55,6 +55,35 @@ def case_identities(path, registrations):
     return identities
 
 
+def case_outcomes(path, registrations):
+    """Read every case's terminal result from complete output, not truncated XML."""
+    identities = case_identities(path, registrations)
+    blocks = re.findall(rb"^\d+/\d+ Testing: ([^\r\n]+)\r?\n(.*?)(?=^\d+/\d+ Testing: |\Z)",
+                        path.read_bytes(), re.M | re.S)
+    outcomes = {}
+    for raw_name, output in blocks:
+        name = raw_name.decode('utf-8')
+        active, cases = None, []
+        for line in output.splitlines():
+            start = re.fullmatch(rb'\[ RUN      \] (.+)', line)
+            if start:
+                if active is not None:
+                    raise SystemExit(f'Missing original case result in {path}: {active}')
+                active = start[1].decode('utf-8')
+            finish = re.fullmatch(rb'\[ *(OK|SKIPPED|FAILED) \] (.+) \([\d.]+ ms\)', line)
+            if finish:
+                if active is None or finish[2].decode('utf-8') != active:
+                    raise SystemExit(f'Unexpected original case result in {path}: {line!r}')
+                if finish[1] == b'FAILED':
+                    raise SystemExit(f'Failed original case in {path}: {active}')
+                cases.append(dict(name=active, status=finish[1].decode('ascii')))
+                active = None
+        if active is not None or [case['name'] for case in cases] != identities[name]:
+            raise SystemExit(f'Incomplete original case outcomes in {path}: {name}')
+        outcomes[name] = cases
+    return outcomes
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, default=ROOT / "build/baseline-results.xml")
@@ -82,6 +111,12 @@ def main():
         if original != candidate:
             changed = sorted(name for name in original if original[name] != candidate[name])
             raise SystemExit("Original ordered GoogleTest case names differ: " + ", ".join(changed))
+        original_outcomes = case_outcomes(args.baseline_log, baseline)
+        candidate_outcomes = case_outcomes(args.port_log, port)
+        if original_outcomes != candidate_outcomes:
+            changed = sorted(name for name in original_outcomes
+                             if original_outcomes[name] != candidate_outcomes[name])
+            raise SystemExit('Original ordered GoogleTest outcomes or dynamic skips differ: ' + ', '.join(changed))
         summary["gtest_case_identity"] = {
             "exact_ordered_case_names_match": True,
             "executed_cases": sum(len(names) for names in candidate.values()),
@@ -92,6 +127,11 @@ def main():
             "baseline_complete_log_sha256": hashlib.sha256(args.baseline_log.read_bytes()).hexdigest(),
             "port_complete_log_sha256": hashlib.sha256(args.port_log.read_bytes()).hexdigest(),
         }
+        summary['gtest_case_outcomes'] = dict(exact_ordered_outcomes_and_dynamic_skips_match=True,
+            skipped_cases_by_ctest_registration={name: [case['name'] for case in cases if case['status'] == 'SKIPPED']
+                                                for name, cases in candidate_outcomes.items()},
+            outcomes_sha256_by_ctest_registration={name: hashlib.sha256(json.dumps(cases).encode()).hexdigest()
+                                                  for name, cases in candidate_outcomes.items()})
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(summary, indent=2) + "\n")
     print(f"Identical passing inventory: {len(port)} CTest registrations, {summary['gtest_cases']} GoogleTest cases")
