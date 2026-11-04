@@ -18,12 +18,10 @@ crate-type = ["staticlib", "rlib", "cdylib"]
 libc = "=0.2.191"
 sharpyuv = { package = "libavif-sharpyuv", path = "crates/sharpyuv" }
 dav1d = { package = "libavif-dav1d", path = "crates/dav1d" }
-aom = { package = "libavif-aom", path = "crates/aom", optional = true }
+aom = { package = "libavif-aom", path = "crates/aom" }
 
 [features]
 default = []
-# Internal integration gate; remove when the standalone AOM acceptance passes.
-port-aom-candidate = ["dep:aom"]
 mini = []
 extended-pixi = []
 libgav1 = []

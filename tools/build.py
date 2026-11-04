@@ -44,7 +44,6 @@ def main():
     parser.add_argument("implementation", choices=["baseline", "port"])
     parser.add_argument("--fetch-deps", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
-    parser.add_argument("--aom-candidate", action="store_true", help="Test the gated Rust AOM integration without changing the default engine")
     parser.add_argument("--aom-reference-build", type=Path,
                         help="Link the original C baseline to this complete pinned portable AOM reference")
     parser.add_argument("--native-dependency-root", type=Path, default=ROOT,
@@ -58,8 +57,6 @@ def main():
     for feature in ["libgav1", "rav1e", "svt", "libyuv", "avm"]:
         parser.add_argument("--" + feature, action="store_true")
     args = parser.parse_args()
-    if args.aom_candidate and args.implementation != 'port':
-        parser.error('--aom-candidate requires the Rust port')
     if args.aom_reference_build:
         if args.implementation != 'baseline' or args.asan:
             parser.error('--aom-reference-build requires a nonsanitized original C baseline; ASan needs a separately instrumented AOM reference')
@@ -86,8 +83,6 @@ def main():
     dependencies(args.fetch_deps, dependency_root)
     features = [name for name, enabled in [("mini", args.mini), ("extended-pixi", args.extended_pixi),
                 ("libgav1", args.libgav1), ("rav1e", args.rav1e), ("svt", args.svt), ("libyuv", args.libyuv), ("avm", args.avm)] if enabled]
-    if args.aom_candidate:
-        features.append('port-aom-candidate')
     suffix = (("-" + "-".join(features) if features else "")
               + ("-aom-reference" if args.aom_reference_build else "")
               + ("-debug" if args.debug else "") + ("-asan-llvm16" if args.asan else ""))
@@ -113,7 +108,7 @@ def main():
         f"-DAVIF_CODEC_AVM={'SYSTEM' if args.avm else 'OFF'}",
         f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
-    if args.aom_candidate:
+    if args.implementation == 'port':
         command += ['-DLIBAVIF_RS_AOM_IN_RUST=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
     if args.aom_reference_build:
         command += [f'-DLIBAVIF_RS_AOM_REFERENCE_BUILD={args.aom_reference_build}',
@@ -146,11 +141,10 @@ def main():
             cargo += ["--features", ",".join(features)]
         environment = os.environ.copy()
         target = ROOT / "target"
-        if args.aom_candidate:
-            # Keep the immutable archives used by running standalone shards.
-            variant = '-'.join(name for name in features if name != 'port-aom-candidate')
-            target = ROOT / ('build/aom-root-cargo-target' + ('-' + variant if variant else ''))
-            environment['CARGO_TARGET_DIR'] = str(target)
+        # Keep the immutable archives used by running standalone shards.
+        variant = '-'.join(features)
+        target = ROOT / ('build/aom-root-cargo-target' + ('-' + variant if variant else ''))
+        environment['CARGO_TARGET_DIR'] = str(target)
         if args.asan:
             target = target / "asan"
             environment["CARGO_TARGET_DIR"] = str(target)
