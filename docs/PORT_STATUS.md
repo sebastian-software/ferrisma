@@ -38,16 +38,69 @@ codestreams and containers with their boxes. The
 on the merged PR #50 tree passes the ordinary and ASan/UBSan oracles and its
 source audits on Linux and macOS. Every test definition in the pinned
 `decode_test.cc` runs as a differential case
-([PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52)). The
-sections below record each slice, its evidence and its not-applicable checks.
+([PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52)). The thread
+and resizable runners and JxlDecoderSetParallelRunner are ported, and the
+public decoder runs its RunOnPool schedules through them. The sections below
+record each slice, its evidence and its not-applicable checks.
 
-Remaining decoder-side gaps: the thread and resizable runners and
-JxlDecoderSetParallelRunner are not ported, so the decoder runs serially; the
-C ABI exports of the decoder and encoder are absent; the ICC reader and frame
-owners allocate through the global allocator rather than the caller's memory
-manager; and the translated skcms SKX engine has no AVX-512 acceptance.
-Container writing, general encoding and the public encoder API remain
-unported.
+Remaining decoder-side gaps: the decoder's RunOnPool task bodies are
+serialized under a runner, so a runner brings no parallel speedup yet; the
+C ABI exports of the decoder, encoder and runners are absent; the ICC reader
+and frame owners allocate through the global allocator rather than the
+caller's memory manager; and the translated skcms SKX engine has no AVX-512
+acceptance. Container writing, general encoding, the public encoder API and
+JxlEncoderSetParallelRunner remain unported.
+
+## Thread runners and JxlDecoderSetParallelRunner (2026-11-04)
+
+`src/threads/` translates `lib/threads`: ThreadParallelRunner from
+`thread_parallel_runner_internal.{h,cc}` with its worker threads, the
+command/condition-variable protocol, guided work distribution, re-entry
+detection and RunOnEachThread; the JxlThreadParallelRunner functions of
+`thread_parallel_runner.cc` (the runner callback, Create with its memory
+manager and placement construction, Destroy and DefaultNumWorkerThreads); and
+ResizeableParallelRunner with the JxlResizableParallelRunner functions of
+`resizable_parallel_runner.cc` (the runner callback, Create, SetThreads,
+Destroy and SuggestThreads). They use `std::thread` and `std::sync`; no C or
+C++ code is linked. ADR 0003 records the representation.
+
+JxlDecoderSetParallelRunner in `decode.rs` replaces the decoder's ThreadPool
+before decoding starts, as decode.cc does. The frame decoder retains the pool
+and runs every RunOnPool site that the original runs through it: the DC
+groups, the AC groups and the forced draw of Flush with PrepareStorage as the
+init function, AdaptiveDCSmoothing's two row ranges, and FinalizeDecoding with
+its inverse RCT, squeeze and palette transforms and its group conversion with
+PrepareForThreads as the init function. FinalizeDecoding keeps the original
+small-image null pool. The runner chooses the init thread count, the calling
+threads, the task order and the tasks that the error flag skips; per-thread
+storage follows the thread ids, and errors collapse to the original's runner
+failure. The task bodies share non-thread-safe owners, so one lock per
+RunOnPool call serializes them (`run_on_pool_exclusive`). The encoder's
+RunOnPool sites keep a null pool.
+
+Evidence: `tests/thread_runners.rs` ports `thread_parallel_runner_test.cc`
+(TestPool with 0 to 18 threads, TestSmallAssignments, TestCounter) through
+ThreadPool, runs the same properties on the resizable runner, and checks init
+thread counts, thread-id bounds, range checks, error propagation, re-entry,
+RunOnEachThread, the memory manager, resizing and SuggestThreads. The `runners`
+family of `tests/parity/decoder_public.rs` decodes 14 genuine original
+encodings that reach every site above with more than one task. It uses the
+thread runner (0, 1, 2 and 5 workers), the resizable runner (SetThreads 0, 1, 3
+and 8), the DecodeWithAPI runners and the null runner: 332 histories compare
+exactly with the original under the same runner. The original's history with a
+runner must equal its runner-free history wherever outputs go through caller
+buffers. The multithreaded callback writes into a caller buffer too (output
+mode 5); its init thread counts compare for explicit thread counts, and every
+run call's thread id must be below the latest init's count. The decode_test.cc
+runner histories now also run on Rust with the translated runner (see below),
+and two retained captures replay runner histories without C++.
+
+Not established: concurrent execution of the decoder's task bodies and its
+performance, the C ABI exports, JxlEncoderSetParallelRunner and encoder-side
+RunOnPool. Default thread counts come from `available_parallelism`, which can
+differ from libc++'s `hardware_concurrency` on restricted hosts; no decoded
+output depends on them. The runner tests check properties, not schedules, and
+no thread sanitizer runs on Rust.
 
 ## Public incremental decoder API (2026-11-04)
 
@@ -61,15 +114,13 @@ ProcessCodestream with its complete frame loop, ProcessSections, the basic-info,
 extra-channel, color and frame-header getters, the box API, the frame-index box
 storage, SkipFrames with GetFrameDependencies, SkipCurrentFrame, the frame
 reference updates, FlushImage, the preview/image/extra-channel buffer and
-callback setters (the multithreaded callback API runs serially without a
-runner), SetProgressiveDetail, SetImageOutBitDepth, the color output setters
+callback setters, SetProgressiveDetail, SetImageOutBitDepth, the color output setters
 (SetCms, SetPreferredColorProfile, SetOutputColorProfile and
 SetDesiredIntensityTarget), and SetJPEGBuffer/ReleaseJPEGBuffer with the jbrd,
 Exif/XMP and JPEG output stages are translated. The frame loop uses the merged
 incremental FrameDecoder with the low-memory pipeline, as decode.cc does; the
-CMS stage is admitted on that pipeline. The serial ThreadPool from
-data_parallel.h and the public structures from codestream_header.h are new
-modules. ADR 0003 records the object representation.
+CMS stage is admitted on that pipeline. The ThreadPool from data_parallel.h
+and the public structures from codestream_header.h are new modules. ADR 0003 records the object representation.
 
 The original public C API of the complete archive is the reference. The
 oracle's `dpub-encode` produces genuine inputs with the original public
@@ -90,11 +141,11 @@ FlushImage, JPEG reconstruction to bytes and CMS output profiles. Statuses,
 events, getter outputs, consumed and released byte counts, box contents, JPEG
 bytes, output sample digests and callback sequences compare exactly. Where
 the original allocates only decoder and input storage, the complete custom
-allocator log and injected allocation failures compare too. Eleven
-differential groups compare 10,662 histories locally; twelve standalone
-original captures run without C++. `tools/decoder_public_reference.py`
-audits both original graphs and three Rust builds in its own nightly audit
-group.
+allocator log and injected allocation failures compare too. Twelve
+differential groups compare 10,994 histories locally, including the 332
+runner histories above; fourteen standalone original captures run without
+C++. `tools/decoder_public_reference.py` audits both original graphs and three
+Rust builds in its own nightly audit group.
 
 Another 839 histories (830 truncated or mutated inputs and 9 JPEG
 reconstruction histories) release their input and then continue an
@@ -112,8 +163,8 @@ sample and one ExtraChannelInfo per channel; parsed frame headers always have
 a valid encoding and color transform, 4:4:4 sampling unless YCbCr, and one
 upsampling and blending entry per extra channel. No compared file is rejected
 by them. The ICC reader and frame owners allocate through the global allocator
-rather than the memory manager. The C ABI exports and
-JxlDecoderSetParallelRunner remain separate boundaries.
+rather than the memory manager. The C ABI exports remain a separate boundary;
+JxlDecoderSetParallelRunner is covered in the section above.
 
 ## Public decoder API test inventory (2026-11-04)
 
@@ -135,11 +186,11 @@ from the pinned testdata submodule (an 80 MiB pack, 110 MiB checked out) are
 copied unchanged into `tests/data/decode-test/` (543 KiB), with their CC BY 4.0
 and CC0 notices; the submodule is not needed to run the tests.
 
-The original-only parts are listed in the table. Not applicable: (a)
-JxlDecoderSetParallelRunner and the thread and resizable runners are not
-ported. The original runs each runner history, and the runner-free history must
-match it exactly; Rust runs the runner-free history serially, as the original
-does with a null runner. That covers 1,909 runner histories. (b) Butteraugli,
+The table marks runner histories and the original-only parts. (a) The test
+sets a thread or resizable runner. Its histories run on the original and on
+Rust with the same runner and compare exactly; the original's runner history
+must also equal its runner-free history, which Rust runs as well. Outputs
+under a runner compare through caller buffers. Not applicable: (b) Butteraugli,
 DistanceRMS and ComparePixels against the encoder input, and the CodecInOut
 conversions that prepare those comparisons, measure the encoder. The exact
 comparison with the original decoder's output replaces them. (c) The extras
@@ -150,26 +201,28 @@ test image; the pinned code after the encoder call is unchanged. (d) Encoder
 expectations in the test bodies, such as frame counts of AnalyzeCodestream,
 are not repeated. The extracted helpers' own expectations throw in the oracle.
 
-All 6,304 Rust histories match the original locally on macOS AArch64, in 31
-families and 29 tests. Most families also require that the original's statuses
-follow the test's own expectations, so each history takes the path of the test
-it ports. No history reaches the original's undefined raw-box copy with a null
-input, which would run original-only as in the public decoder families. No
-deviation in the Rust port was found.
+All 6,304 runner-free Rust histories match the original locally on macOS
+AArch64, in 31 families and 29 tests. The ten runner families add 2,669
+histories with the translated runners, 1,898 of which set a runner. Most
+families also require that the original's statuses follow the test's own
+expectations, so each history takes the path of the test it ports. No history
+reaches the original's undefined raw-box copy with a null input, which would
+run original-only as in the public decoder families. No deviation in the Rust
+port was found.
 
 | decode_test.cc test | Status | API sequence and checks |
 | --- | --- | --- |
 | JxlSignatureCheckTest | ported | JxlSignatureCheck on the ten vectors |
 | DefaultAllocTest | ported | Create and Destroy with the default manager |
 | CustomAllocTest | ported | Custom manager; the complete allocation and free log compares |
-| DefaultParallelRunnerTest | not applicable (a) | SetParallelRunner(nullptr, nullptr) only on the original; equals the runner-free history |
+| DefaultParallelRunnerTest | ported; (a) | SetParallelRunner(nullptr, nullptr); equals the runner-free history |
 | BasicInfoTest | ported | Every prefix of two GetTestHeader headers: GetBasicInfo, extra-channel info and name, late SubscribeEvents, Reset |
 | BufferSizeTest | ported | ImageOutBufferSize after the header |
 | BasicInfoSizeHintTest | ported | SizeHintBasicInfo before and after an inserted box |
 | IccProfileTestOriginal | ported | Encoded-profile and ICC getters for both targets, null outputs |
 | IccProfileTestXybEncoded | ported | The same, then SetPreferredColorProfile to sRGB and linear |
 | ICCPartialTest | ported | One more byte per call through basic info and the ICC profile |
-| DecodeTestParam/PixelTest (1,532) | ported; (a), (b) | DecodeWithAPI over formats, callbacks, upsampling, boxes, previews, intrinsic sizes, early buffers and orientations; thread and resizable runners on the original |
+| DecodeTestParam/PixelTest (1,532) | ported; (a), (b) | DecodeWithAPI over formats, callbacks, upsampling, boxes, previews, intrinsic sizes, early buffers and orientations; thread and resizable runners on both decoders |
 | PixelTestWithICCProfileLossless | ported; (a), (b) | Six DecodeWithAPI calls on one decoder with Reset between |
 | PixelTestWithICCProfileLossy | ported; (a), (b) | DecodeWithAPI with the data ICC profile |
 | DecodeAllEncodingsTest/PreserveOriginalProfileTest (216) | ported; (b) | 54 relative-intent encodings decode; the others return before any API call |
@@ -484,14 +537,14 @@ followed in PRs #46 to #50.
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
 | `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, retained shared reference temporary, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
-| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | DecodeFrame and the complete public incremental FrameDecoder: InitFrame/InitFrameOutput, SectionInfo/TocEntry/SectionStatus, ProcessSections with partial and permuted input and progressive DC/pass pauses, Flush, FinalizeFrame, References/SavedAs, TOC/pass/DC accessors, SetPauseAtProgressive/NextNumPassesToPause, SetRenderSpotcolors/SetCoalescing, SetImageOutput/AddExtraChannelOutput with the original output-stage selection; null pool with the constructor's simple/low-memory pipeline selection (fixed profiles select the simple pipeline), explicit profile admission; `decode.cc` orchestration remains separate |
+| `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | DecodeFrame and the complete public incremental FrameDecoder: InitFrame/InitFrameOutput, SectionInfo/TocEntry/SectionStatus, ProcessSections with partial and permuted input and progressive DC/pass pauses, Flush, FinalizeFrame, References/SavedAs, TOC/pass/DC accessors, SetPauseAtProgressive/NextNumPassesToPause, SetRenderSpotcolors/SetCoalescing, SetImageOutput/AddExtraChannelOutput with the original output-stage selection; the retained pool runs the DC/AC group and forced-draw RunOnPool sites (task bodies serialized under a runner; null for the internal profiles), with the constructor's simple/low-memory pipeline selection (fixed profiles select the simple pipeline), explicit profile admission; `decode.cc` orchestration remains separate |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
 | `opsin_params.h`, `.cc`, output-encoding methods in `dec_xyb.h`, `.cc` | `opsin_params.rs`, `dec_xyb.rs` | Pinned default-matrix selection, four-lane inverse-matrix expansion, OpsinParams initialization, CanOutputToColorEncoding, complete OutputEncodingInfo storage and metadata/desired-profile setters; general image conversion and fast XYB output unported |
 | `image_bundle.h`, selected methods in `.cc` | `image_bundle.rs` | Storage/constructors, metadata/color/extra/size access, SetFromImage conditional ownership transfer, VerifySizes/VerifyMetadata, alpha presence/premultiplication/plane access, decoded-byte accessors, RemoveColor, and declaration-ordered explicit move with destination-borrowed source color aliases; general import/export/copy unported |
 | `render_pipeline/render_pipeline_stage.h`, `.cc`, write stages in `stage_write.cc` | `render_pipeline/render_pipeline_stage.rs` | Complete stage settings/base hooks/row access and WriteToImage3F/WriteToImageBundle stages with borrowed/retained standalone, indexed DC and existing-reference write targets; pixel-buffer output/callback stage is mapped separately below; remaining concrete stages unported |
-| `render_pipeline/render_pipeline.h`, `.cc` | `render_pipeline/render_pipeline.rs` | Complete RenderPipeline base, Builder (UseSimpleImplementation selection, padding/shift tables, Init), and RenderPipelineInput with input/counter/thread-preparation operations; concurrent pipeline access unported |
+| `render_pipeline/render_pipeline.h`, `.cc` | `render_pipeline/render_pipeline.rs` | Complete RenderPipeline base, Builder (UseSimpleImplementation selection, padding/shift tables, Init), and RenderPipelineInput with input/counter/thread-preparation operations; concurrent pipeline access unported (runner tasks are serialized) |
 | `render_pipeline/simple_render_pipeline.h`, `.cc` | `render_pipeline/simple_render_pipeline.rs` | Complete simple storage, mirroring, stage scheduling, clipping, padding, and dimension transition; SimpleRenderPipelineBuilder keeps the concrete type after UseSimpleImplementation |
-| `render_pipeline/low_memory_render_pipeline.h`, `.cc`, `dec_group_border.h`, `.cc` | `render_pipeline/low_memory_render_pipeline.rs`, `dec_group_border.rs` | Complete LowMemoryRenderPipeline: Init border/padding/trailing-stage/image-dimension setup, ring-buffer sizing replay, per-group/per-thread storage, border save/load, GroupBorderAssigner scheduling, RenderRect virtual-row scheduling with mirroring and x-padding, out-of-frame RenderPadding; null-pool sequential execution only |
+| `render_pipeline/low_memory_render_pipeline.h`, `.cc`, `dec_group_border.h`, `.cc` | `render_pipeline/low_memory_render_pipeline.rs`, `dec_group_border.rs` | Complete LowMemoryRenderPipeline: Init border/padding/trailing-stage/image-dimension setup, ring-buffer sizing replay, per-group/per-thread storage, border save/load, GroupBorderAssigner scheduling, RenderRect virtual-row scheduling with mirroring and x-padding, out-of-frame RenderPadding; runner tasks reach it one at a time, with per-thread storage selected by thread id |
 | `render_pipeline/stage_from_linear.h`, `.cc`, `render_pipeline/stage_to_linear.h`, `.cc` | `render_pipeline/stage_from_linear.rs`, `render_pipeline/stage_to_linear.rs` | Complete scalar factory-reached Linear/sRGB/PQ/HLG/BT709/gamma/DCI conversion stages, copied operation state, row guards and load-transform-store order; legacy sRGB factory retained; general HDR/CMS and ICC whole-file integration remains separate |
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
@@ -507,7 +560,7 @@ followed in PRs #46 to #50.
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
 | `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
 | `dec_group.cc` (`DecodeACVarBlock`, `GetBlockFromBitstream`, group orchestration) | `dec_group.rs`, `dec_group_render.rs`, `quantizer_inl.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; GetBlockFromBitstream, complete DecodeGroup (including the zero-pass 8x-upsampled DC draw and stored-coefficient forced draw used by Flush) and final ANS validation are connected to scalar dequantization/traversal in dec_group_render.rs |
-| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, null-pool/simple-pipeline FinalizeDecoding, and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata connected to the first VarDCT frame profile; general frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
+| `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, FinalizeDecoding with the frame's pool (inverse transforms and group conversion; small images use a null pool), and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata connected to the first VarDCT frame profile; general frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
@@ -526,7 +579,7 @@ followed in PRs #46 to #50.
 | `frame_dimensions.h` | `frame_dimensions.rs` | Pixel/block/group dimensions, original rounding/padding, and group rectangles |
 | `base/rect.h` | `base/rect.rs` | Unsigned Rect coordinates, crop/intersection, translation, shifts, and extension; the RectT<ptrdiff_t> constructors, intersection, translation and shifts reached by the low-memory pipeline; image/row accessors unported |
 | `pack_signed.h` | `pack_signed.rs` | Signed packing and pointer-width unpacking |
-| `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and null-pool row traversal |
+| `compressed_dc.cc` | `compressed_dc.rs` | Complete scalar DequantDC and AdaptiveDCSmoothing, source storage swaps and RunOnPool row ranges |
 | `epf.cc`, `render_pipeline/stage_epf.h`, `.cc` | `epf.rs`, `render_pipeline/stage_epf.rs` | Complete block sigma generation and mirrored borders; complete scalar EPF0/1/2 stages and live shared sigma binding are connected for the expanded VarDCT profile |
 | `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, scalar EPF stages mapped above |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
@@ -541,13 +594,13 @@ followed in PRs #46 to #50.
 | `modular/encoding/encoding.h`, `.cc` | `modular/encoding/encoding.rs` | Complete header/channel/modular image decoding, static filtering/flattening, LUTs, local/global trees and entropy tables, dimension validation, transform application, and original truncation/cleanup/finalization behavior; frame orchestration remains separate |
 | `modular/encoding/enc_encoding.h`, `.cc` | `modular/encoding/enc_encoding.rs` | Complete standalone generic modular encoder, learned/predefined trees, given-tree ModularCompress and channel residual encoding, original fast paths, overflow checks, and predictor-image scratch writes; frame orchestration remains separate |
 | `base/random.h` | `base/random.rs` | Original xorshift state, integer/float/Bernoulli/geometric distributions, and forward shuffle; source argument preconditions retained |
-| `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, resize failure state, and reverse transform-stack execution with retained failures; diagnostics/custom runners unported |
+| `modular/modular_image.h`, `.cc` | `modular/modular_image.rs` | Channels, image storage, explicit cloning, empty detection, resize failure state, and reverse transform-stack execution with retained failures and the caller's pool; diagnostics unported |
 | `modular/transform/transform.h`, `.cc`, `squeeze_params.h`, `.cc` | `modular/transform/transform.rs`, `modular/transform/squeeze_params.rs` | Transform/squeeze field storage and serialization, PixelAdd, channel-range validation, and complete MetaApply/Inverse dispatch to scalar null-pool kernels |
-| `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations in the null-pool configuration; SIMD and custom runners unported |
+| `modular/transform/rct.h`, `.cc`, `enc_rct.h`, `.cc` | `modular/transform/rct.rs`, `modular/transform/enc_rct.rs` | Existing scalar forward/inverse color transforms, both forward call forms, and whole-channel permutations; inverse rows run on the caller's pool; SIMD unported |
 | `modular/transform/palette.h`, `.cc`, `enc_palette.h`, `.cc` | `modular/transform/palette.rs`, `modular/transform/enc_palette.rs` | Explicit/implicit/delta lookup, metadata edits, inverse prediction, lossless lookup/set selection, ordered palettes, and original lossy iterations, delta learning, and dithering in defined source configurations |
 | `modular/transform/enc_transform.h`, `.cc` | `modular/transform/enc_transform.rs` | Complete forward transform dispatch and optional-output min/max scan in the null-pool configuration |
 | Reference libc++ non-arithmetic `std::sort` specialization | `base/libcpp_sort.rs` | Original pivot selection, partitions, insertion loops, equivalent-element order, and heap fallback; source version/hashes retained in `tools/reference/libcxx` |
-| `modular/transform/squeeze.h`, `.cc`, `enc_squeeze.h`, `.cc` | `modular/transform/squeeze.rs`, `modular/transform/enc_squeeze.rs` | Original scalar forward/inverse kernels, tendency, default schedules, validation, metadata edits, task spans, and channel replacement; SIMD/custom runners unported |
+| `modular/transform/squeeze.h`, `.cc`, `enc_squeeze.h`, `.cc` | `modular/transform/squeeze.rs`, `modular/transform/enc_squeeze.rs` | Original scalar forward/inverse kernels, tendency, default schedules, validation, metadata edits, task spans on the caller's pool, and channel replacement; SIMD unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |
 | `cms/transfer_functions.h`, `cms/tone_mapping.h` | `cms/transfer_functions.rs`, `cms/tone_mapping.rs` | Scalar HLG/PQ, Rec. 2408, HLG OOTF, and gamut mapping; SIMD variants unported |

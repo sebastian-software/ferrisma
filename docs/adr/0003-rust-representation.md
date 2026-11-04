@@ -228,9 +228,10 @@ input/output permutations. A private row-access trait expresses the source's
 in-place and separate-buffer calls without aliased shared/mutable references:
 load all three samples before storing any output. Whole-channel inverse moves
 use swaps over the same three owners, preserving component tags without plane
-copies or replacement allocations. Custom thread runners and arbitrary C
-pointer alias contracts remain unported. The null-pool row order and the source
-uint32 task-end narrowing stay explicit. Forward scalar i32 expressions retain
+copies or replacement allocations. Arbitrary C pointer alias contracts remain
+unported. Rows run through RunOnPool: in ascending task order with a null pool,
+and serialized under a runner (see Thread runners and RunOnPool). The source
+uint32 task-end narrowing stays explicit. Forward scalar i32 expressions retain
 the source's nonoverflowing input requirement; inverse Highway Add/Sub use
 explicit wrapping. Keep the in-place forward no-op's false Status distinct from
 the separate-buffer and inverse no-ops' successful Status.
@@ -290,7 +291,8 @@ Metadata edits retain changes completed before failure, including meta counts
 and previously processed channels. New source pixel storage is indeterminate;
 metadata-only oracle observations omit it. Reverse stack execution copies one
 Transform as the source does, pops it after success, and leaves a failed entry
-and the error flag visible. Custom runners remain a separate boundary.
+and the error flag visible. The inverse transforms receive the caller's pool;
+FinalizeDecoding's small-image guard still replaces it with a null pool.
 
 ModularDecode temporarily moves its transform-vector owner out while applying
 each mutable entry to the image, then restores it on success or failure.
@@ -795,7 +797,7 @@ pointers are non-owning. PixelCallback::init is unsafe because its actual foreig
 function/opaque-data contract belongs to the caller; a local proof covers the
 call. Presence tests only inspect run, and Init returns the callback pointer
 unchanged, including null. Descriptor drops do not call destroy. The output-stage
-lifecycle and custom allocators/runners remain separate work. Oracle fixtures
+lifecycle and custom allocators remain separate work. Oracle fixtures
 explicitly seed source-indeterminate state before observing initialization.
 
 Callback ICC setters take a mutable byte owner: failed guards/parsing retain its
@@ -1211,9 +1213,9 @@ are copied. Parameter assignments replace the inner value at the original source
 checkpoint; row calls read current owners under short immutable borrows, and
 source decoding writes under exclusive borrows between stage calls. The enclosing
 metadata owner outlives headers, references and pipeline stages. These dynamic
-borrows eliminate owner self-references without cloning images or caches. This
-mapping applies to the admitted simple/null-runner pipeline; custom concurrent
-runners remain a separate source boundary.
+borrows eliminate owner self-references without cloning images or caches.
+Under a parallel runner, the task bodies that use these owners are serialized
+(see Thread runners and RunOnPool), so the borrows never race.
 
 Noise parsing retains eight ten-bit reads and the original deferred bounds/close
 lifecycle. Xorshift128Plus keeps all eight independent generators, both original
@@ -1934,6 +1936,47 @@ unsafe entry points that state their lifetime contracts. Output structs that
 the source accepts as null are `Option<&mut T>`. C enums use transparent
 integer carriers. Exporting these functions through the C ABI is a separate
 boundary.
+
+### Thread runners and RunOnPool
+
+The thread and resizable runners of `lib/threads` use `std::thread`,
+`std::sync::Mutex` and `Condvar`; no C or C++ code is linked. Each runner keeps
+its original command/condition-variable protocol, guided or atomic-counter work
+distribution, thread-id assignment, init thread count and re-entry detection.
+A std::mutex and the variables it guards become one `Mutex`. Lock poisoning
+cannot occur, because an unwinding `extern "C"` callback aborts. Fields that
+the main thread writes and workers read after the mutex hand-off are
+`UnsafeCell`s with stated happens-before edges. The thread runner is
+constructed in place in its memory manager's allocation and keeps
+`#[repr(C)]` so that its false-sharing padding still separates the workers'
+counter. Workers hold a raw pointer to the runner, which does not move until
+its destructor has joined them. The resizable runner's destructor body runs
+through a shared reference before its box is released. `hardware_concurrency`
+maps to `available_parallelism`, which honors CPU affinity and cgroup quotas
+where libc++ reports online processors. Only default and suggested thread
+counts read it.
+
+`ThreadPool::new` is unsafe: a present runner must obey parallel_runner.h for
+the pool's lifetime. `run` and `run_on_pool` are then safe. The decoder's
+RunOnPool task bodies borrow non-thread-safe owners: the `Rc<RefCell>` sharing
+above, the pipeline's per-thread storage and exclusive borrows of the frame
+state and section readers. They therefore run through `run_on_pool_exclusive`.
+The runner still chooses the init thread count, the calling threads, the task
+order and which tasks an error flag skips. One lock per RunOnPool call
+serializes the init and task bodies, and its acquire/release orders every
+access to those owners. This is sound because the calling thread waits inside
+the runner call, no other thread holds a handle to the borrowed owners, and
+none of them is thread-affine. Output callbacks are therefore called from
+runner threads one at a time, which decode.h permits. Thread ids select
+per-thread storage as in the source.
+
+The frame decoder retains a pointer to the decoder's boxed pool, as the
+source's `pool_`. The box is replaced only in the Inited stage or by Reset,
+while no frame decoder exists. The fixed internal profiles keep a null pool.
+Serialized task bodies preserve every observable output, but they provide no
+parallel speedup. Running them concurrently requires thread-safe owners. That
+is a separate change with its own performance evidence, not part of the
+mechanical port. The encoder's RunOnPool sites still use a null pool.
 
 JPEG reconstruction writing retains borrowed marker/tail payloads and owned
 bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed

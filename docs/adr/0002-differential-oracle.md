@@ -64,12 +64,21 @@ expectations that throw, the pinned testdata bytes instead of file readers, and
 a genuine cjpeg file where a helper would call the extras libjpeg encoder,
 which the oracle does not build. A check that compares output with the encoder
 input (Butteraugli, pixel distances) is replaced by exact equality with the
-original decoder's output, not by a tolerance. Parallel runners are not ported:
-a history that sets one runs only on the original, which must reproduce its own
-runner-free history exactly, and Rust runs that runner-free history, as the
-original does with a null runner. Callback output under a runner compares
-through a caller buffer, which is independent of the call order; the runner-free
-history also compares every call in order.
+original decoder's output, not by a tolerance. A history that sets a parallel
+runner runs on both decoders with the same runner and thread count: the
+original's thread or resizable runner, and its Rust translation. Which thread
+runs which task, and in which order, is nondeterministic. These histories
+therefore compare statuses, events, getters and outputs through caller
+buffers, including callback output written into a caller buffer at its stride.
+For these histories, the original with a runner must also reproduce its own
+runner-free history exactly. That history compares every callback call in
+order as well. The multithreaded callback's init arguments depend on the
+runner and its thread count, not on the schedule. They compare for explicit
+thread counts, together with a check that each run call's thread id is below
+the latest init's count. Default thread counts follow the host's reported
+concurrency, which Rust and libc++ may report differently, so histories that
+observe thread counts set them explicitly. The runners themselves are tested
+for the properties of `thread_parallel_runner_test.cc`, not for one schedule.
 
 The scalar Clang build retains upstream `lib/CMakeLists.txt`'s
 `-fno-slp-vectorize -fno-vectorize` settings. Repository Rust builds mirror them

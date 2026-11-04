@@ -24,8 +24,10 @@ for the precise configuration, source mapping, evidence and remaining scope.
 boxes, events, output buffers and callbacks, progressive output, color and
 HDR output through the translated default CMS, and JPEG reconstruction. Caller
 histories, including every test in the pinned `decode_test.cc`, compare exactly
-with the original public API. It runs serially: parallel runners and the C ABI
-exports are not ported yet. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
+with the original public API. The thread and resizable runners are ported, and
+`jxl_decoder_set_parallel_runner` runs the decoder's parallel schedules through
+them; the task bodies still run one at a time. The C ABI exports are not
+ported yet. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
 
 ## Port checklist
 
@@ -87,8 +89,7 @@ sequence and acceptance gates for this work.
   public decoder.
 - [x] Reconstruct original JPEG bitstreams and restore their Exif/XMP metadata.
 - [x] Port the public decoder API from `decode.cc` to Rust, including incremental
-  input, events, callbacks and progressive output. It runs serially without a
-  parallel runner.
+  input, events, callbacks and progressive output.
 
 ### Remaining encoder work
 
@@ -110,8 +111,12 @@ sequence and acceptance gates for this work.
 - [x] Port the low-memory rendering pipeline and select it as `decode.cc` does.
 - [ ] Route custom allocators through every owner; the ICC reader and frame
   owners still allocate through the global allocator.
-- [ ] Port the thread runners and `JxlDecoderSetParallelRunner`/
-  `JxlEncoderSetParallelRunner`, with their parallel schedules.
+- [x] Port the thread and resizable runners and `JxlDecoderSetParallelRunner`,
+  with the decoder's parallel schedules. Its task bodies run serialized under
+  a runner, without a parallel speedup yet.
+- [ ] Port `JxlEncoderSetParallelRunner` with the encoder's parallel schedules.
+- [ ] Run the decoder's parallel task bodies concurrently, with thread-safe
+  owners and measured performance.
 - [ ] Export the public decoder and encoder C ABI.
 - [ ] Translate the remaining original SIMD target specializations and dispatch,
   and accept the translated skcms SKX engine on an AVX-512 host.
