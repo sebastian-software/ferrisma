@@ -74,6 +74,36 @@ These are local macOS AArch64 results; native Linux CI acceptance is listed
 in the pull request. Decoder checklist step 9 stays open until CMS-stage
 conversions are verified through the low-memory pipeline.
 
+## JxlToJpegDecoder (2026-11-04)
+
+`lib/jxl/decode_to_jpeg.{h,cc}` is translated completely into
+`decode_to_jpeg.rs`: output buffer set/release, Reset and StartBox, jbrd
+Process buffering and DecodeJPEGData, Exif/XMP marker counts and box sizes,
+SetExif/SetXmp, SetImageBundleJpegData with ICC injection, and WriteOutput with
+its JPEG_NEED_MORE_OUTPUT result. The jpeg_data.h tag arrays now have one shared
+definition. Representation choices are recorded in ADR 0003.
+
+The differential corpus uses 39 container files from the original public
+encoder: nine genuine cjpeg inputs (baseline, gray, 4:2:0 progressive, 4:2:2
+restarts, three RGB files and two multi-chunk files), each plain and with Exif,
+XMP, COM and duplicate-Exif APP1 markers. Every complete script reconstructs the
+original JPEG byte for byte. The 12,205 requests compare statuses, consumed
+sizes, owner snapshots and every output byte, covering arbitrary input chunks,
+bounded/unbounded boxes, sticky box_until_eof, repeated boxes on one owner,
+every output buffer size up to two bytes past each JPEG of at most 1,100 bytes,
+sampled sizes and multi-chunk writer boundaries for larger files, and ICC
+injection through the original EncodeJPEGData. Of these, 9,855 requests cover
+every jbrd truncation and single-bit mutations of seven Exif/XMP/COM fixtures.
+A SetExif call with a matching Exif marker shorter than nine bytes overflows
+both original copies. Four such requests run as original-only probes; the
+instrumented original reports a heap-buffer-overflow write for each, and Rust
+stops at its bounds check.
+
+The complete ordinary and instrumented local checks pass on macOS AArch64: 439
+parity tests and 879 tests in total each, with zero failures or ignored tests.
+Native Linux acceptance runs in CI. JxlDecoder events,
+JxlDecoderSetJPEGBuffer and the Exif/XMP box stages in `decode.cc` remain open.
+
 ## Recovered decoder state and reconstruction (2026-11-03)
 
 The recovery combines persistent incremental input, callback-backed PaddedBytes,
@@ -287,6 +317,7 @@ JPEG reconstruction, containers and the public incremental decoder remain open.
 | Highway `hwy/cache_control.h` | `base/cache_control.rs` | Clang reference enablement: T0 on x86_64 with SSE2; source-disabled hint on other targets |
 | `enc_fields.cc` | `enc_fields.rs` | Primitive/bundle writes, size/image metadata wrappers, complete codestream-header output, frame header writing, and quantizer parameter writing |
 | `decode.cc` signature/container-header helpers, constants in `lib/include/jxl/decode.h` | `decode.rs`, signature bytes in `common.rs` | Complete OutOfBounds, InitialBasicInfoSizeHint, ReadSignature, JxlSignatureCheck and ParseBoxHeader; public incremental decoder state/events and C ABI entry points remain separate |
+| `decode_to_jpeg.h`, `.cc` | `decode_to_jpeg.rs`, tag constants in `jpeg/jpeg_data.rs` | Complete JxlToJpegDecoder: output buffer set/release, Reset/StartBox, jbrd Process buffering and decoding, Exif/XMP marker counts, box sizes and payload injection, SetImageBundleJpegData and chunked WriteOutput; JxlDecoder events and JxlDecoderSetJPEGBuffer integration remain separate |
 | `icc_codec_common.h`, `.cc` | `icc_codec_common.rs` | Complete source common helpers and command tables from main |
 | `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete command decoding and defined partial output from main; streaming reader/CMS remain separate |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |

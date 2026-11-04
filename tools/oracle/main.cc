@@ -530,6 +530,7 @@ bool BlendingStageCommand(const std::string&,std::istringstream&,JxlMemoryManage
 bool JpegWriterCommand(const std::string&,std::istringstream&);
 bool IccReaderCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool JpegMetadataCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool DecodeToJpegCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ToLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool FromLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ColorOutputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -589,6 +590,7 @@ int main() {
       else if (JpegWriterCommand(command, in)) {}
       else if (IccReaderCommand(command, in, &mm)) {}
       else if (JpegMetadataCommand(command, in, &mm)) {}
+      else if (DecodeToJpegCommand(command, in, &mm)) {}
       else if (SkcmsParserCommand(command, in)) {}
       else if (ToLinearCommand(command, in, &mm)) {}
       else if (FromLinearCommand(command, in, &mm)) {}
