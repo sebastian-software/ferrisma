@@ -815,7 +815,7 @@ Repeated Init keeps the original context overwrite behavior instead of adding
 an extra destroy. SetICC/transform calls are unsafe at the actual foreign
 function boundary, with callback/data lifetimes, read-only ICC spans, complete
 output initialization, non-unwinding calls, and no owner reentry required.
-General C ABI reentrancy remains outside this internal Rust boundary.
+The exported decoder C ABI enforces non-reentry per decoder; see below.
 
 CmsStage's unsafe factory establishes the backend contract through stage drop.
 Safe stage methods additionally check source programmer preconditions for input
@@ -871,8 +871,8 @@ PatchDictionary::Clear empties positions/references/blendings before executing
 ComputePatchTree's four vector clears and its now-certain empty-position return;
 its nonempty tree builder remains a separate boundary.
 
-Review these mappings when adding the C ABI, custom allocators, nested bundle
-extensions, SIMD, or concurrency. Image kernels must not assume that the current
+Review these mappings when adding the encoder C ABI, parallel runners, custom
+allocators, nested bundle extensions, SIMD, or concurrency. Image kernels must not assume that the current
 pilot establishes their numeric or memory behavior.
 
 The complete fixed decoder parses metadata before transferring its owner into
@@ -1934,9 +1934,39 @@ argument for the remaining corpus.
 The public entry points are Rust functions with the original names in snake
 case. Caller buffers, callback opaque values and input remain raw pointers on
 unsafe entry points that state their lifetime contracts. Output structs that
-the source accepts as null are `Option<&mut T>`. C enums use transparent
-integer carriers. Exporting these functions through the C ABI is a separate
-boundary.
+the source accepts as null are `Option<&mut T>`. A struct pointer that the
+source dereferences without a check (the pixel format, the frame header,
+extra-channel and blend info, box type, bit depth and buffer-size outputs) is
+also an `Option`, unwrapped exactly where the source dereferences it. A null
+pointer therefore panics only on the paths where the original would
+dereference it, and keeps the original status on paths that return first.
+C enums use transparent integer carriers.
+
+### Exported decoder C ABI
+
+`src/jxl/decode_abi.rs` exports every function that `decode.h` declares
+under its original unmangled name, except JxlDecoderSetParallelRunner, which
+belongs to the runner port. Each wrapper only maps representation: raw
+pointers become the references and options above, and the snake-case function
+performs every original argument check in source order. Structs crossing the
+boundary are the `#[repr(C)]` header types. Compile-time assertions fix their
+size, alignment and field offsets on 64-bit targets; the test oracle measures
+the same values, every enumerator, the version and the address of every
+exported function from the pinned headers with a C compiler. The crate builds
+an rlib, a static library and a dynamic library from the same Rust code; none
+of them compiles or links C or C++.
+
+The source dereferences `dec` without a check, so a null decoder panics. A
+panic cannot unwind into C: the `extern "C"` boundary aborts the process.
+Each call borrows its decoder for the whole call, exclusively or shared for a
+`const JxlDecoder*` getter. A callback (memory manager, CMS, pixel output)
+that reenters the same decoder on the calling thread would alias that borrow,
+so a thread-local set of active decoders makes it abort. The original
+permits some reentrant getter calls; Rust aliasing cannot express them while
+the decoder is being mutated. Other decoders remain usable from a callback.
+Concurrent use of one decoder from several threads is outside the contract, as
+in the source. Output structs are only written, never read, so C callers may
+pass uninitialized storage.
 
 JPEG reconstruction writing retains borrowed marker/tail payloads and owned
 bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed

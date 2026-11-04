@@ -17,8 +17,9 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
 pub(super) const NULL_COPY_DIAGNOSTIC: &str = "box_content_decoder.cc:110:23: runtime error: \
      null pointer passed as argument 2, which is declared to never be null";
 
-/// Compares one family and retains its requests for the independent source
-/// audit when JXL_DECODER_PUBLIC_CAPTURE names a directory.
+/// Compares one family, also through the exported C ABI of both libraries,
+/// and retains its requests for the independent source audit when
+/// JXL_DECODER_PUBLIC_CAPTURE names a directory.
 ///
 /// A history whose ProcessInput reaches the original's raw-box memcpy with a
 /// null input (the caller released its input, so `next_in` is null and zero
@@ -32,7 +33,12 @@ pub(super) fn compare(family: &str, requests: Vec<String>) {
         jxl::jxl::box_content_decoder::take_null_input_copies() != 0
     });
     capture(family, &defined, &undefined);
-    super::compare(defined);
+    let originals = super::original_observations(&defined);
+    for (request, cpp) in defined.iter().zip(&originals) {
+        assert_eq!(&super::observe(request), cpp, "request: {request}");
+    }
+    println!("{} C++/Rust differential cases matched", defined.len());
+    super::decoder_abi::compare(family, &defined, &originals);
     null_copy_probes(&undefined);
 }
 
@@ -719,10 +725,11 @@ fn with_logged_manager(request: &str) -> String {
     format!("dpub-run 1 0 {}", fields.next().unwrap())
 }
 
-/// Like `compare`, but observes each Rust history once. A Rust panic marks a
-/// history in which the original dereferences a null buffer (see
-/// `allocation_failures`); those and the undefined raw-box copies run
-/// original-only, and every other history compares exactly.
+/// Like `compare`, but observes each Rust history once, in process and through
+/// both C ABI libraries. A Rust panic marks a history in which the original
+/// dereferences a null buffer (see `allocation_failures`); those and the
+/// undefined raw-box copies run original-only, and every other history
+/// compares exactly.
 fn compare_observed(family: &str, requests: Vec<String>) {
     let mut defined = Vec::new();
     let mut observed = Vec::new();
@@ -743,10 +750,11 @@ fn compare_observed(family: &str, requests: Vec<String>) {
     }
     capture(family, &defined, &undefined);
     let originals = super::original_observations(&defined);
-    for ((request, rust), cpp) in defined.iter().zip(&observed).zip(originals) {
-        assert_eq!(rust, &cpp, "request: {request}");
+    for ((request, rust), cpp) in defined.iter().zip(&observed).zip(&originals) {
+        assert_eq!(rust, cpp, "request: {request}");
     }
     println!("{} C++/Rust differential cases matched", defined.len());
+    super::decoder_abi::compare(family, &defined, &originals);
     null_copy_probes(&undefined);
     null_buffer_probes(&null_buffer);
 }

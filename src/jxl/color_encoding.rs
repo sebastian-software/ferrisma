@@ -4,7 +4,7 @@
 //! Raw color definitions from `lib/include/jxl/color_encoding.h` and the
 //! corresponding enum masks in `lib/jxl/color_encoding_internal.h`.
 //! Raw wrappers preserve invalid values without invalid Rust discriminants.
-//! This does not yet establish the public C ABI.
+//! `decode_abi.rs` asserts the C layout of `JxlColorEncoding`.
 
 use super::field_encodings::FieldEnum;
 

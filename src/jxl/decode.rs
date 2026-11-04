@@ -31,8 +31,9 @@
 //! - JXL_API_ERROR/JXL_INPUT_ERROR return JXL_DEC_ERROR; the release
 //!   reference's debug diagnostics are not translated.
 //! - Caller buffers and callback opaque values are raw pointers whose
-//!   lifetime contracts are stated on the unsafe entry points. The C ABI
-//!   exports are a separate boundary.
+//!   lifetime contracts are stated on the unsafe entry points. Pointers that
+//!   the source dereferences without a check are options, unwrapped where the
+//!   source dereferences them. The C ABI exports are in `decode_abi.rs`.
 
 use super::base::data_parallel::ThreadPool;
 use super::base::status::StatusCode;
@@ -2730,7 +2731,7 @@ pub fn jxl_decoder_get_basic_info(
 pub fn jxl_decoder_get_extra_channel_info(
     dec: &JxlDecoder,
     index: usize,
-    info: &mut JxlExtraChannelInfo,
+    info: Option<&mut JxlExtraChannelInfo>,
 ) -> JxlDecoderStatus {
     if !dec.got_basic_info {
         return JxlDecoderStatus::NEED_MORE_INPUT;
@@ -2743,6 +2744,7 @@ pub fn jxl_decoder_get_extra_channel_info(
     }
     let channel = &channels[index];
 
+    let info = info.expect("the source dereferences info");
     info.channel_type = JxlExtraChannelType(channel.channel_type.0);
     info.bits_per_sample = channel.bit_depth.bits_per_sample;
     info.exponent_bits_per_sample = if channel.bit_depth.floating_point_sample {
@@ -2904,7 +2906,7 @@ pub unsafe fn jxl_decoder_get_color_as_icc_profile(
 /// PrepareSizeCheck: the bits per channel for buffer size computation.
 fn prepare_size_check(
     dec: &JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     bits: &mut usize,
 ) -> JxlDecoderStatus {
     if !dec.got_basic_info {
@@ -2914,6 +2916,7 @@ fn prepare_size_check(
     if !dec.coalescing && (dec.frame_header.is_none() || dec.frame_stage == FrameStage::Header) {
         return api_error!("Don't know frame dimensions yet");
     }
+    let format = format.expect("the source dereferences format");
     if format.num_channels > 4 {
         return api_error!("More than 4 channels not supported");
     }
@@ -2996,9 +2999,9 @@ fn safe_round_up_to(what: usize, align: usize, result: &mut usize) -> bool {
 
 fn get_min_size(
     dec: &JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     mut num_channels: usize,
-    min_size: &mut usize,
+    min_size: Option<&mut usize>,
     preview: bool,
 ) -> JxlDecoderStatus {
     let mut bits = 0usize;
@@ -3006,6 +3009,7 @@ fn get_min_size(
     if status != JxlDecoderStatus::SUCCESS {
         return status;
     }
+    let format = format.expect("PrepareSizeCheck dereferenced format");
     let mut xsize = 0usize;
     let mut ysize = 0usize;
     if preview {
@@ -3036,7 +3040,11 @@ fn get_min_size(
     if ysize > 1 && !safe_mul(row_size, ysize - 1, &mut total) {
         return api_error!("Image too large for output buffer size calculation");
     }
-    if !safe_add(total, last_row_size, min_size) {
+    if !safe_add(
+        total,
+        last_row_size,
+        min_size.expect("the source dereferences size"),
+    ) {
         return api_error!("Image too large for output buffer size calculation");
     }
     JxlDecoderStatus::SUCCESS
@@ -3044,10 +3052,12 @@ fn get_min_size(
 
 pub fn jxl_decoder_preview_out_buffer_size(
     dec: &JxlDecoder,
-    format: &JxlPixelFormat,
-    size: &mut usize,
+    format: Option<&JxlPixelFormat>,
+    size: Option<&mut usize>,
 ) -> JxlDecoderStatus {
-    if format.num_channels < 3 && !dec.image_metadata.get().color_encoding.is_gray() {
+    if format.expect("the source dereferences format").num_channels < 3
+        && !dec.image_metadata.get().color_encoding.is_gray()
+    {
         return api_error!("Number of channels is too low for color output");
     }
     get_min_size(dec, format, 0, size, true)
@@ -3060,7 +3070,7 @@ pub fn jxl_decoder_preview_out_buffer_size(
 /// decoder releases the buffer, and is disjoint from the decoder.
 pub unsafe fn jxl_decoder_set_preview_out_buffer(
     dec: &mut JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     buffer: *mut c_void,
     size: usize,
 ) -> JxlDecoderStatus {
@@ -3072,6 +3082,7 @@ pub unsafe fn jxl_decoder_set_preview_out_buffer(
     {
         return api_error!("No preview out buffer needed at this time");
     }
+    let format = format.expect("the source dereferences format");
     if format.num_channels < 3 && !dec.image_metadata.get().color_encoding.is_gray() {
         return api_error!("Number of channels is too low for color output");
     }
@@ -3079,7 +3090,7 @@ pub unsafe fn jxl_decoder_set_preview_out_buffer(
     let mut min_size = 0usize;
     // This also checks whether the format is valid and supported and basic
     // info is available.
-    let status = jxl_decoder_preview_out_buffer_size(dec, format, &mut min_size);
+    let status = jxl_decoder_preview_out_buffer_size(dec, Some(format), Some(&mut min_size));
     if status != JxlDecoderStatus::SUCCESS {
         return status;
     }
@@ -3098,10 +3109,12 @@ pub unsafe fn jxl_decoder_set_preview_out_buffer(
 
 pub fn jxl_decoder_image_out_buffer_size(
     dec: &JxlDecoder,
-    format: &JxlPixelFormat,
-    size: &mut usize,
+    format: Option<&JxlPixelFormat>,
+    size: Option<&mut usize>,
 ) -> JxlDecoderStatus {
-    if format.num_channels < 3 && !dec.image_metadata.get().color_encoding.is_gray() {
+    if format.expect("the source dereferences format").num_channels < 3
+        && !dec.image_metadata.get().color_encoding.is_gray()
+    {
         return api_error!("Number of channels is too low for color output");
     }
 
@@ -3115,7 +3128,7 @@ pub fn jxl_decoder_image_out_buffer_size(
 /// the decoder releases the buffer, and is disjoint from the decoder.
 pub unsafe fn jxl_decoder_set_image_out_buffer(
     dec: &mut JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     buffer: *mut c_void,
     size: usize,
 ) -> JxlDecoderStatus {
@@ -3125,13 +3138,14 @@ pub unsafe fn jxl_decoder_set_image_out_buffer(
     if dec.image_out_buffer_set && dec.image_out_run_callback.is_some() {
         return api_error!("Cannot change from image out callback to image out buffer");
     }
+    let format = format.expect("the source dereferences format");
     if format.num_channels < 3 && !dec.image_metadata.get().color_encoding.is_gray() {
         return api_error!("Number of channels is too low for color output");
     }
     let mut min_size = 0usize;
     // This also checks whether the format is valid and supported and basic
     // info is available.
-    let status = jxl_decoder_image_out_buffer_size(dec, format, &mut min_size);
+    let status = jxl_decoder_image_out_buffer_size(dec, Some(format), Some(&mut min_size));
     if status != JxlDecoderStatus::SUCCESS {
         return status;
     }
@@ -3150,8 +3164,8 @@ pub unsafe fn jxl_decoder_set_image_out_buffer(
 
 pub fn jxl_decoder_extra_channel_buffer_size(
     dec: &JxlDecoder,
-    format: &JxlPixelFormat,
-    size: &mut usize,
+    format: Option<&JxlPixelFormat>,
+    size: Option<&mut usize>,
     index: u32,
 ) -> JxlDecoderStatus {
     if !dec.got_basic_info || (dec.orig_events_wanted & DEC_FULL_IMAGE) == 0 {
@@ -3172,7 +3186,7 @@ pub fn jxl_decoder_extra_channel_buffer_size(
 /// the decoder releases the buffer, and is disjoint from the decoder.
 pub unsafe fn jxl_decoder_set_extra_channel_buffer(
     dec: &mut JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     buffer: *mut c_void,
     size: usize,
     index: u32,
@@ -3180,7 +3194,7 @@ pub unsafe fn jxl_decoder_set_extra_channel_buffer(
     let mut min_size = 0usize;
     // This also checks whether the format and index are valid and supported
     // and basic info is available.
-    let status = jxl_decoder_extra_channel_buffer_size(dec, format, &mut min_size, index);
+    let status = jxl_decoder_extra_channel_buffer_size(dec, format, Some(&mut min_size), index);
     if status != JxlDecoderStatus::SUCCESS {
         return status;
     }
@@ -3209,7 +3223,7 @@ pub unsafe fn jxl_decoder_set_extra_channel_buffer(
     debug_assert!(dec.extra_channel_output.len() > index as usize);
 
     let output = &mut dec.extra_channel_output[index as usize];
-    output.format = *format;
+    output.format = *format.expect("JxlDecoderExtraChannelBufferSize dereferenced format");
     output.format.num_channels = 1;
     output.buffer = buffer;
     output.buffer_size = size;
@@ -3260,7 +3274,7 @@ unsafe extern "C" fn simple_destroy_callback(_run_opaque: *mut c_void) {}
 /// and never unwind or reenter the decoder.
 pub unsafe fn jxl_decoder_set_image_out_callback(
     dec: &mut JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     callback: Option<JxlImageOutCallback>,
     opaque: *mut c_void,
 ) -> JxlDecoderStatus {
@@ -3294,7 +3308,7 @@ pub unsafe fn jxl_decoder_set_image_out_callback(
 /// never unwind or reenter the decoder.
 pub unsafe fn jxl_decoder_set_multithreaded_image_out_callback(
     dec: &mut JxlDecoder,
-    format: &JxlPixelFormat,
+    format: Option<&JxlPixelFormat>,
     init_callback: Option<ImageOutInitCallback>,
     run_callback: Option<ImageOutRunCallback>,
     destroy_callback: Option<ImageOutDestroyCallback>,
@@ -3320,14 +3334,14 @@ pub unsafe fn jxl_decoder_set_multithreaded_image_out_callback(
     dec.image_out_run_callback = run_callback;
     dec.image_out_destroy_callback = destroy_callback;
     dec.image_out_init_opaque = init_opaque;
-    dec.image_out_format = *format;
+    dec.image_out_format = *format.expect("PrepareSizeCheck dereferenced format");
 
     JxlDecoderStatus::SUCCESS
 }
 
 pub fn jxl_decoder_get_frame_header(
     dec: &JxlDecoder,
-    header: &mut JxlFrameHeader,
+    header: Option<&mut JxlFrameHeader>,
 ) -> JxlDecoderStatus {
     let Some(frame_header) = dec.frame_header.as_deref() else {
         return api_error!("no frame header available");
@@ -3336,6 +3350,7 @@ pub fn jxl_decoder_get_frame_header(
         return api_error!("no frame header available");
     }
     let metadata = &dec.metadata().m;
+    let header = header.expect("the source dereferences header");
     *header = JxlFrameHeader::default();
     if metadata.have_animation {
         header.duration = frame_header.animation_frame.duration;
@@ -3402,7 +3417,7 @@ pub fn jxl_decoder_get_frame_header(
 pub fn jxl_decoder_get_extra_channel_blend_info(
     dec: &JxlDecoder,
     index: usize,
-    blend_info: &mut JxlBlendInfo,
+    blend_info: Option<&mut JxlBlendInfo>,
 ) -> JxlDecoderStatus {
     let Some(frame_header) = dec.frame_header.as_deref() else {
         return api_error!("no frame header available");
@@ -3415,6 +3430,7 @@ pub fn jxl_decoder_get_extra_channel_blend_info(
         return api_error!("Invalid extra channel index");
     }
     let info = &frame_header.extra_channel_blending_info[index];
+    let blend_info = blend_info.expect("the source dereferences blend_info");
     blend_info.blendmode = JxlBlendMode(info.mode.0);
     blend_info.source = info.source;
     blend_info.alpha = info.alpha_channel;
@@ -3630,12 +3646,13 @@ pub fn jxl_decoder_set_decompress_boxes(dec: &mut JxlDecoder, decompress: i32) -
 
 pub fn jxl_decoder_get_box_type(
     dec: &JxlDecoder,
-    box_type: &mut JxlBoxType,
+    box_type: Option<&mut JxlBoxType>,
     decompressed: i32,
 ) -> JxlDecoderStatus {
     if !dec.box_event {
         return api_error!("can only get box info after JXL_DEC_BOX event");
     }
+    let box_type = box_type.expect("the source dereferences type");
     if decompressed != 0 {
         *box_type = dec.box_decoded_type;
     } else {
@@ -3701,11 +3718,12 @@ fn verify_output_bit_depth<T: BitDepthSource>(
 
 pub fn jxl_decoder_set_image_out_bit_depth(
     dec: &mut JxlDecoder,
-    bit_depth: &JxlBitDepth,
+    bit_depth: Option<&JxlBitDepth>,
 ) -> JxlDecoderStatus {
     if !dec.image_out_buffer_set {
         return api_error!("No image out buffer was set.");
     }
+    let bit_depth = bit_depth.expect("the source dereferences bit_depth");
     api_return_if_error!(verify_output_bit_depth(
         *bit_depth,
         &dec.metadata().m,

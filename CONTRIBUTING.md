@@ -65,6 +65,13 @@ review and renew this evidence with a source migration. The original test memory
 manager and codec routines are compiled directly. No framing or ICC algorithm
 is reimplemented in the adapter.
 
+The decoder C ABI drivers `jxl_abi_original` and `jxl_abi_rust` link one
+driver, written against the pinned public headers only, to the original archive
+and to the Rust static library. Building the oracle therefore runs
+`cargo build --lib --profile checked --features cpp-oracle`, whose library the
+checked-profile tests reuse; the `ORACLE_RUST_PROFILE` CMake cache variable
+selects another profile. See [ADR 0002](docs/adr/0002-differential-oracle.md).
+
 ## Prerequisites
 
 - Rust 1.95 or later; `rust-toolchain.toml` selects stable with rustfmt and Clippy.
