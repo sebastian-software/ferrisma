@@ -533,6 +533,7 @@ bool JpegMetadataCommand(const std::string&,std::istringstream&,JxlMemoryManager
 bool DecodeToJpegCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ToLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool FromLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool ColorOutputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 
 int main() {
   try {
@@ -593,6 +594,7 @@ int main() {
       else if (SkcmsParserCommand(command, in)) {}
       else if (ToLinearCommand(command, in, &mm)) {}
       else if (FromLinearCommand(command, in, &mm)) {}
+      else if (ColorOutputCommand(command, in, &mm)) {}
       else if (SampleConversionCommand(command, in)) {}
       else if (ModularFrameCommand(command, in, &mm)) {}
       else if (ModularFrameStateCommand(command, in, &mm)) {}

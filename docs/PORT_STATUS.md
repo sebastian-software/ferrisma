@@ -28,6 +28,52 @@ requests per configuration, with zero failures or ignored tests. Linux runs
 audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
+## Whole-image color output (2026-11-04)
+
+The color, tone-mapping and CMS stage selection of
+`PassesDecoderState::PreparePipeline` (`dec_cache.cc`) is translated into three
+source-ordered segments in `dec_cache.rs`. The frame decoder keeps the
+interleaved blending and reference writers between them. `OutputEncodingInfo`,
+`OpsinParams` and `CanOutputToColorEncoding` were already translated in
+`dec_xyb.rs` and are reused unchanged. The sequence decoder no longer limits
+metadata to sRGB. It admits every enum and ICC color encoding, rendering intent
+and intensity target. Its setters perform the `OutputEncodingInfo` operations of
+decode.cc's desired-intensity, CMS and output-profile entry points; that API's
+own argument checks remain with slice 7.
+
+The original simple pipeline cannot run a CMS stage with defined behavior. It
+calls `PrepareForThreads` before the first `SetInputSizes`, so
+`CmsStage::PrepareForThreads` initializes the CMS with an indeterminate
+`xsize_`. The sequence decoder therefore returns `Unsupported` at the
+pipeline checkpoint when the source would add a CMS stage. That covers XYB
+output to a non-original target with a CMS set, enum/ICC conversions of
+non-XYB images and requested ICC targets. These paths need the low-memory
+pipeline, which sets input sizes first; they are not claimed here.
+
+All other configurations are connected. XYB images decode to every encoding
+that `CanOutputToColorEncoding` accepts through FromLinear, including PQ, HLG,
+linear, gamma, DCI and BT.709 transfers. PQ Rec. 2408 tone mapping and the HLG
+OOTF reach desired intensity targets with and without a CMS. ICC-tagged images
+keep their original profile as output. Gray/color requests follow the original
+image-bundle writer, which rejects a gray/color change; both implementations
+report that error.
+
+`tests/parity/color_output.rs` compares 103 genuine files from the original
+public encoder: lossless, XYB VarDCT and non-XYB VarDCT; every primaries, white
+point and transfer family; gray, alpha, 12/16-bit, float and multigroup inputs;
+and 27 files tagged with nine pinned skcms ICC profiles. One 16-bit lossless
+file requires level 10; its unchanged codestream box payload is decoded. All
+3,571 decode requests match exactly, including statuses, OutputEncodingInfo
+state and every output float word of the 1,510 complete decodes. The actual
+public `JxlDecoder` writes the same float words to its buffer for all 1,510.
+A further 320 requests cover profiles spliced in by the original header/ICC
+writers: malformed, CMYK, gray-on-RGB and garbage. They also cover truncated
+and corrupted ICC and frame bytes. Twelve CMS-stage configurations stop at
+the documented checkpoint, while the original public decoder completes them.
+These are local macOS AArch64 results; native Linux CI acceptance is listed
+in the pull request. Decoder checklist step 9 stays open until CMS-stage
+conversions are verified through the low-memory pipeline.
+
 ## JxlToJpegDecoder (2026-11-04)
 
 `lib/jxl/decode_to_jpeg.{h,cc}` is translated completely into
@@ -2482,8 +2528,9 @@ borrows, the null pool, the explicit memory manager argument for the output
 stage, and an unsafe constructor whose contract covers output descriptors and an
 installed CMS. Only the simple pipeline is admitted
 (`use_slow_rendering_pipeline == false` returns Unsupported until the low-memory
-pipeline lands), and metadata/header admission still follows the sequence
-profile (sRGB without ICC). `OutputEncodingInfo` and CMS output are unchanged.
+pipeline lands), and metadata/header admission follows the sequence profile
+from PR #47, including its whole-image color output and the Unsupported
+result when the simple pipeline would need a CMS stage.
 At the pinned revision `MaybeSetUnpremultiplyAlpha`, `MaybeSetFloatCallback`,
 `MaybeSetRGB8OutputBuffer`, `GetProgressiveDetail`, `NumSections`,
 `SectionOffsets` and `SectionSizes` do not exist, so none is added.
