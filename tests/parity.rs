@@ -69,6 +69,8 @@ mod chroma_stages;
 mod color_output;
 #[path = "parity/decode_test_inventory.rs"]
 mod decode_test_inventory;
+#[path = "parity/decoder_abi.rs"]
+mod decoder_abi;
 #[path = "parity/decoder_api.rs"]
 mod decoder_api;
 #[path = "parity/decoder_geometry.rs"]
@@ -913,18 +915,27 @@ fn observe(request: &str) -> String {
     }
 }
 
-fn original_observations(requests: &[String]) -> Vec<String> {
-    let oracle = std::env::var_os("JXL_CPP_ORACLE")
+/// The original oracle executable.
+fn oracle_path() -> PathBuf {
+    std::env::var_os("JXL_CPP_ORACLE")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/oracle/jxl_oracle")
-        });
+        })
+}
+
+fn original_observations(requests: &[String]) -> Vec<String> {
+    program_observations(&oracle_path(), requests)
+}
+
+/// One response line per request line from an oracle-tier program.
+fn program_observations(program: &std::path::Path, requests: &[String]) -> Vec<String> {
     assert!(
-        oracle.is_file(),
+        program.is_file(),
         "C++ oracle missing: run python3 tools/check.py; expected {}",
-        oracle.display()
+        program.display()
     );
-    let child = Command::new(oracle)
+    let child = Command::new(program)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

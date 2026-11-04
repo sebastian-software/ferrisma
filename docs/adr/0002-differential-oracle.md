@@ -71,6 +71,21 @@ original does with a null runner. Callback output under a runner compares
 through a caller buffer, which is independent of the call order; the runner-free
 history also compares every call in order.
 
+The exported decoder C ABI is compared from the C side. One driver, compiled
+against the pinned public headers only, replays the public decoder histories
+with the same driver code as the original oracle. It is linked twice: against
+the original archive and against the Rust static library. Both also link the
+original default CMS library for JxlGetDefaultCms, which decode.h does not
+declare. Every runner-free history that Rust replays in-process also runs
+through both executables, which must reproduce the original oracle's
+observation exactly. A C unit of the driver measures every public struct
+layout and enumerator and takes the address of every exported function. The
+oracle build runs Cargo for the static library, with the profile and features
+of the checked tests so that both share one compilation; Cargo decides
+whether it is current, so a restored oracle cache relinks against the current
+Rust sources. This is the only oracle program that links Rust code; the crate
+itself still has no C or C++ build or link dependency.
+
 The scalar Clang build retains upstream `lib/CMakeLists.txt`'s
 `-fno-slp-vectorize -fno-vectorize` settings. Repository Rust builds mirror them
 with `-C no-vectorize-slp -C no-vectorize-loops` in
