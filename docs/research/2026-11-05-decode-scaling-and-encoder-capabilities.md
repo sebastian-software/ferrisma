@@ -142,6 +142,10 @@ Both checkouts were read at their 2026-11-05 HEADs; paths are repository-relativ
 
 ADR-0018's description of both ports holds except for one point: libjxl-rs's thread runners are merged, not "in review", and libjxl-rs builds on stable Rust, which the ADR does not say.
 
+### Update 2026-11-06: libavif-rs supports GNU Linux x86-64
+
+The table above describes libavif-rs at `d025dca`. Its `main` at `f3b2981` (2026-11-06) admits a second target: the guard in `src/lib.rs:15-19` now accepts `aarch64-apple-darwin` and `x86_64-unknown-linux-gnu`, and Linux compiles generated native profiles (`src/lib.rs:29-31`, `include!("linux_profiles.rs")`) for six Cargo feature sets (README "Linux whole-pipeline support", ADR 0054). Unchanged: `nightly-2026-09-07` with `#![feature(extern_types)]`, the `unsafe` C ABI (README row "Safe Rust API and stable toolchain: Deferred"), the libvmaf requirement in `crates/aom/build.rs:8-10`, and `publish = false`. For ADR-0018's gates this removes "any target but macOS ARM64" from the missing list: Ferrixel's CI target (Linux x86-64) is now covered; a safe API, a stable toolchain and a build without libvmaf remain open.
+
 ## 6. Reference: libvips shrink-on-load and libjxl downsampling
 
 ### libvips with libjpeg-turbo
