@@ -125,7 +125,12 @@ up to their admission call with original branch evidence (12 fast-lossless,
 ASan/UBSan oracle and the source audit for this unit have not run yet.
 
 Not applicable or deferred: allocation sizes are those of the language
-layouts and are not compared. A failed extra-channel SetFromBuffer leaves the
+layouts and are not compared. The original JxlEncoder has a user-provided
+constructor, so its stored basic info is default-initialized and
+JxlEncoderInitBasicInfo leaves `padding` unset; those bytes are indeterminate
+until SetBasicInfo copies a caller's struct (on Linux they held earlier heap
+contents). Both checkpoints print the padding only while basic_info_set holds;
+every other basic-info field compares in every state. A failed extra-channel SetFromBuffer leaves the
 original's channel pointing to the caller's buffer, which the Rust owner does
 not retain; the `S` checkpoint compares the other channel fields. A
 SetExtraChannelBuffer after AddBox dereferences a null queued frame in the

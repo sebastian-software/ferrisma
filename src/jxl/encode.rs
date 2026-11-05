@@ -268,8 +268,13 @@ pub struct JxlEncoderScalars {
 }
 
 impl JxlEncoder {
-    /// The value-initializing constructor: zero scalars, then the default
-    /// member initializers, with the output wrapper bound to the manager cell.
+    /// The constructor with the default member initializers and the output
+    /// wrapper bound to the manager cell. The source's user-provided
+    /// constructor default-initializes the remaining members; they receive
+    /// safe zero values with no meaning before Create and Reset assign them.
+    /// The basic info's `padding`, which InitBasicInfo leaves unset, stays
+    /// indeterminate in the source until SetBasicInfo copies a caller's
+    /// struct; here it is zero.
     fn construct(memory_manager_copy: JxlMemoryManager) -> Self {
         let memory_manager = Aliased::new(memory_manager_copy);
         // SAFETY: The manager cell outlives the wrapper, which the encoder

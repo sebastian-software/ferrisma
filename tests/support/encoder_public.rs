@@ -252,7 +252,10 @@ fn values(v: &JxlEncoderFrameSettingsValues) -> String {
     o
 }
 
-fn basic_info(info: &JxlBasicInfo) -> String {
+/// As the oracle's BasicInfo: the padding bytes, indeterminate in the
+/// original until SetBasicInfo copies a caller's struct, are printed only
+/// while basic_info_set holds.
+fn basic_info(info: &JxlBasicInfo, padding_defined: bool) -> String {
     format!(
         "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         info.have_container,
@@ -281,7 +284,11 @@ fn basic_info(info: &JxlBasicInfo) -> String {
         info.animation.have_timecodes,
         info.intrinsic_xsize,
         info.intrinsic_ysize,
-        hex(&info.padding)
+        if padding_defined {
+            hex(&info.padding)
+        } else {
+            "~".into()
+        }
     )
 }
 
@@ -517,7 +524,7 @@ impl Driver {
                 let l = &header.layer_info;
                 let mut o = format!(
                     "0;{};{},{},{},{},{},{},{},{},{},{},{};{};{},{},{},{},{},{}",
-                    basic_info(&info),
+                    basic_info(&info, true),
                     header.duration,
                     header.timecode,
                     header.name_length,
@@ -875,7 +882,7 @@ impl Driver {
         }
         let color = &e.metadata().m.color_encoding;
         write!(o, ";I{}:{}", b(color.want_icc()), hex(color.icc())).unwrap();
-        write!(o, ";B{}", basic_info(e.basic_info())).unwrap();
+        write!(o, ";B{}", basic_info(e.basic_info(), v.basic_info_set)).unwrap();
         for (i, settings) in e.frame_settings().enumerate() {
             write!(
                 o,

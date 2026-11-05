@@ -144,7 +144,11 @@ std::string Values(const jxl::JxlEncoderFrameSettingsValues& v) {
   return o.str();
 }
 
-std::string BasicInfo(const JxlBasicInfo& info) {
+// The original JxlEncoder has a user-provided constructor, so its basic_info
+// member is default-initialized and JxlEncoderInitBasicInfo leaves `padding`
+// unset: those bytes are indeterminate until JxlEncoderSetBasicInfo copies a
+// caller's struct. A checkpoint prints them only while basic_info_set holds.
+std::string BasicInfo(const JxlBasicInfo& info, bool padding_defined) {
   std::ostringstream o;
   o << info.have_container << ',' << info.xsize << ',' << info.ysize << ','
     << info.bits_per_sample << ',' << info.exponent_bits_per_sample << ','
@@ -157,7 +161,7 @@ std::string BasicInfo(const JxlBasicInfo& info) {
     << ',' << info.animation.tps_numerator << ',' << info.animation.tps_denominator << ','
     << info.animation.num_loops << ',' << info.animation.have_timecodes << ','
     << info.intrinsic_xsize << ',' << info.intrinsic_ysize << ','
-    << Hex(Bytes(info.padding, sizeof(info.padding)));
+    << (padding_defined ? Hex(Bytes(info.padding, sizeof(info.padding))) : "~");
   return o.str();
 }
 
@@ -311,7 +315,7 @@ class Driver {
         JxlExtraChannelInfo ec;
         memset(&ec, 0xA5, sizeof(ec));
         JxlEncoderInitExtraChannelInfo(JxlExtraChannelType(std::stoul(arg)), &ec);
-        o << 0 << ';' << BasicInfo(info) << ';' << header.duration << ',' << header.timecode << ','
+        o << 0 << ';' << BasicInfo(info, true) << ';' << header.duration << ',' << header.timecode << ','
           << header.name_length << ',' << header.is_last << ',' << header.layer_info.have_crop
           << ',' << header.layer_info.crop_x0 << ',' << header.layer_info.crop_y0 << ','
           << header.layer_info.xsize << ',' << header.layer_info.ysize << ','
@@ -555,7 +559,7 @@ class Driver {
     }
     const auto& icc = e.metadata.m.color_encoding.ICC();
     o << ";I" << e.metadata.m.color_encoding.WantICC() << ':' << Hex(Bytes(icc.data(), icc.size()));
-    o << ";B" << BasicInfo(e.basic_info);
+    o << ";B" << BasicInfo(e.basic_info, e.basic_info_set);
     for (size_t i = 0; i < e.encoder_options.size(); ++i) {
       o << ";s" << i << ':' << Values(e.encoder_options[i]->values) << ','
         << (e.encoder_options[i]->enc == enc_);
