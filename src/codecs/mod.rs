@@ -6,3 +6,5 @@ pub(crate) mod jxl;
 
 #[cfg(feature = "avif-read")]
 pub(crate) mod avif;
+#[cfg(feature = "avif-read")]
+mod avif_meta;

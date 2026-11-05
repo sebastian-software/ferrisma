@@ -128,3 +128,32 @@ fn compressed_bytes_and_decoded_pixel_caps_reject_before_processing() {
         .is_err()
     );
 }
+
+#[cfg(feature = "avif-read")]
+#[test]
+fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
+    let srgb = transcode(
+        include_bytes!("../tests/fixtures/sample.jpg"),
+        ImageFormat::Jpeg,
+        TransformOptions {
+            output_width: 8,
+            output_height: 6,
+            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+            speed: 10,
+            ..TransformOptions::default()
+        },
+    )
+    .unwrap();
+    let again = transcode(
+        &srgb.avif_bytes,
+        ImageFormat::Avif,
+        TransformOptions {
+            output_width: 4,
+            output_height: 3,
+            speed: 10,
+            ..TransformOptions::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(&again.avif_bytes[4..8], b"ftyp");
+}

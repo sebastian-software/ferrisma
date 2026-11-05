@@ -32,6 +32,10 @@ pub(crate) enum Error {
         pixels: u64,
         limit: u64,
     },
+    #[cfg(feature = "avif-read")]
+    ContradictoryColorSignals,
+    #[cfg(feature = "avif-read")]
+    UnsupportedImageTransform,
     #[cfg(feature = "avif-write")]
     InvalidEncodeOptions,
     #[cfg(feature = "avif-write")]
@@ -98,6 +102,16 @@ impl fmt::Display for Error {
                     "input has {pixels} pixels, exceeding the configured {limit} pixel limit"
                 )
             }
+            #[cfg(feature = "avif-read")]
+            Self::ContradictoryColorSignals => write!(
+                f,
+                "container color information contradicts the coded bitstream"
+            ),
+            #[cfg(feature = "avif-read")]
+            Self::UnsupportedImageTransform => write!(
+                f,
+                "rotation, mirroring or clean-aperture transforms are not supported yet"
+            ),
             Self::InvalidAlphaValue => {
                 write!(f, "straight alpha must be finite and between zero and one")
             }
