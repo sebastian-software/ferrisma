@@ -56,6 +56,8 @@ def main():
                         help="Use the pinned original dav1d/SharpYUV archives from build_root_references.py")
     parser.add_argument("--root-profile", type=Path,
                         help="Build an isolated native generated profile for pre-admission original consumer checks")
+    parser.add_argument("--production-profile", type=Path,
+                        help="Record that the production package compiled exactly this generated native profile")
     parser.add_argument("--build-dir", type=Path, help="Isolated output directory inside this checkout's build directory")
     parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
     parser.add_argument("--instrumented-aom-reference", action="store_true",
@@ -71,6 +73,16 @@ def main():
         parser.error('--upstream-debug requires --debug')
     if args.root_profile and (args.implementation != 'port' or args.compiler_default_diagnostic or args.avm):
         parser.error('--root-profile requires port consumers with a generated AV1 codec closure; AVM is separate')
+    if args.production_profile and (args.implementation != 'port' or args.root_profile or args.asan):
+        parser.error('--production-profile records ordinary production port consumers')
+    if sys.platform == 'linux' and args.implementation == 'port' and not args.root_profile:
+        # The Linux package selects Debug preprocessing with debug assertions;
+        # its consumers must use the identical original C configuration.
+        if not args.production_profile:
+            parser.error('Linux production consumers must name the generated profile they validate; '
+                         'sanitized consumers use --root-profile')
+        if args.debug != args.upstream_debug:
+            parser.error('The Linux production Debug profile uses original Debug preprocessing; add --upstream-debug')
     if args.asan and args.debug:
         parser.error('The sanitizer configuration uses original Release preprocessing')
     if args.instrumented_aom_reference and (args.implementation != 'baseline' or not args.asan):
@@ -207,10 +219,9 @@ def main():
         if features:
             cargo += ["--features", ",".join(features)]
         environment = os.environ.copy()
-        target = ROOT / "target"
         # Keep the immutable archives used by running standalone shards.
-        variant = '-'.join(features)
-        target = ROOT / ('build/aom-root-cargo-target' + ('-' + variant if variant else ''))
+        from root_production import cargo_target
+        target = cargo_target(features)
         environment['CARGO_TARGET_DIR'] = str(target)
         if args.asan:
             target = target / "asan"
@@ -227,6 +238,13 @@ def main():
             target = target / triple
         run(cargo, env=environment)
         archive = target / ("debug" if args.debug else "release") / "libavif.a"
+        if args.production_profile:
+            from root_production import native_target, record_build
+            proof = record_build(target, "debug" if args.debug else "release", features, cargo,
+                                 args.production_profile, native_target())
+            build.mkdir(parents=True, exist_ok=True)
+            (build / "production-package.json").write_text(json.dumps(proof, indent=2) + "\n")
+            print(f"Production package compiled the {proof['root_profile']['units']}-unit {proof['variant']} profile")
         command += [f"-DLIBAVIF_RS_ARCHIVE={archive}"]
     run(command)
     run(["cmake", "--build", build, "-j", args.jobs])

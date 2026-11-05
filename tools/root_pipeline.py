@@ -28,6 +28,8 @@ def main():
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--sanitizer', choices=['none', 'address'], default='none',
                         help='Also build and compare separately instrumented original C and Rust consumers')
+    parser.add_argument('--package', choices=['profile', 'production'], default='profile',
+                        help='Link consumers to an isolated generated profile or to the production package')
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('--jobs must be positive')
@@ -38,6 +40,9 @@ def main():
     except ValueError as error:
         parser.error(str(error))
     engines = root_variants.engines(args.variant)
+    production = args.package == 'production'
+    if production and args.sanitizer != 'none':
+        parser.error('Production sanitizer parity is not yet part of the admission evidence')
     if args.sanitizer != 'none' and engines:
         parser.error('Root sanitizer parity currently covers container configurations without optional engines')
     system, machine = platform.system(), platform.machine()
@@ -47,6 +52,12 @@ def main():
         native, triple = 'macos', 'aarch64-apple-darwin'
     else:
         parser.error('Native root preparation currently requires GNU Linux x86-64 or macOS ARM64')
+    if production and native == 'linux' and args.variant not in root_variants.LINUX_PRODUCTION:
+        parser.error('The production package admits no Linux profile for this configuration; validate it isolated first')
+    if production and native == 'macos' and args.profile != 'release':
+        # The macOS package compiles its accepted Release-preprocessed sources
+        # in both Cargo profiles; this harness has no matching Debug reference.
+        parser.error('macOS production consumers compare original Release preprocessing')
     phases = ['references', 'generate', 'consumers', 'validate'] if args.phase == 'all' else [args.phase]
     for phase in phases:
         if args.tier == 'prepare' and phase in ['consumers', 'validate']:
@@ -57,7 +68,7 @@ def main():
             original_debug = ['--upstream-debug'] if profile == 'debug' else []
             features = ['--' + name for name in selected]
             baseline = f'build/root-c-{native}-{profile}-{args.variant}'
-            candidate = f'build/root-rust-{native}-{profile}-{args.variant}'
+            candidate = f'build/root-rust-{"production-" if production else ""}{native}-{profile}-{args.variant}'
             # The sanitized consumers are separate builds. Source generation
             # always uses the ordinary original preprocessing reference.
             asan = args.sanitizer == 'address'
@@ -81,10 +92,17 @@ def main():
             elif phase == 'generate':
                 run(['python3', 'tools/transpile_root.py', '--build', baseline, '--profile', profile,
                      '--variant', args.variant, '--clang-include', args.clang_include])
-                run(['python3', 'tools/check_root_profile.py', manifest])
+                if production:
+                    # The package compiles the committed profile; regeneration
+                    # from this host's actual C reference must not change it.
+                    run(['git', 'diff', '--exit-code', '--', f'src/profiles/{native}/{profile}/{args.variant}'])
+                    run(['python3', 'tools/update_production_selection.py', '--check'])
+                else:
+                    run(['python3', 'tools/check_root_profile.py', manifest])
             elif phase == 'consumers':
                 run(['python3', 'tools/build.py', 'port', '--jobs', args.jobs, *debug, *original_debug, *features,
-                     *(['--asan'] if asan else []), '--root-references', references, '--root-profile', manifest,
+                     *(['--asan'] if asan else []), '--root-references', references,
+                     '--production-profile' if production else '--root-profile', manifest,
                      '--build-dir', candidate + ('-asan' if asan else '')])
             elif asan:
                 run(['python3', 'tools/validate_root_profile.py', '--baseline', baseline + '-asan',
@@ -92,7 +110,8 @@ def main():
                      '--root-profile', manifest, '--tier', args.tier, '--jobs', args.jobs])
             else:
                 run(['python3', 'tools/validate_root_profile.py', '--baseline', baseline, '--port', candidate,
-                     '--root-profile', manifest, '--tier', args.tier, '--jobs', args.jobs])
+                     '--root-profile', manifest, '--tier', args.tier, '--jobs', args.jobs,
+                     *(['--production'] if production else [])])
 
 
 if __name__ == '__main__':

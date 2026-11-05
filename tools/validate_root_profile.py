@@ -90,6 +90,13 @@ def consumer_executables(build):
     return [build / name for name in names]
 
 
+def committed(path):
+    """Report whether a regenerated record equals the checked-out commit."""
+    relative = str(Path(path).resolve().relative_to(ROOT))
+    result = subprocess.run(['git', 'show', f'HEAD:{relative}'], cwd=ROOT, capture_output=True)
+    return result.returncode == 0 and result.stdout == Path(path).read_bytes()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, required=True)
@@ -100,6 +107,8 @@ def main():
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--sanitizer', choices=sorted(SANITIZER_FLAGS),
                         help='Compare separately instrumented original C and Rust consumers')
+    parser.add_argument('--production', action='store_true',
+                        help='Validate consumers of the production package that compiled this native profile')
     parser.add_argument('--reference-baseline', type=Path,
                         help='The ordinary original C build that generated the profile; required with --sanitizer')
     args = parser.parse_args()
@@ -109,6 +118,8 @@ def main():
         parser.error('--sanitizer and --reference-baseline must be used together')
     if args.sanitizer and args.tier != 'full':
         parser.error('Sanitizer parity requires the complete original suite')
+    if args.sanitizer and args.production:
+        parser.error('Production sanitizer parity is not yet part of the admission evidence')
     baseline, port = args.baseline.resolve(), args.port.resolve()
     manifest = args.root_profile.resolve()
     record = json.loads(manifest.read_text())
@@ -147,19 +158,27 @@ def main():
     expected = full if args.tier == 'full' else selected
     if not set(expected).issubset(full):
         raise SystemExit('The original native reference is missing required smoke registrations')
-    proof = json.loads((profile_work(record, args.sanitizer) / 'summary.json').read_text())
-    if proof['translation_manifest_sha256'] != digest(manifest) or proof.get('sanitizer') != args.sanitizer:
-        raise SystemExit('The isolated native root build proof differs from the current translation')
-    for item in proof['artifacts'].values():
-        if digest(Path(item['path'])) != item['sha256']:
-            raise SystemExit('The isolated native root artifact changed after its build')
+    production = None
+    if args.production:
+        from root_production import verify_build
+        production = json.loads((port / 'production-package.json').read_text())
+        verify_build(production, manifest, record['generation_target'])
+        proof = production
+    else:
+        proof = json.loads((profile_work(record, args.sanitizer) / 'summary.json').read_text())
+        if proof['translation_manifest_sha256'] != digest(manifest) or proof.get('sanitizer') != args.sanitizer:
+            raise SystemExit('The isolated native root build proof differs from the current translation')
+        for item in proof['artifacts'].values():
+            if digest(Path(item['path'])) != item['sha256']:
+                raise SystemExit('The isolated native root artifact changed after its build')
     parent = port / 'root-validation'
     parent.mkdir(exist_ok=True)
     output = Path(tempfile.mkdtemp(prefix=args.tier + '-', dir=parent))
     summary = output / 'summary.json'
     feature = [] if record['variant'] == 'default' else ['--features', root_variants.cargo_features(record['variant'])]
     if not args.sanitizer:
-        run(['python3', 'tools/check_abi.py', '--build', baseline, '--root-profile', manifest, *feature])
+        run(['python3', 'tools/check_abi.py', '--build', baseline,
+             '--production-profile' if production else '--root-profile', manifest, *feature])
     archive = Path(proof['artifacts']['libavif.a']['path'])
     if args.sanitizer:
         c_archive = baseline / 'libavif.a'
@@ -199,14 +218,19 @@ def main():
     if args.tier != 'regression' and not args.sanitizer:
         run(['python3', 'tools/smoke_shared.py', '--library', shared])
     run(['python3', 'tools/verify_upstream.py', '--tracked'])
+    if production:
+        # Every test above used the recorded production artifacts unchanged.
+        verify_build(production, manifest, record['generation_target'])
     snapshots = {manifest: output / 'configuration/translation.json'}
     if args.sanitizer:
         snapshots[aom_reference / 'build.json'] = output / 'configuration/aom-asan-reference.json'
         for name in ['CMakeCache.txt', 'compile_commands.json']:
             snapshots[generating / name] = output / 'configuration/reference' / name
     else:
-        snapshots[ROOT / (f'build/abi-{record["generation_target"]}-{record["preprocessing_profile"]}-'
-                          f'{record["variant"]}/summary.json')] = output / 'configuration/abi.json'
+        snapshots[ROOT / (f'build/abi-{"production-" if production else ""}{record["generation_target"]}-'
+                          f'{record["preprocessing_profile"]}-{record["variant"]}/summary.json')] = output / 'configuration/abi.json'
+    if production:
+        snapshots[port / 'production-package.json'] = output / 'configuration/production-package.json'
     for implementation, build in [('c', baseline), ('rust', port)]:
         for name in ['CMakeCache.txt', 'compile_commands.json']:
             snapshots[build / name] = output / 'configuration' / implementation / name
@@ -219,11 +243,19 @@ def main():
         variant=record['variant'], tier=args.tier, complete_original_root_suite=args.tier == 'full',
         **({'sanitizer_parity': sanitizer_record} if sanitizer_record else {}),
         all_features_acceptance_claimed=False, production_target_admission_claimed=False,
+        **({'production_package': dict(package='libavif-rs', rust_profile=production['rust_profile'],
+                                       debug_assertions=production['debug_assertions'],
+                                       compiled_profile=production['root_profile'],
+                                       committed_profile_manifest_reproduced=committed(manifest),
+                                       committed_profile_sources_reproduced=all(
+                                           committed(ROOT / name) for name in
+                                           [unit['rust'] for unit in record['units']] + [record['selector']]))}
+           if production else {}),
         original_ctest_registrations=len(full), executed_ctest_registrations=len(expected),
         configuration_origins={str(destination.relative_to(output)): str(source.relative_to(ROOT))
                                for source, destination in snapshots.items()},
         artifacts=proof['artifacts'], evidence={str(path.relative_to(ROOT)): digest(path) for path in evidence}), indent=2) + '\n')
-    print(f'Native root {args.tier}{" " + args.sanitizer if args.sanitizer else ""} validation passed; {len(expected)}/{len(full)} original registrations; {summary}')
+    print(f'Native root {"production " if production else ""}{args.tier}{" " + args.sanitizer if args.sanitizer else ""} validation passed; {len(expected)}/{len(full)} original registrations; {summary}')
 
 
 if __name__ == '__main__':

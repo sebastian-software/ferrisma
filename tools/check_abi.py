@@ -2,6 +2,7 @@
 """Compare named translated record sizes, alignment, and field offsets with Clang."""
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -37,6 +38,8 @@ def main():
     parser.add_argument("--build", type=Path, default=ROOT / "build/baseline")
     parser.add_argument("--features", default="", help="Comma-separated Cargo features matching the C reference configuration")
     parser.add_argument('--root-profile', type=Path, help='Native generated profile used by the isolated consumer build')
+    parser.add_argument('--production-profile', type=Path,
+                        help='Probe the production package, which compiles this generated native profile')
     args = parser.parse_args()
     entries = [entry for entry in json.loads((args.build / "compile_commands.json").read_text())
                if "avif_obj.dir" in entry["command"]]
@@ -51,6 +54,23 @@ def main():
             if Path(unit["source"]).stem.startswith("codec_") or "libyuv" in features:
                 manifest[unit["source"]] = unit
     work = ROOT / "build/abi"
+    if args.root_profile and args.production_profile:
+        parser.error('Probe either an isolated native profile or the production package')
+    production_target = None
+    if args.production_profile:
+        from check_root_profile import validate_profile
+        from root_production import cargo_target, native_target
+        target = native_target()
+        generated = validate_profile(args.production_profile.resolve(), target)
+        if generated['variant'] != ('-'.join(features) or 'default'):
+            parser.error('ABI probe features must match the production native profile')
+        manifest = {unit['source']: unit for unit in generated['units']}
+        # The probe consumes the production package; on Linux its Cargo
+        # profile selects the matching Debug or Release native translation.
+        rust_profile = generated['preprocessing_profile']
+        work = ROOT / f'build/abi-production-{target}-{rust_profile}-{generated["variant"]}'
+        production_target = cargo_target(features)
+        os.environ.setdefault('LIBAVIF_RS_NATIVE_DEPENDENCY_ROOT', str(ROOT))
     if args.root_profile:
         from check_root_profile import validate_profile, profile_work, profile_target
         target = ('aarch64-apple-darwin' if platform.system() == 'Darwin' and platform.machine() == 'arm64'
@@ -156,7 +176,7 @@ def main():
     # path for the same locally built AVM dylib that CMake consumers link.
     local_avm = ROOT / "build/deps/avm-build"
     links = [f"cargo:rustc-link-arg=-Wl,-rpath,{local_avm}"] if "avm" in features and local_avm.exists() else []
-    if args.root_profile:
+    if args.root_profile or args.production_profile:
         # Selected shared optional engines likewise resolve through the probe.
         from root_variants import native_links
         links += [f"cargo:rustc-link-arg=-Wl,-rpath,{path}" for path in native_links(generated['variant'])[1]]
@@ -164,7 +184,8 @@ def main():
         "fn main() {" + "".join(f" println!({json.dumps(link)});" for link in links) + " }\n"
     )
     command = ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(work / "Cargo.toml"),
-               "--target-dir", str(profile_target(generated) if args.root_profile else ROOT / 'target')]
+               "--target-dir", str(profile_target(generated) if args.root_profile
+                                   else production_target or ROOT / 'target')]
     if rust_profile == 'release':
         command.append('--release')
     actual = [int(line) for line in subprocess.check_output(command, cwd=ROOT, text=True).splitlines()]
