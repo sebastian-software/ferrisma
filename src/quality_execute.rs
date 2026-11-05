@@ -151,14 +151,17 @@ fn final_rgba(acc: [f64; 4], opaque: bool) -> Result<[u8; 4], Error> {
     }
     let alpha = if opaque { 1.0 } else { acc[3].clamp(0.0, 1.0) };
     let mut rgba = [0_u8; 4];
-    if alpha > 1.0e-12 {
-        for channel in 0..3 {
-            rgba[channel] = encode_linear_srgb8(acc[channel] / alpha)?;
-        }
-    }
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     {
         rgba[3] = (alpha * 255.0).round() as u8;
+    }
+    // ADR-0014: an output pixel whose alpha *byte* is zero is transparent
+    // black. Dividing by a tiny but nonzero alpha would emit arbitrary RGB
+    // behind an invisible pixel and make fast paths disagree at random.
+    if rgba[3] != 0 {
+        for channel in 0..3 {
+            rgba[channel] = encode_linear_srgb8(acc[channel] / alpha)?;
+        }
     }
     Ok(rgba)
 }

@@ -181,12 +181,13 @@ fn decode_rgb_f64(color: Color, encoded: [f64; 3]) -> [f64; 3] {
 fn final_rgba(acc: [f64; 4], opaque: bool) -> [u8; 4] {
     let alpha = if opaque { 1.0 } else { acc[3].clamp(0.0, 1.0) };
     let mut rgba = [0_u8; 4];
-    if alpha > 1.0e-12 {
+    rgba[3] = (alpha * 255.0).round() as u8;
+    // Canonical transparent black when the alpha byte is 0 (ADR-0014).
+    if rgba[3] != 0 {
         for channel in 0..3 {
             rgba[channel] = encode_linear_srgb8(acc[channel] / alpha);
         }
     }
-    rgba[3] = (alpha * 255.0).round() as u8;
     rgba
 }
 
@@ -675,12 +676,12 @@ fn run_f32(tables: &Tables, img: &Image, out_w: u32, out_h: u32, filter: Filter)
             }
             let alpha = if opaque { 1.0 } else { acc[3].clamp(0.0, 1.0) };
             let mut rgba = [0_u8; 4];
-            if alpha > 1.0e-12 {
+            rgba[3] = (alpha * 255.0).round() as u8;
+            if rgba[3] != 0 {
                 for c in 0..3 {
                     rgba[c] = tables.enc_f32_exact(acc[c] / alpha);
                 }
             }
-            rgba[3] = (alpha * 255.0).round() as u8;
             out.push(rgba);
         }
     }

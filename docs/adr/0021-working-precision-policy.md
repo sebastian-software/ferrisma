@@ -155,7 +155,7 @@ on an Apple M1 Ultra (20 threads), macOS 27.0, rustc 1.100.0-nightly (5a2be9f5f 
 
 **Before Experimental** (work package 3): the kernel crate implements both paths with the representation of rule 2 and the tables of rule 3; a differential test suite encodes rules A to F verbatim, with the experiment's generators as fixtures; the planner implements the eligibility rules and the plan report of rule 5.
 
-**Before Accepted:** the end-to-end benchmark of work package 0 shows the Q1.14 gain over `f32` on the three hardware classes; the benchmark corpus is added to the bound's input set and its Q1.14 threshold recorded; the oracle's transparent-pixel rule (rule E) is fixed; SSIMULACRA2 and Butteraugli on the AVIF output confirm that one-code differences do not move the quality-matched comparison.
+**Before Accepted:** the end-to-end benchmark of work package 0 shows the Q1.14 gain over `f32` on the three hardware classes; the benchmark corpus is added to the bound's input set and its Q1.14 threshold recorded; SSIMULACRA2 and Butteraugli on the AVIF output confirm that one-code differences do not move the quality-matched comparison.
 
 ## Review when
 
@@ -173,3 +173,4 @@ on an Apple M1 Ultra (20 threads), macOS 27.0, rustc 1.100.0-nightly (5a2be9f5f 
 ## Amendment log
 
 - 2026-11-05 — Initial proposal: `f32` as the working type, a Q1.14 fixed-point path for opaque 8-bit sRGB and Display P3 input with a per-plan integer interval bound, exact lookup tables, and a testable bound, backed by the precision experiment.
+- 2026-11-05 — The oracle's transparent-pixel rule is fixed: `final_rgba` now emits RGB 0 whenever the output alpha byte is 0, as ADR-0014 requires, and the experiment's hand copy and `f32` chain apply the same rule. A rerun of the experiment reproduced every measured value of the committed results; only timings differed, so the result files were kept. Rule E remains as a test of the fast paths.

@@ -2,7 +2,7 @@
 
 Evidence for [ADR-0021](../../adr/0021-working-precision-policy.md): the error of the proposed lookup tables, of `f32` as the working type and of a 16-bit fixed-point path, measured against the `f64` scalar reference of the M1 pipeline.
 
-The program is standalone. It has its own `Cargo.toml`, no dependencies and no link to the `ferrixel` crate; the reference functions in `src/main.rs` are hand copies of `src/working_color.rs` and `src/quality.rs` at commit `17f3f46` (2026-11-05) and must be kept in sync by hand when the reference changes.
+The program is standalone. It has its own `Cargo.toml`, no dependencies and no link to the `ferrixel` crate; the reference functions in `src/main.rs` are hand copies of `src/working_color.rs`, `src/quality.rs` and `final_rgba` in `src/quality_execute.rs` (alpha rule as of the transparent-black fix, 2026-11-05) and must be kept in sync by hand when the reference changes.
 
 ## Run
 
