@@ -34,6 +34,7 @@ jobs:
         include: >-
           ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
               inputs.runner == 'ubuntu-24.04' && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
+              (github.event_name == 'pull_request' || github.event_name == 'push') && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
               '[{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"macos-15","architecture":"arm64"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60

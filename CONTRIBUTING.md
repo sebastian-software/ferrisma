@@ -248,3 +248,12 @@ This requires the local API sanitizer, downstream test inventories,
 `python3 tools/check_dav1d_linkage.py --root-library`, and strict differential
 reports. Run the root build with its default features before the linkage audit
 if the shared Cargo output was most recently built with optional features.
+
+## Hosted macOS checks during development
+
+Pull requests run hosted checks on Linux x86-64 only; macOS runs nightly and on
+manual dispatch (ADR 0055). Before merging a change that affects macOS
+builds or translations, run the applicable checks locally on macOS ARM64 and
+record the commands and results in the pull request. Hosted macOS runs are
+still required for a release, a new target admission, or a hosted macOS
+validation claim.

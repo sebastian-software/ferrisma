@@ -37,9 +37,9 @@ consumer sets link the selected nightly's static ASan runtime once per
 executable. Exact bytes, ABI probes, and the shared-library smoke are not
 repeated under instrumentation; they remain part of the ordinary profile run.
 
-The standalone dav1d and SharpYUV workflows also use two tiers on Linux x86-64
-and macOS ARM64. PRs and pushes build both profiles and retain their bounded
-API, ABI, and archive/consumer ownership checks. SharpYUV also retains its
+The standalone dav1d and SharpYUV workflows also use two tiers. PRs and pushes
+run on Linux x86-64 only (ADR 0055), build both profiles and retain their
+bounded API, ABI, and archive/consumer ownership checks. SharpYUV also retains its
 allocation and CPU-selection checks. Nightly runs at 02:47 UTC and manual
 full runs retain every existing original corpus command, including both dav1d
 profiles, original DSP bodies, Linux allocation/thread failures, and the
