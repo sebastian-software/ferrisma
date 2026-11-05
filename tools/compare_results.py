@@ -28,7 +28,8 @@ def results(path):
             "status": case.attrib.get("status"),
             "skipped": case.find("skipped") is not None,
             "gtest_cases": [int(count) for count in counts],
-            "gtest_skipped": re.findall(r"\[  SKIPPED \] (.+)", output),
+            # Compare skipped case names, not their nondeterministic elapsed time.
+            "gtest_skipped": re.findall(r"^\[  SKIPPED \] (.+?)(?: \([\d.]+ ms\))?$", output, re.M),
         }
     return records
 

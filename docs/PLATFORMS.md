@@ -60,7 +60,8 @@ directories, so building another feature profile cannot replace the earlier
 proof's archive or shared library.
 Compare each ordered GoogleTest case's terminal result and dynamic skip from
 the complete logs; truncated passing JUnit output alone cannot establish that
-inventory. The [retained-log recheck](root-complete-log-validation.json) records
+inventory. Skip comparisons use case names only; GoogleTest's elapsed time
+is nondeterministic and excluded. The [retained-log recheck](root-complete-log-validation.json) records
 the existing complete native runs and their actual matching skip lists.
 
 The original AOM video suite retains ADR 0048's complete Release and focused
