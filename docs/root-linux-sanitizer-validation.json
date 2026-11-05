@@ -167,7 +167,7 @@
     "all_features_acceptance_claimed": false
   },
   "remaining_gates": [
-    "Applicable sanitizers for the separate Mini and Extended PIXI configurations once admitted",
+    "Applicable sanitizers for the separate Mini and Extended PIXI Release profiles and the optional native engine configurations",
     "Production profile selection and final root consumer validation"
   ]
 }

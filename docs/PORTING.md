@@ -74,7 +74,9 @@ The shared native root harness now passes complete Release and matching Debug
 on GNU Linux x86-64 and macOS ARM64 for the default and combined Mini/Extended
 PIXI configurations. Each default pair covers 9,473 original cases; each
 combined pair covers 9,527, with exact ordered outcomes, ABI, strict bytes, and
-all consumer/runtime ownership audits. Linux uses verified hosted artifacts;
+all consumer/runtime ownership audits. Linux also passes the separate Mini
+(9,526 cases) and Extended PIXI (9,474 cases) Release/Debug profiles with the
+same checks. Linux uses verified hosted artifacts;
 the complete macOS proofs are local native executions, supplemented by the
 hosted bounded pilot. See [platform evidence](PLATFORMS.md).
 
@@ -82,9 +84,9 @@ Linux Release AddressSanitizer parity also passes all 64 default registrations
 and 9,473 ordered cases, and all 65 combined Mini/Extended PIXI registrations
 and 9,527 ordered cases, with separately instrumented consumers; see
 [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md).
-Linux production admission still requires the remaining feature configurations,
-their applicable sanitizer checks, and production profile selection with final
-consumers.
+Linux production admission still requires the optional native engine and
+AVM/AV2 configurations, sanitizer checks for the separate Mini and Extended
+PIXI profiles, and production profile selection with final consumers.
 Windows x86-64 follows that milestone. Removing the current target guard alone
 does not establish support.
 
