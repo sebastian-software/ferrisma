@@ -250,14 +250,14 @@ fn linearize_row<const C: usize>(
                         rgb,
                         f64::from(pixel[3]),
                     )?;
-                    for channel in 0..3 {
-                        linear[channel] = premultiplied.rgb[channel] as f32;
+                    for (out, value) in linear.iter_mut().zip(premultiplied.rgb) {
+                        *out = value as f32;
                     }
                     linear[3] = premultiplied.alpha as f32;
                 } else {
                     let decoded = decode_to_linear_srgb(color, rgb)?;
-                    for channel in 0..3 {
-                        linear[channel] = decoded.rgb[channel] as f32;
+                    for (out, value) in linear.iter_mut().zip(decoded.rgb) {
+                        *out = value as f32;
                     }
                 }
             }
