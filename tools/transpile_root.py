@@ -13,6 +13,7 @@ import subprocess
 from import_translation import translate
 from transpile_dav1d import current_variadic
 from root_assertions import single_evaluation
+import root_variants
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,11 +42,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build', required=True, type=Path)
     parser.add_argument('--profile', required=True, choices=['debug', 'release'])
-    parser.add_argument('--variant', default='default', choices=['default', 'mini', 'extended-pixi', 'mini-extended-pixi'])
+    parser.add_argument('--variant', default='default',
+                        help='Container features and optional external engines, for example libgav1-rav1e-svt-libyuv')
     parser.add_argument('--clang-include', required=True, type=Path)
     parser.add_argument('--c2rust', default='c2rust-transpile')
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
+    try:
+        selected = root_variants.features(args.variant)
+    except ValueError as error:
+        parser.error(str(error))
     system, machine = platform.system(), platform.machine()
     if system == 'Linux' and machine == 'x86_64':
         native, target = 'linux', 'x86_64-unknown-linux-gnu'
@@ -65,17 +71,21 @@ def main():
                              ('AVIF_ENABLE_EXPERIMENTAL_EXTENDED_PIXI', 'extended-pixi' in args.variant)]:
         if settings.get(setting) != ('ON' if enabled else 'OFF'):
             raise SystemExit(f'The actual C container configuration differs: {setting}')
-    if settings.get('AVIF_CODEC_AVM') != 'OFF' or settings.get('AVIF_LIBYUV') != 'OFF':
-        raise SystemExit('This root-generation closure requires the selected default codecs and bundled scaler')
+    if settings.get('AVIF_CODEC_AVM') != 'OFF':
+        raise SystemExit('AVM/AV2 is a separate configuration outside this root-generation closure')
+    for engine, setting in root_variants.CMAKE_OPTIONS.items():
+        if settings.get(setting) != ('SYSTEM' if engine in selected else 'OFF'):
+            raise SystemExit(f'The actual C engine configuration differs: {setting}')
+    # Each selected external engine must be the pinned task-local build, never
+    # an unrelated host package found earlier on the default search path.
+    for engine, setting in [('rav1e', 'RAV1E_LIBRARY'), ('svt', 'SVT_LIBRARY')]:
+        if engine in selected and not Path(settings.get(setting, '/')).resolve().is_relative_to(ROOT / 'build/deps'):
+            raise SystemExit(f'The original C reference did not link the pinned task-local {engine} build')
     entries = [entry for entry in json.loads((build / 'compile_commands.json').read_text())
                if 'avif_obj.dir' in entry['command']]
-    expected = {str(ROOT / 'upstream/libavif/src' / name) for name in
-                [Path(unit['source']).name for unit in json.loads((ROOT / 'TRANSLATION.json').read_text())['units']
-                 if unit['source'].startswith('upstream/libavif/src/')]}
-    expected |= {str(ROOT / unit['source']) for unit in json.loads((ROOT / 'TRANSLATION.json').read_text())['units']
-                 if '/third_party/libyuv/' in unit['source']}
-    if len(entries) != 28 or {entry['file'] for entry in entries} != expected:
-        raise SystemExit('Root generation requires all 23 default library units and five bundled scaler units')
+    expected = {str(ROOT / source) for source in root_variants.sources(args.variant)}
+    if len(entries) != len(expected) or {entry['file'] for entry in entries} != expected:
+        raise SystemExit(f'Root generation requires the complete {len(expected)}-unit original closure of {args.variant}')
     for entry in entries:
         flags = shlex.split(entry['command'])
         if '-ffp-contract=off' not in flags or any('rust_archive_anchor' in flag for flag in flags):
@@ -85,7 +95,16 @@ def main():
     work = ROOT / f'build/root-translate-{native}-{args.profile}-{args.variant}'
     work.mkdir(parents=True, exist_ok=True)
     database = work / 'compile_commands.json'
+    overlay = None
+    if 'libyuv' in selected:
+        overlay = root_variants.libyuv_overlay(ROOT / 'build/deps/libyuv/include',
+                                               work / 'translation-headers/libyuv')
     for entry in entries:
+        if overlay and entry['file'].endswith('/reformat_libyuv.c'):
+            # Translation-only opaque vector records; see ADR 0007.
+            command = shlex.split(entry['command'])
+            command.insert(1, '-I' + str(overlay))
+            entry['command'] = shlex.join(command)
         entry['command'] += ' -isystem ' + shlex.quote(str(args.clang_include.resolve()))
     database.write_text(json.dumps(entries, indent=2) + '\n')
     raw_root = work / 'raw'
@@ -103,11 +122,14 @@ def main():
     if result.returncode or 'error:' in result.stdout or 'error generated' in result.stdout:
         raise SystemExit(f'Native root translation failed; inspect {work / "transpile.log"}')
     destination = ROOT / f'src/profiles/{native}/{args.profile}/{args.variant}'
+    common = Path(os.path.commonpath([str(Path(entry['file']).parent) for entry in entries]))
     units, modules, bundled = [], [], []
     for entry in entries:
         source = Path(entry['file'])
         relative = source.relative_to(ROOT / 'upstream/libavif')
-        raw_path = raw_root / 'src' / relative.with_suffix('.rs')
+        # C2Rust names outputs relative to the inputs' common directory, which
+        # is src/ alone when external libyuv replaces the bundled scaler.
+        raw_path = raw_root / 'src' / source.relative_to(common).with_suffix('.rs')
         raw = raw_path.read_text()
         text, changes = corrected(source, raw, native)
         name = Path('libyuv') / relative.name if relative.parts[0] == 'third_party' else Path(relative.name)
@@ -126,7 +148,8 @@ def main():
     lines = ['// Generated by tools/transpile_root.py from the complete native C reference.']
     for name in modules:
         lines += [f'pub mod {name};']
-    lines += ['pub mod libyuv {'] + [f'    pub mod {name};' for name in bundled] + ['}']
+    if bundled:
+        lines += ['pub mod libyuv {'] + [f'    pub mod {name};' for name in bundled] + ['}']
     module_text = '\n'.join(lines) + '\n'
     selector = destination / 'modules.rs'
     if args.check:
@@ -137,7 +160,8 @@ def main():
     record = dict(translator='c2rust 0.21.0', translator_version_output=translator_version,
                   llvm='16.0.6', clang_stdarg_sha256=digest(args.clang_include / 'stdarg.h'), generation_target=target,
                   preprocessing_profile=args.profile, variant=args.variant,
-                  original_translation_units=28, units=units,
+                  original_translation_units=len(entries), units=units,
+                  **({'libyuv_translation_overlay_sha256': digest(overlay / 'libyuv/row.h')} if overlay else {}),
                   selector=str(selector.relative_to(ROOT)), selector_sha256=digest(selector),
                   original_compile_commands_sha256=digest(build / 'compile_commands.json'),
                   original_cmake_cache_sha256=digest(build / 'CMakeCache.txt'),
@@ -145,7 +169,7 @@ def main():
     manifest = ROOT / f'translations/root-{native}-{args.profile}-{args.variant}.json'
     if not args.check:
         manifest.write_text(json.dumps(record, indent=2) + '\n')
-    print(f'{"Reproduced" if args.check else "Generated"} 28 native {target} {args.profile} root units; execution acceptance is separate')
+    print(f'{"Reproduced" if args.check else "Generated"} {len(entries)} native {target} {args.profile} root units; execution acceptance is separate')
 
 
 if __name__ == '__main__':

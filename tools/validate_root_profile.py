@@ -11,6 +11,7 @@ import tempfile
 
 from check_root_profile import ROOT, digest, profile_work, validate_profile
 from compare_results import results
+import root_variants
 
 SMOKE = ['avif16bittest', 'avifallocationtest', 'avifbasictest', 'avifchangesettingtest',
          'avifcodectest', 'avifdecodetest', 'avifimagetest', 'avifsize0test']
@@ -40,7 +41,7 @@ def inventory(build):
 SANITIZER_FLAGS = {'address': ['-fsanitize=address', '-fno-omit-frame-pointer']}
 
 
-def library_commands(build, sanitizer=None):
+def library_commands(build, sanitizer=None, units=28):
     """Return each original libavif unit's flags with build-local paths normalized."""
     entries = [entry for entry in json.loads((build / 'compile_commands.json').read_text())
                if 'avif_obj.dir' in entry['command']]
@@ -55,8 +56,8 @@ def library_commands(build, sanitizer=None):
                     raise SystemExit(f'The original C unit lacks its exact sanitizer instrumentation: {entry["file"]}')
                 flags.remove(flag)
         commands[entry['file']] = flags
-    if len(commands) != 28 or len(entries) != 28:
-        raise SystemExit('The original C reference lacks the complete 28-unit libavif closure')
+    if len(commands) != units or len(entries) != units:
+        raise SystemExit(f'The original C reference lacks the complete {units}-unit libavif closure')
     return commands
 
 
@@ -121,7 +122,8 @@ def main():
         raise SystemExit('The original root reference configuration differs from the generated profile')
     sanitizer_record = None
     if args.sanitizer:
-        if library_commands(baseline, args.sanitizer) != library_commands(generating):
+        units = record['original_translation_units']
+        if library_commands(baseline, args.sanitizer, units) != library_commands(generating, units=units):
             raise SystemExit('The sanitized original C units differ from the profile\'s original preprocessing')
         from aom_sanitizer import native_runtime
         _, runtime, _ = native_runtime()
@@ -155,7 +157,7 @@ def main():
     parent.mkdir(exist_ok=True)
     output = Path(tempfile.mkdtemp(prefix=args.tier + '-', dir=parent))
     summary = output / 'summary.json'
-    feature = [] if record['variant'] == 'default' else ['--features', record['variant'].replace('mini-extended-pixi', 'mini,extended-pixi')]
+    feature = [] if record['variant'] == 'default' else ['--features', root_variants.cargo_features(record['variant'])]
     if not args.sanitizer:
         run(['python3', 'tools/check_abi.py', '--build', baseline, '--root-profile', manifest, *feature])
     archive = Path(proof['artifacts']['libavif.a']['path'])

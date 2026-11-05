@@ -69,9 +69,8 @@ def main():
     args = parser.parse_args()
     if args.upstream_debug and not args.debug:
         parser.error('--upstream-debug requires --debug')
-    if args.root_profile and (args.implementation != 'port' or args.compiler_default_diagnostic
-            or any([args.libgav1, args.rav1e, args.svt, args.libyuv, args.avm])):
-        parser.error('--root-profile requires port consumers with the generated default codec closure')
+    if args.root_profile and (args.implementation != 'port' or args.compiler_default_diagnostic or args.avm):
+        parser.error('--root-profile requires port consumers with a generated AV1 codec closure; AVM is separate')
     if args.asan and args.debug:
         parser.error('The sanitizer configuration uses original Release preprocessing')
     if args.instrumented_aom_reference and (args.implementation != 'baseline' or not args.asan):

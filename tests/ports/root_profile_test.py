@@ -17,6 +17,7 @@ import check_root_profile as subject
 import build_root_references as reference
 import check_aom_root_linkage as linkage
 import validate_root_profile as validator
+import root_variants
 
 
 class CTestInventoryGuards(unittest.TestCase):
@@ -179,6 +180,41 @@ class RootProfileGuards(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('different target, C profile, or source closure', result.stdout + result.stderr)
 
+
+
+class RootConfigurationGuards(unittest.TestCase):
+    def test_container_names_keep_their_existing_closure(self):
+        for variant in ['default', 'mini', 'extended-pixi', 'mini-extended-pixi']:
+            with self.subTest(variant=variant):
+                self.assertEqual(len(root_variants.sources(variant)), 28)
+                self.assertEqual(root_variants.name(root_variants.features(variant)), variant)
+
+    def test_external_libyuv_replaces_only_the_bundled_scaler(self):
+        sources = root_variants.sources('libyuv')
+        self.assertEqual(len(sources), 23)
+        self.assertFalse(any('/third_party/libyuv/' in source for source in sources))
+        self.assertIn('upstream/libavif/src/reformat_libyuv.c', sources)
+
+    def test_each_selected_adapter_is_an_original_unit(self):
+        sources = root_variants.sources('mini-extended-pixi-libgav1-rav1e-svt-libyuv')
+        self.assertEqual(len(sources), 26)
+        for adapter in ['codec_libgav1', 'codec_rav1e', 'codec_svt']:
+            self.assertIn(f'upstream/libavif/src/{adapter}.c', sources)
+            self.assertTrue((REPOSITORY / f'upstream/libavif/src/{adapter}.c').is_file())
+        self.assertEqual(root_variants.cargo_features('libgav1-rav1e-svt-libyuv'), 'libgav1,rav1e,svt,libyuv')
+
+    def test_avm_reordered_and_unknown_names_are_rejected(self):
+        for variant in ['avm', 'libgav1-avm', 'svt-rav1e', 'extended-pixi-mini', 'libyuv-', 'mini-mini', '']:
+            with self.subTest(variant=variant), self.assertRaises(ValueError):
+                root_variants.features(variant)
+
+    def test_pipeline_rejects_sanitized_optional_engines(self):
+        result = subprocess.run([sys.executable, str(REPOSITORY / 'tools/root_pipeline.py'), '--phase', 'validate',
+                                 '--sanitizer', 'address', '--profile', 'release', '--tier', 'full',
+                                 '--variant', 'libgav1', '--clang-include', '/nonexistent'],
+                                cwd=REPOSITORY, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('without optional engines', result.stderr)
 
 
 class SanitizerReferenceGuards(unittest.TestCase):

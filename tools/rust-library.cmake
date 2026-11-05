@@ -45,6 +45,17 @@ function(libavif_rs_use_rust_library)
     add_library(libavif_rs_root STATIC IMPORTED GLOBAL)
     set_target_properties(libavif_rs_root PROPERTIES IMPORTED_LOCATION "${LIBAVIF_RS_ARCHIVE}")
     target_link_libraries(avif PRIVATE libavif_rs_root)
+    if(NOT APPLE)
+        # The selected original external engines must also follow the Rust
+        # archive whose translated adapters reference them. Mach-O linking
+        # resolves archives independently of order and is left unchanged.
+        get_target_property(object_libraries avif_obj LINK_LIBRARIES)
+        foreach(engine libgav1::libgav1 rav1e::rav1e SvtAv1Enc yuv::yuv)
+            if("$<BUILD_INTERFACE:${engine}>" IN_LIST object_libraries)
+                target_link_libraries(libavif_rs_root INTERFACE ${engine})
+            endif()
+        endforeach()
+    endif()
     if(LIBAVIF_RS_AOM_IN_RUST)
         target_link_libraries(libavif_rs_root INTERFACE PkgConfig::libavif_rs_vmaf)
         if(APPLE)

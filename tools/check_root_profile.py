@@ -9,6 +9,8 @@ import platform
 import shlex
 import subprocess
 
+import root_variants
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -18,15 +20,17 @@ def digest(path):
 
 def validate_profile(path, target):
     record = json.loads(path.read_text())
+    try:
+        expected = set(root_variants.sources(record.get('variant', '')))
+    except ValueError:
+        raise SystemExit('Unknown native root configuration')
     if (record.get('generation_target') != target or record.get('preprocessing_profile') not in ['debug', 'release']
-            or record.get('variant') not in ['default', 'mini', 'extended-pixi', 'mini-extended-pixi']
-            or record.get('original_translation_units') != 28 or len(record.get('units', [])) != 28):
+            or record.get('original_translation_units') != len(expected) or len(record.get('units', [])) != len(expected)):
         raise SystemExit('Incomplete or mismatched native root profile')
     native = 'linux' if target == 'x86_64-unknown-linux-gnu' else 'macos' if target == 'aarch64-apple-darwin' else None
     if native is None:
         raise SystemExit('No accepted root-generation target mapping')
     prefix = Path(f'src/profiles/{native}/{record["preprocessing_profile"]}/{record["variant"]}')
-    expected = {unit['source'] for unit in json.loads((ROOT / 'TRANSLATION.json').read_text())['units']}
     if {unit['source'] for unit in record['units']} != expected:
         raise SystemExit('The native root profile changed the original source closure')
     outputs = set()
@@ -103,9 +107,13 @@ def main():
     (work / 'Cargo.toml').write_text(manifest)
     # Bind translated ELF globals locally when an independent C oracle is also
     # loaded by a differential consumer. This supplies no codec implementation.
+    # Selected optional engines stay the original external libraries; their
+    # static archives are not bundled into the Rust staticlib (ADR 0007).
+    links, _ = root_variants.native_links(record['variant'])
     (work / 'build.rs').write_text('fn main() {\n'
         '    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {\n'
-        '        println!("cargo:rustc-link-arg-cdylib=-Wl,-Bsymbolic");\n    }\n}\n')
+        '        println!("cargo:rustc-link-arg-cdylib=-Wl,-Bsymbolic");\n    }\n'
+        + ''.join(f'    println!({json.dumps(link)});\n' for link in links) + '}\n')
     destination = profile_target(record, args.sanitizer)
     command = ['cargo', 'build' if args.build else 'check', '--offline', '--manifest-path', str(work / 'Cargo.toml'),
                '--target-dir', str(destination)]
@@ -120,11 +128,12 @@ def main():
     if record['preprocessing_profile'] == 'release':
         command.append('--release')
     if record['variant'] != 'default':
-        command += ['--features', record['variant'].replace('mini-extended-pixi', 'mini,extended-pixi')]
+        command += ['--features', root_variants.cargo_features(record['variant'])]
     subprocess.run(command, cwd=ROOT, check=True, env=environment)
     proof = dict(target=target, profile=record['preprocessing_profile'], variant=record['variant'],
                  complete_source_profile_typechecked=True, native_execution_acceptance_claimed=False,
-                 translation_manifest_sha256=digest(args.manifest), units=28)
+                 translation_manifest_sha256=digest(args.manifest), units=len(record['units']),
+                 **({'native_engine_links': links} if links else {}))
     if args.build:
         suffix = '.so' if target == 'x86_64-unknown-linux-gnu' else '.dylib'
         names = ['libavif.a', 'libavif.rlib', 'libavif' + suffix]

@@ -155,9 +155,13 @@ def main():
     # The probe is a Rust consumer of an rlib, so it owns the runtime search
     # path for the same locally built AVM dylib that CMake consumers link.
     local_avm = ROOT / "build/deps/avm-build"
-    link = f"cargo:rustc-link-arg=-Wl,-rpath,{local_avm}" if "avm" in features and local_avm.exists() else None
+    links = [f"cargo:rustc-link-arg=-Wl,-rpath,{local_avm}"] if "avm" in features and local_avm.exists() else []
+    if args.root_profile:
+        # Selected shared optional engines likewise resolve through the probe.
+        from root_variants import native_links
+        links += [f"cargo:rustc-link-arg=-Wl,-rpath,{path}" for path in native_links(generated['variant'])[1]]
     (work / "build.rs").write_text(
-        "fn main() {" + (f" println!({json.dumps(link)});" if link else "") + " }\n"
+        "fn main() {" + "".join(f" println!({json.dumps(link)});" for link in links) + " }\n"
     )
     command = ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(work / "Cargo.toml"),
                "--target-dir", str(profile_target(generated) if args.root_profile else ROOT / 'target')]

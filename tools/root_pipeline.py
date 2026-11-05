@@ -6,6 +6,8 @@ import platform
 import shlex
 import subprocess
 
+import root_variants
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -19,7 +21,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--phase', choices=['all', 'references', 'generate', 'consumers', 'validate'], default='all')
     parser.add_argument('--profile', choices=['both', 'release', 'debug'], default='release')
-    parser.add_argument('--variant', choices=['default', 'mini', 'extended-pixi', 'mini-extended-pixi'], default='default')
+    parser.add_argument('--variant', default='default',
+                        help='Container features and optional external engines, for example libgav1-rav1e-svt-libyuv')
     parser.add_argument('--tier', choices=['prepare', 'smoke', 'regression', 'full'], default='smoke')
     parser.add_argument('--clang-include', type=Path, required=True)
     parser.add_argument('--jobs', type=int, default=2)
@@ -30,6 +33,13 @@ def main():
         parser.error('--jobs must be positive')
     if args.sanitizer != 'none' and (args.profile != 'release' or args.tier != 'full'):
         parser.error('Root sanitizer parity uses original Release preprocessing and the complete original suite')
+    try:
+        selected = root_variants.features(args.variant)
+    except ValueError as error:
+        parser.error(str(error))
+    engines = root_variants.engines(args.variant)
+    if args.sanitizer != 'none' and engines:
+        parser.error('Root sanitizer parity currently covers container configurations without optional engines')
     system, machine = platform.system(), platform.machine()
     if (system, machine) == ('Linux', 'x86_64'):
         native, triple = 'linux', 'x86_64-unknown-linux-gnu'
@@ -45,8 +55,7 @@ def main():
             print(f'Native root phase: {native} / {profile} / {args.variant} / {phase}', flush=True)
             debug = ['--debug'] if profile == 'debug' else []
             original_debug = ['--upstream-debug'] if profile == 'debug' else []
-            features = [flag for name, flag in [('mini', '--mini'), ('extended-pixi', '--extended-pixi')]
-                        if name in args.variant]
+            features = ['--' + name for name in selected]
             baseline = f'build/root-c-{native}-{profile}-{args.variant}'
             candidate = f'build/root-rust-{native}-{profile}-{args.variant}'
             # The sanitized consumers are separate builds. Source generation
@@ -57,6 +66,10 @@ def main():
             if phase == 'references':
                 run(['python3', 'tools/build_root_references.py', '--jobs', args.jobs, *debug])
                 run(['python3', 'tools/build_aom.py', '--jobs', args.jobs, '--library-only', *debug])
+                if engines:
+                    # The pinned original engines are shared by both consumer sets.
+                    run(['python3', 'tools/prepare_optional_deps.py', '--jobs', args.jobs,
+                         *['--' + name for name in engines]])
                 run(['python3', 'tools/build.py', 'baseline', '--fetch-deps', '--jobs', args.jobs,
                      *debug, *original_debug, *features, '--aom-reference-build', f'build/aom-native-{profile}',
                      '--root-references', references, '--build-dir', baseline])
