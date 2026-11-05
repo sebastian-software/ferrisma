@@ -23,6 +23,7 @@ jobs:
       profile: release
       variant: default
       tier: smoke
+      package: production
 
   linux-nightly:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -37,6 +38,7 @@ jobs:
       profile: both
       variant: ${{ matrix.variant }}
       tier: full
+      package: production
 
   linux-asan-nightly:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -65,3 +67,18 @@ jobs:
       profile: both
       variant: ${{ matrix.variant }}
       tier: full
+
+  macos-production-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [default, mini-extended-pixi]
+    uses: ./.github/workflows/root-translate-linux.yml
+    with:
+      runner: macos-26
+      profile: release
+      variant: ${{ matrix.variant }}
+      tier: full
+      package: production

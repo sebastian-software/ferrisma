@@ -28,6 +28,11 @@ on:
         type: choice
         options: [none, address]
         default: none
+      package:
+        description: Link consumers to the isolated generated profile or to the production libavif package
+        type: choice
+        options: [profile, production]
+        default: profile
   workflow_call:
     inputs:
       runner:
@@ -45,6 +50,9 @@ on:
       sanitizer:
         type: string
         default: none
+      package:
+        type: string
+        default: profile
 
 permissions:
   contents: read
@@ -102,6 +110,8 @@ jobs:
           python3 tests/ports/root_link_order_test.py
           python3 tests/ports/root_assertions_test.py
           python3 tests/ports/root_case_outcomes_test.py
+          python3 tests/ports/root_production_test.py
+          python3 tools/update_production_selection.py --check
           cargo fetch --locked
       - name: Build the pinned retained VMAF reference
         run: |
@@ -113,20 +123,22 @@ jobs:
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
           REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+          REQUESTED_PACKAGE: ${{ inputs.package }}
         run: |
           python3 tools/root_pipeline.py --phase references --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
       - name: Generate and typecheck native root source profiles
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
           REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+          REQUESTED_PACKAGE: ${{ inputs.package }}
         run: |
           python3 tools/root_pipeline.py --phase generate --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
       - name: Build unchanged original consumers against native Rust profiles
         if: inputs.tier != 'prepare'
         env:
@@ -134,10 +146,11 @@ jobs:
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
           REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+          REQUESTED_PACKAGE: ${{ inputs.package }}
         run: |
           python3 tools/root_pipeline.py --phase consumers --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
       - name: Run original C/Rust suites, ABI, ownership, and strict bytes
         if: inputs.tier != 'prepare'
         env:
@@ -145,15 +158,16 @@ jobs:
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
           REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+          REQUESTED_PACKAGE: ${{ inputs.package }}
         run: |
           python3 tools/root_pipeline.py --phase validate --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
       - name: Preserve generated source, exact C configuration, and typecheck evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: root-${{ startsWith(inputs.runner, 'macos-') && 'macos' || 'linux' }}-${{ inputs.tier }}-${{ inputs.profile }}-${{ inputs.variant }}${{ inputs.sanitizer != 'none' && format('-{0}', inputs.sanitizer) || '' }}
+          name: root-${{ startsWith(inputs.runner, 'macos-') && 'macos' || 'linux' }}-${{ inputs.package == 'production' && 'production-' || '' }}${{ inputs.tier }}-${{ inputs.profile }}-${{ inputs.variant }}${{ inputs.sanitizer != 'none' && format('-{0}', inputs.sanitizer) || '' }}
           path: |
             src/profiles/
             translations/root-*.json
@@ -169,6 +183,7 @@ jobs:
             build/root-rust-*/aom-root-linkage.json
             build/root-rust-*/**/*.map
             build/root-rust-*/root-validation/
+            build/root-rust-*/production-package.json
             build/abi-*/summary.json
             build/root-references-*/reference-profile.json
             build/root-references-*/dav1d/meson-logs/
