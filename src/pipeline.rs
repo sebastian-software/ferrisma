@@ -179,7 +179,6 @@ impl From<Error> for ProcessingError {
             | Error::UnsupportedCodecLayout
             | Error::UnsupportedPixelOperation
             | Error::ChromaPhaseRequiresResampling => Kind::UnsupportedInput,
-            #[cfg(feature = "avif-read")]
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
             Error::UnsupportedColorEncoding => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]

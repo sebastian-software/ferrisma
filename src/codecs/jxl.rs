@@ -20,6 +20,10 @@ impl JxlSource {
         let image = JxlImage::builder()
             .read(Cursor::new(bytes))
             .map_err(|_| Error::DecodeFailed)?;
+        // Applying orientation is not implemented; reject it before decoding.
+        if image.image_header().metadata.orientation != 1 {
+            return Err(Error::UnsupportedImageTransform);
+        }
         let size = Size::new(image.width(), image.height())?;
         let layout = match image.pixel_format() {
             PixelFormat::Gray => ChannelLayout::Gray,
@@ -72,7 +76,7 @@ impl DecodeSource for JxlSource {
             .map_err(|_| Error::DecodeFailed)?;
         // Orientation/ROI coordinate mapping is not validated yet.
         if rendered.orientation() != 1 {
-            return Err(Error::UnsupportedPixelOperation);
+            return Err(Error::UnsupportedImageTransform);
         }
         let mut stream = rendered.stream();
         if stream.width() != region.width

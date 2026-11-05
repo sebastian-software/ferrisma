@@ -70,7 +70,7 @@ cargo run --release --features cli -- \
 # Use --use-rendered-icc for supported RGB ICC input.
 ```
 
-**Caveats:** untagged output is not automatically sRGB; HDR/unknown color and unsupported alpha must fail closed. AVIF input reports its rendered color from the `colr` box and the AV1 sequence header; PQ/HLG/P3 are never treated as sRGB, and contradictory container/bitstream signals, monochrome input and `irot`/`imir`/`clap` transforms are rejected. JPEG/AVIF may fully decode an image before resizing, and the AVIF encoder currently requires a complete output frame. Some codec-native memory is opaque. MSRV is **Rust 1.98**, and the AVIF decoder may need NASM on x86.
+**Caveats:** untagged output is not automatically sRGB; HDR/unknown color and unsupported alpha must fail closed. AVIF input reports its rendered color from the `colr` box and the AV1 sequence header; PQ/HLG/P3 are never treated as sRGB, and contradictory container/bitstream signals, monochrome input and `irot`/`imir`/`clap` transforms are rejected. Non-upright input in any format (EXIF orientation, JPEG XL orientation, AVIF rotation/mirroring) is rejected rather than applied. JPEG/AVIF may fully decode an image before resizing, and the AVIF encoder currently requires a complete output frame. Some codec-native memory is opaque. MSRV is **Rust 1.98**, and the AVIF decoder may need NASM on x86.
 
 See [M1 evidence and remaining gates](docs/milestones/M1-evidence-and-gates.md), [quality protocol](docs/benchmarks/M1-protocol.md), [license audit](docs/license-audit.md), and [fuzzing](docs/fuzzing.md).
 

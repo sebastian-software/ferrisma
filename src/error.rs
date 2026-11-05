@@ -50,7 +50,10 @@ pub(crate) enum Error {
     },
     #[cfg(feature = "avif-read")]
     ContradictoryColorSignals,
-    #[cfg(feature = "avif-read")]
+    #[cfg_attr(
+        not(any(feature = "jpeg-read", feature = "jpeg-xl-read", feature = "avif-read")),
+        allow(dead_code, reason = "constructed only by codec adapters")
+    )]
     UnsupportedImageTransform,
     #[cfg(feature = "avif-write")]
     InvalidEncodeOptions,
@@ -123,10 +126,9 @@ impl fmt::Display for Error {
                 f,
                 "container color information contradicts the coded bitstream"
             ),
-            #[cfg(feature = "avif-read")]
             Self::UnsupportedImageTransform => write!(
                 f,
-                "rotation, mirroring or clean-aperture transforms are not supported yet"
+                "orientation, mirroring or clean-aperture transforms are not supported yet"
             ),
             Self::InvalidAlphaValue => {
                 write!(f, "straight alpha must be finite and between zero and one")
