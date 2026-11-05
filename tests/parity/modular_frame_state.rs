@@ -115,10 +115,8 @@ fn state(out: &mut String, e: &ModularFrameEncoder<'_>) {
     for h in &e.stream_headers {
         write!(out, " {}", u32::from(h.use_global_tree)).unwrap();
         predict::header(out, &h.wp_header);
-        let view = Image {
-            transform: h.transforms.clone(),
-            ..Default::default()
-        };
+        let mut view = Image::default();
+        view.transform = h.transforms.clone();
         modular_frame::image(out, &view, false);
     }
     write!(out, " {}", e.tokens.len()).unwrap();

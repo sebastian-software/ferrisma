@@ -2,11 +2,14 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! AlignedMemory and BytesPerRow from memory_manager_internal.{h,cc}.
-//! Uses Rust's allocator and zero-initializes storage. C allocator callbacks
-//! remain unported. Row sizing retains the scalar reference's four
-//! byte maximum vector size. See ADR 0003.
+//! An owner allocates through the caller's JxlMemoryManager when one is
+//! supplied, or through the crate's native Rust allocator boundary otherwise;
+//! both zero-initialize the payload so safe slices never expose indeterminate
+//! bytes. Row sizing retains the scalar reference's four byte maximum vector
+//! size. See ADR 0003.
 
 use super::base::status::{StatusCode, StatusOr};
+use super::memory_manager::{JxlMemoryManager, memory_manager_alloc, memory_manager_free};
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -58,19 +61,87 @@ pub fn bytes_per_row(xsize: usize, sizeof_t: usize) -> StatusOr<usize> {
     Ok(stride)
 }
 
+/// The source `JxlMemoryManager*` an AlignedMemory owner allocates through.
+///
+/// `NULL` is the source's null pointer, which fails at its allocation
+/// checkpoint. `NATIVE` is the crate's Rust allocator boundary, used by owners
+/// that no caller manager reaches (the encoder and standalone units). A value
+/// from `from_raw` retains the caller's live manager, whose callbacks receive
+/// the original request sizes, as in the source. The representation is
+/// private, so a manager pointer can only enter through `from_raw`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MemoryManagerPtr(Kind);
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum Kind {
+    #[default]
+    Null,
+    Native,
+    Manager(NonNull<JxlMemoryManager>),
+}
+
+// SAFETY: A `Manager` value is created only by the unsafe `from_raw`, whose
+// caller guarantees that the manager and its callbacks stay valid and callable
+// from every thread that uses an owner allocated through it, as the source's
+// parallel decoding requires of the same pointer. The other kinds hold no
+// pointer.
+unsafe impl Send for MemoryManagerPtr {}
+// SAFETY: As for Send; the pointer is only read, never written through.
+unsafe impl Sync for MemoryManagerPtr {}
+
+impl MemoryManagerPtr {
+    /// The source's null manager pointer.
+    pub const NULL: Self = Self(Kind::Null);
+    /// The crate's native Rust allocator.
+    pub const NATIVE: Self = Self(Kind::Native);
+
+    /// The caller's manager, or `NULL` for a null pointer.
+    ///
+    /// # Safety
+    /// A nonnull `manager` must remain readable and initialized, with valid
+    /// alloc/free/opaque fields, until every owner allocated through the
+    /// returned value is destroyed. Its callbacks must obey memory_manager.h,
+    /// be callable from any thread that uses those owners, never unwind and
+    /// never reenter the owner being allocated or freed. A successful alloc
+    /// returns an exclusively owned writable block of the requested size.
+    pub unsafe fn from_raw(manager: *const JxlMemoryManager) -> Self {
+        Self(NonNull::new(manager.cast_mut()).map_or(Kind::Null, Kind::Manager))
+    }
+
+    /// The source null test, `memory_manager != nullptr`.
+    pub fn is_some(self) -> bool {
+        self != Self::NULL
+    }
+
+    /// The raw source pointer: null for `NULL` and `NATIVE`.
+    pub fn as_raw(self) -> *const JxlMemoryManager {
+        match self.0 {
+            Kind::Manager(manager) => manager.as_ptr(),
+            Kind::Null | Kind::Native => std::ptr::null(),
+        }
+    }
+}
+
+enum Backing {
+    Native(Layout),
+    Manager(NonNull<JxlMemoryManager>),
+}
+
 pub(crate) struct AlignedMemory {
     allocation: NonNull<u8>,
-    layout: Layout,
+    backing: Backing,
     address_offset: usize,
     size: usize,
 }
 
-// SAFETY: This value exclusively owns a global-allocator allocation, which can
-// be freed on another thread. Moving it transfers that ownership exactly once.
+// SAFETY: This value exclusively owns its allocation, which can be freed on
+// another thread: the global allocator is thread-safe, and MemoryManagerPtr's
+// from_raw contract makes a caller manager's free callable from any thread.
+// Moving it transfers that ownership exactly once.
 unsafe impl Send for AlignedMemory {}
 
 // SAFETY: Shared access exposes only initialized immutable bytes; mutation
-// requires &mut self. The global allocator and group counter are thread-safe.
+// requires &mut self. The allocators and group counter are thread-safe.
 unsafe impl Sync for AlignedMemory {}
 
 impl AlignedMemory {
@@ -96,6 +167,40 @@ impl AlignedMemory {
         unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
     }
 
+    pub(crate) fn usizes(&self) -> &[usize] {
+        let size = std::mem::size_of::<usize>();
+        assert_eq!(self.size % size, 0);
+        // SAFETY: create aligns to 128 bytes, all usize bit patterns are
+        // valid, and the checked byte count covers whole initialized elements.
+        unsafe { std::slice::from_raw_parts(self.bytes().as_ptr().cast(), self.size / size) }
+    }
+
+    pub(crate) fn usizes_mut(&mut self) -> &mut [usize] {
+        let size = std::mem::size_of::<usize>();
+        assert_eq!(self.size % size, 0);
+        let len = self.size / size;
+        // SAFETY: Same validity/alignment/bounds proof as usizes, with
+        // exclusive access through the owner for the returned slice lifetime.
+        unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
+    }
+
+    pub(crate) fn isizes(&self) -> &[isize] {
+        let size = std::mem::size_of::<isize>();
+        assert_eq!(self.size % size, 0);
+        // SAFETY: create aligns to 128 bytes, all isize bit patterns are
+        // valid, and the checked byte count covers whole initialized elements.
+        unsafe { std::slice::from_raw_parts(self.bytes().as_ptr().cast(), self.size / size) }
+    }
+
+    pub(crate) fn isizes_mut(&mut self) -> &mut [isize] {
+        let size = std::mem::size_of::<isize>();
+        assert_eq!(self.size % size, 0);
+        let len = self.size / size;
+        // SAFETY: Same validity/alignment/bounds proof as isizes, with
+        // exclusive access through the owner for the returned slice lifetime.
+        unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
+    }
+
     pub(crate) fn u32s(&self) -> &[u32] {
         assert_eq!(self.size % 4, 0);
         // SAFETY: create aligns to 128 bytes, all u32 bit patterns are valid,
@@ -111,7 +216,11 @@ impl AlignedMemory {
         unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
     }
 
-    pub(crate) fn create(size: usize, pre_padding: usize) -> StatusOr<Self> {
+    pub(crate) fn create(
+        memory_manager: MemoryManagerPtr,
+        size: usize,
+        pre_padding: usize,
+    ) -> StatusOr<Self> {
         if pre_padding > ALIAS {
             return Err(StatusCode::GenericError);
         }
@@ -119,13 +228,34 @@ impl AlignedMemory {
             .checked_add(pre_padding)
             .and_then(|n| n.checked_add(ALIAS))
             .ok_or(StatusCode::GenericError)?;
-        let layout =
-            Layout::from_size_align(allocation_size, 1).map_err(|_| StatusCode::GenericError)?;
-        // SAFETY: The checked layout has nonzero size (at least ALIAS) and a
-        // valid alignment. The returned allocation is owned by this value and
-        // is deallocated with this exact layout in Drop. All bytes start valid.
-        let allocation =
-            NonNull::new(unsafe { alloc_zeroed(layout) }).ok_or(StatusCode::GenericError)?;
+        let (allocation, backing) = match memory_manager.0 {
+            Kind::Null => return Err(StatusCode::GenericError),
+            Kind::Native => {
+                let layout = Layout::from_size_align(allocation_size, 1)
+                    .map_err(|_| StatusCode::GenericError)?;
+                // SAFETY: The checked layout has nonzero size (at least ALIAS)
+                // and a valid alignment. The returned allocation is owned by
+                // this value and is deallocated with this exact layout in
+                // Drop. All bytes start valid.
+                let allocation = NonNull::new(unsafe { alloc_zeroed(layout) })
+                    .ok_or(StatusCode::GenericError)?;
+                (allocation, Backing::Native(layout))
+            }
+            Kind::Manager(manager) => {
+                // SAFETY: from_raw's caller keeps this manager live with valid
+                // callbacks. No borrowed view of any block exists across the
+                // call, and the request is the source's exact size.
+                let allocated = unsafe { memory_manager_alloc(manager.as_ptr(), allocation_size) };
+                let allocation =
+                    NonNull::new(allocated.cast::<u8>()).ok_or(StatusCode::GenericError)?;
+                // SAFETY: A successful alloc returns an exclusively owned
+                // writable block of allocation_size bytes (from_raw contract).
+                // Zeroing it is the representation's internal initialization
+                // so that the safe slices below never read indeterminate bytes.
+                unsafe { allocation.as_ptr().write_bytes(0, allocation_size) };
+                (allocation, Backing::Manager(manager))
+            }
+        };
 
         // Relaxed ordering is sufficient: only a rotating numeric group is
         // shared, never the allocation or its contents, as in the source.
@@ -143,10 +273,18 @@ impl AlignedMemory {
         debug_assert_eq!(aligned_address % ALIGNMENT, 0);
         Ok(Self {
             allocation,
-            layout,
+            backing,
             address_offset,
             size,
         })
+    }
+
+    /// The source `memory_manager()` accessor of an allocated owner.
+    pub(crate) fn memory_manager(&self) -> MemoryManagerPtr {
+        match self.backing {
+            Backing::Native(_) => MemoryManagerPtr::NATIVE,
+            Backing::Manager(manager) => MemoryManagerPtr(Kind::Manager(manager)),
+        }
     }
 
     pub(crate) fn bytes(&self) -> &[u8] {
@@ -173,9 +311,17 @@ impl AlignedMemory {
 
 impl Drop for AlignedMemory {
     fn drop(&mut self) {
-        // SAFETY: allocation was produced by alloc_zeroed with this layout,
-        // is owned exactly once, and has not been resized or deallocated.
-        unsafe { dealloc(self.allocation.as_ptr(), self.layout) };
+        match self.backing {
+            // SAFETY: allocation was produced by alloc_zeroed with this
+            // layout, is owned exactly once, and has not been deallocated.
+            Backing::Native(layout) => unsafe { dealloc(self.allocation.as_ptr(), layout) },
+            // SAFETY: The block came from this live manager's alloc and is
+            // released exactly once, at the source destructor checkpoint; no
+            // slice into it outlives this owner.
+            Backing::Manager(manager) => unsafe {
+                memory_manager_free(manager.as_ptr(), self.allocation.as_ptr().cast());
+            },
+        }
     }
 }
 

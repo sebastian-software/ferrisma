@@ -103,6 +103,7 @@ fn ans_read(args: &mut std::str::SplitWhitespace<'_>, mode: &str) -> String {
     let mut code = ANSCode::default();
     let mut context_map = Vec::new();
     let status = dec_ans::decode_histograms(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
         &mut br,
         contexts,
         &mut code,
@@ -364,7 +365,12 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             let mut num_htrees = 99;
             let mut reader = BitReader::new(&bytes);
             reader.skip_bits(offset);
-            let status = decode_context_map(&mut map, &mut num_htrees, &mut reader);
+            let status = decode_context_map(
+                jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+                &mut map,
+                &mut num_htrees,
+                &mut reader,
+            );
             let mut result = format!("{} {num_htrees}", status_code(&status));
             for value in map {
                 write!(result, " {value}").unwrap();

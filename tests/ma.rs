@@ -78,7 +78,13 @@ fn serialized_tree_selects_original_contexts_after_static_pruning() {
         let (w, expected) = encode(&input, force);
         let mut br = BitReader::new(w.get_span());
         let mut tree = Vec::new();
-        decode_tree(&mut br, &mut tree, MAX_TREE_SIZE).unwrap();
+        decode_tree(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            &mut tree,
+            MAX_TREE_SIZE,
+        )
+        .unwrap();
         br.close().unwrap();
         assert_eq!(tree, expected);
         for channel in [0, 1] {
@@ -136,7 +142,13 @@ fn decoder_size_checkpoint_accepts_final_leaf_but_retains_unfinished_prefix() {
     let (w, expected) = encode(&vec![Node::leaf(Predictor::LEFT, 0, 1)], false);
     let mut br = BitReader::new(w.get_span());
     let mut tree = Vec::new();
-    decode_tree(&mut br, &mut tree, 0).unwrap();
+    decode_tree(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        &mut br,
+        &mut tree,
+        0,
+    )
+    .unwrap();
     br.close().unwrap();
     assert_eq!(tree, expected);
     let input = vec![
@@ -147,7 +159,12 @@ fn decoder_size_checkpoint_accepts_final_leaf_but_retains_unfinished_prefix() {
     let (w, expected) = encode(&input, false);
     let mut br = BitReader::new(w.get_span());
     assert_eq!(
-        decode_tree(&mut br, &mut tree, 0),
+        decode_tree(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            &mut tree,
+            0
+        ),
         Err(StatusCode::GenericError)
     );
     br.close().unwrap();
@@ -166,7 +183,12 @@ fn invalid_nested_split_keeps_parsed_nodes_and_reused_group_defaults_keep_transf
     let mut br = BitReader::new(w.get_span());
     let mut tree = Vec::new();
     assert_eq!(
-        decode_tree(&mut br, &mut tree, MAX_TREE_SIZE),
+        decode_tree(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            &mut tree,
+            MAX_TREE_SIZE
+        ),
         Err(StatusCode::GenericError)
     );
     br.close().unwrap();

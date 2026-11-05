@@ -20,6 +20,7 @@ use crate::jxl::base::rect::Rect;
 use crate::jxl::base::status::{Status, StatusCode, StatusOr};
 use crate::jxl::frame_dimensions::FrameDimensions;
 use crate::jxl::image::Plane;
+use crate::jxl::memory_manager_internal::MemoryManagerPtr;
 
 fn div_ceil(n: usize, d: usize) -> usize {
     n.wrapping_add(d - 1) / d
@@ -28,6 +29,7 @@ fn div_ceil(n: usize, d: usize) -> usize {
 /// The protected RenderPipeline members shared by both implementations.
 #[derive(Default)]
 pub struct RenderPipelineBase<'a> {
+    pub(crate) memory_manager: MemoryManagerPtr,
     pub(crate) stages: Vec<Box<dyn RenderPipelineStage + 'a>>,
     // Shifts for every channel at the input of each stage.
     pub(crate) channel_shifts: Vec<Vec<(usize, usize)>>,
@@ -124,14 +126,21 @@ pub trait RenderPipeline<'a> {
 /// The original Builder. `use_simple_implementation` selects
 /// SimpleRenderPipeline; the default selects LowMemoryRenderPipeline.
 pub struct RenderPipelineBuilder<'a> {
+    memory_manager: MemoryManagerPtr,
     stages: Vec<Box<dyn RenderPipelineStage + 'a>>,
     num_c: usize,
     use_simple_implementation: bool,
 }
 impl<'a> RenderPipelineBuilder<'a> {
+    /// A builder whose pipeline allocates through the native boundary.
     pub fn new(num_c: usize) -> Self {
+        Self::new_in(MemoryManagerPtr::NATIVE, num_c)
+    }
+    /// The source Builder(memory_manager, num_c).
+    pub fn new_in(memory_manager: MemoryManagerPtr, num_c: usize) -> Self {
         assert!(num_c > 0, "source channel-count precondition");
         Self {
+            memory_manager,
             stages: Vec::new(),
             num_c,
             use_simple_implementation: false,
@@ -187,7 +196,10 @@ impl<'a> RenderPipelineBuilder<'a> {
                 return Err(StatusCode::GenericError);
             }
         }
-        let mut res = RenderPipelineBase::default();
+        let mut res = RenderPipelineBase {
+            memory_manager: self.memory_manager,
+            ..RenderPipelineBase::default()
+        };
         res.padding.resize(self.stages.len(), Vec::new());
         for i in (0..self.stages.len()).rev() {
             let stage = &self.stages[i];

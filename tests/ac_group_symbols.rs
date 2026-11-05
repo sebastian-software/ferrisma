@@ -67,7 +67,15 @@ fn signed_coefficients_accumulate_with_shift_and_i16_narrowing_without_touching_
         let mut br = BitReader::new(&bytes);
         let mut code = ANSCode::default();
         let mut map = Vec::new();
-        decode_histograms(&mut br, 1, &mut code, &mut map, false).unwrap();
+        decode_histograms(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            1,
+            &mut code,
+            &mut map,
+            false,
+        )
+        .unwrap();
         let mut reader = ANSSymbolReader::create(&code, &mut br, 0).unwrap();
         let acs = AcStrategy::from_raw_strategy(AcStrategyType::DCT);
         let (order, offset) = order(acs);
@@ -117,7 +125,15 @@ fn invalid_count_preserves_rows_but_outstanding_count_keeps_scatter_and_coeffici
         let mut br = BitReader::new(&bytes);
         let mut code = ANSCode::default();
         let mut map = Vec::new();
-        decode_histograms(&mut br, 1, &mut code, &mut map, false).unwrap();
+        decode_histograms(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            1,
+            &mut code,
+            &mut map,
+            false,
+        )
+        .unwrap();
         let mut reader = ANSSymbolReader::create(&code, &mut br, 0).unwrap();
         let acs = AcStrategy::from_raw_strategy(AcStrategyType::DCT);
         let (order, offset) = order(acs);
@@ -162,7 +178,15 @@ fn multiblock_scatter_retains_neighbor_rows_and_zero_count_retains_coefficients(
     let mut br = BitReader::new(&bytes);
     let mut code = ANSCode::default();
     let mut map = Vec::new();
-    decode_histograms(&mut br, 1, &mut code, &mut map, false).unwrap();
+    decode_histograms(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        &mut br,
+        1,
+        &mut code,
+        &mut map,
+        false,
+    )
+    .unwrap();
     let mut reader = ANSSymbolReader::create(&code, &mut br, 0).unwrap();
     let acs = AcStrategy::from_raw_strategy(AcStrategyType(4));
     let (order, _) = order(acs);

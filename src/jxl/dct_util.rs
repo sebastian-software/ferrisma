@@ -7,6 +7,7 @@
 use super::base::status::StatusOr;
 use super::image::Image3;
 use super::image_ops::{zero_fill_image, zero_fill_image3};
+use super::memory_manager_internal::MemoryManagerPtr;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(i32)]
 pub enum AcType {
@@ -33,10 +34,19 @@ impl AcImage {
         }
     }
     pub fn make(kind: AcType, xsize: usize, ysize: usize) -> StatusOr<Box<Self>> {
+        Self::make_in(MemoryManagerPtr::NATIVE, kind, xsize, ysize)
+    }
+    /// The source ACImageT<T>::Make(memory_manager, xsize, ysize).
+    pub fn make_in(
+        memory_manager: MemoryManagerPtr,
+        kind: AcType,
+        xsize: usize,
+        ysize: usize,
+    ) -> StatusOr<Box<Self>> {
         let mut result = Box::new(Self::empty(kind));
         match result.as_mut() {
-            Self::I16(img) => *img = Image3::create(xsize, ysize)?,
-            Self::I32(img) => *img = Image3::create(xsize, ysize)?,
+            Self::I16(img) => img.assign(Image3::create_in(xsize, ysize, memory_manager)?),
+            Self::I32(img) => img.assign(Image3::create_in(xsize, ysize, memory_manager)?),
         }
         Ok(result)
     }

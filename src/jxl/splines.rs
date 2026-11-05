@@ -3,8 +3,8 @@
 
 //! Complete scalar translation of lib/jxl/splines.{h,cc}. Borrowed external
 //! SplineDataView and an owned-data selector replace self-referential spans.
-//! Typed vectors own the source aligned index arrays; no SIMD alignment is
-//! required by the one-lane implementation. The public getters expose only
+//! AlignedMemory owners from the spline memory manager hold the source's index
+//! arrays, viewed as typed slices. The public getters expose only
 //! initialized source state. SIMD targets and enc_splines.cc are separate units.
 
 use super::base::bits::ceil_log2_nonzero;
@@ -15,6 +15,7 @@ use super::chroma_from_luma::ColorCorrelation;
 use super::dec_ans::{ANSCode, ANSSymbolReader, decode_histograms};
 use super::dec_bit_reader::BitReader;
 use super::image::Image3F;
+use super::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
 use super::pack_signed::unpack_signed;
 
 pub const DESIRED_RENDERING_DISTANCE: f32 = 1.0;
@@ -308,7 +309,7 @@ pub struct SplineSegment {
     pub color: [f32; 3],
 }
 pub struct Splines<'a> {
-    memory_manager_present: bool,
+    memory_manager: MemoryManagerPtr,
     quantization_adjustment: i32,
     splines_storage: Vec<QuantizedSpline>,
     starting_points_storage: Vec<SplinePoint>,
@@ -316,8 +317,8 @@ pub struct Splines<'a> {
     owned_data: bool,
     owned_data_sizes: [usize; 2],
     segments: Vec<SplineSegment>,
-    segment_indices: Option<Vec<usize>>,
-    segment_y_start: Option<Vec<isize>>,
+    segment_indices: Option<AlignedMemory>,
+    segment_y_start: Option<AlignedMemory>,
 }
 impl Default for Splines<'_> {
     fn default() -> Self {
@@ -326,8 +327,12 @@ impl Default for Splines<'_> {
 }
 impl<'a> Splines<'a> {
     pub fn new() -> Self {
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+    /// The source Splines(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
         Self {
-            memory_manager_present: true,
+            memory_manager,
             quantization_adjustment: 0,
             splines_storage: Vec::new(),
             starting_points_storage: Vec::new(),
@@ -384,7 +389,7 @@ impl<'a> Splines<'a> {
         }
     }
     pub fn have_memory_manager(&self) -> bool {
-        self.memory_manager_present
+        self.memory_manager.is_some()
     }
     pub fn storage_sizes(&self) -> [usize; 3] {
         [
@@ -403,10 +408,10 @@ impl<'a> Splines<'a> {
         &self.segments
     }
     pub fn segment_indices(&self) -> Option<&[usize]> {
-        self.segment_indices.as_deref()
+        self.segment_indices.as_ref().map(AlignedMemory::usizes)
     }
     pub fn segment_y_start(&self) -> Option<&[isize]> {
-        self.segment_y_start.as_deref()
+        self.segment_y_start.as_ref().map(AlignedMemory::isizes)
     }
     pub fn stored_splines(&self) -> &[QuantizedSpline] {
         &self.splines_storage
@@ -417,7 +422,14 @@ impl<'a> Splines<'a> {
     pub fn decode(&mut self, br: &mut BitReader<'_>, num_pixels: usize) -> Status {
         let mut context_map = Vec::new();
         let mut code = ANSCode::default();
-        decode_histograms(br, NUM_SPLINE_CONTEXTS, &mut code, &mut context_map, false)?;
+        decode_histograms(
+            self.memory_manager,
+            br,
+            NUM_SPLINE_CONTEXTS,
+            &mut code,
+            &mut context_map,
+            false,
+        )?;
         let mut decoder = ANSSymbolReader::create(&code, br, 0)?;
         let mut n = decoder.read_hybrid_uint(NUM_SPLINES_CONTEXT, br, &context_map);
         let max = (1usize << 20).min(num_pixels / 2);
@@ -530,13 +542,16 @@ impl<'a> Splines<'a> {
                 &mut spans,
             );
         }
-        let mut starts = Vec::new();
-        starts
-            .try_reserve_exact(height + 2)
-            .map_err(|_| StatusCode::GenericError)?;
-        starts.resize(height + 2, 0isize);
-        self.segment_y_start = Some(starts);
-        let starts = self.segment_y_start.as_mut().unwrap();
+        // AlignedMemory::Create zero-initializes the source's memset range.
+        let segment_y_start_num_bytes = height
+            .wrapping_add(2)
+            .wrapping_mul(std::mem::size_of::<isize>());
+        self.segment_y_start = Some(AlignedMemory::create(
+            self.memory_manager,
+            segment_y_start_num_bytes,
+            0,
+        )?);
+        let starts = self.segment_y_start.as_mut().unwrap().isizes_mut();
         for &(start, end) in &spans {
             starts[start + 1] += 1;
             starts[end + 1] -= 1;
@@ -550,13 +565,13 @@ impl<'a> Splines<'a> {
             starts[y + 1] = total as isize;
             total += coverage as usize;
         }
-        let mut indices = Vec::new();
-        indices
-            .try_reserve_exact(total)
-            .map_err(|_| StatusCode::GenericError)?;
-        indices.resize(total, 0);
-        self.segment_indices = Some(indices);
-        let indices = self.segment_indices.as_mut().unwrap();
+        self.segment_indices = Some(AlignedMemory::create(
+            self.memory_manager,
+            total.wrapping_mul(std::mem::size_of::<usize>()),
+            0,
+        )?);
+        let starts = self.segment_y_start.as_mut().unwrap().isizes_mut();
+        let indices = self.segment_indices.as_mut().unwrap().usizes_mut();
         for (i, &(start, end)) in spans.iter().enumerate() {
             for y in start..end {
                 indices[starts[y + 1] as usize] = i;
@@ -586,8 +601,8 @@ impl<'a> Splines<'a> {
         if self.segments.is_empty() {
             return;
         }
-        let starts = self.segment_y_start.as_ref().unwrap();
-        let indices = self.segment_indices.as_ref().unwrap();
+        let starts = self.segment_y_start.as_ref().unwrap().isizes();
+        let indices = self.segment_indices.as_ref().unwrap().usizes();
         for i in starts[y]..starts[y + 1] {
             draw_segment(
                 &self.segments[indices[i as usize]],

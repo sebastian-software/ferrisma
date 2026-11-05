@@ -10,6 +10,7 @@ use super::dec_bit_reader::BitReader;
 use super::dec_context_map::decode_context_map;
 use super::field_encodings::{U32Enc, bits, bits_offset};
 use super::fields::u32_coder;
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::pack_signed::unpack_signed;
 
 /// Neighbor slices cover each reached index. As in the source, the reached
@@ -42,7 +43,11 @@ pub const QF_THRESHOLD_DIST: U32Enc = U32Enc::new(
     bits_offset(8, 44),
 );
 
-pub fn decode_block_ctx_map(br: &mut BitReader<'_>, block_ctx_map: &mut BlockCtxMap) -> Status {
+pub fn decode_block_ctx_map(
+    memory_manager: MemoryManagerPtr,
+    br: &mut BitReader<'_>,
+    block_ctx_map: &mut BlockCtxMap,
+) -> Status {
     let is_default = br.read_fixed_bits::<1>() != 0;
     if is_default {
         *block_ctx_map = BlockCtxMap::default();
@@ -71,7 +76,12 @@ pub fn decode_block_ctx_map(br: &mut BitReader<'_>, block_ctx_map: &mut BlockCtx
             * (block_ctx_map.qf_thresholds.len() + 1),
         0,
     );
-    decode_context_map(&mut block_ctx_map.ctx_map, &mut block_ctx_map.num_ctxs, br)?;
+    decode_context_map(
+        memory_manager,
+        &mut block_ctx_map.ctx_map,
+        &mut block_ctx_map.num_ctxs,
+        br,
+    )?;
     if block_ctx_map.num_ctxs > 16 {
         return Err(StatusCode::GenericError);
     }

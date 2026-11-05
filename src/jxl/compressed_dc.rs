@@ -9,6 +9,7 @@ use super::base::rect::Rect;
 use super::base::status::Status;
 use super::frame_header::YCbCrChromaSubsampling;
 use super::image::{Image3, Plane};
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::modular::modular_image::Image;
 
 const W1: f32 = 0.203_451_4;
@@ -71,13 +72,23 @@ pub fn adaptive_dc_smoothing(
     dc: &mut Image3<f32>,
     chroma: &YCbCrChromaSubsampling,
 ) -> Status {
+    adaptive_dc_smoothing_in(MemoryManagerPtr::NATIVE, dc_factors, dc, chroma)
+}
+
+/// The source AdaptiveDCSmoothing(memory_manager, dc_factors, dc, ...).
+pub fn adaptive_dc_smoothing_in(
+    memory_manager: MemoryManagerPtr,
+    dc_factors: &[f32],
+    dc: &mut Image3<f32>,
+    chroma: &YCbCrChromaSubsampling,
+) -> Status {
     let xsize = dc.xsize();
     let ysize = dc.ysize();
     if ysize <= 2 || xsize <= 2 {
         return Ok(());
     }
     if chroma.is_444() {
-        let mut smoothed = Image3::create(xsize, ysize)?;
+        let mut smoothed = Image3::create_in(xsize, ysize, memory_manager)?;
         for c in 0..3 {
             for y in [0, ysize - 1] {
                 smoothed.plane_row_mut(c, y)[..xsize].copy_from_slice(&dc.plane_row(c, y)[..xsize]);
@@ -116,7 +127,7 @@ pub fn adaptive_dc_smoothing(
         }
         dc.swap(&mut smoothed);
     } else {
-        let mut smoothed = Plane::create(xsize, ysize)?;
+        let mut smoothed = Plane::create_in(xsize, ysize, 0, memory_manager)?;
         for (c, &dc_factor) in dc_factors.iter().enumerate().take(3) {
             let width = xsize >> chroma.h_shift(c);
             let height = ysize >> chroma.v_shift(c);

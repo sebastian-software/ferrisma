@@ -117,8 +117,10 @@ sequence and acceptance gates for this work.
 - [x] Connect the translated default CMS backend (the skcms branch of
   `jxl_cms.cc`) and incremental ICC parsing to the public decoder.
 - [x] Port the low-memory rendering pipeline and select it as `decode.cc` does.
-- [ ] Route custom allocators through every owner; the ICC reader and frame
-  owners still allocate through the global allocator.
+- [x] Route the caller's memory manager through every decoder owner, including
+  the ICC reader, codec state, image bundle and frame owners.
+- [ ] Route the memory manager through the encoder's owners with the public
+  encoder API.
 - [ ] Port the thread runners and `JxlDecoderSetParallelRunner`/
   `JxlEncoderSetParallelRunner`, with their parallel schedules.
 - [x] Export the public decoder C ABI of `decode.h`, except

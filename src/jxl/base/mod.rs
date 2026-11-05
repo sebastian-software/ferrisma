@@ -6,6 +6,7 @@ pub mod fast_math;
 pub mod float;
 pub(crate) mod hwy_scalar;
 pub mod libcpp_sort;
+pub mod libcpp_vector;
 pub mod matrix_ops;
 pub mod override_option;
 pub mod random;

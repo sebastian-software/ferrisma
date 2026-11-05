@@ -8,6 +8,7 @@ use super::ma_common::*;
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::dec_ans::{ANSCode, ANSSymbolReader, decode_histograms};
 use crate::jxl::dec_bit_reader::BitReader;
+use crate::jxl::memory_manager_internal::MemoryManagerPtr;
 use crate::jxl::modular::options::{NUM_MODULAR_PREDICTORS, Predictor};
 use crate::jxl::pack_signed::unpack_signed;
 
@@ -194,10 +195,22 @@ fn decode_tree_tokens(
     }
     validate_tree(tree)
 }
-pub fn decode_tree(br: &mut BitReader<'_>, tree: &mut Tree, tree_size_limit: usize) -> Status {
+pub fn decode_tree(
+    memory_manager: MemoryManagerPtr,
+    br: &mut BitReader<'_>,
+    tree: &mut Tree,
+    tree_size_limit: usize,
+) -> Status {
     let mut context_map = Vec::new();
     let mut code = ANSCode::default();
-    decode_histograms(br, NUM_TREE_CONTEXTS, &mut code, &mut context_map, false)?;
+    decode_histograms(
+        memory_manager,
+        br,
+        NUM_TREE_CONTEXTS,
+        &mut code,
+        &mut context_map,
+        false,
+    )?;
     if code.degenerate_symbols[context_map[PROPERTY_CONTEXT] as usize] > 0 {
         return Err(StatusCode::GenericError);
     }

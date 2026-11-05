@@ -8,12 +8,13 @@ use super::dec_ans::{
 };
 use super::dec_bit_reader::BitReader;
 use super::icc_codec_common::*;
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::padded_bytes::PaddedBytes;
 pub const PREAMBLE_SIZE: usize = 20;
-pub fn shuffle(data: &mut [u8], width: usize) -> Status {
+pub fn shuffle(memory_manager: MemoryManagerPtr, data: &mut [u8], width: usize) -> Status {
     let size = data.len();
     let height = size.wrapping_add(width).wrapping_sub(1) / width;
-    let mut result = PaddedBytes::with_initial_space(size)?;
+    let mut result = PaddedBytes::with_initial_space_in(memory_manager, size)?;
     let mut s = 0;
     let mut j = 0;
     for i in 0..size {
@@ -72,6 +73,7 @@ pub fn unpredict_icc(enc: &[u8], result: &mut PaddedBytes) -> Status {
     if !result.is_empty() {
         return Err(StatusCode::GenericError);
     }
+    let memory_manager = result.memory_manager();
     let mut pos = 0;
     let mut osize = 0;
     decode_var_int(enc, &mut pos, &mut osize)?;
@@ -83,7 +85,7 @@ pub fn unpredict_icc(enc: &[u8], result: &mut PaddedBytes) -> Status {
     check_out_of_bounds(pos as u64, csize, enc.len() as u64)?;
     let commands_end = cpos + csize as usize;
     pos = commands_end;
-    let mut header = PaddedBytes::default();
+    let mut header = PaddedBytes::new(memory_manager);
     header.append(&icc_initial_header_prediction(osize as u32))?;
     for i in 0..=ICC_HEADER_SIZE {
         if result.len() as u64 == osize {
@@ -213,10 +215,12 @@ pub fn unpredict_icc(enc: &[u8], result: &mut PaddedBytes) -> Status {
                         result.push_back(value)?;
                     }
                 } else {
-                    let mut shuffled = PaddedBytes::with_initial_space(num as usize)?;
+                    let mut shuffled =
+                        PaddedBytes::with_initial_space_in(memory_manager, num as usize)?;
                     shuffled.bytes_mut()[..num as usize]
                         .copy_from_slice(&enc[pos..pos + num as usize]);
                     shuffle(
+                        memory_manager,
                         &mut shuffled.bytes_mut()[..num as usize],
                         if command == COMMAND_SHUFFLE2 { 2 } else { 4 },
                     )?;
@@ -251,10 +255,15 @@ pub fn unpredict_icc(enc: &[u8], result: &mut PaddedBytes) -> Status {
                 let mut num = 0;
                 decode_var_int(&enc[..commands_end], &mut cpos, &mut num)?;
                 check_out_of_bounds(pos as u64, num, enc.len() as u64)?;
-                let mut shuffled = PaddedBytes::with_initial_space(num as usize)?;
+                let mut shuffled =
+                    PaddedBytes::with_initial_space_in(memory_manager, num as usize)?;
                 shuffled.bytes_mut()[..num as usize].copy_from_slice(&enc[pos..pos + num as usize]);
                 if width > 1 {
-                    shuffle(&mut shuffled.bytes_mut()[..num as usize], width)?;
+                    shuffle(
+                        memory_manager,
+                        &mut shuffled.bytes_mut()[..num as usize],
+                        width,
+                    )?;
                 }
                 let start = result.len();
                 for (i, &value) in shuffled.as_slice().iter().enumerate() {
@@ -305,7 +314,6 @@ pub fn unpredict_icc(enc: &[u8], result: &mut PaddedBytes) -> Status {
 /// Incremental reader from icc_codec.{h,cc}. The code and code-independent ANS
 /// state have separate owners; temporary borrowed readers move the same state
 /// back on every Status return, retaining the LZ77 allocation and checkpoints.
-#[derive(Default)]
 pub struct ICCReader {
     i: usize,
     bits_to_skip: usize,
@@ -317,9 +325,30 @@ pub struct ICCReader {
     decompressed: PaddedBytes,
 }
 
+impl Default for ICCReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ICCReader {
+    /// An ICCReader on the native allocator boundary.
     pub fn new() -> Self {
-        Self::default()
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+
+    /// The source ICCReader(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
+        Self {
+            i: 0,
+            bits_to_skip: 0,
+            used_bits_base: 0,
+            enc_size: 0,
+            context_map: Vec::new(),
+            code: ANSCode::default(),
+            ans_state: ANSSymbolReaderState::default(),
+            decompressed: PaddedBytes::new(memory_manager),
+        }
     }
 
     pub fn reset(&mut self) {
@@ -335,6 +364,7 @@ impl ICCReader {
 
     pub fn init(&mut self, reader: &mut BitReader<'_>) -> Status {
         Self::check_eoi(reader)?;
+        let memory_manager = self.decompressed.memory_manager();
         self.used_bits_base = reader.total_bits_consumed();
         if self.bits_to_skip == 0 {
             self.enc_size = super::fields::u64_coder::read(reader);
@@ -342,6 +372,7 @@ impl ICCReader {
                 return Err(StatusCode::GenericError);
             }
             decode_histograms(
+                memory_manager,
                 reader,
                 NUM_ICC_CONTEXTS,
                 &mut self.code,

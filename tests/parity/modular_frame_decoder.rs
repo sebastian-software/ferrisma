@@ -40,10 +40,8 @@ pub(super) fn decoder(out: &mut String, d: &ModularFrameDecoder, pixels: bool) {
             }
         }
     }
-    let moved = Image {
-        transform: d.global_transforms().to_vec(),
-        ..Image::default()
-    };
+    let mut moved = Image::default();
+    moved.transform = d.global_transforms().to_vec();
     modular_frame::image(out, &moved, false);
     ma::tree(out, d.tree());
     write!(out, " {}", d.context_map().len()).unwrap();

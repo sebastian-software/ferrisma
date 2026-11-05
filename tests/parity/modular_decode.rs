@@ -39,8 +39,22 @@ fn read_request(args: &mut std::str::SplitWhitespace<'_>) -> Observation {
     let mut map = Vec::new();
     if !global_data.is_empty() {
         let mut gb = BitReader::new(&global_data);
-        decode_tree(&mut gb, &mut tree, MAX_TREE_SIZE).unwrap();
-        decode_histograms(&mut gb, tree.len().div_ceil(2), &mut code, &mut map, false).unwrap();
+        decode_tree(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut gb,
+            &mut tree,
+            MAX_TREE_SIZE,
+        )
+        .unwrap();
+        decode_histograms(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut gb,
+            tree.len().div_ceil(2),
+            &mut code,
+            &mut map,
+            false,
+        )
+        .unwrap();
         gb.close().unwrap();
     }
     if flags & 8 != 0 {

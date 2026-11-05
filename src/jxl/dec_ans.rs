@@ -18,7 +18,7 @@ use super::dec_huffman::{HUFFMAN_TABLE_BITS, HuffmanDecodingData};
 use super::field_encodings::{Fields, U32Enc, bits_offset, val};
 use super::fields::{Visitor, bundle};
 use super::huffman_table::HuffmanCode;
-use super::memory_manager_internal::AlignedMemory;
+use super::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HybridUintConfig {
@@ -251,6 +251,8 @@ pub struct ANSCode {
     pub log_alpha_size: u8,
     pub lz77: LZ77Params,
     pub max_num_bits: usize,
+    /// Set by DecodeANSCodes; ANSSymbolReader::Create allocates through it.
+    pub memory_manager: MemoryManagerPtr,
 }
 
 impl ANSCode {
@@ -596,11 +598,13 @@ fn read_histogram(
 }
 
 pub fn decode_ans_codes(
+    memory_manager: MemoryManagerPtr,
     num_histograms: usize,
     max_alphabet_size: usize,
     input: &mut BitReader<'_>,
     result: &mut ANSCode,
 ) -> Status {
+    result.memory_manager = memory_manager;
     result.degenerate_symbols.resize(num_histograms, -1);
     if result.use_prefix_code {
         if max_alphabet_size > 1 << PREFIX_MAX_BITS {
@@ -643,7 +647,7 @@ pub fn decode_ans_codes(
         }
         let alloc_size =
             num_histograms * (1usize << result.log_alpha_size) * std::mem::size_of::<Entry>();
-        result.alias_storage = Some(AlignedMemory::create(alloc_size, 0)?);
+        result.alias_storage = Some(AlignedMemory::create(memory_manager, alloc_size, 0)?);
         for c in 0..num_histograms {
             let mut counts = Vec::new();
             if read_histogram(ANS_LOG_TAB_SIZE as usize, &mut counts, input).is_err() {
@@ -686,6 +690,7 @@ pub fn decode_ans_codes(
 }
 
 pub fn decode_histograms(
+    memory_manager: MemoryManagerPtr,
     br: &mut BitReader<'_>,
     mut num_contexts: usize,
     code: &mut ANSCode,
@@ -704,7 +709,12 @@ pub fn decode_histograms(
     let mut num_histograms = 1;
     context_map.resize(num_contexts, 0);
     if num_contexts > 1 {
-        super::dec_context_map::decode_context_map(context_map, &mut num_histograms, br)?;
+        super::dec_context_map::decode_context_map(
+            memory_manager,
+            context_map,
+            &mut num_histograms,
+            br,
+        )?;
     }
     code.lz77.nonserialized_distance_context = usize::from(*context_map.last().unwrap());
     code.use_prefix_code = br.read_fixed_bits::<1>() != 0;
@@ -716,7 +726,13 @@ pub fn decode_histograms(
     code.uint_config
         .resize(num_histograms, HybridUintConfig::default());
     decode_uint_configs(code.log_alpha_size as usize, &mut code.uint_config, br)?;
-    decode_ans_codes(num_histograms, 1 << code.log_alpha_size, br, code)
+    decode_ans_codes(
+        memory_manager,
+        num_histograms,
+        1 << code.log_alpha_size,
+        br,
+        code,
+    )
 }
 
 pub const MAX_CHECKPOINT_INTERVAL: usize = 512;
@@ -886,7 +902,11 @@ impl<'a> ANSSymbolReader<'a> {
         distance_multiplier: usize,
     ) -> StatusOr<Self> {
         let lz77_window = if code.lz77.enabled {
-            Some(AlignedMemory::create(WINDOW_SIZE * 4, 0)?)
+            Some(AlignedMemory::create(
+                code.memory_manager,
+                WINDOW_SIZE * 4,
+                0,
+            )?)
         } else {
             None
         };

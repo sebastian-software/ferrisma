@@ -37,7 +37,16 @@ fn repeated_dictionary_decode_replaces_previous_frame_blend_modes() {
     for (bytes, expected) in [(add.as_slice(), 1.5f32), (replace.as_slice(), 1.0f32)] {
         let mut br = BitReader::new(bytes);
         let mut uses = false;
-        pd.decode(&mut br, 1, 1, 0, &mut uses, &references).unwrap();
+        pd.decode(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            1,
+            1,
+            0,
+            &mut uses,
+            &references,
+        )
+        .unwrap();
         br.close().unwrap();
         assert!(!uses);
         assert_eq!(pd.get_references(), 1);

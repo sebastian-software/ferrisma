@@ -18,6 +18,7 @@ use super::image::{Image3, Plane};
 use super::image_bundle::ImageBundle;
 use super::image_metadata::CodecMetadata;
 use super::image_ops::zero_fill_image;
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::noise::NoiseParams;
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
@@ -41,11 +42,25 @@ impl std::ops::Deref for DcImage<'_> {
         }
     }
 }
-#[derive(Default)]
 pub struct ImageFeatures<'a> {
     pub noise_params: Rc<RefCell<NoiseParams>>,
     pub patches: Rc<RefCell<PatchDictionary>>,
     pub splines: Rc<RefCell<Splines<'a>>>,
+}
+impl Default for ImageFeatures<'_> {
+    fn default() -> Self {
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+}
+impl ImageFeatures<'_> {
+    /// The source ImageFeatures(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
+        Self {
+            noise_params: Rc::default(),
+            patches: Rc::new(RefCell::new(PatchDictionary::new_in(memory_manager))),
+            splines: Rc::new(RefCell::new(Splines::new_in(memory_manager))),
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DcSource {
@@ -53,7 +68,7 @@ pub enum DcSource {
     Frame(usize),
 }
 pub struct PassesSharedState<'a> {
-    memory_manager_present: bool,
+    memory_manager: MemoryManagerPtr,
     pub metadata: Option<&'a CodecMetadata>,
     pub frame_dim: FrameDimensions,
     pub ac_strategy: AcStrategyImage,
@@ -80,7 +95,10 @@ impl Default for PassesSharedState<'_> {
 }
 impl<'a> PassesSharedState<'a> {
     pub fn new() -> Self {
-        let memory_manager_present = true;
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+    /// The source PassesSharedState(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
         let metadata = None;
         let frame_dim = FrameDimensions::default();
         let ac_strategy = AcStrategyImage::default();
@@ -89,7 +107,7 @@ impl<'a> PassesSharedState<'a> {
         let raw_quant_field = Plane::default();
         let epf_sharpness = Plane::default();
         let cmap = ColorCorrelationMap::default();
-        let image_features = ImageFeatures::default();
+        let image_features = ImageFeatures::new_in(memory_manager);
         let coeff_order_size = 0;
         let coeff_orders = Vec::new();
         let quant_dc = Plane::default();
@@ -100,10 +118,10 @@ impl<'a> PassesSharedState<'a> {
         let mut reference_frames = std::array::from_fn(|_| ReferenceFrame::default());
         let num_histograms = 0;
         for reference in &mut reference_frames {
-            reference.frame = Some(Box::new(ImageBundle::new(None)));
+            reference.frame = Some(Box::new(ImageBundle::new_in(memory_manager, None)));
         }
         Self {
-            memory_manager_present,
+            memory_manager,
             metadata,
             frame_dim,
             ac_strategy,
@@ -125,7 +143,10 @@ impl<'a> PassesSharedState<'a> {
         }
     }
     pub fn have_memory_manager(&self) -> bool {
-        self.memory_manager_present
+        self.memory_manager.is_some()
+    }
+    pub fn memory_manager(&self) -> MemoryManagerPtr {
+        self.memory_manager
     }
     pub fn dc(&self) -> DcImage<'_> {
         match self.dc_source {
@@ -157,11 +178,14 @@ pub fn initialize_passes_shared_state<'a>(
     shared.frame_dim = header.to_frame_dimensions();
     shared.bind_own_reference_frames();
     let dim = &shared.frame_dim;
-    shared.ac_strategy = AcStrategyImage::create(dim.xsize_blocks, dim.ysize_blocks)?;
-    shared.raw_quant_field = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
-    shared.epf_sharpness = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+    let memory_manager = shared.memory_manager;
+    shared.ac_strategy =
+        AcStrategyImage::create_in(memory_manager, dim.xsize_blocks, dim.ysize_blocks)?;
+    shared.raw_quant_field =
+        Plane::create_in(dim.xsize_blocks, dim.ysize_blocks, 0, memory_manager)?;
+    shared.epf_sharpness = Plane::create_in(dim.xsize_blocks, dim.ysize_blocks, 0, memory_manager)?;
     // The original call uses ColorCorrelationMap::Create's default xyb=true.
-    shared.cmap = ColorCorrelationMap::create(dim.xsize, dim.ysize, true)?;
+    shared.cmap = ColorCorrelationMap::create_in(memory_manager, dim.xsize, dim.ysize, true)?;
     shared.coeff_order_size = COEFF_ORDER_MAX_SIZE;
     if encoder
         && shared.coeff_orders.len()
@@ -173,20 +197,24 @@ pub fn initialize_passes_shared_state<'a>(
             0,
         );
     }
-    shared.quant_dc = Plane::create(dim.xsize_blocks, dim.ysize_blocks)?;
+    shared.quant_dc = Plane::create_in(dim.xsize_blocks, dim.ysize_blocks, 0, memory_manager)?;
     let use_dc_frame = header.flags & FLAG_USE_DC_FRAME != 0;
     if !encoder && use_dc_frame {
         if header.dc_level == 4 {
             return Err(StatusCode::GenericError);
         }
-        shared.dc_storage = Image3::default();
+        shared.dc_storage.assign(Image3::default());
         shared.dc_source = DcSource::Frame(header.dc_level as usize);
         if shared.dc().xsize() == 0 {
             return Err(StatusCode::GenericError);
         }
         zero_fill_image(&mut shared.quant_dc);
     } else {
-        shared.dc_storage = Image3::create(dim.xsize_blocks, dim.ysize_blocks)?;
+        shared.dc_storage.assign(Image3::create_in(
+            dim.xsize_blocks,
+            dim.ysize_blocks,
+            memory_manager,
+        )?);
         shared.dc_source = DcSource::Storage;
     }
     Ok(())

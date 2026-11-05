@@ -4,11 +4,14 @@
 //! Palette lookup, inverse pixels, and metadata from modular/transform/
 //! palette.{h,cc}, with the original null-pool task order. Plane owners move
 //! through the source index-buffer swap; short shared borrows end before each
-//! output write. Custom runners and allocator callbacks remain unported.
+//! output write. Channels allocate through the image's memory manager, and
+//! channel erasure keeps the libc++ release order. Custom runners remain
+//! unported.
 
 use super::transform::check_equal_channels;
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::image::ImageI;
+use crate::jxl::memory_manager_internal::MemoryManagerPtr;
 use crate::jxl::modular::encoding::context_predict::{
     PixelPosition, predict_no_tree_no_wp, predict_no_tree_wp, weighted,
 };
@@ -170,9 +173,10 @@ pub fn inv_palette(
     if nb < 1 {
         return Err(StatusCode::GenericError);
     }
+    let memory_manager: MemoryManagerPtr = input.memory_manager();
     for _ in 1..nb {
         let ch = &input.channel[c0i];
-        let c = Channel::create_with_shifts(w, h, ch.hshift, ch.vshift)?;
+        let c = Channel::create_in(memory_manager, w, h, ch.hshift, ch.vshift)?;
         input.channel.insert(c0i + 1, c);
     }
     let palette_size = input.channel[0].w as i32;
@@ -227,7 +231,7 @@ pub fn inv_palette(
         }
     } else {
         let plane = &mut input.channel[c0i].plane;
-        let mut indices = ImageI::create(plane.xsize(), plane.ysize())?;
+        let mut indices = ImageI::create_in(plane.xsize(), plane.ysize(), 0, memory_manager)?;
         plane.swap(&mut indices);
         if predictor == Predictor::WEIGHTED {
             for c in 0..nb as u32 {
@@ -307,7 +311,7 @@ pub fn inv_palette(
             return Err(StatusCode::GenericError);
         }
     }
-    input.channel.remove(0);
+    crate::jxl::base::libcpp_vector::erase(&mut input.channel, 0, 1);
     Ok(())
 }
 pub fn meta_palette(
@@ -328,10 +332,19 @@ pub fn meta_palette(
         }
         input.nb_meta_channels = input.nb_meta_channels.wrapping_add(2usize.wrapping_sub(nb));
     }
-    input
-        .channel
-        .drain(begin_c.wrapping_add(1) as usize..end_c.wrapping_add(1) as usize);
-    let mut pch = Channel::create(nb_colors.wrapping_add(nb_deltas) as usize, nb)?;
+    crate::jxl::base::libcpp_vector::erase(
+        &mut input.channel,
+        begin_c.wrapping_add(1) as usize,
+        end_c.wrapping_add(1) as usize,
+    );
+    let memory_manager = input.memory_manager();
+    let mut pch = Channel::create_in(
+        memory_manager,
+        nb_colors.wrapping_add(nb_deltas) as usize,
+        nb,
+        0,
+        0,
+    )?;
     pch.hshift = -1;
     pch.vshift = -1;
     input.channel.insert(0, pch);
