@@ -52,8 +52,84 @@ serialized under a runner, so a runner brings no parallel speedup yet; the
 encoder C ABI is absent; and the translated skcms SKX engine has no AVX-512
 acceptance. Every decoder owner allocates through the caller's memory manager
 (see "Decoder memory-manager propagation" below). Container writing, general
-encoding, the public encoder API and JxlEncoderSetParallelRunner remain
-unported.
+encoding, the encoder C ABI and JxlEncoderSetParallelRunner remain unported.
+The public encoder API's object lifecycle, option and metadata setters, frame
+and box queueing and ProcessOutput are translated with explicit admission
+results for every untranslated branch (see "Public encoder API admission and
+setters" below); it encodes no pixels yet.
+
+## Public encoder API admission and setters (2026-11-05)
+
+This is the first of the six pull requests of encoder step 1 in
+[ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#first-step). ADR 0001 now admits
+the public encoder with run-time admission results.
+
+`src/jxl/encode.rs` holds the original JxlEncoder and JxlEncoderFrameSettings
+objects from `encode_internal.h`, with every field in source order, and these
+`encode.cc` functions: JxlEncoderVersion, Create, Reset, Destroy, GetError,
+UseContainer, StoreJPEGMetadata, SetCodestreamLevel,
+GetRequiredCodestreamLevel with VerifyLevelSettings, SetCms,
+AllowExpertOptions, InitBasicInfo, SetBasicInfo with CheckValidBitdepth,
+InitExtraChannelInfo, SetExtraChannelInfo, SetExtraChannelName,
+SetUpsamplingMode, SetColorEncoding, SetICCProfile (with the default CMS and
+DecideIfWantICC), JxlColorEncodingSetToSRGB/LinearSRGB, FrameSettingsCreate,
+SetFrameLossless, SetFrameDistance, SetExtraChannelDistance,
+DistanceFromQuality, FrameSettingsSetOption, FrameSettingsSetFloatOption,
+InitFrameHeader, InitBlendInfo, SetFrameHeader, SetExtraChannelBlendInfo,
+SetFrameName, SetFrameBitDepth, AddImageFrame with GetCurrentDimensions,
+AddImageFrameInternal, CanDoFastLossless, VerifyInputBitDepth and QueueFrame,
+UseBoxes, AddBox with QueueBox, SetExtraChannelBuffer, CloseFrames,
+CloseBoxes, CloseInput and ProcessOutput. `encode_internal.rs` adds MakeBoxType,
+the frame-index-box storage, JxlEncoderFrameSettingsValues, the queued
+frame/box/input owners and the buffer mode of JxlEncoderOutputProcessorWrapper
+(GetBuffer, Seek, SetFinalizedPosition, SetAvailOut, ReleaseBuffer,
+FlushOutput, JxlOutputProcessorBuffer and AppendData). The encoder object,
+frame settings, queued frames and queued boxes allocate through the caller's
+memory manager as MemoryManagerUniquePtr owners, released in the source's
+order. SetIntensityTarget from `luminance.cc` and DecideIfWantICC are new.
+DistanceFromQuality reproduces the original object's AArch64 FMADD
+contractions and the separate x86-64 operations.
+
+Admission (ADR 0001): two source checkpoints return `JXL_ENC_ERROR` with
+`JXL_ENC_ERR_NOT_SUPPORTED` after every earlier original check. AddImageFrame
+does so where CanDoFastLossless selects `enc_fast_lossless.cc` (step 8), and
+ProcessOutput where its loop would call ProcessOneEnqueuedInput for a queued
+frame or box (header, container, box and frame encoding). So every encode
+request is currently an admission result; queueing, all rejections before
+these calls and `NEED_MORE_OUTPUT` with zero output space compare exactly.
+AddJPEGFrame, AddChunkedFrame, FlushInput, SetOutputProcessor,
+SetParallelRunner, SetDebugImageCallback and the statistics functions are
+absent; their owners are uninhabited fields.
+
+Evidence: `tools/oracle/encoder_public.cc` replays `epub-run` caller histories
+on the original public API of the complete archive and prints every status,
+GetError value and output chunk; `tests/support/encoder_public.rs` mirrors it
+token for token. An `S` checkpoint, compiled with `-fno-access-control` like
+the other internal fixtures, compares the stored state exactly: all encoder
+flags and counters, the metadata serialized by the original
+WriteCodestreamHeaders on a copy, the ICC bytes and WantICC, the stored basic
+info, every frame-settings value, and each queued frame's options,
+`ec_initialized` and copied channel storage or queued box. With a custom
+manager, the allocation and release order compares too, including each
+injected allocation failure. `epub-probe` reports the original's internal
+state at each AddImageFrame and ProcessOutput: every admission result must
+coincide with the original queueing a fast-lossless frame or entering
+ProcessOneEnqueuedInput, and no compared AddImageFrame may take the
+fast-lossless branch. `epub-wrap` drives the original buffer-mode wrapper.
+Local results on native macOS AArch64 (ordinary oracle): 3,317 exact public
+histories in nine families (lifecycle 44, basic-info 449, extra-channels 136,
+color 348, options 1,895, distance 171, frame-settings 66, frames 173,
+boxes-output 35) and 606 exact wrapper histories. Another 153 histories match
+up to their admission call with original branch evidence (12 fast-lossless,
+141 ProcessOneEnqueuedInput); they are not counted as parity. Linux, the
+ASan/UBSan oracle and the source audit for this unit have not run yet.
+
+Not applicable or deferred: allocation sizes are those of the language
+layouts and are not compared. A failed extra-channel SetFromBuffer leaves the
+original's channel pointing to the caller's buffer, which the Rust owner does
+not retain; the `S` checkpoint compares the other channel fields. A
+SetExtraChannelBuffer after AddBox dereferences a null queued frame in the
+original; the Rust function panics there and no history reaches it.
 
 ## Thread runners and JxlDecoderSetParallelRunner (2026-11-04)
 
@@ -598,7 +674,9 @@ followed in PRs #46 to #50.
 | `base/float.h` | `base/float.rs` | Complete LoadFloat16 and callback-based LoadFloatRow, including unsupported-format failure before access |
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
 | `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer and Float16/Float32 buffer/null-pool specializations of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32/FloatToF16 with selected native-half-cast mapping, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; callbacks, custom runners, and alternate Highway half-conversion compile branches unported |
-| `encode_internal.h` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, and the buffer-backed adapter/channel construction, binding, copying, views, and format accessors; callback/JPEG input, CopyFromBuffer, queued frames, and output processors unported |
+| `encode_internal.h`, out-of-line wrapper methods in `encode.cc` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, the buffer-backed adapter/channel construction, binding, copying, views and format accessors, MakeBoxType, frame-index-box storage, JxlEncoderFrameSettingsValues, queued frame/box/input owners, and the buffer mode of JxlEncoderOutputProcessorWrapper with JxlOutputProcessorBuffer and AppendData; callback/JPEG input, CopyFromBuffer, CopyOutput, the external output processor, container headers and frame-index-box methods unported |
+| `encode.cc` lifecycle, setters and queueing, JxlEncoder/JxlEncoderFrameSettings in `encode_internal.h`, values in `../include/jxl/encode.h` | `encode.rs` | Create/Reset/Destroy, GetError, version, container/level/box flags, VerifyLevelSettings, basic-info, extra-channel, upsampling, color and ICC setters, frame-settings creation and every option/float option, distances, frame header/blend/name/bit depth, AddImageFrame, AddBox, SetExtraChannelBuffer, Close* and ProcessOutput; admission results at CanDoFastLossless and ProcessOneEnqueuedInput; frame encoding, containers, JPEG/chunked input, output processors, runner, debug and statistics APIs and the C ABI unported |
+| `luminance.h`, `.cc` | `luminance.rs` | Complete SetIntensityTarget |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
 | `ans_params.h` | `ans_params.rs` | ANS and prefix coding constants |
@@ -625,7 +703,7 @@ followed in PRs #46 to #50.
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points unported |
 | `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; ICC/transform invocation is translated below; default CMS backend and public encoder API remain unported |
 | `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, partial setter state, and callback-backed ICC field extraction; default ICC parser unported |
-| `color_encoding_internal.h`, `.cc`, SetFieldsFromICC in `cms/color_encoding_cms.h` | `color_encoding_internal.rs`, `color_space_transform.rs`, `cms/color_encoding_cms.rs` | Field bundles, profile generation, raw ICC storage, static encodings, callback SetICC/SetFieldsFromICC with conditional byte transfer, complete callback-backed ColorSpaceTransform and destruction; default CMS backend and C ABI entry points unported |
+| `color_encoding_internal.h`, `.cc`, SetFieldsFromICC in `cms/color_encoding_cms.h` | `color_encoding_internal.rs`, `color_space_transform.rs`, `cms/color_encoding_cms.rs` | Field bundles, profile generation, raw ICC storage, static encodings, callback SetICC/SetFieldsFromICC with conditional byte transfer, DecideIfWantICC, complete callback-backed ColorSpaceTransform and destruction; default CMS backend and C ABI entry points unported |
 | `image_metadata.h`, `.cc`, quantizer bias constants | `image_metadata.rs`, `image_metadata_weights.rs` | Bit depth, extra channels, opsin/custom weights, tone mapping, image/codec metadata, sample/alpha/orientation helpers, and metadata reading; diagnostic output unported |
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
@@ -715,7 +793,7 @@ followed in PRs #46 to #50.
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
 | `padded_bytes.h` | `padded_bytes.rs` | Writer and ICC storage through the owner's memory manager, native slice/length access, and transferred output ownership; other container operations unported |
-| `memory_manager.h`, `memory_manager_internal.h`, `.cc` | `memory_manager.rs`, `memory_manager_internal.rs` | Complete JXL manager initialization/default callbacks, output-stage callback-backed scratch, and manager-backed AlignedMemory for every decoder owner, preserving exact custom sizes, live manager fields, the shared alignment counter and the source release order; encoder owners use the native allocator |
+| `memory_manager.h`, `memory_manager_internal.h`, `.cc` | `memory_manager.rs`, `memory_manager_internal.rs` | Complete JXL manager initialization/default callbacks, output-stage callback-backed scratch, and manager-backed AlignedMemory for every decoder owner, preserving exact custom sizes, live manager fields, the shared alignment counter and the source release order; MemoryManagerUniquePtr/MemoryManagerDeleteHelper for the public encoder's object, settings and queued owners; other encoder owners use the native allocator |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
 Internal storage mappings are specified in the

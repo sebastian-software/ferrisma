@@ -737,6 +737,25 @@ worktree per PR:
    `ComputeEncodingData`/`EncodeFrameOneShot`, `AddImageFrame` and
    `ProcessOutput`, and the full step 1 gate.
 
+Progress:
+
+- PR 1 (ADR and harness): ADR 0001 admits the public encoder with run-time
+  admission results. `encode.rs` translates the encoder object, its lifecycle,
+  every option and metadata setter, frame and box queueing and ProcessOutput;
+  `encode_internal.rs` adds the queued owners and the buffer-mode output
+  wrapper. The admitted profile is empty: AddImageFrame returns an admission
+  result where CanDoFastLossless selects `enc_fast_lossless.cc`, and
+  ProcessOutput where it would call ProcessOneEnqueuedInput.
+  `tools/oracle/encoder_public.cc` and `tests/parity/encoder_public.rs` compare
+  caller histories, stored-state checkpoints, allocator logs and the wrapper
+  with the original; `epub-probe` supplies the original's branch evidence for
+  each admission result. See
+  [PORT_STATUS.md](PORT_STATUS.md#public-encoder-api-admission-and-setters-2026-11-05).
+  Linux, the ASan/UBSan oracle and a source audit for the unit are still
+  open. The next PRs widen ProcessOneEnqueuedInput: its raw-codestream header
+  path (WriteCodestreamHeaders, level checks) lands with the integration PR,
+  which deletes the ProcessOutput admission for the admitted profile.
+
 Step 1 is done when PR 6's gate passes on native Linux and macOS against both
 oracle graphs, and [PORT_STATUS.md](PORT_STATUS.md) and this plan record the
 admitted profile and evidence. The README encoder items stay unchecked until
