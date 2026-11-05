@@ -407,3 +407,85 @@ fn avif_irot_imir_match_libheif() {
         assert_matches_reference(Box::new(source), reference, &format!("avif-{}", index + 1));
     }
 }
+
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
+    use crate::codecs::jxl::JxlSource;
+    let fixtures: [(&[u8], &[u8]); 8] = [
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-1.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-1.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-2.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-2.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-3.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-3.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-4.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-4.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-5.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-5.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-6.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-6.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-7.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-7.rgb"),
+        ),
+        (
+            include_bytes!("../tests/fixtures/orientation/jxl-8.jxl"),
+            include_bytes!("../tests/fixtures/orientation/jxl-8.rgb"),
+        ),
+    ];
+    for (index, (file, reference)) in fixtures.iter().enumerate() {
+        let name = format!("jxl-{}", index + 1);
+        let mut source = JxlSource::new(file).unwrap();
+        assert!(
+            source.orientation().is_identity(),
+            "{name}: rendered upright"
+        );
+        let size = source.info().size;
+        let width = size.width as usize;
+        assert_eq!(reference.len(), width * size.height as usize * 3, "{name}");
+        // Lossless fixtures: every display crop must match exactly.
+        let crops = [
+            Rect::new(0, 0, size.width, size.height).unwrap(),
+            Rect::new(3, 2, 5, 7).unwrap(),
+            Rect::new(size.width - 6, size.height - 9, 6, 9).unwrap(),
+            Rect::new(1, size.height - 1, size.width - 2, 1).unwrap(),
+        ];
+        for crop in crops {
+            let budget = MemoryBudget::new(1 << 20);
+            let mut next = crop.y;
+            source
+                .read_region(crop, &budget, &mut |y, row| {
+                    assert_eq!(y, next);
+                    next += 1;
+                    let DecodedRow::F32(samples) = row else {
+                        panic!("{name}: JPEG XL rows are float");
+                    };
+                    let start = (y as usize * width + crop.x as usize) * 3;
+                    let want = &reference[start..start + crop.width as usize * 3];
+                    for (got, &want) in samples.iter().zip(want) {
+                        let got = (got * 255.0).round();
+                        assert!(
+                            (got - f32::from(want)).abs() <= 1.0,
+                            "{name}: crop {crop:?} row {y}"
+                        );
+                    }
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(next, crop.bottom(), "{name}: crop {crop:?}");
+        }
+    }
+}

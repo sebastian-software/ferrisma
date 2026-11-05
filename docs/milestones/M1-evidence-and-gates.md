@@ -21,7 +21,7 @@
 | 2. Color fidelity | Known sRGB/P3 numeric oracles, alpha and crop tests | Independent ICC oracles, P3/ICC real-image quality, out-of-gamut and HDR rejection corpus |
 | 3. Codec capabilities | Reports ROI versus full-frame fallback | Measure internal decoder work and source overfetch on real formats |
 | 4. Engine memory | RAII frame, row and scratch reservations; cancellation tests | Planner metadata is not fully charged; AVIF decoder and encoders have opaque allocations; test peak process RSS and bombs |
-| 5. Correctness and errors | Geometry, invalid options, truncated headers, AVIF container/bitstream color conflicts; JPEG EXIF and AVIF `irot`/`imir` orientation applied and checked against ImageMagick/libheif (ADR-0019) | Larger malicious corpus, JPEG XL orientation fixtures, alpha and ICC conflict cases |
+| 5. Correctness and errors | Geometry, invalid options, truncated headers, AVIF container/bitstream color conflicts; JPEG EXIF, JPEG XL and AVIF `irot`/`imir` orientation applied and checked against ImageMagick/libheif/libjxl fixtures (ADR-0019) | Larger malicious corpus, AVIF `clap`, alpha and ICC conflict cases |
 | 6. Quality/performance baseline | Synthetic CI smoke (0.69 s per run, ~24–25 MiB peak RSS) | Quality-matched libvips/Sharp AVIF corpus with equal outputs and p50/p95; runner libvips AVIF encoder unavailable |
 | 7. Release/audit | MSRV check, Cargo feature checks, metadata audit and fuzz harness | Extended fuzz campaign, native/unsafe review, third-party license notices and release decision |
 

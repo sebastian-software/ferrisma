@@ -34,7 +34,7 @@ Keep exactly one public, intentionally small facade for M1:
 + Codec and CMS features remain optional; the core crate keeps zero dependencies.
 - Error kinds are deliberately coarse; finer-grained variants (for example which limit or which color signal) are a later, additive change.
 - The facade decodes one image to one AVIF output. Multi-output DAGs, other output formats and streaming input are out of scope (M2+).
-- EXIF and AVIF orientation are applied with crops in display coordinates (ADR-0019); non-upright JPEG XL input is still rejected with `ProcessingErrorKind::UnsupportedInput`.
+- EXIF, JPEG XL and AVIF orientation are applied with crops in display coordinates (ADR-0019); AVIF `clap` is still rejected with `ProcessingErrorKind::UnsupportedInput`.
 - A public facade makes later internal renames cheaper than API changes; keeping the surface small is the mitigation.
 
 ## Alternatives considered
@@ -50,7 +50,7 @@ Keep exactly one public, intentionally small facade for M1:
 - `hardening_tests` cover compressed-input and pixel limits, invalid options and malformed inputs through `transcode`, and assert the matching `ProcessingErrorKind`.
 - CI compiles each codec feature alone and the `cli` feature.
 
-Before **Accepted**: documented supported-input matrix, applied orientation for JPEG XL, and at least one consumer outside the test suite.
+Before **Accepted**: documented supported-input matrix, and at least one consumer outside the test suite.
 
 ## Review when
 

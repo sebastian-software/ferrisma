@@ -126,4 +126,4 @@ Codecs and the ICC CMS are optional features: `zune-jpeg`, `jxl-oxide`, `avif-de
 
 ## Orientation (experimental)
 
-Decoders emit stored-order samples and report the EXIF orientation that displays them. A non-identity source is wrapped in `OrientedSource`, which maps each display rectangle back to its stored rectangle, reads it once into a budgeted buffer and emits upright rows. The graph therefore stays orientation-free and crops are display coordinates; the buffer is reported as `orientation_buffer_bytes`. See [ADR-0019](adr/0019-source-side-orientation.md).
+Decoders emit stored-order samples and report the EXIF orientation that displays them. A non-identity source is wrapped in `OrientedSource`, which maps each display rectangle back to its stored rectangle, reads it once into a budgeted buffer and emits upright rows. The graph therefore stays orientation-free and crops are display coordinates; the buffer is reported as `orientation_buffer_bytes`. JPEG XL needs no buffer because `jxl-oxide` renders upright output for display-coordinate crops itself. See [ADR-0019](adr/0019-source-side-orientation.md).
