@@ -532,7 +532,7 @@ impl ImageMetadata {
         Orientation(self.orientation)
     }
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct CodecMetadata {
     pub m: ImageMetadata,
     pub size: SizeHeader,

@@ -516,6 +516,7 @@ bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 bool DecoderInputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderApiCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderPublicCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool EncoderPublicCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecodeTestInputsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool SkcmsTransformCommand(const std::string&, std::istringstream&);
 bool SkcmsFittingCommand(const std::string&, std::istringstream&);
@@ -632,6 +633,7 @@ int main() {
       else if (DecoderInputCommand(command, in, &mm)) {}
       else if (DecoderApiCommand(command, in, &mm)) {}
       else if (DecoderPublicCommand(command, in, &mm)) {}
+      else if (EncoderPublicCommand(command, in, &mm)) {}
       else if (DecodeTestInputsCommand(command, in, &mm)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
       else if (DecoderGeometryCommand(command, in, &mm)) {}

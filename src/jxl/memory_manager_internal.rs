@@ -1,7 +1,9 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! AlignedMemory and BytesPerRow from memory_manager_internal.{h,cc}.
+//! AlignedMemory, BytesPerRow and MemoryManagerUniquePtr (with
+//! MemoryManagerDeleteHelper and MemoryManagerMakeUniquePrivate) from
+//! memory_manager_internal.{h,cc}.
 //! An owner allocates through the caller's JxlMemoryManager when one is
 //! supplied, or through the crate's native Rust allocator boundary otherwise;
 //! both zero-initialize the payload so safe slices never expose indeterminate
@@ -401,6 +403,90 @@ impl Drop for CallbackAlignedMemory {
                 self.memory_manager,
                 self.allocation.as_ptr().cast(),
             );
+        }
+    }
+}
+
+/// MemoryManagerUniquePtr with MemoryManagerDeleteHelper, created by
+/// MemoryManagerMakeUniquePrivate (JXL_MEMORY_MANAGER_MAKE_UNIQUE_OR_RETURN).
+///
+/// The object is allocated through the manager's own `alloc` callback with
+/// the size of the Rust layout, constructed in place, and on drop destroyed
+/// and released through the manager's `free` callback, as the source's
+/// deleter does. The retained manager pointer is the source's
+/// `memory_manager_` of the deleter.
+pub(crate) struct MemoryManagerUniquePtr<T> {
+    object: NonNull<T>,
+    memory_manager: *const JxlMemoryManager,
+}
+
+impl<T> MemoryManagerUniquePtr<T> {
+    /// MemoryManagerMakeUniquePrivate: `None` when the allocation fails; the
+    /// value is then dropped, as the source's argument temporaries are.
+    ///
+    /// # Safety
+    /// `memory_manager` is readable and initialized, with alloc/free callbacks
+    /// that obey memory_manager.h and stay valid until the returned owner is
+    /// dropped; it is not changed while the owner lives. A block returned by
+    /// alloc is writable for the requested size and aligned for `T`, as the
+    /// source's placement new requires.
+    pub(crate) unsafe fn make(memory_manager: *const JxlMemoryManager, value: T) -> Option<Self> {
+        // SAFETY: The caller supplies the initialized manager and callbacks.
+        // The source calls its alloc field directly, as here.
+        let mem = unsafe {
+            let allocate = (*memory_manager)
+                .alloc
+                .expect("source requires an allocation callback");
+            allocate((*memory_manager).opaque, std::mem::size_of::<T>())
+        }
+        .cast::<T>();
+        let object = NonNull::new(mem)?;
+        assert!(
+            mem.is_aligned(),
+            "the source's placement new requires an aligned allocation"
+        );
+        // SAFETY: The callback returned a writable block of the requested
+        // size, checked aligned above.
+        unsafe { mem.write(value) };
+        Some(Self {
+            object,
+            memory_manager,
+        })
+    }
+
+    /// The owned object's address, as the source's `get()`.
+    pub(crate) fn as_ptr(&self) -> *mut T {
+        self.object.as_ptr()
+    }
+}
+
+impl<T> std::ops::Deref for MemoryManagerUniquePtr<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        // SAFETY: The object is initialized and exclusively owned by this
+        // value; shared access only.
+        unsafe { self.object.as_ref() }
+    }
+}
+
+impl<T> std::ops::DerefMut for MemoryManagerUniquePtr<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        // SAFETY: Exclusive access through the unique owner.
+        unsafe { self.object.as_mut() }
+    }
+}
+
+impl<T> Drop for MemoryManagerUniquePtr<T> {
+    /// MemoryManagerDeleteHelper: destroy, then free through the manager.
+    fn drop(&mut self) {
+        // SAFETY: The object is initialized and owned exactly once; make's
+        // caller keeps the manager and its free callback valid until now.
+        unsafe {
+            std::ptr::drop_in_place(self.object.as_ptr());
+            let release = (*self.memory_manager)
+                .free
+                .expect("source requires a free callback");
+            release((*self.memory_manager).opaque, self.object.as_ptr().cast());
         }
     }
 }

@@ -1944,6 +1944,35 @@ pointer therefore panics only on the paths where the original would
 dereference it, and keeps the original status on paths that return first.
 C enums use transparent integer carriers.
 
+### Public encoder object
+
+JxlEncoderCreate allocates the encoder object through the caller's memory
+manager and constructs it in place, as the decoder does; its size is the Rust
+layout's. Frame settings, queued frames and queued boxes are
+MemoryManagerUniquePtr owners allocated through the same manager with Rust
+sizes, so observers compare the order and identity of manager calls, not
+their sizes. The manager lives in a stable heap cell beside the object
+because these owners retain its address. Destroy and Reset release the queued
+inputs and then the frame settings, each vector from its last element, as the
+source's reverse member order and libc++'s vector destruction do.
+
+Frame-settings functions take the settings pointer that FrameSettingsCreate
+returned and reach the encoder through its retained `enc` pointer, a copy of
+the caller's raw encoder pointer rather than one derived from a Rust borrow;
+the settings and the encoder are separate allocations, so the two borrows of
+one call do not overlap. Owners that only untranslated functions install (the
+thread pool, a fast-lossless frame, the external output processor and
+statistics) are uninhabited `Option<Infallible>` fields at their source
+positions, and the source branches that test them are matches on that value.
+A queued frame keeps its adapter without the caller-buffer lifetime once
+CopyBuffers has copied every buffer. When an extra-channel SetFromBuffer
+fails its size check, the original leaves the caller pointer in the channel
+without copying it; the Rust owner stores no caller pointer. A
+JxlOutputProcessorBuffer borrows its wrapper for its lifetime, and its append
+rejects a copy longer than its window before writing, where the source would
+overflow the window; no translated caller requests one. ProcessOutput keeps raw caller output pointers because the
+wrapper retains them across calls, as in the source.
+
 ### Exported decoder C ABI
 
 `src/jxl/decode_abi.rs` exports every function that `decode.h` declares

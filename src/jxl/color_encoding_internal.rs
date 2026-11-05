@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Color bundles and non-callback field APIs from
-//! `lib/jxl/color_encoding_internal.{h,cc}`, including callback ICC assignment
-//! and ColorSpaceTransform. Visitors retain mutable storage synchronization.
+//! `lib/jxl/color_encoding_internal.{h,cc}`, including callback ICC assignment,
+//! DecideIfWantICC and ColorSpaceTransform. Visitors retain mutable storage
+//! synchronization.
 
 use super::base::status::{Status, StatusCode};
 use super::cms::color_encoding_cms as cms;
@@ -227,6 +228,42 @@ impl ColorEncoding {
     }
     pub fn want_icc(&self) -> bool {
         self.want_icc
+    }
+    /// DecideIfWantICC: clears WantICC when the CMS parses the profile into
+    /// non-CMYK fields from which MaybeCreateProfile can build a profile.
+    ///
+    /// # Safety
+    /// The CMS callback and its data must be valid for this call, obey
+    /// cms_interface.h and neither unwind nor reenter this color owner.
+    pub unsafe fn decide_if_want_icc(&mut self, cms: &JxlCmsInterface) {
+        if self.storage.icc.is_empty() {
+            return;
+        }
+        let mut c = JxlColorEncoding::default();
+        let mut cmyk = 0;
+        // SAFETY: The profile bytes are borrowed for the call, both outputs are
+        // initialized locals, and the caller guarantees the callback contract.
+        let parsed = unsafe {
+            cms.set_fields_from_icc
+                .expect("source requires an ICC field callback")(
+                cms.set_fields_data,
+                self.storage.icc.as_ptr(),
+                self.storage.icc.len(),
+                &mut c,
+                &mut cmyk,
+            )
+        };
+        if parsed == 0 {
+            return;
+        }
+        if cmyk != 0 {
+            return;
+        }
+        let mut icc = Vec::new();
+        if maybe_create_profile(&c, &mut icc).is_err() {
+            return;
+        }
+        self.want_icc = false;
     }
     pub fn have_fields(&self) -> bool {
         self.storage.have_fields

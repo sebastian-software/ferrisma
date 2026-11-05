@@ -80,6 +80,19 @@ concurrency, which Rust and libc++ may report differently, so histories that
 observe thread counts set them explicitly. The runners themselves are tested
 for the properties of `thread_parallel_runner_test.cc`, not for one schedule.
 
+Public encoder histories compare the same way. The oracle unit
+`encoder_public.cc` replays a caller history on the original public encoder
+API and records every status, GetError value and output chunk, and the Rust
+driver mirrors it token for token. Its stored-state checkpoint reads the
+original encoder, frame settings and queued inputs with
+`-fno-access-control` and serializes the stored metadata through the original
+WriteCodestreamHeaders on a copy. While the encoder returns admission results
+(ADR 0001), the same history also runs as a probe on the original that reports
+its internal state at each AddImageFrame and ProcessOutput. A Rust admission
+result must coincide with the original queueing a fast-lossless frame or
+calling ProcessOneEnqueuedInput at that call; its history compares exactly up
+to that call and is reported separately from exact parity.
+
 The exported decoder C ABI is compared from the C side. One driver, compiled
 against the pinned public headers only, replays the public decoder histories
 with the same driver code as the original oracle. It is linked twice: against
