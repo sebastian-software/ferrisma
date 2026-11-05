@@ -772,8 +772,34 @@ Progress:
   AFVDCT4x4 basis sum (x86-64) differ between the ordinary and ASan archive
   objects and use a dedicated observation unit. See
   [PORT_STATUS.md](PORT_STATUS.md#encoder-transforms-gaborish-and-xyb-2026-11-05).
-  The next PR translates the quantizer field selection, InitialQuantField,
-  AdjustQuantField, CfLHeuristics and AcStrategyHeuristics.
+- PR 3 (quantization heuristics): `quantizer.rs` adds the field selection
+  (ComputeGlobalScaleAndQuant, SetQuantFieldRect, SetQuantField with the
+  translated libc++ nth_element, SetQuant); `enc_adaptive_quantization.rs`
+  translates InitialQuantDC, InitialQuantField (AdaptiveQuantizationMap,
+  PerBlockModulations, FuzzyErosion, Blur1x1Masking) and AdjustQuantField;
+  `enc_chroma_from_luma.rs` CfLHeuristics with FindBestMultiplier; and
+  `enc_ac_strategy.rs` AcStrategyHeuristics with EstimateEntropy,
+  FindBest8x8Transform, TryMergeAcs, FindBestFirstLevelDivisionForSquare and
+  ProcessRectACS. `tools/oracle/encoder_heuristics.cc` calls the archive's
+  functions, including the external HWY_SCALAR EstimateEntropy,
+  FindBest8x8Transform and FindBestMultiplier, and its `eqh-chain` request
+  runs them in LossyFrameHeuristics' kSquirrel order from sRGB corpus
+  pixels. `tests/parity/encoder_heuristics.rs` compares exact words of every
+  checkpoint (quantizer state, raw quant fields, quant field and both masks,
+  CfL maps and DC values, AcStrategyImage layers and counts, entropies) on the
+  step 1 corpus at d0.5, d1, d1.5 and d2.9 and on boundary inputs. The
+  contraction map `tools/encoder_heuristics_contraction.json` records 28
+  front-end fmuladd sites; the audit tool now reads front-end IR. See
+  [PORT_STATUS.md](PORT_STATUS.md#encoder-quantization-cfl-and-ac-strategy-heuristics-2026-11-05).
+  The next PR (coefficients and DC) translates `enc_group.cc`
+  (QuantizeBlockAC, AdjustQuantBlockAC, QuantizeRoundtripYBlockAC,
+  ComputeCoefficients, EncodeGroupTokenizedCoefficients),
+  TokenizeCoefficients, the coefficient-order computation,
+  InitializePassesEncoder without progressive DC, ComputeACMetadata,
+  AddVarDCTDC/AddACMetadata and the default AC matrix encoding.
+  ColorCorrelationEncodeDC belongs with that DC output;
+  FindBestDequantMatrices, FindBestBlockEntropyModel and LossyFrameHeuristics
+  itself remain for the integration PR.
 
 Step 1 is done when PR 6's gate passes on native Linux and macOS against both
 oracle graphs, and [PORT_STATUS.md](PORT_STATUS.md) and this plan record the

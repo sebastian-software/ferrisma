@@ -120,10 +120,32 @@ through a multiplication by one unquieted, so its competing requests stay on
 the archive. The test-only GaborishKernel is
 extracted verbatim from enc_gaborish_test.cc and hash-checked.
 `tools/encoder_transforms_contraction.py` records the contraction map of
-these five archive objects: it reruns each object's compile command to emit IR
-with line tables, compares the `llvm.fmuladd` source sites with
-`tools/encoder_transforms_contraction.json`, and requires fused instructions
-in a native AArch64 object exactly when it has sites and none on x86-64.
+these five archive objects: it reruns each object's compile command to emit
+the front end's IR (`-Xclang -disable-llvm-passes`) with line tables, compares
+the `llvm.fmuladd` source sites with `tools/encoder_transforms_contraction.json`,
+and requires fused instructions in a native AArch64 object exactly when it has
+sites that the optimizer does not fold away, and none on x86-64. The front end
+makes every contraction decision; optimized IR folds sites with constant or
+identity operands and moves speculated sites to different debug locations in
+the ordinary and ASan objects, so only the front-end map is a stable record.
+Recorded `folded` sites have exact products (`2 * k`, `1 * v`).
+
+The encoder heuristics unit `encoder_heuristics.cc` calls the archive's
+Quantizer ComputeGlobalScaleAndQuant, SetQuantField, SetQuantFieldRect and
+SetQuant, InitialQuantDC, InitialQuantField, AdjustQuantField, CfLHeuristics
+and AcStrategyHeuristics, and the external-linkage HWY_SCALAR
+EstimateEntropy, FindBest8x8Transform and FindBestMultiplier of the same
+objects. Its `eqh-chain` request converts sRGB samples with ToXYB, pads them
+with PadImageToBlockMultipleInPlace and runs these functions with
+GaborishInverse in LossyFrameHeuristics' kSquirrel order for one serial
+thread, without splines, patches, FindBestDequantMatrices or the no-op
+FindBestQuantizer; it compares every intermediate checkpoint. The compared
+domain is finite: NaN quant fields break std::nth_element's strict weak
+ordering, and NaN or out-of-range values reach undefined float-to-integer
+conversions in ClampVal and ComputeGlobalScaleAndQuant. The map of these four
+objects is `tools/encoder_heuristics_contraction.json`, audited by the same
+tool with `--map`. GetSomeTestImage supplies the corpus' test content from the
+existing extracted helper.
 
 The exported decoder C ABI is compared from the C side. One driver, compiled
 against the pinned public headers only, replays the public decoder histories

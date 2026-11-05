@@ -67,6 +67,20 @@ default contraction and all sanitizers retained. The original archive keeps
 its flags. `tools/encoder_transforms_contraction.py --output DIR` audits the
 contraction map of these units in every built oracle graph; see ADR 0002.
 
+The encoder heuristics unit `encoder_heuristics.cc` calls the archive's
+quantizer field selection, InitialQuantDC, InitialQuantField,
+AdjustQuantField, CfLHeuristics and AcStrategyHeuristics objects and the
+external-linkage HWY_SCALAR EstimateEntropy, FindBest8x8Transform and
+FindBestMultiplier, all with the archive's flags; its `eqh-chain` request
+calls them in LossyFrameHeuristics' kSquirrel order. Its contraction map is
+`tools/encoder_heuristics_contraction.json`, audited with
+`tools/encoder_transforms_contraction.py --map
+tools/encoder_heuristics_contraction.json --output DIR`. The audit reads the
+front end's fmuladd sites (`-Xclang -disable-llvm-passes` on the unchanged
+compile command), because optimized IR folds constant sites away and places
+speculated sites at different debug locations in the ordinary and ASan
+objects.
+
 The complete-file oracle compiles the original DecodeFile and ReadICC helper
 bodies without their unrelated test framework. At CMake configure time,
 `tools/oracle/extract_source.py` copies their exact pinned source ranges and
