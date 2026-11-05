@@ -116,13 +116,14 @@ state at each AddImageFrame and ProcessOutput: every admission result must
 coincide with the original queueing a fast-lossless frame or entering
 ProcessOneEnqueuedInput, and no compared AddImageFrame may take the
 fast-lossless branch. `epub-wrap` drives the original buffer-mode wrapper.
-Local results on native macOS AArch64 (ordinary oracle): 3,317 exact public
-histories in nine families (lifecycle 44, basic-info 449, extra-channels 136,
-color 348, options 1,895, distance 171, frame-settings 66, frames 173,
-boxes-output 35) and 606 exact wrapper histories. Another 153 histories match
+Local results on native macOS AArch64, with the ordinary and the ASan/UBSan
+oracle: 3,305 exact public histories in nine families (lifecycle 44,
+basic-info 449, extra-channels 136, color 336, options 1,895, distance 171,
+frame-settings 66, frames 173, boxes-output 35) and 606 exact wrapper
+histories. Another 153 histories match
 up to their admission call with original branch evidence (12 fast-lossless,
-141 ProcessOneEnqueuedInput); they are not counted as parity. Linux, the
-ASan/UBSan oracle and the source audit for this unit have not run yet.
+141 ProcessOneEnqueuedInput); they are not counted as parity. The source
+audit for this unit has not been written yet.
 
 Not applicable or deferred: allocation sizes are those of the language
 layouts and are not compared. The original JxlEncoder has a user-provided
@@ -130,7 +131,13 @@ constructor, so its stored basic info is default-initialized and
 JxlEncoderInitBasicInfo leaves `padding` unset; those bytes are indeterminate
 until SetBasicInfo copies a caller's struct (on Linux they held earlier heap
 contents). Both checkpoints print the padding only while basic_info_set holds;
-every other basic-info field compares in every state. A failed extra-channel SetFromBuffer leaves the
+every other basic-info field compares in every state. Enum arguments stay
+within their enumeration's value range (for example extra-channel type 31,
+white point and primaries 15, blend mode 7, setting id 65534); values beyond
+it are undefined in the original and abort the instrumented graph. Float and
+float16 caller samples use bytes 0x30-0x3f, which form finite values below 2
+at any offset and byte order; arbitrary bytes made the original's
+float-to-integer conversion of extra channels undefined. A failed extra-channel SetFromBuffer leaves the
 original's channel pointing to the caller's buffer, which the Rust owner does
 not retain; the `S` checkpoint compares the other channel fields. A
 SetExtraChannelBuffer after AddBox dereferences a null queued frame in the

@@ -128,7 +128,7 @@ fn public_encoder_lifecycle_and_allocation_failures_match_original() {
         "Bw:8,h:8 G0 s- a0,3,2,0,0,192 S x S Bw:4,h:4 G0 s- a0,3,2,0,0,48 S",
         "s- Bw:8,h:8 s0 o1,0,3 S x e S",
         "Bw:8,h:0 e x e S",
-        "I0 I1 I2 I4 I15 I16 I99 T0 T1",
+        "I0 I1 I2 I4 I15 I16 I31 T0 T1",
         "M S x S",
     ];
     let mut requests = Vec::new();
@@ -312,10 +312,9 @@ fn public_encoder_color_setters_match_original() {
         "0.1.1.65535.0.0".into(),
         "2.1.1.13.0.0".into(),
         "3.1.1.13.0.0".into(),
-        "0.99.1.13.0.0".into(),
-        "0.1.99.13.0.0".into(),
+        "0.15.1.13.0.0".into(),
+        "0.1.15.13.0.0".into(),
         "0.1.1.99.0.0".into(),
-        "0.1.1.13.0.9".into(),
         "x:0:2:4600877379321698714:4600877379321698714:2:4604930618986332160:\
          4599075939470750515:4598895795485661266:4604480259023595110:\
          4594572339843380019:4589168020290535424:13:0:1"
@@ -353,7 +352,7 @@ fn public_encoder_color_setters_match_original() {
 #[test]
 fn public_encoder_frame_setting_options_match_original() {
     let mut ids: Vec<u32> = (0..=43).collect();
-    ids.extend([100, 65535, 4294967295]);
+    ids.extend([100, 65534, 65535]);
     let values: [i64; 24] = [
         -3,
         -2,
@@ -504,7 +503,7 @@ fn public_encoder_frame_headers_and_names_match_original() {
         "0,0,0,1,0,0,0,0,0,0,0,2,0,0",
         "0,0,0,1,0,0,0,0,0,0,0,3,0,0",
         "0,0,0,1,0,0,0,0,0,4,3,0,0,3",
-        "1,2,3,4,1,2147483647,-2147483648,4294967295,1,9,0,0,7,4294967295",
+        "1,2,3,4,1,2147483647,-2147483648,4294967295,1,7,0,0,7,4294967295",
     ];
     let mut requests = Vec::new();
     for header in headers {
@@ -520,7 +519,7 @@ fn public_encoder_frame_headers_and_names_match_original() {
         requests.push(run(0, 0, &format!("s- h0,{} N0,{name} S", headers[1])));
     }
     for index in 0..3 {
-        for blend in ["0,0,0,0", "2,1,1,1", "4,3,2,0", "9,7,5,3"] {
+        for blend in ["0,0,0,0", "2,1,1,1", "4,3,2,0", "7,7,5,3"] {
             requests.push(run(0, 0, &format!("{RGB8},ec:2 s- t0,{index},{blend} S")));
         }
     }
@@ -530,7 +529,7 @@ fn public_encoder_frame_headers_and_names_match_original() {
         0,
         &format!("s- {RGB8},ec:3 t0,2,1,0,0,0 {RGB8},ec:1 t0,0,2,0,0,0 S"),
     ));
-    for depth in ["0,0,0", "1,8,0", "2,8,0", "2,16,5", "3,1,1", "7,0,0"] {
+    for depth in ["0,0,0", "1,8,0", "2,8,0", "2,16,5", "3,1,1", "3,0,0"] {
         requests.push(run(0, 0, &format!("s- W0,{depth} S")));
     }
     requests.push(run(

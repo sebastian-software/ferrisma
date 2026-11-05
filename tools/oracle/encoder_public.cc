@@ -463,7 +463,7 @@ class Driver {
         JxlPixelFormat format = Format(f, 1);
         bool null = f[5] == "~";
         size_t size = null ? 0 : std::stoul(f[5]);
-        std::vector<uint8_t> pixels = Pattern(size, 7);
+        std::vector<uint8_t> pixels = Pattern(size, 7, FloatFormat(format));
         o << JxlEncoderAddImageFrame(Settings(f[0]), &format, null ? nullptr : pixels.data(),
                                      size);
         break;
@@ -473,7 +473,7 @@ class Driver {
         bool null = f[5] == "~";
         size_t size = null ? 0 : std::stoul(f[5]);
         uint32_t index = uint32_t(std::stoul(f[6]));
-        std::vector<uint8_t> pixels = Pattern(size, 11 + index);
+        std::vector<uint8_t> pixels = Pattern(size, 11 + index, FloatFormat(format));
         JxlEncoderStatus status = JxlEncoderSetExtraChannelBuffer(
             Settings(f[0]), &format, null ? nullptr : pixels.data(), size, index);
         if (status == JXL_ENC_SUCCESS) {
@@ -509,11 +509,21 @@ class Driver {
     return o.str();
   }
 
-  static std::vector<uint8_t> Pattern(size_t size, uint32_t seed) {
-    // One extra byte keeps a nonnull pointer for zero sizes.
+  // Caller sample bytes. One extra byte keeps a nonnull pointer for zero
+  // sizes. Float and float16 formats use bytes 0x30-0x3f only: every 4- or
+  // 2-byte word of them, at any offset and byte order, is a finite positive
+  // sample below 2, so the original's float-to-integer conversions stay
+  // defined; arbitrary bytes would include NaN and out-of-range values.
+  static std::vector<uint8_t> Pattern(size_t size, uint32_t seed, bool floats = false) {
     std::vector<uint8_t> data(size + 1);
-    for (size_t i = 0; i < data.size(); ++i) data[i] = uint8_t((i * 13 + seed * 29 + 7) & 0xff);
+    for (size_t i = 0; i < data.size(); ++i) {
+      uint8_t v = uint8_t((i * 13 + seed * 29 + 7) & 0xff);
+      data[i] = floats ? uint8_t(0x30 | (v & 0x0f)) : v;
+    }
     return data;
+  }
+  static bool FloatFormat(const JxlPixelFormat& format) {
+    return format.data_type == JXL_TYPE_FLOAT || format.data_type == JXL_TYPE_FLOAT16;
   }
 
   std::string Channel(const jxl::JxlEncoderChunkedFrameAdapter& adapter, size_t index) {
@@ -658,7 +668,8 @@ void RunWrapper(std::istringstream& in, std::ostream& out, JxlMemoryManager* mm)
         // Appends and advances stay within the window, as encoder callers do.
         size_t count = std::min<size_t>(std::stoul(f[2]), buffer.size());
         out << 0 << ',' << buffer.size();
-        std::vector<uint8_t> data = pattern(count, std::stoul(f[3]));
+        // One extra byte keeps a nonnull source pointer for empty appends.
+        std::vector<uint8_t> data = pattern(count + 1, std::stoul(f[3]));
         out << ',' << (buffer.append(data.data(), count) ? 0 : 1);
         if (kind == 'R') out << ',' << (buffer.release() ? 0 : 1);
         break;

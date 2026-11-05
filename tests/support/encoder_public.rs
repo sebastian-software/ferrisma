@@ -321,11 +321,20 @@ fn format(f: &[&str], at: usize) -> JxlPixelFormat {
     }
 }
 
-fn pattern(size: usize, seed: usize) -> Vec<u8> {
-    // One extra byte, as the oracle's nonnull zero-size buffers.
+/// Caller sample bytes, as the oracle's Pattern: one extra byte, and for
+/// float and float16 formats only bytes 0x30-0x3f, which form finite samples
+/// below 2 at any offset and byte order.
+fn pattern(size: usize, seed: usize, floats: bool) -> Vec<u8> {
     (0..size + 1)
-        .map(|i| ((i * 13 + seed * 29 + 7) & 0xff) as u8)
+        .map(|i| {
+            let v = ((i * 13 + seed * 29 + 7) & 0xff) as u8;
+            if floats { 0x30 | (v & 0x0f) } else { v }
+        })
         .collect()
+}
+
+fn float_format(format: &JxlPixelFormat) -> bool {
+    format.data_type == JxlDataType::FLOAT || format.data_type == JxlDataType::FLOAT16
 }
 
 fn channel(adapter: &JxlEncoderChunkedFrameAdapter<'_>, index: usize) -> String {
@@ -740,7 +749,7 @@ impl Driver {
                 let format = format(f, 1);
                 let null = f[5] == "~";
                 let size = if null { 0 } else { f[5].parse().unwrap() };
-                let pixels = pattern(size, 7);
+                let pixels = pattern(size, 7, float_format(&format));
                 let buffer = (!null).then(|| &pixels[..size]);
                 s(
                     unsafe {
@@ -753,7 +762,7 @@ impl Driver {
                 let null = f[5] == "~";
                 let size = if null { 0 } else { f[5].parse().unwrap() };
                 let index: u32 = f[6].parse().unwrap();
-                let pixels = pattern(size, 11 + index as usize);
+                let pixels = pattern(size, 11 + index as usize, float_format(&format));
                 let buffer = (!null).then(|| &pixels[..size]);
                 let status = unsafe {
                     api::jxl_encoder_set_extra_channel_buffer(
@@ -775,7 +784,7 @@ impl Driver {
             'O' => {
                 let box_type: [u8; 4] = unhex(f[0]).try_into().expect("box type");
                 let size: usize = f[1].parse().unwrap();
-                let contents = pattern(size, 5);
+                let contents = pattern(size, 5, false);
                 s(api::jxl_encoder_add_box(
                     self.enc(),
                     &box_type,
