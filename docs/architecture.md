@@ -104,7 +104,7 @@ Only even-origin YUV 4:2:0 crops are representable as direct views: shifting the
 
 ## Decoder source seam (experimental)
 
-Read-only JPEG and JPEG XL codecs are optional source adapters, bound to graph nodes only at execution. Their internal ownership remains outside graph semantics; a source reports either a known full-frame decode fallback or a codec-level ROI request. ROI requests do not guarantee avoided reconstruction. See [ADR-0012](adr/0012-codec-source-contract.md). The managed-memory budget does not cover codec-internal allocations. A full color-profile graph contract is still open.
+Read-only JPEG, JPEG XL and AVIF codecs are optional source adapters, bound to graph nodes only at execution. Their internal ownership remains outside graph semantics; a source reports either a known full-frame decode fallback or a codec-level ROI request. ROI requests do not guarantee avoided reconstruction. See [ADR-0012](adr/0012-codec-source-contract.md). The managed-memory budget does not cover codec-internal allocations. A full color-profile graph contract is still open.
 
 ## Rendered color descriptor and first codec resize (experimental)
 
@@ -117,3 +117,9 @@ Graph nodes now share exact rendered ICC and CICP metadata and alpha-association
 ## Typed rendered-color contract (experimental)
 
 [ADR-0015](adr/0015-typed-output-color-signals.md) and [the color contract](design/color-management-contract.md) establish a no-pixel-allocation inspection stage for **decoder output evidence**: typed H.273/CICP code points, bounded ICC header and tag-table inspection, and explicit sRGB/P3/PQ/HLG or unresolved-profile classifications. The planner distinguishes a supported sRGB transfer reference from work that would require gamut conversion, HDR reference-white/tone-mapping policy, an ICC CMM, or profile precedence. ICC plus CICP are not silently merged; a valid header is not a validated ICC color transform. This does not add new codec support or a full ICC engine.
+
+## M1 pipeline, facade and dependencies (experimental)
+
+The M1 path runs `decoder source → crop → ToLinearSrgb → WorkingLinear(Area | Lanczos3) → ToSrgb8 → AVIF sink` through a bounded row-cache executor ([ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md)). The AVIF sink explicitly materializes one output frame for the encoder and reports it. One public entry point, `pipeline::transcode`, and a `cli`-gated binary exercise this path; graph, planner and executor stay private ([ADR-0017](adr/0017-minimal-public-facade-and-cli.md)).
+
+Codecs and the ICC CMS are optional features: `zune-jpeg`, `jxl-oxide`, `avif-decode` for input, `ravif` for output and `moxcms` for rendered-ICC conversion. Sources describe their rendered color before decoding. For AVIF, Ferrixel reads `colr`, orientation properties and the AV1 sequence header itself, because the decoder crate does not expose them ([ADR-0012](adr/0012-codec-source-contract.md), [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)). The core has no dependencies, but the single package currently declares Rust 1.98 because of `avif-decode`.

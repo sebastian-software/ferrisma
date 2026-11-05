@@ -2,8 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-05
 - **Supersedes:** None
+- **Partially superseded by:** [0017](0017-minimal-public-facade-and-cli.md) (public facade and CLI for M1)
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md)
 
 ## Context
@@ -14,7 +15,7 @@ The project could lose years building generic extensibility, GPU frameworks or c
 
 Start with a **synthetic, codec-free source → crop → reference resize → sink** pipeline. A synthetic source enables precise accounting of region requests and pixel work. Provide an executor-owned budget and plan trace. The first real adapter should be selected based on decoder API quality and licensing, with a preference for modern JPEG XL, AVIF or WebP paths rather than JPEG benchmark parity.
 
-Do not add a public fluent API, Node.js bindings, CLI, GPU device abstraction, decoder registry or multi-format benchmark suite as initial prerequisites. Start as a single Rust crate and split crates only after a demonstrable dependency or build boundary emerges.
+Do not add a public fluent API, Node.js bindings, CLI (see the 2026-11-05 amendment), GPU device abstraction, decoder registry or multi-format benchmark suite as initial prerequisites. Start as a single Rust crate and split crates only after a demonstrable dependency or build boundary emerges.
 
 ## Consequences
 
@@ -49,3 +50,4 @@ The subsequent [planar-source experiment](0011-borrowed-planar-surface-contract.
 - 2026-10-31 — Initial proposal.
 - 2026-10-31 — Added a bounded scalar vertical-slice experiment; unresolved contracts remain explicitly provisional.
 - 2026-10-31 — Cross-linked the borrowed planar-source experiment (ADR-0011).
+- 2026-11-05 — The vertical slice has served its purpose for M1: [ADR-0017](0017-minimal-public-facade-and-cli.md) now admits one minimal `pipeline::transcode` facade and a `cli`-gated binary. A fluent API, Node.js bindings, GPU abstraction, decoder registry and multi-format benchmark suite remain excluded, and the single-crate rule still holds.

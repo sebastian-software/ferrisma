@@ -23,13 +23,13 @@ When a crate is flagged, review its exact source license, license-file and notic
 | `ravif` / `rav1e` | `avif-write` | BSD-3-Clause encoder; audit transitive licenses | Encoded CICP, alpha, frame materialization and opaque scratch |
 | `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |
 
-A future JPEG XL encoder, including the AGPL-3.0/commercial `jxl-encoder` candidate, is **not** an approved default dependency and requires a separate ADR.
+The choices and their remaining gates are recorded in [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md). A future JPEG XL encoder, including the AGPL-3.0/commercial `jxl-encoder` candidate, is **not** an approved default dependency and requires a separate ADR.
 
 ## M1 release prerequisites
 
 - [ ] Store an externally reviewable license inventory for an exact, reproducible version set (including NOTICE/license files).
 - [ ] Review native code, assembler and unsafe boundaries in *all* dependencies, not only Ferrixel's `#![forbid(unsafe_code)]` core.
-- [ ] Confirm whether a `Cargo.lock` should be committed for the CLI before first distribution and lock versions for reproducible measurements.
+- [x] Commit `Cargo.lock` for the CLI and reproducible measurements ([ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)).
 - [ ] Check that the package advertises its required Rust version accurately and that the target platforms actually compile.
 - [ ] Record real AVIF output ICC/CICP and alpha behavior, HDR rejection, and total RSS on representative images.
 - [ ] Perform an independent source and legal review of third-party license obligations.

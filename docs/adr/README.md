@@ -32,6 +32,8 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0014](0014-linear-srgb-straight-alpha.md) | Explicit sRGB linear-light resize and premultiplied filtering | Experimental |
 | [0015](0015-typed-output-color-signals.md) | Inspect CICP and ICC output evidence; describe required conversions | Experimental |
 | [0016](0016-working-color-space-and-transform-boundaries.md) | Region-capable working-color transform and output semantics | Proposed |
+| [0017](0017-minimal-public-facade-and-cli.md) | Minimal `pipeline::transcode` facade and feature-gated CLI; partially supersedes 0008 | Experimental |
+| [0018](0018-optional-codec-and-cms-dependencies.md) | Feature-gated codec/CMS dependencies, MSRV 1.98 and committed lockfile | Experimental |
 
 ## Changing an ADR
 

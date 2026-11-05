@@ -2,9 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-05
 - **Supersedes:** None
-- **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md)
+- **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0013](0013-sample-domain-resize.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
 ## Context
 
@@ -24,7 +24,7 @@ Two initial **read-only** adapters validate the contract:
 1. **JPEG** via optional `zune-jpeg` 0.5.15: header probe, RGB8 output, optional embedded ICC. Full RGB output is decoded directly into an engine-budgeted buffer; requested crop rows borrow from that buffer. Disable architecture-specific unsafe-intrinsic features for this first experiment. This does **not** create a JPEG encoder.
 2. **JPEG XL** via optional `jxl-oxide` 0.12.6: request a crop using the codec's ROI API; stream f32 samples via a single budgeted row buffer. Retain rendered ICC/CICP metadata. For now reject non-default orientation rather than risk incorrect coordinates.
 
-The graph currently carries sample layout, but **not** a complete graph-owned color/profile contract. Only crop and sink are permitted for these sources until output semantics for resize, color and alpha are properly designed.
+The graph currently carries sample layout, but **not** a complete graph-owned color/profile contract. Only crop and sink are permitted for these sources until output semantics for resize, color and alpha are properly designed. *(Amended 2026-11-05: resize and color stages are now admitted under ADR-0013, ADR-0014 and ADR-0016; see below.)*
 
 ## Memory and safety
 
@@ -64,3 +64,15 @@ A source requires native planar output, push/pull access rather than callback ro
 ## Amendment log
 
 - 2026-10-31 — Initial experimental contract with JPEG read-only fallback and JPEG XL region requests.
+- 2026-11-05 — Admitted resize/color consumers, added the AVIF adapter, and required adapters to report rendered color before decoding pixels.
+
+## 2026-11-05: transform consumers and the AVIF adapter
+
+The crop-and-sink restriction above no longer holds. Decoder sources now feed the encoded-sample resize (ADR-0013), the strict linear-sRGB reference (ADR-0014) and the working-color pipeline (ADR-0016), each of which checks the source's rendered color and alpha semantics at binding time.
+
+A third read-only adapter, **AVIF** via `avif-decode` (dependency choice in [ADR-0018](0018-optional-codec-and-cms-dependencies.md)), uses `FullFrameFallback`. It sharpens two parts of the contract that apply to every adapter:
+
+- **Describe before decoding.** Construction parses only metadata: dimensions, layout, sample type and rendered ICC/CICP. The caller's color policy runs before the first region request triggers the full decode, which is then checked against the advertised size, layout and depth.
+- **Rendered, not signalled, color.** Because `avif-decode` converts YUV with the bitstream's matrix and range, the adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]` from the container `colr`/`nclx` and the AV1 sequence header, carries a `colr` ICC profile as rendered ICC, and fails closed when container and bitstream disagree. Like JPEG XL orientation, AVIF `irot`/`imir`/`clap` are rejected rather than applied.
+
+JPEG still reports no CICP and its EXIF orientation is not yet inspected; that remains an open correctness gap.
