@@ -35,6 +35,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0017](0017-minimal-public-facade-and-cli.md) | Minimal `pipeline::transcode` facade and feature-gated CLI; partially supersedes 0008 | Experimental |
 | [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies; libavif-rs, libjxl-rs and the planned libwebp-rs as targets; JPEG input-only; MSRV 1.98; committed lockfile | Experimental |
 | [0019](0019-source-side-orientation.md) | Apply EXIF/AVIF orientation through an explicit, budgeted source-side materialization | Experimental |
+| [0020](0020-kernel-crate-and-isa-dispatch.md) | Separate `ferrixel-kernels` crate, `std::arch` intrinsics behind a safe API, runtime ISA dispatch reported in the plan, scalar/SIMD differential tests | Proposed |
 
 ## Changing an ADR
 
