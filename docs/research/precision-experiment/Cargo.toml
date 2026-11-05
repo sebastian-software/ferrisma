@@ -1,0 +1,19 @@
+[package]
+name = "precision-experiment"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+description = "ADR-0021 evidence: LUT and 16-bit fixed-point error against the f64 reference"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Standalone: this crate is deliberately not a member of the Ferrixel package
+# and has no dependency on it. The empty workspace table stops Cargo from
+# searching upward for a workspace root.
+[workspace]
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+debug = false
