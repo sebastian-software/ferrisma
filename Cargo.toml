@@ -14,7 +14,9 @@ publish = false
 default = []
 jpeg-read = ["dep:zune-jpeg"]
 jpeg-xl-read = ["dep:jxl-oxide"]
-avif-write = ["dep:ravif"]
+# `asm` is bit-exact and about 2.2x faster; `threading` lets the encoder use
+# `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
+avif-write = ["dep:ravif", "ravif/asm", "ravif/threading"]
 avif-read = ["dep:avif-decode", "dep:avif-parse"]
 icc = ["dep:moxcms"]
 cli = ["jpeg-read", "jpeg-xl-read", "avif-read", "avif-write", "icc"]

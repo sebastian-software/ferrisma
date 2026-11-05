@@ -350,6 +350,7 @@ mod tests {
         sink.finish(EncodeSettings {
             quality: 90.0,
             speed: 10,
+            threads: 1,
         })
         .unwrap()
         .bytes

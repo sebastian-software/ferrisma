@@ -227,3 +227,45 @@ fn exif_rotated_jpeg_is_cropped_in_display_coordinates() {
         .is_err()
     );
 }
+
+#[test]
+fn encoder_threads_trade_determinism_for_latency_explicitly() {
+    let encoded = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        output_width: 64,
+        output_height: 48,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        speed: 10,
+        ..TransformOptions::default()
+    };
+    // One thread (the default): byte-identical output on every run.
+    let first = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
+    let second = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
+    assert_eq!(first.avif_bytes, second.avif_bytes);
+    assert_eq!(first.report.encoder_threads, 1);
+    // 0 resolves to the available cores and still yields a valid file.
+    let all = transcode(
+        encoded,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            encoder_threads: 0,
+            ..options
+        },
+    )
+    .unwrap();
+    assert!(all.report.encoder_threads >= 1);
+    assert_eq!(&all.avif_bytes[4..8], b"ftyp");
+    assert_eq!(
+        transcode(
+            encoded,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                encoder_threads: 100_000,
+                ..options
+            },
+        )
+        .unwrap_err()
+        .kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+}

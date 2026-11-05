@@ -24,7 +24,7 @@ BENCH_SHARP_NODE_MODULES=/path/to/node_modules \
 scripts/bench/profile.sh target/bench/corpus/single/synthetic-24mpx-6000x4000.jpg 1600 1067 target/bench/profile
 ```
 
-Settings are environment variables: `BENCH_WIDTH` (default 1600, aspect preserved), `BENCH_SMALL_WIDTH` (320), `BENCH_QUALITY` (80), `BENCH_SPEED` (6), `BENCH_FILTER` (`lanczos` or `area`), `BENCH_PROFILE` (`assume-srgb`, `strict`, `rendered-icc`), `BENCH_PRECISION` (`f32`, or `reference` for the M1 `f64` executor), `BENCH_MAX_INPUT_MB` (512). The harness writes `results.csv`, `throughput.csv`, `summary.md`, `environment.txt` and the raw hyperfine JSON into the output directory.
+Settings are environment variables: `BENCH_WIDTH` (default 1600, aspect preserved), `BENCH_SMALL_WIDTH` (320), `BENCH_QUALITY` (80), `BENCH_SPEED` (6), `BENCH_FILTER` (`lanczos` or `area`), `BENCH_PROFILE` (`assume-srgb`, `strict`, `rendered-icc`), `BENCH_PRECISION` (`f32`, or `reference` for the M1 `f64` executor), `BENCH_ENCODER_THREADS` (1; 0 means all cores), `BENCH_MAX_INPUT_MB` (512). The harness writes `results.csv`, `throughput.csv`, `summary.md`, `environment.txt` and the raw hyperfine JSON into the output directory.
 
 ## Corpus caveats
 
@@ -96,3 +96,40 @@ Agreement with the `f64` oracle, from the differential test `fast_execute_tests`
 1. **The transform is no longer the bottleneck.** It costs 5.6 ms per input megapixel (about 40× less than the per-tap `pow` path) and is 3–7 % of wall time. SIMD and tiling (packages 3 and 4) will matter for throughput once the encoder is fixed, not before.
 2. **The encoder is now 86–100 % of wall time** for every image: about 3 s for a 1600-wide output, single-threaded, scalar rav1e. Package 2 is the next lever by an order of magnitude.
 3. **Peak RSS is unchanged** (the full JPEG frame still dominates); engine-managed memory for the transform is smaller than in the reference, which the differential test asserts.
+
+## 2026-11-06 — after work package 2 (encoder features and threads)
+
+The `avif-write` feature now enables `ravif`'s `asm` and `threading` features, and `TransformOptions::encoder_threads` (CLI `--encoder-threads`) sets the encoder's thread count; 1 is the default, 0 means all cores. Evidence for the choice comes from the quality-matched [encoder experiment](../research/encoder-experiment/results/2026-11-06-apple-m1-ultra.md) on real photographs, summarized below. Same machine, corpus and harness as above.
+
+| image | after package 1 | after package 2, 1 encoder thread | after package 2, all 20 threads | encode ms, 1 thread → 20 | out KiB, 1 thread → 20 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| synthetic 1 Mpx JPEG | 2.785 s | 1.150 s | 0.195 s | 1108 → 159 | 42 → 48 |
+| synthetic 12 Mpx JPEG | 3.312 s | 1.501 s | 0.345 s | 1342 → 184 | 87 → 92 |
+| synthetic 24 Mpx JPEG | 3.197 s | 1.554 s | 0.436 s | 1287 → 158 | 91 → 95 |
+| synthetic 48 Mpx JPEG | 3.777 s | 1.948 s | 0.652 s | 1454 → 182 | 105 → 111 |
+| synthetic 12 Mpx AVIF | 3.414 s | 1.570 s | 0.407 s | 1368 → 235 | 85 → 91 |
+
+Standard deviations 0.006–0.013 s over 5 runs. Sequential throughput (100 small images, one process each): **13.29 images/s** with one encoder thread, **27.91 images/s** with all cores, up from 6.54 after package 1 and 3.81 at the start of M2. The output bytes with one thread are identical to before package 2. With all threads the files grow because `ravif` derives the AV1 tile count from the thread count; at fixed quality 80 the encoder output is also slightly different in quality, so the bytes column is not a quality-matched comparison (the experiment is).
+
+From the start of M2 to now, 24 Mpx JPEG to 1600-wide AVIF went from 8.83 s to 1.55 s on one encoder thread (5.7×) and to 0.44 s on all cores (20×), at the same output with one thread.
+
+### Encoder experiment summary (quality-matched, SSIMULACRA2)
+
+Five images: two real photographs downscaled to 1600 wide (a 12 Mpx phone photo from libavif's test data and a 3.4 Mpx photo from libjxl's), two 768×512 Kodak images and the synthetic plasma. Anchor: `ravif` speed 6, one thread, quality 80. Every other variant is bisected to the anchor's SSIMULACRA2 score.
+
+| knob | measured effect | decision |
+| --- | --- | --- |
+| `asm` (rav1e NEON assembly) | **bit-identical** output (equal FNV-1a hashes on all five images); encode 2.1–2.4× faster (3291 → 1523 ms on the phone photo) | enabled in `avif-write` |
+| threads 2 / 4 / 8 / 20 with `ravif` | 1.7–1.9× / 3.0–3.5× / 4.8–5.7× / 7.4–9.1× faster on 1600-wide images; **+0.4–1.4 % / +1.1–2.7 % / +1.3–4.7 % / +3.2–6.5 % bytes** at equal score, because tiles follow threads | `threading` enabled; default stays 1 thread for machine-independent output |
+| speed 7–8 at 20 threads | identical bytes for 7 and 8; +4.4–9.0 % bytes, about 1.3× faster than speed 6 at 20 threads | not changed |
+| speed 9 / 10 at 20 threads | 18–34× faster than the anchor; +6.1–15.0 % / +12.5–22.5 % bytes | not changed; a candidate for an explicit "fast" preset |
+| `rav1e` direct, 4:4:4 10-bit | same bytes as `ravif` at the same threads (validates the direct path) | — |
+| `rav1e` direct, 4:2:0 10-bit, 1 thread | **−0.5 % to −11.9 % bytes** at equal score, 1.3–1.4× faster on 1600-wide images | follow-up: direct `rav1e` sink |
+| `rav1e` direct, 4:2:0 8-bit | +1.0–10.8 % bytes against the anchor | rejected; 10-bit stays |
+| libavif-rs encoders (libaom port, SVT-AV1) | not measured: nightly toolchain, `unsafe` C ABI, libvmaf and macOS ARM64 only today | open, see the [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
+
+### What the numbers say now
+
+1. **Encode is still the largest stage** with one thread (about 85 % of wall time), but with all cores decode plus transform (0.27 s at 24 Mpx) now cost more than encode (0.16 s). Packages 3–5 (SIMD transform, tiled parallel executor, decode-side scaling) become the next levers for large inputs.
+2. **Multi-threaded encoding costs bytes through tiles, not threads.** A direct `rav1e` adapter can set tiles from the image size and threads from the machine independently, which removes the trade-off and makes multi-threaded output machine-independent; it also unlocks 4:2:0 10-bit, the only knob that saved bytes at equal quality. That adapter is the remaining part of package 2.
+3. **For batch work one encoder thread per image is the efficient setting**: it has the smallest files and leaves cores to other images; the package 4 engine should schedule images, not tiles, when many are queued.

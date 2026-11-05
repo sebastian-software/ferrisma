@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
         eprintln!(
-            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         std::process::exit(2);
     }
@@ -62,6 +62,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             "--reference" => options.precision = WorkingPrecision::F64Reference,
             option if option.starts_with("--quality=") => options.quality = option[10..].parse()?,
             option if option.starts_with("--speed=") => options.speed = option[8..].parse()?,
+            option if option.starts_with("--encoder-threads=") => {
+                options.encoder_threads = option[18..].parse()?;
+            }
             option if option.starts_with("--budget-mb=") => {
                 let megabytes: usize = option[12..].parse()?;
                 options.max_managed_bytes = megabytes
@@ -112,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!(
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
-         decoder_requests={} decoder_full_frames={} precision={:?}",
+         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -125,6 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         output.report.decoder_requests,
         output.report.decoder_full_frame_buffers,
         output.report.working_precision,
+        output.report.encoder_threads,
     );
     if output.report.opaque_decoder_memory || output.report.opaque_encoder_memory {
         eprintln!(

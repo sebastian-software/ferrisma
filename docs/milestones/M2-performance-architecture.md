@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) measured and partly landed
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -124,3 +124,7 @@ Each ADR starts as Proposed, gets an experiment, and moves to Experimental only 
 ## Progress note — package 1 (2026-11-05)
 
 `src/fast_execute.rs` is the default executor: `f32`, transfer decode once per sample through exact tables, flat tap tables, an O(1) row ring, three-channel opaque RGB and an exact `f32` to sRGB8 encoder. It passes the ADR-0021 differential test against the `f64` oracle, which stays selectable as `WorkingPrecision::F64Reference`. On the dev machine the transform stage fell by 16–40× (5.9 s to 0.17 s at 24 Mpx) and end-to-end time by up to 3.5×; the encoder is now 86–100 % of wall time, so package 2 comes before SIMD. Not done in package 1: the Q1.14 path (package 3, ADR-0021 rule 2) and multi-threading (package 4). See [M2-baseline.md](../benchmarks/M2-baseline.md).
+
+## Progress note — package 2 (2026-11-06)
+
+A standalone, quality-matched [encoder experiment](../research/encoder-experiment/README.md) measured `rav1e` assembly, threads, speed presets, 4:2:0 and bit depth on real photographs at equal SSIMULACRA2. Landed: `avif-write` enables `ravif`'s `asm` (bit-identical, 2.1–2.4× faster encode) and `threading`, and `TransformOptions::encoder_threads` exposes the thread count with 1 as the deterministic default. Result on the dev machine: 24 Mpx JPEG to 1600-wide AVIF in 1.55 s on one encoder thread and 0.44 s on all cores, down from 8.83 s at the start of M2; sequential throughput 13.3 and 27.9 images/s. Remaining in package 2: a direct `rav1e` sink that decouples AV1 tiles from threads and offers 4:2:0 10-bit (−0.5 % to −11.9 % bytes at equal quality), and the libavif-rs encoder comparison, blocked on that port's toolchain and API. See [M2-baseline.md](../benchmarks/M2-baseline.md).

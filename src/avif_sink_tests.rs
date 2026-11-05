@@ -1,5 +1,5 @@
 #![cfg(feature = "avif-write")]
-use crate::avif_sink::{AvifSink, EncodeSettings};
+use crate::avif_sink::{AvifSink, EncodeSettings, MAX_ENCODER_THREADS};
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::MemoryBudget;
@@ -23,6 +23,7 @@ fn sink_requires_complete_rows_and_releases_managed_frame_after_encoding() {
         .finish(EncodeSettings {
             quality: 75.0,
             speed: 9,
+            threads: 1,
         })
         .unwrap();
     assert!(encoded.bytes.len() > 32);
@@ -44,7 +45,8 @@ fn invalid_options_and_incomplete_output_fail_closed() {
     assert_eq!(
         sink.finish(EncodeSettings {
             quality: 75.0,
-            speed: 9
+            speed: 9,
+            threads: 1,
         })
         .unwrap_err(),
         Error::IncompleteOutput
@@ -53,7 +55,8 @@ fn invalid_options_and_incomplete_output_fail_closed() {
     assert_eq!(
         (EncodeSettings {
             quality: f32::NAN,
-            speed: 9
+            speed: 9,
+            threads: 1,
         })
         .validate(),
         Err(Error::InvalidEncodeOptions)
@@ -61,9 +64,25 @@ fn invalid_options_and_incomplete_output_fail_closed() {
     assert_eq!(
         (EncodeSettings {
             quality: 50.0,
-            speed: 11
+            speed: 11,
+            threads: 1,
         })
         .validate(),
         Err(Error::InvalidEncodeOptions)
     );
+}
+
+#[test]
+fn encoder_thread_count_is_bounded() {
+    for threads in [0, MAX_ENCODER_THREADS + 1] {
+        assert_eq!(
+            EncodeSettings {
+                quality: 50.0,
+                speed: 9,
+                threads,
+            }
+            .validate(),
+            Err(Error::InvalidEncodeOptions)
+        );
+    }
 }

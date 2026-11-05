@@ -71,6 +71,11 @@ pub struct TransformOptions {
     pub profile_policy: InputProfilePolicy,
     pub quality: f32,
     pub speed: u8,
+    /// AV1 encoder threads: 0 means all available cores. The encoder derives
+    /// its tile count from this value, so different values produce different
+    /// (equally valid) bytes; the default of 1 keeps output independent of
+    /// the machine. Measured trade-off: `docs/benchmarks/M2-baseline.md`.
+    pub encoder_threads: usize,
     pub max_managed_bytes: usize,
     /// Maximum compressed input size, checked before initializing any codec.
     pub max_input_bytes: usize,
@@ -89,6 +94,7 @@ impl Default for TransformOptions {
             profile_policy: InputProfilePolicy::Strict,
             quality: 75.0,
             speed: 6,
+            encoder_threads: 1,
             max_managed_bytes: 256 * 1024 * 1024,
             max_input_bytes: 64 * 1024 * 1024,
             max_input_pixels: 100_000_000,
@@ -138,6 +144,8 @@ pub struct ProcessingReport {
     pub opaque_encoder_memory: bool,
     /// The executor that produced the pixels.
     pub working_precision: WorkingPrecision,
+    /// Encoder threads actually used (resolved when the option was 0).
+    pub encoder_threads: usize,
     pub timings: StageTimings,
 }
 
@@ -329,11 +337,18 @@ pub fn transcode(
     options: TransformOptions,
 ) -> Result<Output, ProcessingError> {
     let started = Instant::now();
-    EncodeSettings {
+    let encoder_threads = match options.encoder_threads {
+        0 => std::thread::available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .min(crate::avif_sink::MAX_ENCODER_THREADS),
+        threads => threads,
+    };
+    let encode_settings = EncodeSettings {
         quality: options.quality,
         speed: options.speed,
-    }
-    .validate()?;
+        threads: encoder_threads,
+    };
+    encode_settings.validate()?;
     let target_size = Size::new(options.output_width, options.output_height)?;
     if options.max_input_bytes == 0 || options.max_input_pixels == 0 {
         return Err(ProcessingError::new(
@@ -449,10 +464,7 @@ pub fn transcode(
         )?,
     };
     let encode_started = Instant::now();
-    let encoded_avif = output_sink.finish(EncodeSettings {
-        quality: options.quality,
-        speed: options.speed,
-    })?;
+    let encoded_avif = output_sink.finish(encode_settings)?;
     let encode = encode_started.elapsed();
     let input_access = match processed.decoder.access {
         DecodeAccess::FullFrameFallback => SourceAccess::FullFrameFallback,
@@ -469,6 +481,7 @@ pub fn transcode(
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
         opaque_encoder_memory: encoded_avif.opaque_encoder_memory_unbounded,
         working_precision: options.precision,
+        encoder_threads,
         timings: StageTimings {
             open,
             decode: processed.source_time,

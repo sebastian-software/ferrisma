@@ -59,6 +59,7 @@ fn avif_decoder_rejects_truncated_container_without_panicking() {
         .finish(EncodeSettings {
             quality: 80.0,
             speed: 10,
+            threads: 1,
         })
         .unwrap()
         .bytes;

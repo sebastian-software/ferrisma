@@ -7,10 +7,17 @@ use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::{ManagedBuffer, MemoryBudget};
 
+/// Upper bound for `EncodeSettings::threads`; more threads than AV1 tiles
+/// cannot help a still image, and `rav1e` builds one pool per encode.
+pub(crate) const MAX_ENCODER_THREADS: usize = 256;
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct EncodeSettings {
     pub quality: f32,
     pub speed: u8,
+    /// Encoder threads; `ravif` also derives the AV1 tile count from it, so
+    /// the bytes depend on this value (M2 work package 2).
+    pub threads: usize,
 }
 
 impl EncodeSettings {
@@ -18,6 +25,7 @@ impl EncodeSettings {
         if !(1.0..=100.0).contains(&self.quality)
             || !self.quality.is_finite()
             || !(1..=10).contains(&self.speed)
+            || !(1..=MAX_ENCODER_THREADS).contains(&self.threads)
         {
             return Err(Error::InvalidEncodeOptions);
         }
@@ -92,7 +100,7 @@ impl AvifSink {
         let encoded = ravif::Encoder::new()
             .with_quality(settings.quality)
             .with_speed(settings.speed)
-            .with_num_threads(Some(1))
+            .with_num_threads(Some(settings.threads))
             .encode_rgba(image)
             .map_err(|_| Error::EncodeFailed)?;
         Ok(EncodedAvif {
