@@ -16,3 +16,5 @@
 //! Translation of `src/enc/picture_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP9 (encoder picture and config).
+//!
+//! Exception: WP13 translates `Encode`, `WebPEncodeRGB`, `WebPEncodeBGR`, `WebPEncodeRGBA`, `WebPEncodeBGRA`, `WebPEncodeLosslessRGB`, `WebPEncodeLosslessBGR`, `WebPEncodeLosslessRGBA` and `WebPEncodeLosslessBGRA` from `src/enc/picture_enc.c`, because the simple encoding API calls `WebPEncode`.

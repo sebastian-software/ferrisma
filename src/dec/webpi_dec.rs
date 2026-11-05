@@ -16,3 +16,5 @@
 //! Translation of `src/dec/webpi_dec.h` from libwebp v1.6.0.
 //!
 //! Work package: WP12 (decoder integration).
+//!
+//! Exception: WP7 translates `WebPDecParams`, `OutputFunc`, `OutputAlphaFunc` and `OutputRowFunc` from `src/dec/webpi_dec.h`, because `VP8LDecodeImage` reads `WebPDecParams` through `io->opaque`.

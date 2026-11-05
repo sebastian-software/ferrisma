@@ -55,18 +55,32 @@ def notices(paths):
     return lines
 
 
+def item_list(names):
+    quoted = [f"`{name}`" for name in names]
+    if len(quoted) == 1:
+        return quoted[0]
+    return ", ".join(quoted[:-1]) + " and " + quoted[-1]
+
+
 def owner(manifest, entry):
-    text = f"{entry['package']} ({manifest['packages'][entry['package']]['name']})"
-    if "note" in entry:
-        text += f"; {entry['note']}"
-    return text + "."
+    """Name the owning package and, one per line, the exceptions inside the module."""
+    lines = [f"//! Work package: {entry['package']} "
+             f"({manifest['packages'][entry['package']]['name']})"
+             + (f"; {entry['note']}." if "note" in entry else ".")]
+    for exception in manifest.get("exceptions", []):
+        if exception["module"] == entry["module"]:
+            items = exception.get("functions", []) + exception.get("types", [])
+            lines.append("//!")
+            lines.append(f"//! Exception: {exception['package']} translates {item_list(items)}"
+                         f" from `{exception['upstream']}`, because {exception['reason']}.")
+    return lines
 
 
 def module_header(manifest, entry):
     lines = notices(entry["upstream"])
     lines.append(f"//! Translation of {code_list(entry['upstream'])} from {VERSION}.")
     lines.append("//!")
-    lines.append(f"//! Work package: {owner(manifest, entry)}")
+    lines.extend(owner(manifest, entry))
     return "\n".join(lines) + "\n"
 
 
@@ -78,7 +92,7 @@ def abi_header(manifest, entry):
     lines.append("//! safe representations at the boundary; see")
     lines.append("//! `docs/adr/0004-c-abi-boundary.md`.")
     lines.append("//!")
-    lines.append(f"//! Work package: {owner(manifest, entry)}")
+    lines.extend(owner(manifest, entry))
     return "\n".join(lines) + "\n"
 
 
@@ -128,6 +142,26 @@ def verify(manifest):
             problems.append(f"missing module file: {entry['module']}")
         elif not module.read_text().startswith(header):
             problems.append(f"{entry['module']}: provenance header differs from tools/units.json")
+    modules = {entry["module"]: entry for entry in manifest["modules"]}
+    for exception in manifest.get("exceptions", []):
+        target = modules.get(exception["module"])
+        if target is None:
+            problems.append(f"exception names an unknown module: {exception['module']}")
+        elif exception["upstream"] not in target["upstream"]:
+            problems.append(f"exception names {exception['upstream']}, which "
+                            f"{exception['module']} does not translate")
+        if exception["package"] not in manifest["packages"]:
+            problems.append(f"exception names an unknown package: {exception['package']}")
+        if not exception.get("functions") and not exception.get("types"):
+            problems.append(f"exception for {exception['module']} lists no functions or types")
+        source = (UPSTREAM / exception["upstream"]).read_text()
+        for name in exception.get("functions", []) + exception.get("types", []):
+            if not re.search(rf"\b{re.escape(name)}\b", source):
+                problems.append(f"{name} does not occur in {exception['upstream']}")
+    for entry in manifest.get("reviewed_includes", []):
+        unit = UPSTREAM / entry["unit"]
+        if not unit.is_file() or f'#include "{entry["header"]}"' not in unit.read_text():
+            problems.append(f"reviewed include not found: {entry['unit']} -> {entry['header']}")
     for directory in TOP_LEVEL:
         mod_rs = ROOT / "src" / directory / "mod.rs"
         expected_files.add(mod_rs)

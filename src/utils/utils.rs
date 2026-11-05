@@ -32,3 +32,5 @@
 //! Translation of `src/utils/utils.c` and `src/utils/utils.h` from libwebp v1.6.0.
 //!
 //! Work package: WP1 (types, memory, workers).
+//!
+//! Exception: WP3 translates `WebPGetColorPalette` from `src/utils/utils.c`, because it calls `GetColorPalette` from `src/utils/palette.c`.

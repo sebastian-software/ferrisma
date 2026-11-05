@@ -17,3 +17,5 @@
 //! Translation of `src/dec/vp8li_dec.h` from libwebp v1.6.0.
 //!
 //! Work package: WP7 (VP8L decoder).
+//!
+//! Exception: WP3 translates `VP8LTransform` from `src/dec/vp8li_dec.h`, because the inverse transforms in `src/dsp/lossless.c` take it.

@@ -15,4 +15,4 @@
 
 //! Translation of `src/dec/alphai_dec.h` from libwebp v1.6.0.
 //!
-//! Work package: WP12 (decoder integration).
+//! Work package: WP7 (VP8L decoder).

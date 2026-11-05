@@ -15,4 +15,8 @@
 
 //! Translation of `src/enc/webp_enc.c` from libwebp v1.6.0.
 //!
-//! Work package: WP10 (VP8 encoder core); WP13 adds the alpha branch.
+//! Work package: WP10 (VP8 encoder core).
+//!
+//! Exception: WP9 translates `WebPEncodingSetError` and `WebPReportProgress` from `src/enc/webp_enc.c`, because the picture functions and the VP8L encoder report errors and progress through them.
+//!
+//! Exception: WP13 translates `WebPEncode`, `GetPSNR`, `FinalizePSNR` and `StoreStats` from `src/enc/webp_enc.c`, because `WebPEncode` joins picture conversion, the VP8, VP8L and alpha encoders and the statistics.

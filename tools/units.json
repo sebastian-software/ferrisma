@@ -1,43 +1,54 @@
 {
-  "comment": "Upstream translation units, their Rust modules and owning work packages, with each package's wave and declared dependencies from docs/WORKPLAN.md. Fixed by WP0; tools/units.py verifies it against upstream/libwebp and src/, and tools/unit_dependencies.py compares the declared dependencies with the oracle's actual cross-unit references.",
+  "comment": "Upstream translation units, their Rust modules and owning work packages, each package's sub-wave and declared dependencies (docs/WORKPLAN.md), function- and type-level exceptions inside a module, and reviewed header includes. Fixed by WP0; tools/units.py verifies it against upstream/libwebp and src/, and tools/unit_dependencies.py compares the dependencies with the oracle's actual cross-unit references.",
   "packages": {
     "WP1": {
       "name": "types, memory, workers",
-      "wave": 1,
+      "wave": "1a",
       "depends": []
     },
     "WP2": {
       "name": "bit I/O",
-      "wave": 1,
-      "depends": []
+      "wave": "1b",
+      "depends": [
+        "WP1"
+      ]
     },
     "WP3": {
       "name": "lossless shared",
-      "wave": 1,
-      "depends": []
+      "wave": "1c",
+      "depends": [
+        "WP1",
+        "WP4"
+      ]
     },
     "WP4": {
       "name": "pixel ops",
-      "wave": 1,
-      "depends": []
+      "wave": "1b",
+      "depends": [
+        "WP1"
+      ]
     },
     "WP5": {
       "name": "`SharpYUV`",
-      "wave": 1,
-      "depends": []
+      "wave": "1b",
+      "depends": [
+        "WP1",
+        "WP4"
+      ]
     },
     "WP6": {
       "name": "VP8 decoder core",
-      "wave": 2,
+      "wave": "2b",
       "depends": [
         "WP1",
         "WP2",
-        "WP4"
+        "WP4",
+        "WP7"
       ]
     },
     "WP7": {
       "name": "VP8L decoder",
-      "wave": 2,
+      "wave": "2a",
       "depends": [
         "WP1",
         "WP2",
@@ -47,42 +58,48 @@
     },
     "WP8": {
       "name": "demux",
-      "wave": 2,
+      "wave": "3b",
       "depends": [
-        "WP1"
+        "WP1",
+        "WP12"
       ]
     },
     "WP9": {
       "name": "encoder picture and config",
-      "wave": 2,
+      "wave": "2a",
       "depends": [
         "WP1",
+        "WP3",
         "WP4",
         "WP5"
       ]
     },
     "WP10": {
       "name": "VP8 encoder core",
-      "wave": 2,
+      "wave": "2c",
       "depends": [
         "WP1",
         "WP2",
-        "WP4"
+        "WP4",
+        "WP6",
+        "WP9",
+        "WP11"
       ]
     },
     "WP11": {
       "name": "VP8L encoder",
-      "wave": 2,
+      "wave": "2b",
       "depends": [
         "WP1",
         "WP2",
         "WP3",
-        "WP4"
+        "WP4",
+        "WP9"
       ]
     },
     "WP12": {
       "name": "decoder integration",
-      "wave": 3,
+      "wave": "3a",
       "depends": [
         "WP6",
         "WP7"
@@ -90,38 +107,58 @@
     },
     "WP13": {
       "name": "encoder integration",
-      "wave": 3,
+      "wave": "3b",
       "depends": [
         "WP9",
         "WP10",
-        "WP11"
+        "WP11",
+        "WP12"
       ]
     },
     "WP14": {
       "name": "animation decode and demux ABI",
-      "wave": 3,
+      "wave": "3c",
       "depends": [
-        "WP8"
+        "WP8",
+        "WP12"
       ]
     },
     "WP15": {
       "name": "mux and animation encode",
-      "wave": 4,
+      "wave": "4",
       "depends": [
+        "WP6",
+        "WP7",
+        "WP12",
         "WP13",
         "WP14"
       ]
     },
+    "WP16": {
+      "name": "safe decoder API",
+      "wave": "4",
+      "depends": [
+        "WP12",
+        "WP14"
+      ]
+    },
+    "WP17": {
+      "name": "safe encoder API",
+      "wave": "4",
+      "depends": [
+        "WP13"
+      ]
+    },
     "WP18": {
       "name": "SIMD x86 decoder",
-      "wave": 4,
+      "wave": "4",
       "depends": [
         "WP12"
       ]
     },
     "WP19": {
       "name": "SIMD x86 encoder",
-      "wave": 4,
+      "wave": "4",
       "depends": [
         "WP13",
         "WP18"
@@ -129,7 +166,7 @@
     },
     "WP20": {
       "name": "NEON",
-      "wave": 4,
+      "wave": "4",
       "depends": [
         "WP12",
         "WP13"
@@ -761,14 +798,14 @@
       "upstream": [
         "src/dec/io_dec.c"
       ],
-      "package": "WP12"
+      "package": "WP6"
     },
     {
       "module": "src/dec/alpha_dec.rs",
       "upstream": [
         "src/dec/alpha_dec.c"
       ],
-      "package": "WP12"
+      "package": "WP6"
     },
     {
       "module": "src/dec/idec_dec.rs",
@@ -782,7 +819,7 @@
       "upstream": [
         "src/dec/alphai_dec.h"
       ],
-      "package": "WP12"
+      "package": "WP7"
     },
     {
       "module": "src/dec/webpi_dec.rs",
@@ -923,8 +960,7 @@
       "upstream": [
         "src/enc/webp_enc.c"
       ],
-      "package": "WP10",
-      "note": "WP13 adds the alpha branch"
+      "package": "WP10"
     },
     {
       "module": "src/enc/vp8l_enc.rs",
@@ -982,7 +1018,7 @@
       "upstream": [
         "src/enc/alpha_enc.c"
       ],
-      "package": "WP13"
+      "package": "WP10"
     },
     {
       "module": "src/mux/muxedit.rs",
@@ -1081,6 +1117,182 @@
       ],
       "package": "WP20",
       "cfg": "target_arch = \"aarch64\""
+    }
+  ],
+  "exceptions": [
+    {
+      "module": "src/utils/utils.rs",
+      "upstream": "src/utils/utils.c",
+      "package": "WP3",
+      "functions": [
+        "WebPGetColorPalette"
+      ],
+      "reason": "it calls `GetColorPalette` from `src/utils/palette.c`"
+    },
+    {
+      "module": "src/dec/vp8li_dec.rs",
+      "upstream": "src/dec/vp8li_dec.h",
+      "package": "WP3",
+      "types": [
+        "VP8LTransform"
+      ],
+      "reason": "the inverse transforms in `src/dsp/lossless.c` take it"
+    },
+    {
+      "module": "src/dec/vp8_dec.rs",
+      "upstream": "src/dec/vp8_dec.h",
+      "package": "WP7",
+      "types": [
+        "VP8Io",
+        "VP8IoPutHook",
+        "VP8IoSetupHook",
+        "VP8IoTeardownHook"
+      ],
+      "reason": "`VP8LDecoder` and `ALPHDecoder` hold a `VP8Io`"
+    },
+    {
+      "module": "src/dec/webpi_dec.rs",
+      "upstream": "src/dec/webpi_dec.h",
+      "package": "WP7",
+      "types": [
+        "WebPDecParams",
+        "OutputFunc",
+        "OutputAlphaFunc",
+        "OutputRowFunc"
+      ],
+      "reason": "`VP8LDecodeImage` reads `WebPDecParams` through `io->opaque`"
+    },
+    {
+      "module": "src/dec/webp_dec.rs",
+      "upstream": "src/dec/webp_dec.c",
+      "package": "WP7",
+      "functions": [
+        "WebPIoInitFromOptions",
+        "WebPCheckCropDimensions",
+        "WebPCheckCropDimensionsBasic"
+      ],
+      "reason": "`VP8LDecodeImage` calls `WebPIoInitFromOptions`, which checks the crop with the other two"
+    },
+    {
+      "module": "src/enc/webp_enc.rs",
+      "upstream": "src/enc/webp_enc.c",
+      "package": "WP9",
+      "functions": [
+        "WebPEncodingSetError",
+        "WebPReportProgress"
+      ],
+      "reason": "the picture functions and the VP8L encoder report errors and progress through them"
+    },
+    {
+      "module": "src/enc/webp_enc.rs",
+      "upstream": "src/enc/webp_enc.c",
+      "package": "WP13",
+      "functions": [
+        "WebPEncode",
+        "GetPSNR",
+        "FinalizePSNR",
+        "StoreStats"
+      ],
+      "reason": "`WebPEncode` joins picture conversion, the VP8, VP8L and alpha encoders and the statistics"
+    },
+    {
+      "module": "src/enc/picture_enc.rs",
+      "upstream": "src/enc/picture_enc.c",
+      "package": "WP13",
+      "functions": [
+        "Encode",
+        "WebPEncodeRGB",
+        "WebPEncodeBGR",
+        "WebPEncodeRGBA",
+        "WebPEncodeBGRA",
+        "WebPEncodeLosslessRGB",
+        "WebPEncodeLosslessBGR",
+        "WebPEncodeLosslessRGBA",
+        "WebPEncodeLosslessBGRA"
+      ],
+      "reason": "the simple encoding API calls `WebPEncode`"
+    }
+  ],
+  "reviewed_includes": [
+    {
+      "unit": "src/utils/endian_inl_utils.h",
+      "header": "src/dsp/dsp.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_inl_utils.h",
+      "header": "src/dsp/cpu.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_inl_utils.h",
+      "header": "src/dsp/dsp.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_utils.c",
+      "header": "src/dsp/cpu.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_utils.h",
+      "header": "src/dsp/cpu.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/dsp/yuv.h",
+      "header": "src/dec/vp8_dec.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/demux/demux.c",
+      "header": "src/webp/mux.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/demux/anim_decode.c",
+      "header": "src/webp/mux.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/enc/picture_csp_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only prototypes of WP9's functions and of `WebPEncodingSetError`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/picture_psnr_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/enc/picture_rescale_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only prototypes of WP9's functions and of `WebPEncodingSetError`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/picture_tools_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only prototypes of WP9's functions and of `WebPEncodingSetError`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/backward_references_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/histogram_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/predictor_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/vp8l_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
     }
   ],
   "abi": [

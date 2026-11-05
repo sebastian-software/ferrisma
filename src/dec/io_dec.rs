@@ -15,4 +15,4 @@
 
 //! Translation of `src/dec/io_dec.c` from libwebp v1.6.0.
 //!
-//! Work package: WP12 (decoder integration).
+//! Work package: WP6 (VP8 decoder core).

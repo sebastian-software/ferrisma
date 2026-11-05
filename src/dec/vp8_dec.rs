@@ -31,3 +31,5 @@
 //! Translation of `src/dec/vp8_dec.c` and `src/dec/vp8_dec.h` from libwebp v1.6.0.
 //!
 //! Work package: WP6 (VP8 decoder core).
+//!
+//! Exception: WP7 translates `VP8Io`, `VP8IoPutHook`, `VP8IoSetupHook` and `VP8IoTeardownHook` from `src/dec/vp8_dec.h`, because `VP8LDecoder` and `ALPHDecoder` hold a `VP8Io`.

@@ -15,4 +15,4 @@
 
 //! Translation of `src/enc/alpha_enc.c` from libwebp v1.6.0.
 //!
-//! Work package: WP13 (encoder integration).
+//! Work package: WP10 (VP8 encoder core).

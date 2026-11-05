@@ -16,3 +16,5 @@
 //! Translation of `src/dec/webp_dec.c` from libwebp v1.6.0.
 //!
 //! Work package: WP12 (decoder integration).
+//!
+//! Exception: WP7 translates `WebPIoInitFromOptions`, `WebPCheckCropDimensions` and `WebPCheckCropDimensionsBasic` from `src/dec/webp_dec.c`, because `VP8LDecodeImage` calls `WebPIoInitFromOptions`, which checks the crop with the other two.
