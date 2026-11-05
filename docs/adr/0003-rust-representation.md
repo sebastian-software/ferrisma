@@ -113,6 +113,18 @@ explicit representations while retaining source algorithms.
   release-state fuzzer flag remains false; its debug-only global setter is not
   yet exposed. Ordinary Rust debug/release builds both match that reference.
 
+- The encoder transform, Gaborish, convolution and XYB units reproduce the
+  original objects' contraction per target. Each source site that Clang
+  records as `llvm.fmuladd` is a `#[cfg(target_arch = "aarch64")]` `mul_add`
+  with the source's operand roles and separate operations elsewhere; the
+  sites are listed in `tools/encoder_transforms_contraction.json`. Highway's
+  scalar Mul stays `scalar_mul` and its MulAdd a product followed by a
+  separate addition. GaborishInverse writes the second and third Symmetric5
+  passes into planes of the same image through disjoint plane borrows, and
+  ToXYB's admitted encodings are a type (`XybInputEncoding`), so the
+  ApplyColorTransform branch and its CMS argument are absent rather than
+  stubbed.
+
 - Color matrices use typed float/double arrays and a 16-byte aligned temporary,
   preserving source mixed-precision accumulation and inversion order. The
   translated callers have disjoint input/output storage; native borrows express

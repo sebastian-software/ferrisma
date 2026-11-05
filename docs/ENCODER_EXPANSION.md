@@ -755,6 +755,25 @@ Progress:
   open. The next PRs widen ProcessOneEnqueuedInput: its raw-codestream header
   path (WriteCodestreamHeaders, level checks) lands with the integration PR,
   which deletes the ProcessOutput admission for the admitted profile.
+- PR 2 (transform and color): `convolve_symmetric5.rs` (Symmetric5),
+  `convolve_slow.rs` (SlowSymmetric3, the forward kernel of the Gaborish
+  test), `enc_gaborish.rs` (GaborishInverse), `enc_transforms.rs`
+  (TransformFromPixels for all 27 strategies, DCFromLowestFrequencies,
+  AFVDCT4x4, reusing the decoder's scalar DCT recursion) and `enc_xyb.rs`
+  (ComputePremulAbsorb, LinearRGBRowToXYB and ToXYB, whose sRGB and
+  linear-sRGB inputs are admitted by type). `tools/oracle/encoder_transforms.cc`
+  calls the archive's own functions and `tests/parity/encoder_transforms.rs`
+  compares 5,346 requests as exact float words, including every exceptional
+  word, every `xsize mod 8` and all of `enc_gaborish_test.cc`. The contraction
+  map is recorded in `tools/encoder_transforms_contraction.json` and audited
+  by `tools/encoder_transforms_contraction.py` against IR and the native
+  objects: four fmuladd sites (two AFV DC mixes, SlowSymmetric3 and the
+  unported SlowSeparable5), fused on AArch64 and separate on x86-64. Competing
+  NaN payloads in the 8-point and larger forward DCTs differ between the
+  ordinary and ASan archive objects and use a dedicated observation unit. See
+  [PORT_STATUS.md](PORT_STATUS.md#encoder-transforms-gaborish-and-xyb-2026-11-05).
+  The next PR translates the quantizer field selection, InitialQuantField,
+  AdjustQuantField, CfLHeuristics and AcStrategyHeuristics.
 
 Step 1 is done when PR 6's gate passes on native Linux and macOS against both
 oracle graphs, and [PORT_STATUS.md](PORT_STATUS.md) and this plan record the

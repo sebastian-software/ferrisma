@@ -93,6 +93,28 @@ result must coincide with the original queueing a fast-lossless frame or
 calling ProcessOneEnqueuedInput at that call; its history compares exactly up
 to that call and is reported separately from exact parity.
 
+The encoder transform unit `encoder_transforms.cc` calls the archive's own
+Symmetric5, SlowSymmetric3, GaborishInverse, TransformFromPixels,
+DCFromLowestFrequencies, AFVDCT4x4, ComputePremulAbsorb, LinearRGBRowToXYB
+and ToXYB objects, so the compared words are those the original encoder uses.
+Competing NaN payloads are the one exception. In the 8-point and larger DCTs
+of TransformFromPixels, the ordinary O3 archive object and its ASan
+counterpart select different operands of the same additions, so neither graph
+is a reference that one implementation could match. Those requests use the
+observation unit `encoder_transforms_unit.cc`, which instantiates the pristine
+enc_transforms-inl.h template with source-scoped -fno-unroll-loops, O3,
+default contraction and all sanitizers, as dct.cc does for the decoder. Both
+graphs agree there, and the Rust forward DCT matches it. AFVDCT4x4 and
+DCFromLowestFrequencies agree in both archive graphs, including a signaling
+NaN that the archive passes through a multiplication by one unquieted, so
+their competing requests stay on the archive. The test-only GaborishKernel is
+extracted verbatim from enc_gaborish_test.cc and hash-checked.
+`tools/encoder_transforms_contraction.py` records the contraction map of
+these five archive objects: it reruns each object's compile command to emit IR
+with line tables, compares the `llvm.fmuladd` source sites with
+`tools/encoder_transforms_contraction.json`, and requires fused instructions
+in a native AArch64 object exactly when it has sites and none on x86-64.
+
 The exported decoder C ABI is compared from the C side. One driver, compiled
 against the pinned public headers only, replays the public decoder histories
 with the same driver code as the original oracle. It is linked twice: against

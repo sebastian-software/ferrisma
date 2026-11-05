@@ -56,6 +56,16 @@ shape stabilizes those observations and retains the default original finite
 rounding, including subnormal and signed-zero cases. See ADRs 0002 and 0003.
 The original archive and existing fixture flags remain unchanged.
 
+The encoder transform unit `encoder_transforms.cc` calls the archive's own
+transform, Gaborish, convolution and XYB objects. Competing NaN payloads in
+TransformFromPixels' 8-point and larger DCTs are selected differently by the
+ordinary and instrumented archive objects; only those requests use the
+separate `encoder_transforms_unit.cc`, which instantiates the pristine
+template with source-scoped `-fno-unroll-loops` as for dct.cc, with O3,
+default contraction and all sanitizers retained. The original archive keeps
+its flags. `tools/encoder_transforms_contraction.py --output DIR` audits the
+contraction map of these units in every built oracle graph; see ADR 0002.
+
 The complete-file oracle compiles the original DecodeFile and ReadICC helper
 bodies without their unrelated test framework. At CMake configure time,
 `tools/oracle/extract_source.py` copies their exact pinned source ranges and

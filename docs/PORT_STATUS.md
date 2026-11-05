@@ -56,7 +56,9 @@ encoding, the encoder C ABI and JxlEncoderSetParallelRunner remain unported.
 The public encoder API's object lifecycle, option and metadata setters, frame
 and box queueing and ProcessOutput are translated with explicit admission
 results for every untranslated branch (see "Public encoder API admission and
-setters" below); it encodes no pixels yet.
+setters" below); it encodes no pixels yet. The encoder's forward transforms,
+GaborishInverse and sRGB/linear-sRGB ToXYB are translated as standalone units
+(see "Encoder transforms, Gaborish and XYB" below).
 
 ## Public encoder API admission and setters (2026-11-05)
 
@@ -135,6 +137,85 @@ original's channel pointing to the caller's buffer, which the Rust owner does
 not retain; the `S` checkpoint compares the other channel fields. A
 SetExtraChannelBuffer after AddBox dereferences a null queued frame in the
 original; the Rust function panics there and no history reaches it.
+
+## Encoder transforms, Gaborish and XYB (2026-11-05)
+
+This is the second of the six pull requests of encoder step 1 in
+[ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#first-step). It translates the
+image-level units that the lossy VarDCT encoder applies before its
+heuristics, as standalone functions; none is connected to a frame encode yet.
+
+- `convolve.rs`, `convolve_symmetric5.rs`, `convolve_slow.rs`: the
+  WeightsSymmetric3/WeightsSymmetric5 owners of `convolve.h`, the one-lane
+  Symmetric5 of `convolve_symmetric5.cc` (border and interior paths, mirrored
+  and unchanged rows), and SlowSymmetric3 of `convolve_slow.cc`, which the
+  original Gaborish test uses as its forward kernel. `image_ops.rs` adds the
+  WrapMirror/WrapUnchanged modes.
+- `enc_gaborish.rs`: GaborishInverse with its double-precision normalization,
+  temporary plane, three Symmetric5 passes and plane swaps.
+- `enc_transforms.rs`: TransformFromPixels for all 27 strategies with
+  DCT2TopBlock and AFVTransformFromPixels, DCFromLowestFrequencies with
+  ReinterpretingIDCT, and AFVDCT4x4. The scaled DCT/IDCT recursion is the
+  existing `dct.rs` translation of dct-inl.h, reused unchanged.
+- `enc_xyb.rs`: ComputePremulAbsorb, LinearRGBRowToXYB and ToXYB with
+  OpsinAbsorbance, CubeRootAndAdd (added to `base/fast_math.rs`), StoreXYB and
+  the LinearSRGBToXYB, SRGBToXYB and SRGBToXYBAndLinear row loops. The admitted
+  input encodings are a type: `XybInputEncoding::new` selects linear sRGB
+  (SameColorEncoding with LinearSRGB of the same grayness) or sRGB (IsSRGB) in
+  the source's order and has no value for any other encoding, so the
+  ApplyColorTransform branch and its CMS argument are absent. ScaleXYB,
+  ScaleXYBRow and RgbToYcbcr remain unported.
+
+Contraction map (`tools/encoder_transforms_contraction.json`, audited by
+`tools/encoder_transforms_contraction.py`): Clang's front end records four
+`llvm.fmuladd` sites in the five archive objects. Two are in
+AFVTransformFromPixels (`block00 + block01 +/- 2 * block10`, lines 452 and 454
+of enc_transforms-inl.h), one in SlowSymmetric3Pixel (`row_in[ix] * wc + ... *
+wlr`, convolve_slow.cc:41) and one in the unported SlowSeparablePixel. Native
+AArch64 lowers each to FMADD (the subtraction as FMADD with -2); baseline
+x86-64 keeps separate operations. The Rust port uses `mul_add` at the three
+translated sites on AArch64 only. enc_gaborish, convolve_symmetric5 and
+enc_xyb contain no site: Highway's scalar operations and separate statements
+are never fused, and GaborishInverse converts its binary32 product to double
+before the addition. The audit reran every archive compile command with IR and
+line tables and found exactly these sites in both local graphs; the ordinary
+objects hold 39 fused AArch64 instructions and the ASan objects 25 (the counts
+follow unrolling, not the sites). An x86-64 compile of the same commands on
+the macOS host emitted no fused instruction.
+
+Evidence: `tools/oracle/encoder_transforms.cc` calls the archive's own
+functions; `tests/parity/encoder_transforms.rs` compares every request as
+exact float words, including the unchanged input, all scratch words and tail
+canaries, and the status codes of the original ensure checks. Eleven groups
+with 5,346 requests: TransformFromPixels for all 27 strategies with 20 value
+modes (zero, signed zero, impulses, ramps, noise, overflow, every exceptional
+word: subnormals, infinities, quiet and signaling NaNs of both signs) and three
+strides (432); DCFromLowestFrequencies for all 27 strategies (1,080);
+AFVDCT4x4 (272); competing NaN payloads (564); Symmetric5 over 22 sizes that
+cover every `xsize mod 8`, full, inner and offset rectangles and the rectangle
+checks (432); SlowSymmetric3 (941); GaborishInverse over the same sizes with
+the default and edge multipliers, including the `sum < 1e-5` clamp and NaN
+and infinite multipliers (374); all of `enc_gaborish_test.cc` (TestZero,
+TestFlat and the upstream-disabled TestDirac input, 3); ComputePremulAbsorb
+for 14 intensity targets; LinearRGBRowToXYB for widths 1 to 17 and edge inputs
+(490); and ToXYB for gray and color sRGB and linear sRGB at two intensity
+targets, with and without linear output, the black and linear size checks,
+and eight encodings that would take ApplyColorTransform, whose branch
+predicates match while the Rust admission rejects them (744). About 16.5
+million words are compared, most of them scratch and canary words.
+`tests/enc_gaborish.rs` also runs TestZero and TestFlat with the original
+VerifyRelativeError tolerances in ordinary builds.
+
+Competing NaN payloads in the 8-point and larger DCTs of TransformFromPixels
+are register-allocation choices that differ between the ordinary and ASan
+archive objects. Those 432 TransformFromPixels requests run against the
+observation unit `encoder_transforms_unit.cc`, the pristine template with
+scoped -fno-unroll-loops, on which both graphs agree; the AFVDCT4x4 and
+DCFromLowestFrequencies competing requests run on the archive (ADR 0002).
+
+Local results on native macOS AArch64: the eleven groups pass against the
+ordinary and the ASan/UBSan oracle. Linux x86-64 and the hosted deep gate are
+recorded with the pull request.
 
 ## Thread runners and JxlDecoderSetParallelRunner (2026-11-04)
 
@@ -699,7 +780,7 @@ followed in PRs #46 to #50.
 | `enc_lz77.h`, `.cc` | `enc_lz77.rs`, `enc_lz77_costs.rs` | Symbol costs, RLE, greedy bucket variants, optimal hash-chain variants, and original method dispatch |
 | `enc_ans_params.h`, ForModular in `enc_ans.cc` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, uint config, and complete modular entropy-policy selection |
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
-| `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs`, `cms/transfer_functions_scalar.rs` | Existing one-lane FastLog2f/FastPow2f/FastPowf and degree-two/degree-four rational evaluation with original x86 fence sites; other functions/targets unported |
+| `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs`, `cms/transfer_functions_scalar.rs` | Existing one-lane FastLog2f/FastPow2f/FastPowf, CubeRootAndAdd, and degree-two/degree-four rational evaluation with original x86 fence sites; other functions/targets unported |
 | Highway `hwy/ops/scalar-inl.h`, `generic_ops-inl.h` | `base/hwy_scalar.rs` | Used one-lane Min/Max, unfused MulAdd, Clamp, Floor, saturating float-to-i32 conversion, and sign-bit ZeroIfNegative; other operations/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
 | `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, strategy objects/geometry, complete natural coefficient order/LUT traversal, and AcStrategyImage allocation/fills/validity/counting, interpreted row views, and strategy setters with source overlap/error mutations |
@@ -734,6 +815,10 @@ followed in PRs #46 to #50.
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |
 | `dec_xyb-inl.h`, normal stage/factory in `render_pipeline/stage_xyb.cc` | `dec_xyb_scalar.rs`, `render_pipeline/stage_xyb.rs` | Complete original one-lane XybToRgb, normal XYBStage/GetXYBStage, scaled XYB output, copied opsin/profile selection, original xextra guards, and in-place color/ignored extra-channel modes; general image conversion, FastXYB/sRGB8, SIMD, and decoder-profile expansion remain unported |
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Complete documented scalar feature storage/parsing/rendering boundaries mapped below; reference identities are shared with stages, while general complete-frame orchestration remains separate |
+| `convolve.h`, `convolve_symmetric5.cc`, SlowSymmetric3 in `convolve_slow.cc` | `convolve.rs`, `convolve_symmetric5.rs`, `convolve_slow.rs` | Weight owners, one-lane Symmetric5 border/interior rows with mirrored and unchanged row wraps, and SlowSymmetric3 with the AArch64 contraction; SlowSeparable5, Separable5 and SIMD targets unported |
+| `enc_gaborish.h`, `.cc` | `enc_gaborish.rs` | Complete GaborishInverse |
+| `enc_transforms.h`, `.cc`, `enc_transforms-inl.h` | `enc_transforms.rs` | Complete scalar TransformFromPixels for all 27 strategies, DCFromLowestFrequencies with ReinterpretingIDCT, and AFVDCT4x4, with the AFV DC-mix contraction; vector kernels unported |
+| `enc_xyb.h`, `.cc` | `enc_xyb.rs` | ComputePremulAbsorb, LinearRGBRowToXYB, and ToXYB for linear sRGB and sRGB input (gray or color) with linear output; ApplyColorTransform inputs are not admitted by type; ScaleXYB, ScaleXYBRow, RgbToYcbcr and SIMD targets unported |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
 | `dec_transforms-inl.h` | `dec_transforms.rs` | Complete original scalar TransformToPixels dispatch for all 27 strategies (including identity, hierarchical 2x2, split 4x4/4x8, and all AFV flips), ReinterpretingDCT and LowestFrequenciesFromDC; first VarDCT frame/group integration connected; general frame profiles remain separate |
 | `dct_util.h`, `ac_context.h` | `dct_util.rs`, `ac_context.rs` | Complete two-type ACImage owners/virtual operations, BlockCtxMap storage/defaults/lookup/buckets, and normalized zero-density tables/helpers |
@@ -766,7 +851,7 @@ followed in PRs #46 to #50.
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
 | `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage through the owner's memory manager, padded row views, shrink/restore, swaps, native moves and source-header-preserving allocation transfer used by ImageBundle moves; MSan-only padding instrumentation unported |
-| `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
+| `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror with the WrapMirror/WrapUnchanged modes, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
 | `modular/encoding/ma_common.h`, `dec_ma.h`, `.cc`, `enc_ma.h`, `.cc` | `modular/encoding/ma_common.rs`, `modular/encoding/dec_ma.rs`, `modular/encoding/enc_ma.rs` | Tree constants/storage, complete entropy-backed tree parsing and validation, BFS tokenization, sample storage/deduplication/quantization, pixel sampling, and original scalar best-split learning |
