@@ -5,7 +5,8 @@ use std::error::Error;
 use std::path::Path;
 
 use ferrixel::pipeline::{
-    Crop, ImageFormat, InputProfilePolicy, ResizeFilter, TransformOptions, transcode,
+    Crop, ImageFormat, InputProfilePolicy, ResizeFilter, TransformOptions, WorkingPrecision,
+    transcode,
 };
 
 fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
         eprintln!(
-            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--quality=75] [--speed=6] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         std::process::exit(2);
     }
@@ -58,6 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "--assume-srgb" => options.profile_policy = InputProfilePolicy::AssumeSrgbIfMissing,
             "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
             "--area" => options.filter = ResizeFilter::Area,
+            "--reference" => options.precision = WorkingPrecision::F64Reference,
             option if option.starts_with("--quality=") => options.quality = option[10..].parse()?,
             option if option.starts_with("--speed=") => options.speed = option[8..].parse()?,
             option if option.starts_with("--budget-mb=") => {
@@ -110,7 +112,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!(
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
-         decoder_requests={} decoder_full_frames={}",
+         decoder_requests={} decoder_full_frames={} precision={:?}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -122,6 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         output.report.orientation_buffer_bytes,
         output.report.decoder_requests,
         output.report.decoder_full_frame_buffers,
+        output.report.working_precision,
     );
     if output.report.opaque_decoder_memory || output.report.opaque_encoder_memory {
         eprintln!(

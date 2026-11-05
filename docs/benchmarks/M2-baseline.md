@@ -24,7 +24,7 @@ BENCH_SHARP_NODE_MODULES=/path/to/node_modules \
 scripts/bench/profile.sh target/bench/corpus/single/synthetic-24mpx-6000x4000.jpg 1600 1067 target/bench/profile
 ```
 
-Settings are environment variables: `BENCH_WIDTH` (default 1600, aspect preserved), `BENCH_SMALL_WIDTH` (320), `BENCH_QUALITY` (80), `BENCH_SPEED` (6), `BENCH_FILTER` (`lanczos` or `area`), `BENCH_PROFILE` (`assume-srgb`, `strict`, `rendered-icc`), `BENCH_MAX_INPUT_MB` (512). The harness writes `results.csv`, `throughput.csv`, `summary.md`, `environment.txt` and the raw hyperfine JSON into the output directory.
+Settings are environment variables: `BENCH_WIDTH` (default 1600, aspect preserved), `BENCH_SMALL_WIDTH` (320), `BENCH_QUALITY` (80), `BENCH_SPEED` (6), `BENCH_FILTER` (`lanczos` or `area`), `BENCH_PROFILE` (`assume-srgb`, `strict`, `rendered-icc`), `BENCH_PRECISION` (`f32`, or `reference` for the M1 `f64` executor), `BENCH_MAX_INPUT_MB` (512). The harness writes `results.csv`, `throughput.csv`, `summary.md`, `environment.txt` and the raw hyperfine JSON into the output directory.
 
 ## Corpus caveats
 
@@ -74,3 +74,25 @@ Every rav1e symbol in the list carries the `rust::` fallback path: the encoder r
 5. **Sequential throughput is 3.8 images/s**, set by process start plus the encoder; a batch API with a warm encoder and pool (package 4) has this as its floor.
 
 None of this compares to Sharp or libvips yet. Installing either comparator and a real-photo corpus is the next step of package 0; quality matching through SSIMULACRA2 remains open.
+
+## 2026-11-05 — after work package 1 (scalar `f32` executor)
+
+Same machine, corpus, settings and harness as above; `BENCH_PRECISION=f32` (the new default). The executor is `src/fast_execute.rs`: `f32` working precision, transfer decode once per source sample through an exact 256-entry table, flat precomputed tap tables, an O(1) ring buffer of horizontally filtered rows, three channels for opaque RGB, and an exact table-driven `f32` to sRGB8 encoder (ADR-0021). The `f64` executor stays as the oracle (`--reference`, `BENCH_PRECISION=reference`).
+
+| image | wall s before | wall s after | transform ms before | transform ms after | transform speedup | encode ms after | peak RSS MiB after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| synthetic 1 Mpx JPEG | 3.291 | 2.785 | 410 | 25 | 16× | 2800 | 88.6 |
+| synthetic 12 Mpx JPEG | 6.185 | 3.312 | 2978 | 100 | 30× | 3147 | 135.9 |
+| synthetic 24 Mpx JPEG | 8.832 | 3.197 | 5919 | 168 | 35× | 2951 | 163.0 |
+| synthetic 48 Mpx JPEG | 13.219 | 3.777 | 10722 | 268 | 40× | 3320 | 244.0 |
+| synthetic 12 Mpx AVIF | 6.350 | 3.414 | 3928 | 100 | 39× | 3166 | 161.7 |
+
+Standard deviations after: 0.005–0.073 s over 5 runs. Sequential throughput (100 small images, one process each): **15.30 s, 6.54 images/s**, up from 3.81.
+
+Agreement with the `f64` oracle, from the differential test `fast_execute_tests` (16 synthetic 72×60 inputs × 11 geometries including crops × Area and Lanczos3; ADR-0021 rules A–E): every sample within one code; exact RGB share 100 % on 10 inputs, lowest 99.9135 % (gradient) and 99.9237 % (dark noise); exact alpha share 99.1569 % on RGBA noise; mean absolute error at most 0.00087.
+
+### What the numbers say now
+
+1. **The transform is no longer the bottleneck.** It costs 5.6 ms per input megapixel (about 40× less than the per-tap `pow` path) and is 3–7 % of wall time. SIMD and tiling (packages 3 and 4) will matter for throughput once the encoder is fixed, not before.
+2. **The encoder is now 86–100 % of wall time** for every image: about 3 s for a 1600-wide output, single-threaded, scalar rav1e. Package 2 is the next lever by an order of magnitude.
+3. **Peak RSS is unchanged** (the full JPEG frame still dominates); engine-managed memory for the transform is smaller than in the reference, which the differential test asserts.

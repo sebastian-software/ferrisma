@@ -28,6 +28,7 @@ speed=${BENCH_SPEED:-6}
 filter=${BENCH_FILTER:-lanczos}
 profile=${BENCH_PROFILE:-assume-srgb}
 max_input_mb=${BENCH_MAX_INPUT_MB:-512}
+precision=${BENCH_PRECISION:-f32}
 
 for tool in hyperfine python3; do
   command -v "$tool" >/dev/null || { echo "$tool is required" >&2; exit 2; }
@@ -46,6 +47,11 @@ case "$filter" in
   area) filter_args=(--area) ;;
   *) echo "BENCH_FILTER must be lanczos or area" >&2; exit 2 ;;
 esac
+case "$precision" in
+  f32) precision_args=() ;;
+  reference) precision_args=(--reference) ;;
+  *) echo "BENCH_PRECISION must be f32 or reference" >&2; exit 2 ;;
+esac
 
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 mkdir -p "$out"
@@ -55,7 +61,7 @@ trap 'rm -rf "$tmp"' EXIT
 (cd "$repo" && cargo build --release --features cli > "$out/build.log" 2>&1)
 bin=$repo/target/release/ferrixel
 # Bash 3.2 (macOS) treats an expanded empty array as unbound under set -u.
-ferrixel_args=(${policy_args[@]+"${policy_args[@]}"} ${filter_args[@]+"${filter_args[@]}"}
+ferrixel_args=(${policy_args[@]+"${policy_args[@]}"} ${filter_args[@]+"${filter_args[@]}"} ${precision_args[@]+"${precision_args[@]}"}
   "--quality=$quality" "--speed=$speed" "--max-input-mb=$max_input_mb")
 
 sharp_available=0
@@ -88,7 +94,7 @@ command -v vipsthumbnail >/dev/null && vips_available=1
     echo "sharp: not available (set BENCH_SHARP_NODE_MODULES)"
   fi
   [[ $vips_available == 1 ]] && vipsthumbnail --version || echo "libvips: not available"
-  echo "settings: width=$width small_width=$small_width quality=$quality speed=$speed filter=$filter profile=$profile runs=$runs"
+  echo "settings: width=$width small_width=$small_width quality=$quality speed=$speed filter=$filter profile=$profile precision=$precision runs=$runs"
 } > "$out/environment.txt"
 
 dimensions() {

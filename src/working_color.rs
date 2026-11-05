@@ -48,7 +48,7 @@ fn source_from_color(color: &ColorEncoding) -> Result<SdrSource, Error> {
 
 /// Extended sRGB electro-optical transfer function. Preserve the sign of
 /// extended-range encoded samples rather than clipping them to [0, 1].
-fn decode_srgb(encoded: f64) -> f64 {
+pub(crate) fn decode_srgb(encoded: f64) -> f64 {
     let magnitude = encoded.abs();
     if magnitude <= 0.040_45 {
         encoded / 12.92
@@ -87,6 +87,21 @@ const XYZ_D65_TO_SRGB: [[f64; 3]; 3] = [
     ],
     [705.0 / 12_673.0, -2585.0 / 12_673.0, 705.0 / 667.0],
 ];
+
+/// Linear Display P3 to linear sRGB as one matrix (`XYZ_D65_TO_SRGB` times
+/// `P3_TO_XYZ_D65`), for table-driven fast paths. The reference path keeps
+/// the two-step product.
+pub(crate) fn p3_to_srgb_matrix() -> [[f64; 3]; 3] {
+    let mut folded = [[0.0; 3]; 3];
+    for (out, row) in folded.iter_mut().enumerate() {
+        for (input, cell) in row.iter_mut().enumerate() {
+            for (k, xyz_row) in P3_TO_XYZ_D65.iter().enumerate() {
+                *cell += XYZ_D65_TO_SRGB[out][k] * xyz_row[input];
+            }
+        }
+    }
+    folded
+}
 
 /// Decode a *trusted* SDR color signal into unclipped, linear-light sRGB.
 /// Input is a floating-point encoded color triple, not inherently u8/RGBA.

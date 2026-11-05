@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -120,3 +120,7 @@ Each ADR starts as Proposed, gets an experiment, and moves to Experimental only 
 ## Progress note — package 0 (2026-11-05)
 
 `ProcessingReport::timings` now reports open, decode, transform, encode and total wall-clock per run; `scripts/bench/` holds the corpus generator, the hyperfine/peak-RSS harness and the profiler wrapper; [M2-baseline.md](../benchmarks/M2-baseline.md) records the first dev-machine numbers on a synthetic corpus. Two findings set the order of packages 1 and 2: about 80 % of the transform stage is the sRGB transfer decode executed once per filter tap (`pow` is the top symbol), and the encoder is a fixed 2.7–3.9 s per 1600-wide output because rav1e runs single-threaded with scalar kernels. CPU/wall is 1.0 on 20 cores. Still open in package 0: Sharp and libvips comparators on this machine, a real-photo corpus and SSIMULACRA2 quality matching.
+
+## Progress note — package 1 (2026-11-05)
+
+`src/fast_execute.rs` is the default executor: `f32`, transfer decode once per sample through exact tables, flat tap tables, an O(1) row ring, three-channel opaque RGB and an exact `f32` to sRGB8 encoder. It passes the ADR-0021 differential test against the `f64` oracle, which stays selectable as `WorkingPrecision::F64Reference`. On the dev machine the transform stage fell by 16–40× (5.9 s to 0.17 s at 24 Mpx) and end-to-end time by up to 3.5×; the encoder is now 86–100 % of wall time, so package 2 comes before SIMD. Not done in package 1: the Q1.14 path (package 3, ADR-0021 rule 2) and multi-threading (package 4). See [M2-baseline.md](../benchmarks/M2-baseline.md).

@@ -37,6 +37,7 @@ mod error;
     )
 )]
 mod execute;
+mod fast_execute;
 mod geometry;
 mod graph;
 #[cfg_attr(
@@ -83,6 +84,9 @@ mod quality_tests;
 
 #[cfg(test)]
 mod quality_execute_tests;
+
+#[cfg(test)]
+mod fast_execute_tests;
 
 #[cfg(test)]
 mod decoder_tests;

@@ -28,6 +28,24 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
     let timings = image.report.timings;
     assert!(timings.total >= timings.open + timings.decode + timings.transform + timings.encode);
     assert!(timings.encode > std::time::Duration::ZERO);
+    assert_eq!(
+        image.report.working_precision,
+        crate::pipeline::WorkingPrecision::F32
+    );
+    let reference = transcode(
+        encoded,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            precision: crate::pipeline::WorkingPrecision::F64Reference,
+            ..options
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        reference.report.working_precision,
+        crate::pipeline::WorkingPrecision::F64Reference
+    );
+    assert_eq!(&reference.avif_bytes[4..8], b"ftyp");
 }
 
 #[test]

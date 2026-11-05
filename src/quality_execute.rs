@@ -41,17 +41,20 @@ struct CachedRow {
     samples: ManagedBuffer<f64>,
 }
 
+/// The validated chain shared by the `f64` reference executor and the fast
+/// executor (`fast_execute`): decoder region, resize input footprint, resize
+/// output region, resize input/output sizes and filter.
 #[derive(Clone, Copy)]
-struct Prepared {
-    source: Rect,
-    footprint: Rect,
-    resize: Rect,
-    input: crate::geometry::Size,
-    output: crate::geometry::Size,
-    filter: Filter,
+pub(crate) struct Prepared {
+    pub source: Rect,
+    pub footprint: Rect,
+    pub resize: Rect,
+    pub input: crate::geometry::Size,
+    pub output: crate::geometry::Size,
+    pub filter: Filter,
 }
 
-fn prepare(
+pub(crate) fn prepare(
     graph: &Graph,
     target: NodeId,
     source_node: NodeId,

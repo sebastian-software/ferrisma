@@ -8,6 +8,7 @@ use crate::avif_sink::{AvifSink, EncodeSettings};
 use crate::color::ColorEncoding;
 use crate::decoder::{DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo};
 use crate::error::Error;
+use crate::fast_execute::execute_fast_srgb8;
 use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
 use crate::memory::MemoryBudget;
@@ -38,6 +39,18 @@ pub enum InputProfilePolicy {
     UseRenderedIcc,
 }
 
+/// Working precision of the resample chain (ADR-0021). Both produce the same
+/// image within ADR-0021's bound; the reference exists for verification and
+/// before/after measurements, not for production use.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum WorkingPrecision {
+    /// Scalar `f32` executor with table-driven transfer functions.
+    #[default]
+    F32,
+    /// The M1 `f64` reference executor, the oracle of the differential tests.
+    F64Reference,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Crop {
     pub x: u32,
@@ -54,6 +67,7 @@ pub struct TransformOptions {
     pub output_height: u32,
     pub crop: Option<Crop>,
     pub filter: ResizeFilter,
+    pub precision: WorkingPrecision,
     pub profile_policy: InputProfilePolicy,
     pub quality: f32,
     pub speed: u8,
@@ -71,6 +85,7 @@ impl Default for TransformOptions {
             output_height: 1,
             crop: None,
             filter: ResizeFilter::Lanczos3,
+            precision: WorkingPrecision::F32,
             profile_policy: InputProfilePolicy::Strict,
             quality: 75.0,
             speed: 6,
@@ -121,6 +136,8 @@ pub struct ProcessingReport {
     pub peak_managed_bytes: usize,
     pub opaque_decoder_memory: bool,
     pub opaque_encoder_memory: bool,
+    /// The executor that produced the pixels.
+    pub working_precision: WorkingPrecision,
     pub timings: StageTimings,
 }
 
@@ -410,15 +427,27 @@ pub fn transcode(
     let budget = MemoryBudget::new(options.max_managed_bytes);
     let mut output_sink = AvifSink::new(target_size, &budget)?;
     let open = started.elapsed();
-    let processed = execute_quality_srgb8(
-        &graph,
-        finished,
-        input,
-        &mut *actual,
-        Rect::new(0, 0, target_size.width, target_size.height)?,
-        &budget,
-        |y, row| output_sink.write_row(y, row),
-    )?;
+    let request = Rect::new(0, 0, target_size.width, target_size.height)?;
+    let processed = match options.precision {
+        WorkingPrecision::F32 => execute_fast_srgb8(
+            &graph,
+            finished,
+            input,
+            &mut *actual,
+            request,
+            &budget,
+            |y, row| output_sink.write_row(y, row),
+        )?,
+        WorkingPrecision::F64Reference => execute_quality_srgb8(
+            &graph,
+            finished,
+            input,
+            &mut *actual,
+            request,
+            &budget,
+            |y, row| output_sink.write_row(y, row),
+        )?,
+    };
     let encode_started = Instant::now();
     let encoded_avif = output_sink.finish(EncodeSettings {
         quality: options.quality,
@@ -439,6 +468,7 @@ pub fn transcode(
         peak_managed_bytes: budget.snapshot().peak,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
         opaque_encoder_memory: encoded_avif.opaque_encoder_memory_unbounded,
+        working_precision: options.precision,
         timings: StageTimings {
             open,
             decode: processed.source_time,
