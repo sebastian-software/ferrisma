@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the floating-point contraction map of the encoder transform units.
+"""Audit the floating-point contraction map of encoder units.
 
 Clang's default -ffp-contract=on fuses a*b+c within one source expression.
 The front end records each such site as an llvm.fmuladd call; AArch64 lowers
@@ -9,11 +9,19 @@ per target (see the module headers of convolve_slow.rs and enc_transforms.rs).
 
 For every oracle graph given, this re-runs the actual compile command of each
 original archive object from its compile_commands.json, unchanged except for
-emitting IR with line tables into the new output directory, and compares the
-fmuladd source sites with tools/encoder_transforms_contraction.json. It also
-disassembles the archive objects that the oracle links: on AArch64 an object
-must contain fused instructions exactly when it has recorded sites; on x86-64
-none may contain any. No source, flag, object or binary is replaced.
+emitting the front end's IR with line tables (`-Xclang -disable-llvm-passes`)
+into the new output directory, and compares the fmuladd source sites with a
+recorded map: tools/encoder_transforms_contraction.json by default, or
+tools/encoder_heuristics_contraction.json for the quantization,
+chroma-from-luma and AC strategy heuristics (`--map`). The front end decides
+every contraction; optimized IR can fold a site with constant or identity
+operands away and can move or merge the debug locations of speculated sites
+differently in the ordinary and instrumented graphs. A recorded site marked
+`folded` is one the optimizer folds away in both graphs, with an exact
+product, so it has no fused instruction. The tool also disassembles the
+archive objects that the oracle links: on AArch64 an object must contain fused
+instructions exactly when it has unfolded recorded sites; on x86-64 none may
+contain any. No source, flag, object or binary is replaced.
 """
 import argparse
 import json
@@ -67,7 +75,8 @@ def emit_ir(directory, args, output):
             skip = True
             continue
         out.append(arg)
-    out += ["-S", "-emit-llvm", "-gline-tables-only", "-o", str(output)]
+    out += ["-Xclang", "-disable-llvm-passes", "-S", "-emit-llvm", "-gline-tables-only", "-o",
+            str(output)]
     subprocess.run(out, cwd=directory, check=True)
     return output.read_text()
 
@@ -108,13 +117,15 @@ def main():
     parser.add_argument("--build", type=Path, action="append",
                         help="Oracle build directory (default: target/oracle and, if built, target/oracle-asan)")
     parser.add_argument("--objdump", default="objdump")
+    parser.add_argument("--map", type=Path, default=MAP,
+                        help="Recorded contraction map (default: the encoder transform units)")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     builds = args.build or [p for p in (ROOT / "target/oracle", ROOT / "target/oracle-asan")
                             if (p / "compile_commands.json").is_file()]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    recorded = json.loads(MAP.read_text())
+    recorded = json.loads(args.map.read_text())
     target = arch()
     report = {"target": target, "lowering": recorded["lowering"][target], "graphs": {}}
     for build in builds:
@@ -136,8 +147,10 @@ def main():
             fused = fused_instructions(args.objdump, target, obj)
             if target == "x86_64" and fused != 0:
                 raise SystemExit(f"{build.name} {relative}: {fused} fused instructions on x86-64")
-            if target == "aarch64" and (fused > 0) != bool(sites):
-                raise SystemExit(f"{build.name} {relative}: {fused} fused instructions for {len(sites)} sites")
+            lowered = [site for site in recorded["sources"][relative] if not site.get("folded")]
+            if target == "aarch64" and (fused > 0) != bool(lowered):
+                raise SystemExit(f"{build.name} {relative}: {fused} fused instructions for "
+                                 f"{len(lowered)} unfolded sites")
             graph[relative] = {"sites": [list(s) for s in sites], "fused_instructions": fused}
         missing = [name for name, seen in found.items() if not seen]
         if missing:

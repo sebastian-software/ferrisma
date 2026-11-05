@@ -1,0 +1,242 @@
+{
+  "lowering": {
+    "aarch64": "Each llvm.fmuladd site lowers to a fused FMADD/FMSUB/FNMADD; a negated product keeps its constant or negated multiplicand.",
+    "x86_64": "Baseline x86-64 has no FMA: each llvm.fmuladd site lowers to a separate MULSS and ADDSS (or MULSD and ADDSD)."
+  },
+  "sources": {
+    "lib/jxl/quantizer.cc": [
+      {
+        "file": "lib/jxl/quantizer.cc",
+        "line": 69,
+        "column": 45,
+        "type": "f32",
+        "expression": "ComputeGlobalScaleAndQuant: quant_dc * inv_global_scale_ + 0.5f",
+        "rust": "quantizer.rs compute_global_scale_and_quant mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/quantizer.cc",
+        "line": 84,
+        "column": 56,
+        "type": "f32",
+        "expression": "SetQuantFieldRect: row_qf[x] * inv_global_scale_ + 0.5f",
+        "rust": "quantizer.rs set_quant_field_rect mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/quantizer.cc",
+        "line": 121,
+        "column": 55,
+        "type": "f32",
+        "expression": "SetQuant: quant_ac * inv_global_scale_ + 0.5f",
+        "rust": "quantizer.rs set_quant mul_add_f32"
+      }
+    ],
+    "lib/jxl/enc_adaptive_quantization.cc": [
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 345,
+        "column": 70,
+        "type": "f32",
+        "expression": "PerBlockModulations: FastPow2f(GetLane(out_val) * 1.442695041f) * mul + add",
+        "rust": "enc_adaptive_quantization.rs per_block_modulations mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 406,
+        "column": 29,
+        "type": "f32",
+        "expression": "FuzzyErosion: kMulBase[ii] + mul * kMulAdd[ii]",
+        "rust": "enc_adaptive_quantization.rs fuzzy_erosion mul_add_f32(mul, MUL_ADD, MUL_BASE)"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 440,
+        "column": 34,
+        "type": "f32",
+        "expression": "FuzzyErosion: kMul[0] * min[0] + kMul[1] * min[1] fuses the first product; the second rounds separately",
+        "rust": "enc_adaptive_quantization.rs fuzzy_erosion innermost mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 440,
+        "column": 53,
+        "type": "f32",
+        "expression": "FuzzyErosion: ... + kMul[2] * min[2]",
+        "rust": "enc_adaptive_quantization.rs fuzzy_erosion middle mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 440,
+        "column": 72,
+        "type": "f32",
+        "expression": "FuzzyErosion: ... + kMul[3] * min[3]",
+        "rust": "enc_adaptive_quantization.rs fuzzy_erosion outer mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 644,
+        "column": 36,
+        "type": "f32",
+        "expression": "Blur1x1Masking: kFilterMask1x1[4] + 2 * kFilterMask1x1[3] in the constant filter sum; the product is exact",
+        "rust": "enc_adaptive_quantization.rs blur1x1_masking constant sum (no fused rounding difference)",
+        "folded": true
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 814,
+        "column": 21,
+        "type": "f32",
+        "expression": "TileDistMap: dist_norm += xmul * v; xmul is 1 for the only margin, 0",
+        "rust": "unported (TileDistMap, kKitten and slower)",
+        "folded": true
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 1049,
+        "column": 54,
+        "type": "f64",
+        "expression": "FindBestQuantization: kOneMinusInitMul * row_q[x] + kInitMul * row_init[x]",
+        "rust": "unported (FindBestQuantization, kKitten and slower)"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 1061,
+        "column": 25,
+        "type": "f64",
+        "expression": "FindBestQuantization: kPow[i] + (original_butteraugli - 1.0) * kPowMod[i]",
+        "rust": "unported (FindBestQuantization, kKitten and slower)"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 1213,
+        "column": 22,
+        "type": "f32",
+        "expression": "AdjustQuantField: mean_max_mixer -= (butteraugli_target - kLimit) * kMul",
+        "rust": "enc_adaptive_quantization.rs adjust_quant_field mul_add_f32(-(...), mul, mean_max_mixer)"
+      },
+      {
+        "file": "lib/jxl/enc_adaptive_quantization.cc",
+        "line": 1238,
+        "column": 13,
+        "type": "f32",
+        "expression": "AdjustQuantField: max += (1.0f - mean_max_mixer) * mean",
+        "rust": "enc_adaptive_quantization.rs adjust_quant_field mul_add_f32"
+      }
+    ],
+    "lib/jxl/enc_chroma_from_luma.cc": [
+      {
+        "file": "lib/jxl/enc_chroma_from_luma.cc",
+        "line": 150,
+        "column": 38,
+        "type": "f32",
+        "expression": "FindBestMultiplier (fast): GetLane(SumOfLanes(df, ca)) + num * distance_mul * 0.5f",
+        "rust": "enc_chroma_from_luma.rs find_best_multiplier mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 452,
+        "column": 40,
+        "type": "f32",
+        "expression": "AFVTransformFromPixels: block00 + block01 + 2 * block10 (inlined)",
+        "rust": "enc_transforms.rs afv_dc_mix(..., 2.0)"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 454,
+        "column": 40,
+        "type": "f32",
+        "expression": "AFVTransformFromPixels: block00 + block01 - 2 * block10 (inlined)",
+        "rust": "enc_transforms.rs afv_dc_mix(..., -2.0)"
+      }
+    ],
+    "lib/jxl/enc_ac_strategy.cc": [
+      {
+        "file": "lib/jxl/chroma_from_luma.h",
+        "line": 52,
+        "column": 32,
+        "type": "f32",
+        "expression": "ColorCorrelation::YtoXRatio: base_correlation_x_ + x_factor * color_scale_ (inlined)",
+        "rust": "chroma_from_luma.rs y_to_x_ratio mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/chroma_from_luma.h",
+        "line": 56,
+        "column": 32,
+        "type": "f32",
+        "expression": "ColorCorrelation::YtoBRatio: base_correlation_b_ + b_factor * color_scale_ (inlined)",
+        "rust": "chroma_from_luma.rs y_to_b_ratio mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/dec_transforms-inl.h",
+        "line": 484,
+        "column": 24,
+        "type": "f32",
+        "expression": "AFVTransformToPixels: block_dc - residual_sum * (1.0f / 16) (inlined)",
+        "rust": "dec_transforms.rs sum.mul_add(-1.0 / 16.0, dc)"
+      },
+      {
+        "file": "lib/jxl/enc_ac_strategy.cc",
+        "line": 409,
+        "column": 22,
+        "type": "f32",
+        "expression": "EstimateEntropy: quant_norm16 += qval * qval",
+        "rust": "enc_ac_strategy.rs estimate_entropy mul_add_f32(qval, qval, quant_norm16)"
+      },
+      {
+        "file": "lib/jxl/enc_ac_strategy.cc",
+        "line": 488,
+        "column": 13,
+        "type": "f32",
+        "expression": "EstimateEntropy: entropy += config.cost_delta * GetLane(SumOfLanes(df, entropy_v))",
+        "rust": "enc_ac_strategy.rs estimate_entropy mul_add_f32(cost_delta, ...)"
+      },
+      {
+        "file": "lib/jxl/enc_ac_strategy.cc",
+        "line": 495,
+        "column": 13,
+        "type": "f32",
+        "expression": "EstimateEntropy: entropy += config.zeros_mul * (CeilLog2Nonzero(nbits + 17) + nbits)",
+        "rust": "enc_ac_strategy.rs estimate_entropy mul_add_f32(zeros_mul, ...)"
+      },
+      {
+        "file": "lib/jxl/enc_ac_strategy.cc",
+        "line": 509,
+        "column": 11,
+        "type": "f32",
+        "expression": "EstimateEntropy: entropy += config.info_loss_multiplier * loss_scalar",
+        "rust": "enc_ac_strategy.rs estimate_entropy mul_add_f32(info_loss_multiplier, ...)"
+      },
+      {
+        "file": "lib/jxl/enc_ac_strategy.cc",
+        "line": 590,
+        "column": 19,
+        "type": "f32",
+        "expression": "FindBest8x8Transform: entropy_mul -= kFavor2X2AtHighQuality * weight",
+        "rust": "enc_ac_strategy.rs find_best_8x8_transform mul_add_f32(-favor, weight, entropy_mul)"
+      },
+      {
+        "file": "lib/jxl/enc_ac_strategy.cc",
+        "line": 600,
+        "column": 19,
+        "type": "f32",
+        "expression": "FindBest8x8Transform: entropy_mul += kAvoidEntropyOfTransforms * mul",
+        "rust": "enc_ac_strategy.rs find_best_8x8_transform mul_add_f32(avoid, mul, entropy_mul)"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 452,
+        "column": 40,
+        "type": "f32",
+        "expression": "AFVTransformFromPixels: block00 + block01 + 2 * block10 (inlined)",
+        "rust": "enc_transforms.rs afv_dc_mix(..., 2.0)"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 454,
+        "column": 40,
+        "type": "f32",
+        "expression": "AFVTransformFromPixels: block00 + block01 - 2 * block10 (inlined)",
+        "rust": "enc_transforms.rs afv_dc_mix(..., -2.0)"
+      }
+    ]
+  }
+}
