@@ -1,0 +1,4 @@
+# Unchanged copies of upstream files: keep their whitespace as it is.
+LICENSE -whitespace
+PATENTS -whitespace
+AUTHORS -whitespace

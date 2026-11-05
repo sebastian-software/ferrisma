@@ -1,0 +1,6 @@
+[submodule "upstream/libwebp"]
+	path = upstream/libwebp
+	url = https://chromium.googlesource.com/webm/libwebp
+[submodule "upstream/libwebp-test-data"]
+	path = upstream/libwebp-test-data
+	url = https://chromium.googlesource.com/webm/libwebp-test-data

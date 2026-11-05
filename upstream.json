@@ -1,0 +1,13 @@
+{
+  "libwebp": {
+    "repository": "https://chromium.googlesource.com/webm/libwebp",
+    "revision": "4fa21912338357f89e4fd51cf2368325b59e9bd9",
+    "tag": "v1.6.0",
+    "path": "upstream/libwebp"
+  },
+  "libwebp-test-data": {
+    "repository": "https://chromium.googlesource.com/webm/libwebp-test-data",
+    "revision": "06ddd96e276c2c638a72d39d3c0f340afd61978c",
+    "path": "upstream/libwebp-test-data"
+  }
+}
