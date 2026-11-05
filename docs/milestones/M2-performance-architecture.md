@@ -45,7 +45,7 @@ Policy: **AVX2 and NEON are the floors**; everything above is a runtime-dispatch
 
 M2 is done only when all of these hold:
 
-1. **Same pictures.** For the whole corpus, every fast path produces output that matches the M1 scalar reference within a documented bound (bit-exact for integer paths; a stated maximum per-channel error for float paths), and the AVIF output is the same encoder configuration. No fast path may change color policy, alpha association, orientation or crop semantics.
+1. **Same pictures.** For the whole corpus, every fast path produces output that matches the M1 scalar `f64` reference within the documented bound of [ADR-0021](../adr/0021-working-precision-policy.md) (at most one code per channel after sRGB8 quantization, with stated shares of exact matches); integer paths are additionally bit-identical to their scalar implementation across ISAs, tile shapes and thread counts ([ADR-0020](../adr/0020-kernel-crate-and-isa-dispatch.md)). Bit-exactness against the oracle itself is not required, because any path with different rounding points differs from it at ties. The AVIF output uses the same encoder configuration. No fast path may change color policy, alpha association, orientation or crop semantics.
 2. **Matched-quality comparison.** Sharp and libvips comparisons use equal geometry, the same linear-light intent, and AVIF settings tuned to equal SSIMULACRA2 (and Butteraugli as a second opinion). Elapsed time at different quality is not a result.
 3. **Three hardware classes, two workload shapes.** Apple Silicon, Arm Neoverse and x86-64 (AVX2 floor, AVX-512 where available), each with single-image latency (p50/p95) on 1, 12, 24 and 48 megapixel inputs and multi-image throughput (images per second, all cores) on a many-small-images set.
 4. **Lower peak memory** than the comparators on the same workloads, with engine-managed, known codec and opaque codec memory still reported separately.
@@ -79,10 +79,10 @@ Ordered by evidence first, then algorithmic wins, then hardware-specific wins. A
 
 | ADR | Topic | Core question |
 | --- | --- | --- |
-| 0020 | Kernel crate, ISA dispatch and the `unsafe` boundary | Where intrinsics may live, how dispatch is chosen and reported, how scalar/SIMD equivalence is tested, what the MSRV implications are (`std::simd` is nightly-only; stable intrinsics need `unsafe`; portable wrappers such as `wide` or `pulp` are an alternative to evaluate) |
-| 0021 | Working precision policy | When 16-bit fixed point is permitted, what error bound it must meet against the f64 reference, LUT shapes and their verification, f32 as the general working type |
+| [0020](../adr/0020-kernel-crate-and-isa-dispatch.md) (Proposed) | Kernel crate, ISA dispatch and the `unsafe` boundary | Decided: a separate `ferrixel-kernels` crate with `std::arch` intrinsics behind a safe API, hand-written runtime dispatch, the chosen level in plan and report, differential tests per level |
+| [0021](../adr/0021-working-precision-policy.md) (Proposed) | Working precision policy | Decided: `f32` by default, Q1.14 fixed point for opaque 8-bit SDR input under a per-plan interval bound, exact LUTs, a testable bound against the `f64` oracle, backed by `docs/research/precision-experiment` |
 | 0022 | Tiled fused executor and engine-owned parallelism | Band shapes and halos, decoder-ahead pipelining for sequential codecs, shared horizontal rows, budget across workers, batch scheduling, no global pool |
-| 0023 | Decode-side scaling and native YUV policy | Which codecs really skip work, how the scale factor enters the plan, the gamma-domain native path as a separate declared quality policy |
+| 0023 | Decode-side scaling and native YUV policy | Which codecs really skip work, how the scale factor enters the plan, the gamma-domain native path as a separate declared quality policy; facts in [the codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
 | 0024 | GPU execution policy | Cost model inputs, unified-memory fast path, when the planner may choose the device, dependency weight of `wgpu`, output equivalence bound |
 
 Each ADR starts as Proposed, gets an experiment, and moves to Experimental only with numbers from package 0's harness.
