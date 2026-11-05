@@ -1,0 +1,107 @@
+name: Checks
+
+# Runs for every pull request and push to main, nightly on main, and on demand.
+# Ordinary checks run on Linux x86-64 and macOS ARM64; the MSRV job builds and
+# tests on the rust-version toolchain; the oracle job builds the C oracle in all
+# three variants on both systems, runs the differential tests against the
+# release and asan-ubsan variants, and records the dwebp baseline per variant.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CC: clang
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    name: Checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/prepare
+      - name: Check provenance, skeleton, links, formatting, Clippy and tests
+        run: python3 tools/check.py
+
+  msrv:
+    name: MSRV (Rust 1.95)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/prepare
+        with:
+          msrv: true
+      - name: Build and test with the rust-version toolchain
+        run: python3 tools/check.py --stage test --msrv
+
+  oracle:
+    name: Oracle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/prepare
+      - name: Build the release, asan-ubsan and debug oracles
+        run: python3 tools/build_oracle.py --variant all
+      - name: Differential tests and baseline against the release oracle
+        run: python3 tools/check.py --stage test --oracle-variant release --baseline
+      - name: Differential tests and baseline against the asan-ubsan oracle
+        run: python3 tools/check.py --stage test --oracle-variant asan-ubsan --baseline
+      - name: Baseline of the debug oracle
+        run: python3 tools/oracle_baseline.py --variant debug
+      - name: Keep the oracle and baseline records
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: oracle-${{ matrix.os }}
+          path: |
+            build/oracle/*/oracle.json
+            build/oracle/*/upstream-flags.txt
+            build/oracle/*/baseline/baseline.json
+            build/oracle/*/baseline/*.log
+          if-no-files-found: error
+          retention-days: 30
+
+  # The single required status check: any failed or cancelled job fails it.
+  checks-passed:
+    name: Checks passed
+    if: always()
+    needs: [checks, msrv, oracle]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*|*" skipped "*) exit 1 ;;
+          esac
