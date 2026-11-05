@@ -611,7 +611,13 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
     } else if !tree_has_wp_prop_or_pred {
         let tree_lookup = MATreeLookup::new(&tree);
         let mut properties = vec![0; num_props];
-        let mut references = Channel::create(properties.len() - NUM_NONREF_PROPERTIES, w)?;
+        let mut references = Channel::create_in(
+            image.memory_manager(),
+            properties.len() - NUM_NONREF_PROPERTIES,
+            w,
+            0,
+            0,
+        )?;
         for y in 0..h {
             precompute_references(&image.channel[ci], y, image, chan as u32, &mut references);
             init_props_row(&mut properties, &static_props, y as i32);
@@ -681,7 +687,13 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
     } else {
         let tree_lookup = MATreeLookup::new(&tree);
         let mut properties = vec![0; num_props];
-        let mut references = Channel::create(properties.len() - NUM_NONREF_PROPERTIES, w)?;
+        let mut references = Channel::create_in(
+            image.memory_manager(),
+            properties.len() - NUM_NONREF_PROPERTIES,
+            w,
+            0,
+            0,
+        )?;
         let mut wp_state = weighted::State::new(wp_header, w, h);
         for y in 0..h {
             init_props_row(&mut properties, &static_props, y as i32);
@@ -878,6 +890,7 @@ pub fn modular_decode(
     if image.channel.is_empty() {
         return Ok(());
     }
+    let memory_manager = image.memory_manager();
     let status = bundle::read(br, header);
     if !allow_truncated_group {
         status?;
@@ -939,8 +952,14 @@ pub fn modular_decode(
                 max_tree_size = max_tree_size.wrapping_add(pixels);
             }
             max_tree_size = max_tree_size.min(1 << 20);
-            decode_tree(br, &mut tree_storage, max_tree_size as usize)?;
+            decode_tree(
+                memory_manager,
+                br,
+                &mut tree_storage,
+                max_tree_size as usize,
+            )?;
             decode_histograms(
+                memory_manager,
                 br,
                 tree_storage.len().div_ceil(2),
                 &mut code_storage,

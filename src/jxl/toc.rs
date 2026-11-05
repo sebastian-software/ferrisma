@@ -10,6 +10,7 @@ use super::coeff_order_fwd::CoeffOrder;
 use super::dec_bit_reader::BitReader;
 use super::field_encodings::{U32Enc, bits, bits_offset};
 use super::fields::u32_coder;
+use super::memory_manager_internal::MemoryManagerPtr;
 pub const TOC_DIST: U32Enc = U32Enc::new(
     bits(10),
     bits_offset(14, 1024),
@@ -52,6 +53,7 @@ fn check_bit_budget(reader: &BitReader<'_>, entries: usize) -> Status {
     }
 }
 pub fn read_toc(
+    memory_manager: MemoryManagerPtr,
     entries: usize,
     reader: &mut BitReader<'_>,
     sizes: &mut Vec<u32>,
@@ -71,7 +73,7 @@ pub fn read_toc(
     if reader.read_fixed_bits::<1>() == 1 {
         check_bit_budget(reader, entries)?;
         permutation.resize(entries, 0);
-        decode_permutation(0, entries, Some(permutation), reader)?;
+        decode_permutation(memory_manager, 0, entries, Some(permutation), reader)?;
     }
     reader.jump_to_byte_boundary()?;
     check_bit_budget(reader, entries)?;
@@ -82,6 +84,7 @@ pub fn read_toc(
     check_bit_budget(reader, 0)
 }
 pub fn read_group_offsets(
+    memory_manager: MemoryManagerPtr,
     entries: usize,
     reader: &mut BitReader<'_>,
     offsets: &mut Vec<u64>,
@@ -89,7 +92,7 @@ pub fn read_group_offsets(
     total_size: Option<&mut u64>,
 ) -> Status {
     let mut permutation = Vec::new();
-    read_toc(entries, reader, sizes, &mut permutation)?;
+    read_toc(memory_manager, entries, reader, sizes, &mut permutation)?;
     offsets.clear();
     offsets.resize(entries, 0);
     let mut offset = 0u64;

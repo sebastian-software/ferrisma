@@ -1,13 +1,13 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Planar storage from lib/jxl/image.{h,cc}. Rust owns initialized aligned
-//! memory; sealed numeric samples allow safe typed views of those bytes.
-//! Rows expose physical padding, while xsize remains the valid sample count.
-//! C allocator callbacks and MSan-only padding instrumentation remain unported.
+//! Planar storage from lib/jxl/image.{h,cc}. Planes own initialized aligned
+//! memory from their memory manager; sealed numeric samples allow safe typed
+//! views of those bytes. Rows expose physical padding, while xsize remains the
+//! valid sample count. MSan-only padding instrumentation remains unported.
 
 use super::base::status::{Status, StatusCode, StatusOr};
-use super::memory_manager_internal::{AlignedMemory, bytes_per_row};
+use super::memory_manager_internal::{AlignedMemory, MemoryManagerPtr, bytes_per_row};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of, swap};
 
@@ -59,7 +59,7 @@ impl PlaneBase {
             ..Self::default()
         }
     }
-    fn allocate(&mut self, pre_padding: usize, have_memory_manager: bool) -> Status {
+    fn allocate(&mut self, pre_padding: usize, memory_manager: MemoryManagerPtr) -> Status {
         if self.bytes.is_some() || self.bytes_per_row != 0 {
             return Err(StatusCode::GenericError);
         }
@@ -72,10 +72,8 @@ impl PlaneBase {
             .ok_or(StatusCode::GenericError)?;
         // A null source memory manager fails only when allocation is reached.
         // This preserves reallocating a channel whose previous plane was empty.
-        if !have_memory_manager {
-            return Err(StatusCode::GenericError);
-        }
         self.bytes = Some(AlignedMemory::create(
+            memory_manager,
             total,
             pre_padding.wrapping_mul(self.sizeof_t),
         )?);
@@ -113,21 +111,23 @@ impl<T: Sample> Default for Plane<T> {
 }
 impl<T: Sample> Plane<T> {
     pub const NUM_PLANES: usize = 1;
+    /// Plane::Create through the native allocator boundary.
     pub fn create(xsize: usize, ysize: usize) -> StatusOr<Self> {
-        Self::create_in(xsize, ysize, 0, true)
+        Self::create_in(xsize, ysize, 0, MemoryManagerPtr::NATIVE)
     }
     pub fn create_with_pre_padding(
         xsize: usize,
         ysize: usize,
         pre_padding: usize,
     ) -> StatusOr<Self> {
-        Self::create_in(xsize, ysize, pre_padding, true)
+        Self::create_in(xsize, ysize, pre_padding, MemoryManagerPtr::NATIVE)
     }
-    pub(crate) fn create_in(
+    /// The source Plane::Create(memory_manager, xsize, ysize, pre_padding).
+    pub fn create_in(
         xsize: usize,
         ysize: usize,
         pre_padding: usize,
-        have_memory_manager: bool,
+        memory_manager: MemoryManagerPtr,
     ) -> StatusOr<Self> {
         let x = xsize as u32;
         let y = ysize as u32;
@@ -138,7 +138,7 @@ impl<T: Sample> Plane<T> {
             base: PlaneBase::new(x, y, size_of::<T>()),
             sample: PhantomData,
         };
-        value.base.allocate(pre_padding, have_memory_manager)?;
+        value.base.allocate(pre_padding, memory_manager)?;
         Ok(value)
     }
     pub fn xsize(&self) -> usize {
@@ -172,8 +172,12 @@ impl<T: Sample> Plane<T> {
         let length = self.base.bytes.as_ref()?.bytes().len();
         Some(self.row_at_mut(0, length))
     }
-    pub(crate) fn have_memory_manager(&self) -> bool {
-        self.base.bytes.is_some()
+    /// The source memory_manager(): that of the allocation, or null.
+    pub fn memory_manager(&self) -> MemoryManagerPtr {
+        self.base
+            .bytes
+            .as_ref()
+            .map_or(MemoryManagerPtr::NULL, AlignedMemory::memory_manager)
     }
     fn row_at(&self, offset: usize, length: usize) -> &[T] {
         let Some(memory) = self.base.bytes.as_ref() else {
@@ -250,22 +254,40 @@ impl<T: Sample> Default for Image3<T> {
         }
     }
 }
+impl<T: Sample> Drop for Image3<T> {
+    /// The implicit destructor destroys the plane array last to first.
+    fn drop(&mut self) {
+        for c in (0..3).rev() {
+            drop(std::mem::take(&mut self.planes[c]));
+        }
+    }
+}
 impl<T: Sample> Image3<T> {
     pub const NUM_PLANES: usize = 3;
+    /// Image3::Create through the native allocator boundary.
     pub fn create(xsize: usize, ysize: usize) -> StatusOr<Self> {
-        Self::create_in(xsize, ysize, true)
+        Self::create_in(xsize, ysize, MemoryManagerPtr::NATIVE)
     }
-    pub(crate) fn create_in(
+    /// The source Image3::Create(memory_manager, xsize, ysize).
+    pub fn create_in(
         xsize: usize,
         ysize: usize,
-        have_memory_manager: bool,
+        memory_manager: MemoryManagerPtr,
     ) -> StatusOr<Self> {
-        let plane0 = Plane::create_in(xsize, ysize, 0, have_memory_manager)?;
-        let plane1 = Plane::create_in(xsize, ysize, 0, have_memory_manager)?;
-        let plane2 = Plane::create_in(xsize, ysize, 0, have_memory_manager)?;
+        let plane0 = Plane::create_in(xsize, ysize, 0, memory_manager)?;
+        let plane1 = Plane::create_in(xsize, ysize, 0, memory_manager)?;
+        let plane2 = Plane::create_in(xsize, ysize, 0, memory_manager)?;
         Ok(Self {
             planes: [plane0, plane1, plane2],
         })
+    }
+    /// The implicit move assignment: each plane is assigned in order, so the
+    /// old planes are released first to last. Plain Rust assignment instead
+    /// runs the destructor's last-to-first order.
+    pub fn assign(&mut self, mut source: Self) {
+        for c in 0..3 {
+            self.planes[c] = std::mem::take(&mut source.planes[c]);
+        }
     }
     pub fn plane(&self, c: usize) -> &Plane<T> {
         &self.planes[c]
@@ -314,6 +336,10 @@ impl<T: Sample> Image3<T> {
     }
     pub fn pixels_per_row(&self) -> isize {
         self.planes[0].pixels_per_row()
+    }
+    /// The source memory_manager(): that of the first plane.
+    pub fn memory_manager(&self) -> MemoryManagerPtr {
+        self.planes[0].memory_manager()
     }
 }
 pub type Image3B = Image3<u8>;

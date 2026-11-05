@@ -6,6 +6,7 @@
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::frame_header::FrameOrigin;
 use crate::jxl::image::Plane;
+use crate::jxl::memory_manager_internal::MemoryManagerPtr;
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub const RENDER_PIPELINE_X_OFFSET: usize = 24;
@@ -204,6 +205,7 @@ pub trait RenderPipelineStage {
 }
 /// Complete original WriteToImage3FStage and factory from stage_write.cc.
 pub struct WriteToImage3FStage<'a> {
+    memory_manager: MemoryManagerPtr,
     image: Image3WriteTarget<'a>,
 }
 enum Image3WriteTarget<'a> {
@@ -226,6 +228,7 @@ impl Image3WriteTarget<'_> {
 impl<'a> WriteToImage3FStage<'a> {
     pub fn new(image: &'a mut crate::jxl::image::Image3<f32>) -> Self {
         Self {
+            memory_manager: MemoryManagerPtr::NATIVE,
             image: Image3WriteTarget::Borrowed(image),
         }
     }
@@ -233,6 +236,7 @@ impl<'a> WriteToImage3FStage<'a> {
         owner: std::rc::Rc<std::cell::RefCell<crate::jxl::image::Image3<f32>>>,
     ) -> Self {
         Self {
+            memory_manager: MemoryManagerPtr::NATIVE,
             image: Image3WriteTarget::Owned(owner),
         }
     }
@@ -240,8 +244,15 @@ impl<'a> WriteToImage3FStage<'a> {
     pub fn from_dc_frame(owner: crate::jxl::passes_state::SharedDcFrames, index: usize) -> Self {
         assert!(index < 4);
         Self {
+            memory_manager: MemoryManagerPtr::NATIVE,
             image: Image3WriteTarget::DcFrame(owner, index),
         }
+    }
+    /// The source factory's memory_manager argument; the constructors above
+    /// select the native allocator boundary.
+    pub fn with_memory_manager(mut self, memory_manager: MemoryManagerPtr) -> Self {
+        self.memory_manager = memory_manager;
+        self
     }
 }
 impl RenderPipelineStage for WriteToImage3FStage<'_> {
@@ -257,9 +268,10 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
                 return Err(StatusCode::GenericError);
             }
         }
-        let image = crate::jxl::image::Image3::create(sizes[0].0, sizes[0].1)?;
+        let image =
+            crate::jxl::image::Image3::create_in(sizes[0].0, sizes[0].1, self.memory_manager)?;
         self.image.with_storage(|storage| {
-            *storage = image;
+            storage.assign(image);
             Ok(())
         })
     }
@@ -308,6 +320,7 @@ enum ImageBundleTarget<'b, 'm> {
     Borrowed(&'b mut crate::jxl::image_bundle::ImageBundle<'m>),
     Shared(&'b std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>),
     Owned(std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>),
+    Pointer(std::rc::Weak<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>),
     Reference(crate::jxl::passes_state::SharedReferenceFrames<'m>, usize),
 }
 impl ImageBundleTarget<'_, '_> {
@@ -319,6 +332,10 @@ impl ImageBundleTarget<'_, '_> {
             Self::Borrowed(storage) => f(storage),
             Self::Shared(owner) => f(&mut owner.borrow_mut()),
             Self::Owned(owner) => f(&mut owner.borrow_mut()),
+            Self::Pointer(pointer) => f(&mut pointer
+                .upgrade()
+                .expect("the source's ImageBundle pointer is live while the pipeline runs")
+                .borrow_mut()),
             Self::Reference(owner, index) => f(owner.borrow_mut()[*index]
                 .frame
                 .as_deref_mut()
@@ -358,6 +375,18 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
             color_encoding: color_encoding.clone(),
         }
     }
+    /// The source's non-owning ImageBundle pointer to a bundle owned
+    /// elsewhere. The stage does not extend the bundle's lifetime, so its
+    /// release stays at the owner's checkpoint.
+    pub fn from_pointer(
+        owner: &std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>,
+        color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
+    ) -> Self {
+        Self {
+            image_bundle: ImageBundleTarget::Pointer(std::rc::Rc::downgrade(owner)),
+            color_encoding: color_encoding.clone(),
+        }
+    }
     /// Resolve the existing reference slot under a short exclusive borrow.
     pub fn from_reference(
         owner: crate::jxl::passes_state::SharedReferenceFrames<'m>,
@@ -387,14 +416,17 @@ impl RenderPipelineStage for WriteToImageBundleStage<'_, '_> {
                 return Err(StatusCode::GenericError);
             }
         }
-        let mut tmp = Some(crate::jxl::image::Image3::<f32>::create(
-            sizes[0].0, sizes[0].1,
-        )?);
         self.image_bundle.with_storage(|storage| {
+            let memory_manager = storage.memory_manager();
+            let mut tmp = Some(crate::jxl::image::Image3::<f32>::create_in(
+                sizes[0].0,
+                sizes[0].1,
+                memory_manager,
+            )?);
             storage.set_from_image(&mut tmp, &self.color_encoding)?;
-            storage.extra_channels_mut().clear();
+            crate::jxl::base::libcpp_vector::clear(storage.extra_channels_mut());
             for &(w, h) in sizes.iter().skip(3) {
-                let ch = Plane::create(w, h)?;
+                let ch = Plane::create_in(w, h, 0, memory_manager)?;
                 storage.extra_channels_mut().push(ch);
             }
             Ok(())

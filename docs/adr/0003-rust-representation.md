@@ -90,11 +90,12 @@ explicit representations while retaining source algorithms.
   parses preserve the source's table resize/mutation order. Symbol reads retain
   the caller's refill obligation and the reader's deferred bounds checkpoint.
 - Padded storage preserves the minimum capacity, growth rule, padding, alignment,
-  and rotating alignment groups. The initial backend uses Rust's allocator and
-  initializes allocated bytes to zero so safe slices never expose uninitialized
-  data. Additional initialization is an internal difference, not a promise of
-  allocation or performance parity. Custom C allocator callbacks remain
-  unported.
+  and rotating alignment groups. Storage allocates through the owner's
+  `MemoryManagerPtr`: the caller's JxlMemoryManager in the decoder, or the
+  native Rust allocator elsewhere. Both backends initialize the payload to zero
+  so safe slices never expose uninitialized data. Additional initialization is
+  an internal difference, not a promise of allocation or performance parity.
+  See "Decoder memory-manager propagation" below.
 - Writer allotment parent pointers become indices in an owned stack. Preserve
   bit budgets, nested charging, and reclaim order. This adds Rust-managed stack
   storage; it does not change the bit-writing algorithm. The scoped callback
@@ -217,8 +218,9 @@ Row sizing keeps the scalar source's four-byte MaxVectorSize, including rejectio
 of positive widths with eight-byte samples. Zero-sized planes have no allocation
 context; channel reallocation inherits that null context and retains the source
 failure rather than silently using a fresh allocator. Failed channel resize
-keeps newly assigned logical dimensions and the old plane. C allocator callbacks
-remain unported. Initialized Rust storage for max_delta_error is an internal
+keeps newly assigned logical dimensions and the old plane. A plane's memory
+manager is that of its allocation, as the source's `bytes_.memory_manager()`.
+Initialized Rust storage for max_delta_error is an internal
 difference from the source's indeterminate nonserialized member. Oracle callers
 seed that member and observed pixel storage explicitly. No Rust sanitizer or
 memory/performance parity is inferred from C++ instrumentation or these borrows.
@@ -385,8 +387,8 @@ Preserve per-context float-to-size_t truncation, the accumulated fraction, and
 the final size_t-to-float conversion rather than summing costs in float.
 
 ModularFrameEncoder owns its stream images/options, trees, tokens, headers,
-entropy data, mappings, and copied parameters. Native image allocations retain
-the existing crate allocator boundary; custom C allocators remain separate.
+entropy data, mappings, and copied parameters. Its image allocations use the
+native allocator; the encoder has no caller memory manager yet.
 Preparing a group splits the stream vector into disjoint global/group borrows.
 Keep channel-map insertion before allocation/copy and retain completed changes
 on failure. RCT search owns scratch channels and swaps planes at the original
@@ -428,11 +430,10 @@ An empty fill range does not construct a checked Rust row view.
 
 Downsampling preserves nested float accumulation order and the actual sample
 count at partial edges. Safe row selection replaces strided pointer arithmetic.
-Allocate output through the input image's existing allocator boundary: a newly
-created empty image has no allocator owner, while an allocated image shrunk to
-zero still has one. These equal logical dimensions can therefore yield different
-allocation statuses. Propagate the existing native-owner/null distinction to
-Image3 creation; custom C allocator callbacks remain unported.
+Allocate output through the input image's memory manager: a newly created
+empty image has none, while an allocated image shrunk to zero still has one.
+These equal logical dimensions can therefore yield different allocation
+statuses. Image3 creation receives the same manager-or-null distinction.
 
 DequantMatrices owns the source's default encoding vector, strategy-to-table
 offsets, empty lazy table storage, and three DC/inverse-DC values. Its constructor
@@ -586,8 +587,8 @@ same-owner borrows. These bindings survive native moves without self-references.
 ImageBundle borrows optional metadata and owns color, profile, extra planes,
 names, and optional JPEG data. Source-indeterminate metadata, dimensions, LUTs,
 and patch fields receive safe initial Rust storage without extra source meaning;
-observations begin only after the original assignment. Native constructors use
-the existing valid allocator context; custom C callbacks remain separate.
+observations begin only after the original assignment. The `_in` constructors
+take the source's memory manager; the shorter ones select the native allocator.
 
 ACImage's two admitted template instantiations become a closed i16/i32 image
 enum. Typed row-view variants replace its pointer unions and virtual dispatch;
@@ -951,8 +952,8 @@ the computed mask only after every table succeeds, preserving an existing mask
 and allocation on failure. DecodeQuantTable lives beside the QuantEncoding owner;
 its optional frame decoder is an immutable borrow of the same original frame
 dimensions/tree/code/context owners because that source routine mutates none of
-them. Native allocators and the null-pool scalar path retain their established
-scope; general AC encoding and VarDCT frame orchestration remain separate work.
+them. The null-pool scalar path retains its established scope; general AC
+encoding and VarDCT frame orchestration remain separate work.
 
 Scalar DCT templates retain the original radix-2 recursion, normalization,
 transpose order, coefficient mutation, and scratch offsets. Valid power-of-two
@@ -1464,8 +1465,9 @@ Explicit reverse pops match the configured libc++ vector member cleanup, which
 the independent source audit checks against the actual compiler/standard
 library on each native target. Source guards precede every read they protect.
 No invented codec status is assigned to invalid caller-pointer preconditions.
-This representation completes the output leaf; extending allocator ownership
-through the eventual public decoder and remaining codec owners is still needed.
+The output stage keeps this uninitialized callback scratch; the other decoder
+owners use the initialized manager-backed AlignedMemory described under
+"Decoder memory-manager propagation".
 
 Spot-color stages retain a borrow of the original four-coefficient array rather
 than snapshotting it. The ordinary factory borrows `[f32; 4]`, matching immutable
@@ -1901,16 +1903,17 @@ A codestream bit reader borrows its span for its scope. GetBitReader's deleter
 runs AllReadsWithinBounds and Close with discarded results. Where the source
 calls RequestMoreInput while that reader is still alive, the Rust scope ends
 first, because RequestMoreInput may reallocate the borrowed copy. The deleter
-has no observable effect, so the reordering is unobservable. ReadAllHeaders
-uses the ICC reader's existing global-allocator output storage. Propagating the
-memory manager into the ICC reader and the frame owners is separate work, and
-allocator logs are compared only where the original allocates nothing else.
+has no observable effect, so the reordering is unobservable. The ICC reader,
+its decoded output, the codec state, the image bundle and the frame owners
+allocate through the decoder's memory manager (see the next section).
 
 The decoder's image bundle is an `Rc<RefCell>` owner shared with the frame
-decoder, which retains it as the source's `decoded_` pointer; releasing the
-decoder's handle can therefore outlive the source's `ib.reset()` until the
-frame decoder is replaced. That storage is global-allocator memory, so the
-difference is unobservable. ProcessSections copies the frame decoder's TOC so
+decoder, which retains it as the source's `decoded_` pointer. The output
+writer stage holds only a `Weak` handle, as the source's raw pointer. Where the
+source calls `ib.reset()`, the decoder first releases the frame decoder's
+handle, so the bundle's planes are freed at that checkpoint; the source does
+not use the dangling `decoded_` pointer before the next InitFrame, and the
+Rust frame decoder panics rather than reading a released bundle. ProcessSections copies the frame decoder's TOC so
 that the frame decoder can be borrowed mutably while its sections are
 processed; ProcessSections does not change the TOC. FrameDecoder construction
 admits every parsed metadata header, so a construction failure is an
@@ -2005,6 +2008,14 @@ none of them is thread-affine. Output callbacks are therefore called from
 runner threads one at a time, which decode.h permits. Thread ids select
 per-thread storage as in the source.
 
+The port panics where the source makes an undefined use, for example of a
+null buffer that a failed allocation left behind. A panic in an init or task
+body cannot unwind through the `extern "C"` RunCallState trampolines into a
+runner. The trampolines catch it, set the error flag so that the remaining
+tasks are skipped as after a failed task, and ThreadPool::Run resumes the
+first panic on the calling thread once the runner returns. The caller
+therefore observes the same panic with and without a runner.
+
 The frame decoder retains a pointer to the decoder's boxed pool, as the
 source's `pool_`. The box is replaced only in the Inited stage or by Reset,
 while no frame decoder exists. The fixed internal profiles keep a null pool.
@@ -2066,6 +2077,67 @@ write keeps its copied prefix but not the advanced position. SetExif and SetXmp
 borrow their payloads. A matching Exif marker shorter than nine bytes overflows
 both original SetExif copies; that call runs only as an original sanitizer
 probe, and Rust stops at a bounds check instead of returning a status.
+
+### Decoder memory-manager propagation
+
+`MemoryManagerPtr` carries the source's `JxlMemoryManager*` to every owner
+that allocates through it. `Null` is the source's null pointer and fails at the
+allocation checkpoint; `Manager` retains the caller's live manager; `Native`
+is the crate's Rust allocator, used where no caller manager reaches an owner
+(the encoder, dec_external_image and standalone units). A `Manager` value is
+created only by the unsafe `from_raw`, whose caller keeps the manager valid,
+thread-callable and non-reentrant until every owner allocated through it is
+destroyed. The public decoder satisfies this with its stable manager cell,
+which it drops after every owner; FrameDecoder::new's contract covers its own
+pointer, which is also the modular frame decoder's manager, as the source's
+`dec_state_->memory_manager()` is.
+
+AlignedMemory requests `size + pre_padding + kAlias` bytes from the callback,
+advances the alignment-group counter only after a successful request and
+frees the block with the same manager at the owner's destruction. It
+zero-initializes the returned block so that safe slices never expose
+indeterminate bytes; that write is an internal difference that no allocator
+event observes. The output stage keeps its uninitialized callback scratch.
+
+Ownership follows the source. A plane's manager is that of its allocation and
+an Image3's that of its first plane. ImageBundle, PassesSharedState and
+PassesDecoderState, ModularFrameDecoder and the modular Image, PatchDictionary,
+Splines, PaddedBytes, ICCReader, the render pipeline (through its builder),
+UpsamplingStage, WriteToImage3FStage and BlendingStage retain the manager they
+were constructed with. The modular Image's move assignment keeps the
+destination's manager. DecodeANSCodes stores its manager in ANSCode, and
+ANSSymbolReader::Create allocates its LZ77 window through it. Constructors
+named `_in` take the source's manager argument; the shorter constructors
+select `Native`. Splines' segment arrays are AlignedMemory, as in the source.
+Rust-only heap cells, Box and Rc owners are global allocations where the
+source also uses global operator new or embeds the field in the decoder object.
+
+C++ destroys members in reverse declaration order and libc++ vectors last
+first; Rust drops fields in declaration order and Vec elements first to last.
+Owners whose releases are observable outside the sorted Destroy/Rewind/Reset
+checkpoints therefore reproduce the source order: Drop impls for Image3 (planes
+last first), the modular Image, GroupDecCache, ModularFrameDecoder,
+FrameDecoder, both render pipelines and UpsamplingStage; ImageBundle declares
+its extra channels before its color planes in a lifetime-free `Vector`, so its
+field order yields the source destructor order without a Drop impl that would
+constrain borrowed metadata lifetimes; and `libcpp_vector` helpers for clear,
+erase and move assignment. A source move assignment releases the old contents
+in member order, while a plain Rust assignment would run the destructor order,
+so those sites use Image3::assign, ImageBundle::move_from and the modular
+Image's move_assign. Every allocation size, order, failure status and free
+order then matches the original under a logging custom manager.
+
+Allocation failures return the source statuses. When a failed allocation
+leaves a pipeline group buffer or a group-cache buffer empty and the caller
+continues, for example by calling ProcessInput after FlushImage failed, the
+source later dereferences the null buffer. The Rust port panics at that use
+instead. Such histories run as original-only probes that must terminate
+abnormally; all other failure histories compare exactly, also through the
+exported C ABI. Under a parallel runner, the serialized RunOnPool task bodies
+call the manager from runner threads, one at a time, which the manager
+contract above permits. The order of allocations made inside tasks then
+follows the runner's schedule, in the original as well, so the allocator-log
+and allocation-failure histories run without a runner.
 
 ### Baseline skcms stages and source-reached initialization
 

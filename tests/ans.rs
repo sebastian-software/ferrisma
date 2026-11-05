@@ -143,7 +143,16 @@ fn normalized_ans_histogram_and_tokens_roundtrip_without_reference_tables() {
             let mut decoded = ANSCode::default();
             decoded.uint_config = vec![cfg];
             decoded.log_alpha_size = 8;
-            assert_eq!(decode_ans_codes(1, 256, &mut reader, &mut decoded), Ok(()));
+            assert_eq!(
+                decode_ans_codes(
+                    jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+                    1,
+                    256,
+                    &mut reader,
+                    &mut decoded
+                ),
+                Ok(())
+            );
             let mut symbols = ANSSymbolReader::create(&decoded, &mut reader, 0).unwrap();
             for value in values {
                 assert_eq!(

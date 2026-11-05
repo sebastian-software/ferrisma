@@ -78,7 +78,11 @@ fn custom(dc: [Vec<i32>; 3], qf: Vec<u32>, contexts: usize, pattern: usize) -> B
 fn decode(out: &mut String, m: &mut BlockCtxMap, bytes: &[u8], offset: usize) {
     let mut br = BitReader::new(bytes);
     br.skip_bits(offset);
-    let status = decode_block_ctx_map(&mut br, m);
+    let status = decode_block_ctx_map(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        &mut br,
+        m,
+    );
     write!(
         out,
         " R {} {} {}",

@@ -109,7 +109,12 @@ fn default_decoding_replaces_every_reused_field_and_encoding_ignores_counts() {
     };
     let mut br = BitReader::new(&bytes);
     br.skip_bits(7);
-    decode_block_ctx_map(&mut br, &mut state).unwrap();
+    decode_block_ctx_map(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        &mut br,
+        &mut state,
+    )
+    .unwrap();
     br.close().unwrap();
     assert!(state.dc_thresholds.iter().all(Vec::is_empty));
     assert!(state.qf_thresholds.is_empty());
@@ -131,7 +136,12 @@ fn custom_maps_roundtrip_at_each_bit_offset_and_charge_ac() {
         let mut br = BitReader::new(&bytes);
         br.skip_bits(offset);
         let mut decoded = BlockCtxMap::default();
-        decode_block_ctx_map(&mut br, &mut decoded).unwrap();
+        decode_block_ctx_map(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            &mut decoded,
+        )
+        .unwrap();
         assert_eq!(br.total_bits_consumed(), bits);
         br.close().unwrap();
         assert_eq!(decoded.dc_thresholds, m.dc_thresholds);
@@ -163,7 +173,11 @@ fn oversized_thresholds_and_unencodable_qf_preserve_reached_mutations() {
         ..BlockCtxMap::default()
     };
     assert_eq!(
-        decode_block_ctx_map(&mut br, &mut decoded),
+        decode_block_ctx_map(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            &mut decoded
+        ),
         Err(StatusCode::GenericError)
     );
     br.close().unwrap();

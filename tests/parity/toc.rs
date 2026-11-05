@@ -61,7 +61,13 @@ fn read_observation(n: usize, offset: usize, bytes: &[u8]) -> String {
     let mut permutation = vec![2, 0, 1];
     let mut br = BitReader::new(bytes);
     br.skip_bits(offset);
-    let read = read_toc(n, &mut br, &mut sizes, &mut permutation);
+    let read = read_toc(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        n,
+        &mut br,
+        &mut sizes,
+        &mut permutation,
+    );
     let mut out = format!(
         "{} {} {}",
         status_code(&read),
@@ -75,7 +81,14 @@ fn read_observation(n: usize, offset: usize, bytes: &[u8]) -> String {
     let mut total = 77;
     let mut br = BitReader::new(bytes);
     br.skip_bits(offset);
-    let read = read_group_offsets(n, &mut br, &mut offsets, &mut sizes, Some(&mut total));
+    let read = read_group_offsets(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        n,
+        &mut br,
+        &mut offsets,
+        &mut sizes,
+        Some(&mut total),
+    );
     write!(
         out,
         " {} {} {} {total}",
@@ -140,7 +153,13 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 let mut decoded = vec![55; n];
                 let mut br = BitReader::new(writer.get_span());
                 br.skip_bits(offset);
-                let read = decode_permutation(skip, n, Some(&mut decoded), &mut br);
+                let read = decode_permutation(
+                    jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+                    skip,
+                    n,
+                    Some(&mut decoded),
+                    &mut br,
+                );
                 write!(
                     out,
                     " {} {} {}",
@@ -163,6 +182,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             let mut br = BitReader::new(&bytes);
             br.skip_bits(offset);
             let read = decode_permutation(
+                jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
                 skip,
                 n,
                 if null != 0 { None } else { Some(&mut decoded) },

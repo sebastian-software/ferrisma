@@ -62,7 +62,7 @@ pub enum ReferenceFrameBinding {
     SharedState,
 }
 pub struct PatchDictionary {
-    memory_manager_present: bool,
+    memory_manager: MemoryManagerPtr,
     reference_frames: Option<ReferenceFrameBinding>,
     positions: Vec<PatchPosition>,
     ref_positions: Vec<PatchReferencePosition>,
@@ -80,8 +80,12 @@ impl Default for PatchDictionary {
 }
 impl PatchDictionary {
     pub fn new() -> Self {
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+    /// The source PatchDictionary(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
         Self {
-            memory_manager_present: true,
+            memory_manager,
             reference_frames: None,
             positions: Vec::new(),
             ref_positions: Vec::new(),
@@ -106,7 +110,7 @@ impl PatchDictionary {
         self.compute_patch_tree();
     }
     pub fn have_memory_manager(&self) -> bool {
-        self.memory_manager_present
+        self.memory_manager.is_some()
     }
     pub fn reference_frame_binding(&self) -> Option<ReferenceFrameBinding> {
         self.reference_frames
@@ -131,6 +135,7 @@ use super::base::status::{Status, StatusCode};
 use super::dec_ans::{ANSCode, ANSSymbolReader, decode_histograms};
 use super::dec_bit_reader::BitReader;
 use super::image_metadata::ExtraChannelInfo;
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::patch_dictionary_internal::*;
 use super::render_pipeline::render_pipeline_stage::{Row, RowBuffers};
 
@@ -160,8 +165,13 @@ impl PatchDictionary {
     }
     /// Decoder and stage callers pass the same shared reference owner denoted by
     /// SetShared. No self pointer or cloned image owner is retained.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Retain the source Decode parameters and the reference owner"
+    )]
     pub fn decode(
         &mut self,
+        memory_manager: MemoryManagerPtr,
         br: &mut BitReader<'_>,
         xsize: usize,
         ysize: usize,
@@ -177,6 +187,7 @@ impl PatchDictionary {
         let mut context_map = Vec::new();
         let mut code = ANSCode::default();
         decode_histograms(
+            memory_manager,
             br,
             NUM_PATCH_DICTIONARY_CONTEXTS,
             &mut code,
@@ -494,7 +505,8 @@ impl PatchDictionary {
                 })
                 .collect();
             let bi = pos_idx * stride;
-            let tmp = super::blending::perform_blending(
+            let tmp = super::blending::perform_blending_in(
+                self.memory_manager,
                 &bg,
                 &fg,
                 0,

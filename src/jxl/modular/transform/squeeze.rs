@@ -49,7 +49,8 @@ pub fn inv_h_squeeze(input: &mut Image, c: u32, rc: u32, pool: Option<&ThreadPoo
         input.channel[ci].hshift -= 1;
         return Ok(());
     }
-    let mut chout = Channel::create_with_shifts(
+    let mut chout = Channel::create_in(
+        input.memory_manager(),
         chin.w.wrapping_add(residual.w),
         chin.h,
         chin.hshift - 1,
@@ -119,7 +120,8 @@ pub fn inv_v_squeeze(input: &mut Image, c: u32, rc: u32, pool: Option<&ThreadPoo
         input.channel[ci].vshift -= 1;
         return Ok(());
     }
-    let mut chout = Channel::create_with_shifts(
+    let mut chout = Channel::create_in(
+        input.memory_manager(),
         chin.w,
         chin.h.wrapping_add(residual.h),
         chin.hshift,
@@ -216,8 +218,10 @@ pub fn inv_squeeze(
                 inv_v_squeeze(input, c, rc, pool)?;
             }
         }
-        input.channel.drain(
-            offset as usize..offset as usize + end.wrapping_sub(begin).wrapping_add(1) as usize,
+        crate::jxl::base::libcpp_vector::erase(
+            &mut input.channel,
+            offset as usize,
+            offset as usize + end.wrapping_sub(begin).wrapping_add(1) as usize,
         );
         i -= 1;
     }
@@ -279,6 +283,7 @@ pub fn check_meta_squeeze_params(parameter: &SqueezeParams, num_channels: i32) -
     Ok(())
 }
 pub fn meta_squeeze(image: &mut Image, parameters: &mut Vec<SqueezeParams>) -> Status {
+    let memory_manager = image.memory_manager();
     if parameters.is_empty() {
         default_squeeze_parameters(parameters, image);
     }
@@ -320,7 +325,7 @@ pub fn meta_squeeze(image: &mut Image, parameters: &mut Vec<SqueezeParams>) -> S
                 h = h.wrapping_sub(h.wrapping_add(1) / 2);
             }
             channel.shrink()?;
-            let mut placeholder = Channel::create(w, h)?;
+            let mut placeholder = Channel::create_in(memory_manager, w, h, 0, 0)?;
             placeholder.hshift = channel.hshift;
             placeholder.vshift = channel.vshift;
             placeholder.component = channel.component;

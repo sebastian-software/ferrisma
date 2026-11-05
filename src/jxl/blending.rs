@@ -8,6 +8,7 @@ use super::dec_patch_dictionary::{PatchBlendMode as Mode, PatchBlending};
 use super::frame_header::{BlendMode, FrameHeader, FrameType};
 use super::image_metadata::ExtraChannel;
 use super::image_metadata::ExtraChannelInfo;
+use super::memory_manager_internal::MemoryManagerPtr;
 
 pub fn needs_blending(frame: &FrameHeader) -> bool {
     if frame.frame_type != FrameType::REGULAR && frame.frame_type != FrameType::SKIP_PROGRESSIVE {
@@ -30,12 +31,38 @@ pub fn perform_blending(
     ec: &[PatchBlending],
     extra: &[ExtraChannelInfo],
 ) -> StatusOr<super::image::Plane<f32>> {
+    perform_blending_in(
+        MemoryManagerPtr::NATIVE,
+        bg,
+        fg,
+        x0,
+        width,
+        color,
+        ec,
+        extra,
+    )
+}
+/// The source PerformBlending(memory_manager, bg, fg, ...).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Retain the source PerformBlending parameters"
+)]
+pub fn perform_blending_in(
+    memory_manager: MemoryManagerPtr,
+    bg: &[&[f32]],
+    fg: &[&[f32]],
+    x0: usize,
+    width: usize,
+    color: &PatchBlending,
+    ec: &[PatchBlending],
+    extra: &[ExtraChannelInfo],
+) -> StatusOr<super::image::Plane<f32>> {
     let n = extra.len();
     let has_alpha = extra
         .iter()
         .any(|info| info.channel_type == ExtraChannel::ALPHA);
     // ImageF::Create is the source allocation/failure checkpoint.
-    let mut tmp = super::image::Plane::<f32>::create(width, 3 + n)?;
+    let mut tmp = super::image::Plane::<f32>::create_in(width, 3 + n, 0, memory_manager)?;
     if width == 0 {
         return Ok(tmp);
     }

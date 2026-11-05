@@ -114,7 +114,14 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         br.skip_bits(offset);
         let mut code = ANSCode::default();
         let mut map = Vec::new();
-        let status = decode_histograms(&mut br, contexts, &mut code, &mut map, false);
+        let status = decode_histograms(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            &mut br,
+            contexts,
+            &mut code,
+            &mut map,
+            false,
+        );
         let mut out = format!("{} {}", status_code(&status), br.total_bits_consumed());
         if status.is_ok() {
             for stream in streams {

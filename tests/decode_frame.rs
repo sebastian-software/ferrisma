@@ -117,7 +117,14 @@ fn frame_profile_admission_prevents_entering_unported_noise_decoding() {
     read_frame_header(&mut reader, &mut header).unwrap();
     let mut sizes = Vec::new();
     let mut permutation = Vec::new();
-    read_toc(1, &mut reader, &mut sizes, &mut permutation).unwrap();
+    read_toc(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        1,
+        &mut reader,
+        &mut sizes,
+        &mut permutation,
+    )
+    .unwrap();
     let offset = reader.total_bits_consumed() / 8;
     reader.close().unwrap();
     header.flags |= FLAG_NOISE;

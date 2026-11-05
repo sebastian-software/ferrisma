@@ -52,7 +52,15 @@ fn permuted_section_offsets_locate_distinct_payloads() {
     let mut offsets = Vec::new();
     let mut sizes = Vec::new();
     let mut total = 0;
-    read_group_offsets(3, &mut br, &mut offsets, &mut sizes, Some(&mut total)).unwrap();
+    read_group_offsets(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        3,
+        &mut br,
+        &mut offsets,
+        &mut sizes,
+        Some(&mut total),
+    )
+    .unwrap();
     assert_eq!(br.total_bits_consumed(), start * 8);
     br.close().unwrap();
     let payload: Vec<_> = sections.into_iter().flatten().copied().collect();

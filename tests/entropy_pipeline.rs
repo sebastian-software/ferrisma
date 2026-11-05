@@ -75,7 +75,15 @@ fn complete_encoder_round_trips_ans_prefix_lz77_and_streaming_headers() {
                 let mut br = BitReader::new(writer.get_span());
                 let mut code = ANSCode::default();
                 let mut map = Vec::new();
-                decode_histograms(&mut br, 3, &mut code, &mut map, false).unwrap();
+                decode_histograms(
+                    jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+                    &mut br,
+                    3,
+                    &mut code,
+                    &mut map,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(code.use_prefix_code, force_huffman);
                 assert_eq!(code.lz77.enabled, lz77_method != LZ77Method::None);
                 for stream in &original {

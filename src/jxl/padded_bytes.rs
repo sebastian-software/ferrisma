@@ -2,26 +2,51 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Ported from `lib/jxl/padded_bytes.h`, for BitWriter and ICC command storage.
-//! Additional initialization and the Rust allocator are documented in ADR 0003.
+//! Storage allocates through the owner's memory manager; `Default` selects the
+//! native allocator boundary. Additional initialization is documented in ADR
+//! 0003.
 
 use super::base::status::{Status, StatusCode};
-use super::memory_manager_internal::AlignedMemory;
+use super::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
 
-#[derive(Default)]
 pub struct PaddedBytes {
+    memory_manager: MemoryManagerPtr,
     size: usize,
     capacity: usize,
     data: Option<AlignedMemory>,
 }
 
+impl Default for PaddedBytes {
+    fn default() -> Self {
+        Self::new(MemoryManagerPtr::NATIVE)
+    }
+}
+
 impl PaddedBytes {
+    /// The source PaddedBytes(JxlMemoryManager*) constructor.
+    pub fn new(memory_manager: MemoryManagerPtr) -> Self {
+        Self {
+            memory_manager,
+            size: 0,
+            capacity: 0,
+            data: None,
+        }
+    }
     pub fn with_initial_space(size: usize) -> Result<Self, StatusCode> {
-        let mut result = Self {
-            size,
-            ..Self::default()
-        };
+        Self::with_initial_space_in(MemoryManagerPtr::NATIVE, size)
+    }
+    /// The source WithInitialSpace(memory_manager, size).
+    pub fn with_initial_space_in(
+        memory_manager: MemoryManagerPtr,
+        size: usize,
+    ) -> Result<Self, StatusCode> {
+        let mut result = Self::new(memory_manager);
+        result.size = size;
         result.reserve(size)?;
         Ok(result)
+    }
+    pub fn memory_manager(&self) -> MemoryManagerPtr {
+        self.memory_manager
     }
     pub fn clear(&mut self) {
         self.resize(0).expect("resizing to zero cannot allocate");
@@ -94,7 +119,7 @@ impl PaddedBytes {
         let padded_capacity = new_capacity
             .checked_add(8)
             .ok_or(StatusCode::GenericError)?;
-        let mut new_data = AlignedMemory::create(padded_capacity, 0)?;
+        let mut new_data = AlignedMemory::create(self.memory_manager, padded_capacity, 0)?;
         if let Some(data) = &self.data {
             new_data.bytes_mut()[..self.size].copy_from_slice(&data.bytes()[..self.size]);
             new_data.bytes_mut()[self.size] = 0;

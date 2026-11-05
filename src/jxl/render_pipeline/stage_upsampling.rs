@@ -16,7 +16,7 @@ use super::render_pipeline_stage::{
 };
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::image_metadata::CustomTransformData;
-use crate::jxl::memory_manager_internal::AlignedMemory;
+use crate::jxl::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
 
 const CHUNK_SIZE: usize = 1024;
 
@@ -52,10 +52,26 @@ pub struct UpsamplingStage {
     temp: [Vec<Option<AlignedMemory>>; 3],
     c: usize,
     kernel: [f32; 64 * 25],
+    memory_manager: MemoryManagerPtr,
+}
+impl Drop for UpsamplingStage {
+    /// The implicit destructor: the temp_ array last first, each vector
+    /// last first.
+    fn drop(&mut self) {
+        for temp in self.temp.iter_mut().rev() {
+            crate::jxl::base::libcpp_vector::clear(temp);
+        }
+    }
 }
 impl UpsamplingStage {
-    fn new(factors: &CustomTransformData, c: usize, shift: usize) -> Self {
+    fn new(
+        memory_manager: MemoryManagerPtr,
+        factors: &CustomTransformData,
+        c: usize,
+        shift: usize,
+    ) -> Self {
         let mut stage = Self {
+            memory_manager,
             settings: Settings::symmetric(shift, 2),
             temp: std::array::from_fn(|_| Vec::new()),
             c,
@@ -199,7 +215,7 @@ impl RenderPipelineStage for UpsamplingStage {
         for i in 0..3 {
             self.temp[i].resize_with(num_threads, || None);
             for t in 0..num_threads {
-                self.temp[i][t] = Some(AlignedMemory::create(alloc_size, 0)?);
+                self.temp[i][t] = Some(AlignedMemory::create(self.memory_manager, alloc_size, 0)?);
             }
         }
         Ok(())
@@ -243,8 +259,22 @@ pub fn get_upsampling_stage(
     c: usize,
     shift: usize,
 ) -> Option<Box<dyn RenderPipelineStage>> {
+    get_upsampling_stage_in(MemoryManagerPtr::NATIVE, factors, c, shift)
+}
+/// The source GetUpsamplingStage(memory_manager, ups_factors, c, shift).
+pub fn get_upsampling_stage_in(
+    memory_manager: MemoryManagerPtr,
+    factors: &CustomTransformData,
+    c: usize,
+    shift: usize,
+) -> Option<Box<dyn RenderPipelineStage>> {
     if !(1..=3).contains(&shift) {
         return None;
     }
-    Some(Box::new(UpsamplingStage::new(factors, c, shift)))
+    Some(Box::new(UpsamplingStage::new(
+        memory_manager,
+        factors,
+        c,
+        shift,
+    )))
 }

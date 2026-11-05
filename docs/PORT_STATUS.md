@@ -49,10 +49,11 @@ record each slice, its evidence and its not-applicable checks.
 
 Remaining decoder-side gaps: the decoder's RunOnPool task bodies are
 serialized under a runner, so a runner brings no parallel speedup yet; the
-encoder C ABI is absent; the ICC reader and frame owners allocate through the global
-allocator rather than the caller's memory manager; and the translated skcms
-SKX engine has no AVX-512 acceptance. Container writing, general encoding, the
-public encoder API and JxlEncoderSetParallelRunner remain unported.
+encoder C ABI is absent; and the translated skcms SKX engine has no AVX-512
+acceptance. Every decoder owner allocates through the caller's memory manager
+(see "Decoder memory-manager propagation" below). Container writing, general
+encoding, the public encoder API and JxlEncoderSetParallelRunner remain
+unported.
 
 ## Thread runners and JxlDecoderSetParallelRunner (2026-11-04)
 
@@ -143,8 +144,8 @@ against the original archive and as `jxl_abi_rust` against the Rust static
 library, both with the original default CMS; the original variant also links
 the original `jxl_threads` library. Every history of the public decoder
 families and of the `decode_test.cc` inventory, with or without a parallel
-runner, also runs through both executables: 19,967 histories in 53 families
-(10,994 public decoder histories, 332 of them in the `runners` family, and
+runner, also runs through both executables: 53,050 histories in 57 families
+(44,077 public decoder histories, 332 of them in the `runners` family, and
 8,973 inventory histories, 2,669 of them with a runner) reproduce the original
 oracle's statuses, events,
 getters, consumed and released byte counts, box and JPEG bytes, output
@@ -195,13 +196,14 @@ extra-channel buffers, output bit depths, coalescing off, kept orientation,
 unpremultiplied alpha, SkipFrames, SkipCurrentFrame, progressive detail with
 FlushImage, JPEG reconstruction to bytes and CMS output profiles. Statuses,
 events, getter outputs, consumed and released byte counts, box contents, JPEG
-bytes, output sample digests and callback sequences compare exactly. Where
-the original allocates only decoder and input storage, the complete custom
-allocator log and injected allocation failures compare too. Twelve
-differential groups compare 10,994 histories locally, including the 332
+bytes, output sample digests and callback sequences compare exactly, and with
+a custom manager so do the complete allocator log and injected allocation
+failures (see "Decoder memory-manager propagation"). The twelve original
+differential groups compare 11,822 histories locally, including the 332
 runner histories above; fourteen standalone original captures run without
 C++. `tools/decoder_public_reference.py` audits both original graphs and three
-Rust builds in its own nightly audit group.
+Rust builds in its own nightly audit group, including the `custom-manager`
+replay.
 
 Another 839 histories (830 truncated or mutated inputs and 9 JPEG
 reconstruction histories) release their input and then continue an
@@ -218,9 +220,47 @@ a successfully parsed codestream. Parsed metadata always has 1 to 32 bits per
 sample and one ExtraChannelInfo per channel; parsed frame headers always have
 a valid encoding and color transform, 4:4:4 sampling unless YCbCr, and one
 upsampling and blending entry per extra channel. No compared file is rejected
-by them. The ICC reader and frame owners allocate through the global allocator
-rather than the memory manager. The C ABI exports and the runners are
-recorded above.
+by them. The C ABI exports and the runners are recorded above.
+
+## Decoder memory-manager propagation (2026-11-04)
+
+The caller's JxlMemoryManager now reaches every owner that the original
+routes it to: the ICC reader and its decoded profile (icc_codec.cc and
+padded_bytes.h), ANS alias tables and LZ77 windows (dec_ans.cc, through the
+context-map, TOC, coefficient-order, tree, patch, spline and modular stream
+decoders), the codec state (passes_state.cc and dec_cache.h: AC strategy,
+quantization and EPF fields, color correlation maps, DC images, quantization
+tables, sigma, group caches and coefficients), the image bundle, the modular
+frame decoder with its images, channels and inverse transforms (palette,
+squeeze), adaptive DC smoothing, spline draw caches, patch and frame
+blending, both render pipelines and the upsampling, write and blending
+stages. dec_external_image.cc and the encoder are not reached by the decoder
+and keep the native allocator. ADR 0003 records the representation and the
+source release order.
+
+With the logging custom manager (`dpub-run 1`), every allocation request size
+and the complete allocation and free order compare. The `custom-manager`
+group replays every other family's 9,462 compared histories with it; their
+839 null raw-box copy histories again run original-only. The
+`allocations` group now includes the ICC inputs and the color-encoding event
+(2,028 histories, failing each of the first eleven calls). Three groups fail
+every allocation call in turn, from the decoder object to the last frame
+owner: whole frames of every frame input and retained encoding (14,597
+histories); progressive flushing, frame skipping, Rewind and Reset (5,934);
+and headers with ICC profiles, JPEG reconstruction and CMS output (2,262).
+Statuses, outputs and the remaining log compare exactly. Fifteen groups now
+compare 43,745 histories locally, each also through both C ABI libraries,
+in about 190 seconds. These groups run without a parallel runner: under a
+runner, the order of allocations made inside RunOnPool tasks follows the
+runner's schedule, in the original as well.
+
+Five progressive histories fail a render-pipeline group-buffer allocation
+during FlushImage and then continue decoding. The original keeps the empty
+buffer and later writes through its null row pointer, which is undefined; the
+Rust port panics at that use. These run as original-only probes that must
+terminate abnormally (SIGSEGV on macOS). An exploratory sweep of every
+allocation index of all 10,662 earlier histories (166,268 runs) found no
+other difference; its 39 remaining cases were this null-buffer kind.
 
 ## Public decoder API test inventory (2026-11-04)
 
@@ -619,7 +659,7 @@ followed in PRs #46 to #50.
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, FinalizeDecoding with the frame's pool (inverse transforms and group conversion; small images use a null pool), and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata connected to the first VarDCT frame profile; general frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
 | `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
-| `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams; non-owning raw base copies, custom allocators, and SIMD targets remain separate |
+| `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams, allocating through the decoder's memory manager; non-owning raw base copies and SIMD targets remain separate |
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
 | `dec_noise.h`, `.cc`, `xorshift128plus-inl.h`, `render_pipeline/stage_noise.h`, `.cc` | `dec_noise.rs`, `xorshift128plus.rs`, `render_pipeline/stage_noise.rs` | Complete scalar noise parsing/generation/convolution/application and admitted VarDCT file integration; frame-index and upsampling branches retain source seeds and geometry |
 | `dec_patch_dictionary.h`, `.cc`, `patch_dictionary_internal.h`, `render_pipeline/stage_patches.h`, `.cc` | `dec_patch_dictionary.rs`, `patch_dictionary_internal.rs`, `render_pipeline/stage_patches.rs` | Complete dictionary decoding/partial state, original libc++ interval tree, reference masks and clipped blending; borrowed/shared stages; complete saved-frame orchestration remains separate |
@@ -642,7 +682,7 @@ followed in PRs #46 to #50.
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
 | `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
-| `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage, padded row views, shrink/restore, swaps, native moves and source-header-preserving allocation transfer used by ImageBundle moves; C allocators and MSan-only padding instrumentation unported |
+| `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage through the owner's memory manager, padded row views, shrink/restore, swaps, native moves and source-header-preserving allocation transfer used by ImageBundle moves; MSan-only padding instrumentation unported |
 | `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |
 | `modular/options.h` | `modular/options.rs` | Raw predictors, property types, tree modes/kinds, and all modular option defaults |
 | `modular/encoding/context_predict.h` | `modular/encoding/context_predict.rs` | All basic predictors, weighted header/presets/state, reference/property computation, flat-node storage and lookup, and tree/learning/edge-specialized wrappers |
@@ -674,8 +714,8 @@ followed in PRs #46 to #50.
 | `icc_codec.cc`, through `UnpredictICC` | `icc_codec.rs` | Complete command decoding and defined partial output from main; streaming reader/CMS remain separate |
 | `headers.h`, `.cc` | `headers.rs` | Size, preview, animation, and size-header read wrapper |
 | `base/status.h` | `base/status.rs` | Status-code/Result mapping; diagnostics and crash instrumentation unported |
-| `padded_bytes.h` | `padded_bytes.rs` | Writer storage, native slice/length access, and transferred output ownership; other container operations unported |
-| `memory_manager.h`, `memory_manager_internal.h`, `.cc` | `memory_manager.rs`, `memory_manager_internal.rs` | Complete JXL manager initialization/default callbacks and output-stage callback-backed aligned storage, preserving exact custom sizes, live manager fields and shared alignment counter; propagation through other owners remains open |
+| `padded_bytes.h` | `padded_bytes.rs` | Writer and ICC storage through the owner's memory manager, native slice/length access, and transferred output ownership; other container operations unported |
+| `memory_manager.h`, `memory_manager_internal.h`, `.cc` | `memory_manager.rs`, `memory_manager_internal.rs` | Complete JXL manager initialization/default callbacks, output-stage callback-backed scratch, and manager-backed AlignedMemory for every decoder owner, preserving exact custom sizes, live manager fields, the shared alignment counter and the source release order; encoder owners use the native allocator |
 | `enc_aux_out.h`, `.cc` | `enc_aux_out.rs` | Complete statistics storage/defaults, layer/object assimilation, totals, and writer charging; formatted diagnostic output unported |
 
 Internal storage mappings are specified in the

@@ -54,6 +54,14 @@ pub struct SimpleRenderPipeline<'a> {
 }
 // Inherent forwarding keeps the base operations callable on the concrete type
 // without importing the RenderPipeline trait.
+impl Drop for SimpleRenderPipeline<'_> {
+    /// The implicit destructors: the channel buffers last first, then the
+    /// base's stages.
+    fn drop(&mut self) {
+        crate::jxl::base::libcpp_vector::clear(&mut self.channel_data);
+        crate::jxl::base::libcpp_vector::clear(&mut self.base.stages);
+    }
+}
 impl<'a> SimpleRenderPipeline<'a> {
     pub(crate) fn new(base: RenderPipelineBase<'a>) -> Self {
         Self {
@@ -87,11 +95,13 @@ impl<'a> SimpleRenderPipeline<'a> {
             return Ok(());
         }
         for &(xs, ys) in &self.base.channel_shifts[0] {
-            self.channel_data.push(Plane::create(
+            self.channel_data.push(Plane::create_in(
                 div_ceil(self.base.frame_dimensions.xsize_upsampled, 1usize << xs)
                     .wrapping_add(X_OFFSET * 2),
                 div_ceil(self.base.frame_dimensions.ysize_upsampled, 1usize << ys)
                     .wrapping_add(X_OFFSET * 2),
+                0,
+                self.base.memory_manager,
             )?);
             // MSan poisoning is diagnostic-only. Safe native storage is initialized.
         }
@@ -157,7 +167,7 @@ impl<'a> SimpleRenderPipeline<'a> {
                     continue;
                 }
                 // Preserve hwy::kMaxVectorSize's architecture-dependent padding.
-                new_channels[c] = Plane::create(
+                new_channels[c] = Plane::create_in(
                     self.base
                         .frame_dimensions
                         .xsize_upsampled_padded
@@ -167,6 +177,8 @@ impl<'a> SimpleRenderPipeline<'a> {
                         .frame_dimensions
                         .ysize_upsampled_padded
                         .wrapping_add(X_OFFSET * 2),
+                    0,
+                    self.base.memory_manager,
                 )?;
                 new_channels[c].shrink_to(
                     (input_sizes[c].0 << settings.shift_x).wrapping_add(X_OFFSET * 2),
@@ -310,9 +322,11 @@ impl<'a> SimpleRenderPipeline<'a> {
                 let old_channels = std::mem::take(&mut self.channel_data);
                 self.channel_data.reserve(old_channels.len());
                 for _c in 0..old_channels.len() {
-                    self.channel_data.push(Plane::create(
+                    self.channel_data.push(Plane::create_in(
                         X_OFFSET * 2 + image_xsize,
                         X_OFFSET * 2 + image_ysize,
+                        0,
+                        self.base.memory_manager,
                     )?);
                 }
                 for y in 0..image_ysize {

@@ -9,15 +9,16 @@
 //! the original storage layout; slices replace the aligned pointer APIs.
 //! AC/DC decode retains assignments completed before an error. RAW table
 //! decoding translates ModularFrameDecoder::DecodeQuantTable in dec_modular.cc
-//! beside its owning record. Custom allocators and target-specific SIMD remain
-//! outside this scalar/null-pool boundary.
+//! beside its owning record. Tables and RAW images allocate through the
+//! decoder's memory manager. Target-specific SIMD remains outside this
+//! scalar/null-pool boundary.
 
 use super::ac_strategy::{AcStrategyType, MAX_COEFF_AREA, NUM_VALID_STRATEGIES};
 use super::base::status::{Status, StatusCode};
 use super::dec_bit_reader::BitReader;
 use super::fields::f16_coder;
 use super::frame_dimensions::DCT_BLOCK_SIZE;
-use super::memory_manager_internal::AlignedMemory;
+use super::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
 
 pub const MAX_QUANT_TABLE_SIZE: usize = MAX_COEFF_AREA;
 pub const NUM_PREDEFINED_TABLES: usize = 1;
@@ -679,9 +680,21 @@ impl DequantMatrices {
         &self.tables()[offset..offset + len]
     }
     pub fn ensure_computed(&mut self, acs_mask: u32) -> Status {
+        self.ensure_computed_in(MemoryManagerPtr::NATIVE, acs_mask)
+    }
+    /// The source EnsureComputed(memory_manager, acs_mask).
+    pub fn ensure_computed_in(
+        &mut self,
+        memory_manager: MemoryManagerPtr,
+        acs_mask: u32,
+    ) -> Status {
         let library = Self::library();
         if self.table_storage.is_none() {
-            self.table_storage = Some(AlignedMemory::create(2 * Self::TOTAL_TABLE_SIZE * 4, 0)?);
+            self.table_storage = Some(AlignedMemory::create(
+                memory_manager,
+                2 * Self::TOTAL_TABLE_SIZE * 4,
+                0,
+            )?);
         }
         let mut offsets = [0usize; NUM_QUANT_TABLES as usize * 3 + 1];
         let mut pos = 0;
@@ -758,6 +771,7 @@ fn decode_dct_params(reader: &mut BitReader<'_>, params: &mut DctQuantWeightPara
 // decoder is read-only at this boundary; its original tree/code owners remain
 // borrowed instead of passing the containing mutable pointer.
 fn decode_raw_quant_table(
+    memory_manager: MemoryManagerPtr,
     required_size_x: usize,
     required_size_y: usize,
     reader: &mut BitReader<'_>,
@@ -775,7 +789,7 @@ fn decode_raw_quant_table(
     if *qtable_den < ALMOST_ZERO {
         return Err(StatusCode::GenericError);
     }
-    let mut image = Image::create(required_size_x, required_size_y, 8, 3)?;
+    let mut image = Image::create_in(memory_manager, required_size_x, required_size_y, 8, 3)?;
     let mut options = ModularOptions::default();
     if let Some(decoder) = decoder {
         let qt = super::dec_modular::ModularStreamId::quant_table(idx)?;
@@ -833,6 +847,7 @@ impl QuantEncoding {
     // overlapping union bytes without reading an inactive C++ member in Rust.
     fn decode(
         &mut self,
+        memory_manager: MemoryManagerPtr,
         reader: &mut BitReader<'_>,
         size_x: usize,
         size_y: usize,
@@ -896,7 +911,15 @@ impl QuantEncoding {
                     qtable: None,
                     qtable_den: 0.0,
                 };
-                decode_raw_quant_table(size_x * 8, size_y * 8, reader, self, idx, decoder)?;
+                decode_raw_quant_table(
+                    memory_manager,
+                    size_x * 8,
+                    size_y * 8,
+                    reader,
+                    self,
+                    idx,
+                    decoder,
+                )?;
             }
             _ => return Err(StatusCode::GenericError),
         }
@@ -937,6 +960,15 @@ impl DequantMatrices {
         reader: &mut BitReader<'_>,
         decoder: Option<&super::dec_modular::ModularFrameDecoder>,
     ) -> Status {
+        self.decode_in(MemoryManagerPtr::NATIVE, reader, decoder)
+    }
+    /// The source Decode(memory_manager, br, modular_frame_decoder).
+    pub fn decode_in(
+        &mut self,
+        memory_manager: MemoryManagerPtr,
+        reader: &mut BitReader<'_>,
+        decoder: Option<&super::dec_modular::ModularFrameDecoder>,
+    ) -> Status {
         let all_default = reader.read_bits(1);
         let num_tables = if all_default != 0 {
             0
@@ -948,6 +980,7 @@ impl DequantMatrices {
             .resize(NUM_QUANT_TABLES as usize, QuantEncoding::library::<0>());
         for i in 0..num_tables {
             self.encodings[i].decode(
+                memory_manager,
                 reader,
                 Self::REQUIRED_SIZE_X[i] as usize,
                 Self::REQUIRED_SIZE_Y[i] as usize,

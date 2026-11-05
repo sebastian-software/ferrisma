@@ -31,6 +31,7 @@ use super::frame_header::{ColorTransform, FLAG_NOISE, FrameEncoding, FrameHeader
 use super::image::Plane;
 use super::image_ops::{convert_plane_and_clamp_i32_to_i8, copy_rect_to, zero_fill_image};
 use super::loop_filter::EPF_SHARP_ENTRIES;
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::modular::encoding::dec_ma::{Tree, decode_tree};
 use super::modular::encoding::encoding::{GroupHeader, modular_generic_decompress};
 use super::modular::modular_image::{Channel, Image};
@@ -271,9 +272,9 @@ impl ModularStreamId {
 
 /// Original frame decoder owners. Safe initial values for source-indeterminate
 /// fields do not give them source meaning before Init/DecodeGlobalInfo assigns
-/// them. Native allocation uses the existing valid memory-manager context.
+/// them. Images allocate through the decoder's memory manager.
 pub struct ModularFrameDecoder {
-    memory_manager_present: bool,
+    memory_manager: MemoryManagerPtr,
     full_image: Image,
     global_transform: Vec<Transform>,
     frame_dim: FrameDimensions,
@@ -291,11 +292,23 @@ impl Default for ModularFrameDecoder {
         Self::new()
     }
 }
+impl Drop for ModularFrameDecoder {
+    /// The implicit destructor's reverse member order: the global code's
+    /// alias tables before the full image's channels.
+    fn drop(&mut self) {
+        drop(std::mem::take(&mut self.code));
+        drop(std::mem::take(&mut self.full_image));
+    }
+}
 impl ModularFrameDecoder {
     pub fn new() -> Self {
+        Self::new_in(MemoryManagerPtr::NATIVE)
+    }
+    /// The source ModularFrameDecoder(JxlMemoryManager*) constructor.
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
         Self {
-            memory_manager_present: true,
-            full_image: Image::default(),
+            memory_manager,
+            full_image: Image::empty_in(memory_manager),
             global_transform: Vec::new(),
             frame_dim: FrameDimensions::default(),
             do_color: false,
@@ -317,6 +330,7 @@ impl ModularFrameDecoder {
         frame_header: &FrameHeader<'_>,
         allow_truncated_group: bool,
     ) -> Status {
+        let memory_manager = self.memory_manager;
         let decode_color = frame_header.encoding == FrameEncoding::MODULAR;
         let metadata = &frame_header
             .nonserialized_metadata
@@ -347,8 +361,9 @@ impl ModularFrameDecoder {
                             / 16,
                     ),
                 );
-                decode_tree(reader, &mut self.tree, tree_size_limit)?;
+                decode_tree(memory_manager, reader, &mut self.tree, tree_size_limit)?;
                 decode_histograms(
+                    memory_manager,
                     reader,
                     self.tree.len().wrapping_add(1) / 2,
                     &mut self.code,
@@ -375,7 +390,8 @@ impl ModularFrameDecoder {
                 return Err(StatusCode::GenericError);
             }
         }
-        let mut gi = Image::create(
+        let mut gi = Image::create_in(
+            memory_manager,
             self.frame_dim.xsize,
             self.frame_dim.ysize,
             metadata.bit_depth.bits_per_sample as i32,
@@ -460,7 +476,7 @@ impl ModularFrameDecoder {
             self.global_transform = gi.transform.clone();
             gi.transform.clear();
         }
-        self.full_image = gi;
+        self.full_image.move_assign(&mut gi);
         dec_status
     }
     pub fn maybe_drop_full_image(&mut self) {
@@ -478,8 +494,15 @@ impl ModularFrameDecoder {
         reader: &mut BitReader<'_>,
         state: &mut PassesDecoderState<'_, '_>,
     ) -> Status {
+        let memory_manager = state.memory_manager();
         let rect = state.shared().frame_dim.dc_group_rect(group_id);
-        let mut image = Image::create(rect.xsize(), rect.ysize(), self.full_image.bitdepth, 3)?;
+        let mut image = Image::create_in(
+            memory_manager,
+            rect.xsize(),
+            rect.ysize(),
+            self.full_image.bitdepth,
+            3,
+        )?;
         let stream_id = ModularStreamId::var_dct_dc(group_id).id(&self.frame_dim);
         reader.refill();
         let extra_precision = reader.read_fixed_bits::<2>();
@@ -534,12 +557,19 @@ impl ModularFrameDecoder {
         reader: &mut BitReader<'_>,
         state: &mut PassesDecoderState<'_, '_>,
     ) -> Status {
+        let memory_manager = state.memory_manager();
         let rect = state.shared().frame_dim.dc_group_rect(group_id);
         let upper_bound = rect.xsize().wrapping_mul(rect.ysize());
         reader.refill();
         let count = reader.read_bits(ceil_log2_nonzero(upper_bound)) as usize + 1;
         let stream_id = ModularStreamId::ac_metadata(group_id).id(&self.frame_dim);
-        let mut image = Image::create(rect.xsize(), rect.ysize(), self.full_image.bitdepth, 4)?;
+        let mut image = Image::create_in(
+            memory_manager,
+            rect.xsize(),
+            rect.ysize(),
+            self.full_image.bitdepth,
+            4,
+        )?;
         let color_rect = Rect::new(
             rect.x0() >> 3,
             rect.y0() >> 3,
@@ -547,10 +577,10 @@ impl ModularFrameDecoder {
             (rect.ysize() + 7) >> 3,
         );
         image.channel[0] =
-            Channel::create_with_shifts(color_rect.xsize(), color_rect.ysize(), 3, 3)?;
+            Channel::create_in(memory_manager, color_rect.xsize(), color_rect.ysize(), 3, 3)?;
         image.channel[1] =
-            Channel::create_with_shifts(color_rect.xsize(), color_rect.ysize(), 3, 3)?;
-        image.channel[2] = Channel::create(count, 2)?;
+            Channel::create_in(memory_manager, color_rect.xsize(), color_rect.ysize(), 3, 3)?;
+        image.channel[2] = Channel::create_in(memory_manager, count, 2, 0, 0)?;
         let mut options = ModularOptions::default();
         if modular_generic_decompress(
             reader,
@@ -677,7 +707,13 @@ impl ModularFrameDecoder {
         {
             return Err(StatusCode::GenericError);
         }
-        let mut gi = Image::create(rect.xsize(), rect.ysize(), self.full_image.bitdepth, 0)?;
+        let mut gi = Image::create_in(
+            self.memory_manager,
+            rect.xsize(),
+            rect.ysize(),
+            self.full_image.bitdepth,
+            0,
+        )?;
         let mut c = self.full_image.nb_meta_channels;
         while c < self.full_image.channel.len() {
             let fc = &self.full_image.channel[c];
@@ -711,7 +747,7 @@ impl ModularFrameDecoder {
                     fc.plane.row_mut(r.y0() + y)[r.x0()..r.x1()].fill(0);
                 }
             } else {
-                let mut gc = Channel::create(r.xsize(), r.ysize())?;
+                let mut gc = Channel::create_in(self.memory_manager, r.xsize(), r.ysize(), 0, 0)?;
                 if zerofill {
                     zero_fill_image(&mut gc.plane);
                 }
@@ -1019,11 +1055,12 @@ impl ModularFrameDecoder {
         if !self.use_full_image {
             return Ok(());
         }
-        let mut gi = if inplace {
-            Image::move_from(&mut self.full_image)
+        let mut gi = Image::empty_in(shared.memory_manager());
+        if inplace {
+            gi.move_assign(&mut self.full_image);
         } else {
-            Image::clone_image(&self.full_image)?
-        };
+            gi.move_assign(&mut Image::clone_image(&self.full_image)?);
+        }
         let xsize = gi.w;
         let ysize = gi.h;
         // Don't use threads if total image size is smaller than a group
@@ -1093,7 +1130,10 @@ impl ModularFrameDecoder {
         self.use_full_image
     }
     pub fn have_memory_manager(&self) -> bool {
-        self.memory_manager_present
+        self.memory_manager.is_some()
+    }
+    pub fn memory_manager(&self) -> MemoryManagerPtr {
+        self.memory_manager
     }
     pub fn full_image(&self) -> &Image {
         &self.full_image

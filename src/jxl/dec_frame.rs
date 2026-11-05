@@ -17,9 +17,11 @@
 //!   task bodies borrow non-thread-safe frame owners (`Rc`/`RefCell` and
 //!   exclusive borrows, ADR 0003), so `run_on_pool_exclusive` serializes them
 //!   while the runner chooses the init thread count, threads and task order.
-//! - The Rust PassesSharedState records manager presence only, so the decoder's
-//!   JxlMemoryManager is supplied to `FrameDecoder::new` for the one reached
-//!   consumer of `dec_state_->memory_manager()` (WriteToOutputStage scratch).
+//! - The decoder's JxlMemoryManager is supplied to `FrameDecoder::new`, because
+//!   the codec state is lent per call: it is the modular frame decoder's
+//!   manager and the WriteToOutputStage scratch manager, as the source's
+//!   `dec_state_->memory_manager()`. The codec state's own owners use the
+//!   manager it was constructed with.
 //! - The constructor's use_slow_rendering_pipeline flag selects the simple
 //!   or low-memory pipeline; the fixed profiles select the simple one.
 //! - Private metadata/header admission excludes unported configurations before
@@ -53,6 +55,7 @@ use super::frame_header::{
 use super::image::Image3;
 use super::image_bundle::ImageBundle;
 use super::memory_manager::JxlMemoryManager;
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::passes_state::initialize_passes_shared_state;
 use super::quant_weights::DequantMatrices;
 use super::render_pipeline::render_pipeline::RenderPipelineBuilder;
@@ -475,6 +478,21 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
             .as_deref()
             .expect("source InitFrame sets the decoded bundle")
     }
+    /// The owner of the decoded bundle released it. The source's `decoded_`
+    /// pointer then dangles and is not used until the next InitFrame; this
+    /// handle is dropped so that the bundle is freed at the owner's checkpoint.
+    pub fn release_output(&mut self) {
+        self.output = None;
+    }
+}
+impl Drop for FrameDecoder<'_, '_> {
+    /// The implicit destructor's reverse member order for the owners that
+    /// hold memory-manager allocations: the group caches (last first) before
+    /// the modular frame decoder.
+    fn drop(&mut self) {
+        super::base::libcpp_vector::clear(&mut self.group_caches);
+        drop(std::mem::take(&mut self.modular));
+    }
 }
 
 impl FrameDecoderScope<'_, '_, '_> {
@@ -530,9 +548,11 @@ impl FrameDecoderScope<'_, '_, '_> {
     }
     fn process_dc_global(&mut self, reader: &mut BitReader<'_>) -> Status {
         let shared = &mut self.state.shared_storage;
+        let memory_manager = shared.memory_manager();
         if self.storage.header.0.flags & super::frame_header::FLAG_PATCHES != 0 {
             let mut uses_extra_channels = false;
             shared.image_features.patches.borrow_mut().decode(
+                memory_manager,
                 reader,
                 self.storage.dim.xsize_padded,
                 self.storage.dim.ysize_padded,
@@ -577,7 +597,11 @@ impl FrameDecoderScope<'_, '_, '_> {
         shared.matrices.decode_dc(reader)?;
         if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
             shared.quantizer.decode(&shared.matrices, reader)?;
-            super::entropy_coder::decode_block_ctx_map(reader, &mut shared.block_ctx_map)?;
+            super::entropy_coder::decode_block_ctx_map(
+                memory_manager,
+                reader,
+                &mut shared.block_ctx_map,
+            )?;
             shared.cmap.decode_dc(reader)?;
             if self.storage.decoded().borrow().jpeg_data.is_some() {
                 shared.quantizer.clear_dc_mul();
@@ -659,9 +683,15 @@ impl FrameDecoderScope<'_, '_, '_> {
                     target: FrameWriteTarget::ReferenceStorage,
                 });
             }
-            *self.state.frame_storage_for_referencing.borrow_mut() = ImageBundle::new(Some(
-                &self.storage.header.0.nonserialized_metadata.unwrap().m,
-            ));
+            // The source move assignment, with its member release order.
+            let _ = self
+                .state
+                .frame_storage_for_referencing
+                .borrow_mut()
+                .move_from(&mut ImageBundle::new_in(
+                    self.state.memory_manager(),
+                    Some(&self.storage.header.0.nonserialized_metadata.unwrap().m),
+                ));
         }
         // PassesDecoderState::PreparePipeline with the simple implementation.
         // Header admission proves only the explicitly connected filter and
@@ -676,7 +706,9 @@ impl FrameDecoderScope<'_, '_, '_> {
             .num_extra_channels as usize;
         let render_noise = options.render_noise
             && self.storage.header.0.flags & super::frame_header::FLAG_NOISE != 0;
-        let mut builder = RenderPipelineBuilder::new(num_c + if render_noise { 3 } else { 0 });
+        let memory_manager = self.state.memory_manager();
+        let mut builder =
+            RenderPipelineBuilder::new_in(memory_manager, num_c + if render_noise { 3 } else { 0 });
         if options.use_slow_render_pipeline {
             builder.use_simple_implementation();
         }
@@ -733,7 +765,8 @@ impl FrameDecoderScope<'_, '_, '_> {
             for (ec, &up) in h.extra_channel_upsampling.iter().enumerate() {
                 if up != 1 {
                     builder.add_stage(
-                        super::render_pipeline::stage_upsampling::get_upsampling_stage(
+                        super::render_pipeline::stage_upsampling::get_upsampling_stage_in(
+                            memory_manager,
                             &h.nonserialized_metadata.unwrap().transform_data,
                             3 + ec,
                             super::base::bits::ceil_log2_nonzero(up),
@@ -773,7 +806,8 @@ impl FrameDecoderScope<'_, '_, '_> {
             };
             for c in 0..channels {
                 builder.add_stage(
-                    super::render_pipeline::stage_upsampling::get_upsampling_stage(
+                    super::render_pipeline::stage_upsampling::get_upsampling_stage_in(
+                        memory_manager,
                         &h.nonserialized_metadata.unwrap().transform_data,
                         c,
                         super::base::bits::ceil_log2_nonzero(h.upsampling),
@@ -799,7 +833,8 @@ impl FrameDecoderScope<'_, '_, '_> {
                 super::render_pipeline::render_pipeline_stage::WriteToImage3FStage::from_dc_frame(
                     self.state.shared_storage.dc_frames.clone(),
                     slot,
-                );
+                )
+                .with_memory_manager(memory_manager);
             let writer: Box<
                 dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage,
             > = if let Some(events) = &self.storage.write_trace {
@@ -952,8 +987,10 @@ impl FrameDecoderScope<'_, '_, '_> {
                 FrameOutput::Borrowed(output) => {
                     WriteToImageBundleStage::from_shared(output, &info.color_encoding)
                 }
+                // The source stage keeps `decoded_` as a raw pointer; its
+                // owner releases the bundle at its own checkpoint.
                 FrameOutput::Owned(output) => {
-                    WriteToImageBundleStage::from_owned(output.clone(), &info.color_encoding)
+                    WriteToImageBundleStage::from_pointer(output, &info.color_encoding)
                 }
             };
             builder.add_stage(Some(trace_bundle_writer(
@@ -1010,11 +1047,12 @@ impl FrameDecoderScope<'_, '_, '_> {
                 .state
                 .used_acs
                 .load(std::sync::atomic::Ordering::SeqCst);
+            let memory_manager = self.state.memory_manager();
             let shared = &mut self.state.shared_storage;
             shared
                 .matrices
-                .decode(reader, Some(&self.storage.modular))?;
-            shared.matrices.ensure_computed(used)?;
+                .decode_in(memory_manager, reader, Some(&self.storage.modular))?;
+            shared.matrices.ensure_computed_in(memory_manager, used)?;
             let bits = super::base::bits::ceil_log2_nonzero(self.storage.dim.num_groups);
             shared.num_histograms = 1 + reader.read_bits(bits) as usize;
             self.state
@@ -1029,6 +1067,7 @@ impl FrameDecoderScope<'_, '_, '_> {
                     super::fields::u32_coder::read(super::frame_header::ORDER_ENC, reader) as u16;
                 let start = pass * shared.coeff_order_size;
                 super::coeff_order::decode_coeff_orders(
+                    memory_manager,
                     orders,
                     used,
                     &mut shared.coeff_orders[start..start + shared.coeff_order_size],
@@ -1037,6 +1076,7 @@ impl FrameDecoderScope<'_, '_, '_> {
                 let contexts =
                     shared.num_histograms * shared.block_ctx_map.num_ac_contexts() as usize;
                 super::dec_ans::decode_histograms(
+                    memory_manager,
                     reader,
                     contexts,
                     &mut self.state.code[pass],
@@ -1054,7 +1094,8 @@ impl FrameDecoderScope<'_, '_, '_> {
                 super::dct_util::AcType::I32
             };
             let store = self.storage.header.0.passes.num_passes > 1;
-            self.state.coefficients = Some(super::dct_util::AcImage::make(
+            self.state.coefficients = Some(super::dct_util::AcImage::make_in(
+                memory_manager,
                 kind,
                 if store {
                     super::frame_dimensions::GROUP_DIM * super::frame_dimensions::GROUP_DIM
@@ -1144,6 +1185,7 @@ impl FrameDecoderScope<'_, '_, '_> {
         dc_only: bool,
     ) -> Status {
         let d = &self.storage.dim;
+        let memory_manager = self.state.memory_manager();
         let mut input = self
             .state
             .render_pipeline
@@ -1159,7 +1201,8 @@ impl FrameDecoderScope<'_, '_, '_> {
         let mut should_run_pipeline = true;
         let pass0 = self.storage.passes[g] as usize;
         if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
-            self.storage.group_caches[thread].init_once(
+            self.storage.group_caches[thread].init_once_in(
+                memory_manager,
                 self.storage.header.0.passes.num_passes as usize,
                 self.state
                     .used_acs
@@ -1408,8 +1451,10 @@ impl FrameDecoderScope<'_, '_, '_> {
                 && self.storage.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
                 && self.storage.decoded().borrow().jpeg_data.is_none()
             {
+                let memory_manager = self.state.memory_manager();
                 let shared = &mut self.state.shared_storage;
-                super::compressed_dc::adaptive_dc_smoothing(
+                super::compressed_dc::adaptive_dc_smoothing_in(
+                    memory_manager,
                     shared.quantizer.mul_dc(),
                     &mut shared.dc_storage,
                     &self.storage.header.0.chroma_subsampling,
@@ -1588,10 +1633,13 @@ impl FrameDecoderScope<'_, '_, '_> {
 }
 
 impl<'m, 'p> FrameDecoder<'m, 'p> {
+    /// `modular_memory_manager` is the source's `dec_state_->memory_manager()`
+    /// given to the modular frame decoder at construction.
     fn with_profile(
         metadata: &'m super::image_metadata::CodecMetadata,
         memory_manager: *const JxlMemoryManager,
         pool: *const ThreadPool,
+        modular_memory_manager: MemoryManagerPtr,
         use_slow_rendering_pipeline: bool,
         profile: DecodeProfile,
     ) -> Self {
@@ -1603,7 +1651,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
             header: AdmittedHeader(Rc::new(FrameHeader::new(Some(metadata)))),
             admitted: false,
             dim: FrameDimensions::default(),
-            modular: ModularFrameDecoder::new(),
+            modular: ModularFrameDecoder::new_in(modular_memory_manager),
             render_spotcolors: true,
             coalescing: true,
             toc: Vec::new(),
@@ -1639,6 +1687,9 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
     ///   must satisfy `WriteToOutputStage::new`'s buffer and callback contract;
     /// - `memory_manager`, when such a descriptor is present, must be null or
     ///   satisfy that same contract's manager requirements;
+    /// - `memory_manager` is the manager of every such `PassesDecoderState`:
+    ///   null, or a manager satisfying `MemoryManagerPtr::from_raw` until this
+    ///   decoder and every owner allocated through it are dropped;
     /// - an output encoding with `cms_set` must satisfy `get_cms_stage`'s CMS
     ///   callback contract.
     ///
@@ -1652,10 +1703,13 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         use_slow_rendering_pipeline: bool,
     ) -> Result<Self, StatusCode> {
         admit_sequence_metadata(metadata)?;
+        // SAFETY: The caller's contract above is from_raw's for this manager.
+        let modular_memory_manager = unsafe { MemoryManagerPtr::from_raw(memory_manager) };
         Ok(Self::with_profile(
             metadata,
             memory_manager,
             pool,
+            modular_memory_manager,
             use_slow_rendering_pipeline,
             DecodeProfile::Sequence,
         ))
@@ -1727,8 +1781,8 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         // different dimensions; reset it to avoid errors.
         {
             let mut decoded = self.decoded().borrow_mut();
-            *decoded.color_mut() = Image3::default();
-            decoded.extra_channels_mut().clear();
+            decoded.color_mut().assign(Image3::default());
+            super::base::libcpp_vector::clear(decoded.extra_channels_mut());
             if let Some(events) = &self.write_trace {
                 events.borrow_mut().push(FrameWriteEvent::BundleClear {
                     target: FrameWriteTarget::Output,
@@ -1750,7 +1804,14 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         let toc_entries = num_toc_entries(num_groups, self.dim.num_dc_groups, num_passes);
         let mut sizes = Vec::new();
         let mut permutation = Vec::new();
-        read_toc(toc_entries, br, &mut sizes, &mut permutation)?;
+        let memory_manager = self.decoded().borrow().memory_manager();
+        read_toc(
+            memory_manager,
+            toc_entries,
+            br,
+            &mut sizes,
+            &mut permutation,
+        )?;
         let have_permutation = !permutation.is_empty();
         self.toc.resize(toc_entries, TocEntry::default());
         self.section_sizes_sum = 0;
@@ -2338,6 +2399,7 @@ fn decode_frame_with_pipeline<'m, 'p>(
             metadata,
             std::ptr::null(),
             std::ptr::null(),
+            state.memory_manager(),
             use_slow_rendering_pipeline,
             profile,
         );

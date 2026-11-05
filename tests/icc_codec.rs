@@ -20,7 +20,12 @@ fn original_tenth_varint_overflow_preserves_the_output_and_consumed_position() {
 #[test]
 fn original_nonrectangular_shuffle_keeps_the_missing_column_positions() {
     let mut data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    shuffle(&mut data, 4).unwrap();
+    shuffle(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        &mut data,
+        4,
+    )
+    .unwrap();
     assert_eq!(data, [0, 3, 6, 9, 1, 4, 7, 2, 5, 8]);
 }
 #[test]

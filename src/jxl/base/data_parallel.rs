@@ -17,9 +17,18 @@
 //! and exclusive borrows; see ADR 0003): the runner still chooses the init
 //! thread count, the threads and the task order, while one lock per call
 //! serializes the init and task bodies.
+//!
+//! A Rust panic in an init or task body, which marks a use that is undefined
+//! in the source (see ADR 0003), cannot unwind through the `extern "C"`
+//! trampolines into the runner. The trampolines therefore catch it, set the
+//! error flag so that the runner skips the remaining tasks, as after a failed
+//! task, and `ThreadPool::run` resumes the first such panic on the calling
+//! thread after the runner returns.
 use super::status::{Status, StatusCode};
+use std::any::Any;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, PoisonError};
 
@@ -46,6 +55,8 @@ struct RunCallState<'a, I, D> {
     init_func: &'a I,
     data_func: &'a D,
     has_error: AtomicU32,
+    /// The first panic of an init or task body, resumed after the runner call.
+    panic: Mutex<Option<Box<dyn Any + Send>>>,
 }
 
 impl<I, D> RunCallState<'_, I, D>
@@ -64,7 +75,10 @@ where
         // SAFETY: The runner forwards the original call-state pointer, which
         // stays live for the complete Run call; only shared access is formed.
         let state = unsafe { &*jpegxl_opaque.cast::<Self>() };
-        if (state.init_func)(num_threads).is_err() {
+        let failed = state
+            .catching(|| (state.init_func)(num_threads))
+            .is_none_or(|status| status.is_err());
+        if failed {
             state.has_error.store(1, Ordering::SeqCst);
             return JXL_PARALLEL_RET_RUNNER_ERROR;
         }
@@ -81,13 +95,42 @@ where
         if state.has_error.load(Ordering::SeqCst) != 0 {
             return;
         }
-        if (state.data_func)(value, thread_id).is_err() {
+        let failed = state
+            .catching(|| (state.data_func)(value, thread_id))
+            .is_none_or(|status| status.is_err());
+        if failed {
             state.has_error.store(1, Ordering::SeqCst);
+        }
+    }
+
+    /// Runs a body, retaining its panic instead of unwinding into the runner.
+    fn catching(&self, body: impl FnOnce() -> Status) -> Option<Status> {
+        // The panicking body's state is not observed again: the error flag
+        // skips the remaining bodies and the panic resumes afterwards.
+        match catch_unwind(AssertUnwindSafe(body)) {
+            Ok(status) => Some(status),
+            Err(payload) => {
+                let mut panic = self.panic.lock().unwrap_or_else(PoisonError::into_inner);
+                panic.get_or_insert(payload);
+                None
+            }
         }
     }
 
     fn has_error(&self) -> bool {
         self.has_error.load(Ordering::SeqCst) != 0
+    }
+
+    /// Resumes a retained panic on the calling thread.
+    fn resume_panic(&self) {
+        let panic = self
+            .panic
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        if let Some(payload) = panic {
+            resume_unwind(payload);
+        }
     }
 }
 
@@ -133,6 +176,7 @@ impl ThreadPool {
             init_func,
             data_func,
             has_error: AtomicU32::new(0),
+            panic: Mutex::new(None),
         };
         let jpegxl_opaque = std::ptr::from_ref(&call_state).cast_mut().cast::<c_void>();
         let Some(runner) = self.runner else {
@@ -140,6 +184,7 @@ impl ThreadPool {
             if unsafe { RunCallState::<I, D>::call_init_func(jpegxl_opaque, 1) }
                 != JXL_PARALLEL_RET_SUCCESS
             {
+                call_state.resume_panic();
                 return Err(StatusCode::GenericError);
             }
             for i in begin..end {
@@ -148,6 +193,7 @@ impl ThreadPool {
                     RunCallState::<I, D>::call_data_func(jpegxl_opaque, i, 0);
                 }
             }
+            call_state.resume_panic();
             if call_state.has_error() {
                 return Err(StatusCode::GenericError);
             }
@@ -166,6 +212,7 @@ impl ThreadPool {
                 end,
             )
         };
+        call_state.resume_panic();
         if ret != JXL_PARALLEL_RET_SUCCESS || call_state.has_error() {
             return Err(StatusCode::GenericError);
         }

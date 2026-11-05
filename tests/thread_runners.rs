@@ -274,6 +274,55 @@ fn runner_error_propagation() {
     }
 }
 
+/// A panicking init or task body, the port's representation of an undefined
+/// source use, reaches the caller of Run with and without a runner instead of
+/// unwinding into the runner; the remaining tasks are skipped and the pool
+/// stays usable.
+#[test]
+fn runner_body_panics_resume_on_the_caller() {
+    let pools: [&dyn Fn(usize) -> Option<PoolForTests>; 3] = [
+        &|_| None,
+        &|threads| Some(PoolForTests::new(threads)),
+        &|threads| Some(PoolForTests::resizable(threads)),
+    ];
+    for make in pools {
+        for threads in [0, 1, 3] {
+            let pool = make(threads);
+            // SAFETY: A runner-less pool runs only the supplied local functions.
+            let local = unsafe { ThreadPool::new(None, std::ptr::null_mut()) };
+            let pool = pool.as_ref().map_or(&local, PoolForTests::get);
+            let calls = AtomicUsize::new(0);
+            let panicking = |task: u32, _thread: usize| -> Status {
+                calls.fetch_add(1, Ordering::SeqCst);
+                if task == 0 {
+                    panic!("task body panic");
+                }
+                Ok(())
+            };
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                pool.run(0, 1, &no_init_func, &panicking)
+            }));
+            let payload = result.expect_err("the task panic reaches the caller");
+            assert_eq!(payload.downcast_ref::<&str>(), Some(&"task body panic"));
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            let panicking_init = |_num_threads: usize| -> Status { panic!("init body panic") };
+            let data = |_task: u32, _thread: usize| -> Status {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            };
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                pool.run(0, 7, &panicking_init, &data)
+            }));
+            let payload = result.expect_err("the init panic reaches the caller");
+            assert_eq!(payload.downcast_ref::<&str>(), Some(&"init body panic"));
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            // The pool stays usable after a panicking run.
+            pool.run(0, 7, &no_init_func, &data).unwrap();
+            assert_eq!(calls.load(Ordering::SeqCst), 8);
+        }
+    }
+}
+
 unsafe extern "C" fn count_init(opaque: *mut c_void, num_threads: usize) -> JxlParallelRetCode {
     // SAFETY: The tests pass a live counter pair.
     let counters = unsafe { &*opaque.cast::<[AtomicUsize; 2]>() };

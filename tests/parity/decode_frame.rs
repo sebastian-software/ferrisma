@@ -207,6 +207,7 @@ fn complete_raw_frame_truncations_and_corrupt_sections_preserve_source_partial_o
             let mut sizes = Vec::new();
             let mut perm = Vec::new();
             jxl::jxl::toc::read_toc(
+                jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
                 jxl::jxl::toc::num_toc_entries(dim.num_groups, dim.num_dc_groups, 1),
                 &mut r,
                 &mut sizes,

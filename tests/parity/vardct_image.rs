@@ -127,7 +127,14 @@ fn payload_start(bytes: &[u8], progressive: bool, gab: bool) -> usize {
         dim.num_dc_groups,
         header.passes.num_passes as usize,
     );
-    toc::read_toc(n, &mut r, &mut Vec::new(), &mut Vec::new()).unwrap();
+    toc::read_toc(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        n,
+        &mut r,
+        &mut Vec::new(),
+        &mut Vec::new(),
+    )
+    .unwrap();
     let offset = r.total_bits_consumed() / 8;
     r.close().unwrap();
     offset

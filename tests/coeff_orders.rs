@@ -12,7 +12,14 @@ fn absent_custom_orders_fill_only_selected_strategy_bucket() {
     for (raw, &ord) in STRATEGY_ORDER.iter().enumerate() {
         let mut output = vec![u32::MAX; COEFF_ORDER_MAX_SIZE + 4];
         let mut reader = BitReader::new(&[]);
-        decode_coeff_orders(0, 1 << raw, &mut output, &mut reader).unwrap();
+        decode_coeff_orders(
+            jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+            0,
+            1 << raw,
+            &mut output,
+            &mut reader,
+        )
+        .unwrap();
         assert_eq!(reader.total_bits_consumed(), 0);
         assert!(reader.close().is_ok());
         // Aliased strategies use the first representative of the order bucket.
@@ -35,7 +42,14 @@ fn absent_custom_orders_fill_only_selected_strategy_bucket() {
 #[test]
 fn no_selected_strategy_needs_no_output_storage_or_input() {
     let mut reader = BitReader::new(&[]);
-    decode_coeff_orders(0, 0xf800_0000, &mut [], &mut reader).unwrap();
+    decode_coeff_orders(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        0,
+        0xf800_0000,
+        &mut [],
+        &mut reader,
+    )
+    .unwrap();
     assert_eq!(reader.total_bits_consumed(), 0);
     assert!(reader.close().is_ok());
 }
@@ -50,7 +64,14 @@ fn captured_original_custom_order_stream_decodes_all_three_channels() {
     let mut reader = BitReader::new(&bytes);
     reader.skip_bits(3);
     let mut output = vec![u32::MAX; COEFF_ORDER_MAX_SIZE + 4];
-    decode_coeff_orders(1, 1, &mut output, &mut reader).unwrap();
+    decode_coeff_orders(
+        jxl::jxl::memory_manager_internal::MemoryManagerPtr::NATIVE,
+        1,
+        1,
+        &mut output,
+        &mut reader,
+    )
+    .unwrap();
     assert_eq!(reader.total_bits_consumed(), 158);
     reader.close().unwrap();
     let mut expected = [0; 64];
