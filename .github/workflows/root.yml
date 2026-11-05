@@ -39,10 +39,15 @@ jobs:
 
   linux-asan-nightly:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [default, mini-extended-pixi]
     uses: ./.github/workflows/root-translate-linux.yml
     with:
       profile: release
-      variant: default
+      variant: ${{ matrix.variant }}
       tier: full
       sanitizer: address
 
