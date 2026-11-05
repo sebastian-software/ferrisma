@@ -9,6 +9,8 @@
     "__algorithm/sort_heap.h": "9e6f491404587d7008813a6ba261686be81be4dddab95a483232fd53eb78d014",
     "__algorithm/pop_heap.h": "029b6ccb3f1111118825615131564ecddf5ed1504f6d72276087d49ec03def33",
     "__algorithm/push_heap.h": "e0c6e2d27018c570c1e97450d5035cb5b337149ef73d0744c27e62a49c618ace",
-    "__algorithm/sift_down.h": "4373650c4f27d3a28db01ed8202ae05336dd174d242d5d329a75b2fbc4fe2246"
+    "__algorithm/sift_down.h": "4373650c4f27d3a28db01ed8202ae05336dd174d242d5d329a75b2fbc4fe2246",
+    "__algorithm/nth_element.h": "521550aa2c37e40ff717a076c13f660f350ec2fbdf64add747499469986efe51",
+    "__algorithm/min_element.h": "7adee13a09b4c17d36092831b9e6667e82b395512de93f0c886d3e5327bd1c9c"
   }
 }

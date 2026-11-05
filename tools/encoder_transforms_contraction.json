@@ -23,7 +23,17 @@
       }
     ],
     "lib/jxl/convolve_symmetric5.cc": [],
-    "lib/jxl/enc_gaborish.cc": [],
+    "lib/jxl/enc_gaborish.cc": [
+      {
+        "file": "lib/jxl/enc_gaborish.cc",
+        "line": 37,
+        "column": 42,
+        "type": "f32",
+        "expression": "GaborishInverse: kGaborish[4] + 2 * kGaborish[3] in the constant kernel sum; the product is exact",
+        "rust": "enc_gaborish.rs constant sum (no fused rounding difference)",
+        "folded": true
+      }
+    ],
     "lib/jxl/enc_transforms.cc": [
       {
         "file": "lib/jxl/enc_transforms-inl.h",

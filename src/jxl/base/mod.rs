@@ -5,6 +5,7 @@ pub mod data_parallel;
 pub mod fast_math;
 pub mod float;
 pub(crate) mod hwy_scalar;
+pub mod libcpp_nth_element;
 pub mod libcpp_sort;
 pub mod libcpp_vector;
 pub mod matrix_ops;

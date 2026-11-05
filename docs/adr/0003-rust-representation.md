@@ -125,6 +125,17 @@ explicit representations while retaining source algorithms.
   ApplyColorTransform branch and its CMS argument are absent rather than
   stubbed.
 
+- The quantization, chroma-from-luma and AC strategy heuristics follow the
+  same contraction rule (`base::float::mul_add_f32` at each site of
+  `tools/encoder_heuristics_contraction.json`). ACSConfig's row pointers are
+  reified as `AcsPlanes`, borrows of the owners Init received that
+  ProcessRect receives again, because LossyFrameHeuristics adjusts the quant
+  field between tiles while the source keeps pointing at it; Init stores the
+  scalar fields and strides. The per-thread scratch of CfLHeuristics and
+  AcStrategyHeuristics is the source's AlignedMemory, split into the same
+  regions with disjoint slice borrows. std::nth_element in SetQuantField is
+  the translated reference libc++ algorithm (`base/libcpp_nth_element.rs`).
+
 - Color matrices use typed float/double arrays and a 16-byte aligned temporary,
   preserving source mixed-precision accumulation and inversion order. The
   translated callers have disjoint input/output storage; native borrows express

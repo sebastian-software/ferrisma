@@ -58,7 +58,9 @@ and box queueing and ProcessOutput are translated with explicit admission
 results for every untranslated branch (see "Public encoder API admission and
 setters" below); it encodes no pixels yet. The encoder's forward transforms,
 GaborishInverse and sRGB/linear-sRGB ToXYB are translated as standalone units
-(see "Encoder transforms, Gaborish and XYB" below).
+(see "Encoder transforms, Gaborish and XYB" below), as are the kSquirrel
+quantization field, chroma-from-luma and AC strategy heuristics (see "Encoder
+quantization, CfL and AC strategy heuristics" below).
 
 ## Public encoder API admission and setters (2026-11-05)
 
@@ -145,6 +147,122 @@ not retain; the `S` checkpoint compares the other channel fields. A
 SetExtraChannelBuffer after AddBox dereferences a null queued frame in the
 original; the Rust function panics there and no history reaches it.
 
+## Encoder quantization, CfL and AC strategy heuristics (2026-11-05)
+
+This is the third of the six pull requests of encoder step 1 in
+[ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#first-step). It translates the
+heuristics that LossyFrameHeuristics runs at kSquirrel between XYB conversion
+and coefficient quantization, as standalone units; LossyFrameHeuristics itself
+and the frame encode remain for the integration PR.
+
+- `quantizer.rs`: the field selection of `quantizer.cc`,
+  ComputeGlobalScaleAndQuant, SetQuantFieldRect, SetQuantField and SetQuant.
+  SetQuantField's two std::nth_element calls use
+  `base/libcpp_nth_element.rs`, a translation of the reference libc++
+  algorithm for float ranges (branchless `__sort3`, `__selection_sort`,
+  `__min_element`), with its headers pinned in `tools/reference/libcxx`.
+  DumpQuantizationMap remains unported.
+- `enc_adaptive_quantization.rs`: InitialQuantDC, InitialQuantField with the
+  one-lane AdaptiveQuantizationMap (PrepareBuffers, ComputeTile with its
+  1x1 Laplacian, the scalar and one-lane difference loops and the 4x4
+  pre-erosion, FuzzyErosion with StoreMin4, ComputeMaskForAcStrategyUse,
+  PerBlockModulations with ComputeMask, GammaModulation, HfModulation and
+  BlueModulation, MaskingSqrt, RatioOfDerivativesOfCubicRootToSimpleGamma)
+  and Blur1x1Masking, and AdjustQuantField. FindBestQuantizer does nothing at
+  kSquirrel and faster; its butteraugli loops (FindBestQuantization,
+  FindBestQuantizationMaxError, RoundtripImage, TileDistMap) and the debug
+  heat maps remain unported.
+- `enc_chroma_from_luma.rs`: CfLHeuristics (Init with InitDCStorage,
+  PrepareForThreads, ComputeTile for the DCT8 and the strategy pass) with the
+  one-lane CFLFunction and FindBestMultiplier (Newton and fast searches).
+  ColorCorrelationEncodeDC remains unported.
+- `enc_ac_strategy.rs`: AcStrategyHeuristics (Init, PrepareForThreads,
+  ProcessRect, Finalize) with the one-lane ProcessRectACS,
+  MultiBlockTransformCrossesHorizontal/VerticalBoundary, EstimateEntropy,
+  FindBest8x8Transform, TryMergeAcs, SetEntropyForTransform, the
+  AcsSquare/VerticalSplit/HorizontalSplit helpers and
+  FindBestFirstLevelDivisionForSquare, including the merge table's three
+  value-initialized entries. The disabled JXL_DEBUG_AC_STRATEGY dump
+  (TypeColor, TypeMask, DumpAcStrategy) is not ported. ACSConfig's row
+  pointers are borrows that ProcessRect receives (ADR 0003).
+- `base/hwy_scalar.rs` adds Highway's scalar Round.
+
+Contraction map (`tools/encoder_heuristics_contraction.json`): Clang's front
+end records 28 `llvm.fmuladd` sites in the four archive objects (quantizer.cc,
+enc_adaptive_quantization.cc, enc_chroma_from_luma.cc, enc_ac_strategy.cc),
+counting the two inlined AFV sites in each of the two objects that contain
+them. The translated ones are the three `x * inv_global_scale_ + 0.5f`
+roundings of the quantizer; PerBlockModulations' final `FastPow2f(...) * mul +
+add`, FuzzyErosion's weight `kMulBase + mul * kMulAdd` and its four-product
+sum (the first product fused, then each later product), and AdjustQuantField's
+mixer and mix; the fast CfL denominator `ca + num * distance_mul * 0.5f`;
+EstimateEntropy's norm sum and its three `entropy +=` products, and
+FindBest8x8Transform's two multiplier adjustments; plus the already ported
+inlined YtoXRatio/YtoBRatio, AFV DC mix and AFV inverse residual. Each is
+fused on AArch64 and separate on x86-64 (`mul_add_f32` or the existing
+per-target forms). Two sites have exact
+products and fold away in both graphs (Blur1x1Masking's constant filter sum,
+TileDistMap's `1 * v`); FindBestQuantization's two double sites and
+TileDistMap are unported. Highway's scalar operations, separate statements and
+front-end-folded constant products (RatioOfDerivatives' offsets,
+BlueModulation's limits) are never fused. `std::pow(float, float)` and
+`std::log1p(float)` call the host `powf` and `log1pf`; `pow((5 - d) / 5,
+2.0f)` is the product `x * x` in the original object. In optimized IR the
+optimizer speculates FindBest8x8Transform's two adjustments into the branch
+condition and gives them different debug locations in the ordinary and ASan
+objects (the ASan object merges both), so the audit now reads front-end IR
+(`-Xclang -disable-llvm-passes`); this also records the folded GaborishInverse
+site of the transform map.
+
+Evidence: `tools/oracle/encoder_heuristics.cc` calls the archive's own
+functions and `tests/parity/encoder_heuristics.rs` compares exact words:
+quantizer state (global scale, DC quant, scale, inverse scales, DC
+multipliers), raw quant fields over canary-filled owners, the quant field and
+both masking fields with their dimensions, CfL maps and all four DC value rows,
+AcStrategyImage layers (strategy and first-block bit per block), the Finalize
+block counts, the ACS configuration, and EstimateEntropy's entropy with its
+coefficient, pixel and residual scratch words. The step 1 corpus is the sizes
+1x1, 7x7, 8x8, 9x17, 41 to 48 x 15 (every `xsize mod 8`), 63x129, 128x72,
+256x256, 257x255 and 512x1024, in gray and RGB, with flat, gradient, noise,
+synthetic photographic and GetSomeTestImage content (from the extracted
+original helper), converted with ToXYB and padded as enc_frame.cc does; the
+512x1024 image runs with photographic and test content at d1. Thirteen groups
+with 11,512 requests: ComputeGlobalScaleAndQuant and SetQuant over clamp,
+cap and rounding boundaries and random inputs (4,432); SetQuantField and
+SetQuantFieldRect over ten sizes, ties, signed zeros, sorted runs, ClampVal
+limits and every selected position among up to nine elements (1,180);
+InitialQuantDC (624); InitialQuantField on the corpus at d0.5, d0.62, d1, d1.5
+and d2.9, distances across the dampening ramp and FuzzyErosion branch, and
+the rescale argument (821); InitialQuantField on inner and offset rects that
+take the +-2 and +-4 pixel extensions (15); AdjustQuantField over random
+valid layouts, rects and the mixer's distance range (576); FindBestMultiplier,
+both searches (336); CfLHeuristics' DCT8 and strategy passes on the corpus,
+fast and slow (656); EstimateEntropy for every strategy up to 64x64 and
+FindBest8x8Transform at five speed tiers (1,080); AcStrategyHeuristics on the
+corpus at d0.5, d1, d1.5 and d2.9 (644) and across speed tiers 0 to 6 and
+decoding speed tiers 0, 1, 2 and 4 (144); FindBest8x8Transform at distances
+where its favored-transform adjustment rounds differently fused (360); and the
+kSquirrel chain on the corpus (644). Compared inputs are finite, the
+original's defined domain.
+
+Contraction sensitivity: replacing each translated site in turn by separate
+operations makes the focused group fail on AArch64 for 12 of the 17 Rust
+sites. The other five cannot change any output: the three quantizer roundings
+are truncated to integers, which absorb the saved rounding (an exact search of
++-40 ulps around every `k + 0.5` boundary for 14 global scales found no
+difference), and the CfL denominator and FindBest8x8Transform's
+`kAvoidEntropyOfTransforms * mul` multiply by 0.5 exactly (the CfL half product
+only rounds when subnormal).
+
+Local results on native macOS AArch64: the complete `python3 tools/check.py`
+passes against the ordinary oracle (1,002 tests, none failed or ignored),
+and `python3 tools/check.py --sanitizers --stage test --filter encoder_` runs
+the thirteen groups, with the encoder transform and public API groups,
+against the ASan/UBSan oracle; both audits of the contraction maps pass in
+both graphs (heuristics: 28 sites, 32 fused instructions in the ordinary and 43
+in the ASan objects). Linux x86-64 and the hosted deep gate are recorded with
+the pull request.
+
 ## Encoder transforms, Gaborish and XYB (2026-11-05)
 
 This is the second of the six pull requests of encoder step 1 in
@@ -182,10 +300,14 @@ wlr`, convolve_slow.cc:41) and one in the unported SlowSeparablePixel. Native
 AArch64 lowers each to FMADD (the subtraction as FMADD with -2); baseline
 x86-64 keeps separate operations. The Rust port uses `mul_add` at the three
 translated sites on AArch64 only. enc_gaborish, convolve_symmetric5 and
-enc_xyb contain no site: Highway's scalar operations and separate statements
-are never fused, and GaborishInverse converts its binary32 product to double
-before the addition. The audit reran every archive compile command with IR and
-line tables and found exactly these sites in both local graphs; the ordinary
+enc_xyb contain no lowered site: Highway's scalar operations and separate
+statements are never fused, and GaborishInverse converts its binary32 product
+to double before the addition. Its constant kernel sum has one front-end site,
+`kGaborish[4] + 2 * kGaborish[3]`, which the optimizer folds; the product is
+exact, so fused and separate folding agree (recorded as `folded`). The audit
+reran every archive compile command with front-end IR and line tables (since
+PR 3; see "Encoder quantization, CfL and AC strategy heuristics") and found
+exactly these sites in both local graphs; the ordinary
 objects hold 39 fused AArch64 instructions and the ASan objects 25 (the counts
 follow unrolling, not the sites). An x86-64 compile of the same commands on
 the macOS host emitted no fused instruction.
@@ -793,11 +915,11 @@ followed in PRs #46 to #50.
 | `enc_ans_params.h`, ForModular in `enc_ans.cc` | `enc_ans_params.rs` | Histogram storage, cost, parameter fields/defaults, speed-tier initialization, uint config, and complete modular entropy-policy selection |
 | `enc_cluster.h`, `.cc` | `enc_cluster.rs` | Scalar Condition/entropy/divergence, cluster selection, pair refinement, and canonical reindexing |
 | `base/fast_math-inl.h`, `base/rational_polynomial-inl.h` | `base/fast_math.rs`, `cms/transfer_functions_scalar.rs` | Existing one-lane FastLog2f/FastPow2f/FastPowf, CubeRootAndAdd, and degree-two/degree-four rational evaluation with original x86 fence sites; other functions/targets unported |
-| Highway `hwy/ops/scalar-inl.h`, `generic_ops-inl.h` | `base/hwy_scalar.rs` | Used one-lane Min/Max, unfused MulAdd, Clamp, Floor, saturating float-to-i32 conversion, and sign-bit ZeroIfNegative; other operations/targets unported |
+| Highway `hwy/ops/scalar-inl.h`, `generic_ops-inl.h` | `base/hwy_scalar.rs` | Used one-lane Min/Max, unfused MulAdd, Clamp, Floor, Round, saturating float-to-i32 conversion, and sign-bit ZeroIfNegative; other operations/targets unported |
 | `common.h` | `common.rs` | SpeedTier and maximum pass count; other constants unported |
 | `ac_strategy.h`, `.cc` | `ac_strategy.rs` | Raw AcStrategyType values, size/count constants, strategy objects/geometry, complete natural coefficient order/LUT traversal, and AcStrategyImage allocation/fills/validity/counting, interpreted row views, and strategy setters with source overlap/error mutations |
 | `chroma_from_luma.h`, `.cc` | `chroma_from_luma.rs` | Complete ColorCorrelation constants/defaults, ratios, setters/getters, DC parsing, and ColorCorrelationMap allocation/default/move ownership/delegated DC parsing |
-| `quantizer.h`, `.cc` | `quantizer.rs` | Constructors/recomputation, DC and inverse AC scaling, ClearDCMul, QuantizerParams visitor, GetParams/Decode, ClampVal/ScaleGlobalScale, and same-owner matrix forwarding; quantization-field/scale selection and diagnostic dumps unported |
+| `quantizer.h`, `.cc` | `quantizer.rs` | Constructors/recomputation, DC and inverse AC scaling, ClearDCMul, QuantizerParams visitor, GetParams/Decode, ClampVal/ScaleGlobalScale, same-owner matrix forwarding, and the field selection ComputeGlobalScaleAndQuant/SetQuantFieldRect/SetQuantField/SetQuant with the AArch64 contraction; diagnostic dump unported |
 | `../include/jxl/color_encoding.h`, enum masks in `color_encoding_internal.h` | `color_encoding.rs` | Raw color values and external field storage with checked C layout; public API entry points unported |
 | `../include/jxl/cms_interface.h`, debug callback signature in `encode.h` | `cms_interface.rs`, `enc_params.rs` | Non-owning profile/descriptor storage and callback signatures; ICC/transform invocation is translated below; default CMS backend and public encoder API remain unported |
 | `cms/color_encoding_cms.h` | `cms/color_encoding_cms.rs` | Coordinates, gamma, field storage/conversions, comparisons, partial setter state, and callback-backed ICC field extraction; default ICC parser unported |
@@ -829,6 +951,9 @@ followed in PRs #46 to #50.
 | `dec_patch_dictionary.h`, `splines.h`, `noise.h` | `dec_patch_dictionary.rs`, `splines.rs`, `noise.rs` | Complete documented scalar feature storage/parsing/rendering boundaries mapped below; reference identities are shared with stages, while general complete-frame orchestration remains separate |
 | `convolve.h`, `convolve_symmetric5.cc`, SlowSymmetric3 in `convolve_slow.cc` | `convolve.rs`, `convolve_symmetric5.rs`, `convolve_slow.rs` | Weight owners, one-lane Symmetric5 border/interior rows with mirrored and unchanged row wraps, and SlowSymmetric3 with the AArch64 contraction; SlowSeparable5, Separable5 and SIMD targets unported |
 | `enc_gaborish.h`, `.cc` | `enc_gaborish.rs` | Complete GaborishInverse |
+| `enc_adaptive_quantization.h`, `.cc` | `enc_adaptive_quantization.rs` | InitialQuantDC, InitialQuantField with the complete one-lane AdaptiveQuantizationMap (tiles, masks, FuzzyErosion, PerBlockModulations, Blur1x1Masking) and AdjustQuantField, with the AArch64 contractions; FindBestQuantizer's butteraugli loops (kKitten and slower), TileDistMap, RoundtripImage and debug heat maps unported |
+| `enc_chroma_from_luma.h`, `.cc` | `enc_chroma_from_luma.rs` | Complete CfLHeuristics (Init/InitDCStorage, PrepareForThreads, ComputeTile) and one-lane FindBestMultiplier; ColorCorrelationEncodeDC unported |
+| `enc_ac_strategy.h`, `.cc` | `enc_ac_strategy.rs` | Complete AcStrategyHeuristics and one-lane ProcessRectACS with EstimateEntropy, FindBest8x8Transform, TryMergeAcs and FindBestFirstLevelDivisionForSquare; the disabled JXL_DEBUG_AC_STRATEGY dump unported |
 | `enc_transforms.h`, `.cc`, `enc_transforms-inl.h` | `enc_transforms.rs` | Complete scalar TransformFromPixels for all 27 strategies, DCFromLowestFrequencies with ReinterpretingIDCT, and AFVDCT4x4, with the AFV DC-mix contraction; vector kernels unported |
 | `enc_xyb.h`, `.cc` | `enc_xyb.rs` | ComputePremulAbsorb, LinearRGBRowToXYB, and ToXYB for linear sRGB and sRGB input (gray or color) with linear output; ApplyColorTransform inputs are not admitted by type; ScaleXYB, ScaleXYBRow, RgbToYcbcr and SIMD targets unported |
 | `dct_scales.h`, scalar `dct-inl.h`, `dct_block-inl.h`, and `transpose-inl.h` | `dct_scales.rs`, `dct.rs` | Original literal scale/multiplier tables, one-lane forward/inverse radix-2 recursion, scaled 2D scheduling, transposed coefficient layout, coefficient mutation, and scratch offsets for power-of-two sizes 1 through 256; vector kernels unported |
@@ -876,6 +1001,7 @@ followed in PRs #46 to #50.
 | `modular/transform/palette.h`, `.cc`, `enc_palette.h`, `.cc` | `modular/transform/palette.rs`, `modular/transform/enc_palette.rs` | Explicit/implicit/delta lookup, metadata edits, inverse prediction, lossless lookup/set selection, ordered palettes, and original lossy iterations, delta learning, and dithering in defined source configurations |
 | `modular/transform/enc_transform.h`, `.cc` | `modular/transform/enc_transform.rs` | Complete forward transform dispatch and optional-output min/max scan in the null-pool configuration |
 | Reference libc++ non-arithmetic `std::sort` specialization | `base/libcpp_sort.rs` | Original pivot selection, partitions, insertion loops, equivalent-element order, and heap fallback; source version/hashes retained in `tools/reference/libcxx` |
+| Reference libc++ `std::nth_element` for float ranges | `base/libcpp_nth_element.rs` | Original guarded partitions, equal-element partition, branchless `__sort3`, selection sort and sortedness shortcuts; source version/hashes retained in `tools/reference/libcxx` |
 | `modular/transform/squeeze.h`, `.cc`, `enc_squeeze.h`, `.cc` | `modular/transform/squeeze.rs`, `modular/transform/enc_squeeze.rs` | Original scalar forward/inverse kernels, tendency, default schedules, validation, metadata edits, task spans on the caller's pool, and channel replacement; SIMD unported |
 | `base/matrix_ops.h` | `base/matrix_ops.rs` | Float/double matrix products, vector products, and in-place inverse for disjoint input/output callers |
 | `cms/opsin_params.h` | `cms/opsin_params.rs` | Original float constants, constexpr scaling, and A2B cube |

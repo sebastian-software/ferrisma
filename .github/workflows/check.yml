@@ -214,6 +214,9 @@ jobs:
       - name: Audit the encoder transform contraction map
         if: ${{ !cancelled() && matrix.group == 'components' }}
         run: python3 tools/encoder_transforms_contraction.py --output target/encoder-transforms-contraction
+      - name: Audit the encoder heuristics contraction map
+        if: ${{ !cancelled() && matrix.group == 'components' }}
+        run: python3 tools/encoder_transforms_contraction.py --map tools/encoder_heuristics_contraction.json --output target/encoder-heuristics-contraction
       - name: Retain integrated component source evidence
         if: ${{ !cancelled() && matrix.group == 'components' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -224,6 +227,7 @@ jobs:
             target/skcms-parser-acceptance
             target/jpeg-metadata-acceptance
             target/encoder-transforms-contraction
+            target/encoder-heuristics-contraction
           if-no-files-found: error
 
       - name: Audit complete Brotli streaming and API source boundaries
