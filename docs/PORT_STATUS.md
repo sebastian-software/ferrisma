@@ -8,23 +8,23 @@ recorded. The integrator aggregates this page from the package pages in
 
 ## Packages
 
-| Package | Wave | Status | Page |
+| Package | Sub-wave | Status | Page |
 | --- | --- | --- | --- |
 | WP0 bootstrap | 0 | done (local host; CI not run) | [wp0](status/wp0.md) |
-| WP1 types, memory, workers | 1 | not started | [wp1](status/wp1.md) |
-| WP2 bit I/O | 1 | not started | [wp2](status/wp2.md) |
-| WP3 lossless shared | 1 | not started | [wp3](status/wp3.md) |
-| WP4 pixel ops | 1 | not started | [wp4](status/wp4.md) |
-| WP5 SharpYUV | 1 | not started | [wp5](status/wp5.md) |
-| WP6 VP8 decoder core | 2 | not started | [wp6](status/wp6.md) |
-| WP7 VP8L decoder | 2 | not started | [wp7](status/wp7.md) |
-| WP8 demux | 2 | not started | [wp8](status/wp8.md) |
-| WP9 encoder picture and config | 2 | not started | [wp9](status/wp9.md) |
-| WP10 VP8 encoder core | 2 | not started | [wp10](status/wp10.md) |
-| WP11 VP8L encoder | 2 | not started | [wp11](status/wp11.md) |
-| WP12 decoder integration | 3 | not started | [wp12](status/wp12.md) |
-| WP13 encoder integration | 3 | not started | [wp13](status/wp13.md) |
-| WP14 animation decode and demux ABI | 3 | not started | [wp14](status/wp14.md) |
+| WP1 types, memory, workers | 1a | not started | [wp1](status/wp1.md) |
+| WP2 bit I/O | 1b | not started | [wp2](status/wp2.md) |
+| WP3 lossless shared | 1c | not started | [wp3](status/wp3.md) |
+| WP4 pixel ops | 1b | not started | [wp4](status/wp4.md) |
+| WP5 SharpYUV | 1b | not started | [wp5](status/wp5.md) |
+| WP6 VP8 decoder core | 2b | not started | [wp6](status/wp6.md) |
+| WP7 VP8L decoder | 2a | not started | [wp7](status/wp7.md) |
+| WP8 demux | 3b | not started | [wp8](status/wp8.md) |
+| WP9 encoder picture and config | 2a | not started | [wp9](status/wp9.md) |
+| WP10 VP8 encoder core | 2c | not started | [wp10](status/wp10.md) |
+| WP11 VP8L encoder | 2b | not started | [wp11](status/wp11.md) |
+| WP12 decoder integration | 3a | not started | [wp12](status/wp12.md) |
+| WP13 encoder integration | 3b | not started | [wp13](status/wp13.md) |
+| WP14 animation decode and demux ABI | 3c | not started | [wp14](status/wp14.md) |
 | WP15 mux and animation encode | 4 | not started | [wp15](status/wp15.md) |
 | WP16 safe decoder API | 4 | not started | [wp16](status/wp16.md) |
 | WP17 safe encoder API | 4 | not started | [wp17](status/wp17.md) |
@@ -34,9 +34,10 @@ recorded. The integrator aggregates this page from the package pages in
 | WP21 Ferrixel `webp-read` | 5 | not started; tracked in the Ferrixel repository | none |
 | WP22 Ferrixel `webp-write` | 5 | not started; tracked in the Ferrixel repository | none |
 
-[WORKPLAN.md](WORKPLAN.md#findings-from-wp0) records dependencies between
-packages that the catalog does not declare and a proposed order; the maintainer
-decides it before the fan-out.
+The sub-waves follow libwebp's call graph. [WORKPLAN.md](WORKPLAN.md) lists
+each package's dependencies and the function- and type-level exceptions, and
+`tools/check.py --oracle` checks them against the oracle's cross-unit
+references.
 
 ## Oracle baseline
 

@@ -13,7 +13,9 @@
   [ADRs](docs/adr/README.md). Update an ADR in place, with its `Updated` date,
   when its decision changes.
 - Translate into the module files that already exist; `tools/units.json` says
-  which package owns which file. Edit only your package's files and
+  which package owns which file, and which functions or types a package adds to
+  another package's module as an exception (the module header names them too).
+  Keep other packages' exception items unchanged. Edit only your package's files and
   `docs/status/<wp-id>.md`. Never edit a provenance header, a `mod.rs`,
   `src/lib.rs` or `docs/PORT_STATUS.md`. If you need something another package
   owns, stop and report it.

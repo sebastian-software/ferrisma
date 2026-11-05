@@ -47,7 +47,9 @@ tests print why they are skipped.
 python3 tools/check.py --oracle
 ```
 
-builds the `release` oracle (`tools/build_oracle.py`), points
+builds the `release` oracle (`tools/build_oracle.py`), checks that the
+dependencies, exceptions and reviewed includes in `tools/units.json` cover the
+oracle's cross-unit references (`tools/unit_dependencies.py --check`), points
 `LIBWEBP_ORACLE_DIR` at it and runs the tests with the `oracle` feature, so a
 test that cannot reach the oracle fails instead of skipping. Further flags:
 

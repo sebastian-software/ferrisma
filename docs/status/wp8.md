@@ -1,16 +1,16 @@
 # WP8: demux
 
 - Status: not started
-- Wave: 2
+- Sub-wave: 3b
 - Model: Claude Haiku 5.5 (`claude-haiku-5-5`)
-- Depends on (catalog): WP1
+- Depends on: WP1, WP12
 - Probes: `tools/oracle/probes/wp8/`; tests: `tests/wp8_*.rs`
 
 Written by the package session; the integrator aggregates it into
 [PORT_STATUS.md](../PORT_STATUS.md). See the package's row in
-[WORKPLAN.md](../WORKPLAN.md) for its verification inputs, and the
-[findings from WP0](../WORKPLAN.md#findings-from-wp0) for dependencies
-that the catalog does not declare.
+[WORKPLAN.md](../WORKPLAN.md) for its verification inputs. The inventory
+comes from `tools/units.json`, including the function- and type-level
+exceptions inside a module.
 
 ## Inventory
 

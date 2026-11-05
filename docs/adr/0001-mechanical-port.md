@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-05
+- Updated: 2026-11-06
 
 ## Context
 
@@ -32,7 +32,10 @@ header of the same name share one module. A header without a `.c` file of the
 same name that defines types, constants or inline functions gets its own
 module (`src/utils/bit_reader_inl_utils.h` becomes
 `src/utils/bit_reader_inl_utils.rs`). `tools/units.json` is the authoritative
-map from upstream files to modules and owning packages. WP0 created every
+map from upstream files to modules and owning packages. Where libwebp's call or
+type graph forms a cycle across packages, it assigns single functions or types
+inside a module to the package that needs them first; that package appends
+exactly those items and every later owner keeps them. WP0 created every
 module file with its provenance header (the upstream file's leading comment
 block, verbatim, and a module doc comment naming the files and the package);
 packages append below it and never edit `mod.rs` or `lib.rs`. `tools/units.py`
