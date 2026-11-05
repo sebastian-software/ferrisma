@@ -218,6 +218,15 @@ impl AlignedMemory {
         unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
     }
 
+    pub(crate) fn f32s_mut(&mut self) -> &mut [f32] {
+        assert_eq!(self.size % 4, 0);
+        let len = self.size / 4;
+        // SAFETY: create aligns to 128 bytes, all f32 bit patterns are valid,
+        // the checked byte count covers whole initialized elements, and the
+        // owner gives exclusive access for the entire returned slice lifetime.
+        unsafe { std::slice::from_raw_parts_mut(self.bytes_mut().as_mut_ptr().cast(), len) }
+    }
+
     pub(crate) fn create(
         memory_manager: MemoryManagerPtr,
         size: usize,

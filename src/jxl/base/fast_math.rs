@@ -3,8 +3,8 @@
 
 //! Existing one-lane Highway specialization of FastLog2f from
 //! `base/fast_math-inl.h` and its degree-two rational polynomial evaluation
-//! from `base/rational_polynomial-inl.h`, plus FastPow2f/FastPowf. Other
-//! functions/targets are unported.
+//! from `base/rational_polynomial-inl.h`, plus FastPow2f/FastPowf and the
+//! one-lane CubeRootAndAdd. Other functions/targets are unported.
 
 use super::hwy_scalar::{floor, mul_add, to_i32};
 
@@ -51,4 +51,32 @@ pub fn fast_log2f(x: f32) -> f32 {
     yp = yp * x + P[0];
     yq = yq * x + Q[0];
     yp / yq + exp_val
+}
+
+/// One-lane CubeRootAndAdd from `base/fast_math-inl.h`. Highway's scalar
+/// float Mul is `scalar_mul`; MulAdd and NegMulAdd add or subtract its product
+/// in a separate binary32 operation, and the int32 lane arithmetic wraps.
+pub fn cube_root_and_add(x: f32, add: f32) -> f32 {
+    use crate::jxl::dct::scalar_mul;
+    const EXP_BIAS: i32 = 0x54800000;
+    const EXP_MUL: i32 = 0x002AAAAA;
+    let k1_3 = 1.0f32 / 3.0;
+    let k4_3 = 4.0f32 / 3.0;
+    let xa = x;
+    let xa_3 = scalar_mul(k1_3, xa);
+    let m1 = xa.to_bits() as i32;
+    let m2 = if m1 == 0 {
+        0
+    } else {
+        EXP_BIAS.wrapping_sub((m1 >> 23).wrapping_mul(EXP_MUL))
+    };
+    let mut r = f32::from_bits(m2 as u32);
+    for _ in 0..3 {
+        let r2 = scalar_mul(r, r);
+        r = scalar_mul(k4_3, r) - scalar_mul(xa_3, scalar_mul(r2, r2));
+    }
+    let mut r2 = scalar_mul(r, r);
+    r = scalar_mul(k1_3, r - scalar_mul(xa, scalar_mul(r2, r2))) + r;
+    r2 = scalar_mul(r, r);
+    scalar_mul(r2, x) + add
 }

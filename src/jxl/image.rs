@@ -308,6 +308,18 @@ impl<T: Sample> Image3<T> {
         let stride = self.planes[0].bytes_per_row();
         self.planes[c].row_at_mut(y.wrapping_mul(stride), stride)
     }
+    /// Image3::PlaneRow of all three planes for one row, as the source's
+    /// simultaneous row pointers: each uses plane zero's stride.
+    pub(crate) fn plane_rows_mut(&mut self, y: usize) -> [&mut [T]; 3] {
+        assert!(y < self.ysize());
+        let stride = self.planes[0].bytes_per_row();
+        let [plane0, plane1, plane2] = &mut self.planes;
+        [
+            plane0.row_at_mut(y.wrapping_mul(stride), stride),
+            plane1.row_at_mut(y.wrapping_mul(stride), stride),
+            plane2.row_at_mut(y.wrapping_mul(stride), stride),
+        ]
+    }
     /// Original Image3 move assignment, including the retained source headers.
     pub(crate) fn move_from(&mut self, source: &mut Self) {
         for c in 0..3 {
