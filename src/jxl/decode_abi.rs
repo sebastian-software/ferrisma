@@ -25,11 +25,12 @@
 //!   aliasing rules cannot express them for a decoder that is being mutated.
 //! - A panic, which the source does not have, cannot unwind into C: the
 //!   `extern "C"` boundary aborts the process.
-//! - `JxlDecoderSetParallelRunner` is not exported yet: the runners are ported
-//!   as Rust functions (`crate::threads`, `jxl_decoder_set_parallel_runner`),
-//!   and their C ABI is a separate step. A C program that calls it does not
-//!   link.
+//!
+//! The runner functions of `thread_parallel_runner.h` and
+//! `resizable_parallel_runner.h`, which the original exports from its
+//! separate `jxl_threads` library, are exported by `crate::threads::abi`.
 
+use super::base::data_parallel::JxlParallelRunner;
 use super::cms_interface::JxlCmsInterface;
 use super::codestream_header::{
     JxlAnimationHeader, JxlBasicInfo, JxlBlendInfo, JxlExtraChannelInfo, JxlFrameHeader,
@@ -369,6 +370,28 @@ pub unsafe extern "C" fn JxlDecoderSkipFrames(dec: *mut JxlDecoder, amount: usiz
 pub unsafe extern "C" fn JxlDecoderSkipCurrentFrame(dec: *mut JxlDecoder) -> JxlDecoderStatus {
     // SAFETY: The caller's decoder and input contracts.
     unsafe { with_decoder(dec, |dec| decode::jxl_decoder_skip_current_frame(dec)) }
+}
+
+/// JxlDecoderSetParallelRunner.
+///
+/// # Safety
+/// `dec` is a live decoder from JxlDecoderCreate. A non-null
+/// `parallel_runner` and `parallel_runner_opaque` obey parallel_runner.h until
+/// the decoder is reset, destroyed or given another runner: the runner calls
+/// the supplied init and data functions only with the supplied opaque value,
+/// only during that runner call, and never unwinds.
+#[unsafe(no_mangle)] // SAFETY: The only definition of this decode.h symbol.
+pub unsafe extern "C" fn JxlDecoderSetParallelRunner(
+    dec: *mut JxlDecoder,
+    parallel_runner: Option<JxlParallelRunner>,
+    parallel_runner_opaque: *mut c_void,
+) -> JxlDecoderStatus {
+    // SAFETY: The caller's decoder and runner contracts.
+    unsafe {
+        with_decoder(dec, |dec| {
+            decode::jxl_decoder_set_parallel_runner(dec, parallel_runner, parallel_runner_opaque)
+        })
+    }
 }
 
 /// JxlDecoderSizeHintBasicInfo.

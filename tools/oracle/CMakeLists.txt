@@ -203,8 +203,8 @@ add_dependencies(jxl_oracle skcms_parser_private_observer)
 
 # The decoder C ABI drivers. One driver, written against the pinned public
 # headers only, links either the original archive (jxl_abi_original) or the
-# Rust static library that exports src/jxl/decode_abi.rs (jxl_abi_rust). Both
-# link the original default CMS for JxlGetDefaultCms. Cargo builds the Rust
+# Rust static library that exports src/jxl/decode_abi.rs and
+# src/threads/abi.rs (jxl_abi_rust). Both link the original default CMS for JxlGetDefaultCms. Cargo builds the Rust
 # library with the profile and features of the checked-profile tests, which
 # therefore reuse it; Cargo decides whether it is current. Ordinary Rust
 # builds still compile and link no C or C++ code.
@@ -231,9 +231,12 @@ foreach(variant original rust)
   target_compile_features(jxl_abi_${variant} PRIVATE cxx_std_17 c_std_11)
   target_include_directories(jxl_abi_${variant} PRIVATE "${UPSTREAM}/lib/include"
     "${CMAKE_CURRENT_BINARY_DIR}/upstream/lib/include")
-  target_compile_definitions(jxl_abi_${variant} PRIVATE JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE)
+  target_compile_definitions(jxl_abi_${variant} PRIVATE JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE
+    JXL_THREADS_STATIC_DEFINE)
 endforeach()
-target_link_libraries(jxl_abi_original PRIVATE jxl-internal jxl_cms)
+# The original exports the runners from its separate jxl_threads library; the
+# Rust library exports them next to the decoder.
+target_link_libraries(jxl_abi_original PRIVATE jxl-internal jxl_threads jxl_cms)
 add_dependencies(jxl_abi_rust rust_decoder_abi)
 target_link_libraries(jxl_abi_rust PRIVATE "${RUST_DECODER_ABI_LIBRARY}" jxl_cms)
 if(NOT APPLE)

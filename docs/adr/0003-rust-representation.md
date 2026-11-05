@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-04
+- Updated: 2026-11-05
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -1944,9 +1944,13 @@ C enums use transparent integer carriers.
 ### Exported decoder C ABI
 
 `src/jxl/decode_abi.rs` exports every function that `decode.h` declares
-under its original unmangled name, except JxlDecoderSetParallelRunner. The
-runners are ported as Rust functions; their C ABI and that export are a
-separate step. Each wrapper only maps representation: raw
+under its original unmangled name, and `src/threads/abi.rs` exports every
+function of `thread_parallel_runner.h` and `resizable_parallel_runner.h`. The
+original builds the runners as a separate `jxl_threads` library; the Rust
+static and dynamic libraries export them next to the decoder, so a C program
+links one library in place of both. The runner callbacks keep the
+`JxlParallelRunner` signature with non-nullable init and data functions, which
+the decoder always passes. Each wrapper only maps representation: raw
 pointers become the references and options above, and the snake-case function
 performs every original argument check in source order. Structs crossing the
 boundary are the `#[repr(C)]` header types. Compile-time assertions fix their

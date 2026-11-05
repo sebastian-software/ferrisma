@@ -67,7 +67,8 @@ is reimplemented in the adapter.
 
 The decoder C ABI drivers `jxl_abi_original` and `jxl_abi_rust` link one
 driver, written against the pinned public headers only, to the original archive
-and to the Rust static library. Building the oracle therefore runs
+with its `jxl_threads` runner library and to the Rust static library, which
+exports the runners itself. Building the oracle therefore runs
 `cargo build --lib --profile checked --features cpp-oracle`, whose library the
 checked-profile tests reuse; the `ORACLE_RUST_PROFILE` CMake cache variable
 selects another profile. See [ADR 0002](docs/adr/0002-differential-oracle.md).

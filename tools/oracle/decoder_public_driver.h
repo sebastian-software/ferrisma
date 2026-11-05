@@ -8,24 +8,18 @@
 // driver in tests/support/decoder_public.rs mirrors this protocol token for
 // token.
 //
-// Define DECODER_PUBLIC_RUNNERS to 1 to enable the parallel runner operations
-// '@' and '#', which need the original thread runner libraries, or to 0.
+// The parallel runner operations '@' and '#' call the runner functions that
+// the pinned thread_parallel_runner.h and resizable_parallel_runner.h declare.
 #ifndef TOOLS_ORACLE_DECODER_PUBLIC_DRIVER_H_
 #define TOOLS_ORACLE_DECODER_PUBLIC_DRIVER_H_
-
-#ifndef DECODER_PUBLIC_RUNNERS
-#error "Define DECODER_PUBLIC_RUNNERS to 0 or 1"
-#endif
 
 #include <jxl/cms.h>
 #include <jxl/codestream_header.h>
 #include <jxl/color_encoding.h>
 #include <jxl/decode.h>
-#include <jxl/types.h>
-#if DECODER_PUBLIC_RUNNERS
 #include <jxl/resizable_parallel_runner.h>
 #include <jxl/thread_parallel_runner.h>
-#endif
+#include <jxl/types.h>
 
 #include <algorithm>
 #include <atomic>
@@ -177,9 +171,7 @@ class Driver {
   Driver(std::vector<uint8_t> file, std::ostream& out) : file_(std::move(file)), out_(out) {}
   ~Driver() {
     if (dec_) JxlDecoderDestroy(dec_);
-#if DECODER_PUBLIC_RUNNERS
     DestroyRunner();
-#endif
   }
 
   // mm 0: default manager; 1: custom manager with its event log; 2: custom
@@ -333,10 +325,8 @@ class Driver {
         for (const auto& buffer : retired_) out_ << ',' << Hex(Bytes(buffer.data(), buffer.size()));
         break;
       }
-#if DECODER_PUBLIC_RUNNERS
       case '@': out_ << SetRunner(arg); break;
       case '#': out_ << ResizeRunner(); break;
-#endif
       case 'A': StreamLoop(arg); break;
       case 'B': ProgressionLoop(arg); break;
       default: throw std::runtime_error("decoder public op");
@@ -919,7 +909,6 @@ class Driver {
     else SetGrowBox(std::stoul(arg));
   }
 
-#if DECODER_PUBLIC_RUNNERS
   // @0: JxlDecoderSetParallelRunner(dec, nullptr, nullptr); @1: the thread
   // runner with min(hardware, 16) workers, as DecodeWithAPI; @2: the
   // resizable runner; @3: the thread runner with the default worker count;
@@ -966,7 +955,6 @@ class Driver {
     else JxlThreadParallelRunnerDestroy(runner_);
     runner_ = nullptr;
   }
-#endif
 
   static void TestCallback(void* opaque, size_t x, size_t y, size_t n, const void* pixels) {
     auto* d = static_cast<Driver*>(opaque);
@@ -1219,10 +1207,8 @@ class Driver {
   size_t mt_threads_ = 0;
   std::atomic<size_t> mt_calls_{0};
   std::atomic<bool> mt_bad_thread_{false};
-#if DECODER_PUBLIC_RUNNERS
   int runner_kind_ = 0;
   void* runner_ = nullptr;
-#endif
 };
 
 

@@ -8,8 +8,9 @@
 //!
 //! The runners use `std::thread` and the `std::sync` primitives in place of
 //! their C++ standard library counterparts; no C or C++ code is compiled or
-//! linked. The C ABI exports remain a separate boundary.
+//! linked. `abi` exports the public functions under their original C names.
 
+pub mod abi;
 pub mod resizable_parallel_runner;
 pub mod thread_parallel_runner;
 pub mod thread_parallel_runner_internal;

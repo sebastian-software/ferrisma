@@ -3,10 +3,12 @@
 // Measures the public decoder ABI of the pinned headers with a C compiler:
 // the size, alignment and field offsets of every public struct that decode.h
 // uses, every public enumerator, the version, and the address of every
-// function that decode.h declares. Linking this unit against a library
-// therefore requires all of those functions. JxlDecoderSetParallelRunner is
-// listed separately: the Rust library does not export it yet.
+// function that decode.h, thread_parallel_runner.h and
+// resizable_parallel_runner.h declare. Linking this unit against a library
+// therefore requires all of those functions.
 #include <jxl/decode.h>
+#include <jxl/resizable_parallel_runner.h>
+#include <jxl/thread_parallel_runner.h>
 #include <stdalign.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -32,7 +34,7 @@ static void Put(const char* format, ...) {
 typedef void (*Function)(void);
 #define EXPORT(f) (Function)(f)
 
-// Every JXL_EXPORT function of decode.h except JxlDecoderSetParallelRunner.
+// Every JXL_EXPORT function of decode.h.
 static const Function kDecoderExports[] = {
     EXPORT(JxlDecoderVersion),
     EXPORT(JxlSignatureCheck),
@@ -42,6 +44,7 @@ static const Function kDecoderExports[] = {
     EXPORT(JxlDecoderRewind),
     EXPORT(JxlDecoderSkipFrames),
     EXPORT(JxlDecoderSkipCurrentFrame),
+    EXPORT(JxlDecoderSetParallelRunner),
     EXPORT(JxlDecoderSizeHintBasicInfo),
     EXPORT(JxlDecoderSubscribeEvents),
     EXPORT(JxlDecoderSetKeepOrientation),
@@ -87,6 +90,20 @@ static const Function kDecoderExports[] = {
     EXPORT(JxlDecoderSetImageOutBitDepth),
 };
 
+// Every JXL_THREADS_EXPORT function of thread_parallel_runner.h and
+// resizable_parallel_runner.h.
+static const Function kRunnerExports[] = {
+    EXPORT(JxlThreadParallelRunner),
+    EXPORT(JxlThreadParallelRunnerCreate),
+    EXPORT(JxlThreadParallelRunnerDestroy),
+    EXPORT(JxlThreadParallelRunnerDefaultNumWorkerThreads),
+    EXPORT(JxlResizableParallelRunner),
+    EXPORT(JxlResizableParallelRunnerCreate),
+    EXPORT(JxlResizableParallelRunnerSetThreads),
+    EXPORT(JxlResizableParallelRunnerSuggestThreads),
+    EXPORT(JxlResizableParallelRunnerDestroy),
+};
+
 const char* DecoderAbiLayout(void) {
   used = 0;
   layout[0] = 0;
@@ -97,8 +114,13 @@ const char* DecoderAbiLayout(void) {
     Function volatile f = kDecoderExports[i];
     if (f) ++exports;
   }
-  Put("F:%zu V:%u:%d.%d.%d", exports, JxlDecoderVersion(), JPEGXL_MAJOR_VERSION,
-      JPEGXL_MINOR_VERSION, JPEGXL_PATCH_VERSION);
+  size_t runner_exports = 0;
+  for (size_t i = 0; i < sizeof(kRunnerExports) / sizeof(kRunnerExports[0]); ++i) {
+    Function volatile f = kRunnerExports[i];
+    if (f) ++runner_exports;
+  }
+  Put("F:%zu R:%zu V:%u:%d.%d.%d", exports, runner_exports, JxlDecoderVersion(),
+      JPEGXL_MAJOR_VERSION, JPEGXL_MINOR_VERSION, JPEGXL_PATCH_VERSION);
 
   // types.h
   STRUCT(JxlPixelFormat);

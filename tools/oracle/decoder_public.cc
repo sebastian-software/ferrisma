@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#define DECODER_PUBLIC_RUNNERS 1
 #include "decoder_public_driver.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/color_encoding_internal.h"

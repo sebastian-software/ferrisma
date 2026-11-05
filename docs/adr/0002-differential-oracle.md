@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-04
+- Updated: 2026-11-05
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -85,9 +85,11 @@ against the pinned public headers only, replays the public decoder histories
 with the same driver code as the original oracle. It is linked twice: against
 the original archive and against the Rust static library. Both also link the
 original default CMS library for JxlGetDefaultCms, which decode.h does not
-declare. Every runner-free history that Rust replays in-process also runs
-through both executables, which must reproduce the original oracle's
-observation exactly. A C unit of the driver measures every public struct
+declare; the original variant also links the original `jxl_threads` library,
+whose runner functions the Rust library exports itself. Every history that
+Rust replays in-process, with or without a parallel runner, also runs through
+both executables, which must reproduce the original oracle's observation
+exactly. A C unit of the driver measures every public struct
 layout and enumerator and takes the address of every exported function. The
 oracle build runs Cargo for the static library, with the profile and features
 of the checked tests so that both share one compilation; Cargo decides
