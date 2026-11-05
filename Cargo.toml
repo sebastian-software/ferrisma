@@ -14,21 +14,26 @@ publish = false
 default = []
 jpeg-read = ["dep:zune-jpeg"]
 jpeg-xl-read = ["dep:jxl-oxide"]
-# `asm` is bit-exact and about 2.2x faster; `threading` lets the encoder use
-# `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
-avif-write = ["dep:ravif", "ravif/asm", "ravif/threading"]
+# rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
+# encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
+avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
 avif-read = ["dep:avif-decode", "dep:avif-parse"]
 icc = ["dep:moxcms"]
 cli = ["jpeg-read", "jpeg-xl-read", "avif-read", "avif-write", "icc"]
 
 
 [dependencies]
-ravif = { version = "0.13.0", optional = true, default-features = false }
+rav1e = { version = "0.8.1", optional = true, default-features = false }
+avif-serialize = { version = "0.8.9", optional = true }
 avif-decode = { version = "3.0.0", optional = true, default-features = false }
 avif-parse = { version = "2.1.0", optional = true }
 moxcms = { version = "0.9.1", optional = true }
 zune-jpeg = { version = "0.5.15", optional = true, default-features = false, features = ["std"] }
 jxl-oxide = { version = "0.12.6", optional = true, default-features = false }
+
+[dev-dependencies]
+# Test-only: writes the identity-matrix AVIF fixture of the AVIF reader tests.
+ravif = { version = "0.13.0", default-features = false }
 
 [lints.rust]
 unsafe_code = "forbid"

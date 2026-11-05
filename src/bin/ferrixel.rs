@@ -5,8 +5,8 @@ use std::error::Error;
 use std::path::Path;
 
 use ferrixel::pipeline::{
-    Crop, ImageFormat, InputProfilePolicy, ResizeFilter, TransformOptions, WorkingPrecision,
-    transcode,
+    ChromaSubsampling, Crop, ImageFormat, InputProfilePolicy, ResizeFilter, TransformOptions,
+    WorkingPrecision, transcode,
 };
 
 fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
         eprintln!(
-            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--chroma=444|420] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         std::process::exit(2);
     }
@@ -62,6 +62,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             "--reference" => options.precision = WorkingPrecision::F64Reference,
             option if option.starts_with("--quality=") => options.quality = option[10..].parse()?,
             option if option.starts_with("--speed=") => options.speed = option[8..].parse()?,
+            "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
+            "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
             option if option.starts_with("--encoder-threads=") => {
                 options.encoder_threads = option[18..].parse()?;
             }

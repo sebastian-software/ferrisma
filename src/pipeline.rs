@@ -15,6 +15,7 @@ use crate::memory::MemoryBudget;
 use crate::orientation::OrientedSource;
 use crate::quality_execute::execute_quality_srgb8;
 
+pub use crate::avif_sink::ChromaSubsampling;
 pub use crate::quality::Filter as ResizeFilter;
 
 /// Accepted input codecs. Compile the corresponding Cargo features to enable
@@ -71,11 +72,14 @@ pub struct TransformOptions {
     pub profile_policy: InputProfilePolicy,
     pub quality: f32,
     pub speed: u8,
-    /// AV1 encoder threads: 0 means all available cores. The encoder derives
-    /// its tile count from this value, so different values produce different
-    /// (equally valid) bytes; the default of 1 keeps output independent of
-    /// the machine. Measured trade-off: `docs/benchmarks/M2-baseline.md`.
+    /// AV1 encoder threads: 0 means all available cores. 1 (the default)
+    /// encodes one tile; any other value splits the image into tiles derived
+    /// from its size alone, so the bytes are the same for every thread count
+    /// other than 1 and on every machine. Tiles cost a few percent of bytes;
+    /// measurements in `docs/benchmarks/M2-baseline.md`.
     pub encoder_threads: usize,
+    /// Chroma layout of the AVIF output; 4:4:4 by default.
+    pub chroma_subsampling: ChromaSubsampling,
     pub max_managed_bytes: usize,
     /// Maximum compressed input size, checked before initializing any codec.
     pub max_input_bytes: usize,
@@ -95,6 +99,7 @@ impl Default for TransformOptions {
             quality: 75.0,
             speed: 6,
             encoder_threads: 1,
+            chroma_subsampling: ChromaSubsampling::Yuv444,
             max_managed_bytes: 256 * 1024 * 1024,
             max_input_bytes: 64 * 1024 * 1024,
             max_input_pixels: 100_000_000,
@@ -138,6 +143,9 @@ pub struct ProcessingReport {
     /// Engine-managed bytes materialized to reorient the input; zero for
     /// upright input.
     pub orientation_buffer_bytes: usize,
+    /// Bytes of the encoder's YUV input frame, allocated by `rav1e` on the
+    /// sink's request and charged to the managed budget (the larger of the
+    /// color and alpha frames; they are not alive at the same time).
     pub encoder_output_frame_bytes: usize,
     pub peak_managed_bytes: usize,
     pub opaque_decoder_memory: bool,
@@ -324,8 +332,8 @@ fn open_source<'a>(
 
 /// Convert one real input to SDR AVIF. Quality and profile constraints are
 /// enforced before executing a pixel transform, and only *one* decoder region
-/// is requested for the output. The output frame is explicitly materialized
-/// for the current `ravif` encoder, so memory is not O(output width).
+/// is requested for the output. The encoder's input frame is explicitly
+/// materialized for `rav1e`, so memory is not O(output width).
 ///
 /// # Errors
 /// Returns an error for unsupported codec features, ambiguous profiles,
@@ -347,6 +355,8 @@ pub fn transcode(
         quality: options.quality,
         speed: options.speed,
         threads: encoder_threads,
+        parallel_tiles: options.encoder_threads != 1,
+        chroma: options.chroma_subsampling,
     };
     encode_settings.validate()?;
     let target_size = Size::new(options.output_width, options.output_height)?;
@@ -440,7 +450,8 @@ pub fn transcode(
     let finished = graph.add_srgb8(resized)?;
 
     let budget = MemoryBudget::new(options.max_managed_bytes);
-    let mut output_sink = AvifSink::new(target_size, &budget)?;
+    let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
+    let mut output_sink = AvifSink::new(target_size, transparent, encode_settings, &budget)?;
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
     let processed = match options.precision {
@@ -464,7 +475,7 @@ pub fn transcode(
         )?,
     };
     let encode_started = Instant::now();
-    let encoded_avif = output_sink.finish(encode_settings)?;
+    let encoded_avif = output_sink.finish(&budget)?;
     let encode = encode_started.elapsed();
     let input_access = match processed.decoder.access {
         DecodeAccess::FullFrameFallback => SourceAccess::FullFrameFallback,

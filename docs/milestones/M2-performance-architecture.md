@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) measured and partly landed
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -127,4 +127,8 @@ Each ADR starts as Proposed, gets an experiment, and moves to Experimental only 
 
 ## Progress note — package 2 (2026-11-06)
 
-A standalone, quality-matched [encoder experiment](../research/encoder-experiment/README.md) measured `rav1e` assembly, threads, speed presets, 4:2:0 and bit depth on real photographs at equal SSIMULACRA2. Landed: `avif-write` enables `ravif`'s `asm` (bit-identical, 2.1–2.4× faster encode) and `threading`, and `TransformOptions::encoder_threads` exposes the thread count with 1 as the deterministic default. Result on the dev machine: 24 Mpx JPEG to 1600-wide AVIF in 1.55 s on one encoder thread and 0.44 s on all cores, down from 8.83 s at the start of M2; sequential throughput 13.3 and 27.9 images/s. Remaining in package 2: a direct `rav1e` sink that decouples AV1 tiles from threads and offers 4:2:0 10-bit (−0.5 % to −11.9 % bytes at equal quality), and the libavif-rs encoder comparison, blocked on that port's toolchain and API. See [M2-baseline.md](../benchmarks/M2-baseline.md).
+A standalone, quality-matched [encoder experiment](../research/encoder-experiment/README.md) measured `rav1e` assembly, threads, speed presets, 4:2:0 and bit depth on real photographs at equal SSIMULACRA2. Landed: `avif-write` enables `ravif`'s `asm` (bit-identical, 2.1–2.4× faster encode) and `threading`, and `TransformOptions::encoder_threads` exposes the thread count with 1 as the deterministic default. Result on the dev machine: 24 Mpx JPEG to 1600-wide AVIF in 1.55 s on one encoder thread and 0.44 s on all cores, down from 8.83 s at the start of M2; sequential throughput 13.3 and 27.9 images/s. Remaining in package 2: a direct `rav1e` sink that decouples AV1 tiles from threads and offers 4:2:0 10-bit (−0.5 % to −11.9 % bytes at equal quality), and the libavif-rs encoder comparison. Since 2026-11-06 libavif-rs supports GNU Linux x86-64 as well as macOS ARM64; it still needs nightly, an `unsafe` C ABI and libvmaf, so it can be measured in a standalone experiment but not yet adopted under ADR-0018. See [M2-baseline.md](../benchmarks/M2-baseline.md).
+
+## Progress note — package 2, direct `rav1e` sink (2026-11-06)
+
+Ferrixel now drives `rav1e` itself: rows become 10-bit YCbCr directly in the encoder's frame (no RGBA copy, frame size budgeted), AV1 tiles follow the output size so parallel output is machine-independent, and 4:2:0 is selectable. One-thread 4:4:4 output is byte-identical to the former `ravif` path; with all cores, 24 Mpx to 1600 wide takes 0.41 s at 4:4:4 and 0.39 s at 4:2:0. `ravif`'s tuning tables are kept in `src/av1_tuning.rs` with their BSD-3-Clause notice. Package 2 is complete except the libavif-rs encoder comparison. Open question for the default: 4:2:0 saves bytes at equal SSIMULACRA2 on all five experiment images, but Ferrixel still defaults to 4:4:4, as Sharp does.

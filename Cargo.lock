@@ -317,8 +317,10 @@ version = "0.1.0"
 dependencies = [
  "avif-decode",
  "avif-parse",
+ "avif-serialize",
  "jxl-oxide",
  "moxcms",
+ "rav1e",
  "ravif",
  "zune-jpeg",
 ]
@@ -947,7 +949,6 @@ dependencies = [
  "loop9",
  "quick-error",
  "rav1e",
- "rayon",
  "rgb",
 ]
 

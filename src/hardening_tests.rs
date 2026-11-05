@@ -45,24 +45,23 @@ fn truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn avif_decoder_rejects_truncated_container_without_panicking() {
-    use crate::avif_sink::{AvifSink, EncodeSettings};
+    use crate::avif_sink::{AvifSink, test_settings};
     use crate::codecs::avif::AvifSource;
     use crate::geometry::Size;
     use crate::memory::MemoryBudget;
 
-    let budget = MemoryBudget::new(4 * 4 * 4);
-    let mut sink = AvifSink::new(Size::new(4, 4).unwrap(), &budget).unwrap();
+    let budget = MemoryBudget::new(8 << 20);
+    let mut sink = AvifSink::new(
+        Size::new(4, 4).unwrap(),
+        false,
+        test_settings(80.0, 10),
+        &budget,
+    )
+    .unwrap();
     for row in 0..4 {
         sink.write_row(row, &[40, 60, 100, 255].repeat(4)).unwrap();
     }
-    let file = sink
-        .finish(EncodeSettings {
-            quality: 80.0,
-            speed: 10,
-            threads: 1,
-        })
-        .unwrap()
-        .bytes;
+    let file = sink.finish(&budget).unwrap().bytes;
     for length in [0, 1, 2, 4, 8, 16, file.len() / 2] {
         let truncated = &file[..length.min(file.len())];
         let result = catch_unwind(AssertUnwindSafe(|| AvifSource::new(truncated)));

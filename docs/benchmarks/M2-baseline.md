@@ -126,10 +126,28 @@ Five images: two real photographs downscaled to 1600 wide (a 12 Mpx phone photo 
 | `rav1e` direct, 4:4:4 10-bit | same bytes as `ravif` at the same threads (validates the direct path) | — |
 | `rav1e` direct, 4:2:0 10-bit, 1 thread | **−0.5 % to −11.9 % bytes** at equal score, 1.3–1.4× faster on 1600-wide images | follow-up: direct `rav1e` sink |
 | `rav1e` direct, 4:2:0 8-bit | +1.0–10.8 % bytes against the anchor | rejected; 10-bit stays |
-| libavif-rs encoders (libaom port, SVT-AV1) | not measured: nightly toolchain, `unsafe` C ABI, libvmaf and macOS ARM64 only today | open, see the [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
+| libavif-rs encoders (libaom port, SVT-AV1) | not measured yet; since `f3b2981` (2026-11-06) libavif-rs runs on macOS ARM64 and GNU Linux x86-64, but needs nightly, an `unsafe` C ABI and libvmaf, so only a standalone experiment can measure it | open, see the [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
 
 ### What the numbers say now
 
 1. **Encode is still the largest stage** with one thread (about 85 % of wall time), but with all cores decode plus transform (0.27 s at 24 Mpx) now cost more than encode (0.16 s). Packages 3–5 (SIMD transform, tiled parallel executor, decode-side scaling) become the next levers for large inputs.
 2. **Multi-threaded encoding costs bytes through tiles, not threads.** A direct `rav1e` adapter can set tiles from the image size and threads from the machine independently, which removes the trade-off and makes multi-threaded output machine-independent; it also unlocks 4:2:0 10-bit, the only knob that saved bytes at equal quality. That adapter is the remaining part of package 2.
 3. **For batch work one encoder thread per image is the efficient setting**: it has the smallest files and leaves cores to other images; the package 4 engine should schedule images, not tiles, when many are queued.
+
+## 2026-11-06 — Ferrixel's own `rav1e` sink
+
+`avif-write` now drives `rav1e` directly (`src/avif_sink.rs`) instead of through `ravif`. Rows are converted to BT.601 full-range 10-bit YCbCr on arrival and written into `rav1e`'s input frame, so the engine no longer keeps an RGBA copy of the output; the frame's exact size is charged to the budget. AV1 tiles depend only on the output size (one per 256×256 pixels, at most 64) whenever `encoder_threads` is not 1, so parallel output is the same on every machine and for every thread count. `ChromaSubsampling::Yuv420` (CLI `--chroma=420`) is new. With one thread and 4:4:4 the bytes are identical to the `ravif` path (sink candidate run of the [encoder experiment](../research/encoder-experiment/results/2026-11-06-apple-m1-ultra.md), and unchanged output sizes below).
+
+| image | 1 thread 4:4:4 | all cores 4:4:4 (`ravif`, tiles = threads) | all cores 4:4:4 (size tiles) | all cores 4:2:0 (size tiles) |
+| --- | ---: | ---: | ---: | ---: |
+| synthetic 1 Mpx JPEG | 1.154 s, 42 KiB | 0.195 s, 48 KiB | 0.180 s, 48 KiB | 0.133 s, 42 KiB |
+| synthetic 12 Mpx JPEG | 1.511 s, 87 KiB | 0.345 s, 92 KiB | 0.303 s, 93 KiB | 0.263 s, 75 KiB |
+| synthetic 24 Mpx JPEG | 1.547 s, 91 KiB | 0.436 s, 95 KiB | 0.414 s, 95 KiB | 0.385 s, 75 KiB |
+| synthetic 48 Mpx JPEG | 1.923 s, 105 KiB | 0.652 s, 111 KiB | 0.608 s, 112 KiB | 0.576 s, 87 KiB |
+| synthetic 12 Mpx AVIF | 1.570 s, 85 KiB | 0.407 s, 91 KiB | 0.356 s, 92 KiB | 0.317 s, 75 KiB |
+
+Peak RSS fell with the RGBA copy: 24 Mpx all cores 4:4:4 164.4 MiB (169.1 before), 4:2:0 130.5 MiB. Sequential throughput of 100 small images: 13.34 images/s with one thread, 13.62 with all cores at 4:4:4 and 18.07 at 4:2:0. The previous all-cores figure of 27.91 images/s came from `ravif` splitting each 320×213 image into four tiles; the size rule gives such images one tile, which keeps them smaller, and throughput across many images is the engine's job (work package 4), not per-image tiling.
+
+The 4:2:0 byte column is at equal quality *setting*, not equal quality. The quality-matched experiment measured 4:2:0 10-bit at −0.5 % to −15 % bytes against 4:4:4 at the same SSIMULACRA2 on five images.
+
+A denser rule was measured against the first candidate: 512×512 pixels per tile encoded 24 Mpx in 0.488 s with 93 KiB, 256×256 in 0.414 s with 95 KiB; the sink uses 256×256 for parallel encoding, and one-thread encoding keeps a single tile for the smallest files.

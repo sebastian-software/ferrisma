@@ -13,6 +13,8 @@
 #![cfg_attr(all(not(test), not(feature = "avif-write")), allow(dead_code))]
 
 #[cfg(feature = "avif-write")]
+mod av1_tuning;
+#[cfg(feature = "avif-write")]
 mod avif_sink;
 #[cfg(feature = "icc")]
 mod cms;

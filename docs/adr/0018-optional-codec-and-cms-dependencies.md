@@ -12,7 +12,7 @@ The research notes of 2026-10-31 named candidates but chose no dependency. PR #1
 
 **Strategic direction.** Ferrixel's AVIF and JPEG XL codecs are meant to come from the sister projects [libavif-rs](https://github.com/sebastian-software/libavif-rs) and [libjxl-rs](https://github.com/sebastian-software/libjxl-rs): mechanical, reference-equivalent Rust ports of libavif (with libaom, dav1d and SharpYUV) and libjxl. Their state on 2026-11-05:
 
-- **libavif-rs:** complete port with Rust AOM, dav1d and SharpYUV; validated as a whole pipeline on macOS ARM64, Linux x86-64 admission in progress. It exposes the original unsafe C ABI, requires nightly Rust and sets `publish = false`.
+- **libavif-rs:** complete port with Rust AOM, dav1d and SharpYUV; validated as a whole pipeline on macOS ARM64 and, since 2026-11-06 (`f3b2981`), on GNU Linux x86-64 for six Cargo feature sets. It exposes the original unsafe C ABI, requires nightly Rust and sets `publish = false`.
 - **libjxl-rs:** complete public decoder API and decoder C ABI with exact parity against libjxl; thread runners in review; no encoder yet. Its Rust API is provisional (`jxl::jxl` module tree) and the crate is not publishable.
 - **libwebp-rs:** does not exist yet. WebP input and output are planned as a third port of libwebp 1.6.0 following the libjxl-rs method ([plan](../research/2026-11-05-libwebp-port-plan.md)); the libavif-rs repository already pins the same libwebp revision for SharpYUV.
 
@@ -32,7 +32,7 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | --- | --- | --- | --- |
 | `jpeg-read` | `zune-jpeg` 0.5 | JPEG input (full-frame fallback) | Experimental, ADR-0012 |
 | `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | **Interim** until libjxl-rs is adoptable (ADR-0012) |
-| `avif-write` | `ravif` 0.13 / `rav1e` | First and only output encoder | **Interim choice for M1** (permissive, pure Rust); target: libavif-rs |
+| `avif-write` | `rav1e` 0.8 / `avif-serialize` 0.8 | First and only output encoder, driven directly since 2026-11-06 | **Interim choice** (permissive, Rust plus assembly); target: libavif-rs |
 | `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Interim, provisional**; target: libavif-rs |
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | **Chosen for M1 evaluation**; color fidelity still unverified |
 | `webp-read`, `webp-write` (planned) | libwebp-rs (planned port) | WebP input and output, lossy and lossless | **Target only, no interim crate**; see the [evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md) |
@@ -86,3 +86,5 @@ libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pi
 - 2026-11-05 — Made libavif-rs and libjxl-rs the replacement target for all AVIF/JPEG XL codecs, defined adoption gates and demoted `rav1d-safe` to a fallback.
 - 2026-11-05 — Recorded JPEG as input-only, the planned libwebp-rs port as the WebP target with no interim WebP dependency, and `zenjpeg`/`zenwebp` as blocked by the license gate.
 - 2026-11-06 — `avif-write` now enables `ravif`'s `asm` and `threading` features (M2 work package 2). `rav1e`'s assembly is bit-identical to its Rust fallbacks on all five images of the [encoder experiment](../research/encoder-experiment/results/2026-11-06-apple-m1-ultra.md) and encodes 2.1–2.4× faster on Apple Silicon. Consequences: the output encoder now links hand-written assembly (compiled with `cc` on aarch64 and NASM on x86-64, so `avif-write` builds need NASM on x86-64 like `avif-read` already did), and `rayon` becomes a runtime dependency of the encoder. No new crate enters the lockfile; `rayon`, `cc` and `nasm-rs` were already present.
+- 2026-11-06 — libavif-rs admitted GNU Linux x86-64 (`f3b2981`), which covers Ferrixel's CI target. Gate (d) is now satisfiable for AVIF; gates (a) safe API and (b) stable toolchain remain open, and the libvmaf build requirement is an additional obstacle.
+- 2026-11-06 — `avif-write` drives `rav1e` directly through Ferrixel's own sink and writes the container with `avif-serialize`; `ravif` remains only as a dev-dependency for one test fixture. Reason: `ravif` derives AV1 tiles from the thread count and supports neither 4:2:0 nor tile control. The sink keeps `ravif`'s quantizer curve and speed overrides (`src/av1_tuning.rs`, BSD-3-Clause notice retained) because the encoder experiment found `rav1e`'s plain presets 1.6–2× slower at equal SSIMULACRA2; with them the direct path produces byte-identical output to `ravif`.

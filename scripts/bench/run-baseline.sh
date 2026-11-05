@@ -30,6 +30,7 @@ profile=${BENCH_PROFILE:-assume-srgb}
 max_input_mb=${BENCH_MAX_INPUT_MB:-512}
 precision=${BENCH_PRECISION:-f32}
 encoder_threads=${BENCH_ENCODER_THREADS:-1}
+chroma=${BENCH_CHROMA:-444}
 
 for tool in hyperfine python3; do
   command -v "$tool" >/dev/null || { echo "$tool is required" >&2; exit 2; }
@@ -63,7 +64,7 @@ trap 'rm -rf "$tmp"' EXIT
 bin=$repo/target/release/ferrixel
 # Bash 3.2 (macOS) treats an expanded empty array as unbound under set -u.
 ferrixel_args=(${policy_args[@]+"${policy_args[@]}"} ${filter_args[@]+"${filter_args[@]}"} ${precision_args[@]+"${precision_args[@]}"}
-  "--quality=$quality" "--speed=$speed" "--encoder-threads=$encoder_threads" "--max-input-mb=$max_input_mb")
+  "--quality=$quality" "--speed=$speed" "--encoder-threads=$encoder_threads" "--chroma=$chroma" "--max-input-mb=$max_input_mb")
 
 sharp_available=0
 if [[ -n "${BENCH_SHARP_NODE_MODULES:-}" ]] \
@@ -95,7 +96,7 @@ command -v vipsthumbnail >/dev/null && vips_available=1
     echo "sharp: not available (set BENCH_SHARP_NODE_MODULES)"
   fi
   [[ $vips_available == 1 ]] && vipsthumbnail --version || echo "libvips: not available"
-  echo "settings: width=$width small_width=$small_width quality=$quality speed=$speed filter=$filter profile=$profile precision=$precision encoder_threads=$encoder_threads runs=$runs"
+  echo "settings: width=$width small_width=$small_width quality=$quality speed=$speed filter=$filter profile=$profile precision=$precision encoder_threads=$encoder_threads chroma=$chroma runs=$runs"
 } > "$out/environment.txt"
 
 dimensions() {

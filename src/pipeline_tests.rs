@@ -13,7 +13,7 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
         quality: 85.0,
         speed: 9,
-        max_managed_bytes: 128 * 1024,
+        max_managed_bytes: 1024 * 1024,
         ..TransformOptions::default()
     };
     let image = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
@@ -22,7 +22,9 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.decoder_full_frame_buffers, 1);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
-    assert_eq!(image.report.encoder_output_frame_bytes, 3 * 3 * 4);
+    // rav1e's 10-bit 4:4:4 input frame, including its padding, is charged.
+    assert!(image.report.encoder_output_frame_bytes >= 3 * 3 * 3 * 2);
+    assert!(image.report.peak_managed_bytes >= image.report.encoder_output_frame_bytes);
     // Stage timers are observations: the whole run covers every stage, and
     // encoding a real frame takes measurable time even on a tiny image.
     let timings = image.report.timings;
@@ -100,7 +102,7 @@ fn jpeg_xl_icc_can_be_explicitly_transformed_and_encoded() {
         output_height: 2,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
         speed: 9,
-        max_managed_bytes: 128 * 1024,
+        max_managed_bytes: 1024 * 1024,
         ..TransformOptions::default()
     };
     let image = transcode(

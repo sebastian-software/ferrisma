@@ -335,25 +335,25 @@ impl DecodeSource for AvifSource<'_> {
 #[cfg(all(test, feature = "avif-write"))]
 mod tests {
     use super::AvifSource;
-    use crate::avif_sink::{AvifSink, EncodeSettings};
+    use crate::avif_sink::{AvifSink, test_settings};
     use crate::decoder::{DecodeSource, DecodedRow, SampleType};
     use crate::error::Error;
     use crate::geometry::{Rect, Size};
     use crate::memory::MemoryBudget;
 
     fn encoded() -> Vec<u8> {
-        let budget = MemoryBudget::new(1 << 20);
-        let mut sink = AvifSink::new(Size::new(6, 4).unwrap(), &budget).unwrap();
+        let budget = MemoryBudget::new(8 << 20);
+        let mut sink = AvifSink::new(
+            Size::new(6, 4).unwrap(),
+            false,
+            test_settings(90.0, 10),
+            &budget,
+        )
+        .unwrap();
         for row in 0..4 {
             sink.write_row(row, &[200, 40, 90, 255].repeat(6)).unwrap();
         }
-        sink.finish(EncodeSettings {
-            quality: 90.0,
-            speed: 10,
-            threads: 1,
-        })
-        .unwrap()
-        .bytes
+        sink.finish(&budget).unwrap().bytes
     }
 
     fn nclx_offset(file: &[u8]) -> usize {
