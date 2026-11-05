@@ -6,6 +6,7 @@ use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::graph::{Graph, NodeId, NodeKind};
 use crate::memory::MemoryBudget;
+use crate::orientation::Orientation;
 use crate::plan::plan_region;
 use crate::surface::PixelFormat;
 
@@ -99,10 +100,17 @@ pub(crate) struct DecodeReport {
     pub peak_engine_managed_bytes: usize,
     /// Codec-managed compressed data, render cache, and scratch are not capped.
     pub opaque_codec_memory_unbounded: bool,
+    /// Engine-owned sample buffers materialized by source wrappers, such as
+    /// the reorientation region (ADR-0019). Zero for plain decoders.
+    pub engine_buffer_bytes: usize,
 }
 
 pub(crate) trait DecodeSource {
     fn info(&self) -> &DecoderInfo;
+    /// How emitted (stored-order) samples must be reoriented for display.
+    fn orientation(&self) -> Orientation {
+        Orientation::IDENTITY
+    }
     /// Borrows each output row only for the duration of the sink callback.
     fn read_region(
         &mut self,

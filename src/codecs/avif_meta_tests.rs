@@ -111,6 +111,7 @@ fn reads_only_the_primary_items_color_extent_and_transforms() {
             rotation: 3,
             mirror: Some(1),
             clean_aperture: true,
+            mirror_before_rotation: false,
         }
     );
 }
@@ -412,5 +413,24 @@ fn contradictory_container_and_bitstream_signals_fail_closed() {
     assert_eq!(
         rendered_cicp(&with_nclx(300, 13, 6, true), sequence(2, 2, 6, true)),
         Err(Error::UnsupportedColorEncoding)
+    );
+}
+
+#[test]
+fn records_mirror_before_rotation_association_order() {
+    let mirror_first = file(
+        &[boxed(*b"imir", &[0]), boxed(*b"irot", &[1])],
+        &[(1, true, 1), (1, true, 2)],
+    );
+    let parsed = primary_properties(&mirror_first).unwrap();
+    assert!(parsed.mirror_before_rotation);
+    let rotation_first = file(
+        &[boxed(*b"irot", &[1]), boxed(*b"imir", &[0])],
+        &[(1, true, 1), (1, true, 2)],
+    );
+    assert!(
+        !primary_properties(&rotation_first)
+            .unwrap()
+            .mirror_before_rotation
     );
 }

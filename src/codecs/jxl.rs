@@ -109,6 +109,7 @@ impl DecodeSource for JxlSource {
             known_full_frame_buffers: 0,
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
+            engine_buffer_bytes: 0,
         })
     }
 }

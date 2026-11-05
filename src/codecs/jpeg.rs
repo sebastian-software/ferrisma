@@ -10,10 +10,12 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
+use crate::orientation::Orientation;
 
 pub(crate) struct JpegSource<'a> {
     bytes: &'a [u8],
     info: DecoderInfo,
+    orientation: Orientation,
 }
 fn decoder(bytes: &[u8]) -> JpegDecoder<ZCursor<&[u8]>> {
     let options = DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGB);
@@ -31,17 +33,18 @@ impl<'a> JpegSource<'a> {
         if decoder.output_colorspace() != Some(ColorSpace::RGB) {
             return Err(Error::UnsupportedCodecLayout);
         }
-        // Applying EXIF orientation is not implemented; never emit a rotated
-        // or mirrored image as if it were upright.
-        if let Some(exif) = decoder.exif() {
-            match exif_orientation(exif) {
-                Ok(None | Some(1)) => {}
-                Ok(Some(_)) => return Err(Error::UnsupportedImageTransform),
-                Err(()) => return Err(Error::DecodeFailed),
+        // EXIF orientation describes how the stored samples are displayed;
+        // the pipeline applies it (ADR-0019). Unknown values fail closed.
+        let orientation = match decoder.exif().map(|exif| exif_orientation(exif)) {
+            None | Some(Ok(None)) => Orientation::IDENTITY,
+            Some(Ok(Some(value))) => {
+                Orientation::from_exif(value).ok_or(Error::UnsupportedImageTransform)?
             }
-        }
+            Some(Err(())) => return Err(Error::DecodeFailed),
+        };
         Ok(Self {
             bytes,
+            orientation,
             info: DecoderInfo {
                 size,
                 layout: ChannelLayout::Rgb,
@@ -111,6 +114,10 @@ impl DecodeSource for JpegSource<'_> {
         &self.info
     }
 
+    fn orientation(&self) -> Orientation {
+        self.orientation
+    }
+
     fn read_region(
         &mut self,
         region: Rect,
@@ -167,6 +174,7 @@ impl DecodeSource for JpegSource<'_> {
             known_full_frame_buffers: 1,
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
+            engine_buffer_bytes: 0,
         })
     }
 }
@@ -244,17 +252,26 @@ mod tests {
     }
 
     #[test]
-    fn oriented_jpeg_fails_closed_and_upright_jpeg_is_accepted() {
-        for orientation in 2..=8 {
+    fn exif_orientation_is_reported_and_invalid_values_fail_closed() {
+        use crate::decoder::DecodeSource;
+        use crate::orientation::Orientation;
+        for orientation in 1..=8 {
             let file = with_exif(&tiff(true, 0x0112, 3, 1, orientation));
+            let source = JpegSource::new(&file).unwrap();
             assert_eq!(
-                JpegSource::new(&file).err(),
-                Some(Error::UnsupportedImageTransform),
-                "orientation {orientation}"
+                source.orientation(),
+                Orientation::from_exif(orientation).unwrap()
             );
         }
-        assert!(JpegSource::new(&with_exif(&tiff(false, 0x0112, 3, 1, 1))).is_ok());
-        assert!(JpegSource::new(&with_exif(&tiff(true, 0x010f, 2, 4, 0))).is_ok());
+        for invalid in [0, 9] {
+            assert_eq!(
+                JpegSource::new(&with_exif(&tiff(false, 0x0112, 3, 1, invalid))).err(),
+                Some(Error::UnsupportedImageTransform)
+            );
+        }
+        let untagged_file = with_exif(&tiff(true, 0x010f, 2, 4, 0));
+        let untagged = JpegSource::new(&untagged_file).unwrap();
+        assert!(untagged.orientation().is_identity());
         assert_eq!(
             JpegSource::new(&with_exif(b"MM\0*garbage")).err(),
             Some(Error::DecodeFailed)

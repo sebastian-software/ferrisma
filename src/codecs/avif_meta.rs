@@ -41,10 +41,14 @@ pub(crate) struct PrimaryProperties {
     pub extent: Option<(u32, u32)>,
     /// Anticlockwise rotation in quarter turns (`irot`).
     pub rotation: u8,
-    /// Mirror axis (`imir`): 0 = vertical axis, 1 = horizontal axis.
+    /// Mirror axis (`imir`): 0 exchanges top and bottom, 1 exchanges left
+    /// and right (ISO/IEC 23008-12:2022 6.5.12).
     pub mirror: Option<u8>,
     /// A clean-aperture crop (`clap`) is associated.
     pub clean_aperture: bool,
+    /// `imir` is associated before `irot`. Transformative properties apply
+    /// in association order, so this is a different transform.
+    pub mirror_before_rotation: bool,
 }
 
 /// Color configuration from the AV1 sequence header.
@@ -255,7 +259,10 @@ fn read_property(property: &IsoBox<'_>, result: &mut PrimaryProperties) -> Resul
             }
             result.extent = Some((reader.u32()?, reader.u32()?));
         }
-        b"irot" => result.rotation = reader.u8()? & 0b11,
+        b"irot" => {
+            result.mirror_before_rotation |= result.mirror.is_some();
+            result.rotation = reader.u8()? & 0b11;
+        }
         b"imir" => result.mirror = Some(reader.u8()? & 1),
         b"clap" => result.clean_aperture = true,
         _ => {}

@@ -10,6 +10,7 @@ use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
 use crate::memory::MemoryBudget;
+use crate::orientation::OrientedSource;
 use crate::quality_execute::execute_quality_srgb8;
 
 pub use crate::quality::Filter as ResizeFilter;
@@ -92,6 +93,9 @@ pub struct ProcessingReport {
     pub decoder_requests: u32,
     pub decoder_full_frame_buffers: u32,
     pub engine_full_frame_intermediates: u32,
+    /// Engine-managed bytes materialized to reorient the input; zero for
+    /// upright input.
+    pub orientation_buffer_bytes: usize,
     pub encoder_output_frame_bytes: usize,
     pub peak_managed_bytes: usize,
     pub opaque_decoder_memory: bool,
@@ -304,6 +308,12 @@ pub fn transcode(
         ));
     }
     let source = open_source(encoded, format, options.max_input_pixels)?;
+    // Present an upright image to the graph; crops are display coordinates.
+    let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
+        source
+    } else {
+        Box::new(OrientedSource::new(source)?)
+    };
     let dimensions = source.info().size;
     let pixels = u64::from(dimensions.width) * u64::from(dimensions.height);
     if pixels > options.max_input_pixels {
@@ -398,6 +408,7 @@ pub fn transcode(
         decoder_requests: processed.decoder_requests,
         decoder_full_frame_buffers: processed.decoder.known_full_frame_buffers,
         engine_full_frame_intermediates: processed.explicit_full_frame_intermediates,
+        orientation_buffer_bytes: processed.decoder.engine_buffer_bytes,
         encoder_output_frame_bytes: encoded_avif.frame_materialization_bytes,
         peak_managed_bytes: budget.snapshot().peak,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,

@@ -48,6 +48,7 @@ mod graph;
 )]
 mod linear_srgb;
 mod memory;
+mod orientation;
 #[cfg(feature = "avif-write")]
 pub mod pipeline;
 mod plan;

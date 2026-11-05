@@ -164,3 +164,43 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
     .unwrap();
     assert_eq!(&again.avif_bytes[4..8], b"ftyp");
 }
+
+#[test]
+fn exif_rotated_jpeg_is_cropped_in_display_coordinates() {
+    let rotated = include_bytes!("../tests/fixtures/orientation/jpeg-6.jpg");
+    let options = TransformOptions {
+        output_width: 4,
+        output_height: 6,
+        // The stored image is 24×16; EXIF 6 displays it as 16×24.
+        crop: Some(crate::pipeline::Crop {
+            x: 0,
+            y: 4,
+            width: 16,
+            height: 20,
+        }),
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        speed: 10,
+        ..TransformOptions::default()
+    };
+    let output = transcode(rotated, ImageFormat::Jpeg, options).unwrap();
+    assert_eq!(&output.avif_bytes[4..8], b"ftyp");
+    assert_eq!(output.report.orientation_buffer_bytes, 16 * 20 * 3);
+    // The same crop extends past the stored height if orientation is ignored.
+    let upright = TransformOptions {
+        crop: Some(crate::pipeline::Crop {
+            x: 0,
+            y: 4,
+            width: 16,
+            height: 20,
+        }),
+        ..options
+    };
+    assert!(
+        transcode(
+            include_bytes!("../tests/fixtures/orientation/jpeg-1.jpg"),
+            ImageFormat::Jpeg,
+            upright,
+        )
+        .is_err()
+    );
+}

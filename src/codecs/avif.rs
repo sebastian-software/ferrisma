@@ -9,7 +9,8 @@
 //! and range and keeps the coded primaries and transfer. The adapter reports
 //! that rendered meaning as CICP `[primaries, transfer, 0, 1]` and any `colr`
 //! ICC profile. It fails closed when the container `nclx` disagrees with the
-//! bitstream, for monochrome input and for `irot`/`imir`/`clap` transforms.
+//! bitstream, for monochrome input and for `clap`. `irot`/`imir` are reported
+//! as the source orientation and applied by the pipeline (ADR-0019).
 //! 10/12-bit input is emitted as normalized float samples.
 
 use avif_decode::{Decoder, Image};
@@ -22,6 +23,7 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
+use crate::orientation::Orientation;
 
 /// Whether `avif-decode` applies the same YUV matrix for both codes. It
 /// decodes unspecified matrix coefficients as BT.601, and BT.470BG uses the
@@ -69,6 +71,7 @@ pub(crate) struct AvifSource<'a> {
     bytes: &'a [u8],
     image: Option<Image>,
     info: DecoderInfo,
+    orientation: Orientation,
 }
 
 impl<'a> AvifSource<'a> {
@@ -97,9 +100,13 @@ impl<'a> AvifSource<'a> {
         // decoding. The downstream decoder parses the AVIF again.
         drop(parsed);
         let properties = primary_properties(bytes).map_err(|_| Error::DecodeFailed)?;
-        if properties.rotation != 0 || properties.mirror.is_some() || properties.clean_aperture {
+        // irot/imir are applied by the pipeline (ADR-0019); clap and an imir
+        // that precedes irot are not supported yet.
+        if properties.clean_aperture || properties.mirror_before_rotation {
             return Err(Error::UnsupportedImageTransform);
         }
+        let orientation = Orientation::from_avif(properties.rotation, properties.mirror)
+            .ok_or(Error::UnsupportedImageTransform)?;
         if sequence.monochrome {
             return Err(Error::UnsupportedCodecLayout);
         }
@@ -140,6 +147,7 @@ impl<'a> AvifSource<'a> {
             bytes,
             image: None,
             info,
+            orientation,
         })
     }
 
@@ -269,6 +277,10 @@ impl DecodeSource for AvifSource<'_> {
         &self.info
     }
 
+    fn orientation(&self) -> Orientation {
+        self.orientation
+    }
+
     fn read_region(
         &mut self,
         region: Rect,
@@ -315,6 +327,7 @@ impl DecodeSource for AvifSource<'_> {
             known_full_frame_buffers: 1,
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
+            engine_buffer_bytes: 0,
         })
     }
 }
