@@ -97,17 +97,23 @@ The encoder transform unit `encoder_transforms.cc` calls the archive's own
 Symmetric5, SlowSymmetric3, GaborishInverse, TransformFromPixels,
 DCFromLowestFrequencies, AFVDCT4x4, ComputePremulAbsorb, LinearRGBRowToXYB
 and ToXYB objects, so the compared words are those the original encoder uses.
-Competing NaN payloads are the one exception. In the 8-point and larger DCTs
-of TransformFromPixels, the ordinary O3 archive object and its ASan
-counterpart select different operands of the same additions, so neither graph
-is a reference that one implementation could match. Those requests use the
-observation unit `encoder_transforms_unit.cc`, which instantiates the pristine
-enc_transforms-inl.h template with source-scoped -fno-unroll-loops, O3,
-default contraction and all sanitizers, as dct.cc does for the decoder. Both
-graphs agree there, and the Rust forward DCT matches it. AFVDCT4x4 and
-DCFromLowestFrequencies agree in both archive graphs, including a signaling
-NaN that the archive passes through a multiplication by one unquieted, so
-their competing requests stay on the archive. The test-only GaborishKernel is
+Competing NaN payloads are the one exception. The ordinary O3 archive object
+and its ASan counterpart select different operands of the same additions in
+the 8-point and larger DCTs of TransformFromPixels on native AArch64, and in
+the AFVDCT4x4 basis sum (also inlined into AFVTransformFromPixels) on native
+Linux x86-64. Neither graph is then a reference that one implementation could
+match. Those requests use the observation unit `encoder_transforms_unit.cc`,
+which instantiates the pristine enc_transforms-inl.h template with
+source-scoped -fno-unroll-loops, O3, default contraction and all sanitizers,
+as dct.cc does for the decoder. Both graphs agree there on both targets. Its
+AFVDCT4x4 loop keeps the accumulator as the first addition operand: the x86-64
+object adds the product into the accumulator register (SSE ADDSS returns its
+first source when both operands are NaN), and AArch64 FADD returns its first
+operand for two quiet NaNs. The Rust accumulation is an out-of-line
+accumulator-first addition. DCFromLowestFrequencies agrees in both archive
+graphs on both targets, including a signaling NaN that the archive passes
+through a multiplication by one unquieted, so its competing requests stay on
+the archive. The test-only GaborishKernel is
 extracted verbatim from enc_gaborish_test.cc and hash-checked.
 `tools/encoder_transforms_contraction.py` records the contraction map of
 these five archive objects: it reruns each object's compile command to emit IR

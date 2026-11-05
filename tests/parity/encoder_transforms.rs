@@ -469,11 +469,12 @@ fn encoder_afvdct4x4_matches_impulses_noise_and_exceptional_values() {
 
 // Competing NaN payloads: identity, DCT2X2, DCT4X4, the split 4x8/8x4
 // blocks, all AFV kinds, rectangular DCTs, the AFV basis sum, and the
-// reinterpreting IDCT. The ordinary and ASan archive objects of
-// TransformFromPixels choose different operands in their 8-point and larger
-// DCTs, so those requests use the dedicated `etx-unit-pixels` instantiation
-// of the pristine template (see encoder_transforms_unit.cc); AFVDCT4x4 and
-// DCFromLowestFrequencies agree in both archive graphs and use the archive.
+// reinterpreting IDCT. The ordinary and ASan archive objects choose different
+// operands in TransformFromPixels' 8-point and larger DCTs on AArch64 and in
+// the AFV basis sum on x86-64, so TransformFromPixels and AFVDCT4x4 requests
+// use the dedicated `etx-unit-*` instantiation of the pristine template (see
+// encoder_transforms_unit.cc). DCFromLowestFrequencies agrees in both archive
+// graphs on both targets and uses the archive.
 #[test]
 fn encoder_transforms_competing_nan_payloads_match_original_operand_order() {
     let pairs = [
@@ -514,7 +515,7 @@ fn encoder_transforms_competing_nan_payloads_match_original_operand_order() {
             let mut v = [bits(0.125); 16];
             v[first] = a;
             v[second] = b;
-            let mut s = String::from("etx-afv");
+            let mut s = String::from("etx-unit-afv");
             push_words(&mut s, &v);
             cases.push(s);
         }

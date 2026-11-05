@@ -412,12 +412,17 @@ const K4X4_AFV_BASIS_TRANSPOSE: [[f32; 16]; 16] = [
     ],
 ];
 
+// MulAdd(px, basis, scalar)'s binary32 addition. Keep the accumulator as the
+// first operand out of line: when it and the product hold different NaNs, the
+// stable reference instantiations select the accumulator's on native x86-64
+// (SSE keeps the first source) and on AArch64.
+#[inline(never)]
+fn afv_accumulate(scalar: f32, product: f32) -> f32 {
+    scalar + product
+}
+
 /// Original AFVDCT4x4 with one Highway lane: each coefficient accumulates
 /// MulAdd(pixel, basis, scalar) over the 16 pixels in order.
-#[expect(
-    clippy::assign_op_pattern,
-    reason = "Keep MulAdd's product-first addition operand order."
-)]
 pub fn afvdct4x4(pixels: &[f32], coeffs: &mut [f32]) {
     // HWY_CAPPED(float, 16) has one lane on the scalar target.
     const LANES: usize = 1;
@@ -427,7 +432,7 @@ pub fn afvdct4x4(pixels: &[f32], coeffs: &mut [f32]) {
         for j in 0..16 {
             let px = pixels[j];
             let basis = K4X4_AFV_BASIS_TRANSPOSE[j][i];
-            scalar = scalar_mul(px, basis) + scalar;
+            scalar = afv_accumulate(scalar, scalar_mul(px, basis));
         }
         coeffs[i] = scalar;
         i += LANES;

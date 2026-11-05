@@ -58,8 +58,9 @@ The original archive and existing fixture flags remain unchanged.
 
 The encoder transform unit `encoder_transforms.cc` calls the archive's own
 transform, Gaborish, convolution and XYB objects. Competing NaN payloads in
-TransformFromPixels' 8-point and larger DCTs are selected differently by the
-ordinary and instrumented archive objects; only those requests use the
+TransformFromPixels' 8-point and larger DCTs (AArch64) and in the AFVDCT4x4
+basis sum (x86-64) are selected differently by the ordinary and instrumented
+archive objects; only those requests use the
 separate `encoder_transforms_unit.cc`, which instantiates the pristine
 template with source-scoped `-fno-unroll-loops` as for dct.cc, with O3,
 default contraction and all sanitizers retained. The original archive keeps

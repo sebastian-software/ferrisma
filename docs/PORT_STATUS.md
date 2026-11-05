@@ -206,11 +206,16 @@ million words are compared, most of them scratch and canary words.
 `tests/enc_gaborish.rs` also runs TestZero and TestFlat with the original
 VerifyRelativeError tolerances in ordinary builds.
 
-Competing NaN payloads in the 8-point and larger DCTs of TransformFromPixels
-are register-allocation choices that differ between the ordinary and ASan
-archive objects. Those 432 TransformFromPixels requests run against the
-observation unit `encoder_transforms_unit.cc`, the pristine template with
-scoped -fno-unroll-loops, on which both graphs agree; the AFVDCT4x4 and
+Competing NaN payloads are register-allocation choices that differ between
+the ordinary and ASan archive objects: in the 8-point and larger DCTs of
+TransformFromPixels on AArch64, and in the AFVDCT4x4 basis sum on Linux
+x86-64 (where the first hosted run failed 18 ordinary and 42 instrumented
+requests). Those 432 TransformFromPixels and 24 AFVDCT4x4 requests run
+against the observation unit `encoder_transforms_unit.cc`, the pristine
+template with scoped -fno-unroll-loops, on which both graphs agree. Its
+AFVDCT4x4 loop adds each product into the accumulator, so the accumulator's
+NaN wins on both targets (x86-64 ADDSS returns its first source); the Rust
+`afv_accumulate` keeps that operand order out of line. The 108
 DCFromLowestFrequencies competing requests run on the archive (ADR 0002).
 
 Local results on native macOS AArch64: the eleven groups pass against the

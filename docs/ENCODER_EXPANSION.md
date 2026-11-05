@@ -769,8 +769,9 @@ Progress:
   by `tools/encoder_transforms_contraction.py` against IR and the native
   objects: four fmuladd sites (two AFV DC mixes, SlowSymmetric3 and the
   unported SlowSeparable5), fused on AArch64 and separate on x86-64. Competing
-  NaN payloads in the 8-point and larger forward DCTs differ between the
-  ordinary and ASan archive objects and use a dedicated observation unit. See
+  NaN payloads in the 8-point and larger forward DCTs (AArch64) and in the
+  AFVDCT4x4 basis sum (x86-64) differ between the ordinary and ASan archive
+  objects and use a dedicated observation unit. See
   [PORT_STATUS.md](PORT_STATUS.md#encoder-transforms-gaborish-and-xyb-2026-11-05).
   The next PR translates the quantizer field selection, InitialQuantField,
   AdjustQuantField, CfLHeuristics and AcStrategyHeuristics.
