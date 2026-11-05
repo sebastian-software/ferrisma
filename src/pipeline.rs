@@ -2,6 +2,7 @@
 //! private. Output is SDR AVIF; HDR and unsupported ICC/profiles fail closed.
 
 use std::fmt;
+use std::time::{Duration, Instant};
 
 use crate::avif_sink::{AvifSink, EncodeSettings};
 use crate::color::ColorEncoding;
@@ -86,6 +87,26 @@ pub enum SourceAccess {
     CodecRegionRequest,
 }
 
+/// Wall-clock time per pipeline stage, measured with `std::time::Instant`.
+/// These are observations of one run on one machine, not throughput claims;
+/// the stages overlap only where documented on each field.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StageTimings {
+    /// Option validation, container and header parsing, orientation and ICC
+    /// setup, graph construction: everything before the first decoded pixel.
+    pub open: Duration,
+    /// Time inside the source's region reader excluding the transform
+    /// callback: codec decode, reorientation and ICC conversion.
+    pub decode: Duration,
+    /// Transfer decode, resampling, quantization and copying rows into the
+    /// encoder surface.
+    pub transform: Duration,
+    /// Encoding the materialized output frame.
+    pub encode: Duration,
+    /// From entry to return; at least the sum of the other stages.
+    pub total: Duration,
+}
+
 /// Report known materializations separately from opaque codec memory.
 #[derive(Clone, Copy, Debug)]
 pub struct ProcessingReport {
@@ -100,6 +121,7 @@ pub struct ProcessingReport {
     pub peak_managed_bytes: usize,
     pub opaque_decoder_memory: bool,
     pub opaque_encoder_memory: bool,
+    pub timings: StageTimings,
 }
 
 #[derive(Debug)]
@@ -289,6 +311,7 @@ pub fn transcode(
     format: ImageFormat,
     options: TransformOptions,
 ) -> Result<Output, ProcessingError> {
+    let started = Instant::now();
     EncodeSettings {
         quality: options.quality,
         speed: options.speed,
@@ -386,6 +409,7 @@ pub fn transcode(
 
     let budget = MemoryBudget::new(options.max_managed_bytes);
     let mut output_sink = AvifSink::new(target_size, &budget)?;
+    let open = started.elapsed();
     let processed = execute_quality_srgb8(
         &graph,
         finished,
@@ -395,10 +419,12 @@ pub fn transcode(
         &budget,
         |y, row| output_sink.write_row(y, row),
     )?;
+    let encode_started = Instant::now();
     let encoded_avif = output_sink.finish(EncodeSettings {
         quality: options.quality,
         speed: options.speed,
     })?;
+    let encode = encode_started.elapsed();
     let input_access = match processed.decoder.access {
         DecodeAccess::FullFrameFallback => SourceAccess::FullFrameFallback,
         DecodeAccess::CodecRegionRequest => SourceAccess::CodecRegionRequest,
@@ -413,6 +439,13 @@ pub fn transcode(
         peak_managed_bytes: budget.snapshot().peak,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
         opaque_encoder_memory: encoded_avif.opaque_encoder_memory_unbounded,
+        timings: StageTimings {
+            open,
+            decode: processed.source_time,
+            transform: processed.transform_time,
+            encode,
+            total: started.elapsed(),
+        },
     };
     Ok(Output {
         avif_bytes: encoded_avif.bytes,

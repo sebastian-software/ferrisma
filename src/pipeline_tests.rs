@@ -23,6 +23,11 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
     assert_eq!(image.report.decoder_full_frame_buffers, 1);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
     assert_eq!(image.report.encoder_output_frame_bytes, 3 * 3 * 4);
+    // Stage timers are observations: the whole run covers every stage, and
+    // encoding a real frame takes measurable time even on a tiny image.
+    let timings = image.report.timings;
+    assert!(timings.total >= timings.open + timings.decode + timings.transform + timings.encode);
+    assert!(timings.encode > std::time::Duration::ZERO);
 }
 
 #[test]

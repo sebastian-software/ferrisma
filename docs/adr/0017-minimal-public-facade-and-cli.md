@@ -21,7 +21,7 @@ Verified facts (2026-11-05, `main` at 9291c33):
 
 Keep exactly one public, intentionally small facade for M1:
 
-1. **Surface.** `pipeline::{transcode, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, Output, ProcessingReport, SourceAccess, ProcessingError, ProcessingErrorKind}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
+1. **Surface.** `pipeline::{transcode, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, Output, ProcessingReport, StageTimings, SourceAccess, ProcessingError, ProcessingErrorKind}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
 2. **Color intent is explicit.** `InputProfilePolicy::Strict` is the default. `AssumeSrgbIfMissing` applies only when the decoder reports neither rendered ICC nor CICP; `UseRenderedIcc` requires the `icc` feature. The facade never guesses a profile.
 3. **Resources are explicit options.** Managed-memory budget, compressed-input byte limit and decoded-pixel limit are caller options with conservative defaults. The report keeps engine-managed memory, known codec materializations and opaque codec/encoder memory separate.
 4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures. `ProcessingError::kind()` returns a `#[non_exhaustive]` `ProcessingErrorKind` (invalid options, input limit, disabled feature, malformed input, unsupported input, unsupported color, resource exhaustion, cancellation, encoder failure, internal) so callers can match without parsing messages; the message keeps the details.
@@ -60,3 +60,4 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 
 - 2026-11-05 — Recorded the facade and CLI introduced by PR #11 as an experimental M1 boundary.
 - 2026-11-05 — Added `ProcessingErrorKind`; replaced the crate-wide dead-code allowance by scoped allowances on test-only experiments.
+- 2026-11-05 — Added `StageTimings` (open, decode, transform, encode, total wall-clock) to `ProcessingReport` for the M2 baseline harness; the CLI prints them and a stable `report:` key=value line. Observations, not claims.

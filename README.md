@@ -45,6 +45,7 @@ A graph node describes the image it produces, not an eagerly allocated pixel arr
 ## Read the design
 
 - **[M1 — First complete image pipeline](docs/milestones/M1-complete-image-pipeline.md)**: 10 ordered work packages, acceptance gates, and a usable SDR JPEG/JXL → AVIF goal
+- **[M2 — Performance architecture for 2026 CPUs and GPUs](docs/milestones/M2-performance-architecture.md)** (proposed): fused tile kernels, runtime ISA dispatch, planner-chosen precision, tile parallelism and a measured GPU policy; [baseline harness and first numbers](docs/benchmarks/M2-baseline.md)
 - [SDR working-color reference](src/working_color.rs) and [M1 executor](src/quality_execute.rs): scalar Display P3/sRGB → linear-light, premultiplied area/Lanczos filtering with an explicit output quantization step (experimental)
 
 - [Architecture sketch](docs/architecture.md)

@@ -6,6 +6,7 @@
 //! separately require an entire output frame; this executor does not.
 
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 
 use crate::color::{AlphaMode, ColorEncoding};
 use crate::decoder::{ChannelLayout, DecodeReport, DecodeSource, DecodedRow, SampleType};
@@ -26,6 +27,13 @@ pub(crate) struct QualityReport {
     pub decoder_requests: u32,
     pub peak_engine_managed_bytes: usize,
     pub explicit_full_frame_intermediates: u32,
+    /// Wall-clock time inside the source's region reader, excluding the
+    /// per-row transform callback: codec decode plus any source wrapper work
+    /// such as reorientation or ICC conversion.
+    pub source_time: Duration,
+    /// Wall-clock time spent in the per-row transform callback: transfer
+    /// decode, resampling, quantization and the caller's row sink.
+    pub transform_time: Duration,
 }
 
 struct CachedRow {
@@ -226,7 +234,10 @@ pub(crate) fn execute_quality_srgb8(
     let mut output_rows = 0_usize;
     let mut decoded_rows = 0_u32;
     let mut expected_y = plan.source.y;
+    let mut transform_time = Duration::ZERO;
+    let read_started = Instant::now();
     let report = source.read_region(plan.source, budget, &mut |decoder_y, row| {
+        let row_started = Instant::now();
         if decoder_y != expected_y
             || row.len() != source_components
             || row.sample_type() != info.sample
@@ -290,8 +301,11 @@ pub(crate) fn execute_quality_srgb8(
                 cache.pop_front();
             }
         }
+        // Errors abort the whole run, so only the successful path is timed.
+        transform_time += row_started.elapsed();
         Ok(())
     })?;
+    let source_time = read_started.elapsed().saturating_sub(transform_time);
 
     if decoded_rows != plan.source.height
         || output_rows != lines.len()
@@ -305,5 +319,7 @@ pub(crate) fn execute_quality_srgb8(
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
+        source_time,
+        transform_time,
     })
 }

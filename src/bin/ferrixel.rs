@@ -97,6 +97,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         output.report.peak_managed_bytes,
         output.report.encoder_output_frame_bytes,
     );
+    let timings = output.report.timings;
+    println!(
+        "Timings: open {:.1} ms, decode {:.1} ms, transform {:.1} ms, encode {:.1} ms, total {:.1} ms.",
+        timings.open.as_secs_f64() * 1e3,
+        timings.decode.as_secs_f64() * 1e3,
+        timings.transform.as_secs_f64() * 1e3,
+        timings.encode.as_secs_f64() * 1e3,
+        timings.total.as_secs_f64() * 1e3,
+    );
+    // One stable key=value line for benchmark scripts; values are integers.
+    println!(
+        "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
+         output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
+         decoder_requests={} decoder_full_frames={}",
+        timings.open.as_micros(),
+        timings.decode.as_micros(),
+        timings.transform.as_micros(),
+        timings.encode.as_micros(),
+        timings.total.as_micros(),
+        output.avif_bytes.len(),
+        output.report.peak_managed_bytes,
+        output.report.encoder_output_frame_bytes,
+        output.report.orientation_buffer_bytes,
+        output.report.decoder_requests,
+        output.report.decoder_full_frame_buffers,
+    );
     if output.report.opaque_decoder_memory || output.report.opaque_encoder_memory {
         eprintln!(
             "Note: decoder and/or encoder internal allocations are not subject to this memory budget."

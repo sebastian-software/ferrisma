@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; no work package started
+- **Status:** Proposed; work package 0 (baseline harness) in progress
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -117,6 +117,6 @@ Each ADR starts as Proposed, gets an experiment, and moves to Experimental only 
 - GPU by default, or a GPU abstraction beyond what `wgpu` provides.
 - Claims about hardware that was not measured.
 
-## Immediate next step
+## Progress note — package 0 (2026-11-05)
 
-Package 0: add per-stage timing to the processing report, write the corpus and comparator scripts, and record the first dev-machine profile of the current path so that packages 1 and 2 start from numbers rather than hypotheses.
+`ProcessingReport::timings` now reports open, decode, transform, encode and total wall-clock per run; `scripts/bench/` holds the corpus generator, the hyperfine/peak-RSS harness and the profiler wrapper; [M2-baseline.md](../benchmarks/M2-baseline.md) records the first dev-machine numbers on a synthetic corpus. Two findings set the order of packages 1 and 2: about 80 % of the transform stage is the sRGB transfer decode executed once per filter tap (`pow` is the top symbol), and the encoder is a fixed 2.7–3.9 s per 1600-wide output because rav1e runs single-threaded with scalar kernels. CPU/wall is 1.0 on 20 cores. Still open in package 0: Sharp and libvips comparators on this machine, a real-photo corpus and SSIMULACRA2 quality matching.
