@@ -101,6 +101,10 @@ sequence and acceptance gates for this work.
 
 ### Remaining encoder work
 
+The [encoder expansion plan](docs/ENCODER_EXPANSION.md) records the delivery
+sequence and acceptance gates for this work, including the encoder items
+under shared runtime below.
+
 - [ ] Complete the VarDCT encoder, including strategy selection, perceptual
   quantization, coefficient-order orchestration and progressive coefficient splitting.
 - [ ] Complete general Modular image/frame encoding beyond the fixed Thunder profile.
