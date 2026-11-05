@@ -1,0 +1,102 @@
+{
+  "scope": "Native Linux x86-64 root AddressSanitizer parity for the default Release configuration; production Linux target admission remains separate",
+  "decision": "docs/adr/0052-compare-separately-instrumented-native-root-consumers.md",
+  "original_library_and_test_bodies_unchanged": true,
+  "production_root_target_guard_changed": false,
+  "asan_options": "allocator_may_return_null=1; LeakSanitizer left at its Linux default",
+  "uninstrumented_components": [
+    "native VMAF",
+    "precompiled Rust standard library",
+    "pinned original dav1d/SharpYUV archives in the C baseline"
+  ],
+  "not_repeated_under_asan": [
+    "strict AVIF/PNG bytes",
+    "named ABI probes",
+    "shared-library C ABI smoke"
+  ],
+  "release_default": {
+    "run": 42056820577,
+    "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/42056820577",
+    "tooling_head": "1739919b55ca113dd9ef727c4df74480cd4cbfe3",
+    "status": "completed",
+    "conclusion": "success",
+    "job_id": 127347353741,
+    "job_conclusion": "success",
+    "job_completed_at": "2026-11-05T16:17:26Z",
+    "artifact": {
+      "id": 13430989044,
+      "name": "root-linux-full-release-default-address",
+      "github_digest": "sha256:1467db65b33b8a271b2b79e3636fd8a19f84465e1941838d2078759323131a8f"
+    },
+    "target": "x86_64-unknown-linux-gnu",
+    "profile": "release",
+    "variant": "default",
+    "tier": "full",
+    "complete_original_root_suite": true,
+    "ctest_registrations_each": 64,
+    "ordered_gtest_cases_each": 9473,
+    "exact_ordered_outcomes_and_dynamic_skips_match": true,
+    "matching_dynamic_skips_each": 31,
+    "sanitizer_diagnostics_each": [
+      "==<pid>==WARNING: AddressSanitizer failed to allocate 0xffffffffffffffff bytes"
+    ],
+    "sanitizer_reports_identical": true,
+    "sanitizer_parity": {
+      "sanitizer": "address",
+      "runtime": "/home/runner/.rustup/toolchains/nightly-2026-09-07-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/librustc-nightly_rt.asan.a",
+      "runtime_sha256": "453521224b21a54ae3c4778a5ef8e68e5d343b3bf22b41cfaa34a76d695ec4ff",
+      "original_aom_reference_sha256": "c729db79e599614365d260c983b2ec45379ae7815dec4c151f6f22376a2820c0",
+      "original_aom_translation_units": 168,
+      "native_vmaf_uninstrumented": true,
+      "original_c_flags_match_profile_preprocessing": true,
+      "instrumented_consumers_each": 55
+    },
+    "consumer_link_flags": "-fno-sanitize=address -Wl,--whole-archive <nightly runtime> -Wl,--no-whole-archive -lpthread -lrt -lm -ldl",
+    "rust_profile_rustflags": [
+      "-Zsanitizer=address",
+      "-Zexternal-clangrt",
+      "-Cforce-frame-pointers=yes",
+      "--cfg",
+      "libavif_rs_asan"
+    ],
+    "rust_profile_build_scripts_uninstrumented": true,
+    "original_aom_globals_in_rust": 2741,
+    "original_consumers_audited": 55,
+    "native_default_engine_dependencies": [],
+    "actual_complete_summary_sha256": "2d8866b904425dd03418c14556e9d02205b1f6235518e5cf505cecfca92dfada",
+    "actual_paired_report_sha256": "62ac3f74c327f9031a3e8027960ec7b54b0e50258eda4af754dc345624e61b3d",
+    "checked_actual_evidence_files": 14,
+    "actual_evidence_sha256": {
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/parity.json": "62ac3f74c327f9031a3e8027960ec7b54b0e50258eda4af754dc345624e61b3d",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/linkage.json": "78e1998d97963f767e422f583ab2a7486dd1c708eae79c743587b63870dc59db",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/translation.json": "5f59fe2b9e401f2caac7d77eb0667c62613f1e8a24c968d70e9dd045c694872d",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/aom-asan-reference.json": "115504f8cc163c78918b8f99a6f0457018f982e4cf3a8b45fe480661b948c449",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/c/LastTest.log": "a0f5dc8aa99b0d5d7a074d3778918a100beb281d9610e4dc8cc5a64fcdc03f77",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/c/results.xml": "e191c7fb911a535b75a675e446cf1a781335fb57f35fd84e06e528bd5f8667d3",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/rust/LastTest.log": "3529ff33e14c61a7b99e925c0e7c161fbf365b0c1c96de0e9946db69d4daf379",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/rust/results.xml": "f26d58f73d4dab8c480970d73bf0273743ea4b8f55a424f4b60b845777923d9e",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/reference/CMakeCache.txt": "4bab664396ef3f85fdd8310827bf03b551ae82ef5a7524bfed2f9f823a2e4e26",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/reference/compile_commands.json": "fd725bf79795e3ff157765062a1cb1cea785c2d5b04acae464f61e568fb34ff0",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/c/CMakeCache.txt": "ce5efd10edea1e5dd154dc7c4cfd924cbfe674833f6f8e193eea60060b220873",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/c/compile_commands.json": "b30312ea960ef22bbe80dcc6eafd8fd350d6930b64468f585b7e8a11e819114e",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/rust/CMakeCache.txt": "6da9b4036820604d1dbb75c49d3e87068f2dd35cc4ede3b9db07d60db687ff8f",
+      "build/root-rust-linux-release-default-asan/root-validation/full-_bbdfntc/configuration/rust/compile_commands.json": "d8bd2825bc775f2d5d1774f354559b897cc6ac2750eef65877dd9579cb07c568"
+    },
+    "production_target_admission_claimed": false,
+    "all_features_acceptance_claimed": false
+  },
+  "earlier_passing_run": {
+    "run": 42050496891,
+    "tooling_head": "e84d2d37b0a3dc965d6f826ad1a06b55d8ae3ebe",
+    "conclusion": "success",
+    "ctest_registrations_each": 64,
+    "ordered_gtest_cases_each": 9473,
+    "actual_complete_summary_sha256": "dbef4e31ddfab82d7c6f0184b1c21b6b1a8452bd3a0859bed1d07aee327df10a",
+    "note": "Same complete suite before the per-member instrumentation guard; superseded, not additional credit"
+  },
+  "remaining_gates": [
+    "Supported feature configurations beyond the default and combined Mini/Extended PIXI profiles",
+    "Applicable sanitizers for the combined Mini/Extended PIXI and other admitted configurations",
+    "Production profile selection and final root consumer validation"
+  ]
+}

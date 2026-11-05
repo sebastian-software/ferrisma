@@ -78,8 +78,12 @@ all consumer/runtime ownership audits. Linux uses verified hosted artifacts;
 the complete macOS proofs are local native executions, supplemented by the
 hosted bounded pilot. See [platform evidence](PLATFORMS.md).
 
+Default Linux Release AddressSanitizer parity also passes all 64 registrations
+and 9,473 ordered cases with separately instrumented consumers; see
+[ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md).
 Linux production admission still requires the remaining feature configurations,
-applicable sanitizers, and production profile selection with final consumers.
+their applicable sanitizer checks, and production profile selection with final
+consumers.
 Windows x86-64 follows that milestone. Removing the current target guard alone
 does not establish support.
 
