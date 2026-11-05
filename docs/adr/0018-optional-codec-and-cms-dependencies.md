@@ -4,7 +4,7 @@
 - **Date:** 2026-11-05
 - **Last reviewed:** 2026-11-05
 - **Supersedes:** None
-- **Related:** [libavif-rs](https://github.com/sebastian-software/libavif-rs), [libjxl-rs](https://github.com/sebastian-software/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [license audit](../license-audit.md)
+- **Related:** [libavif-rs](https://github.com/sebastian-software/libavif-rs), [libjxl-rs](https://github.com/sebastian-software/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
 
 ## Context
 
@@ -14,6 +14,7 @@ The research notes of 2026-10-31 named candidates but chose no dependency. PR #1
 
 - **libavif-rs:** complete port with Rust AOM, dav1d and SharpYUV; validated as a whole pipeline on macOS ARM64, Linux x86-64 admission in progress. It exposes the original unsafe C ABI, requires nightly Rust and sets `publish = false`.
 - **libjxl-rs:** complete public decoder API and decoder C ABI with exact parity against libjxl; thread runners in review; no encoder yet. Its Rust API is provisional (`jxl::jxl` module tree) and the crate is not publishable.
+- **libwebp-rs:** does not exist yet. WebP input and output are planned as a third port of libwebp 1.6.0 following the libjxl-rs method ([plan](../research/2026-11-05-libwebp-port-plan.md)); the libavif-rs repository already pins the same libwebp revision for SharpYUV.
 
 Verified facts (2026-11-05, `main` at 9291c33):
 
@@ -34,13 +35,15 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | `avif-write` | `ravif` 0.13 / `rav1e` | First and only output encoder | **Interim choice for M1** (permissive, pure Rust); target: libavif-rs |
 | `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Interim, provisional**; target: libavif-rs |
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | **Chosen for M1 evaluation**; color fidelity still unverified |
+| `webp-read`, `webp-write` (planned) | libwebp-rs (planned port) | WebP input and output, lossy and lossless | **Target only, no interim crate**; see the [evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md) |
+| JPEG output | none | — | **Not planned**; JPEG stays input-only through `jpeg-read` |
 
 Rules that apply to all of them:
 
 1. **Ferrixel owns color and geometry semantics.** Where a crate does not expose what the emitted samples mean, Ferrixel reads the evidence itself. For AVIF, a dependency-free, bounds-checked parser (`codecs/avif_meta.rs`) reads `colr`, `ispe`, `irot`, `imir`, `clap` and the AV1 sequence header before any pixel decode. Contradictory signals, unsupported transforms and unknown essential properties fail closed.
-2. **Third-party codecs are interim.** `avif-decode`, `ravif` and `jxl-oxide` are accepted because they work today on the CI targets; adapters must stay replaceable without public API impact. The replacement target is libavif-rs for AVIF input and output and libjxl-rs for JPEG XL input and, once ported, output. A libjxl-rs encoder would also resolve the JPEG XL output license gate, since libjxl is BSD-3-Clause. `rav1d-safe` is only a fallback if the sister ports cannot meet the gates below in time.
+2. **Third-party codecs are interim.** `avif-decode`, `ravif` and `jxl-oxide` are accepted because they work today on the CI targets; adapters must stay replaceable without public API impact. The replacement target is libavif-rs for AVIF input and output, libjxl-rs for JPEG XL input and, once ported, output, and libwebp-rs for WebP input and output. A libjxl-rs encoder would also resolve the JPEG XL output license gate, since libjxl is BSD-3-Clause. `rav1d-safe` is only a fallback if the sister ports cannot meet the gates below in time.
 3. **Adoption gates for the sister ports.** Ferrixel switches a codec when the port provides (a) a safe Rust API, or a small isolated adapter crate, because this package forbids `unsafe`; (b) a stable Rust toolchain; (c) a dependency Ferrixel can pin (published crate or pinned git revision); (d) evidence on Ferrixel's CI targets; and (e) exposed rendered color, orientation and alpha semantics, so that Ferrixel-side parsing such as `avif_meta.rs` becomes unnecessary or is cross-checked.
-4. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` is a recorded review item, not an allowlist entry. The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR.
+4. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` is a recorded review item, not an allowlist entry. The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR. The AGPL-3.0/commercial `zenjpeg` and `zenwebp` are unapproved for the same reason.
 5. **MSRV.** Declare `rust-version = 1.98` for the single crate for now, and keep the MSRV CI job. Do not split crates only to lower the core MSRV before a consumer needs it (ADR-0008).
 6. **Lockfile.** Commit `Cargo.lock`. The package ships a binary, CI and benchmarks need reproducible dependency versions, and the license inventory must refer to an exact version set.
 
@@ -62,6 +65,9 @@ Rules that apply to all of them:
 - **Accept `avif-decode`'s color handling as is:** rejected; it silently ignores container color and orientation.
 - **Split into `ferrixel-core` and codec crates now:** would lower the core MSRV, but ADR-0008 asks for a demonstrated need first.
 - **Keep `Cargo.lock` uncommitted:** conventional for libraries years ago, but current Cargo guidance and the binary target favor committing it.
+- **`image-webp` as an interim WebP decoder:** permissive and safe, but without lossy encoding or decode-side cropping, and the libwebp-rs decoder is the first port milestone; deferred unless WebP input is needed earlier.
+- **libwebp through FFI (`webpx`):** rejected for the same reasons as libavif through FFI.
+- **A JPEG encoder now (`mozjpeg-rs`, BSD-3-Clause, pure Rust):** deferred; M1 output is AVIF and no consumer needs JPEG output. It is the recorded candidate if that changes.
 
 ## Validation
 
@@ -72,9 +78,10 @@ Before **Accepted**: complete transitive license and NOTICE review including MPL
 
 ## Review when
 
-libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pinnable release); the libjxl-rs encoder lands; `rav1d-safe` or another permissive decoder exposes planar output and container metadata; `avif-decode` lowers its MSRV or exposes color properties; a consumer needs an older MSRV for the core; a dependency changes license; or the license review blocks MPL-2.0 distribution.
+libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pinnable release); the libjxl-rs encoder lands; `rav1d-safe` or another permissive decoder exposes planar output and container metadata; `avif-decode` lowers its MSRV or exposes color properties; a consumer needs an older MSRV for the core; a dependency changes license; the license review blocks MPL-2.0 distribution; the libwebp-rs decoder passes its parity gates; or a consumer needs JPEG output or WebP input before libwebp-rs is adoptable.
 
 ## Amendment log
 
 - 2026-11-05 — Recorded the codec/CMS dependencies, MSRV and lockfile policy introduced with PR #11 and the AVIF color fix.
 - 2026-11-05 — Made libavif-rs and libjxl-rs the replacement target for all AVIF/JPEG XL codecs, defined adoption gates and demoted `rav1d-safe` to a fallback.
+- 2026-11-05 — Recorded JPEG as input-only, the planned libwebp-rs port as the WebP target with no interim WebP dependency, and `zenjpeg`/`zenwebp` as blocked by the license gate.

@@ -6,10 +6,10 @@ This document drives adapter experiments and should be revised with exact decode
 
 | Question | JPEG XL | AVIF | WebP |
 | --- | --- | --- | --- |
-| Native decoded representation | VarDCT / Modular internally; exposed pixel format depends on decoder | Often planar YCbCr for AV1-based images | Lossy is VP8-derived YUV; lossless has a different internal representation |
-| Useful structure to investigate | Groups, progressive reconstruction, reduced-resolution representations | AV1 blocks/tiles, grid images, optional layered representations | Incremental decoding; library-specific crop/scale interfaces |
-| Region extraction without full reconstruction | **Investigate** group granularity and decoder interface | **Investigate** grid-cell and tile behavior and API exposure | **Investigate** decoded-area semantics, not just output cropping |
-| Low-resolution decode | Investigate progressive / downsampled modes and quality implications | Decoder- and bitstream-dependent; not guaranteed | libwebp has integrated scaling; verify work actually saved |
+| Native decoded representation | VarDCT / Modular internally; exposed pixel format depends on decoder | Often planar YCbCr for AV1-based images | Lossy is VP8 YUV 4:2:0, exposed as planar YUVA or converted RGB (libwebp 1.6.0 `WebPDecodeYUV`, `WebPINewYUVA`); lossless VP8L reconstructs ARGB |
+| Useful structure to investigate | Groups, progressive reconstruction, reduced-resolution representations | AV1 blocks/tiles, grid images, optional layered representations | Incremental decoding (`WebPIDecoder`); decode-side cropping and scaling (`WebPDecoderConfig.options`); ICC/EXIF/XMP only through the demux API |
+| Region extraction without full reconstruction | **Investigate** group granularity and decoder interface | **Investigate** grid-cell and tile behavior and API exposure | Source-verified for libwebp 1.6.0 (`src/dec/frame_dec.c`, `vp8_dec.c`): VP8 parses macroblock rows only up to the crop bottom plus filter margin, filters only rows from the crop top, and emits only cropped rows; horizontal cropping saves no parsing; VP8L decodes full rows. **Measure** in the libwebp-rs port before claiming savings |
+| Low-resolution decode | Investigate progressive / downsampled modes and quality implications | Decoder- and bitstream-dependent; not guaranteed | libwebp scales with `WebPRescaler` after full-resolution reconstruction (`src/dec/io_dec.c`, `vp8l_dec.c`); it saves output work, not decode work |
 | Color/bit-depth path | High precision, color profiles and transfer characteristics | YCbCr, chroma sampling, high bit depth, HDR variants | YUV and RGBA paths vary by lossless/lossy mode |
 | Output buffering constraints | Verify encoder streaming/granularity | Verify encoder requirements and opaque working memory | Verify encoder requirements and output mode |
 

@@ -33,7 +33,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0015](0015-typed-output-color-signals.md) | Inspect CICP and ICC output evidence; describe required conversions | Experimental |
 | [0016](0016-working-color-space-and-transform-boundaries.md) | Region-capable working-color transform and output semantics | Proposed |
 | [0017](0017-minimal-public-facade-and-cli.md) | Minimal `pipeline::transcode` facade and feature-gated CLI; partially supersedes 0008 | Experimental |
-| [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies, libavif-rs/libjxl-rs as target, MSRV 1.98, committed lockfile | Experimental |
+| [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies; libavif-rs, libjxl-rs and the planned libwebp-rs as targets; JPEG input-only; MSRV 1.98; committed lockfile | Experimental |
 | [0019](0019-source-side-orientation.md) | Apply EXIF/AVIF orientation through an explicit, budgeted source-side materialization | Experimental |
 
 ## Changing an ADR
