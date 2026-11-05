@@ -4,11 +4,16 @@
 - **Date:** 2026-11-05
 - **Last reviewed:** 2026-11-05
 - **Supersedes:** None
-- **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [license audit](../license-audit.md)
+- **Related:** [libavif-rs](https://github.com/sebastian-software/libavif-rs), [libjxl-rs](https://github.com/sebastian-software/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [license audit](../license-audit.md)
 
 ## Context
 
 The research notes of 2026-10-31 named candidates but chose no dependency. PR #11 then added four optional crates (`ravif`, `avif-decode`, `avif-parse`, `moxcms`), raised the package MSRV to 1.98 and left `Cargo.lock` uncommitted, without a decision record. AGENTS.md requires an ADR before new dependencies. This ADR records the current choices, the evidence behind them and the gates that remain open. It does not declare any of them release-ready.
+
+**Strategic direction.** Ferrixel's AVIF and JPEG XL codecs are meant to come from the sister projects [libavif-rs](https://github.com/sebastian-software/libavif-rs) and [libjxl-rs](https://github.com/sebastian-software/libjxl-rs): mechanical, reference-equivalent Rust ports of libavif (with libaom, dav1d and SharpYUV) and libjxl. Their state on 2026-11-05:
+
+- **libavif-rs:** complete port with Rust AOM, dav1d and SharpYUV; validated as a whole pipeline on macOS ARM64, Linux x86-64 admission in progress. It exposes the original unsafe C ABI, requires nightly Rust and sets `publish = false`.
+- **libjxl-rs:** complete public decoder API and decoder C ABI with exact parity against libjxl; thread runners in review; no encoder yet. Its Rust API is provisional (`jxl::jxl` module tree) and the crate is not publishable.
 
 Verified facts (2026-11-05, `main` at 9291c33):
 
@@ -25,18 +30,19 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | Feature | Crate | Role | Status of the choice |
 | --- | --- | --- | --- |
 | `jpeg-read` | `zune-jpeg` 0.5 | JPEG input (full-frame fallback) | Experimental, ADR-0012 |
-| `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | Experimental, ADR-0012 |
-| `avif-write` | `ravif` 0.13 / `rav1e` | First and only output encoder | **Chosen for M1** (permissive, pure Rust, matches the research recommendation) |
-| `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Provisional**; replaceable without API impact |
+| `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | **Interim** until libjxl-rs is adoptable (ADR-0012) |
+| `avif-write` | `ravif` 0.13 / `rav1e` | First and only output encoder | **Interim choice for M1** (permissive, pure Rust); target: libavif-rs |
+| `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Interim, provisional**; target: libavif-rs |
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | **Chosen for M1 evaluation**; color fidelity still unverified |
 
 Rules that apply to all of them:
 
 1. **Ferrixel owns color and geometry semantics.** Where a crate does not expose what the emitted samples mean, Ferrixel reads the evidence itself. For AVIF, a dependency-free, bounds-checked parser (`codecs/avif_meta.rs`) reads `colr`, `ispe`, `irot`, `imir`, `clap` and the AV1 sequence header before any pixel decode. Contradictory signals, unsupported transforms and unknown essential properties fail closed.
-2. **AVIF decoding stays replaceable.** `avif-decode` is accepted for M1-B experiments because it works today on the CI targets. Its unsafe/assembly surface, the MPL-2.0 parser and the 1.98 MSRV are the reasons it stays provisional. `rav1d-safe` plus Ferrixel's own container parsing is the first alternative to evaluate; AVIF input is not on the critical path of the M1 JPEG/JXL → AVIF goal.
-3. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` is a recorded review item, not an allowlist entry. The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR.
-4. **MSRV.** Declare `rust-version = 1.98` for the single crate for now, and keep the MSRV CI job. Do not split crates only to lower the core MSRV before a consumer needs it (ADR-0008).
-5. **Lockfile.** Commit `Cargo.lock`. The package ships a binary, CI and benchmarks need reproducible dependency versions, and the license inventory must refer to an exact version set.
+2. **Third-party codecs are interim.** `avif-decode`, `ravif` and `jxl-oxide` are accepted because they work today on the CI targets; adapters must stay replaceable without public API impact. The replacement target is libavif-rs for AVIF input and output and libjxl-rs for JPEG XL input and, once ported, output. A libjxl-rs encoder would also resolve the JPEG XL output license gate, since libjxl is BSD-3-Clause. `rav1d-safe` is only a fallback if the sister ports cannot meet the gates below in time.
+3. **Adoption gates for the sister ports.** Ferrixel switches a codec when the port provides (a) a safe Rust API, or a small isolated adapter crate, because this package forbids `unsafe`; (b) a stable Rust toolchain; (c) a dependency Ferrixel can pin (published crate or pinned git revision); (d) evidence on Ferrixel's CI targets; and (e) exposed rendered color, orientation and alpha semantics, so that Ferrixel-side parsing such as `avif_meta.rs` becomes unnecessary or is cross-checked.
+4. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` is a recorded review item, not an allowlist entry. The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR.
+5. **MSRV.** Declare `rust-version = 1.98` for the single crate for now, and keep the MSRV CI job. Do not split crates only to lower the core MSRV before a consumer needs it (ADR-0008).
+6. **Lockfile.** Commit `Cargo.lock`. The package ships a binary, CI and benchmarks need reproducible dependency versions, and the license inventory must refer to an exact version set.
 
 ## Consequences
 
@@ -51,7 +57,8 @@ Rules that apply to all of them:
 ## Alternatives considered
 
 - **`libavif` or `dav1d` through FFI:** mature and complete, but adds a native toolchain and an unsafe boundary to the core build; reconsider only if pure-Rust decoders cannot meet correctness or coverage.
-- **`rav1d-safe` now:** safer, but needs its own container assembly and dependency review first; scheduled as the first replacement candidate.
+- **`rav1d-safe` now:** safer than `avif-decode`, but needs its own container assembly and dependency review; kept as a fallback behind the sister ports.
+- **Wait for the sister ports before any AVIF/JXL support:** would block M1 on port work (safe API, stable toolchain, encoder) that has its own schedule.
 - **Accept `avif-decode`'s color handling as is:** rejected; it silently ignores container color and orientation.
 - **Split into `ferrixel-core` and codec crates now:** would lower the core MSRV, but ADR-0008 asks for a demonstrated need first.
 - **Keep `Cargo.lock` uncommitted:** conventional for libraries years ago, but current Cargo guidance and the binary target favor committing it.
@@ -61,12 +68,13 @@ Rules that apply to all of them:
 - Feature-gated tests per adapter, including real ravif output with and without `colr`, contradictory `nclx`, PQ/HLG classification and the strict AVIF → AVIF facade path.
 - CI: all-features tests and clippy, each feature alone, MSRV job, fuzz smoke and the license metadata screen.
 
-Before **Accepted**: complete transitive license and NOTICE review including MPL source obligations; review of native and unsafe code in `rav1d` and `rav1e`; malformed AVIF/ICC corpus; and an evaluated decision between `avif-decode` and `rav1d-safe`.
+Before **Accepted**: complete transitive license and NOTICE review including MPL source obligations; review of native and unsafe code in `rav1d` and `rav1e`; malformed AVIF/ICC corpus; and a dated plan for replacing the interim crates with libavif-rs and libjxl-rs.
 
 ## Review when
 
-`rav1d-safe` or another permissive decoder exposes planar output and container metadata; `avif-decode` lowers its MSRV or exposes color properties; a consumer needs an older MSRV for the core; a dependency changes license; or the license review blocks MPL-2.0 distribution.
+libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pinnable release); the libjxl-rs encoder lands; `rav1d-safe` or another permissive decoder exposes planar output and container metadata; `avif-decode` lowers its MSRV or exposes color properties; a consumer needs an older MSRV for the core; a dependency changes license; or the license review blocks MPL-2.0 distribution.
 
 ## Amendment log
 
 - 2026-11-05 — Recorded the codec/CMS dependencies, MSRV and lockfile policy introduced with PR #11 and the AVIF color fix.
+- 2026-11-05 — Made libavif-rs and libjxl-rs the replacement target for all AVIF/JPEG XL codecs, defined adoption gates and demoted `rav1d-safe` to a fallback.
