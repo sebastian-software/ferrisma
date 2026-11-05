@@ -18,6 +18,10 @@ ADAPTERS = {name: f'upstream/libavif/src/codec_{name}.c' for name in ['libgav1',
 CMAKE_OPTIONS = {'libgav1': 'AVIF_CODEC_LIBGAV1', 'rav1e': 'AVIF_CODEC_RAV1E', 'svt': 'AVIF_CODEC_SVT',
                  'libyuv': 'AVIF_LIBYUV'}
 BUNDLED_SCALER = '/third_party/libyuv/'
+# Configurations admitted to the production package on GNU Linux x86-64 after
+# final consumer checks with the real package in Release and Debug (ADR 0054).
+LINUX_PRODUCTION = ['default', 'mini', 'extended-pixi', 'mini-extended-pixi', 'libgav1-rav1e-svt-libyuv',
+                    'mini-extended-pixi-libgav1-rav1e-svt-libyuv']
 
 
 def features(variant):
