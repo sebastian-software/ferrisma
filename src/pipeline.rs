@@ -104,16 +104,54 @@ pub struct Output {
     pub report: ProcessingReport,
 }
 
-/// Public error avoids leaking backend-specific types into the API.
+/// Broad failure categories a caller can match on. The message carries the
+/// details; new categories may be added before a stable release.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ProcessingErrorKind {
+    /// Options are invalid: quality, speed, zero limits, output geometry, a
+    /// crop outside the image, or a geometry calculation that overflows.
+    InvalidOptions,
+    /// The compressed size or decoded pixel count exceeds a configured limit.
+    InputLimitExceeded,
+    /// The codec or color-management Cargo feature is not compiled in.
+    FeatureDisabled,
+    /// The input is truncated, malformed or rejected by its decoder.
+    MalformedInput,
+    /// The input uses a layout, alpha mode or geometric transform that is
+    /// not supported yet.
+    UnsupportedInput,
+    /// The rendered color is missing, ambiguous, contradictory, HDR or needs
+    /// a color-management transform this build cannot perform.
+    UnsupportedColor,
+    /// The managed-memory budget is exhausted or an allocation failed.
+    ResourceExhausted,
+    /// Processing was cancelled by the output sink.
+    Cancelled,
+    /// The encoder failed.
+    EncodeFailed,
+    /// An internal invariant failed; this indicates a Ferrixel bug.
+    Internal,
+}
+
+/// Public error that never exposes backend-specific types.
 #[derive(Debug)]
 pub struct ProcessingError {
+    kind: ProcessingErrorKind,
     message: String,
 }
 impl ProcessingError {
-    fn new(message: impl Into<String>) -> Self {
+    fn new(kind: ProcessingErrorKind, message: impl Into<String>) -> Self {
         Self {
+            kind,
             message: message.into(),
         }
+    }
+
+    /// The failure category, for programmatic handling.
+    #[must_use]
+    pub fn kind(&self) -> ProcessingErrorKind {
+        self.kind
     }
 }
 impl fmt::Display for ProcessingError {
@@ -124,7 +162,40 @@ impl fmt::Display for ProcessingError {
 impl std::error::Error for ProcessingError {}
 impl From<Error> for ProcessingError {
     fn from(value: Error) -> Self {
-        Self::new(value.to_string())
+        use ProcessingErrorKind as Kind;
+        let kind = match &value {
+            Error::InvalidDimensions | Error::GeometryOverflow | Error::OutOfBounds => {
+                Kind::InvalidOptions
+            }
+            #[cfg(feature = "avif-write")]
+            Error::InvalidEncodeOptions => Kind::InvalidOptions,
+            #[cfg(feature = "avif-read")]
+            Error::InputPixelLimitExceeded { .. } => Kind::InputLimitExceeded,
+            Error::DecodeFailed
+            | Error::IncompleteDecoderOutput
+            | Error::NonFinitePixelSample
+            | Error::InvalidAlphaValue => Kind::MalformedInput,
+            Error::UnsupportedAlphaMode
+            | Error::UnsupportedCodecLayout
+            | Error::UnsupportedPixelOperation
+            | Error::ChromaPhaseRequiresResampling => Kind::UnsupportedInput,
+            #[cfg(feature = "avif-read")]
+            Error::UnsupportedImageTransform => Kind::UnsupportedInput,
+            Error::UnsupportedColorEncoding => Kind::UnsupportedColor,
+            #[cfg(feature = "avif-read")]
+            Error::ContradictoryColorSignals => Kind::UnsupportedColor,
+            Error::AllocationFailed | Error::BudgetExceeded { .. } => Kind::ResourceExhausted,
+            Error::Cancelled => Kind::Cancelled,
+            Error::EncodeFailed => Kind::EncodeFailed,
+            Error::IncompleteOutput
+            | Error::UnknownNode
+            | Error::PixelFormatMismatch
+            | Error::SourceBindingMismatch
+            | Error::InvalidPlaneStride
+            | Error::InvalidPlaneDimensions
+            | Error::InsufficientPlaneStorage => Kind::Internal,
+        };
+        Self::new(kind, value.to_string())
     }
 }
 
@@ -162,7 +233,10 @@ fn open_source<'a>(
             #[cfg(not(feature = "jpeg-read"))]
             {
                 let _ = bytes;
-                Err(ProcessingError::new("enable the jpeg-read Cargo feature"))
+                Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
+                    "enable the jpeg-read Cargo feature",
+                ))
             }
         }
         ImageFormat::JpegXl => {
@@ -174,6 +248,7 @@ fn open_source<'a>(
             {
                 let _ = bytes;
                 Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
                     "enable the jpeg-xl-read Cargo feature",
                 ))
             }
@@ -188,7 +263,10 @@ fn open_source<'a>(
             #[cfg(not(feature = "avif-read"))]
             {
                 let _ = bytes;
-                Err(ProcessingError::new("enable the avif-read Cargo feature"))
+                Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
+                    "enable the avif-read Cargo feature",
+                ))
             }
         }
     }
@@ -216,11 +294,13 @@ pub fn transcode(
     let target_size = Size::new(options.output_width, options.output_height)?;
     if options.max_input_bytes == 0 || options.max_input_pixels == 0 {
         return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
             "input byte/pixel limits must be nonzero",
         ));
     }
     if encoded.len() > options.max_input_bytes {
         return Err(ProcessingError::new(
+            ProcessingErrorKind::InputLimitExceeded,
             "compressed image exceeds max_input_bytes",
         ));
     }
@@ -228,10 +308,13 @@ pub fn transcode(
     let dimensions = source.info().size;
     let pixels = u64::from(dimensions.width) * u64::from(dimensions.height);
     if pixels > options.max_input_pixels {
-        return Err(ProcessingError::new(format!(
-            "image has {pixels} pixels; configured limit is {}",
-            options.max_input_pixels
-        )));
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InputLimitExceeded,
+            format!(
+                "image has {pixels} pixels; configured limit is {}",
+                options.max_input_pixels
+            ),
+        ));
     }
     let source: Box<dyn DecodeSource + '_> =
         if options.profile_policy == InputProfilePolicy::UseRenderedIcc {
@@ -241,7 +324,10 @@ pub fn transcode(
             }
             #[cfg(not(feature = "icc"))]
             {
-                return Err(ProcessingError::new("enable the icc Cargo feature"));
+                return Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
+                    "enable the icc Cargo feature",
+                ));
             }
         } else {
             source
@@ -264,6 +350,7 @@ pub fn transcode(
         ColorEncoding::Cicp([1 | 12, 13, 0, 1])
     ) {
         return Err(ProcessingError::new(
+            ProcessingErrorKind::UnsupportedColor,
             "unsupported or ambiguous rendered color profile; a color-management transform is required",
         ));
     }

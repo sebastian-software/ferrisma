@@ -80,6 +80,10 @@ pub(crate) fn plan_region(
 pub(crate) struct Sample {
     pub lower: u32,
     pub upper: u32,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "read by the bilinear reference executors")
+    )]
     pub upper_weight: f64,
 }
 

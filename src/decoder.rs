@@ -44,6 +44,10 @@ pub(crate) struct DecoderInfo {
 impl DecoderInfo {
     /// Inspect actual emitted samples' profile evidence without copying ICC
     /// bytes; input-file tags must not be substituted after decoder conversion.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn rendered_color_signal(&self) -> ColorSignal {
         inspect_rendered_color(self.rendered_icc.as_deref(), self.rendered_cicp)
     }
@@ -109,6 +113,10 @@ pub(crate) trait DecodeSource {
 }
 
 /// Crop-only graph execution through the existing backwards region planner.
+#[cfg_attr(
+    not(test),
+    allow(dead_code, reason = "used by test-only architecture experiments")
+)]
 /// A separate transform executor is required before resizing these layouts.
 pub(crate) fn execute_decoded(
     graph: &Graph,

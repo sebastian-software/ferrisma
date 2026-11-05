@@ -29,7 +29,6 @@ impl EncodeSettings {
 pub(crate) struct EncodedAvif {
     pub bytes: Vec<u8>,
     pub frame_materialization_bytes: usize,
-    pub encoded_bytes: usize,
     /// The rav1e encoder may allocate additional opaque scratch memory.
     pub opaque_encoder_memory_unbounded: bool,
 }
@@ -96,11 +95,9 @@ impl AvifSink {
             .with_num_threads(Some(1))
             .encode_rgba(image)
             .map_err(|_| Error::EncodeFailed)?;
-        let encoded_bytes = encoded.avif_file.len();
         Ok(EncodedAvif {
             bytes: encoded.avif_file,
             frame_materialization_bytes: size,
-            encoded_bytes,
             opaque_encoder_memory_unbounded: true,
         })
     }

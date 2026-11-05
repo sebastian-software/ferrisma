@@ -1,5 +1,7 @@
 #![cfg(all(feature = "jpeg-read", feature = "avif-write"))]
-use crate::pipeline::{ImageFormat, InputProfilePolicy, ResizeFilter, TransformOptions, transcode};
+use crate::pipeline::{
+    ImageFormat, InputProfilePolicy, ProcessingErrorKind, ResizeFilter, TransformOptions, transcode,
+};
 
 #[test]
 fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
@@ -32,7 +34,12 @@ fn missing_color_information_requires_an_explicit_override() {
         profile_policy: InputProfilePolicy::Strict,
         ..TransformOptions::default()
     };
-    assert!(transcode(encoded, ImageFormat::Jpeg, options).is_err());
+    assert_eq!(
+        transcode(encoded, ImageFormat::Jpeg, options)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::UnsupportedColor
+    );
 }
 
 #[cfg(feature = "avif-read")]

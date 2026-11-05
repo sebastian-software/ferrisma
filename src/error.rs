@@ -9,8 +9,20 @@ pub(crate) enum Error {
     OutOfBounds,
     UnknownNode,
     AllocationFailed,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     InvalidPlaneStride,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     InvalidPlaneDimensions,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     InsufficientPlaneStorage,
     ChromaPhaseRequiresResampling,
     PixelFormatMismatch,
@@ -20,6 +32,10 @@ pub(crate) enum Error {
         requested: usize,
         available: usize,
     },
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     Cancelled,
     // Constructed only when an optional real codec is enabled.
     #[allow(dead_code)]

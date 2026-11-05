@@ -25,6 +25,10 @@ pub(crate) struct MemoryBudget {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(
+    not(test),
+    allow(dead_code, reason = "diagnostic counters asserted by tests")
+)]
 pub(crate) struct MemorySnapshot {
     pub limit: usize,
     pub live: usize,

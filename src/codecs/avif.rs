@@ -143,6 +143,7 @@ impl<'a> AvifSource<'a> {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
         Self::new_bounded(bytes, 100_000_000)
     }

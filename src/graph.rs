@@ -16,7 +16,15 @@ pub(crate) struct NodeId(pub(crate) usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NodeKind {
     /// Deterministic, coordinate-addressable synthetic source.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     Synthetic,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     Planar10Source,
     DecoderSource,
     /// The pixel values are transformed to linear-light, premultiplied RGB.
@@ -40,9 +48,17 @@ pub(crate) enum NodeKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ResizeDomain {
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     EncodedSamples,
     /// Reference bilinear filtering in linear sRGB, with straight-alpha
     /// inputs premultiplied *after* transfer decoding and before filtering.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     LinearSrgb,
     /// Area/Lanczos3 on already-linear, premultiplied samples.
     WorkingLinear(Filter),
@@ -66,6 +82,10 @@ impl Graph {
         Self::default()
     }
 
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn synthetic(&mut self, size: Size) -> NodeId {
         self.push(Node {
             kind: NodeKind::Synthetic,
@@ -77,6 +97,10 @@ impl Graph {
 
     /// Register a semantic 10-bit source. Its external plane storage is bound
     /// separately when the executor runs; the graph never owns input buffers.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn planar_10(&mut self, size: Size, color: ColorMetadata) -> NodeId {
         self.push(Node {
             kind: NodeKind::Planar10Source,
@@ -125,6 +149,10 @@ impl Graph {
         }))
     }
 
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn resize(&mut self, input: NodeId, size: Size) -> Result<NodeId, Error> {
         let parent = self.node(input)?;
         if parent.format != PixelFormat::Gray8 {
@@ -144,6 +172,10 @@ impl Graph {
     }
 
     /// A bilinear sample-domain reference, not linear-light color management.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn resize_encoded_samples(
         &mut self,
         input: NodeId,
@@ -172,6 +204,10 @@ impl Graph {
     /// Opt-in linear-light sRGB resize. No implicit color guessing or ICC
     /// parsing: a nonconflicting, explicitly tagged full-range RGB sRGB
     /// source and established alpha association are required.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn resize_linear_srgb(
         &mut self,
         input: NodeId,

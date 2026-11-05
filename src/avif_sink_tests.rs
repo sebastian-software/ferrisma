@@ -28,7 +28,6 @@ fn sink_requires_complete_rows_and_releases_managed_frame_after_encoding() {
     assert!(encoded.bytes.len() > 32);
     assert_eq!(&encoded.bytes[4..8], b"ftyp");
     assert_eq!(encoded.frame_materialization_bytes, 64);
-    assert_eq!(encoded.encoded_bytes, encoded.bytes.len());
     assert!(encoded.opaque_encoder_memory_unbounded);
     assert_eq!(budget.snapshot().live, 0);
 }

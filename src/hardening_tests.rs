@@ -123,3 +123,102 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
         .is_err()
     );
 }
+
+#[cfg(all(feature = "jpeg-read", feature = "avif-write"))]
+#[test]
+fn api_errors_carry_a_matchable_kind() {
+    use crate::pipeline::{
+        Crop, ImageFormat, InputProfilePolicy, ProcessingErrorKind as Kind, TransformOptions,
+        transcode,
+    };
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        output_width: 2,
+        output_height: 2,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        ..TransformOptions::default()
+    };
+    let kind =
+        |bytes: &[u8], format, options| transcode(bytes, format, options).unwrap_err().kind();
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                quality: 101.0,
+                ..options
+            }
+        ),
+        Kind::InvalidOptions
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                output_width: 0,
+                ..options
+            }
+        ),
+        Kind::InvalidOptions
+    );
+    let outside = Crop {
+        x: 0,
+        y: 0,
+        width: u32::MAX,
+        height: 1,
+    };
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                crop: Some(outside),
+                ..options
+            }
+        ),
+        Kind::InvalidOptions
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                max_input_bytes: 1,
+                ..options
+            }
+        ),
+        Kind::InputLimitExceeded
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                max_input_pixels: 1,
+                ..options
+            }
+        ),
+        Kind::InputLimitExceeded
+    );
+    assert_eq!(
+        kind(&[0; 32], ImageFormat::Jpeg, options),
+        Kind::MalformedInput
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                max_managed_bytes: 1,
+                ..options
+            }
+        ),
+        Kind::ResourceExhausted
+    );
+    #[cfg(not(feature = "jpeg-xl-read"))]
+    assert_eq!(
+        kind(jpeg, ImageFormat::JpegXl, options),
+        Kind::FeatureDisabled
+    );
+}

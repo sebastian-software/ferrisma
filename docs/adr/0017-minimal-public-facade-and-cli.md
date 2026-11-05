@@ -21,10 +21,10 @@ Verified facts (2026-11-05, `main` at 9291c33):
 
 Keep exactly one public, intentionally small facade for M1:
 
-1. **Surface.** `pipeline::{transcode, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, Output, ProcessingReport, SourceAccess, ProcessingError}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
+1. **Surface.** `pipeline::{transcode, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, Output, ProcessingReport, SourceAccess, ProcessingError, ProcessingErrorKind}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
 2. **Color intent is explicit.** `InputProfilePolicy::Strict` is the default. `AssumeSrgbIfMissing` applies only when the decoder reports neither rendered ICC nor CICP; `UseRenderedIcc` requires the `icc` feature. The facade never guesses a profile.
 3. **Resources are explicit options.** Managed-memory budget, compressed-input byte limit and decoded-pixel limit are caller options with conservative defaults. The report keeps engine-managed memory, known codec materializations and opaque codec/encoder memory separate.
-4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures.
+4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures. `ProcessingError::kind()` returns a `#[non_exhaustive]` `ProcessingErrorKind` (invalid options, input limit, disabled feature, malformed input, unsupported input, unsupported color, resource exhaustion, cancellation, encoder failure, internal) so callers can match without parsing messages; the message keeps the details.
 5. **CLI is an example consumer.** `src/bin/ferrixel.rs` only parses arguments and calls `transcode`; it adds no processing logic. It stays behind `cli`.
 6. **No stability promise.** Until a first publication decision, any part of the facade may change without deprecation.
 
@@ -32,7 +32,7 @@ Keep exactly one public, intentionally small facade for M1:
 
 + M1 can be exercised end to end by a real consumer without exposing the graph or executor.
 + Codec and CMS features remain optional; the core crate keeps zero dependencies.
-- `ProcessingError` is currently message-based; callers cannot match on error kinds. A structured, non-exhaustive error enum is required before any publication.
+- Error kinds are deliberately coarse; finer-grained variants (for example which limit or which color signal) are a later, additive change.
 - The facade decodes one image to one AVIF output. Multi-output DAGs, other output formats and streaming input are out of scope (M2+).
 - Orientation (EXIF, JPEG XL, AVIF `irot`/`imir`) is rejected or unsupported, not applied.
 - A public facade makes later internal renames cheaper than API changes; keeping the surface small is the mitigation.
@@ -47,10 +47,10 @@ Keep exactly one public, intentionally small facade for M1:
 ## Validation
 
 - `pipeline_tests` run real JPEG → AVIF, JPEG XL + ICC → AVIF and strict sRGB AVIF → AVIF through the facade.
-- `hardening_tests` cover compressed-input and pixel limits, invalid options and malformed inputs through `transcode`.
+- `hardening_tests` cover compressed-input and pixel limits, invalid options and malformed inputs through `transcode`, and assert the matching `ProcessingErrorKind`.
 - CI compiles each codec feature alone and the `cli` feature.
 
-Before **Accepted**: structured error type, documented supported-input matrix, orientation handling or explicit rejection for every format, and at least one consumer outside the test suite.
+Before **Accepted**: documented supported-input matrix, orientation handling or explicit rejection for every format, and at least one consumer outside the test suite.
 
 ## Review when
 
@@ -59,3 +59,4 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 ## Amendment log
 
 - 2026-11-05 — Recorded the facade and CLI introduced by PR #11 as an experimental M1 boundary.
+- 2026-11-05 — Added `ProcessingErrorKind`; replaced the crate-wide dead-code allowance by scoped allowances on test-only experiments.
