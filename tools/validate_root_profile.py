@@ -68,14 +68,18 @@ def symbols(path):
     return result.stdout
 
 
-def instrumented(path):
-    """Require ASan instrumentation references in an archive."""
-    return re.search(r'\s[Uu] _?_asan_init$', symbols(path), re.M) is not None
+def instrumented(path, members=None):
+    """Require ASan instrumentation in every selected archive member."""
+    listing = symbols(path)
+    names = set(re.findall(r'^[^\n]*?\.a:([^:\n]+\.o):', listing, re.M))
+    selected = {name for name in names if members is None or name.startswith(members)}
+    covered = set(re.findall(r'^[^\n]*?\.a:([^:\n]+\.o):\s+[Uu] _{2,3}asan_init$', listing, re.M))
+    return bool(selected) and selected <= covered
 
 
 def runtime_linked(path):
     """Require the selected runtime itself in an original consumer executable."""
-    return re.search(r'\s[Tt] _?_asan_init$', symbols(path), re.M) is not None
+    return re.search(r'\s[Tt] _{2,3}asan_init$', symbols(path), re.M) is not None
 
 
 def consumer_executables(build):
@@ -157,7 +161,10 @@ def main():
     archive = Path(proof['artifacts']['libavif.a']['path'])
     if args.sanitizer:
         c_archive = baseline / 'libavif.a'
-        if not instrumented(archive) or not instrumented(c_archive) or not instrumented(aom_reference / 'libaom.a'):
+        # Every workspace codegen unit must be instrumented; the staticlib also
+        # contains the precompiled standard library and allocator shim.
+        if (not instrumented(archive, tuple(f'{name}.{name}.' for name in ['avif', 'aom', 'dav1d', 'sharpyuv'])) or not instrumented(c_archive)
+                or not instrumented(aom_reference / 'libaom.a')):
             raise SystemExit('A compared library lacks AddressSanitizer instrumentation')
         executables = {name: consumer_executables(build) for name, build in [('c', baseline), ('rust', port)]}
         if [path.relative_to(baseline) for path in executables['c']] != [path.relative_to(port) for path in executables['rust']]:

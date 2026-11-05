@@ -233,6 +233,28 @@ class SanitizerReferenceGuards(unittest.TestCase):
         ordinary, sanitized = subject.profile_target(record), subject.profile_target(record, 'address')
         self.assertFalse(ordinary.is_relative_to(sanitized) or sanitized.is_relative_to(ordinary))
 
+    def listing(self, *members):
+        return ''.join(f'/x/libavif.a:{name}:{line}\n' for name, line in members)
+
+    def test_every_selected_member_must_reference_the_runtime(self):
+        complete = self.listing(('avif.avif.1-cgu.0.rcgu.o', '                 U ___asan_init'),
+                                ('avif.avif.1-cgu.1.rcgu.o', '                 U __asan_init'),
+                                ('3a-absvdi2.o', '0000000000000000 T ___absvdi2'))
+        partial = complete + self.listing(('aom.aom.2-cgu.0.rcgu.o', '0000000000000000 T aom_codec_version'))
+        with patch.object(validator, 'symbols', return_value=complete):
+            self.assertTrue(validator.instrumented(Path('/x/libavif.a'), ('avif.avif.', 'aom.aom.')))
+            self.assertFalse(validator.instrumented(Path('/x/libavif.a')))
+        with patch.object(validator, 'symbols', return_value=partial):
+            self.assertFalse(validator.instrumented(Path('/x/libavif.a'), ('avif.avif.', 'aom.aom.')))
+        with patch.object(validator, 'symbols', return_value=self.listing(('x.o', '                 U malloc'))):
+            self.assertFalse(validator.instrumented(Path('/x/libavif.a'), ('avif.avif.',)))
+
+    def test_consumer_requires_a_defined_runtime(self):
+        with patch.object(validator, 'symbols', return_value='0000000000401000 T __asan_init\n'):
+            self.assertTrue(validator.runtime_linked(Path('/x/avifenc')))
+        with patch.object(validator, 'symbols', return_value='                 U __asan_init\n'):
+            self.assertFalse(validator.runtime_linked(Path('/x/avifenc')))
+
     def test_pipeline_rejects_sanitized_debug_or_bounded_tiers(self):
         for arguments in [['--profile', 'debug', '--tier', 'full'], ['--profile', 'release', '--tier', 'smoke']]:
             result = subprocess.run([sys.executable, str(REPOSITORY / 'tools/root_pipeline.py'), '--phase', 'validate',
