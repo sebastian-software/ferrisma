@@ -78,8 +78,9 @@ all consumer/runtime ownership audits. Linux uses verified hosted artifacts;
 the complete macOS proofs are local native executions, supplemented by the
 hosted bounded pilot. See [platform evidence](PLATFORMS.md).
 
-Default Linux Release AddressSanitizer parity also passes all 64 registrations
-and 9,473 ordered cases with separately instrumented consumers; see
+Linux Release AddressSanitizer parity also passes all 64 default registrations
+and 9,473 ordered cases, and all 65 combined Mini/Extended PIXI registrations
+and 9,527 ordered cases, with separately instrumented consumers; see
 [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md).
 Linux production admission still requires the remaining feature configurations,
 their applicable sanitizer checks, and production profile selection with final

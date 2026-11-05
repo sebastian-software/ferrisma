@@ -1,5 +1,5 @@
 {
-  "scope": "Native Linux x86-64 root AddressSanitizer parity for the default Release configuration; production Linux target admission remains separate",
+  "scope": "Native Linux x86-64 root AddressSanitizer parity for the default and combined Mini/Extended PIXI Release configurations; production Linux target admission remains separate",
   "decision": "docs/adr/0052-compare-separately-instrumented-native-root-consumers.md",
   "original_library_and_test_bodies_unchanged": true,
   "production_root_target_guard_changed": false,
@@ -94,9 +94,80 @@
     "actual_complete_summary_sha256": "dbef4e31ddfab82d7c6f0184b1c21b6b1a8452bd3a0859bed1d07aee327df10a",
     "note": "Same complete suite before the per-member instrumentation guard; superseded, not additional credit"
   },
+  "release_mini_extended_pixi": {
+    "run": 42070337170,
+    "url": "https://github.com/sebastian-software/libavif-rs/actions/runs/42070337170",
+    "tooling_head": "f0047c8c6c1ab98e28a0f51a9e2ced91373ac523",
+    "status": "completed",
+    "conclusion": "success",
+    "job_id": 127396210821,
+    "job_conclusion": "success",
+    "job_completed_at": "2026-11-05T17:18:52Z",
+    "target": "x86_64-unknown-linux-gnu",
+    "profile": "release",
+    "variant": "mini-extended-pixi",
+    "tier": "full",
+    "complete_original_root_suite": true,
+    "ctest_registrations_each": 65,
+    "ordered_gtest_cases_each": 9527,
+    "exact_ordered_outcomes_and_dynamic_skips_match": true,
+    "matching_dynamic_skips_each": 31,
+    "sanitizer_diagnostics_each": [
+      "==<pid>==WARNING: AddressSanitizer failed to allocate 0xffffffffffffffff bytes"
+    ],
+    "sanitizer_reports_identical": true,
+    "sanitizer_parity": {
+      "sanitizer": "address",
+      "runtime": "/home/runner/.rustup/toolchains/nightly-2026-09-07-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/librustc-nightly_rt.asan.a",
+      "runtime_sha256": "453521224b21a54ae3c4778a5ef8e68e5d343b3bf22b41cfaa34a76d695ec4ff",
+      "original_aom_reference_sha256": "c729db79e599614365d260c983b2ec45379ae7815dec4c151f6f22376a2820c0",
+      "original_aom_translation_units": 168,
+      "native_vmaf_uninstrumented": true,
+      "original_c_flags_match_profile_preprocessing": true,
+      "instrumented_consumers_each": 56
+    },
+    "consumer_link_flags": "-fno-sanitize=address -Wl,--whole-archive <nightly runtime> -Wl,--no-whole-archive -lpthread -lrt -lm -ldl",
+    "rust_profile_rustflags": [
+      "-Zsanitizer=address",
+      "-Zexternal-clangrt",
+      "-Cforce-frame-pointers=yes",
+      "--cfg",
+      "libavif_rs_asan"
+    ],
+    "rust_profile_build_scripts_uninstrumented": true,
+    "original_aom_globals_in_rust": 2741,
+    "original_consumers_audited": 56,
+    "native_default_engine_dependencies": [],
+    "original_units_replayed_from_actual_raw": 28,
+    "actual_complete_summary_sha256": "2e8ddc4bfa535445bbdf9d82c2af2401575b8f2b197f4d6145fc7b61d77f14c0",
+    "actual_paired_report_sha256": "810f203e288dad4742186aeff27f541c3c29838624d5d2c7d83e01acd637046e",
+    "checked_actual_evidence_files": 14,
+    "artifact": {
+      "id": 13436593213,
+      "name": "root-linux-full-release-mini-extended-pixi-address",
+      "github_digest": "sha256:dbd1abe2a1cb5fe8d1aec0cf9f2fc015e8b0fb2c171e0722b58c95d96a81bf3f"
+    },
+    "actual_evidence_sha256": {
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/parity.json": "810f203e288dad4742186aeff27f541c3c29838624d5d2c7d83e01acd637046e",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/linkage.json": "c62bf7a5217f1feb080a9e3e70ba47db2003d0e0bd24000450171ef39be55241",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/translation.json": "a1da64c66de42ed5b56620e5310f209b3ea16dad380548ebf52b9ec37d8b1f3f",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/aom-asan-reference.json": "115504f8cc163c78918b8f99a6f0457018f982e4cf3a8b45fe480661b948c449",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/c/LastTest.log": "e75d75cdc644667a9cfa972ea1dd185acf20011af2529db9e9562c49105de6de",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/c/results.xml": "4195afcff4bcfdbccc587fed99062d49d7dd52e60a21fac3ef6c5083f52ee9fc",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/rust/LastTest.log": "493c23e798e0e30b68219c329760e6baeb127f48890d907039e0f45cee820018",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/rust/results.xml": "b57460ab9654d19262abcff79f4c12c6b6c40f28ff1096572b36677c970d7db1",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/reference/CMakeCache.txt": "aa456d3aa9875dfcb81be6ff201585a29b3942adfcb17e1318fce4f3ff307fc4",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/reference/compile_commands.json": "9ffdc3d4fa8bd5b49b3f8a04dcd48e71645692c4ae5022766783f1e419f564a0",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/c/CMakeCache.txt": "47a151a056aa164b514847f6961ab7179d1bf24d8403b72360377fb9412dd7f6",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/c/compile_commands.json": "4e27b7e5837ed5602a55d1726fd80bd529e08290202cbe3d9a725f793eb395be",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/rust/CMakeCache.txt": "bd749f4018f6e4318dd0fd43bb864442599a25b99edd73a35097b904691500de",
+      "build/root-rust-linux-release-mini-extended-pixi-asan/root-validation/full-iw9ius28/configuration/rust/compile_commands.json": "edb2658f6a4f8b0ceea148495bed10977760e85a208e628d43536e47f4b45e8f"
+    },
+    "production_target_admission_claimed": false,
+    "all_features_acceptance_claimed": false
+  },
   "remaining_gates": [
-    "Supported feature configurations beyond the default and combined Mini/Extended PIXI profiles",
-    "Applicable sanitizers for the combined Mini/Extended PIXI and other admitted configurations",
+    "Applicable sanitizers for the separate Mini and Extended PIXI configurations once admitted",
     "Production profile selection and final root consumer validation"
   ]
 }

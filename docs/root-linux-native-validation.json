@@ -511,7 +511,7 @@
   },
   "remaining_gates": [
     "Supported feature configurations beyond the default and combined Mini/Extended PIXI profiles",
-    "Root sanitizer checks beyond the default Release profile; see root-linux-sanitizer-validation.json",
+    "Root sanitizer checks beyond the default and combined Mini/Extended PIXI Release profiles; see root-linux-sanitizer-validation.json",
     "Production profile selection and final root consumer validation"
   ],
   "decision": "docs/adr/0050-admit-root-targets-through-native-profile-parity.md",
