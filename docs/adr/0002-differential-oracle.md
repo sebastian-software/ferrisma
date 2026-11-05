@@ -91,7 +91,11 @@ WriteCodestreamHeaders on a copy. While the encoder returns admission results
 its internal state at each AddImageFrame and ProcessOutput. A Rust admission
 result must coincide with the original queueing a fast-lossless frame or
 calling ProcessOneEnqueuedInput at that call; its history compares exactly up
-to that call and is reported separately from exact parity.
+to that call and is reported separately from exact parity. Encoder histories
+pass C enum arguments only within the value range of their enumeration, since
+other values are undefined in the original and abort its instrumented graph.
+Float and float16 caller samples are finite and small at any offset and byte
+order, so that the original's float-to-integer conversions stay defined.
 
 The encoder transform unit `encoder_transforms.cc` calls the archive's own
 Symmetric5, SlowSymmetric3, GaborishInverse, TransformFromPixels,

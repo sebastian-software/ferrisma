@@ -751,8 +751,7 @@ Progress:
   with the original; `epub-probe` supplies the original's branch evidence for
   each admission result. See
   [PORT_STATUS.md](PORT_STATUS.md#public-encoder-api-admission-and-setters-2026-11-05).
-  Linux, the ASan/UBSan oracle and a source audit for the unit are still
-  open. The next PRs widen ProcessOneEnqueuedInput: its raw-codestream header
+  A source audit for the unit is still open. The next PRs widen ProcessOneEnqueuedInput: its raw-codestream header
   path (WriteCodestreamHeaders, level checks) lands with the integration PR,
   which deletes the ProcessOutput admission for the admitted profile.
 - PR 2 (transform and color): `convolve_symmetric5.rs` (Symmetric5),
