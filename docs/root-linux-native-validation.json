@@ -1047,7 +1047,7 @@
   },
   "remaining_gates": [
     "Optional native engine configurations (libgav1, rav1e, SVT-AV1, external libyuv) and AVM/AV2 container combinations",
-    "Root sanitizer checks for the separate Mini and Extended PIXI Release profiles; see root-linux-sanitizer-validation.json",
+    "Root sanitizer checks for the optional native engine configurations; see root-linux-sanitizer-validation.json",
     "Production profile selection and final root consumer validation"
   ],
   "decision": "docs/adr/0050-admit-root-targets-through-native-profile-parity.md",

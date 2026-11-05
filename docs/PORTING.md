@@ -81,12 +81,12 @@ the complete macOS proofs are local native executions, supplemented by the
 hosted bounded pilot. See [platform evidence](PLATFORMS.md).
 
 Linux Release AddressSanitizer parity also passes all 64 default registrations
-and 9,473 ordered cases, and all 65 combined Mini/Extended PIXI registrations
-and 9,527 ordered cases, with separately instrumented consumers; see
+and 9,473 ordered cases, 65 Mini registrations and 9,526 cases, 64 Extended
+PIXI registrations and 9,474 cases, and all 65 combined Mini/Extended PIXI
+registrations and 9,527 ordered cases, with separately instrumented consumers; see
 [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md).
 Linux production admission still requires the optional native engine and
-AVM/AV2 configurations, sanitizer checks for the separate Mini and Extended
-PIXI profiles, and production profile selection with final consumers.
+AVM/AV2 configurations and production profile selection with final consumers.
 Windows x86-64 follows that milestone. Removing the current target guard alone
 does not establish support.
 
