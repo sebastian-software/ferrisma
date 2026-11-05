@@ -25,9 +25,12 @@ macOS ARM64, complete separate Mini and Extended PIXI Release/Debug comparisons
 on Linux x86-64, complete default and combined Mini/Extended PIXI Release/Debug
 comparisons with all four optional external engines on Linux x86-64, plus
 complete default, Mini, Extended PIXI, and combined Mini/Extended PIXI Release
-AddressSanitizer parity on Linux x86-64. Their evidence remains separate from production target admission
-and the existing macOS production record. PRs use bounded native gates; nightly
-and manual full tiers retain the complete original integration commands.
+AddressSanitizer parity on Linux x86-64. The
+[production record](root-linux-production-validation.json) repeats the complete
+Release/Debug comparisons for all six Linux configurations against the real
+package, plus macOS Release regressions; it admits GNU Linux x86-64 for those
+configurations. PRs use bounded native gates; nightly and manual full tiers
+retain the complete original integration commands.
 
 ## Reference baseline
 

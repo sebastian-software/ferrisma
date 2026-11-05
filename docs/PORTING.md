@@ -88,11 +88,16 @@ and 9,473 ordered cases, 65 Mini registrations and 9,526 cases, 64 Extended
 PIXI registrations and 9,474 cases, and all 65 combined Mini/Extended PIXI
 registrations and 9,527 ordered cases, with separately instrumented consumers; see
 [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md).
-Linux production admission still requires the AVM/AV2 configurations,
-sanitizer checks for the engine configurations, and production profile
-selection with final consumers.
-Windows x86-64 follows that milestone. Removing the current target guard alone
-does not establish support.
+The production package now selects these native Linux profiles; see
+[ADR 0054](adr/0054-select-native-linux-root-profiles-in-the-production-package.md).
+Its original consumers pass the complete Release and Debug checks for all six
+configurations with the real package archives, and the macOS production path
+passes hosted Release regressions; see
+[production evidence](root-linux-production-validation.json). Every other Linux
+feature set, including AVM/AV2, fails at compile time. Sanitizer checks for the
+engine configurations and the production package remain open.
+Windows x86-64 follows next. Removing a target guard alone does not establish
+support.
 
 `root-translate-linux.yml` prepares isolated native root source profiles using
 the actual C compilation database and pinned original decoder/conversion
@@ -104,8 +109,8 @@ Its `smoke` and `full` tiers additionally build isolated Rust libraries and run
 the original consumers, named ABI probes, complete AOM ownership/runtime audits,
 and strict AVIF/PNG comparisons. The smoke tier selects eight original test
 executables; the full tier requires every registration from the actual native
-CMake inventory and exact ordered original GoogleTest cases. Neither tier
-changes the production root target guard or claims optional-engine acceptance.
+CMake inventory and exact ordered original GoogleTest cases. With
+`package: production`, both tiers link the consumers to the real package instead.
 See [platform CI](PLATFORMS.md) for the PR/nightly split and remaining gates.
 The acceptance and CI boundaries are recorded in
 [ADR 0050](adr/0050-admit-root-targets-through-native-profile-parity.md).

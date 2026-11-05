@@ -11,8 +11,13 @@ The complete upstream snapshot, including its tests and fixtures, lives in
 `upstream/libavif`. See `UPSTREAM.json` for the exact source revision and
 `docs/PORTING.md` for the migration contract and validation status.
 
-The currently supported and tested target is **macOS on AArch64**. The original
-C/C++ applications and tests consume the Rust implementation through the C ABI.
+The supported and tested targets are **macOS on AArch64** and **GNU Linux on
+x86-64**. On Linux the package compiles the generated native profile of the
+selected configuration; six verified Cargo feature sets are admitted, and
+others fail at compile time (see
+[ADR 0054](docs/adr/0054-select-native-linux-root-profiles-in-the-production-package.md)).
+The original C/C++ applications and tests consume the Rust implementation
+through the C ABI.
 The default AOM, dav1d, and SharpYUV implementations are workspace Rust crates.
 libvmaf and the separately scoped optional engines remain native dependencies.
 
@@ -40,8 +45,9 @@ linked evidence current when delivering a milestone on `main`.
 ### Validation and platform support
 
 The root integration rows below describe the final mandatory Rust-AOM build on
-macOS ARM64. Standalone Linux validation of the three dependency crates is
-recorded separately and does not enable the root package on Linux.
+macOS ARM64. The Linux production package has its own consumer evidence in the
+platform rows; standalone validation of the three dependency crates is recorded
+separately.
 
 | Gate | Status | Verified scope and evidence |
 | --- | --- | --- |
@@ -51,7 +57,7 @@ recorded separately and does not enable the root package on Linux.
 | Root AddressSanitizer | Passing | Complete default C/Rust suites: 64 registrations and 9,473 cases. The original AOM reference includes all 168 instrumented units; native VMAF remains uninstrumented. See [final root validation](docs/aom-default-validation.json). |
 | ABI and implementation ownership | Passing | Named-layout probes, shared C ABI smoke test, every original AOM global, and all 55 default / 59 feature-enabled consumers and runtime closures. Probe exclusions are explicit in [the evidence](docs/aom-default-validation.json). |
 | Exact AVIF and decoded PNG output | Passing | Ten default-decoder and ten explicit-AOM-decoder comparisons match the C reference byte-for-byte with `-ffp-contract=off`. See [final root validation](docs/aom-default-validation.json). |
-| Whole-pipeline platform support | macOS ARM64 | The root configuration is validated for `aarch64-apple-darwin`. Linux root integration and other targets remain open. See [current limits](#current-limits). |
+| Whole-pipeline platform support | macOS ARM64, GNU Linux x86-64 | The production package is validated for `aarch64-apple-darwin` and, for six Cargo feature sets, `x86_64-unknown-linux-gnu`. Windows and other targets remain open. See [current limits](#current-limits). |
 
 ### Remaining work
 
@@ -60,7 +66,7 @@ recorded separately and does not enable the root package on Linux.
 | libvmaf | Native dependency | Separate port preserving the selected VMAF modes and model inputs. See [the dependency plan](docs/NATIVE-PORTS.md). |
 | libgav1, SVT-AV1, full libyuv, and AVM | Native optional engines | Adapters are ported and tested; engine implementations and their selected transitive dependencies remain separate milestones. See [the dependency plan](docs/NATIVE-PORTS.md). |
 | rav1e packaging | Retained C API integration | The encoder is already Rust. Direct workspace/dependency integration is separate work, rather than another mechanical codec port. See [the dependency plan](docs/NATIVE-PORTS.md). |
-| Linux whole-pipeline support | In progress | Native Release/Debug each pass 9,473 default, 9,526 Mini, 9,474 Extended PIXI, and 9,527 combined Mini/Extended PIXI cases, ABI, ownership, and strict bytes. Release AddressSanitizer parity passes 64 registrations / 9,473 cases by default, 65 / 9,526 with Mini, 64 / 9,474 with Extended PIXI, and 65 / 9,527 with both. With libgav1, rav1e, SVT-AV1, and external libyuv, Release/Debug each pass 9,481 default and 9,535 combined Mini/Extended PIXI cases. AVM/AV2 configurations, engine sanitizer checks, and production selection remain admission gates. See [platform CI and remaining gates](docs/PLATFORMS.md). |
+| Linux whole-pipeline support | Production for six configurations | The production package selects the native profile by Cargo features and `debug_assertions`. Its original consumers pass Release and Debug: 9,473 default, 9,526 Mini, 9,474 Extended PIXI, and 9,527 combined Mini/Extended PIXI cases, plus 9,481 and 9,535 with libgav1, rav1e, SVT-AV1, and external libyuv. Each run has ABI, ownership, and strict-byte checks. See [production evidence](docs/root-linux-production-validation.json). Isolated Release ASan parity covers the four container configurations. AVM/AV2, engine and production-package sanitizer checks remain open. See [platform CI and remaining gates](docs/PLATFORMS.md). |
 | Windows and additional targets | Open | Platform-specific translations, runtime mappings, ABI checks, and native execution evidence. |
 | Broader upstream validation | Open | Optional MP4Box golden tests, libavif FuzzTest, ComplianceWarden, continuous fuzzing, additional sanitizer coverage, and the wider upstream platform matrix. See [validation limits](docs/VALIDATION.md). |
 | SIMD and performance work | Deferred | Architecture-specific optimized paths, benchmarks, and measured optimization follow the portable mechanical port. See [deferred work](docs/FUTURE.md). |
@@ -98,7 +104,9 @@ and Rust. The complete supported feature configuration passes 70 registrations
 containing 9,555 GoogleTest cases, plus the original C and shell integration
 tests. AddressSanitizer parity also passes the 64 default registrations.
 
-Cargo emits `target/release/libavif.a`, `libavif.dylib`, and `libavif.rlib`.
+Cargo emits `target/release/libavif.a`, `libavif.dylib` (`libavif.so` on
+Linux), and `libavif.rlib`. On Linux, the engine features additionally require
+the pinned engine builds from `tools/prepare_optional_deps.py`.
 Use the original headers in `upstream/libavif/include`. Exported Rust functions
 retain the original unsafe pointer and callback contracts.
 
@@ -120,7 +128,8 @@ feature test procedure, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Current limits
 
-Other platforms require their own platform translation and ABI validation.
+Other platforms and unadmitted Linux feature sets, including AVM/AV2, require
+their own platform translation and ABI validation.
 Optional libavif golden tests, libavif FuzzTest, and the full upstream platform CI matrix are
 preserved but have not been executed here. The optional C++ ComplianceWarden
 integration remains preserved upstream and is not enabled by the Rust build.
