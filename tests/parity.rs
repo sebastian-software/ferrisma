@@ -119,6 +119,9 @@ mod block_context;
 #[path = "parity/dct.rs"]
 mod dct;
 
+#[path = "parity/encoder_transforms.rs"]
+mod encoder_transforms;
+
 #[path = "parity/entropy.rs"]
 mod entropy;
 
@@ -863,6 +866,7 @@ fn observe(request: &str) -> String {
         kind if render_pipeline::handles(kind) => render_pipeline::observe(kind, &mut args),
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
+        kind if encoder_transforms::handles(kind) => encoder_transforms::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
         kind if epf::handles(kind) => epf::observe(kind, &mut args),
         kind if splines::handles(kind) => splines::observe(kind, &mut args),

@@ -215,5 +215,12 @@
     "end": "\n\nTestImage::TestImage() {",
     "sha256": "e71c4d22d2b6fa07cdd33af3b3b0f235e1fc6413caa7ddf8c476ca4060be45e2",
     "output": "original_some_test_image.inc"
+  },
+  {
+    "path": "lib/jxl/enc_gaborish_test.cc",
+    "start": "WeightsSymmetric3 GaborishKernel(",
+    "end": "\n\nvoid ConvolveGaborish(",
+    "sha256": "fda7c2b944f56533dd012a04ea1809d781dc2212137d80c676a1e8df392eae50",
+    "output": "original_gaborish_kernel.inc"
   }
 ]

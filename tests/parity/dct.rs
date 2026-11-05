@@ -253,7 +253,7 @@ fn dct_identity_keeps_selected_original_subnormal_and_signed_zero_rounding() {
 
 // Keep checking this whole new corpus before failing so native target logs
 // reveal later operand-selection mismatches as well as the first one.
-fn compare_competing_payloads(requests: Vec<String>) {
+pub(super) fn compare_competing_payloads(requests: Vec<String>) {
     let observations = original_observations(&requests);
     let mut failures = 0usize;
     for (request, cpp) in requests.iter().zip(observations) {
