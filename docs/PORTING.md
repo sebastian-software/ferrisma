@@ -76,7 +76,10 @@ PIXI configurations. Each default pair covers 9,473 original cases; each
 combined pair covers 9,527, with exact ordered outcomes, ABI, strict bytes, and
 all consumer/runtime ownership audits. Linux also passes the separate Mini
 (9,526 cases) and Extended PIXI (9,474 cases) Release/Debug profiles with the
-same checks. Linux uses verified hosted artifacts;
+same checks, plus both configurations with all four optional external engines
+(9,481 and 9,535 cases); see
+[ADR 0053](adr/0053-generate-native-root-engine-profiles-from-pinned-external-engines.md).
+Linux uses verified hosted artifacts;
 the complete macOS proofs are local native executions, supplemented by the
 hosted bounded pilot. See [platform evidence](PLATFORMS.md).
 
@@ -85,8 +88,9 @@ and 9,473 ordered cases, 65 Mini registrations and 9,526 cases, 64 Extended
 PIXI registrations and 9,474 cases, and all 65 combined Mini/Extended PIXI
 registrations and 9,527 ordered cases, with separately instrumented consumers; see
 [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md).
-Linux production admission still requires the optional native engine and
-AVM/AV2 configurations and production profile selection with final consumers.
+Linux production admission still requires the AVM/AV2 configurations,
+sanitizer checks for the engine configurations, and production profile
+selection with final consumers.
 Windows x86-64 follows that milestone. Removing the current target guard alone
 does not establish support.
 

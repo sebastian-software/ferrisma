@@ -82,7 +82,12 @@ python3 tools/compare_results.py \
 ```
 
 Task-local pkg-config files in `build/deps/pkgconfig` supplement the existing
-search path when present. The AVM helper repairs only its known stale macOS
+search path when present. Selecting engines, for example
+`python3 tools/prepare_optional_deps.py --libgav1 --rav1e --svt --libyuv`,
+builds only those; `--rav1e` and `--svt` build rav1e v0.8.1 (with cargo-c)
+and SVT-AV1 v4.2.0 from their pinned sources as shared libraries and record
+every engine identity in `build/deps/optional-engines.json`. Native Linux root
+profiles use these builds; see ADR 0053. The AVM helper repairs only its known stale macOS
 export-list entry; see ADR 0008. AVM's own TensorFlow dependencies remain native.
 
 To regenerate the additional AV1 adapters and the external libyuv path, build

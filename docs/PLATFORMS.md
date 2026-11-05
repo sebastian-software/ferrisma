@@ -7,7 +7,7 @@ native root evidence passes the admission gates in ADR 0050.
 | Target | Existing evidence | Current work | Remaining admission boundary |
 | --- | --- | --- | --- |
 | macOS ARM64 | Accepted production root and standalone default codecs. The shared native harness also passes complete Release/Debug locally: 64 registrations / 9,473 cases by default and 65 / 9,527 with combined Mini/Extended PIXI, plus ABI, all 55/56 consumers, and strict bytes. See [actual preparation evidence](root-profile-preparation.json). | The hosted native pilot passes both default profiles after a runner-capacity retry; its bounded execution is recorded separately from local full proofs. | Other container configurations and expanded sanitizer automation; keep the existing accepted production profile intact. |
-| GNU Linux x86-64 | Complete standalone default codec acceptance; default root Release/Debug each pass 64 registrations / 9,473 ordered cases. Mini Release/Debug each pass 65 / 9,526, Extended PIXI 64 / 9,474, and combined Mini/Extended PIXI 65 / 9,527. Each has 31 matching skips, named ABI, all 55/56 consumer audits, and 20 strict byte pairs. Release AddressSanitizer parity passes all four container configurations with the same counts, 31 matching skips, and all 55/56 instrumented consumers. See [actual native evidence](root-linux-native-validation.json) and [sanitizer evidence](root-linux-sanitizer-validation.json). | The glibc assertion correction and all four native container configurations have complete execution proofs; see [ADR 0051](adr/0051-preserve-single-evaluation-of-glibc-assertions.md). Root ASan compares separately instrumented consumers; see [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md). | Optional native engine and AVM/AV2 configurations and production profile selection with final consumer checks. |
+| GNU Linux x86-64 | Complete standalone default codec acceptance; default root Release/Debug each pass 64 registrations / 9,473 ordered cases. Mini Release/Debug each pass 65 / 9,526, Extended PIXI 64 / 9,474, and combined Mini/Extended PIXI 65 / 9,527. Each has 31 matching skips, named ABI, all 55/56 consumer audits, and 20 strict byte pairs. Release AddressSanitizer parity passes all four container configurations with the same counts, 31 matching skips, and all 55/56 instrumented consumers. With all four optional external engines (libgav1, rav1e, SVT-AV1, and external libyuv), Release/Debug each pass 65 / 9,481 in the default container and 66 / 9,535 with combined Mini/Extended PIXI. Both have no dynamic skips, named ABI, all 56/57 consumer audits, and 20 strict byte pairs. See [actual native evidence](root-linux-native-validation.json) and [sanitizer evidence](root-linux-sanitizer-validation.json). | The glibc assertion correction and all four native container configurations have complete execution proofs; see [ADR 0051](adr/0051-preserve-single-evaluation-of-glibc-assertions.md). Root ASan compares separately instrumented consumers; see [ADR 0052](adr/0052-compare-separately-instrumented-native-root-consumers.md). Engine profiles link pinned engine builds; see [ADR 0053](adr/0053-generate-native-root-engine-profiles-from-pinned-external-engines.md). | AVM/AV2 configurations, sanitizer checks for the engine configurations, and production profile selection with final consumer checks. |
 | Windows x86-64 | No native root or workspace codec acceptance. | Follow Linux admission; start with the MSVC target. | Native headers/CRT layouts, variadic/thread/alignment mappings, pinned reference builds, PE/COFF ownership, all default codec profiles, and original C/Rust execution. |
 | Other architectures | No whole-pipeline acceptance. | Follow the first Linux and Windows targets. | Independent native evidence; cross-compilation alone is insufficient. |
 
@@ -18,12 +18,13 @@ native root evidence passes the admission gates in ADR 0050.
 | Trigger | Native root configuration | Executed scope |
 | --- | --- | --- |
 | Pull request or push to `main` | Linux x86-64 Release, default container configuration. | Eight unchanged original smoke executables, exact C/Rust case inventories, named layouts, all original AOM globals and consumer/runtime ownership, shared C ABI, and 20 strict AVIF/PNG comparisons. |
-| Nightly at 02:17 UTC or manual dispatch | Linux x86-64 and macOS ARM64, Debug and Release, default and combined Mini/Extended PIXI configurations; Linux also runs Mini and Extended PIXI separately. | Complete original root C/Rust suites for each configuration, exact ordered case/skip comparisons, and the same ABI, ownership, shared-library, and byte checks. |
+| Nightly at 02:17 UTC or manual dispatch | Linux x86-64 and macOS ARM64, Debug and Release, default and combined Mini/Extended PIXI configurations; Linux also runs Mini and Extended PIXI separately, and both full containers with all four optional external engines. | Complete original root C/Rust suites for each configuration, exact ordered case/skip comparisons, and the same ABI, ownership, shared-library, and byte checks. |
 | Nightly or manual dispatch, sanitizer job | Linux x86-64 Release, all four container configurations, AddressSanitizer. | Complete original root C/Rust suites with separately instrumented consumers, exact ordered case/skip comparisons, instrumentation and runtime checks, and the ownership audit. |
 
 The Linux pipeline generates and builds isolated root profiles during admission;
-it does not remove the production target guard. Optional native engines and AV2
-are outside this initial matrix. Native CI execution of the new macOS wiring,
+it does not remove the production target guard. On Linux, the optional
+external engines are built from their pinned sources for the default and
+combined Mini/Extended PIXI containers. AV2 is outside this matrix. Native CI execution of the new macOS wiring,
 Windows, and sanitizer checks beyond the four Linux container Release profiles
 remain explicit gates.
 
@@ -110,5 +111,9 @@ python3 tools/validate_root_profile.py --baseline build/root-c-linux-release-def
 Use the Debug counterparts plus `--debug --upstream-debug` for both original C
 and Rust consumers. For root AddressSanitizer parity, run the same phases
 with `python3 tools/root_pipeline.py --phase all --profile release --tier full
---sanitizer address --clang-include /usr/lib/llvm-16/lib/clang/16/include`. An isolated profile is preparation for admission, not a
+--sanitizer address --clang-include /usr/lib/llvm-16/lib/clang/16/include`. For an
+optional engine configuration, pass its name, such as `--variant
+libgav1-rav1e-svt-libyuv`; the references phase first builds the pinned
+engines with `tools/prepare_optional_deps.py`. Engine configurations do not
+yet accept `--sanitizer`. An isolated profile is preparation for admission, not a
 fallback implementation or a supported production target.
