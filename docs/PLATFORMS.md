@@ -19,14 +19,13 @@ native root evidence passes the admission gates in ADR 0050.
 | --- | --- | --- |
 | Pull request or push to `main` | Linux x86-64 Release, default container configuration. | Eight unchanged original smoke executables, exact C/Rust case inventories, named layouts, all original AOM globals and consumer/runtime ownership, shared C ABI, and 20 strict AVIF/PNG comparisons. |
 | Nightly at 02:17 UTC or manual dispatch | Linux x86-64 and macOS ARM64, Debug and Release, default and combined Mini/Extended PIXI configurations; Linux also runs Mini and Extended PIXI separately. | Complete original root C/Rust suites for each configuration, exact ordered case/skip comparisons, and the same ABI, ownership, shared-library, and byte checks. |
-| Nightly or manual dispatch, sanitizer job | Linux x86-64 Release, default and combined Mini/Extended PIXI container configurations, AddressSanitizer. | Complete original root C/Rust suites with separately instrumented consumers, exact ordered case/skip comparisons, instrumentation and runtime checks, and the ownership audit. |
+| Nightly or manual dispatch, sanitizer job | Linux x86-64 Release, all four container configurations, AddressSanitizer. | Complete original root C/Rust suites with separately instrumented consumers, exact ordered case/skip comparisons, instrumentation and runtime checks, and the ownership audit. |
 
 The Linux pipeline generates and builds isolated root profiles during admission;
 it does not remove the production target guard. Optional native engines and AV2
 are outside this initial matrix. Native CI execution of the new macOS wiring,
-Windows, and sanitizer checks beyond the Linux default and combined Mini/Extended
-PIXI Release profiles remain
-explicit gates.
+Windows, and sanitizer checks beyond the four Linux container Release profiles
+remain explicit gates.
 
 The sanitizer job keeps the ordinary original C build as the source of the
 generated profile. Its separate ASan C baseline must match the 28 libavif
