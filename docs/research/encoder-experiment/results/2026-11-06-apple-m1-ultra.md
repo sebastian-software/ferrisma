@@ -119,3 +119,73 @@ Apple M1 Ultra, 20 logical cores, 64 GiB, macOS 27.0 (Darwin 27.0.0, arm64), rus
 | rav1e 4:2:0 10-bit s8 t20 | 82.6 | 65.40–66.53 | 80272 | -5.6% | 93 | 14.0× | 9 |
 | rav1e 4:2:0 10-bit s6 t1 | 82.6 | 65.11–66.65 | 74971 | -11.9% | 912 | 1.4× | 9 |
 
+
+## Sink candidates (2026-11-06, same machine)
+
+`target/release/encoder-asm sink IMAGES`: `ravif` against `rav1e` driven directly with `ravif`'s tweaks, `rav1e`'s plain presets, and tile counts derived from the image size (one tile per 512×512 pixels, at most 64).
+
+### dog (1600×1200, 7 size tiles); anchor 157658 bytes, SSIMULACRA2 74.61, 1564 ms; size-tile output t1 54025169a6322eee vs t20 54025169a6322eee: identical
+
+| variant | quality used | score bracket | bytes at anchor score | bytes vs anchor | median encode ms | speedup vs anchor | encodes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| ravif 4:4:4 10-bit s6 t1 | 79.9 | 74.61–74.61 | 157658 | +0.0% | 1559 | 1.0× | 6 |
+| rav1e 4:4:4 10-bit s6 t1 | 79.9 | 74.61–74.61 | 157658 | +0.0% | 1562 | 1.0× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t1 1 tile | 79.9 | 74.57–77.88 | 155931 | -1.1% | 2777 | 0.6× | 6 |
+| rav1e preset 4:2:0 10-bit s6 t1 1 tile | 81.7 | 74.48–77.13 | 157224 | -0.3% | 2102 | 0.7× | 7 |
+| rav1e preset 4:4:4 10-bit s6 t1 size tiles | 79.9 | 74.47–78.07 | 157742 | +0.1% | 2751 | 0.6× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t20 size tiles | 79.9 | 74.47–78.07 | 157742 | +0.1% | 540 | 2.9× | 6 |
+| rav1e preset 4:2:0 10-bit s6 t20 size tiles | 81.7 | 74.59–77.16 | 157857 | +0.1% | 398 | 3.9× | 7 |
+| rav1e preset 4:2:0 10-bit s7 t20 size tiles | 81.7 | 74.47–77.15 | 158471 | +0.5% | 265 | 5.9× | 7 |
+
+### flower (1600×1067, 6 size tiles); anchor 114021 bytes, SSIMULACRA2 77.45, 1561 ms; size-tile output t1 8729f347e131af1e vs t20 8729f347e131af1e: identical
+
+| variant | quality used | score bracket | bytes at anchor score | bytes vs anchor | median encode ms | speedup vs anchor | encodes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| ravif 4:4:4 10-bit s6 t1 | 79.9 | 77.45–77.45 | 114021 | +0.0% | 1551 | 1.0× | 6 |
+| rav1e 4:4:4 10-bit s6 t1 | 79.9 | 77.45–77.45 | 114021 | +0.0% | 1629 | 1.0× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t1 1 tile | 79.9 | 75.68–77.51 | 113534 | -0.4% | 2496 | 0.6× | 6 |
+| rav1e preset 4:2:0 10-bit s6 t1 1 tile | 82.6 | 77.04–77.72 | 112253 | -1.6% | 1786 | 0.9× | 9 |
+| rav1e preset 4:4:4 10-bit s6 t1 size tiles | 79.9 | 75.81–77.50 | 115327 | +1.1% | 2466 | 0.6× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t20 size tiles | 79.9 | 75.81–77.50 | 115327 | +1.1% | 463 | 3.4× | 6 |
+| rav1e preset 4:2:0 10-bit s6 t20 size tiles | 82.6 | 77.09–77.70 | 113565 | -0.4% | 352 | 4.4× | 9 |
+| rav1e preset 4:2:0 10-bit s7 t20 size tiles | 82.1 | 77.19–77.80 | 113280 | -0.7% | 231 | 6.7× | 9 |
+
+### kodim03 (768×512, 1 size tiles); anchor 26196 bytes, SSIMULACRA2 72.81, 317 ms; size-tile output t1 490bbd297e58535d vs t20 490bbd297e58535d: identical
+
+| variant | quality used | score bracket | bytes at anchor score | bytes vs anchor | median encode ms | speedup vs anchor | encodes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| ravif 4:4:4 10-bit s6 t1 | 79.9 | 72.81–72.81 | 26196 | +0.0% | 316 | 1.0× | 6 |
+| rav1e 4:4:4 10-bit s6 t1 | 79.9 | 72.81–72.81 | 26196 | +0.0% | 318 | 1.0× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t1 1 tile | 80.8 | 72.38–73.00 | 26285 | +0.3% | 662 | 0.5× | 9 |
+| rav1e preset 4:2:0 10-bit s6 t1 1 tile | 81.7 | 72.09–72.88 | 25322 | -3.3% | 481 | 0.7× | 7 |
+| rav1e preset 4:4:4 10-bit s6 t1 size tiles | 80.8 | 72.38–73.00 | 26285 | +0.3% | 660 | 0.5× | 9 |
+| rav1e preset 4:4:4 10-bit s6 t20 size tiles | 80.8 | 72.38–73.00 | 26285 | +0.3% | 660 | 0.5× | 9 |
+| rav1e preset 4:2:0 10-bit s6 t20 size tiles | 81.7 | 72.09–72.88 | 25322 | -3.3% | 480 | 0.7× | 7 |
+| rav1e preset 4:2:0 10-bit s7 t20 size tiles | 81.7 | 72.53–72.99 | 25407 | -3.0% | 310 | 1.0× | 9 |
+
+### kodim23 (768×512, 1 size tiles); anchor 24062 bytes, SSIMULACRA2 75.00, 334 ms; size-tile output t1 acfba63a86917298 vs t20 acfba63a86917298: identical
+
+| variant | quality used | score bracket | bytes at anchor score | bytes vs anchor | median encode ms | speedup vs anchor | encodes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| ravif 4:4:4 10-bit s6 t1 | 79.9 | 75.00–75.00 | 24062 | +0.0% | 328 | 1.0× | 6 |
+| rav1e 4:4:4 10-bit s6 t1 | 79.9 | 75.00–75.00 | 24062 | +0.0% | 328 | 1.0× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t1 1 tile | 79.9 | 74.96–78.19 | 23546 | -2.1% | 627 | 0.5× | 6 |
+| rav1e preset 4:2:0 10-bit s6 t1 1 tile | 82.1 | 74.56–75.68 | 22876 | -4.9% | 417 | 0.8× | 9 |
+| rav1e preset 4:4:4 10-bit s6 t1 size tiles | 79.9 | 74.96–78.19 | 23546 | -2.1% | 631 | 0.5× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t20 size tiles | 79.9 | 74.96–78.19 | 23546 | -2.1% | 625 | 0.5× | 6 |
+| rav1e preset 4:2:0 10-bit s6 t20 size tiles | 82.1 | 74.56–75.68 | 22876 | -4.9% | 415 | 0.8× | 9 |
+| rav1e preset 4:2:0 10-bit s7 t20 size tiles | 82.1 | 74.81–75.80 | 22952 | -4.6% | 275 | 1.2× | 9 |
+
+### plasma (1600×1200, 7 size tiles); anchor 85053 bytes, SSIMULACRA2 66.13, 1306 ms; size-tile output t1 220f1bebc06567ba vs t20 220f1bebc06567ba: identical
+
+| variant | quality used | score bracket | bytes at anchor score | bytes vs anchor | median encode ms | speedup vs anchor | encodes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| ravif 4:4:4 10-bit s6 t1 | 79.9 | 66.13–66.13 | 85053 | +0.0% | 1308 | 1.0× | 6 |
+| rav1e 4:4:4 10-bit s6 t1 | 79.9 | 66.13–66.13 | 85053 | +0.0% | 1316 | 1.0× | 6 |
+| rav1e preset 4:4:4 10-bit s6 t1 1 tile | 78.5 | 65.97–66.88 | 83442 | -1.9% | 1677 | 0.8× | 9 |
+| rav1e preset 4:2:0 10-bit s6 t1 1 tile | 82.1 | 65.65–66.21 | 72252 | -15.1% | 1025 | 1.3× | 9 |
+| rav1e preset 4:4:4 10-bit s6 t1 size tiles | 78.5 | 65.93–66.88 | 84154 | -1.1% | 1667 | 0.8× | 9 |
+| rav1e preset 4:4:4 10-bit s6 t20 size tiles | 78.5 | 65.93–66.88 | 84154 | -1.1% | 282 | 4.6× | 9 |
+| rav1e preset 4:2:0 10-bit s6 t20 size tiles | 82.1 | 66.12–67.19 | 73209 | -13.9% | 166 | 7.9× | 9 |
+| rav1e preset 4:2:0 10-bit s7 t20 size tiles | 82.1 | 65.76–66.18 | 73056 | -14.1% | 107 | 12.2× | 9 |
+

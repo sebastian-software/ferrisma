@@ -23,6 +23,7 @@ IMAGES="dog=PATH/dog_exif_extended_xmp_icc.jpg@1600 flower=PATH/flower.png.im_q8
 target/release/encoder-scalar anchor $IMAGES
 target/release/encoder-asm anchor $IMAGES
 target/release/encoder-asm matrix $IMAGES
+target/release/encoder-asm sink $IMAGES   # candidates for Ferrixel's own rav1e sink
 ```
 
 In zsh, write `${=IMAGES}` so the list splits into arguments.

@@ -155,6 +155,10 @@ enum Variant {
     /// `rav1e` driven directly with `ravif`'s speed tweaks, so that chroma
     /// subsampling and bit depth are the only differences.
     Direct { speed: u8, threads: usize, chroma: Chroma, depth: u8 },
+    /// `rav1e` with its own preset plus the four still-image settings only
+    /// (no `ravif` tweaks), and a tile count fixed by the image size instead
+    /// of the thread count: the candidate for Ferrixel's own sink.
+    Preset { speed: u8, threads: usize, chroma: Chroma, size_tiles: bool },
 }
 
 impl Variant {
@@ -164,6 +168,11 @@ impl Variant {
             Self::Direct { speed, threads, chroma, depth } => {
                 let chroma = if chroma == Chroma::Cs420 { "4:2:0" } else { "4:4:4" };
                 format!("rav1e {chroma} {depth}-bit s{speed} t{threads}")
+            }
+            Self::Preset { speed, threads, chroma, size_tiles } => {
+                let chroma = if chroma == Chroma::Cs420 { "4:2:0" } else { "4:4:4" };
+                let tiles = if size_tiles { "size tiles" } else { "1 tile" };
+                format!("rav1e preset {chroma} 10-bit s{speed} t{threads} {tiles}")
             }
         }
     }
@@ -251,11 +260,41 @@ fn ycbcr(px: RGB8, depth: u8) -> [f32; 3] {
     [y, cb, cr]
 }
 
-fn encode_direct<P: Pixel>(image: &Image, speed: u8, threads: usize, chroma: Chroma, depth: u8, quality: f32) -> Vec<u8> {
+/// Tile count from the image size alone: one tile per 512×512 pixels of
+/// area, at most 64. Independent of the thread count by construction.
+fn size_tiles(width: usize, height: usize) -> usize {
+    ((width * height) / (512 * 512)).clamp(1, 64)
+}
+
+/// `rav1e`'s own preset with the settings every still image needs.
+fn preset_settings(speed: u8) -> SpeedSettings {
+    let mut s = SpeedSettings::from_preset(speed);
+    s.multiref = false;
+    s.rdo_lookahead_frames = 1;
+    s.scene_detection_mode = SceneDetectionSpeed::None;
+    s.motion.include_near_mvs = false;
+    s
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_direct<P: Pixel>(
+    image: &Image,
+    speed: u8,
+    threads: usize,
+    chroma: Chroma,
+    depth: u8,
+    quality: f32,
+    preset: Option<bool>,
+) -> Vec<u8> {
     let (w, h) = (image.width, image.height);
     let quantizer = quality_to_quantizer(quality);
-    let (speed_settings, min_tile) = speed_settings(speed, quantizer);
-    let tiles = threads.min((w * h) / (min_tile * min_tile));
+    let (speed_settings, tiles) = match preset {
+        None => {
+            let (settings, min_tile) = speed_settings(speed, quantizer);
+            (settings, threads.min((w * h) / (min_tile * min_tile)))
+        }
+        Some(by_size) => (preset_settings(speed), if by_size { size_tiles(w, h) } else { 1 }),
+    };
     let config = Config::new()
         .with_encoder_config(EncoderConfig {
             width: w,
@@ -353,10 +392,13 @@ fn encode(image: &Image, variant: Variant, quality: f32) -> (Vec<u8>, Duration) 
         }
         Variant::Direct { speed, threads, chroma, depth } => {
             if depth > 8 {
-                encode_direct::<u16>(image, speed, threads, chroma, depth, quality)
+                encode_direct::<u16>(image, speed, threads, chroma, depth, quality, None)
             } else {
-                encode_direct::<u8>(image, speed, threads, chroma, depth, quality)
+                encode_direct::<u8>(image, speed, threads, chroma, depth, quality, None)
             }
+        }
+        Variant::Preset { speed, threads, chroma, size_tiles } => {
+            encode_direct::<u16>(image, speed, threads, chroma, 10, quality, Some(size_tiles))
         }
     };
     (bytes, started.elapsed())
@@ -461,6 +503,20 @@ fn variants() -> Vec<Variant> {
     list
 }
 
+fn sink_variants() -> Vec<Variant> {
+    use Chroma::{Cs420, Cs444};
+    vec![
+        Variant::Ravif { speed: 6, threads: 1 },
+        Variant::Direct { speed: 6, threads: 1, chroma: Cs444, depth: 10 },
+        Variant::Preset { speed: 6, threads: 1, chroma: Cs444, size_tiles: false },
+        Variant::Preset { speed: 6, threads: 1, chroma: Cs420, size_tiles: false },
+        Variant::Preset { speed: 6, threads: 1, chroma: Cs444, size_tiles: true },
+        Variant::Preset { speed: 6, threads: 20, chroma: Cs444, size_tiles: true },
+        Variant::Preset { speed: 6, threads: 20, chroma: Cs420, size_tiles: true },
+        Variant::Preset { speed: 7, threads: 20, chroma: Cs420, size_tiles: true },
+    ]
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mode = args.first().map(String::as_str).unwrap_or_default();
@@ -486,6 +542,42 @@ fn main() {
                     image.name, image.width, image.height, bytes.len(), hash(&bytes), score(image, &bytes), time.as_secs_f64() * 1e3
                 )
                 .unwrap();
+            }
+        }
+        "sink" => {
+            writeln!(out, "## Sink candidates ({features})\n").unwrap();
+            for image in &images {
+                let (anchor_bytes, _) = encode(image, anchor, 80.0);
+                let target = score(image, &anchor_bytes);
+                let anchor_time = median((0..3).map(|_| encode(image, anchor, 80.0).1).collect());
+                // Same quality, tiles from size: 1 and 20 threads must agree.
+                let one = Variant::Preset { speed: 6, threads: 1, chroma: Chroma::Cs444, size_tiles: true };
+                let many = Variant::Preset { speed: 6, threads: 20, chroma: Chroma::Cs444, size_tiles: true };
+                let (a, _) = encode(image, one, 80.0);
+                let (b, _) = encode(image, many, 80.0);
+                writeln!(
+                    out,
+                    "### {} ({}×{}, {} size tiles); anchor {} bytes, SSIMULACRA2 {:.2}, {:.0} ms; size-tile output t1 {:016x} vs t20 {:016x}: {}\n",
+                    image.name, image.width, image.height, size_tiles(image.width, image.height),
+                    anchor_bytes.len(), target, anchor_time.as_secs_f64() * 1e3,
+                    hash(&a), hash(&b), if a == b { "identical" } else { "DIFFERENT" }
+                )
+                .unwrap();
+                writeln!(out, "| variant | quality used | score bracket | bytes at anchor score | bytes vs anchor | median encode ms | speedup vs anchor | encodes |\n| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |").unwrap();
+                for variant in sink_variants() {
+                    let m = match_quality(image, variant, target);
+                    writeln!(
+                        out,
+                        "| {} | {:.1} | {:.2}–{:.2} | {:.0} | {:+.1}% | {:.0} | {:.1}× | {} |",
+                        variant.label(), m.quality, m.score_low, m.score_high, m.bytes,
+                        (m.bytes / anchor_bytes.len() as f64 - 1.0) * 100.0,
+                        m.time.as_secs_f64() * 1e3,
+                        anchor_time.as_secs_f64() / m.time.as_secs_f64(), m.encodes
+                    )
+                    .unwrap();
+                    eprintln!("{} {} done", image.name, variant.label());
+                }
+                writeln!(out).unwrap();
             }
         }
         "matrix" => {
@@ -522,7 +614,7 @@ fn main() {
                 writeln!(out).unwrap();
             }
         }
-        _ => panic!("mode must be anchor or matrix"),
+        _ => panic!("mode must be anchor, matrix or sink"),
     }
     print!("{out}");
 }
