@@ -23,7 +23,7 @@ from skcms_binding import live_bindings
 
 ROOT = Path(__file__).resolve().parent.parent
 FAMILIES = ["events", "box-buffers", "truncated", "misuse", "rewind", "allocations", "jpeg", "color", "frames", "frame-mutations", "jpeg-output",
-            "custom-manager"]
+            "custom-manager", "runners"]
 ARCHIVE = r"libjxl-internal\.a(?:\[\d+\])?\((?:.*/)?{}\.o\)$"
 
 
@@ -80,12 +80,14 @@ def main():
 
     owned = ["src/jxl/decode.rs", "src/jxl/codestream_header.rs", "src/jxl/base/data_parallel.rs",
              "src/jxl/decoder_input.rs", "src/jxl/decoder_input_cursor.rs",
+             "src/threads/thread_parallel_runner.rs", "src/threads/thread_parallel_runner_internal.rs",
+             "src/threads/resizable_parallel_runner.rs",
              "tests/support/decoder_public.rs", "tests/parity/decoder_public.rs",
              "tools/decoder_public_probe.rs", "tools/decoder_public_reference.py",
              "tools/decoder_public_captures.py", "tools/captures/decoder_public.tsv",
              "tests/decoder_public.rs", "tools/oracle/decoder_public.cc",
              "tools/oracle/decoder_public_driver.h", "tools/oracle/decoder_abi.cc",
-             "src/jxl/decode_abi.rs"]
+             "src/jxl/decode_abi.rs", "src/threads/abi.rs"]
     before = {str(ROOT / p): sha((ROOT / p).read_bytes()) for p in owned}
     sources = {}
     original = None
@@ -144,7 +146,8 @@ def main():
         original = result.stdout
         run(["python3", "tools/decoder_public_captures.py", "--check", "--oracle", str(binary)],
             directory, "standalone-captures")
-        # The same histories through the exported C ABI of either library.
+        # The same histories through the exported C ABI of either library,
+        # including JxlDecoderSetParallelRunner and the runners.
         abi = {}
         for variant in ["original", "rust"]:
             driver = build / f"jxl_abi_{variant}"

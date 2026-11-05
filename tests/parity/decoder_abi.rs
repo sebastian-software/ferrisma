@@ -1,7 +1,7 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-// The exported decoder C ABI. One C/C++ driver, compiled against the pinned
-// public headers only, links either the original library (jxl_abi_original)
+// The exported decoder and runner C ABI. One C/C++ driver, compiled against
+// the pinned public headers only, links either the original library (jxl_abi_original)
 // or the Rust static library (jxl_abi_rust). Every public decoder history that
 // the Rust port replays in-process also runs through both executables, and
 // both must reproduce the original oracle's observation exactly: statuses,
@@ -27,9 +27,12 @@ use std::fmt::Write as _;
 use std::mem::{align_of, offset_of, size_of};
 use std::path::PathBuf;
 
-/// The functions that decode.h declares, without JxlDecoderSetParallelRunner,
-/// which waits for the parallel runner port.
-const EXPORTED_FUNCTIONS: usize = 51;
+/// The functions that decode.h declares.
+const EXPORTED_FUNCTIONS: usize = 52;
+
+/// The functions that thread_parallel_runner.h and resizable_parallel_runner.h
+/// declare.
+const EXPORTED_RUNNER_FUNCTIONS: usize = 9;
 
 fn driver(variant: &str) -> PathBuf {
     super::oracle_path().with_file_name(format!("jxl_abi_{variant}"))
@@ -44,11 +47,8 @@ pub(super) fn compare(family: &str, requests: &[String], originals: &[String]) {
     }
     for request in requests {
         assert!(
-            request.starts_with("dpub-run ")
-                && !request
-                    .split(' ')
-                    .any(|op| op.starts_with('@') || op.starts_with('#')),
-            "the C ABI drivers replay runner-free public decoder histories: {request}"
+            request.starts_with("dpub-run "),
+            "the C ABI drivers replay public decoder histories: {request}"
         );
     }
     for variant in ["original", "rust"] {
@@ -93,7 +93,7 @@ fn rust_layout() -> String {
     }
     write!(
         out,
-        "F:{EXPORTED_FUNCTIONS} V:{}:{JPEGXL_MAJOR_VERSION}.{JPEGXL_MINOR_VERSION}.{JPEGXL_PATCH_VERSION}",
+        "F:{EXPORTED_FUNCTIONS} R:{EXPORTED_RUNNER_FUNCTIONS} V:{}:{JPEGXL_MAJOR_VERSION}.{JPEGXL_MINOR_VERSION}.{JPEGXL_PATCH_VERSION}",
         jxl::jxl::decode::jxl_decoder_version()
     )
     .unwrap();

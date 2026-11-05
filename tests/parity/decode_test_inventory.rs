@@ -5,9 +5,10 @@
 // (dti-* commands), on the original public API and on the Rust port.
 // Statuses, events, getters, consumed and released byte counts, box and JPEG
 // bytes and output digests compare exactly. Histories with a parallel runner
-// run only on the original, which must then match its own runner-free
-// history; the Rust decoder runs serially, as the original does with a null
-// runner. The inventory table is in docs/PORT_STATUS.md.
+// run on the original, which must then match its own runner-free history, and
+// on Rust with the translated runner; Rust also runs the runner-free history.
+// Outputs under a runner compare through caller buffers. The inventory table
+// is in docs/PORT_STATUS.md.
 
 const BASIC_INFO: i32 = 0x40;
 const COLOR_ENCODING: i32 = 0x100;
@@ -257,7 +258,8 @@ fn without_runner(request: &str) -> String {
 }
 
 /// Histories with parallel runners: the original with each runner must match
-/// its own runner-free history, which Rust then reproduces serially.
+/// its own runner-free history, and Rust reproduces both the runner-free
+/// history and the history with the translated runner.
 fn compare_with_runners(family: &str, requests: Vec<String>, expected: impl Fn(&str) -> bool) {
     let (undefined, requests): (Vec<String>, Vec<String>) = requests
         .into_iter()
@@ -284,6 +286,7 @@ fn compare_with_runners(family: &str, requests: Vec<String>, expected: impl Fn(&
         );
     }
     compare_observed(family, &plain, &serial);
+    compare_observed(&format!("{family}-runners"), &requests, &threaded);
     super::decoder_public::null_copy_probes(&undefined);
 }
 
@@ -405,7 +408,7 @@ fn decode_test_signature_and_allocation() {
     requests.push("dpub-run 1 0 - ".into());
     compare("dt-signature", requests);
     // DefaultParallelRunnerTest: JxlDecoderSetParallelRunner(dec, nullptr,
-    // nullptr) exists only in the original.
+    // nullptr).
     compare_with_runners("dt-null-runner", vec!["dpub-run 0 0 - @0".into()], |o| {
         o == " create:1 E"
     });

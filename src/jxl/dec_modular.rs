@@ -5,8 +5,9 @@
 //! lib/jxl/dec_modular.h, and sample conversion from lib/jxl/dec_modular.cc.
 //! ModularFrameDecoder storage, Init, DecodeGlobalInfo, and MaybeDropFullImage
 //! retain their complete source control flow. DecodeGroup, image-to-pipeline
-//! conversion, and FinalizeDecoding use the original null-pool/simple-pipeline
-//! configuration. VarDCT DC and AC metadata decoding preserve their reached
+//! conversion use the original null-pool/simple-pipeline configuration;
+//! FinalizeDecoding runs its transforms and groups on the frame's pool, with a
+//! runner's tasks serialized by `run_on_pool_exclusive`. VarDCT DC and AC metadata decoding preserve their reached
 //! dequantization, context, strategy, sharpness, and sigma updates. Full decoder
 //! state orchestration and debug descriptions remain
 //! unported. The three Highway
@@ -17,6 +18,7 @@
 
 use super::ac_strategy::{AcStrategy, AcStrategyType};
 use super::base::bits::ceil_log2_nonzero;
+use super::base::data_parallel::{ThreadPool, run_on_pool_exclusive};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::compressed_dc::dequant_dc;
@@ -796,7 +798,7 @@ impl ModularFrameDecoder {
         if !self.use_full_image {
             let input = input.ok_or(StatusCode::GenericError)?;
             for t in &self.global_transform {
-                t.inverse(&mut gi, &self.global_header.wp_header)?;
+                t.inverse(&mut gi, &self.global_header.wp_header, None)?;
             }
             let r = Rect::new(0, 0, gi.w, gi.h);
             self.modular_image_to_decoded_rect(header, &gi, shared, input, r)?;
@@ -1039,13 +1041,15 @@ impl ModularFrameDecoder {
         Ok(())
     }
     /// FinalizeDecoding's original full-image move/clone, transforms, and group
-    /// rendering with a null pool and either original pipeline implementation.
-    /// The shared/pipeline field borrows replace the containing decoder pointer.
+    /// rendering on the frame's pool, with either original pipeline
+    /// implementation. The shared/pipeline field borrows replace the
+    /// containing decoder pointer.
     pub fn finalize_decoding<'p>(
         &mut self,
         header: &FrameHeader<'_>,
         shared: &PassesSharedState<'_>,
         pipeline: &mut (dyn RenderPipeline<'p> + 'p),
+        pool: Option<&ThreadPool>,
         inplace: bool,
     ) -> Status {
         if !self.use_full_image {
@@ -1057,15 +1061,21 @@ impl ModularFrameDecoder {
         } else {
             gi.move_assign(&mut Image::clone_image(&self.full_image)?);
         }
-        let _xsize = gi.w;
-        let _ysize = gi.h;
-        // The source's small-image guard sets an already-null pool to null.
-        let _force_null_pool = _xsize.wrapping_mul(_ysize)
+        let xsize = gi.w;
+        let ysize = gi.h;
+        // Don't use threads if total image size is smaller than a group
+        let pool = if xsize.wrapping_mul(ysize)
             < self
                 .frame_dim
                 .group_dim
-                .wrapping_mul(self.frame_dim.group_dim);
-        gi.undo_transforms(&self.global_header.wp_header);
+                .wrapping_mul(self.frame_dim.group_dim)
+        {
+            None
+        } else {
+            pool
+        };
+        // Undo the global transforms
+        gi.undo_transforms(&self.global_header.wp_header, pool);
         if !self.global_transform.is_empty() {
             return Err(StatusCode::GenericError);
         }
@@ -1075,27 +1085,43 @@ impl ModularFrameDecoder {
         for i in 0..shared.frame_dim.num_groups {
             pipeline.clear_done(i);
         }
-        let end = shared.frame_dim.num_groups as u32;
-        if end != 0 {
+        let init = |pipeline: &mut (dyn RenderPipeline<'p> + 'p), num_threads: usize| -> Status {
             let use_group_ids =
                 header.encoding == FrameEncoding::VAR_DCT || (header.flags & FLAG_NOISE) != 0;
-            pipeline
-                .prepare_for_threads(1, use_group_ids)
-                .map_err(|_| StatusCode::GenericError)?;
-            for group in 0..end {
-                let mut input = pipeline.get_input_buffers(group as usize, 0);
-                self.modular_image_to_decoded_rect(
-                    header,
-                    &gi,
-                    Some(shared),
-                    &mut input,
-                    shared.frame_dim.group_rect(group as usize),
-                )
-                .map_err(|_| StatusCode::GenericError)?;
-                input.done().map_err(|_| StatusCode::GenericError)?;
-            }
+            pipeline.prepare_for_threads(num_threads, use_group_ids)?;
+            Ok(())
+        };
+        let this = &*self;
+        let process_group = |pipeline: &mut (dyn RenderPipeline<'p> + 'p),
+                             group: u32,
+                             thread_id: usize|
+         -> Status {
+            let mut input = pipeline.get_input_buffers(group as usize, thread_id);
+            this.modular_image_to_decoded_rect(
+                header,
+                &gi,
+                Some(shared),
+                &mut input,
+                shared.frame_dim.group_rect(group as usize),
+            )?;
+            input.done()?;
+            Ok(())
+        };
+        // SAFETY: The tasks use the pipeline, whose stages share decoder
+        // owners through Rc/RefCell handles (ADR 0003), and shared borrows of
+        // this decoder, the image and the frame state. None holds a
+        // thread-affine value, and the frame decoder does not use those owners
+        // until this call returns.
+        unsafe {
+            run_on_pool_exclusive(
+                pool,
+                0,
+                shared.frame_dim.num_groups as u32,
+                pipeline,
+                init,
+                process_group,
+            )
         }
-        Ok(())
     }
     pub fn have_dc(&self) -> bool {
         self.have_something

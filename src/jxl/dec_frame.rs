@@ -12,8 +12,11 @@
 //!   `PassesDecoderState` pointer target explicitly (ADR 0003), so no exclusive
 //!   borrow of codec state outlives a call. `decoded_` is an `Rc<RefCell>`
 //!   bundle owner shared with the retained pipeline writers.
-//! - The source's null ThreadPool is the only runner: RunOnPool calls run
-//!   sequentially on thread 0, as with a null pool.
+//! - The frame's pool is the source's retained `pool_` pointer: null for the
+//!   internal fixed profiles, the public decoder's pool otherwise. RunOnPool
+//!   task bodies borrow non-thread-safe frame owners (`Rc`/`RefCell` and
+//!   exclusive borrows, ADR 0003), so `run_on_pool_exclusive` serializes them
+//!   while the runner chooses the init thread count, threads and task order.
 //! - The decoder's JxlMemoryManager is supplied to `FrameDecoder::new`, because
 //!   the codec state is lent per call: it is the modular frame decoder's
 //!   manager and the WriteToOutputStage scratch manager, as the source's
@@ -29,6 +32,9 @@
 //!   constructor's; earlier pipelines may still retain the previous header.
 //! - JXL_HIGH_PRECISION=1 (the pinned default) compiles out the fast XYB->sRGB8
 //!   branch of SetImageOutput/PreparePipeline.
+use super::base::data_parallel::{
+    ThreadPool, run_on_pool_exclusive, run_on_pool_exclusive_no_init,
+};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
 use super::cms_interface::JxlCmsInterface;
@@ -417,6 +423,8 @@ pub struct FrameDecoder<'m, 'p> {
     // WriteToOutputStage factory, under FrameDecoder::new's contract.
     memory_manager: *const JxlMemoryManager,
     metadata: &'m super::image_metadata::CodecMetadata,
+    // pool_; null or valid under FrameDecoder::new's contract.
+    pool: *const ThreadPool,
     // decoded_; set by InitFrame.
     output: Option<FrameOutput<'p, 'm>>,
     header: AdmittedHeader<'m>,
@@ -452,6 +460,19 @@ struct FrameDecoderScope<'s, 'm, 'p> {
     storage: &'s mut FrameDecoder<'m, 'p>,
 }
 impl<'m, 'p> FrameDecoder<'m, 'p> {
+    /// The retained pool; its lifetime is not tied to this borrow, so that
+    /// RunOnPool may lend the decoder exclusively.
+    fn pool<'x>(&self) -> Option<&'x ThreadPool> {
+        // SAFETY: FrameDecoder::new's caller keeps a non-null pool valid and
+        // unmoved while this decoder is used, and never mutates it meanwhile.
+        unsafe { self.pool.as_ref() }
+    }
+    fn get_storage_location(&self, thread: usize, task: usize) -> usize {
+        if self.use_task_id {
+            return task;
+        }
+        thread
+    }
     fn decoded(&self) -> &RefCell<ImageBundle<'m>> {
         self.output
             .as_deref()
@@ -1392,13 +1413,28 @@ impl FrameDecoderScope<'_, '_, '_> {
             };
         }
         if self.storage.decoded_dc_global {
-            // RunOnPool with the null pool: tasks in order on thread 0.
-            for i in 0..dc.len() {
-                if dc[i] != num {
-                    self.process_dc_group(i, &mut *sections[dc[i]].br)?;
-                    statuses[dc[i]] = SectionStatus::Done;
-                }
-            }
+            let pool = self.storage.pool();
+            let mut state = (&mut *self, &mut *sections, &mut *statuses);
+            // SAFETY: The tasks use the frame scope, whose owners share
+            // Rc/RefCell handles (ADR 0003), and the section readers. None
+            // holds a thread-affine value, and nothing else uses those owners
+            // until this call returns.
+            unsafe {
+                run_on_pool_exclusive_no_init(
+                    pool,
+                    0,
+                    dc.len() as u32,
+                    &mut state,
+                    |(scope, sections, statuses), i, _thread| -> Status {
+                        let i = i as usize;
+                        if dc[i] != num {
+                            scope.process_dc_group(i, &mut *sections[dc[i]].br)?;
+                            statuses[dc[i]] = SectionStatus::Done;
+                        }
+                        Ok(())
+                    },
+                )
+            }?;
         }
         if !self.storage.dc_groups.contains(&0) && !self.storage.finalized_dc {
             let options = PipelineOptions {
@@ -1422,6 +1458,7 @@ impl FrameDecoderScope<'_, '_, '_> {
                     shared.quantizer.mul_dc(),
                     &mut shared.dc_storage,
                     &self.storage.header.0.chroma_subsampling,
+                    self.storage.pool(),
                 )?;
             }
             self.storage.finalized_dc = true;
@@ -1450,25 +1487,42 @@ impl FrameDecoderScope<'_, '_, '_> {
                     self.state.render_pipeline.as_mut().unwrap().clear_done(g);
                 }
             }
-            // RunOnPool with the null pool: init(1), then tasks on thread 0.
-            self.prepare_storage(1, self.storage.passes.len())?;
-            for g in 0..ac.len() {
-                if desired[g] == 0 {
-                    // No new AC pass, nothing to do.
-                    continue;
-                }
-                let first = self.storage.passes[g] as usize;
-                for i in 0..desired[g] {
-                    if ac[g][first + i] == num {
-                        return Err(StatusCode::GenericError);
-                    }
-                }
-                let thread = if self.storage.use_task_id { g } else { 0 };
-                self.process_ac_group(g, sections, &ac[g], desired[g], thread, false, false)?;
-                for i in 0..desired[g] {
-                    statuses[ac[g][first + i]] = SectionStatus::Done;
-                }
-            }
+            let pool = self.storage.pool();
+            let mut state = (&mut *self, &mut *sections, &mut *statuses);
+            // SAFETY: As for the DC groups above.
+            unsafe {
+                run_on_pool_exclusive(
+                    pool,
+                    0,
+                    ac.len() as u32,
+                    &mut state,
+                    |(scope, _, _), num_threads| -> Status {
+                        let num_tasks = scope.storage.passes.len();
+                        scope.prepare_storage(num_threads, num_tasks)
+                    },
+                    |(scope, sections, statuses), g, thread| -> Status {
+                        let g = g as usize;
+                        if desired[g] == 0 {
+                            // No new AC pass, nothing to do.
+                            return Ok(());
+                        }
+                        let first = scope.storage.passes[g] as usize;
+                        for i in 0..desired[g] {
+                            if ac[g][first + i] == num {
+                                return Err(StatusCode::GenericError);
+                            }
+                        }
+                        let location = scope.storage.get_storage_location(thread, g);
+                        scope.process_ac_group(
+                            g, sections, &ac[g], desired[g], location, false, false,
+                        )?;
+                        for i in 0..desired[g] {
+                            statuses[ac[g][first + i]] = SectionStatus::Done;
+                        }
+                        Ok(())
+                    },
+                )
+            }?;
         }
         self.mark_sections(sections, statuses);
         Ok(())
@@ -1504,23 +1558,41 @@ impl FrameDecoderScope<'_, '_, '_> {
                     self.state.render_pipeline.as_mut().unwrap().clear_done(g);
                 }
             }
-            // RunOnPool with the null pool: init(1), then tasks on thread 0.
-            self.prepare_storage(1, self.storage.passes.len())?;
-            for g in 0..self.storage.passes.len() {
-                if self.storage.passes[g] as usize == num_passes {
-                    // This group was drawn already, nothing to do.
-                    continue;
-                }
-                let thread = if self.storage.use_task_id { g } else { 0 };
-                let dc_only = !self.storage.decoded_ac_global;
-                self.process_ac_group(g, &mut [], &[], 0, thread, true, dc_only)?;
-            }
+            let pool = self.storage.pool();
+            let num_tasks = self.storage.passes.len();
+            // SAFETY: As in process_sections: the tasks use the frame scope,
+            // whose owners hold no thread-affine value, and nothing else uses
+            // them until this call returns.
+            unsafe {
+                run_on_pool_exclusive(
+                    pool,
+                    0,
+                    num_tasks as u32,
+                    self,
+                    |scope, num_threads| -> Status {
+                        let num_tasks = scope.storage.passes.len();
+                        scope.prepare_storage(num_threads, num_tasks)
+                    },
+                    |scope, g, thread| -> Status {
+                        let g = g as usize;
+                        if scope.storage.passes[g] as usize == num_passes {
+                            // This group was drawn already, nothing to do.
+                            return Ok(());
+                        }
+                        let location = scope.storage.get_storage_location(thread, g);
+                        let dc_only = !scope.storage.decoded_ac_global;
+                        scope.process_ac_group(g, &mut [], &[], 0, location, true, dc_only)
+                    },
+                )
+            }?;
         }
         // Undo global modular transforms and copy int pixel buffers to floats.
+        let pool = self.storage.pool();
         self.storage.modular.finalize_decoding(
             &self.storage.header.0,
             &self.state.shared_storage,
             &mut **self.state.render_pipeline.as_mut().unwrap(),
+            pool,
             self.storage.is_finalized,
         )
     }
@@ -1532,10 +1604,12 @@ impl FrameDecoderScope<'_, '_, '_> {
         if self.storage.decoded().borrow().jpeg_data.is_some() {
             return Ok(());
         }
+        let pool = self.storage.pool();
         self.storage.modular.finalize_decoding(
             &self.storage.header.0,
             &self.state.shared_storage,
             &mut **self.state.render_pipeline.as_mut().unwrap(),
+            pool,
             true,
         )?;
         if self.storage.header.0.can_be_referenced() {
@@ -1564,6 +1638,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
     fn with_profile(
         metadata: &'m super::image_metadata::CodecMetadata,
         memory_manager: *const JxlMemoryManager,
+        pool: *const ThreadPool,
         modular_memory_manager: MemoryManagerPtr,
         use_slow_rendering_pipeline: bool,
         profile: DecodeProfile,
@@ -1571,6 +1646,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         Self {
             memory_manager,
             metadata,
+            pool,
             output: None,
             header: AdmittedHeader(Rc::new(FrameHeader::new(Some(metadata)))),
             admitted: false,
@@ -1616,9 +1692,14 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
     ///   decoder and every owner allocated through it are dropped;
     /// - an output encoding with `cms_set` must satisfy `get_cms_stage`'s CMS
     ///   callback contract.
+    ///
+    /// `pool` is null or a ThreadPool that stays valid, unmoved and unmutated
+    /// while this decoder is used. Its RunOnPool tasks may call the output
+    /// callbacks from any runner thread, one at a time.
     pub unsafe fn new(
         metadata: &'m super::image_metadata::CodecMetadata,
         memory_manager: *const JxlMemoryManager,
+        pool: *const ThreadPool,
         use_slow_rendering_pipeline: bool,
     ) -> Result<Self, StatusCode> {
         admit_sequence_metadata(metadata)?;
@@ -1627,6 +1708,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         Ok(Self::with_profile(
             metadata,
             memory_manager,
+            pool,
             modular_memory_manager,
             use_slow_rendering_pipeline,
             DecodeProfile::Sequence,
@@ -2315,6 +2397,7 @@ fn decode_frame_with_pipeline<'m, 'p>(
         // no memory manager is reached and no foreign callback is installed.
         let mut decoder = FrameDecoder::with_profile(
             metadata,
+            std::ptr::null(),
             std::ptr::null(),
             state.memory_manager(),
             use_slow_rendering_pipeline,

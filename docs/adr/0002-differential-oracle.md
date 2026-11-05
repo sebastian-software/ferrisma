@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-04
+- Updated: 2026-11-05
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -64,21 +64,32 @@ expectations that throw, the pinned testdata bytes instead of file readers, and
 a genuine cjpeg file where a helper would call the extras libjpeg encoder,
 which the oracle does not build. A check that compares output with the encoder
 input (Butteraugli, pixel distances) is replaced by exact equality with the
-original decoder's output, not by a tolerance. Parallel runners are not ported:
-a history that sets one runs only on the original, which must reproduce its own
-runner-free history exactly, and Rust runs that runner-free history, as the
-original does with a null runner. Callback output under a runner compares
-through a caller buffer, which is independent of the call order; the runner-free
-history also compares every call in order.
+original decoder's output, not by a tolerance. A history that sets a parallel
+runner runs on both decoders with the same runner and thread count: the
+original's thread or resizable runner, and its Rust translation. Which thread
+runs which task, and in which order, is nondeterministic. These histories
+therefore compare statuses, events, getters and outputs through caller
+buffers, including callback output written into a caller buffer at its stride.
+For these histories, the original with a runner must also reproduce its own
+runner-free history exactly. That history compares every callback call in
+order as well. The multithreaded callback's init arguments depend on the
+runner and its thread count, not on the schedule. They compare for explicit
+thread counts, together with a check that each run call's thread id is below
+the latest init's count. Default thread counts follow the host's reported
+concurrency, which Rust and libc++ may report differently, so histories that
+observe thread counts set them explicitly. The runners themselves are tested
+for the properties of `thread_parallel_runner_test.cc`, not for one schedule.
 
 The exported decoder C ABI is compared from the C side. One driver, compiled
 against the pinned public headers only, replays the public decoder histories
 with the same driver code as the original oracle. It is linked twice: against
 the original archive and against the Rust static library. Both also link the
 original default CMS library for JxlGetDefaultCms, which decode.h does not
-declare. Every runner-free history that Rust replays in-process also runs
-through both executables, which must reproduce the original oracle's
-observation exactly. A C unit of the driver measures every public struct
+declare; the original variant also links the original `jxl_threads` library,
+whose runner functions the Rust library exports itself. Every history that
+Rust replays in-process, with or without a parallel runner, also runs through
+both executables, which must reproduce the original oracle's observation
+exactly. A C unit of the driver measures every public struct
 layout and enumerator and takes the address of every exported function. The
 oracle build runs Cargo for the static library, with the profile and features
 of the checked tests so that both share one compilation; Cargo decides

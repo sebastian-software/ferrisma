@@ -7,14 +7,15 @@
 // linked twice: jxl_abi_original against the original library archive and
 // jxl_abi_rust against the Rust static library. Both link the original
 // default CMS library for JxlGetDefaultCms, which decode.h does not declare.
-// Parallel runner operations are unavailable: the Rust library does not
-// export JxlDecoderSetParallelRunner yet.
+// Parallel runner operations call JxlDecoderSetParallelRunner and the runners
+// of thread_parallel_runner.h and resizable_parallel_runner.h: the original
+// driver links the original jxl_threads library, the Rust driver the runners
+// that the Rust library exports.
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 
-#define DECODER_PUBLIC_RUNNERS 0
 #include "decoder_public_driver.h"
 
 extern "C" const char* DecoderAbiLayout(void);

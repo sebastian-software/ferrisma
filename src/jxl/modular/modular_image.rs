@@ -5,11 +5,12 @@
 //! Rust moves transfer plane ownership. Explicit clone_image performs the
 //! source copy; undo_transforms retains the original stack and failure state.
 //! Planes allocate through the image's memory manager; the shorter
-//! constructors use the native allocator boundary. Diagnostic strings and
-//! custom runners remain unported.
+//! constructors use the native allocator boundary. undo_transforms forwards
+//! its pool to the inverse transforms. Diagnostic strings remain unported.
 
 use super::encoding::context_predict::weighted;
 use super::transform::transform::Transform;
+use crate::jxl::base::data_parallel::ThreadPool;
 use crate::jxl::base::libcpp_vector;
 use crate::jxl::base::status::{Status, StatusOr};
 use crate::jxl::image::Plane;
@@ -122,9 +123,9 @@ impl Image {
         libcpp_vector::move_assign(&mut self.channel, std::mem::take(&mut other.channel));
         self.transform = std::mem::take(&mut other.transform);
     }
-    pub fn undo_transforms(&mut self, wp_header: &weighted::Header) {
+    pub fn undo_transforms(&mut self, wp_header: &weighted::Header, pool: Option<&ThreadPool>) {
         while let Some(t) = self.transform.last().cloned() {
-            if t.inverse(self, wp_header).is_err() {
+            if t.inverse(self, wp_header, pool).is_err() {
                 self.error = true;
                 return;
             }

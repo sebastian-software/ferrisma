@@ -149,7 +149,7 @@ fn native_sections_recover_gray_rgb_and_uint16_normalization_after_inplace_move(
                         }
                     }
                     decoder
-                        .finalize_decoding(header, &shared, &mut *pipeline, true)
+                        .finalize_decoding(header, &shared, &mut *pipeline, None, true)
                         .unwrap();
                 }
                 assert_eq!((output.xsize(), output.ysize()), (w, h));

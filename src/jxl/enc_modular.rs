@@ -1195,7 +1195,7 @@ pub fn maybe_do_transform(
                 .last()
                 .expect("successful source transform pushed an entry")
                 .clone();
-            if t.inverse(image, wp_header).is_err() {
+            if t.inverse(image, wp_header, None).is_err() {
                 return Ok(false);
             }
             image.transform.pop();

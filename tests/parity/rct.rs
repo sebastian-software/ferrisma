@@ -46,14 +46,14 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 }
             }
             let status = if op == 1 {
-                inv_rct(&mut image, begin, kind)
+                inv_rct(&mut image, begin, kind, None)
             } else {
                 fwd_rct(&mut image, begin, kind)
             };
             let mut out = status_code(&status).to_string();
             modular(&mut out, &image);
             if op == 2 {
-                let status = inv_rct(&mut image, begin, kind);
+                let status = inv_rct(&mut image, begin, kind, None);
                 write!(out, " {}", status_code(&status)).unwrap();
                 modular(&mut out, &image);
             }
@@ -97,7 +97,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 image.channel[c].h = 1usize << 32;
             }
             let status = if op != 0 {
-                inv_rct(&mut image, 0, kind)
+                inv_rct(&mut image, 0, kind, None)
             } else {
                 fwd_rct(&mut image, 0, kind)
             };

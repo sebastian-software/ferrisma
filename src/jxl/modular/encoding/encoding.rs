@@ -1068,7 +1068,7 @@ pub fn modular_generic_decompress(
         return dec_status;
     }
     if undo_transforms {
-        image.undo_transforms(&header.wp_header);
+        image.undo_transforms(&header.wp_header, None);
     }
     if image.error {
         return Err(StatusCode::GenericError);

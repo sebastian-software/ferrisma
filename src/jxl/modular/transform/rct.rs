@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Existing Highway scalar inverse RCT from modular/transform/rct.cc.
-//! The null-pool configuration runs rows in ascending task order. SIMD targets
-//! and custom thread runners remain unported. Disjoint row borrows retain the
-//! source's load-all-inputs-before-stores rule for in-place permutations.
+//! Rows run through RunOnPool: a null pool runs them in ascending task order;
+//! a runner's tasks are serialized by `run_on_pool_exclusive`. SIMD targets
+//! remain unported. Disjoint row borrows retain the source's
+//! load-all-inputs-before-stores rule for in-place permutations.
 
 use super::super::modular_image::{Channel, Image, Pixel};
 use super::transform::check_equal_channels;
+use crate::jxl::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use crate::jxl::base::status::{Status, StatusCode};
 
 pub(super) trait Rows {
@@ -96,12 +98,19 @@ fn inverse_rows<const TRANSFORM: usize>(
     dest: [usize; 3],
     w: usize,
     h: usize,
-) {
-    // RunOnPool narrows its range end to uint32_t in the source.
-    for task in 0..h as u32 {
-        let mut rows = image_rows(image, begin, task as usize, [0, 1, 2], dest);
+    pool: Option<&ThreadPool>,
+) -> Status {
+    let process_row = |image: &mut Image, task: u32, _thread: usize| -> Status {
+        let y = task as usize;
+        let mut rows = image_rows(image, begin, y, [0, 1, 2], dest);
         inv_rct_row::<TRANSFORM>(&mut rows, w);
-    }
+        Ok(())
+    };
+    // RunOnPool narrows its range end to uint32_t in the source.
+    // SAFETY: The row body borrows only the image's channel owners, which
+    // hold no thread-affine values, and the image stays exclusively borrowed
+    // by this call until it returns.
+    unsafe { run_on_pool_exclusive_no_init(pool, 0, h as u32, image, process_row) }
 }
 fn permute_channels(channels: &mut [Channel], permutation: i32) {
     // Express the original three ownership moves with swaps; never allocate
@@ -122,7 +131,12 @@ fn permute_channels(channels: &mut [Channel], permutation: i32) {
         _ => panic!("invalid source RCT permutation"),
     }
 }
-pub fn inv_rct(image: &mut Image, begin: usize, rct_type: usize) -> Status {
+pub fn inv_rct(
+    image: &mut Image,
+    begin: usize,
+    rct_type: usize,
+    pool: Option<&ThreadPool>,
+) -> Status {
     check_equal_channels(image, begin as u32, begin.wrapping_add(2) as u32)?;
     let w = image.channel[begin].w;
     let h = image.channel[begin].h;
@@ -144,13 +158,13 @@ pub fn inv_rct(image: &mut Image, begin: usize, rct_type: usize) -> Status {
         ((permutation + 2 - permutation / 3) % 3) as usize,
     ];
     match custom {
-        0 => inverse_rows::<0>(image, begin, dest, w, h),
-        1 => inverse_rows::<1>(image, begin, dest, w, h),
-        2 => inverse_rows::<2>(image, begin, dest, w, h),
-        3 => inverse_rows::<3>(image, begin, dest, w, h),
-        4 => inverse_rows::<4>(image, begin, dest, w, h),
-        5 => inverse_rows::<5>(image, begin, dest, w, h),
-        _ => inverse_rows::<6>(image, begin, dest, w, h),
+        0 => inverse_rows::<0>(image, begin, dest, w, h, pool)?,
+        1 => inverse_rows::<1>(image, begin, dest, w, h, pool)?,
+        2 => inverse_rows::<2>(image, begin, dest, w, h, pool)?,
+        3 => inverse_rows::<3>(image, begin, dest, w, h, pool)?,
+        4 => inverse_rows::<4>(image, begin, dest, w, h, pool)?,
+        5 => inverse_rows::<5>(image, begin, dest, w, h, pool)?,
+        _ => inverse_rows::<6>(image, begin, dest, w, h, pool)?,
     }
     Ok(())
 }

@@ -24,17 +24,18 @@ for the precise configuration, source mapping, evidence and remaining scope.
 boxes, events, output buffers and callbacks, progressive output, color and
 HDR output through the translated default CMS, and JPEG reconstruction. Caller
 histories, including every test in the pinned `decode_test.cc`, compare exactly
-with the original public API. It runs serially: parallel runners are not
-ported yet. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
+with the original public API. The thread and resizable runners are ported, and
+`jxl_decoder_set_parallel_runner` runs the decoder's parallel schedules through
+them; the task bodies still run one at a time. See [the port status](docs/PORT_STATUS.md#public-incremental-decoder-api-2026-11-04).
 
-**The decoder C ABI is exported.** The crate's static and dynamic libraries
-(`libjxl.a`, `libjxl.so` or `libjxl.dylib`) export the functions of the pinned
-`decode.h` under their original names, so a C program written against those
-headers can link the Rust library instead of libjxl. Only
-`JxlDecoderSetParallelRunner` is missing until the runners are ported, and
-`JxlGetDefaultCms` comes from the separate original `jxl_cms` library. A C
-driver linked against either library compares every public decoder history
-exactly. See [the port status](docs/PORT_STATUS.md#exported-decoder-c-abi-2026-11-04).
+**The decoder and runner C ABI is exported.** The crate's static and dynamic
+libraries (`libjxl.a`, `libjxl.so` or `libjxl.dylib`) export the functions of
+the pinned `decode.h`, `thread_parallel_runner.h` and
+`resizable_parallel_runner.h` under their original names, so a C program
+written against those headers can link the Rust library instead of libjxl and
+libjxl_threads. `JxlGetDefaultCms` comes from the separate original `jxl_cms`
+library. A C driver linked against either library compares every public
+decoder history exactly, with and without parallel runners. See [the port status](docs/PORT_STATUS.md#exported-decoder-c-abi-2026-11-04).
 
 ## Port checklist
 
@@ -96,8 +97,7 @@ sequence and acceptance gates for this work.
   public decoder.
 - [x] Reconstruct original JPEG bitstreams and restore their Exif/XMP metadata.
 - [x] Port the public decoder API from `decode.cc` to Rust, including incremental
-  input, events, callbacks and progressive output. It runs serially without a
-  parallel runner.
+  input, events, callbacks and progressive output.
 
 ### Remaining encoder work
 
@@ -121,12 +121,15 @@ sequence and acceptance gates for this work.
   the ICC reader, codec state, image bundle and frame owners.
 - [ ] Route the memory manager through the encoder's owners with the public
   encoder API.
-- [ ] Port the thread runners and `JxlDecoderSetParallelRunner`/
-  `JxlEncoderSetParallelRunner`, with their parallel schedules.
-- [x] Export the public decoder C ABI of `decode.h`, except
-  `JxlDecoderSetParallelRunner`.
-- [ ] Export `JxlDecoderSetParallelRunner` and the `JxlThreadParallelRunner*`
-  and `JxlResizableParallelRunner*` C ABI with the runner port.
+- [x] Port the thread and resizable runners and `JxlDecoderSetParallelRunner`,
+  with the decoder's parallel schedules. Its task bodies run serialized under
+  a runner, without a parallel speedup yet.
+- [ ] Port `JxlEncoderSetParallelRunner` with the encoder's parallel schedules.
+- [ ] Run the decoder's parallel task bodies concurrently, with thread-safe
+  owners and measured performance.
+- [x] Export the public decoder C ABI of `decode.h`, including
+  `JxlDecoderSetParallelRunner`, and the `JxlThreadParallelRunner*` and
+  `JxlResizableParallelRunner*` C ABI of the ported runners.
 - [ ] Export the public encoder C ABI.
 - [ ] Translate the remaining original SIMD target specializations and dispatch,
   and accept the translated skcms SKX engine on an AVX-512 host.

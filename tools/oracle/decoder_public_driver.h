@@ -8,24 +8,18 @@
 // driver in tests/support/decoder_public.rs mirrors this protocol token for
 // token.
 //
-// Define DECODER_PUBLIC_RUNNERS to 1 to enable the parallel runner operations
-// '@' and '#', which need the original thread runner libraries, or to 0.
+// The parallel runner operations '@' and '#' call the runner functions that
+// the pinned thread_parallel_runner.h and resizable_parallel_runner.h declare.
 #ifndef TOOLS_ORACLE_DECODER_PUBLIC_DRIVER_H_
 #define TOOLS_ORACLE_DECODER_PUBLIC_DRIVER_H_
-
-#ifndef DECODER_PUBLIC_RUNNERS
-#error "Define DECODER_PUBLIC_RUNNERS to 0 or 1"
-#endif
 
 #include <jxl/cms.h>
 #include <jxl/codestream_header.h>
 #include <jxl/color_encoding.h>
 #include <jxl/decode.h>
-#include <jxl/types.h>
-#if DECODER_PUBLIC_RUNNERS
 #include <jxl/resizable_parallel_runner.h>
 #include <jxl/thread_parallel_runner.h>
-#endif
+#include <jxl/types.h>
 
 #include <algorithm>
 #include <atomic>
@@ -177,9 +171,7 @@ class Driver {
   Driver(std::vector<uint8_t> file, std::ostream& out) : file_(std::move(file)), out_(out) {}
   ~Driver() {
     if (dec_) JxlDecoderDestroy(dec_);
-#if DECODER_PUBLIC_RUNNERS
     DestroyRunner();
-#endif
   }
 
   // mm 0: default manager; 1: custom manager with its event log; 2: custom
@@ -333,10 +325,8 @@ class Driver {
         for (const auto& buffer : retired_) out_ << ',' << Hex(Bytes(buffer.data(), buffer.size()));
         break;
       }
-#if DECODER_PUBLIC_RUNNERS
-      case '@': out_ << SetRunner(std::stoi(arg)); break;
+      case '@': out_ << SetRunner(arg); break;
       case '#': out_ << ResizeRunner(); break;
-#endif
       case 'A': StreamLoop(arg); break;
       case 'B': ProgressionLoop(arg); break;
       default: throw std::runtime_error("decoder public op");
@@ -653,6 +643,22 @@ class Driver {
       }
       image_.assign(size, 0);
       s = JxlDecoderSetImageOutCallback(dec_, &format_, TestCallback, this);
+    } else if (!preview && out_mode_ == 5) {
+      // The multithreaded callback under a runner: rows land in the caller
+      // buffer as in mode 4, so the result does not depend on the call order.
+      // Init arguments enter the hash in call order (init never overlaps a
+      // run call), run calls are counted, and a thread id outside the latest
+      // init's thread count is recorded.
+      JxlBasicInfo info;
+      if (JxlDecoderGetBasicInfo(dec_, &info) != JXL_DEC_SUCCESS) return false;
+      test_bpp_ = PixelBytes();
+      test_stride_ = test_bpp_ * info.xsize;
+      if (format_.align > 1) {
+        test_stride_ = (test_stride_ + format_.align - 1) / format_.align * format_.align;
+      }
+      image_.assign(size, 0);
+      s = JxlDecoderSetMultithreadedImageOutCallback(dec_, &format_, BufferInitCallback,
+                                                     BufferRunCallback, DestroyCallback, this);
     } else if (preview || out_mode_ == 0) {
       image_.assign(size + 1, 0xA5);
       s = preview ? JxlDecoderSetPreviewOutBuffer(dec_, &format_, image_.data(), size)
@@ -687,6 +693,7 @@ class Driver {
       out_ << ',' << extra_[i].size() << ',' << Digest(extra_[i]);
     }
     out_ << ",cb" << cb_calls_ << ',' << cb_inits_ << ',' << cb_destroys_ << ',' << cb_hash_;
+    if (out_mode_ == 5) out_ << ",mt" << mt_calls_.load() << ',' << int(mt_bad_thread_.load());
   }
 
   void FrameInfo() {
@@ -902,14 +909,27 @@ class Driver {
     else SetGrowBox(std::stoul(arg));
   }
 
-#if DECODER_PUBLIC_RUNNERS
   // @0: JxlDecoderSetParallelRunner(dec, nullptr, nullptr); @1: the thread
   // runner with min(hardware, 16) workers, as DecodeWithAPI; @2: the
-  // resizable runner; @3: the thread runner with the default worker count.
-  // Only the original implements runners; these requests are compared with
-  // the same history without a runner.
-  JxlDecoderStatus SetRunner(int kind) {
+  // resizable runner; @3: the thread runner with the default worker count;
+  // @t<n>: the thread runner with n workers; @r<n>: the resizable runner
+  // after JxlResizableParallelRunnerSetThreads(n). The Rust driver uses the
+  // translated runners with the same arguments.
+  JxlDecoderStatus SetRunner(const std::string& arg) {
     DestroyRunner();
+    if (arg[0] == 't' || arg[0] == 'r') {
+      size_t threads = std::stoul(arg.substr(1));
+      if (arg[0] == 'r') {
+        runner_kind_ = 2;
+        runner_ = JxlResizableParallelRunnerCreate(nullptr);
+        JxlResizableParallelRunnerSetThreads(runner_, threads);
+        return JxlDecoderSetParallelRunner(dec_, JxlResizableParallelRunner, runner_);
+      }
+      runner_kind_ = 1;
+      runner_ = JxlThreadParallelRunnerCreate(nullptr, threads);
+      return JxlDecoderSetParallelRunner(dec_, JxlThreadParallelRunner, runner_);
+    }
+    int kind = std::stoi(arg);
     runner_kind_ = kind;
     if (kind == 0) return JxlDecoderSetParallelRunner(dec_, nullptr, nullptr);
     if (kind == 2) {
@@ -935,7 +955,6 @@ class Driver {
     else JxlThreadParallelRunnerDestroy(runner_);
     runner_ = nullptr;
   }
-#endif
 
   static void TestCallback(void* opaque, size_t x, size_t y, size_t n, const void* pixels) {
     auto* d = static_cast<Driver*>(opaque);
@@ -945,6 +964,17 @@ class Driver {
       return;
     }
     memcpy(d->image_.data() + offset, pixels, bytes);
+  }
+  static void* BufferInitCallback(void* opaque, size_t threads, size_t pixels) {
+    static_cast<Driver*>(opaque)->mt_threads_ = threads;
+    return InitCallback(opaque, threads, pixels);
+  }
+  static void BufferRunCallback(void* opaque, size_t thread, size_t x, size_t y, size_t n,
+                                const void* pixels) {
+    auto* d = static_cast<Driver*>(opaque);
+    d->mt_calls_.fetch_add(1);
+    if (thread >= d->mt_threads_) d->mt_bad_thread_ = true;
+    TestCallback(opaque, x, y, n, pixels);
   }
 
   // Event handling shared by the decode_test.cc streaming loops. Returns false
@@ -1173,10 +1203,12 @@ class Driver {
   size_t a_avail_ = 0, a_total_ = 0;
   size_t test_bpp_ = 0, test_stride_ = 0;
   std::atomic<bool> test_overflow_{false};
-#if DECODER_PUBLIC_RUNNERS
+  // Mode 5: the latest init's thread count, run calls and thread-id checks.
+  size_t mt_threads_ = 0;
+  std::atomic<size_t> mt_calls_{0};
+  std::atomic<bool> mt_bad_thread_{false};
   int runner_kind_ = 0;
   void* runner_ = nullptr;
-#endif
 };
 
 

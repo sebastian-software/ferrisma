@@ -202,8 +202,8 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
         // SAFETY: Every output descriptor installed below addresses a `keep`
         // buffer that outlives `state` and therefore every pipeline. The
         // manager is a live initialized local default manager, and the state
-        // receives no CMS (SetFromMetadata leaves cms_set false).
-        let mut frame = unsafe { FrameDecoder::new(&m, &manager, slow) }
+        // receives no CMS (SetFromMetadata leaves cms_set false). The pool is null.
+        let mut frame = unsafe { FrameDecoder::new(&m, &manager, std::ptr::null(), slow) }
             .expect("incremental fixtures are inside the admitted profile");
         frame.set_write_trace(Some(trace.clone()));
         let mut header = BitReader::new(&data[offset..]);

@@ -30,7 +30,7 @@ fn all_42_color_transforms_round_trip_samples_and_keep_padding() {
                 Ok(())
             }
         );
-        inv_rct(&mut image, 3, kind).unwrap();
+        inv_rct(&mut image, 3, kind, None).unwrap();
         for c in 0..6 {
             for y in 0..3 {
                 assert_eq!(
@@ -61,12 +61,12 @@ fn ycocg_known_answer_and_inverse_full_width_wrap_match_source_math() {
         ],
         [20, -20, 0]
     );
-    inv_rct(&mut image, 0, 6).unwrap();
+    inv_rct(&mut image, 0, 6, None).unwrap();
     assert_eq!(image.channel[2].row(0)[0], 30);
     for (c, v) in [i32::MIN, i32::MAX, i32::MIN].into_iter().enumerate() {
         image.channel[c].row_mut(0)[0] = v;
     }
-    inv_rct(&mut image, 0, 6).unwrap();
+    inv_rct(&mut image, 0, 6, None).unwrap();
     assert_eq!(
         [
             image.channel[0].row(0)[0],
@@ -92,7 +92,7 @@ fn pure_inverse_permutation_moves_channels_but_separate_forward_zero_copies() {
         0,
     )
     .unwrap();
-    inv_rct(&mut to, 0, 7).unwrap();
+    inv_rct(&mut to, 0, 7, None).unwrap();
     assert_eq!(
         [
             to.channel[0].component,

@@ -83,7 +83,7 @@ pub(super) fn observe(args: &mut std::str::SplitWhitespace<'_>) -> String {
     write!(out, " G {}", status_code(&status)).unwrap();
     if status.is_ok() {
         let mut gi = Image::clone_image(decoder.full_image()).unwrap();
-        gi.undo_transforms(&decoder.global_header().wp_header);
+        gi.undo_transforms(&decoder.global_header().wp_header, None);
         match mutation {
             1 => gi.transform.push(Transform::new(TransformId::RCT)),
             2 => gi.channel.clear(),

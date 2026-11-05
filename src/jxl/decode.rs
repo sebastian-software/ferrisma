@@ -34,8 +34,12 @@
 //!   lifetime contracts are stated on the unsafe entry points. Pointers that
 //!   the source dereferences without a check are options, unwrapped where the
 //!   source dereferences them. The C ABI exports are in `decode_abi.rs`.
+//! - The frame decoder retains a pointer to the boxed thread pool, as the
+//!   source's `pool_`; the box is replaced only while no frame decoder
+//!   exists. RunOnPool tasks run through the caller's runner, serialized as
+//!   described in `base::data_parallel::run_on_pool_exclusive`.
 
-use super::base::data_parallel::ThreadPool;
+use super::base::data_parallel::{JxlParallelRunner, ThreadPool};
 use super::base::status::StatusCode;
 use super::box_content_decoder::JxlBoxContentDecoder;
 use super::cms_interface::JxlCmsInterface;
@@ -1083,6 +1087,29 @@ pub unsafe fn jxl_decoder_skip_current_frame(dec: &mut JxlDecoder) -> JxlDecoder
     JxlDecoderStatus::SUCCESS
 }
 
+/// JxlDecoderSetParallelRunner.
+///
+/// # Safety
+/// A present runner and its opaque value obey parallel_runner.h until the
+/// decoder is reset, destroyed or given another runner: they call the
+/// supplied init/data functions only with the supplied opaque value, only
+/// during that runner call, and never unwind.
+pub unsafe fn jxl_decoder_set_parallel_runner(
+    dec: &mut JxlDecoder,
+    parallel_runner: Option<JxlParallelRunner>,
+    parallel_runner_opaque: *mut c_void,
+) -> JxlDecoderStatus {
+    if dec.stage != DecoderStage::Inited {
+        return api_error!("JxlDecoderSetParallelRunner must be called before starting");
+    }
+    // SAFETY: The caller's runner contract. In the Inited stage no frame
+    // decoder retains the replaced pool.
+    dec.thread_pool = Some(Box::new(unsafe {
+        ThreadPool::new(parallel_runner, parallel_runner_opaque)
+    }));
+    JxlDecoderStatus::SUCCESS
+}
+
 pub fn jxl_decoder_size_hint_basic_info(dec: &JxlDecoder) -> usize {
     if dec.got_basic_info {
         return 0;
@@ -1492,7 +1519,8 @@ fn jxl_decoder_process_sections(dec: &mut JxlDecoder) -> JxlDecoderStatus {
 fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     // If no parallel runner is set, use the default
     if dec.thread_pool.is_none() {
-        dec.thread_pool = Some(Box::new(ThreadPool::new(None, ptr::null_mut())));
+        // SAFETY: A runner-less pool runs only the supplied local functions.
+        dec.thread_pool = Some(Box::new(unsafe { ThreadPool::new(None, ptr::null_mut()) }));
     }
 
     // No matter what events are wanted, the basic info is always required.
@@ -1588,8 +1616,15 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
             // buffers (jxl_decoder_set_*_buffer/callback), the memory manager
             // (jxl_decoder_create) and the CMS (jxl_decoder_set_cms) stay valid
             // until the pipelines built from them are replaced or the decoder
-            // is destroyed. The manager cell outlives the frame decoder.
-            let frame_dec = unsafe { FrameDecoder::new(metadata, dec.manager_ptr(), false) }
+            // is destroyed. The manager cell outlives the frame decoder. The
+            // boxed pool, created above, is replaced only in the Inited stage
+            // or by Reset, after this frame decoder is released; destruction
+            // releases the frame decoder first.
+            let pool = dec
+                .thread_pool
+                .as_deref()
+                .map_or(ptr::null(), ptr::from_ref);
+            let frame_dec = unsafe { FrameDecoder::new(metadata, dec.manager_ptr(), pool, false) }
                 .expect("parsed metadata has 1..=32 bits per sample and matching extra channels");
             dec.frame_dec = Some(Box::new(frame_dec));
             dec.frame_header = Some(Box::new(FrameHeader::new(Some(metadata))));

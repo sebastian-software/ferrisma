@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Scalar DequantDC and AdaptiveDCSmoothing from lib/jxl/compressed_dc.cc.
-//! One-lane Highway expressions retain their original order. The null thread
-//! pool executes the source row range serially; storage swaps remain explicit.
+//! One-lane Highway expressions retain their original order. The row ranges
+//! run through RunOnPool: serially with a null pool, and serialized by
+//! `run_on_pool_exclusive` under a runner. Storage swaps remain explicit.
 use super::ac_context::BlockCtxMap;
+use super::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use super::base::rect::Rect;
 use super::base::status::Status;
 use super::frame_header::YCbCrChromaSubsampling;
@@ -71,16 +73,18 @@ pub fn adaptive_dc_smoothing(
     dc_factors: &[f32],
     dc: &mut Image3<f32>,
     chroma: &YCbCrChromaSubsampling,
+    pool: Option<&ThreadPool>,
 ) -> Status {
-    adaptive_dc_smoothing_in(MemoryManagerPtr::NATIVE, dc_factors, dc, chroma)
+    adaptive_dc_smoothing_in(MemoryManagerPtr::NATIVE, dc_factors, dc, chroma, pool)
 }
 
-/// The source AdaptiveDCSmoothing(memory_manager, dc_factors, dc, ...).
+/// The source AdaptiveDCSmoothing(memory_manager, dc_factors, dc, ..., pool).
 pub fn adaptive_dc_smoothing_in(
     memory_manager: MemoryManagerPtr,
     dc_factors: &[f32],
     dc: &mut Image3<f32>,
     chroma: &YCbCrChromaSubsampling,
+    pool: Option<&ThreadPool>,
 ) -> Status {
     let xsize = dc.xsize();
     let ysize = dc.ysize();
@@ -94,7 +98,8 @@ pub fn adaptive_dc_smoothing_in(
                 smoothed.plane_row_mut(c, y)[..xsize].copy_from_slice(&dc.plane_row(c, y)[..xsize]);
             }
         }
-        for y in 1..ysize - 1 {
+        let process_row = |smoothed: &mut Image3<f32>, y: u32, _thread: usize| -> Status {
+            let y = y as usize;
             for x in [0, xsize - 1] {
                 for c in 0..3 {
                     smoothed.plane_row_mut(c, y)[x] = dc.plane_row(c, y)[x];
@@ -124,7 +129,14 @@ pub fn adaptive_dc_smoothing_in(
                     smoothed.plane_row_mut(c, y)[x] = mul_add(sm[c] - mc[c], factor, mc[c]);
                 }
             }
-        }
+            Ok(())
+        };
+        // SAFETY: The rows write only the local smoothed image and read the
+        // DC image through a shared borrow; neither holds a thread-affine
+        // value.
+        unsafe {
+            run_on_pool_exclusive_no_init(pool, 1, (ysize - 1) as u32, &mut smoothed, process_row)
+        }?;
         dc.swap(&mut smoothed);
     } else {
         let mut smoothed = Plane::create_in(xsize, ysize, 0, memory_manager)?;
@@ -137,7 +149,8 @@ pub fn adaptive_dc_smoothing_in(
             for y in [0, height - 1] {
                 smoothed.row_mut(y)[..width].copy_from_slice(&dc.plane_row(c, y)[..width]);
             }
-            for y in 1..height - 1 {
+            let process_row = |smoothed: &mut Plane<f32>, y: u32, _thread: usize| -> Status {
+                let y = y as usize;
                 for x in [0, width - 1] {
                     smoothed.row_mut(y)[x] = dc.plane_row(c, y)[x];
                 }
@@ -159,7 +172,18 @@ pub fn adaptive_dc_smoothing_in(
                     };
                     smoothed.row_mut(y)[x] = mul_add(sm - mc, factor, mc);
                 }
-            }
+                Ok(())
+            };
+            // SAFETY: As above, for the single smoothed plane.
+            unsafe {
+                run_on_pool_exclusive_no_init(
+                    pool,
+                    1,
+                    (height - 1) as u32,
+                    &mut smoothed,
+                    process_row,
+                )
+            }?;
             dc.plane_mut(c).swap(&mut smoothed);
         }
     }

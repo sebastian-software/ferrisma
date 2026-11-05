@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Original scalar inverse/metadata/defaults from modular/transform/squeeze.h
-//! and squeeze.cc. Null-pool tasks retain eight-row / 64-column spans; SIMD
-//! specializations and custom runners remain unported. Owned output channels
-//! replace pointer aliases and move into the image at the source checkpoints.
+//! and squeeze.cc. RunOnPool tasks retain eight-row / 64-column spans; a
+//! runner's tasks are serialized by `run_on_pool_exclusive`. SIMD
+//! specializations remain unported. Owned output channels replace pointer
+//! aliases and move into the image at the source checkpoints.
 
 use super::squeeze_params::SqueezeParams;
+use crate::jxl::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::modular::modular_image::{Channel, Image};
 pub const MAX_FIRST_PREVIEW_SIZE: usize = 8;
@@ -32,7 +34,7 @@ pub fn smooth_tendency(b: i64, a: i64, n: i64) -> i64 {
     }
     diff
 }
-pub fn inv_h_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
+pub fn inv_h_squeeze(input: &mut Image, c: u32, rc: u32, pool: Option<&ThreadPool>) -> Status {
     if c as usize >= input.channel.len() || rc as usize >= input.channel.len() {
         return Err(StatusCode::GenericError);
     }
@@ -59,11 +61,7 @@ pub fn inv_h_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
         return Ok(());
     }
     const ROWS_PER_THREAD: usize = 8;
-    for task in 0..chin
-        .h
-        .wrapping_add(ROWS_PER_THREAD - 1)
-        .wrapping_div(ROWS_PER_THREAD) as u32
-    {
+    let unsqueeze_span = |chout: &mut Channel, task: u32, _thread: usize| -> Status {
         let y0 = task as usize * ROWS_PER_THREAD;
         let rows = ROWS_PER_THREAD.min(chin.h - y0);
         for y in y0..y0 + rows {
@@ -95,11 +93,19 @@ pub fn inv_h_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
                 p_out[outw - 1] = p_avg[chin.w - 1];
             }
         }
-    }
+        Ok(())
+    };
+    let num_tasks = chin
+        .h
+        .wrapping_add(ROWS_PER_THREAD - 1)
+        .wrapping_div(ROWS_PER_THREAD) as u32;
+    // SAFETY: The spans write only the local output channel and read the
+    // input channels through shared borrows; none holds a thread-affine value.
+    unsafe { run_on_pool_exclusive_no_init(pool, 0, num_tasks, &mut chout, unsqueeze_span) }?;
     input.channel[ci] = chout;
     Ok(())
 }
-pub fn inv_v_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
+pub fn inv_v_squeeze(input: &mut Image, c: u32, rc: u32, pool: Option<&ThreadPool>) -> Status {
     if c as usize >= input.channel.len() || rc as usize >= input.channel.len() {
         return Err(StatusCode::GenericError);
     }
@@ -126,11 +132,7 @@ pub fn inv_v_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
         return Ok(());
     }
     const COLS_PER_THREAD: u32 = 64;
-    for task in 0..chin
-        .w
-        .wrapping_add(COLS_PER_THREAD as usize - 1)
-        .wrapping_div(COLS_PER_THREAD as usize) as u32
-    {
+    let unsqueeze_slice = |chout: &mut Channel, task: u32, _thread: usize| -> Status {
         let x0 = task.wrapping_mul(COLS_PER_THREAD) as usize;
         let x1 = ((task.wrapping_add(1) as usize) * COLS_PER_THREAD as usize).min(chin.w);
         let w = x1 - x0;
@@ -155,7 +157,15 @@ pub fn inv_v_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
                 chout.row_mut((y << 1) + 1)[j] = (out - diff) as i32;
             }
         }
-    }
+        Ok(())
+    };
+    let num_tasks = chin
+        .w
+        .wrapping_add(COLS_PER_THREAD as usize - 1)
+        .wrapping_div(COLS_PER_THREAD as usize) as u32;
+    // SAFETY: As in inv_h_squeeze: the slices write only the local output
+    // channel and read the input channels through shared borrows.
+    unsafe { run_on_pool_exclusive_no_init(pool, 0, num_tasks, &mut chout, unsqueeze_slice) }?;
     if chout.h & 1 != 0 {
         let y = chin.h - 1;
         let p_avg = chin.row(y);
@@ -165,7 +175,11 @@ pub fn inv_v_squeeze(input: &mut Image, c: u32, rc: u32) -> Status {
     input.channel[ci] = chout;
     Ok(())
 }
-pub fn inv_squeeze(input: &mut Image, parameters: &[SqueezeParams]) -> Status {
+pub fn inv_squeeze(
+    input: &mut Image,
+    parameters: &[SqueezeParams],
+    pool: Option<&ThreadPool>,
+) -> Status {
     let mut i = parameters.len().wrapping_sub(1) as i32;
     while i >= 0 {
         let parameter = &parameters[i as usize];
@@ -199,9 +213,9 @@ pub fn inv_squeeze(input: &mut Image, parameters: &[SqueezeParams]) -> Status {
                 return Err(StatusCode::GenericError);
             }
             if parameter.horizontal {
-                inv_h_squeeze(input, c, rc)?;
+                inv_h_squeeze(input, c, rc, pool)?;
             } else {
-                inv_v_squeeze(input, c, rc)?;
+                inv_v_squeeze(input, c, rc, pool)?;
             }
         }
         crate::jxl::base::libcpp_vector::erase(

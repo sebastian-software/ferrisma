@@ -36,6 +36,7 @@ fn implicit_palette_known_colors_and_empty_single_palette_keep_clamp_order() {
         0,
         jxl::jxl::modular::options::Predictor::ZERO,
         &weighted::Header::default(),
+        None,
     )
     .unwrap();
     assert_eq!(&image.channel[0].row(0)[..4], &[32, 32, 0, 0]);
@@ -61,6 +62,7 @@ fn palette_rows_expand_rgb_indices_and_keep_original_index_channel_tag() {
         0,
         jxl::jxl::modular::options::Predictor::ZERO,
         &weighted::Header::default(),
+        None,
     )
     .unwrap();
     for (c, expected) in [[20, 10, 20], [40, 30, 40], [60, 50, 60]]
@@ -97,7 +99,7 @@ fn squeeze_signed_rounding_and_odd_rasters_round_trip_through_default_schedule()
     assert!(parameters.len() > 2);
     fwd_squeeze(&mut image, parameters.clone()).unwrap();
     assert!(image.channel.len() > 3);
-    inv_squeeze(&mut image, &parameters).unwrap();
+    inv_squeeze(&mut image, &parameters, None).unwrap();
     assert_eq!(image.channel.len(), 3);
     for c in 0..3 {
         for y in 0..9 {
@@ -155,7 +157,7 @@ fn inverse_stack_pops_successes_retains_failure_and_restores_complete_rct_squeez
     default_squeeze_parameters(&mut squeeze.squeezes, &image);
     fwd_squeeze(&mut image, squeeze.squeezes.clone()).unwrap();
     image.transform.push(squeeze);
-    image.undo_transforms(&weighted::Header::default());
+    image.undo_transforms(&weighted::Header::default(), None);
     assert!(!image.error);
     assert!(image.transform.is_empty());
     for c in 0..3 {
@@ -171,7 +173,7 @@ fn inverse_stack_pops_successes_retains_failure_and_restores_complete_rct_squeez
         rct_type: 0,
         ..Transform::new(TransformId::RCT)
     });
-    image.undo_transforms(&weighted::Header::default());
+    image.undo_transforms(&weighted::Header::default(), None);
     assert!(image.error);
     assert_eq!(image.transform.len(), 1);
     assert_eq!(image.transform[0].id, TransformId::INVALID);
