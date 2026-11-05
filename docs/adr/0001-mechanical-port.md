@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-02
+- Updated: 2026-11-05
 
 The first phase translates libjxl into Rust while keeping the source and target
 easy to compare. Combining the port with algorithm, API, or performance changes
@@ -61,6 +61,25 @@ color values under alpha zero remain encoded. Other extra-channel types,
 subsampling, associated alpha, and independently selected alpha depths remain
 outside admission until their complete source paths are translated.
 
+The public encoder API from `encode.cc` is admitted before the general frame
+encoder underneath it is complete. Translate its object lifecycle, setters and
+owners in source order, with every original argument, ordering and allocation
+check. Until the last admission is removed, the encoder enforces a recorded
+profile at run time instead of through types: a call that would enter a branch
+of the original that is not yet translated returns `JXL_ENC_ERROR` and sets
+`JXL_ENC_ERR_NOT_SUPPORTED` at the first such source checkpoint. Every check
+that the original performs before that checkpoint keeps its original status,
+error and stored state. An admission result is never a substitute for a missing
+algorithm and never counts as parity: the differential corpus compares each
+admitted history exactly up to that call and shows, from the original's own
+state, that the original enters the excluded branch there. This is the only
+general entry point with unported branches; the internal configuration entry
+points above keep their type-level admission. Do not export the encoder C ABI
+while any admission remains, because a C caller cannot tell an admission
+result from a libjxl status. [ENCODER_EXPANSION.md](../ENCODER_EXPANSION.md)
+records the admitted profile and its checkpoints; each step that translates an
+excluded branch deletes its check.
+
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a
 specific source construct has no sound Rust representation. Compilation alone
@@ -79,3 +98,12 @@ remaining general decoder and encoder work. Container wrapping is outside the
 raw entry point. Original level-10 encoder fixtures may call the actual internal
 header/one-shot boundary to obtain raw codestreams instead of the public API's
 mandatory container; no codestream framing algorithm is supplied by the fixture.
+
+## Amendment log
+
+- 2026-10-31: Accepted with the bitstream and header slice.
+- 2026-11-01: Admitted configuration-specific internal entry points for the
+  fixed lossless image path and its alpha profile.
+- 2026-11-02: Added the first complete VarDCT decode profile.
+- 2026-11-05: Admitted the public encoder API with explicit run-time admission
+  results at the first unported source checkpoint.
