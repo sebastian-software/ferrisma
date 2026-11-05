@@ -4,7 +4,9 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import os
 import platform
+import shlex
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,31 +44,51 @@ def validate_profile(path, target):
     return record
 
 
-def profile_work(record):
+def profile_work(record, sanitizer=None):
     return ROOT / (f'build/root-typecheck-{record["generation_target"]}-'
-                   f'{record["preprocessing_profile"]}-{record["variant"]}')
+                   f'{record["preprocessing_profile"]}-{record["variant"]}' + (f'-{sanitizer}' if sanitizer else ''))
 
 
-def profile_target(record):
-    # A new feature configuration must not replace archives or shared libraries
-    # referenced by an earlier native validation proof on the same host.
-    return ROOT / 'build/root-typecheck-target' / record['generation_target'] / record['variant']
+def profile_target(record, sanitizer=None):
+    # A new feature or sanitizer configuration must not replace archives or
+    # shared libraries referenced by an earlier native validation proof.
+    return (ROOT / 'build/root-typecheck-target' / record['generation_target']
+            / (record['variant'] + (f'-{sanitizer}' if sanitizer else '')))
+
+
+def sanitizer_flags(environment):
+    """Instrument every Rust crate of the profile; the explicit target excludes build scripts."""
+    flags = (environment['CARGO_ENCODED_RUSTFLAGS'].split('\x1f') if environment.get('CARGO_ENCODED_RUSTFLAGS')
+             else shlex.split(environment.get('RUSTFLAGS', '')))
+    flags += ['-Zsanitizer=address', '-Zexternal-clangrt', '-Cforce-frame-pointers=yes', '--cfg', 'libavif_rs_asan']
+    # The original consumers link the selected nightly's runtime; see ADR 0009.
+    # Mach-O dylibs must name the shared runtime; ELF consumers link it once.
+    from aom_sanitizer import native_runtime
+    triple, runtime, _ = native_runtime()
+    if triple == 'aarch64-apple-darwin':
+        flags += ['-Lnative=' + str(runtime.parent), '-ldylib=rustc-nightly_rt.asan',
+                  '-Clink-arg=-Wl,-rpath,' + str(runtime.parent)]
+    return flags
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--build', action='store_true', help='Produce native archives for the original consumer harness')
+    parser.add_argument('--sanitizer', choices=['address'], help='Instrument the Rust profile for ASan parity')
     args = parser.parse_args()
     target = ('x86_64-unknown-linux-gnu' if platform.system() == 'Linux' and platform.machine() == 'x86_64'
               else 'aarch64-apple-darwin' if platform.system() == 'Darwin' and platform.machine() == 'arm64'
               else None)
     record = validate_profile(args.manifest.resolve(), target)
-    work = profile_work(record)
+    if args.sanitizer and record['preprocessing_profile'] != 'release':
+        parser.error('The sanitizer configuration uses original Release preprocessing')
+    work = profile_work(record, args.sanitizer)
     work.mkdir(parents=True, exist_ok=True)
     selector = ROOT / record['selector']
     (work / 'lib.rs').write_text('#![feature(extern_types, c_variadic)]\n'
-        '#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]\n'
+        + ('#![cfg_attr(libavif_rs_asan, feature(sanitize))]\n' if args.sanitizer else '')
+        + '#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]\n'
         '#![allow(dead_code, unused_assignments, unused_mut)]\n'
         'extern crate aom as _;\nextern crate dav1d as _;\nextern crate sharpyuv as _;\n'
         + f'include!({json.dumps(str(selector))});\n')
@@ -84,14 +106,22 @@ def main():
     (work / 'build.rs').write_text('fn main() {\n'
         '    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {\n'
         '        println!("cargo:rustc-link-arg-cdylib=-Wl,-Bsymbolic");\n    }\n}\n')
-    destination = profile_target(record)
+    destination = profile_target(record, args.sanitizer)
     command = ['cargo', 'build' if args.build else 'check', '--offline', '--manifest-path', str(work / 'Cargo.toml'),
                '--target-dir', str(destination)]
+    environment = os.environ.copy()
+    output = destination
+    if args.sanitizer:
+        environment['CARGO_ENCODED_RUSTFLAGS'] = '\x1f'.join(sanitizer_flags(environment))
+        environment.pop('RUSTFLAGS', None)
+        # An explicit target keeps build scripts uninstrumented.
+        command += ['--target', target]
+        output = destination / target
     if record['preprocessing_profile'] == 'release':
         command.append('--release')
     if record['variant'] != 'default':
         command += ['--features', record['variant'].replace('mini-extended-pixi', 'mini,extended-pixi')]
-    subprocess.run(command, cwd=ROOT, check=True)
+    subprocess.run(command, cwd=ROOT, check=True, env=environment)
     proof = dict(target=target, profile=record['preprocessing_profile'], variant=record['variant'],
                  complete_source_profile_typechecked=True, native_execution_acceptance_claimed=False,
                  translation_manifest_sha256=digest(args.manifest), units=28)
@@ -99,8 +129,11 @@ def main():
         suffix = '.so' if target == 'x86_64-unknown-linux-gnu' else '.dylib'
         names = ['libavif.a', 'libavif.rlib', 'libavif' + suffix]
         proof['artifacts'] = {name: dict(path=str(path), sha256=digest(path)) for name, path in
-            [(name, destination / record['preprocessing_profile'] / name) for name in names]}
+            [(name, output / record['preprocessing_profile'] / name) for name in names]}
     proof['command'] = command
+    if args.sanitizer:
+        proof['sanitizer'] = args.sanitizer
+        proof['rustflags'] = environment['CARGO_ENCODED_RUSTFLAGS'].split('\x1f')
     (work / 'summary.json').write_text(json.dumps(proof, indent=2) + '\n')
     print('Complete native root profile ' + ('built' if args.build else 'typechecked')
           + '; original execution/ABI/linkage acceptance remains separate')

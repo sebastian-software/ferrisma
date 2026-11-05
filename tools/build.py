@@ -58,6 +58,8 @@ def main():
                         help="Build an isolated native generated profile for pre-admission original consumer checks")
     parser.add_argument("--build-dir", type=Path, help="Isolated output directory inside this checkout's build directory")
     parser.add_argument("--asan", action="store_true", help="Instrument the library and original test consumers with AddressSanitizer")
+    parser.add_argument("--instrumented-aom-reference", action="store_true",
+                        help="Link the ASan C baseline to the complete instrumented original AOM closure")
     parser.add_argument("--compiler-default-diagnostic", action="store_true",
                         help="Build a separate original C baseline with compiler-default contraction")
     parser.add_argument("--mini", action="store_true", help="Enable upstream experimental reduced headers")
@@ -67,9 +69,13 @@ def main():
     args = parser.parse_args()
     if args.upstream_debug and not args.debug:
         parser.error('--upstream-debug requires --debug')
-    if args.root_profile and (args.implementation != 'port' or args.asan or args.compiler_default_diagnostic
+    if args.root_profile and (args.implementation != 'port' or args.compiler_default_diagnostic
             or any([args.libgav1, args.rav1e, args.svt, args.libyuv, args.avm])):
-        parser.error('--root-profile requires nonsanitized port consumers with the generated default codec closure')
+        parser.error('--root-profile requires port consumers with the generated default codec closure')
+    if args.asan and args.debug:
+        parser.error('The sanitizer configuration uses original Release preprocessing')
+    if args.instrumented_aom_reference and (args.implementation != 'baseline' or not args.asan):
+        parser.error('--instrumented-aom-reference requires the ASan original C baseline')
     root_references = args.root_references.resolve() if args.root_references else None
     if root_references:
         record = json.loads((root_references / 'reference-profile.json').read_text())
@@ -153,41 +159,46 @@ def main():
         command += [f'-DLIBAVIF_RS_AOM_REFERENCE_BUILD={args.aom_reference_build}',
                     '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
     if args.asan:
-        prefix = Path(os.environ.get("LIBAVIF_RS_LLVM_PREFIX", str(ROOT / "build/toolchain/llvm@16/16.0.6_1")))
-        if not (prefix / "bin/clang").is_file():
-            raise SystemExit("ASan parity requires LLVM 16; set LIBAVIF_RS_LLVM_PREFIX to its installation prefix")
-        wrappers = ROOT / "build/toolchain/wrappers"
-        wrappers.mkdir(parents=True, exist_ok=True)
-        for compiler in ["clang", "clang++"]:
-            wrapper = wrappers / compiler
-            wrapper.write_text("#!/bin/sh\nexport DYLD_LIBRARY_PATH=" + shlex.quote(str(prefix / "lib") + ":/opt/homebrew/lib") +
-                               "\nexec " + shlex.quote(str(prefix / "bin" / compiler)) + ' "$@"\n')
-            wrapper.chmod(0o755)
-        sysroot = Path(subprocess.check_output(["rustc", "--print", "sysroot"], text=True).strip())
-        runtime_path = sysroot / "lib/rustlib/aarch64-apple-darwin/lib"
-        if not (runtime_path / "librustc-nightly_rt.asan.dylib").is_file():
-            raise SystemExit("The selected nightly toolchain has no matching macOS ASan runtime")
+        from aom_sanitizer import llvm_prefix, native_runtime
+        prefix = llvm_prefix()
+        triple, runtime_file, runtime_link = native_runtime()
+        runtime_path = runtime_file.parent
+        compilers = {name: prefix / "bin" / name for name in ["clang", "clang++"]}
+        if sys.platform == "darwin":
+            wrappers = ROOT / "build/toolchain/wrappers"
+            wrappers.mkdir(parents=True, exist_ok=True)
+            for compiler in compilers:
+                wrapper = wrappers / compiler
+                wrapper.write_text("#!/bin/sh\nexport DYLD_LIBRARY_PATH=" + shlex.quote(str(prefix / "lib") + ":/opt/homebrew/lib") +
+                                   "\nexec " + shlex.quote(str(prefix / "bin" / compiler)) + ' "$@"\n')
+                wrapper.chmod(0o755)
+                compilers[compiler] = wrapper
         command += ["-DCMAKE_C_FLAGS=" + numeric_flags + " -fsanitize=address -fno-omit-frame-pointer",
                     "-DCMAKE_CXX_FLAGS=-fsanitize=address -fno-omit-frame-pointer",
-                    f"-DCMAKE_C_COMPILER={wrappers}/clang", f"-DCMAKE_CXX_COMPILER={wrappers}/clang++",
-                    "-DCMAKE_EXE_LINKER_FLAGS=-fno-sanitize=address " + shlex.join([
-                        "-L" + str(runtime_path), "-lrustc-nightly_rt.asan", "-Wl,-rpath," + str(runtime_path)])]
+                    f"-DCMAKE_C_COMPILER={compilers['clang']}", f"-DCMAKE_CXX_COMPILER={compilers['clang++']}",
+                    "-DCMAKE_EXE_LINKER_FLAGS=" + shlex.join(runtime_link)]
+        if args.instrumented_aom_reference:
+            from aom_sanitizer import instrumented_reference
+            reference, _, _ = instrumented_reference()
+            command += [f'-DLIBAVIF_RS_AOM_REFERENCE_BUILD={reference}', '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']
     if args.root_profile:
         from check_root_profile import validate_profile, profile_work, digest
         target_triple = ('aarch64-apple-darwin' if sys.platform == 'darwin' and platform.machine() == 'arm64'
                          else 'x86_64-unknown-linux-gnu' if sys.platform == 'linux' and platform.machine() == 'x86_64'
                          else None)
         generated = validate_profile(args.root_profile.resolve(), target_triple)
+        sanitizer = 'address' if args.asan else None
         variant = '-'.join(features) or 'default'
         if (generated['preprocessing_profile'] != ('debug' if args.debug else 'release')
                 or args.debug != args.upstream_debug or generated['variant'] != variant):
             parser.error('The isolated Rust root profile must match original C preprocessing and container features')
-        run(['python3', ROOT / 'tools/check_root_profile.py', args.root_profile.resolve(), '--build'])
-        proof = json.loads((profile_work(generated) / 'summary.json').read_text())
+        run(['python3', ROOT / 'tools/check_root_profile.py', args.root_profile.resolve(), '--build',
+             *(['--sanitizer', sanitizer] if sanitizer else [])])
+        proof = json.loads((profile_work(generated, sanitizer) / 'summary.json').read_text())
         item = proof['artifacts']['libavif.a']
         archive = Path(item['path'])
         if (proof['translation_manifest_sha256'] != digest(args.root_profile.resolve())
-                or digest(archive) != item['sha256']):
+                or proof.get('sanitizer') != sanitizer or digest(archive) != item['sha256']):
             raise SystemExit('The isolated root archive does not match its actual generated build proof')
         command += [f'-DLIBAVIF_RS_ARCHIVE={archive}']
     elif args.implementation == "port":
@@ -207,12 +218,14 @@ def main():
             environment["CARGO_TARGET_DIR"] = str(target)
             flags = environment.get("CARGO_ENCODED_RUSTFLAGS", "").split("\x1f") if environment.get("CARGO_ENCODED_RUSTFLAGS") else shlex.split(environment.get("RUSTFLAGS", ""))
             flags += ["-Zsanitizer=address", "-Zexternal-clangrt", "-Cforce-frame-pointers=yes",
-                      "--cfg", "libavif_rs_asan", "-Lnative=" + str(runtime_path),
-                      "-ldylib=rustc-nightly_rt.asan", "-Clink-arg=-Wl,-rpath," + str(runtime_path)]
+                      "--cfg", "libavif_rs_asan"]
+            if sys.platform == "darwin":
+                flags += ["-Lnative=" + str(runtime_path), "-ldylib=rustc-nightly_rt.asan",
+                          "-Clink-arg=-Wl,-rpath," + str(runtime_path)]
             environment["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
             environment.pop("RUSTFLAGS", None)
-            cargo += ["--target", "aarch64-apple-darwin"]
-            target = target / "aarch64-apple-darwin"
+            cargo += ["--target", triple]
+            target = target / triple
         run(cargo, env=environment)
         archive = target / ("debug" if args.debug else "release") / "libavif.a"
         command += [f"-DLIBAVIF_RS_ARCHIVE={archive}"]

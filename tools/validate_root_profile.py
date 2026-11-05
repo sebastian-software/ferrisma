@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import shutil
 import tempfile
@@ -36,6 +37,54 @@ def inventory(build):
     return names
 
 
+SANITIZER_FLAGS = {'address': ['-fsanitize=address', '-fno-omit-frame-pointer']}
+
+
+def library_commands(build, sanitizer=None):
+    """Return each original libavif unit's flags with build-local paths normalized."""
+    entries = [entry for entry in json.loads((build / 'compile_commands.json').read_text())
+               if 'avif_obj.dir' in entry['command']]
+    commands = {}
+    for entry in entries:
+        flags = [flag.replace(str(build), '<build>') for flag in shlex.split(entry['command'])[1:]]
+        if sanitizer:
+            # The sanitized reference appends exactly its instrumentation flags
+            # to the original C flags; no other preprocessing option may change.
+            for flag in SANITIZER_FLAGS[sanitizer]:
+                if flags.count(flag) != 1:
+                    raise SystemExit(f'The original C unit lacks its exact sanitizer instrumentation: {entry["file"]}')
+                flags.remove(flag)
+        commands[entry['file']] = flags
+    if len(commands) != 28 or len(entries) != 28:
+        raise SystemExit('The original C reference lacks the complete 28-unit libavif closure')
+    return commands
+
+
+def symbols(path):
+    # Some archive members legitimately define no symbols; inspect the listing.
+    result = subprocess.run(['nm', '-A', str(path)], text=True, capture_output=True)
+    if not result.stdout:
+        raise SystemExit(f'Could not read the symbol table: {path}')
+    return result.stdout
+
+
+def instrumented(path):
+    """Require ASan instrumentation references in an archive."""
+    return re.search(r'\s[Uu] _?_asan_init$', symbols(path), re.M) is not None
+
+
+def runtime_linked(path):
+    """Require the selected runtime itself in an original consumer executable."""
+    return re.search(r'\s[Tt] _?_asan_init$', symbols(path), re.M) is not None
+
+
+def consumer_executables(build):
+    names = re.findall(r'^build ([^ :]+): C(?:XX)?_EXECUTABLE_LINKER', (build / 'build.ninja').read_text(), re.M)
+    if not names:
+        raise SystemExit('No original root consumer targets found')
+    return [build / name for name in names]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, required=True)
@@ -44,17 +93,47 @@ def main():
     parser.add_argument('--aom-reference-build', type=Path, help='Read an existing matching original AOM archive without rebuilding it')
     parser.add_argument('--tier', choices=['smoke', 'regression', 'full'], required=True)
     parser.add_argument('--jobs', type=int, default=2)
+    parser.add_argument('--sanitizer', choices=sorted(SANITIZER_FLAGS),
+                        help='Compare separately instrumented original C and Rust consumers')
+    parser.add_argument('--reference-baseline', type=Path,
+                        help='The ordinary original C build that generated the profile; required with --sanitizer')
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('--jobs must be positive')
+    if bool(args.sanitizer) != bool(args.reference_baseline):
+        parser.error('--sanitizer and --reference-baseline must be used together')
+    if args.sanitizer and args.tier != 'full':
+        parser.error('Sanitizer parity requires the complete original suite')
     baseline, port = args.baseline.resolve(), args.port.resolve()
     manifest = args.root_profile.resolve()
     record = json.loads(manifest.read_text())
     validate_profile(manifest, record['generation_target'])
-    if digest(baseline / 'compile_commands.json') != record['original_compile_commands_sha256']:
+    if args.sanitizer and record['preprocessing_profile'] != 'release':
+        parser.error('The sanitizer configuration uses original Release preprocessing')
+    generating = args.reference_baseline.resolve() if args.sanitizer else baseline
+    if digest(generating / 'compile_commands.json') != record['original_compile_commands_sha256']:
         raise SystemExit('The original root reference differs from the generated profile compilation database')
-    if digest(baseline / 'CMakeCache.txt') != record['original_cmake_cache_sha256']:
+    if digest(generating / 'CMakeCache.txt') != record['original_cmake_cache_sha256']:
         raise SystemExit('The original root reference configuration differs from the generated profile')
+    sanitizer_record = None
+    if args.sanitizer:
+        if library_commands(baseline, args.sanitizer) != library_commands(generating):
+            raise SystemExit('The sanitized original C units differ from the profile\'s original preprocessing')
+        from aom_sanitizer import native_runtime
+        _, runtime, _ = native_runtime()
+        aom_reference = ROOT / f'build/aom-root-asan-reference-{record["generation_target"]}'
+        aom_record = json.loads((aom_reference / 'build.json').read_text())
+        if (aom_record['original_translation_units'] != 168 or aom_record['sanitizer'] != args.sanitizer
+                or aom_record['original_sha256'] != digest(aom_reference / 'libaom.a')
+                or aom_record['runtime_sha256'] != digest(runtime)):
+            raise SystemExit('The sanitized C baseline lacks the complete instrumented original AOM closure')
+        cache = (baseline / 'CMakeCache.txt').read_text()
+        if f'LIBAVIF_RS_AOM_REFERENCE_BUILD:UNINITIALIZED={aom_reference}\n' not in cache:
+            raise SystemExit('The sanitized C baseline is not linked to the instrumented original AOM closure')
+        sanitizer_record = dict(sanitizer=args.sanitizer, runtime=str(runtime), runtime_sha256=digest(runtime),
+                                original_aom_reference_sha256=aom_record['original_sha256'],
+                                original_aom_translation_units=168, native_vmaf_uninstrumented=True,
+                                original_c_flags_match_profile_preprocessing=True)
     full = inventory(baseline)
     if full != inventory(port):
         raise SystemExit('The original C/Rust CTest registration inventories differ')
@@ -62,8 +141,8 @@ def main():
     expected = full if args.tier == 'full' else selected
     if not set(expected).issubset(full):
         raise SystemExit('The original native reference is missing required smoke registrations')
-    proof = json.loads((profile_work(record) / 'summary.json').read_text())
-    if proof['translation_manifest_sha256'] != digest(manifest):
+    proof = json.loads((profile_work(record, args.sanitizer) / 'summary.json').read_text())
+    if proof['translation_manifest_sha256'] != digest(manifest) or proof.get('sanitizer') != args.sanitizer:
         raise SystemExit('The isolated native root build proof differs from the current translation')
     for item in proof['artifacts'].values():
         if digest(Path(item['path'])) != item['sha256']:
@@ -73,8 +152,20 @@ def main():
     output = Path(tempfile.mkdtemp(prefix=args.tier + '-', dir=parent))
     summary = output / 'summary.json'
     feature = [] if record['variant'] == 'default' else ['--features', record['variant'].replace('mini-extended-pixi', 'mini,extended-pixi')]
-    run(['python3', 'tools/check_abi.py', '--build', baseline, '--root-profile', manifest, *feature])
+    if not args.sanitizer:
+        run(['python3', 'tools/check_abi.py', '--build', baseline, '--root-profile', manifest, *feature])
     archive = Path(proof['artifacts']['libavif.a']['path'])
+    if args.sanitizer:
+        c_archive = baseline / 'libavif.a'
+        if not instrumented(archive) or not instrumented(c_archive) or not instrumented(aom_reference / 'libaom.a'):
+            raise SystemExit('A compared library lacks AddressSanitizer instrumentation')
+        executables = {name: consumer_executables(build) for name, build in [('c', baseline), ('rust', port)]}
+        if [path.relative_to(baseline) for path in executables['c']] != [path.relative_to(port) for path in executables['rust']]:
+            raise SystemExit('The sanitized original C/Rust consumer targets differ')
+        for path in executables['c'] + executables['rust']:
+            if not runtime_linked(path):
+                raise SystemExit(f'An original consumer does not contain the selected ASan runtime: {path}')
+        sanitizer_record['instrumented_consumers_each'] = len(executables['c'])
     run(['python3', 'tools/check_aom_root_linkage.py', '--archive', archive, '--consumer-build', port,
          '--reference-build', args.aom_reference_build or ROOT / f'build/aom-native-{record["preprocessing_profile"]}',
          *(['--debug'] if record['preprocessing_profile'] == 'debug' else [])])
@@ -90,16 +181,23 @@ def main():
     run(['python3', 'tools/compare_results.py', '--baseline', executions['c'] / 'results.xml',
          '--port', executions['rust'] / 'results.xml', '--report', output / 'parity.json',
          '--baseline-log', executions['c'] / 'LastTest.log', '--port-log', executions['rust'] / 'LastTest.log'])
-    for decoder in ([] if args.tier == 'regression' else ['default', 'aom']):
+    # Exact bytes and the shared ABI smoke use the ordinary references; the
+    # sanitized comparison executes the complete original suites only.
+    for decoder in ([] if args.tier == 'regression' or args.sanitizer else ['default', 'aom']):
         run(['python3', 'tools/differential.py', '--baseline', baseline, '--port', port,
              '--output-dir', output / f'bytes-{decoder}', *(['--decoder-codec', decoder] if decoder != 'default' else [])])
     shared = next(item['path'] for name, item in proof['artifacts'].items() if name.endswith(('.so', '.dylib')))
-    if args.tier != 'regression':
+    if args.tier != 'regression' and not args.sanitizer:
         run(['python3', 'tools/smoke_shared.py', '--library', shared])
     run(['python3', 'tools/verify_upstream.py', '--tracked'])
-    snapshots = {manifest: output / 'configuration/translation.json',
-        ROOT / (f'build/abi-{record["generation_target"]}-{record["preprocessing_profile"]}-'
-                f'{record["variant"]}/summary.json'): output / 'configuration/abi.json'}
+    snapshots = {manifest: output / 'configuration/translation.json'}
+    if args.sanitizer:
+        snapshots[aom_reference / 'build.json'] = output / 'configuration/aom-asan-reference.json'
+        for name in ['CMakeCache.txt', 'compile_commands.json']:
+            snapshots[generating / name] = output / 'configuration/reference' / name
+    else:
+        snapshots[ROOT / (f'build/abi-{record["generation_target"]}-{record["preprocessing_profile"]}-'
+                          f'{record["variant"]}/summary.json')] = output / 'configuration/abi.json'
     for implementation, build in [('c', baseline), ('rust', port)]:
         for name in ['CMakeCache.txt', 'compile_commands.json']:
             snapshots[build / name] = output / 'configuration' / implementation / name
@@ -110,12 +208,13 @@ def main():
     evidence = [path for path in output.rglob('*') if path.is_file()]
     summary.write_text(json.dumps(dict(target=record['generation_target'], profile=record['preprocessing_profile'],
         variant=record['variant'], tier=args.tier, complete_original_root_suite=args.tier == 'full',
+        **({'sanitizer_parity': sanitizer_record} if sanitizer_record else {}),
         all_features_acceptance_claimed=False, production_target_admission_claimed=False,
         original_ctest_registrations=len(full), executed_ctest_registrations=len(expected),
         configuration_origins={str(destination.relative_to(output)): str(source.relative_to(ROOT))
                                for source, destination in snapshots.items()},
         artifacts=proof['artifacts'], evidence={str(path.relative_to(ROOT)): digest(path) for path in evidence}), indent=2) + '\n')
-    print(f'Native root {args.tier} validation passed; {len(expected)}/{len(full)} original registrations; {summary}')
+    print(f'Native root {args.tier}{" " + args.sanitizer if args.sanitizer else ""} validation passed; {len(expected)}/{len(full)} original registrations; {summary}')
 
 
 if __name__ == '__main__':

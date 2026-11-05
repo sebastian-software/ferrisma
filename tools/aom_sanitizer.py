@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -84,3 +85,106 @@ def instrumented_libraries():
     link = ['-fno-sanitize=address', '-L' + str(runtime), '-lrustc-nightly_rt.asan',
             '-Wl,-rpath,' + str(runtime)]
     return reference, candidate, compiler, environment, link
+
+
+def native_runtime():
+    """Return the selected nightly's ASan runtime and its native consumer link flags."""
+    import platform
+    if sys.platform == 'darwin' and platform.machine() == 'arm64':
+        triple, name = 'aarch64-apple-darwin', 'librustc-nightly_rt.asan.dylib'
+    elif sys.platform == 'linux' and platform.machine() == 'x86_64':
+        triple, name = 'x86_64-unknown-linux-gnu', 'librustc-nightly_rt.asan.a'
+    else:
+        raise SystemExit('Root ASan parity requires native macOS ARM64 or GNU Linux x86-64')
+    sysroot = Path(subprocess.check_output(['rustc', '--print', 'sysroot'], text=True).strip())
+    directory = sysroot / f'lib/rustlib/{triple}/lib'
+    runtime = directory / name
+    if not runtime.is_file():
+        raise SystemExit(f'The selected nightly toolchain has no matching ASan runtime: {runtime}')
+    if triple == 'aarch64-apple-darwin':
+        link = ['-fno-sanitize=address', '-L' + str(directory), '-lrustc-nightly_rt.asan',
+                '-Wl,-rpath,' + str(directory)]
+    else:
+        # ELF uses the static runtime. Link it once into each original executable,
+        # as rustc does for instrumented Rust executables; never mix in Clang's.
+        link = ['-fno-sanitize=address', '-Wl,--whole-archive', str(runtime), '-Wl,--no-whole-archive',
+                '-lpthread', '-lrt', '-lm', '-ldl']
+    return triple, runtime, link
+
+
+def llvm_prefix():
+    default = ROOT / 'build/toolchain/llvm@16/16.0.6_1' if sys.platform == 'darwin' else Path('/usr/lib/llvm-16')
+    prefix = Path(os.environ.get('LIBAVIF_RS_LLVM_PREFIX', default))
+    compiler = prefix / 'bin/clang'
+    if not compiler.is_file():
+        raise SystemExit('ASan parity requires LLVM 16; set LIBAVIF_RS_LLVM_PREFIX to its installation prefix')
+    version = subprocess.check_output([compiler, '--version'], text=True,
+                                      env=dict(os.environ, DYLD_LIBRARY_PATH=str(prefix / 'lib') + ':/opt/homebrew/lib')).splitlines()[0]
+    if ' version 16.' not in version:
+        raise SystemExit(f'ASan parity requires LLVM 16 native consumers: {version}')
+    return prefix
+
+
+def instrumented_reference():
+    """Build only the complete instrumented original C AOM closure for root consumers.
+
+    The archive contains all 168 units of the matching Release reference, with
+    each original compilation command plus ASan instrumentation. Native VMAF
+    remains uninstrumented. The Rust implementation is built by its consumer.
+    """
+    triple, runtime, link = native_runtime()
+    prefix = llvm_prefix()
+    compiler = str(prefix / 'bin/clang')
+    environment = os.environ.copy()
+    if sys.platform == 'darwin':
+        environment['DYLD_LIBRARY_PATH'] = str(prefix / 'lib') + ':/opt/homebrew/lib'
+    subprocess.run(['python3', ROOT / 'tools/verify_upstream.py'], check=True)
+    native = ROOT / 'build/aom-native-release'
+    profile = json.loads((native / 'reference-profile.json').read_text())
+    if profile['profile'] != 'release' or profile['library_translation_units'] != 168:
+        raise SystemExit('The instrumented AOM closure requires the complete original Release reference')
+    work = ROOT / f'build/aom-root-asan-reference-{triple}'
+    work.mkdir(parents=True, exist_ok=True)
+    archive = work / 'libaom.a'
+    record_path = work / 'build.json'
+    files = ['provenance/aom-source.json', 'build/aom-native-release/library-compile-commands.json',
+             'build/aom-native-release/reference-profile.json', 'tools/aom_sanitizer.py']
+    key = hashlib.sha256(json.dumps({name: digest(ROOT / name) for name in files}, sort_keys=True).encode()
+                         + subprocess.check_output([compiler, '--version'], env=environment)
+                         + runtime.read_bytes()).hexdigest()
+    cached = json.loads(record_path.read_text()) if record_path.exists() else {}
+    if cached.get('key') != key or not archive.exists() or cached.get('original_sha256') != digest(archive):
+        entries = library_entries(native)
+        if len(entries) != 168:
+            raise SystemExit('Missing complete original sanitizer source closure')
+
+        def compile_unit(item):
+            index, entry = item
+            flags = compiler_flags(entry)[1:]
+            output = work / f'reference-{index:03d}.o'
+            subprocess.run([compiler, *flags, '-fsanitize=address', '-fno-omit-frame-pointer',
+                            '-c', entry['file'], '-o', output], cwd=entry['directory'], env=environment, check=True)
+            return output
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            objects = list(executor.map(compile_unit, enumerate(entries)))
+        archive.unlink(missing_ok=True)
+        subprocess.run(['ar', 'rcs', archive, *objects], check=True)
+        record = dict(key=key, target=triple, original_translation_units=len(entries),
+                      compiler=subprocess.check_output([compiler, '--version'], env=environment, text=True).splitlines()[0],
+                      original_sha256=digest(archive), runtime=str(runtime), runtime_sha256=digest(runtime),
+                      original_release_preprocessing=True, sanitizer='address', native_vmaf_uninstrumented=True)
+        record_path.write_text(json.dumps(record, indent=2) + '\n')
+    shutil.copyfile(native / 'reference-profile.json', work / 'reference-profile.json')
+    return work, prefix, link
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root-reference', action='store_true',
+                        help='Build only the complete instrumented original C closure for root consumers')
+    if not parser.parse_args().root_reference:
+        parser.error('Use --root-reference; standalone checks import instrumented_libraries()')
+    directory, _, _ = instrumented_reference()
+    print(f'Complete instrumented original AOM reference: {directory / "libaom.a"}')

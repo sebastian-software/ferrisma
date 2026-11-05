@@ -4,6 +4,7 @@ import copy
 import json
 from pathlib import Path
 import platform
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -177,6 +178,68 @@ class RootProfileGuards(unittest.TestCase):
                                 cwd=REPOSITORY, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('different target, C profile, or source closure', result.stdout + result.stderr)
+
+
+
+class SanitizerReferenceGuards(unittest.TestCase):
+    def database(self, build, extra=(), drop=None, units=28):
+        build.mkdir(parents=True, exist_ok=True)
+        entries = []
+        for index in range(units):
+            source = f'/original/src/unit{index}.c'
+            flags = ['-I' + str(build / 'include'), '-ffp-contract=off', *extra, '-O3', '-DNDEBUG']
+            if drop and index == 0:
+                flags.remove(drop)
+            entries.append(dict(directory=str(build), file=source, command=shlex.join(
+                ['/usr/bin/clang-16', *flags, '-o', f'CMakeFiles/avif_obj.dir/src/unit{index}.c.o', '-c', source])))
+        entries.append(dict(directory=str(build), file='/original/tests/consumer.cc',
+                            command='/usr/bin/clang++-16 -o consumer.o -c /original/tests/consumer.cc'))
+        (build / 'compile_commands.json').write_text(json.dumps(entries))
+        return build
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.reference = validator.library_commands(self.database(self.root / 'root-c-linux-release-default'))
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def test_appended_instrumentation_matches_original_preprocessing(self):
+        build = self.database(self.root / 'root-c-linux-release-default-asan',
+                              ['-fsanitize=address', '-fno-omit-frame-pointer'])
+        self.assertEqual(validator.library_commands(build, 'address'), self.reference)
+
+    def test_uninstrumented_unit_is_rejected(self):
+        build = self.database(self.root / 'root-c-linux-release-default-asan',
+                              ['-fsanitize=address', '-fno-omit-frame-pointer'], drop='-fsanitize=address')
+        with self.assertRaises(SystemExit):
+            validator.library_commands(build, 'address')
+
+    def test_changed_preprocessing_is_detected(self):
+        build = self.database(self.root / 'root-c-linux-release-default-asan',
+                              ['-fsanitize=address', '-fno-omit-frame-pointer', '-DCHANGED'])
+        self.assertNotEqual(validator.library_commands(build, 'address'), self.reference)
+
+    def test_incomplete_library_closure_is_rejected(self):
+        build = self.database(self.root / 'root-c-linux-release-default-asan',
+                              ['-fsanitize=address', '-fno-omit-frame-pointer'], units=27)
+        with self.assertRaises(SystemExit):
+            validator.library_commands(build, 'address')
+
+    def test_sanitized_profile_never_shares_ordinary_outputs(self):
+        record = dict(generation_target='x86_64-unknown-linux-gnu', preprocessing_profile='release', variant='default')
+        self.assertNotEqual(subject.profile_work(record, 'address'), subject.profile_work(record))
+        ordinary, sanitized = subject.profile_target(record), subject.profile_target(record, 'address')
+        self.assertFalse(ordinary.is_relative_to(sanitized) or sanitized.is_relative_to(ordinary))
+
+    def test_pipeline_rejects_sanitized_debug_or_bounded_tiers(self):
+        for arguments in [['--profile', 'debug', '--tier', 'full'], ['--profile', 'release', '--tier', 'smoke']]:
+            result = subprocess.run([sys.executable, str(REPOSITORY / 'tools/root_pipeline.py'), '--phase', 'validate',
+                                     '--sanitizer', 'address', '--clang-include', '/nonexistent', *arguments],
+                                    cwd=REPOSITORY, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('complete original suite', result.stderr)
 
 
 if __name__ == '__main__':

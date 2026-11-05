@@ -23,9 +23,13 @@ def main():
     parser.add_argument('--tier', choices=['prepare', 'smoke', 'regression', 'full'], default='smoke')
     parser.add_argument('--clang-include', type=Path, required=True)
     parser.add_argument('--jobs', type=int, default=2)
+    parser.add_argument('--sanitizer', choices=['none', 'address'], default='none',
+                        help='Also build and compare separately instrumented original C and Rust consumers')
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('--jobs must be positive')
+    if args.sanitizer != 'none' and (args.profile != 'release' or args.tier != 'full'):
+        parser.error('Root sanitizer parity uses original Release preprocessing and the complete original suite')
     system, machine = platform.system(), platform.machine()
     if (system, machine) == ('Linux', 'x86_64'):
         native, triple = 'linux', 'x86_64-unknown-linux-gnu'
@@ -45,6 +49,9 @@ def main():
                         if name in args.variant]
             baseline = f'build/root-c-{native}-{profile}-{args.variant}'
             candidate = f'build/root-rust-{native}-{profile}-{args.variant}'
+            # The sanitized consumers are separate builds. Source generation
+            # always uses the ordinary original preprocessing reference.
+            asan = args.sanitizer == 'address'
             manifest = f'translations/root-{native}-{profile}-{args.variant}.json'
             references = f'build/root-references-{triple}-{profile}'
             if phase == 'references':
@@ -53,13 +60,23 @@ def main():
                 run(['python3', 'tools/build.py', 'baseline', '--fetch-deps', '--jobs', args.jobs,
                      *debug, *original_debug, *features, '--aom-reference-build', f'build/aom-native-{profile}',
                      '--root-references', references, '--build-dir', baseline])
+                if asan:
+                    run(['python3', 'tools/aom_sanitizer.py', '--root-reference'])
+                    run(['python3', 'tools/build.py', 'baseline', '--asan', '--instrumented-aom-reference',
+                         '--jobs', args.jobs, *features, '--root-references', references,
+                         '--build-dir', baseline + '-asan'])
             elif phase == 'generate':
                 run(['python3', 'tools/transpile_root.py', '--build', baseline, '--profile', profile,
                      '--variant', args.variant, '--clang-include', args.clang_include])
                 run(['python3', 'tools/check_root_profile.py', manifest])
             elif phase == 'consumers':
                 run(['python3', 'tools/build.py', 'port', '--jobs', args.jobs, *debug, *original_debug, *features,
-                     '--root-references', references, '--root-profile', manifest, '--build-dir', candidate])
+                     *(['--asan'] if asan else []), '--root-references', references, '--root-profile', manifest,
+                     '--build-dir', candidate + ('-asan' if asan else '')])
+            elif asan:
+                run(['python3', 'tools/validate_root_profile.py', '--baseline', baseline + '-asan',
+                     '--port', candidate + '-asan', '--reference-baseline', baseline, '--sanitizer', 'address',
+                     '--root-profile', manifest, '--tier', args.tier, '--jobs', args.jobs])
             else:
                 run(['python3', 'tools/validate_root_profile.py', '--baseline', baseline, '--port', candidate,
                      '--root-profile', manifest, '--tier', args.tier, '--jobs', args.jobs])

@@ -23,6 +23,11 @@ on:
         type: choice
         options: [prepare, smoke, regression, full]
         default: prepare
+      sanitizer:
+        description: Separately instrumented original C/Rust consumers; requires release and full
+        type: choice
+        options: [none, address]
+        default: none
   workflow_call:
     inputs:
       runner:
@@ -37,6 +42,9 @@ on:
       tier:
         type: string
         default: smoke
+      sanitizer:
+        type: string
+        default: none
 
 permissions:
   contents: read
@@ -104,44 +112,48 @@ jobs:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
+          REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
         run: |
           python3 tools/root_pipeline.py --phase references --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
       - name: Generate and typecheck native root source profiles
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
+          REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
         run: |
           python3 tools/root_pipeline.py --phase generate --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
       - name: Build unchanged original consumers against native Rust profiles
         if: inputs.tier != 'prepare'
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
+          REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
         run: |
           python3 tools/root_pipeline.py --phase consumers --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
       - name: Run original C/Rust suites, ABI, ownership, and strict bytes
         if: inputs.tier != 'prepare'
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}
           REQUESTED_VARIANT: ${{ inputs.variant }}
           REQUESTED_TIER: ${{ inputs.tier }}
+          REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
         run: |
           python3 tools/root_pipeline.py --phase validate --profile "$REQUESTED_PROFILE" \
             --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-            --clang-include "$CLANG_INCLUDE"
+            --sanitizer "$REQUESTED_SANITIZER" --clang-include "$CLANG_INCLUDE"
       - name: Preserve generated source, exact C configuration, and typecheck evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: root-${{ startsWith(inputs.runner, 'macos-') && 'macos' || 'linux' }}-${{ inputs.tier }}-${{ inputs.profile }}-${{ inputs.variant }}
+          name: root-${{ startsWith(inputs.runner, 'macos-') && 'macos' || 'linux' }}-${{ inputs.tier }}-${{ inputs.profile }}-${{ inputs.variant }}${{ inputs.sanitizer != 'none' && format('-{0}', inputs.sanitizer) || '' }}
           path: |
             src/profiles/
             translations/root-*.json
@@ -169,5 +181,6 @@ jobs:
             build/root-references-*/sharpyuv/scalar-macros.txt
             build/root-typecheck-*/summary.json
             build/aom-native-*/reference-profile.json
+            build/aom-root-asan-reference-*/build.json
           if-no-files-found: error
           retention-days: 30
