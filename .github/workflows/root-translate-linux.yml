@@ -14,9 +14,9 @@ on:
         options: [both, release, debug]
         default: both
       variant:
-        description: Original container configuration to generate
+        description: Original container configuration and optional external engines to generate
         type: choice
-        options: [default, mini, extended-pixi, mini-extended-pixi]
+        options: [default, mini, extended-pixi, mini-extended-pixi, libgav1, rav1e, svt, libyuv, libgav1-rav1e-svt-libyuv, mini-extended-pixi-libgav1-rav1e-svt-libyuv]
         default: default
       tier:
         description: Preparation only, bounded original smoke suite, or complete original root suite
@@ -67,7 +67,7 @@ jobs:
         run: |
           test "$(uname -m)" = x86_64
           sudo apt-get update
-          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake libpng-dev libjpeg-dev libxml2-dev
+          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake libpng-dev libjpeg-dev libxml2-dev nasm libssl-dev
           echo LLVM_CONFIG_PATH=/usr/bin/llvm-config-16 >> "$GITHUB_ENV"
           echo LIBCLANG_PATH=/usr/lib/llvm-16/lib >> "$GITHUB_ENV"
           echo CLANG_INCLUDE=/usr/lib/llvm-16/lib/clang/16/include >> "$GITHUB_ENV"
@@ -182,5 +182,7 @@ jobs:
             build/root-typecheck-*/summary.json
             build/aom-native-*/reference-profile.json
             build/aom-root-asan-reference-*/build.json
+            build/deps/optional-engines.json
+            build/deps/pkgconfig/
           if-no-files-found: error
           retention-days: 30
