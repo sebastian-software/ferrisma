@@ -5,7 +5,7 @@ implementation: decoder, demuxer, encoder, muxer and SharpYUV. The pinned source
 is the `upstream/libwebp` Git submodule at tag `v1.6.0`, commit
 `4fa21912338357f89e4fd51cf2368325b59e9bd9`; the test vectors are the
 `upstream/libwebp-test-data` submodule at
-`06ddd96e276c2c638a72d39d3c0f340afd61978c`. Keep libwebp's BSD license and the
+`260804d686f0491e0326a50eef491829dae09e9e`. Keep libwebp's BSD license and the
 separate WebM patent grant with the derived source
 ([PROVENANCE.md](PROVENANCE.md)). The work is split into packages in
 [WORKPLAN.md](WORKPLAN.md); the decisions are in the [ADRs](adr/README.md).

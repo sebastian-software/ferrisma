@@ -17,8 +17,9 @@ the [living ADRs](docs/adr/README.md) before changing a translated boundary.
 - An `md5sum` that accepts `-c -` for the baseline: GNU coreutils on Linux,
   `/sbin/md5sum` on macOS 14 or later, or `gmd5sum` from Homebrew coreutils.
 
-Initialize both submodules with their full history (the baseline reads an
-older test-data revision):
+Initialize both submodules. A full clone also fetches the `v1.6.0` tag, which
+the provenance check compares with the pinned commit, and the newer test-data
+revision that `tools/oracle_baseline.py --diagnose-post-v1.6.0` reads:
 
 ```sh
 git submodule update --init

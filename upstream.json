@@ -7,7 +7,7 @@
   },
   "libwebp-test-data": {
     "repository": "https://chromium.googlesource.com/webm/libwebp-test-data",
-    "revision": "06ddd96e276c2c638a72d39d3c0f340afd61978c",
+    "revision": "260804d686f0491e0326a50eef491829dae09e9e",
     "path": "upstream/libwebp-test-data"
   }
 }

@@ -8,7 +8,7 @@ and the WebM project contributors.
 | Input | Pin | Path |
 | --- | --- | --- |
 | libwebp, <https://chromium.googlesource.com/webm/libwebp> | tag `v1.6.0`, commit `4fa21912338357f89e4fd51cf2368325b59e9bd9` (2025-06-30) | `upstream/libwebp` |
-| libwebp-test-data, <https://chromium.googlesource.com/webm/libwebp-test-data> | commit `06ddd96e276c2c638a72d39d3c0f340afd61978c` (2025-08-26) | `upstream/libwebp-test-data` |
+| libwebp-test-data, <https://chromium.googlesource.com/webm/libwebp-test-data> | commit `260804d686f0491e0326a50eef491829dae09e9e` (2022-01-12) | `upstream/libwebp-test-data` |
 
 Both are Git submodules, recorded in [upstream.json](../upstream.json).
 `tools/verify_upstream.py`, which `tools/check.py` runs first, checks that the
@@ -17,12 +17,12 @@ the libwebp commit when it is fetched, and that neither checkout has modified,
 staged or untracked files. The same libwebp revision is the one libavif-rs
 records for its SharpYUV translation.
 
-The test data postdates v1.6.0 in four files (`libwebp_tests.md5`, `grid.pgm`,
-`peak.pgm`, `lossless_color_transform.pgm`), which upstream regenerated for a
-change made after the release. The baseline reads the v1.6.0-era versions of
-those files from the submodule's history at commit
-`260804d686f0491e0326a50eef491829dae09e9e`; nothing in the checkout is changed
-([PORT_STATUS.md](PORT_STATUS.md)).
+The test data is pinned at the last revision whose references match libwebp
+v1.6.0. The next two commits, `05cd58b` and `06ddd96` (26 August 2025), add no
+vectors; they regenerate seven PGM checksums in `libwebp_tests.md5` and the
+`grid.pgm`, `peak.pgm` and `lossless_color_transform.pgm` references for libwebp
+`0d14d84b`, a change made after v1.6.0. WP0 first pinned `06ddd96` and moved the
+pin back for that reason ([WORKPLAN.md](WORKPLAN.md#findings-from-wp0)).
 
 RFC 6386 (VP8) and RFC 9649 (WebP container and VP8L) are reading aids only;
 the pinned source is the authority.

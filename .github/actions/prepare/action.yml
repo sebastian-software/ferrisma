@@ -9,8 +9,9 @@ inputs:
 runs:
   using: composite
   steps:
-    # Full clones: the baseline reads an older test-data revision, and the
-    # provenance check compares the v1.6.0 tag with the pinned commit.
+    # Full clones: the provenance check compares the v1.6.0 tag with the
+    # pinned commit, and the optional post-v1.6.0 baseline diagnostic reads a
+    # newer test-data revision.
     - name: Initialize the pinned upstream submodules
       shell: bash
       run: git submodule update --init upstream/libwebp upstream/libwebp-test-data

@@ -41,29 +41,23 @@ decides it before the fan-out.
 ## Oracle baseline
 
 `python3 tools/oracle_baseline.py` runs upstream's `test_dwebp.sh` and
-`test_lossless.sh`, unmodified, with the oracle's own `dwebp` on copies of the
-test data. The pinned test data postdates v1.6.0: test-data commits `05cd58b` and
-`06ddd96` regenerate seven PGM checksums and three PGM reference images for
-libwebp `0d14d84b`, which landed after v1.6.0. The baseline therefore has two
-views.
-
-With the four updated files taken from test-data `260804d`, the last revision
-before that update (v1.6.0-era references):
+`test_lossless.sh`, unmodified, with the oracle's own `dwebp` on a copy of the
+pinned test data (`260804d`):
 
 | Script | Result |
 | --- | --- |
 | `test_dwebp.sh` | passes: all 480 checksums of 96 vectors (five formats each) verified twice, with and without `-noasm`, 960 verifications |
 | `test_lossless.sh` | passes: 33 vectors (32 `lossless_vec_*` and `lossless_color_transform.webp`) in five formats, with and without `-noasm`, 330 comparisons |
 
-With the pinned references unchanged:
+The test data was first pinned at `06ddd96`, whose last two commits regenerate
+seven PGM checksums and three PGM reference images for libwebp `0d14d84b`, a
+change made after v1.6.0. `--diagnose-post-v1.6.0` still compares against those
+references: 473 of 480 checksums match, the seven others being exactly the
+regenerated PGM entries (`bad_palette_index`, `color_cache_bits_11`,
+`lossless1` to `lossless4`, `near_lossless_75`), and none of the 33 lossless PGM
+outputs matches the regenerated images.
 
-| Check | Result |
-| --- | --- |
-| `test_dwebp.sh --dump-md5s` against `libwebp_tests.md5` | 473 of 480 checksums match; the 7 others are exactly the PGM entries regenerated after v1.6.0: `bad_palette_index`, `color_cache_bits_11`, `lossless1`, `lossless2`, `lossless3`, `lossless4`, `near_lossless_75` |
-| `test_lossless.sh --formats="ppm pam bmp tiff"` | passes: 264 comparisons |
-| PGM output of the 33 lossless vectors against `grid.pgm`, `peak.pgm`, `lossless_color_transform.pgm` | 0 of 33 match, as expected for references regenerated after v1.6.0 |
-
-Recorded on 5 November 2026 on macOS 27.0.1 (build 26A434), Apple M1 Ultra
+Recorded on 6 November 2026, after the re-pin, on macOS 27.0.1 (build 26A434), Apple M1 Ultra
 (ARM64), with Apple clang 21.0.0 (clang-2100.3.34.2) and CMake 4.4.5. The
 `release`, `asan-ubsan` and `debug` oracle variants give identical counts.
 `test_dwebp.sh` needs an `md5sum` that accepts `-c -`. No substitution was

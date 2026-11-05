@@ -5,11 +5,12 @@
 > repository have its gates and matrices at hand. Only links were changed: links to
 > Ferrixel documents point to its `main` branch. The text is otherwise the original
 > record. WP0 found four statements that do not hold; [WORKPLAN.md](WORKPLAN.md#findings-from-wp0)
-> records them: the pinned test data postdates v1.6.0, so `test_dwebp.sh` passes all
-> 480 checksums only against the v1.6.0-era references; `test_lossless.sh` covers 33
-> vectors (32 `lossless_vec_*` and `lossless_color_transform.webp`), not 46; the crate
-> uses `#![deny(unsafe_code)]`, because `forbid` cannot be relaxed for the C ABI module;
-> and on x86-64 the reference configuration needs `-msse2` to build.
+> records them: test-data `06ddd96` postdates v1.6.0, so the test data is pinned at
+> `260804d` instead (same 131 vectors), where `test_dwebp.sh` passes all 480 checksums;
+> `test_lossless.sh` covers 33 vectors (32 `lossless_vec_*` and
+> `lossless_color_transform.webp`), not 46; the crate uses `#![deny(unsafe_code)]`,
+> because `forbid` cannot be relaxed for the C ABI module; and on x86-64 the reference
+> configuration needs `-msse2` to build.
 
 **Status:** Plan. Nothing has been ported and the repository does not exist yet. This document scopes a third sister port, libwebp-rs, next to [libavif-rs](https://github.com/sebastian-software/libavif-rs) and [libjxl-rs](https://github.com/sebastian-software/libjxl-rs). It records the upstream pin, the method to confirm, the phase order with the exact source units, the parity gates and the Ferrixel adoption step. Line counts are non-blank, non-comment lines of libwebp 1.6.0 and describe size, not effort. See [the codec evaluation](https://github.com/sebastian-software/ferrixel/blob/main/docs/research/2026-11-05-jpeg-and-webp-codec-evaluation.md) for why libwebp was chosen.
 
