@@ -1,16 +1,30 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Scalar state, parameter fields/decoding, scaling, and matrix getters from
-//! lib/jxl/quantizer.{h,cc}. Quantization fields, scale selection, and diagnostic
-//! dumps remain unported. The source's enclosing matrix pointer
+//! Scalar state, parameter fields/decoding, scaling, matrix getters and the
+//! encoder's field selection (ComputeGlobalScaleAndQuant, SetQuantFieldRect,
+//! SetQuantField, SetQuant) from lib/jxl/quantizer.{h,cc}. The diagnostic
+//! DumpQuantizationMap remains unported. The source's enclosing matrix pointer
 //! is reified as a same-owner borrow at each operation; see ADR 0003.
+//!
+//! The three `x * inv_global_scale_ + 0.5f` expressions are llvm.fmuladd
+//! sites of the original object (tools/encoder_heuristics_contraction.json):
+//! fused on AArch64 and separate on x86-64, as `mul_add_f32` reproduces.
+//! Each result is truncated to an integer, which absorbs the one rounding
+//! that contraction saves; the fused form is kept as the source object has it.
+//! Float-to-int conversions keep the source's defined range: NaN or
+//! out-of-range medians, DC quants and field values are outside its contract.
 
 use super::ac_strategy::AcStrategyType;
-use super::base::status::Status;
+use super::base::float::{min_f32, mul_add_f32};
+use super::base::libcpp_nth_element::nth_element;
+use super::base::rect::Rect;
+use super::base::status::{Status, StatusCode};
 use super::dec_bit_reader::BitReader;
 use super::field_encodings::{Fields, U32Enc, bits_offset, val};
 use super::fields::{Visitor, bundle};
+use super::image::{ImageF, ImageI};
+use super::image_ops::fill_image;
 use super::quant_weights::DequantMatrices;
 pub const GLOBAL_SCALE_DENOM: i32 = 1 << 16;
 pub const GLOBAL_SCALE_NUMERATOR: i32 = 4096;
@@ -128,6 +142,106 @@ impl Quantizer {
             self.mul_dc[c] = self.dc_step(dequant, c);
             self.inv_mul_dc[c] = self.inv_dc_step(dequant, c);
         }
+    }
+    /// `dequant` is the same matrix owner supplied at construction.
+    pub fn compute_global_scale_and_quant(
+        &mut self,
+        dequant: &DequantMatrices,
+        quant_dc: f32,
+        quant_median: f32,
+        quant_median_absd: f32,
+    ) {
+        // Target value for the median value in the quant field.
+        const QUANT_FIELD_TARGET: f32 = 5.0;
+        // We reduce the median of the quant field by the median absolute
+        // deviation: higher resolution on highly varying quant fields.
+        let mut scale =
+            GLOBAL_SCALE_DENOM as f32 * (quant_median - quant_median_absd) / QUANT_FIELD_TARGET;
+        // Ensure that new_global_scale is positive and no more than 1<<15.
+        if scale < 1.0 {
+            scale = 1.0;
+        }
+        if scale > (1 << 15) as f32 {
+            scale = (1 << 15) as f32;
+        }
+        let mut new_global_scale = scale as i32;
+        // Ensure that quant_dc_ will always be at least
+        // 0.625 * kGlobalScaleDenom/kGlobalScaleNumerator = 10.
+        let scaled_quant_dc = (f64::from(quant_dc * GLOBAL_SCALE_NUMERATOR as f32) * 1.6) as i32;
+        if new_global_scale > scaled_quant_dc {
+            new_global_scale = scaled_quant_dc;
+            if new_global_scale <= 0 {
+                new_global_scale = 1;
+            }
+        }
+        self.global_scale = new_global_scale;
+        // Code below uses inv_global_scale_.
+        self.recompute_from_global_scale(dequant);
+
+        let mut fval = mul_add_f32(quant_dc, self.inv_global_scale, 0.5);
+        fval = min_f32((1 << 16) as f32, fval);
+        let new_quant_dc = fval as i32;
+        self.quant_dc = new_quant_dc;
+
+        // quant_dc_ was updated, recompute values.
+        self.recompute_from_global_scale(dequant);
+    }
+    pub fn set_quant_field_rect(&self, qf: &ImageF, rect: Rect, raw_quant_field: &mut ImageI) {
+        for y in 0..rect.ysize() {
+            let row_qf = &qf.row(rect.y0() + y)[rect.x0()..];
+            let row_qi = &mut raw_quant_field.row_mut(rect.y0() + y)[rect.x0()..];
+            for x in 0..rect.xsize() {
+                let val = Self::clamp_val(mul_add_f32(row_qf[x], self.inv_global_scale, 0.5));
+                row_qi[x] = val;
+            }
+        }
+    }
+    /// `dequant` is the same matrix owner supplied at construction.
+    pub fn set_quant_field(
+        &mut self,
+        dequant: &DequantMatrices,
+        quant_dc: f32,
+        qf: &ImageF,
+        raw_quant_field: Option<&mut ImageI>,
+    ) -> Status {
+        let mut data = vec![0.0f32; qf.xsize() * qf.ysize()];
+        for y in 0..qf.ysize() {
+            let row_qf = qf.row(y);
+            for x in 0..qf.xsize() {
+                let quant = row_qf[x];
+                data[qf.xsize() * y + x] = quant;
+            }
+        }
+        let half = data.len() / 2;
+        nth_element(&mut data, half);
+        let quant_median = data[data.len() / 2];
+        let mut deviations = vec![0.0f32; data.len()];
+        for i in 0..data.len() {
+            deviations[i] = (data[i] - quant_median).abs();
+        }
+        let half = deviations.len() / 2;
+        nth_element(&mut deviations, half);
+        let quant_median_absd = deviations[deviations.len() / 2];
+        self.compute_global_scale_and_quant(dequant, quant_dc, quant_median, quant_median_absd);
+        if let Some(raw_quant_field) = raw_quant_field {
+            if raw_quant_field.xsize() != qf.xsize() || raw_quant_field.ysize() != qf.ysize() {
+                return Err(StatusCode::GenericError);
+            }
+            self.set_quant_field_rect(qf, Rect::new(0, 0, qf.xsize(), qf.ysize()), raw_quant_field);
+        }
+        Ok(())
+    }
+    /// `dequant` is the same matrix owner supplied at construction.
+    pub fn set_quant(
+        &mut self,
+        dequant: &DequantMatrices,
+        quant_dc: f32,
+        quant_ac: f32,
+        raw_quant_field: &mut ImageI,
+    ) {
+        self.compute_global_scale_and_quant(dequant, quant_dc, quant_ac, 0.0);
+        let val = Self::clamp_val(mul_add_f32(quant_ac, self.inv_global_scale, 0.5));
+        fill_image(val, raw_quant_field);
     }
     pub fn scale(&self) -> f32 {
         self.global_scale_float

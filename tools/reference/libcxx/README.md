@@ -13,6 +13,16 @@ branchless specialization, debug range randomization, or other library boundary
 is claimed. The oracle calls the actual standard-library algorithms used by
 its reference compiler, including a direct heap-fallback comparison.
 
+`src/jxl/base/libcpp_nth_element.rs` translates `__algorithm/nth_element.h`
+for a contiguous `float` range with `__less<>`: its `__sort3` is the
+branchless arithmetic specialization of `sort.h`, and `__selection_sort` uses
+`__min_element` from `__algorithm/min_element.h`. Quantizer::SetQuantField
+selects its median and median absolute deviation with it. Only the selected
+order statistics are observable there, and for comparable (non-NaN) inputs
+their values, including the sign of a zero median after
+ComputeGlobalScaleAndQuant's subtraction and clamp, do not depend on the
+element permutation; NaN violates the comparator's strict weak ordering.
+
 The original LLVM notices remain in each header. See
 [Apache-2.0](../../../licenses/LLVM-Apache-2.0.txt) and the
 [LLVM exception](../../../licenses/LLVM-exception.txt). The Rust translation
