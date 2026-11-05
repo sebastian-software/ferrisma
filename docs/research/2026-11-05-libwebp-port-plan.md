@@ -4,6 +4,9 @@
 
 ## Goal
 
+The [work plan for parallel sessions](2026-11-05-libwebp-port-workplan.md) splits this plan into work packages with disjoint file ownership, waves and briefs.
+
+
 A mechanical, behavior-preserving Rust port of libwebp 1.6.0: decoder, demux, encoder and later mux, with a safe Rust API that Ferrixel can consume behind `webp-read` and `webp-write` features under the adoption gates of [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md). The original C tools (`dwebp`, `cwebp`, `webpinfo`) remain unmodified consumers that link the Rust library through the original headers, as both sister ports do.
 
 ## Upstream pin
@@ -22,12 +25,12 @@ The two sister ports use different methods:
 | | libavif-rs | libjxl-rs |
 | --- | --- | --- |
 | Translation | c2rust 0.21.0 / LLVM 16.0.6 transpile with recorded corrections | hand-written mechanical translation |
-| Result | C-ABI-preserving `unsafe` Rust (the SharpYUV crate has 89 `unsafe` sites in 2,362 lines) | safe Rust (no `unsafe` in 71,549 lines) |
+| Result | C-ABI-preserving `unsafe` Rust throughout (the SharpYUV crate has 89 `unsafe` sites in 2,362 lines) | idiomatic Rust with `unsafe` where the translation needs it, each with a local safety argument (1340 `unsafe` blocks, functions or impls in 73 of 238 source files, 71,549 lines, on 2026-11-05) |
 | Toolchain | nightly (`nightly-2026-09-07`) | stable, `rust-version = 1.95` |
 | Reference | original C/C++ test suites linked as consumers | C++ oracle executable used only by differential tests; ordinary builds compile no C or C++ |
 | C ABI | preserved by construction | exported from Rust for the original headers |
 
-**Recommendation: the libjxl-rs method.** ADR-0018 gates (a) and (b) require a safe Rust API and a stable toolchain, which the c2rust output does not give without a second pass. libwebp is plain C without templates, and its SIMD lives in separate per-architecture files, so the portable core of about 30,000 lines is a tractable hand translation. Representation rules follow libjxl-rs's accepted ADR on ownership and storage: byte offsets instead of pointers, `Result` instead of status integers with preserved codes, explicit partial state on error, deliberate integer widths and wrapping.
+**Recommendation: the libjxl-rs method, with a stricter `unsafe` policy.** ADR-0018 gates (a) and (b) require a safe Rust API and a stable toolchain, which the c2rust output does not give without a second pass. libwebp is plain C without templates, and its SIMD lives in separate per-architecture files, so the portable core of about 30,000 lines is a tractable hand translation. Unlike libjxl-rs, the port should start with `#![deny(unsafe_code)]` outside the C ABI export module: `image-webp` and `zenwebp` show that VP8 and VP8L decode and encode translate into `unsafe`-free Rust, and the port plan's SIMD phase is the only foreseeable exception. Relaxing this for a unit needs an ADR with the local safety argument, as libjxl-rs requires. Representation rules follow libjxl-rs's accepted ADR on ownership and storage: byte offsets instead of pointers, `Result` instead of status integers with preserved codes, explicit partial state on error, deliberate integer widths and wrapping.
 
 Decisions to confirm with the maintainer before Phase 0:
 
