@@ -459,21 +459,22 @@ impl JxlDecoderFrameIndexBox {
 
 /// A stable heap cell for a decoder field that other owners reference through
 /// a retained pointer. Borrowing the enclosing decoder does not retag it.
-struct Aliased<T> {
+/// The public encoder object uses the same cell for its memory manager.
+pub(crate) struct Aliased<T> {
     value: NonNull<T>,
 }
 impl<T> Aliased<T> {
-    fn new(value: T) -> Self {
+    pub(crate) fn new(value: T) -> Self {
         Self {
             // SAFETY: Box::into_raw yields a unique, non-null, initialized
             // allocation that this cell alone releases.
             value: unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(value))) },
         }
     }
-    fn as_ptr(&self) -> *const T {
+    pub(crate) fn as_ptr(&self) -> *const T {
         self.value.as_ptr()
     }
-    fn get(&self) -> &T {
+    pub(crate) fn get(&self) -> &T {
         // SAFETY: The cell owns an initialized value; shared access only.
         unsafe { self.value.as_ref() }
     }

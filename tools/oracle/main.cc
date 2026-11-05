@@ -464,6 +464,8 @@ void AppendCase(std::istringstream& in, JxlMemoryManager* mm) {
 #include "quant_dc.inc"
 
 bool DctCommand(const std::string&, std::istringstream&);
+bool EncoderTransformsCommand(const std::string&, std::istringstream&, JxlMemoryManager*);
+bool EncoderTransformsUnitCommand(const std::string&, std::istringstream&);
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
@@ -516,6 +518,7 @@ bool NoiseRenderCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 bool DecoderInputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderApiCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecoderPublicCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool EncoderPublicCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool DecodeTestInputsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool SkcmsTransformCommand(const std::string&, std::istringstream&);
 bool SkcmsFittingCommand(const std::string&, std::istringstream&);
@@ -585,6 +588,8 @@ int main() {
       else if (QuantDcCommand(command, in, &mm)) {}
       else if (QuantStorageCommand(command, in)) {}
       else if (DctCommand(command, in)) {}
+      else if (EncoderTransformsUnitCommand(command, in)) {}
+      else if (EncoderTransformsCommand(command, in, &mm)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (JpegReconstructionCommand(command, in, &mm)) {}
       else if (JpegWriterCommand(command, in)) {}
@@ -632,6 +637,7 @@ int main() {
       else if (DecoderInputCommand(command, in, &mm)) {}
       else if (DecoderApiCommand(command, in, &mm)) {}
       else if (DecoderPublicCommand(command, in, &mm)) {}
+      else if (EncoderPublicCommand(command, in, &mm)) {}
       else if (DecodeTestInputsCommand(command, in, &mm)) {}
       else if (IccCodecCommand(command, in, &mm)) {}
       else if (DecoderGeometryCommand(command, in, &mm)) {}

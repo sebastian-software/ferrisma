@@ -80,6 +80,51 @@ concurrency, which Rust and libc++ may report differently, so histories that
 observe thread counts set them explicitly. The runners themselves are tested
 for the properties of `thread_parallel_runner_test.cc`, not for one schedule.
 
+Public encoder histories compare the same way. The oracle unit
+`encoder_public.cc` replays a caller history on the original public encoder
+API and records every status, GetError value and output chunk, and the Rust
+driver mirrors it token for token. Its stored-state checkpoint reads the
+original encoder, frame settings and queued inputs with
+`-fno-access-control` and serializes the stored metadata through the original
+WriteCodestreamHeaders on a copy. While the encoder returns admission results
+(ADR 0001), the same history also runs as a probe on the original that reports
+its internal state at each AddImageFrame and ProcessOutput. A Rust admission
+result must coincide with the original queueing a fast-lossless frame or
+calling ProcessOneEnqueuedInput at that call; its history compares exactly up
+to that call and is reported separately from exact parity. Encoder histories
+pass C enum arguments only within the value range of their enumeration, since
+other values are undefined in the original and abort its instrumented graph.
+Float and float16 caller samples are finite and small at any offset and byte
+order, so that the original's float-to-integer conversions stay defined.
+
+The encoder transform unit `encoder_transforms.cc` calls the archive's own
+Symmetric5, SlowSymmetric3, GaborishInverse, TransformFromPixels,
+DCFromLowestFrequencies, AFVDCT4x4, ComputePremulAbsorb, LinearRGBRowToXYB
+and ToXYB objects, so the compared words are those the original encoder uses.
+Competing NaN payloads are the one exception. The ordinary O3 archive object
+and its ASan counterpart select different operands of the same additions in
+the 8-point and larger DCTs of TransformFromPixels on native AArch64, and in
+the AFVDCT4x4 basis sum (also inlined into AFVTransformFromPixels) on native
+Linux x86-64. Neither graph is then a reference that one implementation could
+match. Those requests use the observation unit `encoder_transforms_unit.cc`,
+which instantiates the pristine enc_transforms-inl.h template with
+source-scoped -fno-unroll-loops, O3, default contraction and all sanitizers,
+as dct.cc does for the decoder. Both graphs agree there on both targets. Its
+AFVDCT4x4 loop keeps the accumulator as the first addition operand: the x86-64
+object adds the product into the accumulator register (SSE ADDSS returns its
+first source when both operands are NaN), and AArch64 FADD returns its first
+operand for two quiet NaNs. The Rust accumulation is an out-of-line
+accumulator-first addition. DCFromLowestFrequencies agrees in both archive
+graphs on both targets, including a signaling NaN that the archive passes
+through a multiplication by one unquieted, so its competing requests stay on
+the archive. The test-only GaborishKernel is
+extracted verbatim from enc_gaborish_test.cc and hash-checked.
+`tools/encoder_transforms_contraction.py` records the contraction map of
+these five archive objects: it reruns each object's compile command to emit IR
+with line tables, compares the `llvm.fmuladd` source sites with
+`tools/encoder_transforms_contraction.json`, and requires fused instructions
+in a native AArch64 object exactly when it has sites and none on x86-64.
+
 The exported decoder C ABI is compared from the C side. One driver, compiled
 against the pinned public headers only, replays the public decoder histories
 with the same driver code as the original oracle. It is linked twice: against

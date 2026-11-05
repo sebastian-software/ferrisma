@@ -81,6 +81,8 @@ mod decoder_input;
 mod decoder_public;
 #[path = "parity/default_cms.rs"]
 mod default_cms;
+#[path = "parity/encoder_public.rs"]
+mod encoder_public;
 #[path = "parity/extra_channels.rs"]
 mod extra_channels;
 #[path = "parity/icc_codec.rs"]
@@ -116,6 +118,9 @@ mod block_context;
 
 #[path = "parity/dct.rs"]
 mod dct;
+
+#[path = "parity/encoder_transforms.rs"]
+mod encoder_transforms;
 
 #[path = "parity/entropy.rs"]
 mod entropy;
@@ -861,6 +866,7 @@ fn observe(request: &str) -> String {
         kind if render_pipeline::handles(kind) => render_pipeline::observe(kind, &mut args),
         kind if modular_groups::handles(kind) => modular_groups::observe(kind, &mut args),
         kind if dct::handles(kind) => dct::observe(kind, &mut args),
+        kind if encoder_transforms::handles(kind) => encoder_transforms::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
         kind if epf::handles(kind) => epf::observe(kind, &mut args),
         kind if splines::handles(kind) => splines::observe(kind, &mut args),
@@ -871,6 +877,7 @@ fn observe(request: &str) -> String {
         kind if decoder_input::handles(kind) => decoder_input::observe(kind, &mut args),
         kind if decoder_api::handles(kind) => decoder_api::observe(kind, &mut args),
         kind if decoder_public::handles(kind) => decoder_public::observe(kind, &mut args),
+        kind if encoder_public::handles(kind) => encoder_public::observe(kind, &mut args),
         kind if skcms_transform::handles(kind) => skcms_transform::observe(kind, &mut args),
         kind if default_cms::handles(kind) => default_cms::observe(kind, &mut args),
         kind if icc_codec::handles(kind) => icc_codec::observe(kind, &mut args),

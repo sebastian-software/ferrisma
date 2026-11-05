@@ -10,7 +10,10 @@ raw JPEG XL codestreams. Rust parses their global metadata and frames and
 recovers the original integer pixels. Encoded bytes, metadata, samples, and
 error paths are compared with pinned libjxl, including cross-decoding in both
 directions. See the [first-image evidence](docs/FIRST_IMAGE.md). General encoder
-configurations, the public encoder API and its C ABI remain unported.
+configurations and the encoder C ABI remain unported. The public encoder API's
+lifecycle, setters and input queueing are translated and return explicit
+admission results where the original would enter an untranslated branch, so it
+encodes no pixels yet.
 
 **The first complete VarDCT decode path is also implemented.** `decode_vardct`
 parses raw original codestreams through DC/AC groups, dequantization and scalar

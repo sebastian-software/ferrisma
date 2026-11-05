@@ -1,7 +1,8 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! Copy/fill, padded copy, and border mirroring from lib/jxl/image_ops.h, plus
+//! Copy/fill, padded copy, border mirroring and the WrapMirror/WrapUnchanged
+//! modes from lib/jxl/image_ops.h, plus
 //! block padding and both downsampling overloads from image_ops.cc.
 //! Explicit names distinguish source overloads. Other header-only numeric image
 //! operations remain unported. Slices replace row pointers and memcpy without
@@ -174,6 +175,25 @@ pub fn mirror(mut x: i64, size: i64) -> i64 {
         }
     }
     x
+}
+
+/// The image_ops.h wrap-mode function objects, as template arguments.
+pub trait Wrap {
+    fn wrap(coord: i64, size: i64) -> i64;
+}
+/// WrapMirror: Mirror, repeating the edge pixel once.
+pub struct WrapMirror;
+impl Wrap for WrapMirror {
+    fn wrap(coord: i64, size: i64) -> i64 {
+        mirror(coord, size)
+    }
+}
+/// WrapUnchanged: the coordinate is already valid.
+pub struct WrapUnchanged;
+impl Wrap for WrapUnchanged {
+    fn wrap(coord: i64, _size: i64) -> i64 {
+        coord
+    }
 }
 
 fn div_ceil(what: usize, align: usize) -> usize {
