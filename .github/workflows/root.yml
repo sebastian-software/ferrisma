@@ -30,7 +30,8 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        variant: [default, mini, extended-pixi, mini-extended-pixi]
+        variant: [default, mini, extended-pixi, mini-extended-pixi, libgav1-rav1e-svt-libyuv,
+                  mini-extended-pixi-libgav1-rav1e-svt-libyuv]
     uses: ./.github/workflows/root-translate-linux.yml
     with:
       profile: both

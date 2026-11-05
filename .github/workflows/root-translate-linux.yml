@@ -16,7 +16,7 @@ on:
       variant:
         description: Original container configuration and optional external engines to generate
         type: choice
-        options: [default, mini, extended-pixi, mini-extended-pixi, libgav1, rav1e, svt, libyuv, libgav1-rav1e-svt-libyuv, mini-extended-pixi-libgav1-rav1e-svt-libyuv]
+        options: [default, mini, extended-pixi, mini-extended-pixi, libgav1-rav1e-svt-libyuv, mini-extended-pixi-libgav1-rav1e-svt-libyuv]
         default: default
       tier:
         description: Preparation only, bounded original smoke suite, or complete original root suite
