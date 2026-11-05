@@ -1,0 +1,28 @@
+[package]
+name = "ferrixel-encoder-experiment"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "M2 work package 2: AVIF encoder throughput at matched SSIMULACRA2 quality"
+
+# Standalone: not a member of the Ferrixel package, never shipped.
+[workspace]
+
+[features]
+default = []
+# rav1e's hand-written assembly (aarch64 via cc, x86-64 via NASM).
+asm = ["ravif/asm", "rav1e/asm"]
+# rav1e's own thread pool and tiles; without it every encode is serial.
+threading = ["ravif/threading", "rav1e/threading"]
+
+[dependencies]
+ravif = { version = "=0.13.0", default-features = false }
+rav1e = { version = "=0.8.1", default-features = false }
+avif-serialize = "=0.8.9"
+avif-decode = { version = "=3.0.0", default-features = false }
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
+ssimulacra2 = "0.5"
+
+[profile.release]
+debug = "line-tables-only"
