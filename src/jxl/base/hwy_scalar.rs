@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Use of this source code is governed by Highway's offered BSD alternative in
 // licenses/HIGHWAY-BSD-3-Clause.txt. Modified: translated the used one-lane
-// Min/Max/MulAdd/Floor/ConvertTo/NearestInt/sign operations from hwy/ops/scalar-inl.h and
+// Min/Max/MulAdd/Floor/Round/ConvertTo/NearestInt/sign operations from hwy/ops/scalar-inl.h and
 // generic_ops-inl.h. Other operations and SIMD targets remain separate work.
 pub(crate) fn mul_add(a: f32, b: f32, c: f32) -> f32 {
     a * b + c
@@ -51,6 +51,23 @@ pub(crate) fn floor(x: f32) -> f32 {
     }
     bits &= !mask;
     f32::from_bits(bits)
+}
+// scalar-inl.h Round: huge and NaN values are returned unchanged; zero
+// results keep the input's sign; ties round to even.
+pub(crate) fn round(v: f32) -> f32 {
+    if v.is_nan() || v.abs() >= 8388608.0 {
+        return v;
+    }
+    let bias = if v < 0.0 { -0.5f32 } else { 0.5f32 };
+    let rounded = (v + bias) as i32;
+    if rounded == 0 {
+        return 0.0f32.copysign(v);
+    }
+    let mut offset = 0;
+    if rounded & 1 != 0 && ((rounded as f32) - v).abs() == 0.5 {
+        offset = if v < 0.0 { -1 } else { 1 };
+    }
+    (rounded - offset) as f32
 }
 pub(crate) fn to_i32(x: f32) -> i32 {
     if (x.to_bits() & 0x7fffffff) >> 23 < 158 {
