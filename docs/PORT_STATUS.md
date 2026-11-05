@@ -246,8 +246,8 @@ kSquirrel chain on the corpus (644). Compared inputs are finite, the
 original's defined domain.
 
 Contraction sensitivity: replacing each translated site in turn by separate
-operations makes the focused group fail on AArch64 for 13 of the 17 Rust
-sites. The other four cannot change any output: the three quantizer roundings
+operations makes the focused group fail on AArch64 for 12 of the 17 Rust
+sites. The other five cannot change any output: the three quantizer roundings
 are truncated to integers, which absorb the saved rounding (an exact search of
 +-40 ulps around every `k + 0.5` boundary for 14 global scales found no
 difference), and the CfL denominator and FindBest8x8Transform's
