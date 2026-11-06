@@ -1,12 +1,12 @@
 # WP3: lossless shared
 
-- Status: every unit of the WP3 inventory is translated, except four inline
-  functions of `src/dsp/lossless_common.h` that read tables of
-  `src/dsp/lossless_enc.c` (WP11), the `Init` function that only assigns
-  portable pointers (ADR 0003), the free-only `VP8LHtreeGroupsFree`, and the SIMD
-  variants (wave 4). Each is listed under not-applicable checks, recorded
-  deviations or the open question below. The release, asan-ubsan and debug
-  oracles agree with the translation on every compared case.
+- Status: every unit of the WP3 inventory is translated, except the four inline
+  functions of `src/dsp/lossless_common.h` that the integrator gave to WP11 (see
+  the decision below), the `Init` function that only assigns portable pointers
+  (ADR 0003), the free-only `VP8LHtreeGroupsFree`, and the SIMD variants
+  (wave 4). Each is listed under the decision, not-applicable checks or recorded
+  deviations. The release, asan-ubsan and debug oracles agree with the
+  translation on every compared case.
 - Sub-wave: 1c
 - Model: Claude Opus 5.5 (`claude-opus-5-5`)
 - Depends on: WP1, WP4
@@ -18,27 +18,25 @@ Written by the package session; the integrator aggregates it into
 comes from `tools/units.json`, including the function- and type-level
 exceptions inside a module.
 
-## Open question for the integrator
+## Decision: four `lossless_common.h` functions belong to WP11
 
 `src/dsp/lossless_common.h` defines four inline functions whose bodies read
 data that `src/dsp/lossless_enc.c` defines: `VP8LFastLog2` and `VP8LFastSLog2`
 read `kLog2Table`, `kSLog2Table`, `VP8LFastLog2Slow` and `VP8LFastSLog2Slow`;
 `VP8LPrefixEncodeBits` and `VP8LPrefixEncode` read `kPrefixEncodeCode` and
-`kPrefixEncodeExtraBitsValue`. Only WP11's units call them. The header belongs to
-WP3 and the tables to WP11, so neither package can translate the functions
-without the other's items, and no stub is allowed. WP3 leaves them absent.
+`kPrefixEncodeExtraBitsValue`. Only WP11's units call them. WP3 reported that
+neither package could translate them alone, and the integrator decided on
+2026-11-06:
 
-1. **Recommended:** a function-level exception in `tools/units.json` that gives
-   the four functions in `src/dsp/lossless_common.rs` to WP11, which defines the
-   tables in `src/dsp/lossless_enc.rs` in the same package. It follows the
-   existing exception pattern and moves no data.
-2. Give the tables and the two slow functions of `lossless_enc.c` to WP3 by
-   exception. This moves floating-point code (`FastSLog2Slow_C` and
-   `FastLog2Slow_C`) into a package that has none, for no caller of its own.
-3. Leave the functions absent until WP11 asks. WP11 would then stop on the
-   ownership question itself.
-
-Nothing in WP3 depends on the answer.
+- `tools/units.json` has a function-level exception that gives the four
+  functions in `src/dsp/lossless_common.rs` to WP11, which defines the tables and
+  slow functions in `src/dsp/lossless_enc.rs` and appends the four functions to
+  `lossless_common.rs`. The module header names the exception, and
+  `docs/status/wp11.md` lists it in its inventory.
+- `VP8LPrefixEncodeBitsNoLUT` and `VP8LPrefixEncodeNoLUT` read no table and stay
+  with WP3.
+- `tools/unit_dependencies.py --check` still reports no undeclared reference;
+  the inline functions leave no symbol of their own in the oracle objects.
 
 ## Inventory
 
@@ -52,7 +50,7 @@ Names follow ADR 0001 (`tools/rust_name.py`). No module uses `unsafe`.
 | `src/utils/color_cache_utils.rs` | `src/utils/color_cache_utils.c`, `src/utils/color_cache_utils.h` | yes: `VP8LColorCache`, `kHashMul` (`HASH_MUL`), `VP8LHashPix`, `VP8LColorCacheLookup`, `VP8LColorCacheSet`, `VP8LColorCacheInsert`, `VP8LColorCacheGetIndex`, `VP8LColorCacheContains`, `VP8LColorCacheInit`, `VP8LColorCacheClear`, `VP8LColorCacheCopy`. |
 | `src/utils/palette.rs` | `src/utils/palette.c`, `src/utils/palette.h` | yes: `PaletteSorting` with its five enumerators, `PaletteCompareColorsForQsort`, `PaletteComponentDistance`, `PaletteColorDistance`, `SwapColor`, `SearchColorNoIdx`, `PrepareMapToPalette`, `COLOR_HASH_SIZE`, `COLOR_HASH_RIGHT_SHIFT`, `GetColorPalette`, `PaletteHasNonMonotonousDeltas`, `PaletteSortMinimizeDeltas`, `CoOccurrenceFindMax`, `CoOccurrenceBuild`, `Sum`, `PaletteSortModifiedZeng`, `PaletteSort`. |
 | `src/dsp/lossless.rs` | `src/dsp/lossless.c`, `src/dsp/lossless.h` | yes, portable, without `VP8LDspInit` (not-applicable check 2) and without the encoder declarations of `lossless.h`, which `lossless_enc.c` defines (WP11): `VP8LPredictorFunc`, `VP8LPredictorAddSubFunc`, `VP8LMultipliers`, `VP8LStreaks`, `VP8LBitEntropy`; `Average2`, `Average3`, `Average4`, `Clip255`, `AddSubtractComponentFull`, `ClampedAddSubtractFull`, `AddSubtractComponentHalf`, `ClampedAddSubtractHalf`, `Sub3`, `Select`; `VP8LPredictor0_C` to `VP8LPredictor13_C`; `PredictorAdd0_C` to `PredictorAdd13_C`; the tables `VP8LPredictors`, `VP8LPredictorsAdd` and `VP8LPredictorsAdd_C` behind `vp8l_predictors`, `vp8l_predictors_add` and `vp8l_predictors_add_c`; `PredictorInverseTransform_C`, `VP8LAddGreenToBlueAndRed_C` and its dispatch, `ColorTransformDelta`, `ColorCodeToMultipliers`, `VP8LTransformColorInverse_C` and its dispatch, `ColorSpaceInverseTransform_C`, `MapARGB_C`, `MapAlpha_C` with `VP8LMapColor32b` and `VP8LMapColor8b`, `ColorIndexInverseTransform_C` and `VP8LColorIndexInverseTransformAlpha` (`COLOR_INDEX_INVERSE`), `VP8LInverseTransform`, `is_big_endian`, the five `VP8LConvertBGRATo*_C` converters and their dispatch, `CopyOrSwap`, `VP8LConvertFromBGRA`. |
-| `src/dsp/lossless_common.rs` | `src/dsp/lossless_common.h` | partly: `VP8GetARGBIndex`, `VP8GetAlphaIndex`, `VP8GetARGBValue`, `VP8GetAlphaValue`, `VP8LSubSampleSize`, `VP8LNearLosslessBits`, `APPROX_LOG_WITH_CORRECTION_MAX`, `APPROX_LOG_MAX`, `LOG_2_PRECISION_BITS`, `LOG_2_RECIPROCAL`, `LOG_2_RECIPROCAL_FIXED_DOUBLE`, `LOG_2_RECIPROCAL_FIXED`, `LOG_LOOKUP_IDX_MAX`, `RightShiftRound`, `DivRound`, `WEBP_INT64_MAX`, `WEBP_UINT64_MAX`, `VP8LPrefixEncodeBitsNoLUT`, `VP8LPrefixEncodeNoLUT`, `PREFIX_LOOKUP_IDX_MAX`, `VP8LPrefixCode`, `VP8LAddPixels`, `VP8LSubPixels`, `GENERATE_PREDICTOR_ADD`. Absent: `VP8LFastLog2`, `VP8LFastSLog2`, `VP8LPrefixEncodeBits`, `VP8LPrefixEncode` (open question); the declarations of `kLog2Table`, `kSLog2Table`, `VP8LFastLog2Slow`, `VP8LFastSLog2Slow`, `kPrefixEncodeCode` and `kPrefixEncodeExtraBitsValue` belong with their definitions in `lossless_enc.c` (WP11). |
+| `src/dsp/lossless_common.rs` | `src/dsp/lossless_common.h` | partly: `VP8GetARGBIndex`, `VP8GetAlphaIndex`, `VP8GetARGBValue`, `VP8GetAlphaValue`, `VP8LSubSampleSize`, `VP8LNearLosslessBits`, `APPROX_LOG_WITH_CORRECTION_MAX`, `APPROX_LOG_MAX`, `LOG_2_PRECISION_BITS`, `LOG_2_RECIPROCAL`, `LOG_2_RECIPROCAL_FIXED_DOUBLE`, `LOG_2_RECIPROCAL_FIXED`, `LOG_LOOKUP_IDX_MAX`, `RightShiftRound`, `DivRound`, `WEBP_INT64_MAX`, `WEBP_UINT64_MAX`, `VP8LPrefixEncodeBitsNoLUT`, `VP8LPrefixEncodeNoLUT`, `PREFIX_LOOKUP_IDX_MAX`, `VP8LPrefixCode`, `VP8LAddPixels`, `VP8LSubPixels`, `GENERATE_PREDICTOR_ADD`. Not WP3's: `VP8LFastLog2`, `VP8LFastSLog2`, `VP8LPrefixEncodeBits`, `VP8LPrefixEncode` (WP11's exception, see the decision above); the declarations of `kLog2Table`, `kSLog2Table`, `VP8LFastLog2Slow`, `VP8LFastSLog2Slow`, `kPrefixEncodeCode` and `kPrefixEncodeExtraBitsValue` belong with their definitions in `lossless_enc.c` (WP11). |
 | `src/utils/utils.rs` (exception) | function `WebPGetColorPalette` from `src/utils/utils.c` | yes, appended below WP1's items, which are unchanged. |
 | `src/dec/vp8li_dec.rs` (exception) | type `VP8LTransform` from `src/dec/vp8li_dec.h` | yes, appended below the module header. |
 
@@ -239,7 +237,8 @@ the Rust side cannot reproduce exactly. Each records the reason.
    every code from one allocation (`GetHuffBitLengthsAndCodes` in
    `src/enc/vp8l_enc.c`); ADR 0003 lets the Rust caller check that total and
    allocate separate buffers. `StoreFullHuffmanCode` builds its 19-entry code the
-   same way. WP11 consumes this form.
+   same way. WP11 consumes this form, which the integrator confirmed on
+   2026-11-06.
 8. **Token output.** `VP8LCreateCompressedHuffmanTree` takes the `max_tokens`
    tokens as a slice, the pointer and length pair of ADR 0003; a write past them
    panics where C asserts. `CodeRepeatedValues` and `CodeRepeatedZeros` return
@@ -280,7 +279,8 @@ the Rust side cannot reproduce exactly. Each records the reason.
     pixel of the current row), which a copy would not reproduce. WP7 keeps
     `pixels` and `argb_cache` in one buffer, as the C allocation does, or passes
     the buffer that holds both. The 8-bit alpha path and the converters take
-    distinct slices, as their callers have distinct buffers.
+    distinct slices, as their callers have distinct buffers. The integrator
+    confirmed this form on 2026-11-06.
 15. **Predictor signatures.** A one-pixel predictor takes `(left, left_pos, top,
     top_pos)`, where `left[left_pos]` is `*left` and `top[top_pos + k]` is `top[k]`
     for `k` in -1 to 1. `VP8LPredictorAddSubFunc` is the decoder's form,
@@ -305,10 +305,13 @@ the Rust side cannot reproduce exactly. Each records the reason.
     `&mut VP8LMultipliers`, which the caller reuses across tiles.
 19. **Converters keep their element types.** `VP8LConvertFromBGRA` and the
     converters take `&[u32]` and write `&mut [u8]`, as the C pointers are typed
-    (the untyped-buffer rule recorded for WP5 covers only `void*`). WP9's
-    `picture_csp_enc.c` casts an RGBA byte buffer to `uint32_t*` for
-    `VP8LConvertBGRAToRGBA`; that caller converts its samples. A mode without a
-    conversion debug-asserts and writes nothing, where C asserts.
+    (the untyped-sample-buffer rule of ADR 0003 covers only `void*`), as WP4's
+    `WebPMultARGBRows` keeps `&mut [u32]` (WP4, deviation 7); the integrator
+    confirmed this form on 2026-11-06. WP9's `picture_csp_enc.c` casts an RGBA
+    byte buffer to `uint32_t*` for `VP8LConvertBGRAToRGBA`; WP9 builds the `u32`
+    samples from the RGBA bytes in native byte order, which is what the C cast
+    reads. A mode without a conversion debug-asserts and writes nothing, where C
+    asserts.
 20. **`VP8LTransform`** owns `data` as a `Vec<u32>` (empty where C has `NULL`);
     the decoder allocates, replaces and frees it. The field `type` is the raw
     identifier `r#type`.
@@ -330,7 +333,8 @@ the Rust side cannot reproduce exactly. Each records the reason.
   `rows` and `argb_cache` in it, with a row before `argb_cache`.
 - **WP11.** `HuffmanTreeCode` owns its arrays (deviation 7); check the carved
   total with the C arithmetic before allocating the codes. `VP8LPredictorsSub`
-  needs its own signature (deviation 15). The four functions of the open question
-  are not in `lossless_common.rs` yet.
-- **WP9.** `vp8l_convert_bgra_to_rgba` takes `u32` pixels and writes bytes
-  (deviation 19). `webp_get_color_palette` is in `src/utils/utils.rs`.
+  needs its own signature (deviation 15). `VP8LFastLog2`, `VP8LFastSLog2`,
+  `VP8LPrefixEncodeBits` and `VP8LPrefixEncode` are WP11's exception in
+  `lossless_common.rs`; append them below WP3's items.
+- **WP9.** `vp8l_convert_bgra_to_rgba` takes `u32` pixels and writes bytes;
+  build the pixels from the RGBA bytes in native byte order (deviation 19). `webp_get_color_palette` is in `src/utils/utils.rs`.

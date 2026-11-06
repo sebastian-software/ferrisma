@@ -19,12 +19,12 @@
 //!
 //! Work package: WP3 (lossless shared).
 //!
-//! Not translated here, with the reason: `VP8LFastLog2`, `VP8LFastSLog2`,
-//! `VP8LPrefixEncodeBits` and `VP8LPrefixEncode` read `kLog2Table`,
-//! `kSLog2Table`, `VP8LFastLog2Slow`, `VP8LFastSLog2Slow`, `kPrefixEncodeCode`
-//! and `kPrefixEncodeExtraBitsValue`, which `src/dsp/lossless_enc.c` defines
-//! (WP11). They stay absent until that package's tables exist
-//! (`docs/status/wp3.md`).
+//! Exception: WP11 translates `VP8LFastLog2`, `VP8LFastSLog2`, `VP8LPrefixEncodeBits` and `VP8LPrefixEncode` from `src/dsp/lossless_common.h`, because they read `kLog2Table`, `kSLog2Table`, `VP8LFastLog2Slow`, `VP8LFastSLog2Slow`, `kPrefixEncodeCode` and `kPrefixEncodeExtraBitsValue`, which WP11 translates from `src/dsp/lossless_enc.c`.
+//!
+//! Not translated here, with the reason: the four functions of the exception
+//! above, which WP11 appends to this module with the tables they read
+//! (decided 2026-11-06). The declarations of those tables and slow functions
+//! belong with their definitions in `src/dsp/lossless_enc.rs`.
 
 use crate::utils::utils::bits_log2_floor;
 
