@@ -3,7 +3,12 @@
 # the original cmake/rtcd.pl after aom_dsp_rtcd_defs.pl, aom_scale_rtcd.pl,
 # or av1_rtcd_defs.pl. It withdraws every Neon specialization that the port
 # does not implement, so the generated dispatch header names only existing
-# functions. Every listed function must have a `<name>_neon` definition.
+# functions. Every listed function must have a `<name>_neon` definition that
+# is bit-exact with `<name>_c` for the same arguments. The per-size
+# av1_inv_txfm2d_add_* Neon entry points are therefore not listed: several
+# take `dest` as a CONVERT_TO_BYTEPTR pointer while their `_c` versions take
+# uint16_t *, and no libaom caller uses the dispatched names. They are reached
+# only through av1_highbd_inv_txfm_add_neon.
 my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_quantize_b
   aom_highbd_quantize_b_32x32
@@ -35,6 +40,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x4
   av1_fwd_txfm2d_8x8
   av1_highbd_block_error
+  av1_highbd_inv_txfm_add
   av1_highbd_quantize_fp
   cdef_copy_rect8_16bit_to_16bit
   cdef_copy_rect8_8bit_to_16bit

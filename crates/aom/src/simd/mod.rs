@@ -36,6 +36,8 @@ pub mod aom_dsp__arm__highbd_quantize_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/common/arm/cdef_block_neon.rs"]
 pub mod av1__common__arm__cdef_block_neon;
+#[path = "av1/common/arm/highbd_inv_txfm_neon.rs"]
+pub mod av1__common__arm__highbd_inv_txfm_neon;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/av1_highbd_quantize_neon.rs"]
