@@ -17,10 +17,14 @@
 //!
 //! Work package: WP1 (types, memory, workers).
 //!
-//! Not translated yet, pending open question 2 in `docs/status/wp1.md`: the
-//! `WebPData` struct, which is borrowed input in some calls and owned output in
-//! others, and its inline helpers `WebPDataInit`, `WebPDataClear` and
-//! `WebPDataCopy`.
+//! `WebPData` is one type with `Cow` semantics (ADR 0003, decided 2026-11-06):
+//! borrowed input in most calls, owned output where C allocates the bytes. Its
+//! iterators, `WebPIterator` and `WebPChunkIterator`, are WP8's (exceptions in
+//! `tools/units.json`).
+
+use std::borrow::Cow;
+
+use crate::utils::utils::webp_safe_malloc;
 
 // upstream: src/webp/mux_types.h WebPFeatureFlags
 /// VP8X feature flags (C: `WebPFeatureFlags`).
@@ -67,4 +71,57 @@ impl WebPMuxAnimBlend {
     pub const WEBP_MUX_BLEND: Self = Self(0);
     // upstream: src/webp/mux_types.h WEBP_MUX_NO_BLEND
     pub const WEBP_MUX_NO_BLEND: Self = Self(1);
+}
+
+// upstream: src/webp/mux_types.h WebPData
+/// Raw data such as chunk payloads or compressed bytes (C: `WebPData`). The bytes
+/// are borrowed (input, or a view into a demuxer) or owned (output that
+/// `WebPDataCopy` allocates); `Cow` keeps both in one type.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WebPData<'a> {
+    /// The bytes. Empty data is the C state `bytes == NULL, size == 0`, or any empty view.
+    pub bytes: Cow<'a, [u8]>,
+}
+
+// upstream: src/webp/mux_types.h WebPDataInit
+impl Default for WebPData<'_> {
+    /// Empty and borrowed (C: `WebPDataInit`, which zeroes the struct).
+    fn default() -> Self {
+        Self {
+            bytes: Cow::Borrowed(&[]),
+        }
+    }
+}
+
+// upstream: src/webp/mux_types.h WebPDataClear
+/// Resets the data to empty and drops owned bytes (C: `WebPDataClear`, which frees
+/// `bytes` and then calls `WebPDataInit`).
+pub fn webp_data_clear(webp_data: &mut WebPData<'_>) {
+    *webp_data = WebPData::default();
+}
+
+// upstream: src/webp/mux_types.h WebPDataCopy
+/// Copies the bytes into owned memory (C: `WebPDataCopy`). Empty data copies to
+/// empty data. Returns `None` when the host refuses the allocation, where C
+/// returns 0; the allocation test is the one of `WebPMalloc(size)`, which
+/// `webp_safe_malloc::<u8>(size, 1)` applies with the same arithmetic.
+#[must_use]
+pub fn webp_data_copy(src: &WebPData<'_>) -> Option<WebPData<'static>> {
+    if src.bytes.is_empty() {
+        return Some(WebPData::default_owned());
+    }
+    let mut owned = webp_safe_malloc::<u8>(src.bytes.len() as u64, 1)?;
+    owned.extend_from_slice(&src.bytes);
+    Some(WebPData {
+        bytes: Cow::Owned(owned),
+    })
+}
+
+impl WebPData<'static> {
+    /// Empty and owned, the result of copying empty data.
+    fn default_owned() -> Self {
+        Self {
+            bytes: Cow::Owned(Vec::new()),
+        }
+    }
 }
