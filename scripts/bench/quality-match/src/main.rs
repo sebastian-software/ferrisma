@@ -17,7 +17,8 @@
 //!
 //! SOURCE is `.png` (8 or 16 bit), `.jpg` (decoded with zune-jpeg, ICC and
 //! EXIF ignored, so pass the EXIF orientation as `#6` and so on) or an 8-bit
-//! 4:2:0 full-range `.y4m`. In `bisect`, CMD is run once per setting with
+//! 4:2:0 full-range `.y4m`, or a `.ref` file (as written by `ref` or by the
+//! JPEG decoder harnesses in `scripts/bench/jpeg-decoders`). In `bisect`, CMD is run once per setting with
 //! `{q}` replaced by the setting and `{out}` by the output path; STEP is the
 //! knob's granularity (1 for integer knobs, 0 for continuous ones).
 
@@ -168,6 +169,8 @@ fn load_source(spec: &str) -> Frame {
     };
     let frame = if path.ends_with(".png") {
         load_png(path)
+    } else if path.ends_with(".ref") {
+        read_ref(path)
     } else if path.ends_with(".y4m") {
         load_y4m(path)
     } else {

@@ -90,3 +90,4 @@ Verified on 2026-11-06 in the `google/jpegli` source (BSD-3-Clause; the pinned l
 ## Amendment log
 
 - 2026-11-06 — Initial decision by the maintainer: reference or proven conformance, image scope, deviations only with a clear measured advantage, no removal before selection, a mechanical oracle for later optimization, JPEG decode before encode, and the jpegli source facts.
+- 2026-11-06 — First JPEG decoder measurement ([M2-jpeg-decoders](../benchmarks/M2-jpeg-decoders.md), Apple M1 Ultra, one thread). libjpeg-turbo 3.2.1 decodes 1.4–1.6× faster than `zune-jpeg` and 1.7–2.7× faster than jpegli; jpegli scores 0.2–1.6 SSIMULACRA2 higher on the same files; `zune-jpeg` matches libjpeg-turbo's quality. Scaled decode saves at most 31–41 % of decode time and, under libvips' 2× residual rule, scores 89.7–96.5 against Ferrixel's linear-light result for both decoders. x86-64, other encoders' JPEGs and conformance are not yet measured; the choice of decoder is open.
