@@ -77,6 +77,8 @@ int main(int argc, char* argv[]) {
     if (strcmp(op, "init") == 0) {
       unsigned long n;
       if (sscanf(line, "%*s %lu", &n) != 1) return 2;
+      // VP8BitWriterInit drops the buffer pointer without freeing it.
+      VP8BitWriterWipeOut(&bw);
       result = VP8BitWriterInit(&bw, (size_t)n);
       has_result = 1;
     } else if (strcmp(op, "bit") == 0) {
@@ -121,6 +123,7 @@ int main(int argc, char* argv[]) {
     if (has_result) printf("result=%d\n", result);
     PrintState();
   }
+  VP8BitWriterWipeOut(&bw);
   free(payload);
   return 0;
 }

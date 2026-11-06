@@ -64,6 +64,9 @@ int main(int argc, char* argv[]) {
     if (strcmp(op, "init") == 0) {
       unsigned long n;
       if (sscanf(line, "%*s %7s %lu", first, &n) != 2) return 2;
+      // VP8LBitWriterInit zeroes the writer without freeing its buffer, so the
+      // previous buffer of the writer is released first.
+      VP8LBitWriterWipeOut(&w[Index(first)]);
       result = VP8LBitWriterInit(&w[Index(first)], (size_t)n);
       has_result = 1;
     } else if (strcmp(op, "put") == 0) {
