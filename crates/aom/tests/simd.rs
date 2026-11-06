@@ -10,3 +10,7 @@ mod acm_random;
 mod cdef;
 #[path = "simd/quantize.rs"]
 mod quantize;
+#[path = "simd/error_block.rs"]
+mod error_block;
+#[path = "simd/subtract.rs"]
+mod subtract;

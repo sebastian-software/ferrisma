@@ -44,3 +44,15 @@ pub mod av1__encoder__arm__av1_highbd_quantize_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/transpose_neon.rs"]
 pub mod aom_dsp__arm__transpose_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/subtract_neon.rs"]
+pub mod aom_dsp__arm__subtract_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/av1_error_neon.rs"]
+pub mod av1__encoder__arm__av1_error_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/highbd_rdopt_neon.rs"]
+pub mod av1__encoder__arm__highbd_rdopt_neon;

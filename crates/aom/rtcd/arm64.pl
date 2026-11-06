@@ -11,6 +11,11 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_quantize_b_64x64
   aom_highbd_quantize_b_64x64_adaptive
   aom_highbd_quantize_b_adaptive
+  aom_highbd_subtract_block
+  aom_subtract_block
+  av1_block_error
+  av1_block_error_lp
+  av1_highbd_block_error
   av1_highbd_quantize_fp
   cdef_copy_rect8_16bit_to_16bit
   cdef_copy_rect8_8bit_to_16bit
