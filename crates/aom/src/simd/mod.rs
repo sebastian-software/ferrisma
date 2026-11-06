@@ -18,6 +18,14 @@ pub mod types {
 }
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/mem_neon.rs"]
+pub mod aom_dsp__arm__mem_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/sum_neon.rs"]
+pub mod aom_dsp__arm__sum_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "aom_ports/aarch64_cpudetect.rs"]
 pub mod aom_ports__aarch64_cpudetect;
 
