@@ -37,12 +37,13 @@
 //! Strides and steps keep their C type, in bytes, and rows are addressed from the
 //! offset with a checked signed sum.
 //!
-//! `SharpYuvInit` and `SharpYuvGetCPUInfo` are not translated yet: they wait for
-//! `src/dsp/cpu.rs` (WP4) and for the decision on the representation of the CPU
-//! information function pointer and the init-once state (`docs/status/wp5.md`).
-//! The conversion functions below do not call `SharpYuvInit`, because nothing in
-//! the Rust conversion depends on it: the dispatch functions are direct calls and
-//! the gamma tables are computed on first use.
+//! `SharpYuvGetCPUInfo` is translated in `sharpyuv_cpu.rs`. `SharpYuvInit` is not
+//! (`docs/status/wp5.md`, decision 1). Its argument replaces the CPU-information
+//! pointer, which ADR 0003 leaves to the ABI module that exports the pointer, and
+//! its gamma-table work is already done on first use here. The conversion
+//! functions below do not call `SharpYuvInit`, because nothing in the Rust
+//! conversion depends on it: the dispatch functions are direct calls and the gamma
+//! tables are computed on first use.
 
 use std::mem::size_of;
 

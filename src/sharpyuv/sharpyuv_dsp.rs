@@ -144,5 +144,5 @@ pub fn sharp_yuv_filter_row(
 // upstream: sharpyuv/sharpyuv_dsp.c SharpYuvInitDsp
 // Not translated. The function assigns the three portable pointers above, which
 // the dispatch functions call directly (ADR 0003). Its CPU-dependent selection of
-// the SSE2 and NEON variants belongs to WP19 and WP20 and waits for the
-// SharpYuvInit decision (docs/status/wp5.md, open question 1).
+// the SSE2 and NEON variants belongs to WP19 and WP20; the query it consults is
+// `sharp_yuv_get_cpu_info` (`sharpyuv_cpu.rs`), which the wave 4 packages call.
