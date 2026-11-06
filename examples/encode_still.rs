@@ -7,10 +7,12 @@
 //!     --quality=56 --speed=6 --threads=1 --depth=10 --repeat=3
 //! ```
 //!
-//! The input is an uncompressed 24- or 32-bit BMP (macOS `sips -s format bmp`
-//! writes one). Each repetition prints `encode_us=<microseconds>` for
-//! `avifEncoderWrite` alone, then the output size and its SHA-256 are
-//! printed by the caller's tooling if needed.
+//! The input is a 24- or 32-bit BMP as macOS `sips -s format bmp` writes it
+//! (uncompressed, or 32-bit with byte-aligned channel masks); alpha is
+//! ignored. Each repetition prints `encode_us=<microseconds>` for
+//! `avifEncoderWrite` alone and the output size. `--threads=0` uses all
+//! available cores and enables automatic tiling. `--report-rtcd` prints
+//! whether libaom's RTCD tables selected the SIMD kernels (ADR 0056).
 use std::time::Instant;
 
 use avif::{avif as image_api, rawdata, reformat, write};
@@ -30,6 +32,7 @@ struct Options {
     depth: u32,
     yuv444: bool,
     repeat: usize,
+    report_rtcd: bool,
 }
 
 fn parse() -> Options {
@@ -43,6 +46,7 @@ fn parse() -> Options {
         depth: 10,
         yuv444: false,
         repeat: 1,
+        report_rtcd: false,
     };
     for argument in std::env::args().skip(1) {
         let (key, value) = argument.split_once('=').unwrap_or((&argument, ""));
@@ -53,6 +57,7 @@ fn parse() -> Options {
             "--depth" => options.depth = value.parse().expect("depth"),
             "--yuv444" => options.yuv444 = true,
             "--repeat" => options.repeat = value.parse().expect("repeat"),
+            "--report-rtcd" => options.report_rtcd = true,
             _ if key.starts_with("--") => panic!("unknown option {key}"),
             _ => positional.push(argument),
         }
@@ -75,8 +80,14 @@ fn read_bmp(path: &str) -> (u32, u32, Vec<u8>) {
     let width = word(18) as i32;
     let height = word(22) as i32;
     let bits = u16::from_le_bytes([data[28], data[29]]);
-    assert_eq!(word(30), 0, "compressed BMP input is not supported");
     assert!(bits == 24 || bits == 32, "BMP input must have 24 or 32 bits per pixel");
+    // Uncompressed (BI_RGB, B G R [X]) or 32-bit BI_BITFIELDS with byte masks.
+    let channel = |mask: u32| mask.trailing_zeros() as usize / 8;
+    let order = match word(30) {
+        0 => [2, 1, 0],
+        3 if bits == 32 => [channel(word(54)), channel(word(58)), channel(word(62))],
+        _ => panic!("compressed BMP input is not supported"),
+    };
     let (width, top_down) = (width as u32, height < 0);
     let height = height.unsigned_abs();
     let bytes = (bits / 8) as usize;
@@ -87,7 +98,7 @@ fn read_bmp(path: &str) -> (u32, u32, Vec<u8>) {
         let start = offset + row * stride;
         for x in 0..width as usize {
             let pixel = &data[start + x * bytes..];
-            rgb.extend_from_slice(&[pixel[2], pixel[1], pixel[0]]);
+            rgb.extend_from_slice(&[pixel[order[0]], pixel[order[1]], pixel[order[2]]]);
         }
     }
     (width, height, rgb)
@@ -138,4 +149,28 @@ fn main() {
         }
     }
     std::fs::write(&options.output, last).expect("write output");
+    if options.report_rtcd {
+        println!("rtcd={}", rtcd_selection());
+    }
+}
+
+/// Reports whether libaom's RTCD tables, which the first encoder set up,
+/// select the hand-translated SIMD kernels (ADR 0056) or the `_c` functions.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn rtcd_selection() -> &'static str {
+    use aom::simd::av1__encoder__arm__av1_highbd_quantize_neon::av1_highbd_quantize_fp_neon;
+    extern "C" {
+        // RTCD pointer defined by the translated av1_rtcd.c (aom_ports/arm.h
+        // dispatch); only its address value is read.
+        static av1_highbd_quantize_fp: usize;
+    }
+    // SAFETY: setup_rtcd_internal() assigned the pointer during encoder
+    // initialization, which happened-before this read on this thread.
+    let selected = unsafe { av1_highbd_quantize_fp };
+    if selected == av1_highbd_quantize_fp_neon as usize { "simd(neon)" } else { "c" }
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+fn rtcd_selection() -> &'static str {
+    "c(no dispatch on this target)"
 }
