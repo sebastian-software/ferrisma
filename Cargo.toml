@@ -13,6 +13,13 @@ publish = false
 [lib]
 name = "jpeg"
 
+[features]
+# The C oracle is a set of probe executables used by differential tests, never
+# a dependency of the library (ADR 0002). Without this feature a test that needs
+# the oracle skips with a message when LIBJPEG_ORACLE_DIR is unset; with it, the
+# test fails instead. tools/check.py --oracle builds the oracle and enables it.
+oracle = []
+
 # Optimized test builds that keep every overflow check and debug assertion. The
 # port mirrors C unsigned arithmetic with explicit wrapping operations, so an
 # omitted one only surfaces with overflow checks enabled.
