@@ -1,0 +1,73 @@
+name: Checks
+
+# Formatting, Clippy and tests on Linux x86-64 and macOS ARM64, plus a build and
+# test on the rust-version toolchain. The C oracle job arrives with work
+# package 0 (docs/PORT_PLAN.md).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    name: Checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Tests (dev and checked profiles)
+        run: |
+          cargo test --locked
+          cargo test --locked --profile checked
+
+  msrv:
+    name: MSRV (Rust 1.95)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test with the rust-version toolchain
+        run: |
+          rustup toolchain install 1.95 --profile minimal
+          cargo +1.95 test --locked
+
+  # The single required status check: any failed or cancelled job fails it.
+  checks-passed:
+    name: Checks passed
+    if: always()
+    needs: [checks, msrv]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*|*" skipped "*) exit 1 ;;
+          esac

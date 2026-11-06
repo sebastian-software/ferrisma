@@ -1,0 +1,22 @@
+[package]
+name = "libjpeg-turbo-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+# The translated libjpeg API library is under the IJG License; the SIMD
+# extensions, once translated, are under the zlib License (LICENSE.md).
+license = "IJG AND Zlib"
+description = "A mechanical Rust port of libjpeg-turbo's JPEG decoder"
+repository = "https://github.com/sebastian-software/libjpeg-turbo-rs"
+publish = false
+
+[lib]
+name = "jpeg"
+
+# Optimized test builds that keep every overflow check and debug assertion. The
+# port mirrors C unsigned arithmetic with explicit wrapping operations, so an
+# omitted one only surfaces with overflow checks enabled.
+[profile.checked]
+inherits = "release"
+debug-assertions = true
+overflow-checks = true
