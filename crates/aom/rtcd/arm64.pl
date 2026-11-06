@@ -10,16 +10,208 @@
 # uint16_t *, and no libaom caller uses the dispatched names. They are reached
 # only through av1_highbd_inv_txfm_add_neon.
 my %ported_neon = map { $_ => 1 } qw/
+  aom_highbd_dc_128_predictor_16x16
+  aom_highbd_dc_128_predictor_16x32
+  aom_highbd_dc_128_predictor_16x4
+  aom_highbd_dc_128_predictor_16x64
+  aom_highbd_dc_128_predictor_16x8
+  aom_highbd_dc_128_predictor_32x16
+  aom_highbd_dc_128_predictor_32x32
+  aom_highbd_dc_128_predictor_32x64
+  aom_highbd_dc_128_predictor_32x8
+  aom_highbd_dc_128_predictor_4x16
+  aom_highbd_dc_128_predictor_4x4
+  aom_highbd_dc_128_predictor_4x8
+  aom_highbd_dc_128_predictor_64x16
+  aom_highbd_dc_128_predictor_64x32
+  aom_highbd_dc_128_predictor_64x64
+  aom_highbd_dc_128_predictor_8x16
+  aom_highbd_dc_128_predictor_8x32
+  aom_highbd_dc_128_predictor_8x4
+  aom_highbd_dc_128_predictor_8x8
+  aom_highbd_dc_left_predictor_16x16
+  aom_highbd_dc_left_predictor_16x32
+  aom_highbd_dc_left_predictor_16x4
+  aom_highbd_dc_left_predictor_16x64
+  aom_highbd_dc_left_predictor_16x8
+  aom_highbd_dc_left_predictor_32x16
+  aom_highbd_dc_left_predictor_32x32
+  aom_highbd_dc_left_predictor_32x64
+  aom_highbd_dc_left_predictor_32x8
+  aom_highbd_dc_left_predictor_4x16
+  aom_highbd_dc_left_predictor_4x4
+  aom_highbd_dc_left_predictor_4x8
+  aom_highbd_dc_left_predictor_64x16
+  aom_highbd_dc_left_predictor_64x32
+  aom_highbd_dc_left_predictor_64x64
+  aom_highbd_dc_left_predictor_8x16
+  aom_highbd_dc_left_predictor_8x32
+  aom_highbd_dc_left_predictor_8x4
+  aom_highbd_dc_left_predictor_8x8
+  aom_highbd_dc_predictor_16x16
+  aom_highbd_dc_predictor_16x32
+  aom_highbd_dc_predictor_16x4
+  aom_highbd_dc_predictor_16x64
+  aom_highbd_dc_predictor_16x8
+  aom_highbd_dc_predictor_32x16
+  aom_highbd_dc_predictor_32x32
+  aom_highbd_dc_predictor_32x64
+  aom_highbd_dc_predictor_32x8
+  aom_highbd_dc_predictor_4x16
+  aom_highbd_dc_predictor_4x4
+  aom_highbd_dc_predictor_4x8
+  aom_highbd_dc_predictor_64x16
+  aom_highbd_dc_predictor_64x32
+  aom_highbd_dc_predictor_64x64
+  aom_highbd_dc_predictor_8x16
+  aom_highbd_dc_predictor_8x32
+  aom_highbd_dc_predictor_8x4
+  aom_highbd_dc_predictor_8x8
+  aom_highbd_dc_top_predictor_16x16
+  aom_highbd_dc_top_predictor_16x32
+  aom_highbd_dc_top_predictor_16x4
+  aom_highbd_dc_top_predictor_16x64
+  aom_highbd_dc_top_predictor_16x8
+  aom_highbd_dc_top_predictor_32x16
+  aom_highbd_dc_top_predictor_32x32
+  aom_highbd_dc_top_predictor_32x64
+  aom_highbd_dc_top_predictor_32x8
+  aom_highbd_dc_top_predictor_4x16
+  aom_highbd_dc_top_predictor_4x4
+  aom_highbd_dc_top_predictor_4x8
+  aom_highbd_dc_top_predictor_64x16
+  aom_highbd_dc_top_predictor_64x32
+  aom_highbd_dc_top_predictor_64x64
+  aom_highbd_dc_top_predictor_8x16
+  aom_highbd_dc_top_predictor_8x32
+  aom_highbd_dc_top_predictor_8x4
+  aom_highbd_dc_top_predictor_8x8
+  aom_highbd_h_predictor_16x16
+  aom_highbd_h_predictor_16x32
+  aom_highbd_h_predictor_16x4
+  aom_highbd_h_predictor_16x64
+  aom_highbd_h_predictor_16x8
+  aom_highbd_h_predictor_32x16
+  aom_highbd_h_predictor_32x32
+  aom_highbd_h_predictor_32x64
+  aom_highbd_h_predictor_32x8
+  aom_highbd_h_predictor_4x16
+  aom_highbd_h_predictor_4x4
+  aom_highbd_h_predictor_4x8
+  aom_highbd_h_predictor_64x16
+  aom_highbd_h_predictor_64x32
+  aom_highbd_h_predictor_64x64
+  aom_highbd_h_predictor_8x16
+  aom_highbd_h_predictor_8x32
+  aom_highbd_h_predictor_8x4
+  aom_highbd_h_predictor_8x8
+  aom_highbd_paeth_predictor_16x16
+  aom_highbd_paeth_predictor_16x32
+  aom_highbd_paeth_predictor_16x4
+  aom_highbd_paeth_predictor_16x64
+  aom_highbd_paeth_predictor_16x8
+  aom_highbd_paeth_predictor_32x16
+  aom_highbd_paeth_predictor_32x32
+  aom_highbd_paeth_predictor_32x64
+  aom_highbd_paeth_predictor_32x8
+  aom_highbd_paeth_predictor_4x16
+  aom_highbd_paeth_predictor_4x4
+  aom_highbd_paeth_predictor_4x8
+  aom_highbd_paeth_predictor_64x16
+  aom_highbd_paeth_predictor_64x32
+  aom_highbd_paeth_predictor_64x64
+  aom_highbd_paeth_predictor_8x16
+  aom_highbd_paeth_predictor_8x32
+  aom_highbd_paeth_predictor_8x4
+  aom_highbd_paeth_predictor_8x8
   aom_highbd_quantize_b
   aom_highbd_quantize_b_32x32
   aom_highbd_quantize_b_32x32_adaptive
   aom_highbd_quantize_b_64x64
   aom_highbd_quantize_b_64x64_adaptive
   aom_highbd_quantize_b_adaptive
+  aom_highbd_smooth_h_predictor_16x16
+  aom_highbd_smooth_h_predictor_16x32
+  aom_highbd_smooth_h_predictor_16x4
+  aom_highbd_smooth_h_predictor_16x64
+  aom_highbd_smooth_h_predictor_16x8
+  aom_highbd_smooth_h_predictor_32x16
+  aom_highbd_smooth_h_predictor_32x32
+  aom_highbd_smooth_h_predictor_32x64
+  aom_highbd_smooth_h_predictor_32x8
+  aom_highbd_smooth_h_predictor_4x16
+  aom_highbd_smooth_h_predictor_4x4
+  aom_highbd_smooth_h_predictor_4x8
+  aom_highbd_smooth_h_predictor_64x16
+  aom_highbd_smooth_h_predictor_64x32
+  aom_highbd_smooth_h_predictor_64x64
+  aom_highbd_smooth_h_predictor_8x16
+  aom_highbd_smooth_h_predictor_8x32
+  aom_highbd_smooth_h_predictor_8x4
+  aom_highbd_smooth_h_predictor_8x8
+  aom_highbd_smooth_predictor_16x16
+  aom_highbd_smooth_predictor_16x32
+  aom_highbd_smooth_predictor_16x4
+  aom_highbd_smooth_predictor_16x64
+  aom_highbd_smooth_predictor_16x8
+  aom_highbd_smooth_predictor_32x16
+  aom_highbd_smooth_predictor_32x32
+  aom_highbd_smooth_predictor_32x64
+  aom_highbd_smooth_predictor_32x8
+  aom_highbd_smooth_predictor_4x16
+  aom_highbd_smooth_predictor_4x4
+  aom_highbd_smooth_predictor_4x8
+  aom_highbd_smooth_predictor_64x16
+  aom_highbd_smooth_predictor_64x32
+  aom_highbd_smooth_predictor_64x64
+  aom_highbd_smooth_predictor_8x16
+  aom_highbd_smooth_predictor_8x32
+  aom_highbd_smooth_predictor_8x4
+  aom_highbd_smooth_predictor_8x8
+  aom_highbd_smooth_v_predictor_16x16
+  aom_highbd_smooth_v_predictor_16x32
+  aom_highbd_smooth_v_predictor_16x4
+  aom_highbd_smooth_v_predictor_16x64
+  aom_highbd_smooth_v_predictor_16x8
+  aom_highbd_smooth_v_predictor_32x16
+  aom_highbd_smooth_v_predictor_32x32
+  aom_highbd_smooth_v_predictor_32x64
+  aom_highbd_smooth_v_predictor_32x8
+  aom_highbd_smooth_v_predictor_4x16
+  aom_highbd_smooth_v_predictor_4x4
+  aom_highbd_smooth_v_predictor_4x8
+  aom_highbd_smooth_v_predictor_64x16
+  aom_highbd_smooth_v_predictor_64x32
+  aom_highbd_smooth_v_predictor_64x64
+  aom_highbd_smooth_v_predictor_8x16
+  aom_highbd_smooth_v_predictor_8x32
+  aom_highbd_smooth_v_predictor_8x4
+  aom_highbd_smooth_v_predictor_8x8
   aom_highbd_subtract_block
+  aom_highbd_v_predictor_16x16
+  aom_highbd_v_predictor_16x32
+  aom_highbd_v_predictor_16x4
+  aom_highbd_v_predictor_16x64
+  aom_highbd_v_predictor_16x8
+  aom_highbd_v_predictor_32x16
+  aom_highbd_v_predictor_32x32
+  aom_highbd_v_predictor_32x64
+  aom_highbd_v_predictor_32x8
+  aom_highbd_v_predictor_4x16
+  aom_highbd_v_predictor_4x4
+  aom_highbd_v_predictor_4x8
+  aom_highbd_v_predictor_64x16
+  aom_highbd_v_predictor_64x32
+  aom_highbd_v_predictor_64x64
+  aom_highbd_v_predictor_8x16
+  aom_highbd_v_predictor_8x32
+  aom_highbd_v_predictor_8x4
+  aom_highbd_v_predictor_8x8
   aom_subtract_block
   av1_block_error
   av1_block_error_lp
+  av1_filter_intra_edge
+  av1_filter_intra_predictor
   av1_fwd_txfm2d_16x16
   av1_fwd_txfm2d_16x32
   av1_fwd_txfm2d_16x4
@@ -40,8 +232,14 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x4
   av1_fwd_txfm2d_8x8
   av1_highbd_block_error
+  av1_highbd_dr_prediction_z1
+  av1_highbd_dr_prediction_z2
+  av1_highbd_dr_prediction_z3
+  av1_highbd_filter_intra_edge
   av1_highbd_inv_txfm_add
   av1_highbd_quantize_fp
+  av1_highbd_upsample_intra_edge
+  av1_upsample_intra_edge
   cdef_copy_rect8_16bit_to_16bit
   cdef_copy_rect8_8bit_to_16bit
   cdef_filter_16_0

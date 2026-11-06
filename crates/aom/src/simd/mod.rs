@@ -72,3 +72,13 @@ pub mod av1__encoder__arm__txfm_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/highbd_fwd_txfm_neon.rs"]
 pub mod av1__encoder__arm__highbd_fwd_txfm_neon;
+#[path = "aom_dsp/arm/highbd_intrapred_neon.rs"]
+pub mod aom_dsp__arm__highbd_intrapred_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/reconintra_neon.rs"]
+pub mod av1__common__arm__reconintra_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/highbd_reconintra_neon.rs"]
+pub mod av1__common__arm__highbd_reconintra_neon;

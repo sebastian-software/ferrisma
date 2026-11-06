@@ -18,3 +18,11 @@ mod error_block;
 mod subtract;
 #[path = "simd/highbd_fwd_txfm.rs"]
 mod highbd_fwd_txfm;
+#[path = "simd/intrapred.rs"]
+mod intrapred;
+#[path = "simd/dr_prediction.rs"]
+mod dr_prediction;
+#[path = "simd/filterintra.rs"]
+mod filterintra;
+#[path = "simd/intra_edge.rs"]
+mod intra_edge;
