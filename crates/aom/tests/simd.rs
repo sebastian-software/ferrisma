@@ -14,3 +14,5 @@ mod quantize;
 mod error_block;
 #[path = "simd/subtract.rs"]
 mod subtract;
+#[path = "simd/highbd_fwd_txfm.rs"]
+mod highbd_fwd_txfm;

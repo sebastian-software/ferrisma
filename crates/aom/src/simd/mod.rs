@@ -56,3 +56,17 @@ pub mod av1__encoder__arm__av1_error_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/highbd_rdopt_neon.rs"]
 pub mod av1__encoder__arm__highbd_rdopt_neon;
+#[path = "av1/common/av1_txfm.rs"]
+pub mod av1__common__av1_txfm;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/shift_neon.rs"]
+pub mod av1__encoder__arm__shift_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/txfm_neon.rs"]
+pub mod av1__encoder__arm__txfm_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/highbd_fwd_txfm_neon.rs"]
+pub mod av1__encoder__arm__highbd_fwd_txfm_neon;

@@ -15,6 +15,25 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_subtract_block
   av1_block_error
   av1_block_error_lp
+  av1_fwd_txfm2d_16x16
+  av1_fwd_txfm2d_16x32
+  av1_fwd_txfm2d_16x4
+  av1_fwd_txfm2d_16x64
+  av1_fwd_txfm2d_16x8
+  av1_fwd_txfm2d_32x16
+  av1_fwd_txfm2d_32x32
+  av1_fwd_txfm2d_32x64
+  av1_fwd_txfm2d_32x8
+  av1_fwd_txfm2d_4x16
+  av1_fwd_txfm2d_4x4
+  av1_fwd_txfm2d_4x8
+  av1_fwd_txfm2d_64x16
+  av1_fwd_txfm2d_64x32
+  av1_fwd_txfm2d_64x64
+  av1_fwd_txfm2d_8x16
+  av1_fwd_txfm2d_8x32
+  av1_fwd_txfm2d_8x4
+  av1_fwd_txfm2d_8x8
   av1_highbd_block_error
   av1_highbd_quantize_fp
   cdef_copy_rect8_16bit_to_16bit
