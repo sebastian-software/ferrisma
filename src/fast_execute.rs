@@ -9,7 +9,9 @@
 //!   table for 8-bit input, instead of once per filter tap;
 //! - filter taps are precomputed into flat index/weight tables;
 //! - horizontally filtered rows live in a ring buffer addressed in O(1);
-//! - opaque RGB runs with three channels instead of four;
+//! - the horizontal and vertical resample run on `ferrixel-kernels`
+//!   (runtime-dispatched NEON or AVX2, ADR-0020), on four `f32` channels
+//!   per pixel (the fourth is unused for opaque RGB);
 //! - output samples are quantized by an exact `f32` to sRGB8 encoder
 //!   (bucket table plus thresholds) instead of `powf`.
 //!
@@ -20,6 +22,8 @@
 
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
+
+use ferrixel_kernels::{KernelError, Kernels, Taps};
 
 use crate::color::{AlphaMode, ColorEncoding};
 use crate::decoder::{ChannelLayout, DecodeSource, DecodedRow};
@@ -159,10 +163,48 @@ impl TapTable {
         let range = self.start[position]..self.start[position + 1];
         (&self.index[range.clone()], &self.weight[range])
     }
+
+    /// Contiguous runs for the SIMD kernels: each output position starts at
+    /// its first tap, and gaps (taps the filter drops as zero) get weight 0,
+    /// which adds exactly nothing.
+    fn contiguous(&self, source_pixels: usize) -> Result<Taps, Error> {
+        let outputs = self.start.len() - 1;
+        let mut starts = Vec::with_capacity(outputs);
+        let mut offsets = Vec::with_capacity(outputs + 1);
+        let mut weights = Vec::with_capacity(self.weight.len());
+        offsets.push(0_u32);
+        for position in 0..outputs {
+            let (indices, values) = self.taps(position);
+            let first = *indices.first().ok_or(Error::IncompleteDecoderOutput)?;
+            starts.push(first);
+            let mut next = first;
+            for (&index, &weight) in indices.iter().zip(values) {
+                while next < index {
+                    weights.push(0.0);
+                    next += 1;
+                }
+                weights.push(weight);
+                next = index + 1;
+            }
+            offsets.push(u32::try_from(weights.len()).map_err(|_| Error::GeometryOverflow)?);
+        }
+        Taps::new(source_pixels, starts, offsets, weights).map_err(kernel_error)
+    }
+}
+
+fn kernel_error(error: KernelError) -> Error {
+    match error {
+        KernelError::InvalidTaps => Error::OutOfBounds,
+        KernelError::LengthMismatch | KernelError::UnsupportedLevel(_) => {
+            Error::IncompleteDecoderOutput
+        }
+    }
 }
 
 /// Fast `f32` counterpart of `quality_execute::execute_quality_srgb8`, with
-/// the same graph contract, sink contract and report.
+/// the same graph contract, sink contract and report. The resample runs on
+/// `kernels` (ADR-0020); every pixel is stored as four `f32` channels.
+#[allow(clippy::too_many_arguments)] // The reference signature plus the kernel table.
 pub(crate) fn execute_fast_srgb8(
     graph: &Graph,
     target: NodeId,
@@ -170,16 +212,31 @@ pub(crate) fn execute_fast_srgb8(
     source: &mut dyn DecodeSource,
     requested: Rect,
     budget: &MemoryBudget,
+    kernels: &Kernels,
     sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
     let info = source.info().clone();
     match (info.layout, info.alpha) {
-        (ChannelLayout::Rgb, AlphaMode::Opaque) => {
-            run::<3>(graph, target, bound_source, source, requested, budget, sink)
-        }
-        (ChannelLayout::Rgba, AlphaMode::Straight) => {
-            run::<4>(graph, target, bound_source, source, requested, budget, sink)
-        }
+        (ChannelLayout::Rgb, AlphaMode::Opaque) => run::<3>(
+            graph,
+            target,
+            bound_source,
+            source,
+            requested,
+            budget,
+            kernels,
+            sink,
+        ),
+        (ChannelLayout::Rgba, AlphaMode::Straight) => run::<4>(
+            graph,
+            target,
+            bound_source,
+            source,
+            requested,
+            budget,
+            kernels,
+            sink,
+        ),
         (ChannelLayout::Rgb | ChannelLayout::Rgba, _) => {
             // Same order of checks as the reference: binding first.
             prepare(graph, target, bound_source, source, requested)?;
@@ -193,7 +250,8 @@ pub(crate) fn execute_fast_srgb8(
 }
 
 /// Decode one source row to linear-light (premultiplied for `C == 4`) `f32`
-/// samples, once per sample.
+/// samples, once per sample, four values per pixel (the fourth is 0 for
+/// opaque RGB).
 fn linearize_row<const C: usize>(
     row: DecodedRow<'_>,
     primaries: Primaries,
@@ -208,7 +266,7 @@ fn linearize_row<const C: usize>(
                 .as_chunks::<C>()
                 .0
                 .iter()
-                .zip(out.as_chunks_mut::<C>().0)
+                .zip(out.as_chunks_mut::<4>().0)
             {
                 let mut rgb = [
                     lut[usize::from(pixel[0])],
@@ -225,7 +283,7 @@ fn linearize_row<const C: usize>(
                     linear[2] = rgb[2] * alpha;
                     linear[3] = alpha;
                 } else {
-                    linear[..3].copy_from_slice(&rgb);
+                    *linear = [rgb[0], rgb[1], rgb[2], 0.0];
                 }
             }
         }
@@ -236,7 +294,7 @@ fn linearize_row<const C: usize>(
                 .as_chunks::<C>()
                 .0
                 .iter()
-                .zip(out.as_chunks_mut::<C>().0)
+                .zip(out.as_chunks_mut::<4>().0)
             {
                 let rgb = [
                     f64::from(pixel[0]),
@@ -259,6 +317,7 @@ fn linearize_row<const C: usize>(
                     for (out, value) in linear.iter_mut().zip(decoded.rgb) {
                         *out = value as f32;
                     }
+                    linear[3] = 0.0;
                 }
             }
         }
@@ -266,7 +325,7 @@ fn linearize_row<const C: usize>(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)] // Planning, ring sizing and the row loop stay together.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)] // Planning, ring sizing and the row loop stay together.
 fn run<const C: usize>(
     graph: &Graph,
     target: NodeId,
@@ -274,6 +333,7 @@ fn run<const C: usize>(
     source: &mut dyn DecodeSource,
     requested: Rect,
     budget: &MemoryBudget,
+    kernels: &Kernels,
     mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
     let info = source.info().clone();
@@ -289,9 +349,11 @@ fn run<const C: usize>(
     let tables = tables();
 
     let output_width = usize::try_from(requested.width).map_err(|_| Error::GeometryOverflow)?;
-    let row_samples = output_width.checked_mul(C).ok_or(Error::GeometryOverflow)?;
+    let row_samples = output_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
     let source_width = usize::try_from(plan.source.width).map_err(|_| Error::GeometryOverflow)?;
+    // Decoded rows carry `C` samples per pixel; linearized rows carry four.
     let source_samples = source_width.checked_mul(C).ok_or(Error::GeometryOverflow)?;
+    let linear_samples = source_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
 
     let columns = TapTable::build(
         plan.input.width,
@@ -308,6 +370,7 @@ fn run<const C: usize>(
     {
         return Err(Error::OutOfBounds);
     }
+    let column_taps = columns.contiguous(source_width)?;
     let lines = TapTable::build(
         plan.input.height,
         plan.output.height,
@@ -359,7 +422,7 @@ fn run<const C: usize>(
         capacity = capacity.max(rank(ready[row])? - rank(future_min[row])? + 1);
     }
 
-    let mut linear = budget.allocate_typed::<f32>(source_samples)?;
+    let mut linear = budget.allocate_typed::<f32>(linear_samples)?;
     let mut ring = budget.allocate_typed::<f32>(
         capacity
             .checked_mul(row_samples)
@@ -394,20 +457,10 @@ fn run<const C: usize>(
             linearize_row::<C>(row, primaries, &color, &p3, linear.as_mut_slice())?;
             let slot = row_rank % capacity;
             ring_rank[slot] = row_rank;
-            let source_row = linear.as_slice();
             let target = &mut ring.as_mut_slice()[slot * row_samples..(slot + 1) * row_samples];
-            for (column, out) in target.as_chunks_mut::<C>().0.iter_mut().enumerate() {
-                let (indices, weights) = columns.taps(column);
-                let mut sum = [0.0_f32; C];
-                for (&x, &weight) in indices.iter().zip(weights) {
-                    let start = x as usize * C;
-                    let pixel = &source_row[start..start + C];
-                    for channel in 0..C {
-                        sum[channel] = pixel[channel].mul_add(weight, sum[channel]);
-                    }
-                }
-                out.copy_from_slice(&sum);
-            }
+            kernels
+                .horizontal_rgba(linear.as_slice(), &column_taps, target)
+                .map_err(kernel_error)?;
         }
 
         while emitted < output_rows && ready[emitted] <= semantic_y {
@@ -420,12 +473,10 @@ fn run<const C: usize>(
                     return Err(Error::IncompleteDecoderOutput);
                 }
                 let cached = &ring.as_slice()[slot * row_samples..(slot + 1) * row_samples];
-                for (sum, &sample) in acc.iter_mut().zip(cached) {
-                    *sum = sample.mul_add(weight, *sum);
-                }
+                kernels.axpy(acc, cached, weight).map_err(kernel_error)?;
             }
             for (pixel, rgba) in acc
-                .as_chunks::<C>()
+                .as_chunks::<4>()
                 .0
                 .iter()
                 .zip(output.as_mut_slice().as_chunks_mut::<4>().0)

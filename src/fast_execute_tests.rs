@@ -14,6 +14,7 @@ use crate::memory::MemoryBudget;
 use crate::quality::Filter;
 use crate::quality_execute::execute_quality_srgb8;
 use crate::working_color::encode_linear_srgb8;
+use ferrixel_kernels::Kernels;
 
 const SRGB: [u8; 4] = [1, 13, 0, 1];
 const P3: [u8; 4] = [12, 13, 0, 1];
@@ -330,7 +331,7 @@ fn render(
     crop: Option<Rect>,
     size: Size,
     filter: Filter,
-    fast: bool,
+    fast: Option<&Kernels>,
 ) -> Vec<u8> {
     let (graph, input, output) = graph_for(source, crop, size, filter);
     let mut source = source.clone();
@@ -341,8 +342,17 @@ fn render(
         pixels.extend_from_slice(row);
         Ok(())
     };
-    let report = if fast {
-        execute_fast_srgb8(&graph, output, input, &mut source, request, &budget, sink)
+    let report = if let Some(kernels) = fast {
+        execute_fast_srgb8(
+            &graph,
+            output,
+            input,
+            &mut source,
+            request,
+            &budget,
+            kernels,
+            sink,
+        )
     } else {
         execute_quality_srgb8(&graph, output, input, &mut source, request, &budget, sink)
     }
@@ -365,86 +375,90 @@ struct Tally {
 
 #[test]
 fn f32_executor_meets_the_adr_0021_bound_against_the_f64_oracle() {
-    for case in cases() {
-        let mut tally = Tally::default();
-        for filter in [Filter::Area, Filter::Lanczos3] {
-            for (crop, width, height) in geometries() {
-                let size = Size::new(width, height).unwrap();
-                let reference = render(&case.source, crop, size, filter, false);
-                let fast = render(&case.source, crop, size, filter, true);
-                assert_eq!(reference.len(), fast.len());
-                for (index, (expected, actual)) in reference
-                    .as_chunks::<4>()
-                    .0
-                    .iter()
-                    .zip(fast.as_chunks::<4>().0)
-                    .enumerate()
-                {
-                    let context = || {
-                        format!(
-                            "{} {filter:?} {crop:?} {width}x{height} pixel {index}: oracle {expected:?} fast {actual:?}",
-                            case.name
-                        )
-                    };
-                    // Rule A on alpha.
-                    assert!(expected[3].abs_diff(actual[3]) <= 1, "{}", context());
-                    tally.alpha += 1;
-                    tally.alpha_exact += u64::from(expected[3] == actual[3]);
-                    // Rule E, per executor: an alpha byte of 0 carries RGB 0.
-                    if actual[3] == 0 {
-                        assert_eq!(actual[..3], [0, 0, 0], "{}", context());
-                    }
-                    if expected[3] == 0 || actual[3] == 0 {
-                        // At an alpha tie (exactly half a code) one side may
-                        // round to 0 and the other to 1; rule A already bounds
-                        // alpha, and RGB behind alpha 0 is not compared.
-                        continue;
-                    }
-                    for channel in 0..3 {
-                        let error = expected[channel].abs_diff(actual[channel]);
-                        // Rule A on RGB.
-                        assert!(error <= 1, "{}", context());
-                        tally.rgb += 1;
-                        tally.rgb_exact += u64::from(error == 0);
-                        tally.absolute_error += u64::from(error);
+    // Every kernel level this host can run (ADR-0020), each against the oracle.
+    for kernels in Kernels::available() {
+        let level = kernels.level();
+        for case in cases() {
+            let mut tally = Tally::default();
+            for filter in [Filter::Area, Filter::Lanczos3] {
+                for (crop, width, height) in geometries() {
+                    let size = Size::new(width, height).unwrap();
+                    let reference = render(&case.source, crop, size, filter, None);
+                    let fast = render(&case.source, crop, size, filter, Some(&kernels));
+                    assert_eq!(reference.len(), fast.len());
+                    for (index, (expected, actual)) in reference
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .zip(fast.as_chunks::<4>().0)
+                        .enumerate()
+                    {
+                        let context = || {
+                            format!(
+                                "{level} {} {filter:?} {crop:?} {width}x{height} pixel {index}: oracle {expected:?} fast {actual:?}",
+                                case.name
+                            )
+                        };
+                        // Rule A on alpha.
+                        assert!(expected[3].abs_diff(actual[3]) <= 1, "{}", context());
+                        tally.alpha += 1;
+                        tally.alpha_exact += u64::from(expected[3] == actual[3]);
+                        // Rule E, per executor: an alpha byte of 0 carries RGB 0.
+                        if actual[3] == 0 {
+                            assert_eq!(actual[..3], [0, 0, 0], "{}", context());
+                        }
+                        if expected[3] == 0 || actual[3] == 0 {
+                            // At an alpha tie (exactly half a code) one side may
+                            // round to 0 and the other to 1; rule A already bounds
+                            // alpha, and RGB behind alpha 0 is not compared.
+                            continue;
+                        }
+                        for channel in 0..3 {
+                            let error = expected[channel].abs_diff(actual[channel]);
+                            // Rule A on RGB.
+                            assert!(error <= 1, "{}", context());
+                            tally.rgb += 1;
+                            tally.rgb_exact += u64::from(error == 0);
+                            tally.absolute_error += u64::from(error);
+                        }
                     }
                 }
             }
-        }
-        #[allow(clippy::cast_precision_loss)]
-        let exact = tally.rgb_exact as f64 / tally.rgb as f64;
-        #[allow(clippy::cast_precision_loss)]
-        let mean = tally.absolute_error as f64 / tally.rgb as f64;
-        eprintln!(
-            "{:<22} {:?}: {:.4}% exact RGB, mean {:.5}, alpha {:.4}% exact",
-            case.name,
-            case.class,
-            exact * 100.0,
-            mean,
-            {
-                #[allow(clippy::cast_precision_loss)]
-                let share = tally.alpha_exact as f64 / tally.alpha as f64;
-                share * 100.0
-            }
-        );
-        // Rules B and C (pooled per input), D.
-        let required = match case.class {
-            Class::FullRange => 0.999,
-            Class::DarkOrTies => 0.995,
-        };
-        assert!(
-            exact >= required,
-            "{}: {:.4}% exact RGB, required {:.1}%",
-            case.name,
-            exact * 100.0,
-            required * 100.0
-        );
-        assert!(mean <= 0.002, "{}: mean absolute error {mean}", case.name);
-        if case.source.info.layout == ChannelLayout::Rgba {
-            // Rule C'.
             #[allow(clippy::cast_precision_loss)]
-            let alpha_exact = tally.alpha_exact as f64 / tally.alpha as f64;
-            assert!(alpha_exact >= 0.98, "{}: alpha {alpha_exact}", case.name);
+            let exact = tally.rgb_exact as f64 / tally.rgb as f64;
+            #[allow(clippy::cast_precision_loss)]
+            let mean = tally.absolute_error as f64 / tally.rgb as f64;
+            eprintln!(
+                "{level:<7} {:<22} {:?}: {:.4}% exact RGB, mean {:.5}, alpha {:.4}% exact",
+                case.name,
+                case.class,
+                exact * 100.0,
+                mean,
+                {
+                    #[allow(clippy::cast_precision_loss)]
+                    let share = tally.alpha_exact as f64 / tally.alpha as f64;
+                    share * 100.0
+                }
+            );
+            // Rules B and C (pooled per input), D.
+            let required = match case.class {
+                Class::FullRange => 0.999,
+                Class::DarkOrTies => 0.995,
+            };
+            assert!(
+                exact >= required,
+                "{}: {:.4}% exact RGB, required {:.1}%",
+                case.name,
+                exact * 100.0,
+                required * 100.0
+            );
+            assert!(mean <= 0.002, "{}: mean absolute error {mean}", case.name);
+            if case.source.info.layout == ChannelLayout::Rgba {
+                // Rule C'.
+                #[allow(clippy::cast_precision_loss)]
+                let alpha_exact = tally.alpha_exact as f64 / tally.alpha as f64;
+                assert!(alpha_exact >= 0.98, "{}: alpha {alpha_exact}", case.name);
+            }
         }
     }
 }
@@ -520,6 +534,7 @@ fn fast_executor_uses_less_managed_memory_and_releases_it_on_cancellation() {
         &mut source,
         request,
         &fast_budget,
+        &Kernels::best(),
         |_, _| Ok(()),
     )
     .unwrap();
@@ -536,6 +551,7 @@ fn fast_executor_uses_less_managed_memory_and_releases_it_on_cancellation() {
             &mut source,
             request,
             &budget,
+            &Kernels::best(),
             |_, _| {
                 calls += 1;
                 Err(Error::Cancelled)
@@ -556,6 +572,7 @@ fn fast_executor_uses_less_managed_memory_and_releases_it_on_cancellation() {
             &mut source,
             request,
             &tiny,
+            &Kernels::best(),
             |_, _| Ok(())
         ),
         Err(Error::BudgetExceeded { .. })
@@ -600,6 +617,7 @@ fn fast_executor_rejects_non_finite_float_samples_like_the_reference() {
                 &mut source,
                 request,
                 &budget,
+                &Kernels::best(),
                 |_, _| Ok(()),
             )
         } else {

@@ -5,8 +5,8 @@ use std::error::Error;
 use std::path::Path;
 
 use ferrixel::pipeline::{
-    ChromaSubsampling, Crop, ImageFormat, InputProfilePolicy, ResizeFilter, TransformOptions,
-    WorkingPrecision, transcode,
+    ChromaSubsampling, Crop, ImageFormat, InputProfilePolicy, KernelLevel, ResizeFilter,
+    TransformOptions, WorkingPrecision, transcode,
 };
 
 fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
@@ -36,11 +36,54 @@ fn parse_crop(value: &str) -> Result<Crop, Box<dyn Error>> {
     })
 }
 
+/// Apply one `--flag` or `--flag=value` to the options.
+fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<dyn Error>> {
+    match option {
+        "--assume-srgb" => options.profile_policy = InputProfilePolicy::AssumeSrgbIfMissing,
+        "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
+        "--area" => options.filter = ResizeFilter::Area,
+        "--reference" => options.precision = WorkingPrecision::F64Reference,
+        option if option.starts_with("--quality=") => options.quality = option[10..].parse()?,
+        option if option.starts_with("--speed=") => options.speed = option[8..].parse()?,
+        "--kernel-level=scalar" => options.kernel_level_ceiling = Some(KernelLevel::Scalar),
+        "--kernel-level=neon" => options.kernel_level_ceiling = Some(KernelLevel::Neon),
+        "--kernel-level=avx2" => options.kernel_level_ceiling = Some(KernelLevel::Avx2),
+        "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
+        "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
+        option if option.starts_with("--encoder-threads=") => {
+            options.encoder_threads = option[18..].parse()?;
+        }
+        option if option.starts_with("--budget-mb=") => {
+            let megabytes: usize = option[12..].parse()?;
+            options.max_managed_bytes = megabytes
+                .checked_mul(1024 * 1024)
+                .ok_or("memory budget overflow")?;
+        }
+        option if option.starts_with("--max-input-mb=") => {
+            let megabytes: usize = option[15..].parse()?;
+            options.max_input_bytes = megabytes
+                .checked_mul(1024 * 1024)
+                .ok_or("compressed input limit overflow")?;
+        }
+        option if option.starts_with("--max-input-mpx=") => {
+            let megapixels: u64 = option[16..].parse()?;
+            options.max_input_pixels = megapixels
+                .checked_mul(1_000_000)
+                .ok_or("decoded pixel limit overflow")?;
+        }
+        option if option.starts_with("--crop=") => {
+            options.crop = Some(parse_crop(&option[7..])?);
+        }
+        _ => return Err(format!("unknown option: {option}").into()),
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
         eprintln!(
-            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--chroma=444|420] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--chroma=444|420] [--kernel-level=scalar|neon|avx2] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         std::process::exit(2);
     }
@@ -55,41 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ..TransformOptions::default()
     };
     for option in args.iter().skip(5) {
-        match option.as_str() {
-            "--assume-srgb" => options.profile_policy = InputProfilePolicy::AssumeSrgbIfMissing,
-            "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
-            "--area" => options.filter = ResizeFilter::Area,
-            "--reference" => options.precision = WorkingPrecision::F64Reference,
-            option if option.starts_with("--quality=") => options.quality = option[10..].parse()?,
-            option if option.starts_with("--speed=") => options.speed = option[8..].parse()?,
-            "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
-            "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
-            option if option.starts_with("--encoder-threads=") => {
-                options.encoder_threads = option[18..].parse()?;
-            }
-            option if option.starts_with("--budget-mb=") => {
-                let megabytes: usize = option[12..].parse()?;
-                options.max_managed_bytes = megabytes
-                    .checked_mul(1024 * 1024)
-                    .ok_or("memory budget overflow")?;
-            }
-            option if option.starts_with("--max-input-mb=") => {
-                let megabytes: usize = option[15..].parse()?;
-                options.max_input_bytes = megabytes
-                    .checked_mul(1024 * 1024)
-                    .ok_or("compressed input limit overflow")?;
-            }
-            option if option.starts_with("--max-input-mpx=") => {
-                let megapixels: u64 = option[16..].parse()?;
-                options.max_input_pixels = megapixels
-                    .checked_mul(1_000_000)
-                    .ok_or("decoded pixel limit overflow")?;
-            }
-            option if option.starts_with("--crop=") => {
-                options.crop = Some(parse_crop(&option[7..])?);
-            }
-            _ => return Err(format!("unknown option: {option}").into()),
-        }
+        apply_option(&mut options, option)?;
     }
     let format = parse_format(input_path)?;
     let data = std::fs::read(input_path)?;
@@ -117,7 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!(
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
-         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={}",
+         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -131,6 +140,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         output.report.decoder_full_frame_buffers,
         output.report.working_precision,
         output.report.encoder_threads,
+        output.report.kernel_level,
     );
     if output.report.opaque_decoder_memory || output.report.opaque_encoder_memory {
         eprintln!(

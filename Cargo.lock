@@ -318,12 +318,17 @@ dependencies = [
  "avif-decode",
  "avif-parse",
  "avif-serialize",
+ "ferrixel-kernels",
  "jxl-oxide",
  "moxcms",
  "rav1e",
  "ravif",
  "zune-jpeg",
 ]
+
+[[package]]
+name = "ferrixel-kernels"
+version = "0.1.0"
 
 [[package]]
 name = "find-msvc-tools"

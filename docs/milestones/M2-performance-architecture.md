@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) in progress
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -132,3 +132,7 @@ A standalone, quality-matched [encoder experiment](../research/encoder-experimen
 ## Progress note — package 2, direct `rav1e` sink (2026-11-06)
 
 Ferrixel now drives `rav1e` itself: rows become 10-bit YCbCr directly in the encoder's frame (no RGBA copy, frame size budgeted), AV1 tiles follow the output size so parallel output is machine-independent, and 4:2:0 is selectable. One-thread 4:4:4 output is byte-identical to the former `ravif` path; with all cores, 24 Mpx to 1600 wide takes 0.41 s at 4:4:4 and 0.39 s at 4:2:0. `ravif`'s tuning tables are kept in `src/av1_tuning.rs` with their BSD-3-Clause notice. Package 2 is complete except the libavif-rs encoder comparison. Decided on 2026-11-06: 4:4:4 stays the default, as in Sharp; 4:2:0 remains an explicit option although it saved bytes at equal SSIMULACRA2 on all five experiment images.
+
+## Progress note — package 3, first step (2026-11-06)
+
+`crates/ferrixel-kernels` exists (ADR-0020, now Experimental): a safe API over `std::arch` kernels with runtime dispatch, `Scalar`, `Neon` and `Avx2` levels for the horizontal resample and the vertical `axpy`, 21 audited `unsafe` blocks, differential tests per level, the chosen level in `ProcessingReport` and a CLI/option ceiling. The f32 executor uses it with four-channel pixels; the ADR-0021 oracle test now runs for every level the host supports, and CI adds an `ubuntu-24.04-arm` job. On Apple M1 the transform stage fell by 1.4–1.6× (24 Mpx 169 ms to 106 ms), from the layout rather than the intrinsics; x86-64 AVX2 is tested but not yet timed. Remaining in package 3: the Q1.14 path of ADR-0021 with its own kernels and measurement, table-driven linearize and quantize kernels, AVX-512 and SVE2 levels once hardware or runners can test them, and an x86-64 timing run.

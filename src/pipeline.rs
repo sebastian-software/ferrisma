@@ -17,6 +17,7 @@ use crate::quality_execute::execute_quality_srgb8;
 
 pub use crate::avif_sink::ChromaSubsampling;
 pub use crate::quality::Filter as ResizeFilter;
+pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
 
 /// Accepted input codecs. Compile the corresponding Cargo features to enable
 /// each adapter; no transitive codec dependencies are required by the core.
@@ -69,6 +70,10 @@ pub struct TransformOptions {
     pub crop: Option<Crop>,
     pub filter: ResizeFilter,
     pub precision: WorkingPrecision,
+    /// Highest SIMD kernel level to use; `None` picks the best the machine
+    /// supports. Lowering it never changes the result beyond the ADR-0021
+    /// bound; it exists for verification, benchmarks and bug reports.
+    pub kernel_level_ceiling: Option<KernelLevel>,
     pub profile_policy: InputProfilePolicy,
     pub quality: f32,
     pub speed: u8,
@@ -95,6 +100,7 @@ impl Default for TransformOptions {
             crop: None,
             filter: ResizeFilter::Lanczos3,
             precision: WorkingPrecision::F32,
+            kernel_level_ceiling: None,
             profile_policy: InputProfilePolicy::Strict,
             quality: 75.0,
             speed: 6,
@@ -152,6 +158,10 @@ pub struct ProcessingReport {
     pub opaque_encoder_memory: bool,
     /// The executor that produced the pixels.
     pub working_precision: WorkingPrecision,
+    /// SIMD level of the resample kernels and why it was chosen; the `f64`
+    /// reference executor always reports `Scalar`.
+    pub kernel_level: KernelLevel,
+    pub kernel_level_reason: KernelLevelReason,
     /// Encoder threads actually used (resolved when the option was 0).
     pub encoder_threads: usize,
     pub timings: StageTimings,
@@ -454,6 +464,14 @@ pub fn transcode(
     let mut output_sink = AvifSink::new(target_size, transparent, encode_settings, &budget)?;
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
+    let kernels = match options.kernel_level_ceiling {
+        Some(ceiling) => ferrixel_kernels::Kernels::with_ceiling(ceiling),
+        None => ferrixel_kernels::Kernels::best(),
+    };
+    let (kernel_level, kernel_level_reason) = match options.precision {
+        WorkingPrecision::F32 => (kernels.level(), kernels.reason()),
+        WorkingPrecision::F64Reference => (KernelLevel::Scalar, KernelLevelReason::Ceiling),
+    };
     let processed = match options.precision {
         WorkingPrecision::F32 => execute_fast_srgb8(
             &graph,
@@ -462,6 +480,7 @@ pub fn transcode(
             &mut *actual,
             request,
             &budget,
+            &kernels,
             |y, row| output_sink.write_row(y, row),
         )?,
         WorkingPrecision::F64Reference => execute_quality_srgb8(
@@ -492,6 +511,8 @@ pub fn transcode(
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
         opaque_encoder_memory: encoded_avif.opaque_encoder_memory_unbounded,
         working_precision: options.precision,
+        kernel_level,
+        kernel_level_reason,
         encoder_threads,
         timings: StageTimings {
             open,

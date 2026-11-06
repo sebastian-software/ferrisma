@@ -24,7 +24,7 @@ BENCH_SHARP_NODE_MODULES=/path/to/node_modules \
 scripts/bench/profile.sh target/bench/corpus/single/synthetic-24mpx-6000x4000.jpg 1600 1067 target/bench/profile
 ```
 
-Settings are environment variables: `BENCH_WIDTH` (default 1600, aspect preserved), `BENCH_SMALL_WIDTH` (320), `BENCH_QUALITY` (80), `BENCH_SPEED` (6), `BENCH_FILTER` (`lanczos` or `area`), `BENCH_PROFILE` (`assume-srgb`, `strict`, `rendered-icc`), `BENCH_PRECISION` (`f32`, or `reference` for the M1 `f64` executor), `BENCH_ENCODER_THREADS` (1; 0 means all cores), `BENCH_MAX_INPUT_MB` (512). The harness writes `results.csv`, `throughput.csv`, `summary.md`, `environment.txt` and the raw hyperfine JSON into the output directory.
+Settings are environment variables: `BENCH_WIDTH` (default 1600, aspect preserved), `BENCH_SMALL_WIDTH` (320), `BENCH_QUALITY` (80), `BENCH_SPEED` (6), `BENCH_FILTER` (`lanczos` or `area`), `BENCH_PROFILE` (`assume-srgb`, `strict`, `rendered-icc`), `BENCH_PRECISION` (`f32`, or `reference` for the M1 `f64` executor), `BENCH_ENCODER_THREADS` (1; 0 means all cores), `BENCH_CHROMA` (`444` or `420`), `BENCH_KERNEL_LEVEL` (`best`, `scalar`, `neon`, `avx2`; a ceiling), `BENCH_MAX_INPUT_MB` (512). The harness writes `results.csv`, `throughput.csv`, `summary.md`, `environment.txt` and the raw hyperfine JSON into the output directory.
 
 ## Corpus caveats
 
@@ -151,3 +151,23 @@ Peak RSS fell with the RGBA copy: 24 Mpx all cores 4:4:4 164.4 MiB (169.1 before
 The 4:2:0 byte column is at equal quality *setting*, not equal quality. The quality-matched experiment measured 4:2:0 10-bit at −0.5 % to −15 % bytes against 4:4:4 at the same SSIMULACRA2 on five images.
 
 A denser rule was measured against the first candidate: 512×512 pixels per tile encoded 24 Mpx in 0.488 s with 93 KiB, 256×256 in 0.414 s with 95 KiB; the sink uses 256×256 for parallel encoding, and one-thread encoding keeps a single tile for the smallest files.
+
+## 2026-11-06 — work package 3, first step: kernel crate with NEON and AVX2
+
+The f32 executor's resample now runs on `crates/ferrixel-kernels` (ADR-0020) with runtime dispatch: `scalar`, `neon` and `avx2` levels for the horizontal pass and the vertical `axpy`. Pixels are stored as four `f32` channels with contiguous, zero-padded taps. `--kernel-level` (or `BENCH_KERNEL_LEVEL`) sets a ceiling; the report names the level. Same machine and corpus, all encoder cores, 4:4:4.
+
+| image | transform ms before | transform ms, `scalar` | transform ms, `neon` | wall s, `neon` |
+| --- | ---: | ---: | ---: | ---: |
+| synthetic 1 Mpx JPEG | 26 | 23 | 22 | 0.157 |
+| synthetic 12 Mpx JPEG | 102 | 69 | 69 | 0.260 |
+| synthetic 24 Mpx JPEG | 169 | 107 | 106 | 0.345 |
+| synthetic 48 Mpx JPEG | 269 | 192 | 191 | 0.518 |
+| synthetic 12 Mpx AVIF | 104 | 69 | 69 | 0.314 |
+
+"Before" is the 256×256-tile all-cores run of the `rav1e` sink section. Output bytes are unchanged (`neon` and `scalar` are bit-identical to the previous executor and to each other).
+
+### What the numbers say
+
+1. **The layout, not the intrinsics, made this step faster on Apple M1.** The scalar body over four-channel pixels is vectorized by LLVM with the NEON baseline, so `scalar` and `neon` run at the same speed; both are 1.4–1.6× faster than the three-channel per-tap loop of package 1. On x86-64 the baseline has no FMA, so the scalar body calls `fmaf`; `avx2` should matter there, and it is covered by the differential tests on the CI x86-64 runner, but no x86-64 timing exists yet.
+2. **Interleaving accumulators did not help.** Four output positions with separate accumulators measured 116 ms (`neon`) and 155 ms (`scalar`) at 24 Mpx and was reverted; iterating taps with chunk iterators instead of indices changed nothing (192 ms at 48 Mpx either way).
+3. **Where the transform time goes now** (48 Mpx, `sample`): horizontal pass about 57 %, linearization and quantization about 33 %, vertical pass about 10 %. The remaining single-core levers are the Q1.14 integer path (twice the lanes, ADR-0021 rule 2) and table-driven linearize/quantize kernels; the larger lever is running the row loop on several cores (work package 4).

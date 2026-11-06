@@ -1,8 +1,8 @@
 # ADR-0020: Kernel crate, runtime ISA dispatch and the `unsafe` boundary
 
-- **Status:** Proposed
+- **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-06
 - **Supersedes:** None
 - **Related:** [0006](0006-cpu-first-gpu-capable-execution.md), [0007](0007-correctness-and-performance-evidence.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md), ADR-0021 (working precision policy, in preparation), ADR-0022 (tiled fused executor, planned), [M2 milestone](../milestones/M2-performance-architecture.md) work package 3, [M1 benchmark protocol](../benchmarks/M1-protocol.md), [fuzzing policy](../fuzzing.md)
 
@@ -121,3 +121,4 @@ Rust stabilizes `std::simd`, SVE intrinsics or scalable vector types, or the AVX
 ## Amendment log
 
 - 2026-11-05 — Initial proposal: separate `ferrixel-kernels` crate, `std::arch` intrinsics behind a safe API with hand-written runtime dispatch, width-agnostic kernel bodies, ISA level in the plan, differential-test contract and CI matrix.
+- 2026-11-06 — First implementation; status Experimental. `crates/ferrixel-kernels` exists as a workspace member with `Scalar`, `Neon` and `Avx2` levels for `horizontal_rgba` (four `f32` channels per pixel, contiguous zero-padded taps) and `axpy`; `Sve2` and `Avx512` are detected and reported as `Fallback`. LUT apply, pack/unpack and premultiply stay in the engine for now: the profile of a 48 Mpx run puts the horizontal pass at about 57 % of the transform stage, linearization plus quantization at 33 % and the vertical pass at 10 %. Findings: (1) the `Lanes` trait works as decided: with `#[inline(always)]` methods whose `unsafe` blocks call intrinsics and a `#[target_feature(enable = "avx2,fma")]` entry, the emitted x86-64 assembly contains `vfmadd`/`ymm` instructions and no calls; trait methods themselves cannot carry `#[target_feature]` (`cannot be applied to safe trait method`, rustc 1.99), so the crate allows `clippy::inline_always` with that reason. (2) 21 `unsafe` blocks, all in `lanes.rs` and `dispatch.rs`. (3) `Neon` is bit-identical to `Scalar` for both kernels; `Avx2` sums two taps per vector and is bounded by the differential tests; `axpy` is bit-identical at every level. (4) On Apple M1 the explicit NEON level is no faster than the scalar body, because LLVM vectorizes the four-channel scalar body with the NEON baseline; the measured gain of this step (24 Mpx transform 169 ms to 106 ms) comes from the four-channel layout and contiguous taps. On x86-64 the scalar body has no FMA in the baseline, so `Avx2` is expected to matter there; it is tested on the CI x86-64 runner but not yet measured. (5) Interleaving four output positions with separate accumulators was slower on M1 (106 to 116 ms NEON, 107 to 155 ms scalar) and was reverted. (6) CI gains an `ubuntu-24.04-arm` job and prints the exercised levels on every runner.

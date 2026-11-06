@@ -22,14 +22,16 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - name: Format
         run: cargo fmt --all --check
-      - name: Test core without codecs
-        run: cargo test --all-targets
+      - name: Report SIMD kernel levels exercised on this runner
+        run: cargo run -p ferrixel-kernels --example detect
+      - name: Test core and kernels without codecs
+        run: cargo test --workspace --all-targets
       - name: Test with optional codecs
-        run: cargo test --all-targets --all-features
+        run: cargo test --workspace --all-targets --all-features
       - name: Lint core without codecs
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Lint with optional codecs
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Check individually enabled features
         run: |
           for feature in jpeg-read jpeg-xl-read avif-read avif-write icc cli; do
@@ -55,4 +57,19 @@ jobs:
       - name: Install AV1 assembler
         run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - name: Check all feature combinations on declared MSRV
-        run: cargo check --all-features
+        run: cargo check --workspace --all-features
+
+  # NEON kernels on Linux Arm (and SVE2 detection where the runner has it).
+  kernels-arm:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Report SIMD kernel levels exercised on this runner
+        run: cargo run -p ferrixel-kernels --example detect
+      - name: Test core and kernels without codecs
+        run: cargo test --workspace --all-targets
+      - name: Lint kernels
+        run: cargo clippy -p ferrixel-kernels --all-targets -- -D warnings
