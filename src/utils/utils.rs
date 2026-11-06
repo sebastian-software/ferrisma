@@ -361,3 +361,20 @@ pub fn webp_copy_pixels(src: &WebPPicture<'_>, dst: &mut WebPPicture<'_>) {
         src.height,
     );
 }
+
+//------------------------------------------------------------------------------
+
+// upstream: src/utils/utils.c WebPGetColorPalette
+/// Returns count of unique colors in `pic`, assuming `pic.use_argb` is true.
+/// If the unique color count is more than `MAX_PALETTE_SIZE`, returns
+/// `MAX_PALETTE_SIZE`+1.
+/// If `palette` is not `None` and the number of unique colors is less than or
+/// equal to `MAX_PALETTE_SIZE`, also outputs the actual unique colors into
+/// `palette` in a sorted order. Note: `palette` is assumed to be an array
+/// already allocated with at least `MAX_PALETTE_SIZE` elements.
+///
+/// Exception item of WP3 in WP1's module (`tools/units.json`).
+#[must_use]
+pub fn webp_get_color_palette(pic: &WebPPicture<'_>, palette: Option<&mut [u32]>) -> i32 {
+    crate::utils::palette::get_color_palette(pic, palette)
+}
