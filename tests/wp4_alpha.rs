@@ -398,3 +398,12 @@ fn alpha_processing_matches_the_c_functions() {
         first_difference(&expected, &actual)
     );
 }
+
+/// A row shorter than its width panics, as the C loop would read or write past
+/// the end of the buffer, instead of returning a partial result. Needs no oracle.
+#[test]
+#[should_panic(expected = "out of range")]
+fn too_short_argb_row_panics() {
+    let mut row = vec![0xff00_0000_u32; 3];
+    webp_mult_argb_row(&mut row, 4, false);
+}

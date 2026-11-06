@@ -68,7 +68,7 @@ fn get_scale(a: u32, inverse: bool) -> u32 {
 /// Opaque pixels are unchanged and fully transparent ones become zero.
 pub fn webp_mult_argb_row_c(ptr: &mut [u32], width: i32, inverse: bool) {
     let width = usize::try_from(width).unwrap_or(0);
-    for pixel in ptr.iter_mut().take(width) {
+    for pixel in &mut ptr[..width] {
         let argb = *pixel;
         if argb < 0xff00_0000 {
             // alpha < 255
@@ -416,7 +416,7 @@ pub fn pack_rgb_c(r: &[u8], g: &[u8], b: &[u8], len: i32, step: i32, out: &mut [
     let len = usize::try_from(len).unwrap_or(0);
     let step = usize::try_from(step).expect("the step is not negative");
     let mut offset = 0_usize;
-    for pixel in out.iter_mut().take(len) {
+    for pixel in &mut out[..len] {
         *pixel = make_argb32(
             0xff,
             u32::from(r[offset]),
@@ -437,7 +437,7 @@ pub fn webp_pack_rgb(r: &[u8], g: &[u8], b: &[u8], len: i32, step: i32, out: &mu
 /// Whether any of the first `length` bytes of `src` is not 0xff.
 fn has_alpha8b_c(src: &[u8], length: i32) -> bool {
     let length = usize::try_from(length).unwrap_or(0);
-    src.iter().take(length).any(|&value| value != 0xff)
+    src[..length].iter().any(|&value| value != 0xff)
 }
 
 // upstream: src/dsp/alpha_processing.c WebPHasAlpha8b
@@ -468,7 +468,7 @@ pub fn webp_has_alpha32b(src: &[u8], length: i32) -> bool {
 /// Replaces every pixel of `src` whose alpha is zero by `color`.
 fn alpha_replace_c(src: &mut [u32], length: i32, color: u32) {
     let length = usize::try_from(length).unwrap_or(0);
-    for pixel in src.iter_mut().take(length) {
+    for pixel in &mut src[..length] {
         if *pixel >> 24 == 0 {
             *pixel = color;
         }
