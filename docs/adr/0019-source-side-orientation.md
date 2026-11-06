@@ -51,3 +51,4 @@ The JPEG XL decoder is replaced; a workload shows the region copy is significant
 
 - 2026-11-05 — Initial decision: apply EXIF and AVIF orientation through `OrientedSource`; JPEG XL stays rejected.
 - 2026-11-05 — Verified `jxl-oxide`'s own orientation and display-coordinate crops with libjxl-written fixtures; JPEG XL orientation is accepted.
+- 2026-11-06 — The display-order gather copies pixels as fixed-size arrays per channel count instead of a variable-length slice copy, which compiled to one `memmove` call per pixel. The 12 Mpx EXIF-oriented phone photo's decode stage fell from 152 ms to 112 ms (ADR-0023). Buffer semantics and the reported `orientation_buffer_bytes` are unchanged.

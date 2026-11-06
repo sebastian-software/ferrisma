@@ -34,6 +34,8 @@ pub(crate) struct PremultipliedLinearSrgb {
 enum SdrSource {
     Srgb,
     DisplayP3,
+    /// Already linear light with sRGB primaries (CICP transfer 8).
+    LinearSrgb,
 }
 
 /// Fail closed unless the *rendered sample profile*, with no conflicting ICC,
@@ -42,6 +44,7 @@ fn source_from_color(color: &ColorEncoding) -> Result<SdrSource, Error> {
     match color {
         ColorEncoding::Cicp([1, 13, 0, 1]) => Ok(SdrSource::Srgb),
         ColorEncoding::Cicp([12, 13, 0, 1]) => Ok(SdrSource::DisplayP3),
+        ColorEncoding::Cicp([1, 8, 0, 1]) => Ok(SdrSource::LinearSrgb),
         _ => Err(Error::UnsupportedColorEncoding),
     }
 }
@@ -114,13 +117,13 @@ pub(crate) fn decode_to_linear_srgb(
     if encoded_rgb.iter().any(|sample| !sample.is_finite()) {
         return Err(Error::NonFinitePixelSample);
     }
-    let linear_rgb = encoded_rgb.map(decode_srgb);
     let rgb = match source {
-        SdrSource::Srgb => linear_rgb,
+        SdrSource::Srgb => encoded_rgb.map(decode_srgb),
         SdrSource::DisplayP3 => {
-            let xyz = transform(P3_TO_XYZ_D65, linear_rgb);
+            let xyz = transform(P3_TO_XYZ_D65, encoded_rgb.map(decode_srgb));
             transform(XYZ_D65_TO_SRGB, xyz)
         }
+        SdrSource::LinearSrgb => encoded_rgb,
     };
     if rgb.iter().any(|sample| !sample.is_finite()) {
         return Err(Error::NonFinitePixelSample);

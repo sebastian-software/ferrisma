@@ -120,6 +120,8 @@ pub(crate) fn tables() -> &'static Tables {
 pub(crate) enum Primaries {
     Srgb,
     DisplayP3,
+    /// Already linear sRGB (CICP transfer 8): no transfer decode.
+    LinearSrgb,
 }
 
 /// Flat tap tables: taps of output position `i` are
@@ -266,6 +268,44 @@ pub(crate) fn linearize_row<const C: usize>(
 ) -> Result<(), Error> {
     let lut = &tables().decode_u8;
     match row {
+        // Linear input (the ICC adapter's output): copy, check, premultiply.
+        DecodedRow::F32(samples) if primaries == Primaries::LinearSrgb => {
+            for (pixel, linear) in samples
+                .as_chunks::<C>()
+                .0
+                .iter()
+                .zip(out.as_chunks_mut::<4>().0)
+            {
+                if pixel.iter().any(|value| !value.is_finite()) {
+                    return Err(Error::NonFinitePixelSample);
+                }
+                if C == 4 {
+                    let alpha = pixel[3];
+                    if !(0.0..=1.0).contains(&alpha) {
+                        return Err(Error::InvalidAlphaValue);
+                    }
+                    *linear = [pixel[0] * alpha, pixel[1] * alpha, pixel[2] * alpha, alpha];
+                } else {
+                    *linear = [pixel[0], pixel[1], pixel[2], 0.0];
+                }
+            }
+        }
+        DecodedRow::U8(samples) if primaries == Primaries::LinearSrgb => {
+            for (pixel, linear) in samples
+                .as_chunks::<C>()
+                .0
+                .iter()
+                .zip(out.as_chunks_mut::<4>().0)
+            {
+                let rgb = [pixel[0], pixel[1], pixel[2]].map(|v| f32::from(v) / 255.0);
+                if C == 4 {
+                    let alpha = f32::from(pixel[3]) / 255.0;
+                    *linear = [rgb[0] * alpha, rgb[1] * alpha, rgb[2] * alpha, alpha];
+                } else {
+                    *linear = [rgb[0], rgb[1], rgb[2], 0.0];
+                }
+            }
+        }
         DecodedRow::U8(samples) => {
             for (pixel, linear) in samples
                 .as_chunks::<C>()
@@ -412,6 +452,7 @@ impl RowPlan {
         let primaries = match color {
             ColorEncoding::Cicp([1, 13, 0, 1]) => Primaries::Srgb,
             ColorEncoding::Cicp([12, 13, 0, 1]) => Primaries::DisplayP3,
+            ColorEncoding::Cicp([1, 8, 0, 1]) => Primaries::LinearSrgb,
             _ => return Err(Error::UnsupportedColorEncoding),
         };
         #[allow(clippy::cast_possible_truncation)]

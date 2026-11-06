@@ -180,6 +180,36 @@ impl RowSample for f32 {
 }
 
 /// Copy decoded stored rows into one managed region, then emit upright rows.
+/// Geometry shared by every row of one reorientation.
+struct Layout {
+    orientation: Orientation,
+    display: Rect,
+    stored: Rect,
+    stored_size: Size,
+    stride: usize,
+}
+
+/// Fill one display row from the stored-order buffer, `N` samples per pixel.
+fn gather<T: Copy, const N: usize>(
+    pixels: &[T],
+    out: &mut [T],
+    layout: &Layout,
+    y: u32,
+) -> Result<(), Error> {
+    let out = out.as_chunks_mut::<N>().0;
+    for (pixel, x) in out.iter_mut().zip(layout.display.x..layout.display.right()) {
+        let (sx, sy) = layout.orientation.stored_point(x, y, layout.stored_size);
+        let local = usize::try_from(sy - layout.stored.y).map_err(|_| Error::GeometryOverflow)?
+            * layout.stride
+            + usize::try_from(sx - layout.stored.x).map_err(|_| Error::GeometryOverflow)? * N;
+        *pixel = *pixels
+            .get(local..local + N)
+            .and_then(|values| values.first_chunk::<N>())
+            .ok_or(Error::OutOfBounds)?;
+    }
+    Ok(())
+}
+
 fn reorient<T: RowSample>(
     source: &mut dyn DecodeSource,
     orientation: Orientation,
@@ -220,14 +250,21 @@ fn reorient<T: RowSample>(
         .ok_or(Error::GeometryOverflow)?;
     let mut row = budget.allocate_typed::<T>(row_len)?;
     let pixels = region.as_slice();
+    let layout = Layout {
+        orientation,
+        display,
+        stored,
+        stored_size,
+        stride,
+    };
     for y in display.y..display.bottom() {
-        for (index, x) in (display.x..display.right()).enumerate() {
-            let (sx, sy) = orientation.stored_point(x, y, stored_size);
-            let local = usize::try_from(sy - stored.y).map_err(|_| Error::GeometryOverflow)?
-                * stride
-                + usize::try_from(sx - stored.x).map_err(|_| Error::GeometryOverflow)? * channels;
-            row.as_mut_slice()[index * channels..(index + 1) * channels]
-                .copy_from_slice(&pixels[local..local + channels]);
+        // Fixed-size pixel copies: a slice copy of `channels` elements per
+        // pixel compiles to one `memmove` call per pixel.
+        match channels {
+            1 => gather::<T, 1>(pixels, row.as_mut_slice(), &layout, y)?,
+            3 => gather::<T, 3>(pixels, row.as_mut_slice(), &layout, y)?,
+            4 => gather::<T, 4>(pixels, row.as_mut_slice(), &layout, y)?,
+            _ => return Err(Error::UnsupportedCodecLayout),
         }
         sink(y, T::wrap(row.as_slice()))?;
     }

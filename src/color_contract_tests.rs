@@ -223,3 +223,18 @@ fn invalid_icc_with_a_valid_cicp_is_not_promoted_to_srgb() {
         LinearSrgbReadiness::MalformedColorEvidence
     );
 }
+
+#[test]
+fn linear_srgb_cicp_is_ready_without_a_transfer_conversion() {
+    use crate::color::ColorEncoding;
+    use crate::color_contract::LinearSrgbReadiness;
+    assert_eq!(
+        ColorEncoding::Cicp([1, 8, 0, 1]).linear_srgb_readiness(),
+        LinearSrgbReadiness::TransferReferenceReady
+    );
+    // Limited range or another matrix is not the working space.
+    assert_eq!(
+        ColorEncoding::Cicp([1, 8, 0, 0]).linear_srgb_readiness(),
+        LinearSrgbReadiness::UnknownSignal
+    );
+}

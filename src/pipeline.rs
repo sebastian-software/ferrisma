@@ -439,7 +439,7 @@ pub fn transcode(
     };
     if !matches!(
         actual.info().semantics().color,
-        ColorEncoding::Cicp([1 | 12, 13, 0, 1])
+        ColorEncoding::Cicp([1 | 12, 13, 0, 1] | [1, 8, 0, 1])
     ) {
         return Err(ProcessingError::new(
             ProcessingErrorKind::UnsupportedColor,

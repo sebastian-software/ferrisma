@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped; work package 4 (parallel execution) landed as a row pipeline and a batch engine
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped; work package 4 (parallel execution) landed as a row pipeline and a batch engine; work package 5 (decode) first step landed
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -144,3 +144,7 @@ The kernel crate has `Scalar`, `Neon`, `Avx2` and `Avx512` levels, with SIMD tim
 ## Progress note — package 4 (2026-11-06)
 
 Implemented as ADR-0022 decides, not as the band sketch of the work-package table: decoders stream rows once from the top, so the driver thread hands each needed source row to workers (linearize and horizontal pass) and submits output rows (vertical pass and quantization) as soon as their inputs exist; finished rows reach the sink in order. The output is byte-identical to the sequential executor, which a test checks across inputs, geometries, levels and thread counts. On the dev machine the transform stage scales 5.5× (24 Mpx) and 6.7× (48 Mpx) to 19 and 29 ms; end to end with all cores 24 Mpx to 1600 wide now takes 0.262 s and 48 Mpx 0.358 s. The `Engine` batch API runs 221.6 small images per second, 14× the sequential rate. Decode (88 ms at 24 Mpx, single-threaded `zune-jpeg` with a full frame) and encode (about 140 ms) are now the largest stages; decode is work package 5. Not done: a long-lived pool across calls, nested parallelism, and scaling past the serial driver thread (copy and dispatch), which caps the transform near 8 threads.
+
+## Progress note — package 5, first step (2026-11-06)
+
+[ADR-0023](../adr/0023-decode-side-work-and-scaling-policy.md) keeps full-resolution decode as the default (shrink-on-load is a gamma-domain low-pass, and libvips also disables it in linear mode) and makes the decode stage cheaper without changing its meaning: `zune-jpeg` SIMD, linear-light output from the ICC adapter, fixed-size copies in the orientation buffer. The first real photograph measured (12 Mpx, ICC, EXIF orientation) went from 341 to 296 ms end to end, its decode stage from 150 to 111 ms; synthetic 24 and 48 Mpx decode about 20 % faster. Open in package 5: moving the ICC transform and the orientation into the parallel pipeline, an opt-in shrink-on-load policy (needs a scaled IDCT in `zune-jpeg`: upstream contribution or fork, a maintainer decision), `jxl-oxide` threads and native AVIF YUV.

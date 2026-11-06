@@ -282,6 +282,11 @@ fn cases() -> Vec<Case> {
         class: Class::DarkOrTies,
         source: floats(0.0, 0.01, SRGB),
     });
+    cases.push(Case {
+        name: "F32 linear sRGB",
+        class: Class::FullRange,
+        source: floats(-0.1, 1.3, [1, 8, 0, 1]),
+    });
     cases
 }
 

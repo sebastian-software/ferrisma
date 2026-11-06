@@ -234,3 +234,16 @@ Throughput of 100 small images (640×427 to 320 wide), measured by the harness w
 | after package 4 (parallel transform) | 0.26 s |
 
 Decode (88 ms, single-threaded, full frame) and encode (about 150 ms) now make up nearly all of the remaining time; the transform is 20 ms. The next levers are decode-side scaling (work package 5) and the encoder backend, not the transform.
+
+## 2026-11-06 — work package 5, first step: cheaper decode stage
+
+ADR-0023 decision 2: `zune-jpeg` SIMD on, the ICC adapter emits linear-light sRGB, and the orientation gather no longer calls `memmove` per pixel. Measured against `0612ccf` on the same machine (best of five, all cores, speed 6, 1600 wide). The 1-minute load average was 5.3–5.6 because of unrelated processes; both builds ran alternately under the same load.
+
+| image | decode ms before | decode ms after | total ms before | total ms after |
+| --- | ---: | ---: | ---: | ---: |
+| phone photo 4032×3024, ICC, EXIF orientation 2 (libavif test data) | 150 | 111 | 341 | 296 |
+| flower photo 2268×1512 (libjxl test data) | 14 | 12 | 206 | 202 |
+| synthetic 24 Mpx | 83 | 68 | 234 | 225 |
+| synthetic 48 Mpx | 170 | 133 | 347 | 310 |
+
+The real photograph is the first one in these tables. Its decode stage is more than ten times that of the synthetic 12 Mpx JPEG (150 against 45 ms before this step), because real entropy data is denser and because it carries an ICC profile and an EXIF orientation, both handled serially before the row pipeline.
