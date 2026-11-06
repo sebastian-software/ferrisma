@@ -2,12 +2,14 @@
 //! inline functions of its header). Seeded streams, streams that end at every
 //! length from zero to 40 bytes, and reads that cross the 64-bit prefetch window
 //! are driven through the probe `tools/oracle/probes/wp2/vp8l_bit_reader.c` and
-//! through the Rust functions with the same commands. After each command both
-//! sides report the result, when the command has one, and the state: the window,
-//! the byte position, the length, the bit position and the end-of-stream flag.
+//! through the Rust functions with the same commands. The reader holds positions
+//! and the input length, not a reference, so the driver passes the current input
+//! to each call that reads it. After each command both sides report the result,
+//! when the command has one, and the state: the window, the byte position, the
+//! length, the bit position and the end-of-stream flag.
 //!
 //! Some calls are issued only where upstream allows them. `VP8LDoFillBitWindow`
-//! requires `bit_pos >= VP8L_WBITS`, and `VP8LBitReaderSetBuffer` treats a buffer
+//! requires `bit_pos >= VP8L_WBITS`, and `VP8LBitReaderSetBuffer` treats a length
 //! shorter than the position as a parameter error. The driver consults the Rust
 //! reader's state and substitutes `fill` for either call. The two sides agree on
 //! every step, so the substitution is the same on both.
@@ -79,85 +81,97 @@ fn random_op(rng: &mut Rng, buffers: usize) -> Op {
     }
 }
 
-/// Applies one command to the Rust reader, appends the probe line and the
-/// expected fields.
-fn apply<'a>(
-    br: &mut VP8LBitReader<'a>,
-    buffers: &'a [Vec<u8>],
-    op: Op,
-    script: &mut String,
-    expected: &mut Fields,
-) {
-    let (text, name, result): (String, &str, Option<u32>) = match op {
-        Op::Init(index) => {
-            vp8l_init_bit_reader(br, buffers[index].as_slice());
-            (format!("init {}", hex(&buffers[index])), "init", None)
-        }
-        Op::Set(index) => {
-            vp8l_bit_reader_set_buffer(br, buffers[index].as_slice());
-            (format!("set {}", hex(&buffers[index])), "set", None)
-        }
-        Op::Read(bits) => {
-            let value = vp8l_read_bits(br, bits);
-            (format!("read {bits}"), "read", Some(value))
-        }
-        Op::Prefetch => (
-            "prefetch".to_owned(),
-            "prefetch",
-            Some(vp8l_prefetch_bits(br)),
-        ),
-        Op::SetBitPos(value) => {
-            vp8l_set_bit_pos(br, value);
-            (format!("set_bit_pos {value}"), "set_bit_pos", None)
-        }
-        Op::Fill => {
-            vp8l_fill_bit_window(br);
-            ("fill".to_owned(), "fill", None)
-        }
-        Op::DoFill => {
-            vp8l_do_fill_bit_window(br);
-            ("do_fill".to_owned(), "do_fill", None)
-        }
-        Op::Eos => (
-            "eos".to_owned(),
-            "eos",
-            Some(u32::from(vp8l_is_end_of_stream(br))),
-        ),
-    };
-    script.push_str(&text);
-    script.push('\n');
-    let mut fields = std::mem::take(expected).with("op", name);
-    if let Some(value) = result {
-        fields = fields.with("result", value);
-    }
-    *expected = fields
-        .with("val", br.val)
-        .with("pos", br.pos)
-        .with("len", br.buf.len())
-        .with("bit_pos", br.bit_pos)
-        .with("eos", u8::from(br.eos));
+/// The reader, the input it currently reads, and the expected probe output.
+struct Driver<'b> {
+    buffers: &'b [Vec<u8>],
+    br: VP8LBitReader,
+    current: usize,
+    script: String,
+    expected: Fields,
 }
 
-/// Runs `ops` from a fresh reader that starts on `buffers[first]`, substituting
-/// `Fill` for a `DoFill` that the upstream precondition forbids.
-fn drive(
-    buffers: &[Vec<u8>],
-    first: usize,
-    ops: &[Op],
-    script: &mut String,
-    expected: &mut Fields,
-) {
-    let mut br = VP8LBitReader::default();
-    apply(&mut br, buffers, Op::Init(first), script, expected);
-    for &op in ops {
-        let op = match op {
-            Op::DoFill if br.bit_pos < 32 => Op::Fill,
-            // A buffer shorter than the position is a parameter error upstream
-            // (`VP8LBitReaderSetBuffer` says so, and its debug assertion fires).
-            Op::Set(index) if buffers[index].len() < br.pos => Op::Fill,
-            other => other,
+impl<'b> Driver<'b> {
+    fn new(buffers: &'b [Vec<u8>]) -> Self {
+        Driver {
+            buffers,
+            br: VP8LBitReader::default(),
+            current: 0,
+            script: String::new(),
+            expected: Fields::new(),
+        }
+    }
+
+    /// Applies one command to the Rust reader, appends the probe line and the
+    /// expected fields.
+    fn apply(&mut self, op: Op) {
+        let data = self.buffers[self.current].as_slice();
+        let (text, name, result): (String, &str, Option<u32>) = match op {
+            Op::Init(index) => {
+                self.current = index;
+                vp8l_init_bit_reader(&mut self.br, self.buffers[index].as_slice());
+                (format!("init {}", hex(&self.buffers[index])), "init", None)
+            }
+            Op::Set(index) => {
+                self.current = index;
+                vp8l_bit_reader_set_buffer(&mut self.br, self.buffers[index].len());
+                (format!("set {}", hex(&self.buffers[index])), "set", None)
+            }
+            Op::Read(bits) => {
+                let value = vp8l_read_bits(&mut self.br, data, bits);
+                (format!("read {bits}"), "read", Some(value))
+            }
+            Op::Prefetch => (
+                "prefetch".to_owned(),
+                "prefetch",
+                Some(vp8l_prefetch_bits(&self.br)),
+            ),
+            Op::SetBitPos(value) => {
+                vp8l_set_bit_pos(&mut self.br, value);
+                (format!("set_bit_pos {value}"), "set_bit_pos", None)
+            }
+            Op::Fill => {
+                vp8l_fill_bit_window(&mut self.br, data);
+                ("fill".to_owned(), "fill", None)
+            }
+            Op::DoFill => {
+                vp8l_do_fill_bit_window(&mut self.br, data);
+                ("do_fill".to_owned(), "do_fill", None)
+            }
+            Op::Eos => (
+                "eos".to_owned(),
+                "eos",
+                Some(u32::from(vp8l_is_end_of_stream(&self.br))),
+            ),
         };
-        apply(&mut br, buffers, op, script, expected);
+        self.script.push_str(&text);
+        self.script.push('\n');
+        let mut fields = std::mem::take(&mut self.expected).with("op", name);
+        if let Some(value) = result {
+            fields = fields.with("result", value);
+        }
+        self.expected = fields
+            .with("val", self.br.val)
+            .with("pos", self.br.pos)
+            .with("len", self.br.len)
+            .with("bit_pos", self.br.bit_pos)
+            .with("eos", u8::from(self.br.eos));
+    }
+
+    /// Starts a fresh reader on `buffers[first]`, then runs `ops`, substituting
+    /// `Fill` for a call that the upstream preconditions forbid.
+    fn drive(&mut self, first: usize, ops: &[Op]) {
+        self.br = VP8LBitReader::default();
+        self.apply(Op::Init(first));
+        for &op in ops {
+            let op = match op {
+                Op::DoFill if self.br.bit_pos < 32 => Op::Fill,
+                // A length shorter than the position is a parameter error upstream
+                // (`VP8LBitReaderSetBuffer` says so, and its debug assertion fires).
+                Op::Set(index) if self.buffers[index].len() < self.br.pos => Op::Fill,
+                other => other,
+            };
+            self.apply(op);
+        }
     }
 }
 
@@ -201,8 +215,7 @@ fn lossless_reader_states_match_the_c_reader() {
     };
     let mut rng = Rng(0x5eed_3001);
     let buffers = buffers(&mut rng);
-    let mut script = String::new();
-    let mut expected = Fields::new();
+    let mut driver = Driver::new(&buffers);
     let mut count = 0_usize;
     for round in 0..(4 * buffers.len()) {
         let first = round % buffers.len();
@@ -211,13 +224,13 @@ fn lossless_reader_states_match_the_c_reader() {
             .map(|_| random_op(&mut rng, buffers.len()))
             .collect();
         count += ops.len();
-        drive(&buffers, first, &ops, &mut script, &mut expected);
+        driver.drive(first, &ops);
     }
     let args: [&str; 0] = [];
     let output = oracle
         .probe("wp2", "vp8l_bit_reader")
-        .run(&args, script.as_bytes());
-    assert_same(&output.success().fields(), &expected);
+        .run(&args, driver.script.as_bytes());
+    assert_same(&output.success().fields(), &driver.expected);
     assert!(count > 10_000, "the test must exercise many commands");
 }
 
@@ -244,17 +257,16 @@ fn prefetch_window_refills_match_the_c_reader() {
         Op::Prefetch,
         Op::Read(24),
     ];
-    let mut script = String::new();
-    let mut expected = Fields::new();
+    let mut driver = Driver::new(&buffers);
     for first in 0..buffers.len() {
         let ops: Vec<Op> = std::iter::repeat_n(cycle, 6).flatten().collect();
-        drive(&buffers, first, &ops, &mut script, &mut expected);
+        driver.drive(first, &ops);
     }
     let args: [&str; 0] = [];
     let output = oracle
         .probe("wp2", "vp8l_bit_reader")
-        .run(&args, script.as_bytes());
-    assert_same(&output.success().fields(), &expected);
+        .run(&args, driver.script.as_bytes());
+    assert_same(&output.success().fields(), &driver.expected);
 }
 
 #[test]
@@ -264,17 +276,16 @@ fn set_buffer_keeps_the_position_and_recomputes_eos() {
     };
     let mut rng = Rng(0x5eed_3002);
     let buffers = buffers(&mut rng);
-    let mut script = String::new();
-    let mut expected = Fields::new();
+    let mut driver = Driver::new(&buffers);
     for round in 0..buffers.len() {
         // Read to the end of one buffer, then move to a shorter or longer one.
         let mut ops = vec![Op::Set(round), Op::Read(24), Op::Read(24), Op::Read(24)];
         ops.extend((0..8).map(|_| random_op(&mut rng, buffers.len())));
-        drive(&buffers, round, &ops, &mut script, &mut expected);
+        driver.drive(round, &ops);
     }
     let args: [&str; 0] = [];
     let output = oracle
         .probe("wp2", "vp8l_bit_reader")
-        .run(&args, script.as_bytes());
-    assert_same(&output.success().fields(), &expected);
+        .run(&args, driver.script.as_bytes());
+    assert_same(&output.success().fields(), &driver.expected);
 }

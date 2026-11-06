@@ -33,17 +33,18 @@
 //!
 //! Work package: WP2 (bit I/O).
 //!
-//! `VP8BitReader` and `VP8LBitReader` borrow their input, `data` and `buf`, as a
-//! slice with a lifetime, and keep offsets into it where C keeps pointers (ADR
-//! 0003). The C `buf_end` and `len` are the slice length.
+//! The readers hold no reference to their input (ADR 0003, as amended on
+//! 2026-11-06). `VP8BitReader` and `VP8LBitReader` store state and positions:
+//! every C pointer becomes a `usize` position into the input that the owner holds,
+//! and the owner passes that input to each function that reads it. A C `buf` that
+//! may be `NULL` becomes the flag `VP8BitReader::has_buf`.
 //!
-//! Not translated: `VP8RemapBitReader`. It moves a reader's pointers when its
-//! owner relocates the buffer, which a borrowing reader cannot express. The
-//! incremental decoder uses it, so the question is open; see
-//! `docs/status/wp2.md`.
+//! `VP8RemapBitReader` adds a signed offset to the three positions of a reader
+//! with an input, as C adds it to the pointers. The owner calls it when the same
+//! bytes have moved by that many indexes of its input.
 //!
-//! The bit-trace tool (`BITTRACE`) is off in the reference configuration, so
-//! the labels of the reader functions are removed, as the header's macros do.
+//! The bit-trace tool (`BITTRACE`) is off in the reference configuration, so the
+//! labels of the reader functions are removed, as the header's macros do.
 
 use crate::utils::bit_reader_inl_utils::{LBIT_BYTES, vp8_get_bit, vp8_load_new_bytes};
 use crate::utils::endian_inl_utils::h_to_le32;
@@ -94,20 +95,24 @@ pub type bit_t = u32;
 pub type range_t = u32;
 
 // upstream: src/utils/bit_reader_utils.h VP8BitReader
-/// The boolean decoder: its value window, its range and its input.
+/// The boolean decoder: its value window, its range, and the positions of its
+/// input. It holds no reference to the input; see the module documentation.
 #[derive(Debug, Default)]
-pub struct VP8BitReader<'a> {
+pub struct VP8BitReader {
     /// Current value; keeps `BITS + 8` bits.
     pub value: bit_t,
     /// Current range minus one, in `[127, 254]`.
     pub range: range_t,
     /// Number of valid bits left.
     pub bits: i32,
-    /// The input: the bytes from `buf_start` to `buf_end` of the C reader.
-    pub data: &'a [u8],
-    /// Offset in `data` of the next byte to be read (C `buf`).
+    /// Set once the reader has an input. This is the C test `buf != NULL`, which
+    /// only a reader that was set up passes.
+    pub has_buf: bool,
+    /// Index in the input of the next byte to be read (C `buf`).
     pub buf: usize,
-    /// Offset in `data` of the limit of the packed reads (C `buf_max`).
+    /// Index in the input where the input ends (C `buf_end`).
+    pub buf_end: usize,
+    /// Index in the input of the limit of the packed reads (C `buf_max`).
     pub buf_max: usize,
     /// Set when the input is exhausted.
     pub eof: bool,
@@ -141,39 +146,69 @@ pub const VP8_NEW_RANGE: [u8; 128] = [
 ];
 
 // upstream: src/utils/bit_reader_utils.c VP8BitReaderSetBuffer
-/// Sets the input of the reader to `start` and rewinds it to its first byte. The
-/// value, the range and the end-of-input flag are not changed.
-pub fn vp8_bit_reader_set_buffer<'a>(br: &mut VP8BitReader<'a>, start: &'a [u8]) {
-    br.data = start;
+/// Gives the reader an input of `size` bytes, which the owner passes from now on,
+/// and rewinds the reader to the first byte. The value, the range and the
+/// end-of-input flag are not changed.
+pub fn vp8_bit_reader_set_buffer(br: &mut VP8BitReader, size: usize) {
+    br.has_buf = true;
     br.buf = 0;
-    br.buf_max = if start.len() >= LBIT_BYTES {
-        start.len() + 1 - LBIT_BYTES
+    br.buf_end = size;
+    br.buf_max = if size >= LBIT_BYTES {
+        size + 1 - LBIT_BYTES
     } else {
         0
     };
 }
 
 // upstream: src/utils/bit_reader_utils.c VP8InitBitReader
-/// Initializes the boolean decoder over `start` and loads its first bytes.
-pub fn vp8_init_bit_reader<'a>(br: &mut VP8BitReader<'a>, start: &'a [u8]) {
-    debug_assert!(start.len() < (1 << 31)); // limit ensured by format and upstream checks
+/// Initializes the boolean decoder over `data`, which is the whole input of the
+/// reader, and loads its first bytes.
+pub fn vp8_init_bit_reader(br: &mut VP8BitReader, data: &[u8]) {
+    debug_assert!(data.len() < (1 << 31)); // limit ensured by format and upstream checks
     br.range = 255 - 1;
     br.value = 0;
     br.bits = -8; // to load the very first 8bits
     br.eof = false;
-    vp8_bit_reader_set_buffer(br, start);
-    vp8_load_new_bytes(br);
+    vp8_bit_reader_set_buffer(br, data.len());
+    vp8_load_new_bytes(br, data);
+}
+
+// upstream: src/utils/bit_reader_utils.c VP8RemapBitReader
+/// Adds `offset` to the positions of a reader that has an input, as C adds it to
+/// the pointers. The owner calls it when the same bytes have moved by `offset`
+/// indexes of its input. A reader without an input (C `buf == NULL`) is left as
+/// it is.
+///
+/// # Panics
+///
+/// Panics when a position would become negative, which means that `offset` does
+/// not describe a move of the input's bytes.
+pub fn vp8_remap_bit_reader(br: &mut VP8BitReader, offset: isize) {
+    if br.has_buf {
+        br.buf = br
+            .buf
+            .checked_add_signed(offset)
+            .expect("the remapped position stays in the input");
+        br.buf_end = br
+            .buf_end
+            .checked_add_signed(offset)
+            .expect("the remapped end stays in the input");
+        br.buf_max = br
+            .buf_max
+            .checked_add_signed(offset)
+            .expect("the remapped limit stays in the input");
+    }
 }
 
 // upstream: src/utils/bit_reader_utils.c VP8LoadFinalBytes
 /// Loads one byte at a time near the end of the input. Once the input is
 /// exhausted, the first call sets `eof` and shifts in zeros, and later calls
 /// only keep the state.
-pub fn vp8_load_final_bytes(br: &mut VP8BitReader<'_>) {
+pub fn vp8_load_final_bytes(br: &mut VP8BitReader, data: &[u8]) {
     // Only read 8bits at a time
-    if br.buf < br.data.len() {
+    if br.buf < br.buf_end {
         br.bits += 8;
-        br.value = bit_t::from(br.data[br.buf]) | (br.value << 8);
+        br.value = bit_t::from(data[br.buf]) | (br.value << 8);
         br.buf += 1;
     } else if !br.eof {
         br.value <<= 8;
@@ -188,12 +223,12 @@ pub fn vp8_load_final_bytes(br: &mut VP8BitReader<'_>) {
 /// Reads `num_bits` bits, most significant first, each with probability one
 /// half.
 #[expect(clippy::cast_sign_loss, reason = "each bit is 0 or 1")]
-pub fn vp8_get_value(br: &mut VP8BitReader<'_>, num_bits: i32) -> u32 {
+pub fn vp8_get_value(br: &mut VP8BitReader, data: &[u8], num_bits: i32) -> u32 {
     let mut v: u32 = 0;
     let mut bits = num_bits;
     while bits > 0 {
         bits -= 1;
-        v |= (vp8_get_bit(br, 0x80) as u32) << bits;
+        v |= (vp8_get_bit(br, data, 0x80) as u32) << bits;
     }
     v
 }
@@ -201,16 +236,20 @@ pub fn vp8_get_value(br: &mut VP8BitReader<'_>, num_bits: i32) -> u32 {
 // upstream: src/utils/bit_reader_utils.h VP8Get
 /// Reads one bit with probability one half. The header's macro of the same name
 /// expands to `VP8GetValue(br, 1)`.
-pub fn vp8_get(br: &mut VP8BitReader<'_>) -> u32 {
-    vp8_get_value(br, 1)
+pub fn vp8_get(br: &mut VP8BitReader, data: &[u8]) -> u32 {
+    vp8_get_value(br, data, 1)
 }
 
 // upstream: src/utils/bit_reader_utils.c VP8GetSignedValue
 /// Reads `num_bits` bits, then a sign bit that negates the value when set.
 #[expect(clippy::cast_possible_wrap, reason = "C converts the uint32_t to int")]
-pub fn vp8_get_signed_value(br: &mut VP8BitReader<'_>, num_bits: i32) -> i32 {
-    let value = vp8_get_value(br, num_bits) as i32;
-    if vp8_get(br) != 0 { -value } else { value }
+pub fn vp8_get_signed_value(br: &mut VP8BitReader, data: &[u8], num_bits: i32) -> i32 {
+    let value = vp8_get_value(br, data, num_bits) as i32;
+    if vp8_get(br, data) != 0 {
+        -value
+    } else {
+        value
+    }
 }
 
 // upstream: src/utils/bit_reader_utils.h VP8L_LBITS
@@ -277,14 +316,15 @@ const BIT_MASK: [u32; 25] = [
 ];
 
 // upstream: src/utils/bit_reader_utils.h VP8LBitReader
-/// The lossless bit reader: a window of prefetched bits over its input.
+/// The lossless bit reader: a window of prefetched bits and the positions of its
+/// input. It holds no reference to the input; see the module documentation.
 #[derive(Debug, Default)]
-pub struct VP8LBitReader<'a> {
+pub struct VP8LBitReader {
     /// Prefetched bits.
     pub val: vp8l_val_t,
-    /// The input (C `buf` with `len` bytes).
-    pub buf: &'a [u8],
-    /// Byte position in `buf` of the next byte to be loaded.
+    /// Length of the input (C `len`).
+    pub len: usize,
+    /// Byte position in the input of the next byte to be loaded.
     pub pos: usize,
     /// Current bit-reading position in `val`.
     pub bit_pos: i32,
@@ -293,45 +333,46 @@ pub struct VP8LBitReader<'a> {
 }
 
 // upstream: src/utils/bit_reader_utils.c VP8LInitBitReader
-/// Initializes the lossless reader over `start` and prefetches its first eight
-/// bytes.
-pub fn vp8l_init_bit_reader<'a>(br: &mut VP8LBitReader<'a>, start: &'a [u8]) {
-    debug_assert!(start.len() < 0xffff_fff8); // can't happen with a RIFF chunk.
-    let length = start.len().min(size_of::<vp8l_val_t>());
+/// Initializes the lossless reader over `data`, which is the whole input of the
+/// reader, and prefetches its first eight bytes.
+pub fn vp8l_init_bit_reader(br: &mut VP8LBitReader, data: &[u8]) {
+    debug_assert!(data.len() < 0xffff_fff8); // can't happen with a RIFF chunk.
+    let length = data.len().min(size_of::<vp8l_val_t>());
     let mut value: vp8l_val_t = 0;
-    for (i, &byte) in start[..length].iter().enumerate() {
+    for (i, &byte) in data[..length].iter().enumerate() {
         value |= vp8l_val_t::from(byte) << (8 * i);
     }
+    br.len = data.len();
     br.val = value;
     br.pos = length;
     br.bit_pos = 0;
     br.eos = false;
-    br.buf = start;
 }
 
 // upstream: src/utils/bit_reader_utils.c VP8LBitReaderSetBuffer
-/// Sets a new input. The position and the prefetched bits are kept, and the
-/// end-of-stream flag is recomputed, so a position past the new end sets `eos`.
-pub fn vp8l_bit_reader_set_buffer<'a>(br: &mut VP8LBitReader<'a>, buf: &'a [u8]) {
-    debug_assert!(buf.len() < 0xffff_fff8); // can't happen with a RIFF chunk.
-    br.buf = buf;
+/// Sets a new input length, which the owner passes from now on. The position and
+/// the prefetched bits are kept, and the end-of-stream flag is recomputed, so a
+/// position past the new end sets `eos`.
+pub fn vp8l_bit_reader_set_buffer(br: &mut VP8LBitReader, len: usize) {
+    debug_assert!(len < 0xffff_fff8); // can't happen with a RIFF chunk.
+    br.len = len;
     // 'pos' > 'len' should be considered a param error.
-    br.eos = (br.pos > br.buf.len()) || vp8l_is_end_of_stream(br);
+    br.eos = (br.pos > br.len) || vp8l_is_end_of_stream(br);
 }
 
 // upstream: src/utils/bit_reader_utils.c VP8LSetEndOfStream
 /// Sets `eos` and clears the position, to avoid undefined shifts.
-fn vp8l_set_end_of_stream(br: &mut VP8LBitReader<'_>) {
+fn vp8l_set_end_of_stream(br: &mut VP8LBitReader) {
     br.eos = true;
     br.bit_pos = 0; // To avoid undefined behaviour with shifts.
 }
 
 // upstream: src/utils/bit_reader_utils.c ShiftBytes
 /// Reloads up to `VP8L_LBITS` bits byte by byte, while the input lasts.
-fn shift_bytes(br: &mut VP8LBitReader<'_>) {
-    while br.bit_pos >= 8 && br.pos < br.buf.len() {
+fn shift_bytes(br: &mut VP8LBitReader, data: &[u8]) {
+    while br.bit_pos >= 8 && br.pos < br.len {
         br.val >>= 8;
-        br.val |= vp8l_val_t::from(br.buf[br.pos]) << (VP8L_LBITS - 8);
+        br.val |= vp8l_val_t::from(data[br.pos]) << (VP8L_LBITS - 8);
         br.pos += 1;
         br.bit_pos -= 8;
     }
@@ -351,14 +392,14 @@ fn shift_bytes(br: &mut VP8LBitReader<'_>) {
     clippy::cast_sign_loss,
     reason = "n_bits is checked not to be negative"
 )]
-pub fn vp8l_read_bits(br: &mut VP8LBitReader<'_>, n_bits: i32) -> u32 {
+pub fn vp8l_read_bits(br: &mut VP8LBitReader, data: &[u8], n_bits: i32) -> u32 {
     debug_assert!(n_bits >= 0);
     // Flag an error if end_of_stream or n_bits is more than allowed limit.
     if !br.eos && n_bits <= VP8L_MAX_NUM_BIT_READ {
         let val = vp8l_prefetch_bits(br) & BIT_MASK[n_bits as usize];
         let new_bits = br.bit_pos + n_bits;
         br.bit_pos = new_bits;
-        shift_bytes(br);
+        shift_bytes(br, data);
         val
     } else {
         vp8l_set_end_of_stream(br);
@@ -370,22 +411,22 @@ pub fn vp8l_read_bits(br: &mut VP8LBitReader<'_>, n_bits: i32) -> u32 {
 /// Returns the prefetched bits, so that they can be looked up.
 #[must_use]
 #[expect(clippy::cast_possible_truncation, reason = "C keeps the low 32 bits")]
-pub fn vp8l_prefetch_bits(br: &VP8LBitReader<'_>) -> u32 {
+pub fn vp8l_prefetch_bits(br: &VP8LBitReader) -> u32 {
     (br.val >> (br.bit_pos & (VP8L_LBITS - 1))) as u32
 }
 
 // upstream: src/utils/bit_reader_utils.h VP8LIsEndOfStream
 /// Reports whether a bit was read past the end of the input. Does not set `eos`.
 #[must_use]
-pub fn vp8l_is_end_of_stream(br: &VP8LBitReader<'_>) -> bool {
-    debug_assert!(br.pos <= br.buf.len());
-    br.eos || ((br.pos == br.buf.len()) && (br.bit_pos > VP8L_LBITS))
+pub fn vp8l_is_end_of_stream(br: &VP8LBitReader) -> bool {
+    debug_assert!(br.pos <= br.len);
+    br.eos || ((br.pos == br.len) && (br.bit_pos > VP8L_LBITS))
 }
 
 // upstream: src/utils/bit_reader_utils.h VP8LSetBitPos
 /// Jumps to the bit position `val` of the prefetched bits. Does not set `eos`;
 /// use with care.
-pub fn vp8l_set_bit_pos(br: &mut VP8LBitReader<'_>, val: i32) {
+pub fn vp8l_set_bit_pos(br: &mut VP8LBitReader, val: i32) {
     br.bit_pos = val;
 }
 
@@ -397,23 +438,23 @@ pub fn vp8l_set_bit_pos(br: &mut VP8LBitReader<'_>, val: i32) {
 /// # Panics
 ///
 /// Debug builds panic when `bit_pos` is below `VP8L_WBITS`.
-pub fn vp8l_do_fill_bit_window(br: &mut VP8LBitReader<'_>) {
+pub fn vp8l_do_fill_bit_window(br: &mut VP8LBitReader, data: &[u8]) {
     debug_assert!(br.bit_pos >= VP8L_WBITS);
-    if VP8L_USE_FAST_LOAD && br.pos + size_of::<vp8l_val_t>() < br.buf.len() {
+    if VP8L_USE_FAST_LOAD && br.pos + size_of::<vp8l_val_t>() < br.len {
         br.val >>= VP8L_WBITS;
         br.bit_pos -= VP8L_WBITS;
-        let word = h_to_le32(webp_mem_to_uint32(&br.buf[br.pos..]));
+        let word = h_to_le32(webp_mem_to_uint32(&data[br.pos..]));
         br.val |= vp8l_val_t::from(word) << (VP8L_LBITS - VP8L_WBITS);
         br.pos += VP8L_LOG8_WBITS;
         return;
     }
-    shift_bytes(br); // Slow path.
+    shift_bytes(br, data); // Slow path.
 }
 
 // upstream: src/utils/bit_reader_utils.h VP8LFillBitWindow
 /// Makes room for the next 32 bits when fewer than 32 bits are prefetched.
-pub fn vp8l_fill_bit_window(br: &mut VP8LBitReader<'_>) {
+pub fn vp8l_fill_bit_window(br: &mut VP8LBitReader, data: &[u8]) {
     if br.bit_pos >= VP8L_WBITS {
-        vp8l_do_fill_bit_window(br);
+        vp8l_do_fill_bit_window(br, data);
     }
 }

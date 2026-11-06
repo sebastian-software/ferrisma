@@ -85,17 +85,19 @@ const LOAD_SHIFT: i32 = 8 * LBIT_BYTES as i32 - BITS;
 
 // upstream: src/utils/bit_reader_inl_utils.h VP8LoadNewBytes
 /// Makes sure that `value` holds at least `BITS` bits of data, by loading `BITS`
-/// bits at once while the input allows, and byte by byte near its end.
+/// bits at once while the input allows, and byte by byte near its end. `data` is
+/// the input of the reader.
 ///
 /// The big-endian value of the `LOAD_BYTES` bytes is the one that the C code
 /// computes on every byte order, so the result does not depend on the host.
 #[inline]
-pub fn vp8_load_new_bytes(br: &mut VP8BitReader<'_>) {
+pub fn vp8_load_new_bytes(br: &mut VP8BitReader, data: &[u8]) {
+    debug_assert!(br.has_buf); // assert(br != NULL && br->buf != NULL)
     // Read 'BITS' bits at a time if possible.
     if br.buf < br.buf_max {
         // Read `lbit_t` in big-endian order: the first byte is the most significant.
         let mut in_bits: lbit_t = 0;
-        for &byte in &br.data[br.buf..br.buf + LBIT_BYTES] {
+        for &byte in &data[br.buf..br.buf + LBIT_BYTES] {
             in_bits = (in_bits << 8) | lbit_t::from(byte);
         }
         br.buf += LOAD_BYTES;
@@ -103,24 +105,25 @@ pub fn vp8_load_new_bytes(br: &mut VP8BitReader<'_>) {
         br.value = bits | (br.value << BITS);
         br.bits += BITS;
     } else {
-        vp8_load_final_bytes(br); // no need to be inlined
+        vp8_load_final_bytes(br, data); // no need to be inlined
     }
 }
 
 // upstream: src/utils/bit_reader_inl_utils.h VP8GetBit
-/// Reads one bit that is zero with probability `prob / 256`. Speed-critical.
+/// Reads one bit that is zero with probability `prob / 256`. Speed-critical. `data`
+/// is the input of the reader.
 #[inline]
 #[expect(
     clippy::cast_sign_loss,
     reason = "C converts the int probability to uint32_t"
 )]
-pub fn vp8_get_bit(br: &mut VP8BitReader<'_>, prob: i32) -> i32 {
+pub fn vp8_get_bit(br: &mut VP8BitReader, data: &[u8], prob: i32) -> i32 {
     // Don't move this declaration! It makes a big speed difference to store
     // 'range' *before* calling VP8LoadNewBytes(), even if this function doesn't
     // alter br->range value.
     let mut range = br.range;
     if br.bits < 0 {
-        vp8_load_new_bytes(br);
+        vp8_load_new_bytes(br, data);
     }
     let pos = br.bits;
     let split = range.wrapping_mul(prob as range_t) >> 8;
@@ -142,16 +145,16 @@ pub fn vp8_get_bit(br: &mut VP8BitReader<'_>, prob: i32) -> i32 {
 // upstream: src/utils/bit_reader_inl_utils.h VP8GetSigned
 /// Reads one bit with probability one half and applies it to `v`: returns `v`
 /// with its sign flipped when the bit is set. A simplified `VP8GetBit` for
-/// probability `0x80`.
+/// probability `0x80`. `data` is the input of the reader.
 #[inline]
 #[expect(
     clippy::cast_possible_wrap,
     clippy::cast_sign_loss,
     reason = "C reinterprets the unsigned difference as int32_t and back"
 )]
-pub fn vp8_get_signed(br: &mut VP8BitReader<'_>, v: i32) -> i32 {
+pub fn vp8_get_signed(br: &mut VP8BitReader, data: &[u8], v: i32) -> i32 {
     if br.bits < 0 {
-        vp8_load_new_bytes(br);
+        vp8_load_new_bytes(br, data);
     }
     let pos = br.bits;
     let split: range_t = br.range >> 1;
@@ -166,19 +169,20 @@ pub fn vp8_get_signed(br: &mut VP8BitReader<'_>, v: i32) -> i32 {
 }
 
 // upstream: src/utils/bit_reader_inl_utils.h VP8GetBitAlt
-/// The alternative of `VP8GetBit`, which renormalizes with a table lookup.
+/// The alternative of `VP8GetBit`, which renormalizes with a table lookup. `data`
+/// is the input of the reader.
 #[inline]
 #[expect(
     clippy::cast_sign_loss,
     reason = "C converts the int probability to uint32_t"
 )]
-pub fn vp8_get_bit_alt(br: &mut VP8BitReader<'_>, prob: i32) -> i32 {
+pub fn vp8_get_bit_alt(br: &mut VP8BitReader, data: &[u8], prob: i32) -> i32 {
     // Don't move this declaration! It makes a big speed difference to store
     // 'range' *before* calling VP8LoadNewBytes(), even if this function doesn't
     // alter br->range value.
     let mut range = br.range;
     if br.bits < 0 {
-        vp8_load_new_bytes(br);
+        vp8_load_new_bytes(br, data);
     }
     let pos = br.bits;
     let split = range.wrapping_mul(prob as range_t) >> 8;
