@@ -236,23 +236,19 @@ impl WebPEncodingError {
     pub const VP8_ENC_ERROR_LAST: Self = Self(11);
 }
 
-/// Read-only copy of the plain fields of a picture, which a writer or a progress
-/// hook receives by reference (ADR 0003). Rust-only: the upstream callbacks read
-/// no plain field of the picture. `WebPMemoryWrite` reads `custom_ptr`, the
-/// progress report of `examples/cwebp.c` reads `user_data`, and both are replaced
-/// by the closures, so the copy is empty. WP9 adds fields if a callback needs them.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct WebPPictureInfo;
-
 // upstream: src/webp/encode.h WebPWriterFunction
 /// Writes `data` and returns `false` on failure (C: `WebPWriterFunction`). The
-/// closure owns its context, which C passes as `picture->custom_ptr`.
-pub type WebPWriterFunction<'a> = Box<dyn FnMut(&[u8], &WebPPictureInfo) -> bool + 'a>;
+/// picture parameter of C is omitted: no upstream callback reads a field of it, and
+/// the closure owns the context that C passes as `picture->custom_ptr` (ADR 0003).
+/// The ABI mirror (WP13) passes its `repr(C)` picture pointer to C callbacks itself.
+pub type WebPWriterFunction<'a> = Box<dyn FnMut(&[u8]) -> bool + 'a>;
 
 // upstream: src/webp/encode.h WebPProgressHook
 /// Reports `percent` and returns `false` to request an abort (C: `WebPProgressHook`).
-/// The closure owns its context, which C passes as `picture->user_data`.
-pub type WebPProgressHook<'a> = Box<dyn FnMut(i32, &WebPPictureInfo) -> bool + 'a>;
+/// The picture parameter of C is omitted for the reason given for
+/// [`WebPWriterFunction`]; the closure owns the context that C passes as
+/// `picture->user_data` (ADR 0003).
+pub type WebPProgressHook<'a> = Box<dyn FnMut(i32) -> bool + 'a>;
 
 // upstream: src/webp/encode.h WebPMemoryWriter
 /// The buffer that `WebPMemoryWrite` fills (C: `WebPMemoryWriter`). `mem` owns the

@@ -26,7 +26,7 @@ Every row names what is translated, with `// upstream:` markers on each item.
 | `src/webp/types.rs` | `src/webp/types.h` | partly: `webp_abi_is_incompatible`, and the storage types `PlaneStorage<'a, T>` and `PlaneOffset` of ADR 0003, which have no C counterpart. `WebPMalloc` and `WebPFree` are C-ABI memory and belong to `src/abi/types.rs` (WP12, ADR 0004). |
 | `src/webp/format_constants.rs` | `src/webp/format_constants.h` | yes: every `#define`, `VP8LImageTransformType`, `MKFOURCC`. |
 | `src/webp/decode.rs` | `src/webp/decode.h` | partly: `WEBP_DECODER_ABI_VERSION`, `VP8StatusCode`, `WEBP_CSP_MODE` and its values, the three mode predicates, `WebPBitstreamFeatures`, `WebPDecoderOptions`, `WebPRGBABuffer`, `WebPYUVABuffer`, the union enum `WebPDecBufferPlanes`, `WebPDecBuffer<'a>` and `WebPDecoderConfig<'a>`. Exception WP12: the inline wrappers `WebPInitDecBuffer`, `WebPGetFeatures`, `WebPInitDecoderConfig` and `WebPIDecGetYUV`. The declared functions belong to WP12. |
-| `src/webp/encode.rs` | `src/webp/encode.h` | partly: `WEBP_ENCODER_ABI_VERSION`, `WEBP_MAX_DIMENSION`, `WebPImageHint`, `WebPConfig`, `WebPPreset`, `WebPAuxStats`, `WebPEncCSP`, `WebPEncodingError`, `WebPPicture<'a>`, `WebPPictureInfo`, the types `WebPWriterFunction<'a>` and `WebPProgressHook<'a>`, and `WebPMemoryWriter`. Exception WP9: the inline wrappers `WebPConfigInit`, `WebPConfigPreset` and `WebPPictureInit`. The functions `WebPMemoryWriterInit`, `WebPMemoryWrite` and `WebPMemoryWriterClear` are defined in `src/enc/picture_enc.c`, so WP9 translates them. |
+| `src/webp/encode.rs` | `src/webp/encode.h` | partly: `WEBP_ENCODER_ABI_VERSION`, `WEBP_MAX_DIMENSION`, `WebPImageHint`, `WebPConfig`, `WebPPreset`, `WebPAuxStats`, `WebPEncCSP`, `WebPEncodingError`, `WebPPicture<'a>`, the closure types `WebPWriterFunction<'a>` and `WebPProgressHook<'a>` without the picture parameter, and `WebPMemoryWriter`. Exception WP9: the inline wrappers `WebPConfigInit`, `WebPConfigPreset` and `WebPPictureInit`. The functions `WebPMemoryWriterInit`, `WebPMemoryWrite` and `WebPMemoryWriterClear` are defined in `src/enc/picture_enc.c`, so WP9 translates them. |
 | `src/webp/demux.rs` | `src/webp/demux.h` | partly: `WEBP_DEMUX_ABI_VERSION`, `WebPDemuxState`, `WebPFormatFeature`, `WebPAnimDecoderOptions`, `WebPAnimInfo`. Exception WP8: `WebPDemux`, `WebPDemuxPartial`, `WebPIterator` and `WebPChunkIterator`. Exception WP14: `WebPAnimDecoderOptionsInit` and `WebPAnimDecoderNew`. |
 | `src/webp/mux_types.rs` | `src/webp/mux_types.h` | yes: `WebPFeatureFlags`, `WebPMuxAnimDispose`, `WebPMuxAnimBlend`, `WebPData<'a>` with `WebPDataInit` as its `Default`, and `webp_data_clear` (`WebPDataClear`) and `webp_data_copy` (`WebPDataCopy`). |
 | `src/utils/utils.rs` | `src/utils/utils.c`, `src/utils/utils.h`; except `WebPGetColorPalette` (WP3) | partly: `WEBP_MAX_ALLOCABLE_MEMORY`, `WEBP_ALIGN`, `CheckSizeOverflow`, the allocation helpers (`WebPSafeMalloc`, `WebPSafeCalloc`), `WebPCopyPlane`, `WebPCopyPixels`, `BitsLog2Floor`, `BitsCtz`, the `WebPMem*` and `GetLE*`/`PutLE*` helpers. Not here: `WebPMalloc` and `WebPFree` (WP12, ADR 0004); `WebPSafeFree` (dropped by the owner, deviation 5); `WebPLog2FloorC` and `WebPLogTable8bit` (the fallback that GCC and Clang never compile). |
@@ -81,8 +81,9 @@ These checks do not apply to WP1, or cannot be made, with the reason:
    `WebPFreeDecBuffer` (WP12), `WebPPictureAlloc`, `WebPPictureImport*` and the
    picture's conversions (WP9), and `WebPMemoryWrite` with its writer closure
    (WP9). No WP1 function operates on them.
-3. `WebPPictureInfo`: its fields are derived to be empty (ADR 0003), so there is
-   nothing to compare.
+3. The picture parameter of the writer and progress hook callbacks is omitted
+   (ADR 0003), because no upstream callback reads a field of it. There is nothing
+   to compare; the ABI mirror (WP13) passes the picture to C callbacks itself.
 4. `WebPData` distinguishes `bytes == NULL` from empty data in C; a `Cow` slice
    cannot. The copy compares sizes, bytes and results; the NULL pointer is not
    observable through the Rust type.
@@ -168,9 +169,12 @@ the Rust side cannot reproduce exactly. Each records the reason.
     either owned or borrowed planes per group, and a mixed picture cannot be
     represented. C allows a mix, which the library's own allocation never
     creates.
-15. **`WebPPictureInfo` is empty.** The upstream callbacks read no plain field of
-    the picture; the derivation is recorded in ADR 0003, and WP9 adds fields
-    under that record when a callback needs them.
+15. **Callback picture parameter omitted.** `WebPWriterFunction<'a>` is
+    `Box<dyn FnMut(&[u8]) -> bool + 'a>` and `WebPProgressHook<'a>` is
+    `Box<dyn FnMut(i32) -> bool + 'a>`. No upstream callback reads a field of the
+    picture, and the context lives in the closure; the ABI mirror (WP13) passes
+    the `repr(C)` picture pointer to C callbacks itself. The derivation is in ADR
+    0003. A callback that needs a picture field would amend that record.
 16. **`WebPWorkerInterface` removed.** ADR 0003 records the decision, and no
     public header declares the table.
 17. **`WebPMemoryWriter.mem`.** The vector holds `max_size` bytes, and WP9's writer
@@ -194,8 +198,8 @@ decisions are applied as follows.
    `Default`, `WebPDataClear` resets to empty, and `WebPDataCopy` produces the
    owned form. `WebPIterator` and `WebPChunkIterator` are WP8's.
 3. **Picture and callbacks.** `WebPPicture<'a>` with the same storage pattern.
-   `writer` and `progress_hook` are boxed closures that receive `&WebPPictureInfo`.
-   `WebPPictureInfo` is derived as empty (deviation 15). `WebPMemoryWriter` stays
+   `writer` and `progress_hook` are boxed closures without the picture parameter
+   (deviation 15). `WebPMemoryWriter` stays
    a struct, and its functions are WP9's. `WebPCopyPixels` is translated and
    compared.
 4. **Worker interface.** Removed. The worker methods are called directly.

@@ -134,21 +134,20 @@ calls and the meaning of their return values. The package that owns the
 structure chooses the concrete form and records it.
 
 **Concrete callback forms (decided 2026-11-06).** `WebPWriterFunction` is
-`Box<dyn FnMut(&[u8], &WebPPictureInfo) -> bool + 'a>` and `WebPProgressHook` is
-`Box<dyn FnMut(i32, &WebPPictureInfo) -> bool + 'a>`. Each closure owns its context,
-which replaces `custom_ptr` and `user_data`. `WebPPictureInfo` is a by-value copy
-of the picture's plain fields, which the callbacks receive by reference. Its fields
-are derived from the upstream callbacks. `WebPMemoryWrite` (`src/enc/picture_enc.c`)
-reads `custom_ptr`. `DummyWriter` (`src/enc/picture_enc.c`) reads no field. The
-`MyWriter` of `examples/cwebp.c` reads `custom_ptr`, and its `ProgressReport` reads
+`Box<dyn FnMut(&[u8]) -> bool + 'a>` and `WebPProgressHook` is
+`Box<dyn FnMut(i32) -> bool + 'a>`. Each closure owns its context, which replaces
+`custom_ptr` and `user_data`. The picture parameter of both C callbacks is omitted:
+no upstream callback reads a field of it, and the context lives in the closure.
+The derivation is as follows. `WebPMemoryWrite` (`src/enc/picture_enc.c`) reads only
+`custom_ptr`. `DummyWriter` (`src/enc/picture_enc.c`) reads no field. The `MyWriter`
+of `examples/cwebp.c` reads only `custom_ptr`, and its `ProgressReport` reads only
 `user_data`. The library passes the picture on to the hook in `WebPReportProgress`
-(`src/enc/webp_enc.c`) and `VP8IteratorProgress` (`src/enc/iterator_enc.c`).
-`imageio/` installs neither a writer nor a hook. No plain field is read, so
-`WebPPictureInfo` has no fields in WP1. WP9 adds a field under this record when a
-callback needs one, which is an additive change. `WebPMemoryWriter` stays a struct
-in `src/webp/encode.rs`, and WP9's functions implement the writer form.
-`WebPCopyPixels` copies the ARGB plane with the row arithmetic of `WebPCopyPlane`,
-on `u32` samples, with the strides in pixels.
+(`src/enc/webp_enc.c`) and `VP8IteratorProgress` (`src/enc/iterator_enc.c`), and
+`imageio/` installs neither a writer nor a hook. The ABI mirror (WP13) passes its
+`repr(C)` picture pointer to C callbacks itself, so the C signature stays intact at
+the boundary. `WebPMemoryWriter` stays a struct in `src/webp/encode.rs`, and WP9's
+functions implement the writer form. `WebPCopyPixels` copies the ARGB plane with the
+row arithmetic of `WebPCopyPlane`, on `u32` samples, with the strides in pixels.
 
 **DSP dispatch.** A global function pointer such as `VP8Transform` becomes a
 plain function with the snake-case name of the pointer (`vp8_transform`) that
@@ -208,5 +207,6 @@ selection.
 
 Open under this record (2026-11-06): `WebPPictureView` reads its source picture,
 so it may need a shared borrow of the planes. `PlaneStorage` would then gain a
-shared variant, which amends this record; WP9 raises it. `WebPPictureInfo` gains
-a field only when a callback reads a plain field.
+shared variant, which amends this record; WP9 raises it. A callback that needs a
+field of the picture would bring the picture parameter back, which amends this
+record.
