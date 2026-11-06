@@ -33,7 +33,7 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | `jpeg-read` | `zune-jpeg` 0.5 | JPEG input (full-frame fallback) | Experimental, ADR-0012 |
 | `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | **Interim** until libjxl-rs is adoptable (ADR-0012) |
 | `avif-write` | `rav1e` 0.8 / `avif-serialize` 0.8 | First and only output encoder, driven directly since 2026-11-06 | **Interim choice** (permissive, Rust plus assembly); target: libavif-rs |
-| none (adapter crate) | `ferrixel-libavif` → libavif-rs (Rust AOM) | Optional output encoder through `transcode_with`, outside the workspace (ADR-0024) | **Adopted with gates (a) and (b) waived** by the maintainer: nightly, `unsafe` C ABI isolated in the adapter, libvmaf required; macOS arm64 CI |
+| none (adapter crate) | `ferrixel-libavif` → libavif-rs (Rust AOM) | Optional output encoder through `transcode_with`, outside the workspace (ADR-0024) | **Adopted with gates (a) and (b) waived** by the maintainer: nightly, `unsafe` C ABI isolated in the adapter, libvmaf required; macOS arm64 and x86-64 Linux CI |
 | `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Interim, provisional**; target: libavif-rs |
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | **Chosen for M1 evaluation**; color fidelity still unverified |
 | `webp-read`, `webp-write` (planned) | libwebp-rs (planned port) | WebP input and output, lossy and lossless | **Target only, no interim crate**; see the [evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md) |

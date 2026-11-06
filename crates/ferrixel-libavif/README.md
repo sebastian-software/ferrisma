@@ -21,7 +21,7 @@ cargo run --release --features cli -- input.jpg output.avif 1600 1067 --assume-s
 
 - **Toolchain:** the nightly that libavif-rs pins (`rust-toolchain.toml` here). This crate is not a member of the Ferrixel workspace, so the core stays on stable.
 - **Platforms:** aarch64 macOS and x86-64 GNU Linux, the targets libavif-rs validates.
-- **libvmaf** through `pkg-config`, which libavif-rs's AOM links. macOS: `brew install libvmaf`. Linux needs libvmaf 3.2 (libavif-rs builds it with `tools/build_aom_vmaf.py`); distribution packages are older.
+- **libvmaf** through `pkg-config`, which libavif-rs's AOM links. macOS: `brew install libvmaf`. Linux needs libvmaf 3.2, which distributions do not package yet; Ferrixel's CI job `libavif-backend-linux` builds it from source with the options of libavif-rs's `tools/build_aom_vmaf.py`. Only AOM's VMAF tuning modes, which Ferrixel never selects, use it.
 - **No AVIF input in the same binary.** Ferrixel's `avif-read` decodes with rav1d, which exports the same `dav1d_*` C symbols as libavif-rs's dav1d port; linking both is undefined behavior. The `cli` feature therefore enables JPEG and JPEG XL input only, and the tests decode with libavif-rs's own decoder.
 - **Memory:** the backend materializes one RGBA frame and libavif's YUV(A) planes, reported as `encoder_output_frame_bytes`; AOM's own memory is opaque (`opaque_encoder_memory`).
 - **`unsafe`:** all calls into libavif's C ABI live in `src/lib.rs`, each with its safety argument; every libavif object is owned by a guard that frees it.
