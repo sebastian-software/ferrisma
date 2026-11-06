@@ -36,6 +36,18 @@ end-of-buffer pointers become offsets with the same meaning. Pointers that
 alias parts of one structure while it is mutated are split into separate
 borrows or owned parts; record each such split in the package's status file.
 
+**Readers over input (decided 2026-11-06).** A reader or cursor that consumes an
+input stores positions and the input length as `usize` values, and never a
+borrow of the input. The owner holds the input and passes it to each function
+that reads it, as in `vp8_get_bit(br, data, prob)`. A pointer that may be `NULL`
+before the reader is set up becomes an explicit flag (`VP8BitReader::has_buf`).
+`VP8RemapBitReader(br, offset)` adds the signed offset to the positions, as C
+adds it to the pointers, when the owner moves the same bytes by that many indexes
+of its input. A reader then sits next to the buffer it reads in one struct, such
+as the incremental decoder of WP12, without a self-reference. The rule covers
+every reader over a buffer that its owner also holds; the buffer's own type is
+unchanged.
+
 **Ownership.** `malloc`/`free` pairs become owned values (`Vec`, `Box`) dropped
 where the source frees them. A buffer that C callers own stays borrowed
 (`&[u8]`, `&mut [u8]`). Memory handed to or received from C belongs to the

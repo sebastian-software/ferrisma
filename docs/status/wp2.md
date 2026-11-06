@@ -1,9 +1,10 @@
 # WP2: bit I/O
 
-- Status: every unit of the WP2 inventory is translated, except
-  `VP8RemapBitReader`. That function is an open design question (below), so it
-  stays absent until the integrator answers it. Everything else is verified
-  against the release oracle, and the sanitizer and debug variants agree.
+- Status: every unit of the WP2 inventory is translated, `VP8RemapBitReader`
+  included. The reader representation was decided by the integrator on
+  2026-11-06: readers store positions and never borrow their input (ADR 0003,
+  "Readers over input"). The release, asan-ubsan and debug oracles agree with the
+  translation, and the tests check the remap against the C pointer arithmetic.
 - Sub-wave: 1b
 - Model: Claude Haiku 5.5 (`claude-haiku-5-5`)
 - Depends on: WP1
@@ -15,38 +16,40 @@ Written by the package session; the integrator aggregates it into
 comes from `tools/units.json`, including the function- and type-level
 exceptions inside a module.
 
-## Open question: `VP8RemapBitReader`
+## Decision: readers over input
 
-`VP8RemapBitReader` (`src/utils/bit_reader_utils.c`) moves a reader's pointers
-by an offset. The incremental decoder calls it in `DoRemap`
-(`src/dec/idec_dec.c`) when its input memory moves: in `MEM_MODE_MAP`, the
-readers of the partitions and the first partition are moved, and
-`VP8LBitReaderSetBuffer` re-points the lossless reader at the moved memory.
+The incremental decoder owns the memory that its readers read, and it relocates
+that memory (`DoRemap` in `src/dec/idec_dec.c`). A reader that borrowed its input
+could not live in the decoder next to that memory. The integrator therefore chose
+the following rule, now recorded in ADR 0003:
 
-ADR 0003 turns a pointer into a buffer into a slice plus an offset, so each
-reader borrows its input (`VP8BitReader<'a>` holds `&'a [u8]`). The incremental
-decoder owns that memory and holds its readers at the same time. Safe Rust does
-not allow a struct to own a buffer and borrow from it, so the representation
-and the relocation conflict. The ADRs do not settle this. Options for the
-integrator:
+- `VP8BitReader` and `VP8LBitReader` hold no reference to their input. Each C
+  pointer is a `usize` position into the input that the owner holds, and the
+  input length (`VP8LBitReader::len`) or the end position (`VP8BitReader::buf_end`)
+  is stored explicitly.
+- Every function that reads input takes the input slice as an argument, for
+  example `vp8_get_bit(br, data, prob)`. Init and set-buffer functions record the
+  positions and the length.
+- A C `buf == NULL` is the flag `VP8BitReader::has_buf`. `VP8RemapBitReader`
+  checks it, so the NULL case keeps its meaning.
+- `VP8RemapBitReader(br, offset)` adds the signed offset to the three positions,
+  as C adds it to the pointers. The owner calls it when the same bytes have moved
+  by that many indexes of its input.
 
-1. Readers hold no reference to their input, and each reader call takes the
-   slice. This changes the signatures that WP6, WP7 and WP12 call.
-2. Each reader is split into its state (register, range, bit count, offsets,
-   end flag) and a borrowed input that the owner supplies. The owner moves the
-   state with its memory, and the remap becomes "replace the input, keep the
-   state". This keeps the C shape of the calls.
-3. An ADR amendment that gives the incremental decoder another ownership form.
+Consequences for the packages that call these functions:
 
-Until this is decided, the reader representation of this package is the one
-ADR 0003 gives. `VP8RemapBitReader` is not translated, and WP12's incremental
-decoder depends on the answer.
+- WP6 and WP7 call the readers with the input that they own, for example the
+  partition's bytes. Their signatures take `data` next to `br`.
+- WP12 must compute the offset of `VP8RemapBitReader` as the index delta of the
+  same byte in its own coordinates. `DoRemap` computes a pointer difference of
+  the two memory bases, and that is not the same number when the base moves while
+  the positions stay the same. WP12 should not copy the pointer difference.
 
 ## Inventory
 
 | Rust module | Upstream units | Translated |
 | --- | --- | --- |
-| `src/utils/bit_reader_utils.rs` | `src/utils/bit_reader_utils.c`, `src/utils/bit_reader_utils.h` | partly: everything except `VP8RemapBitReader` (open question). Translated: `BITS` (chosen by target, deviation 6), `bit_t`, `range_t`, `VP8BitReader`, the tables `kVP8Log2Range` (`VP8_LOG2_RANGE`) and `kVP8NewRange` (`VP8_NEW_RANGE`), `VP8BitReaderSetBuffer`, `VP8InitBitReader`, `VP8LoadFinalBytes`, `VP8GetValue`, `VP8GetSignedValue`, `VP8Get`, `VP8LBitReader`, `vp8l_val_t`, `VP8L_LBITS`, `VP8L_WBITS`, `VP8L_MAX_NUM_BIT_READ`, `VP8L_USE_FAST_LOAD`, `kBitMask` (`BIT_MASK`), `VP8LInitBitReader`, `VP8LBitReaderSetBuffer`, `VP8LSetEndOfStream`, `ShiftBytes`, `VP8LReadBits`, `VP8LDoFillBitWindow`, and the header's inline functions `VP8LPrefetchBits`, `VP8LIsEndOfStream`, `VP8LSetBitPos` and `VP8LFillBitWindow`. |
+| `src/utils/bit_reader_utils.rs` | `src/utils/bit_reader_utils.c`, `src/utils/bit_reader_utils.h` | yes: `BITS` (chosen by target, deviation 6), `bit_t`, `range_t`, `VP8BitReader` (with `has_buf`, `buf`, `buf_end`, `buf_max`), the tables `kVP8Log2Range` (`VP8_LOG2_RANGE`) and `kVP8NewRange` (`VP8_NEW_RANGE`), `VP8BitReaderSetBuffer`, `VP8InitBitReader`, `VP8RemapBitReader`, `VP8LoadFinalBytes`, `VP8GetValue`, `VP8GetSignedValue`, `VP8Get`, `VP8LBitReader` (with `len`), `vp8l_val_t`, `VP8L_LBITS`, `VP8L_WBITS`, `VP8L_MAX_NUM_BIT_READ`, `VP8L_USE_FAST_LOAD`, `kBitMask` (`BIT_MASK`), `VP8LInitBitReader`, `VP8LBitReaderSetBuffer`, `VP8LSetEndOfStream`, `ShiftBytes`, `VP8LReadBits`, `VP8LDoFillBitWindow`, and the header's inline functions `VP8LPrefetchBits`, `VP8LIsEndOfStream`, `VP8LSetBitPos` and `VP8LFillBitWindow`. |
 | `src/utils/bit_reader_inl_utils.rs` | `src/utils/bit_reader_inl_utils.h` | yes: `lbit_t`, `VP8LoadNewBytes`, `VP8GetBit`, `VP8GetSigned` and `VP8GetBitAlt`; the helper `low_range` stands for the `(range_t)` cast (deviation 4). |
 | `src/utils/bit_writer_utils.rs` | `src/utils/bit_writer_utils.c`, `src/utils/bit_writer_utils.h` | yes: `VP8BitWriter` with `VP8PutBit`, `VP8PutBitUniform`, `VP8PutBits`, `VP8PutSignedBits`, `VP8BitWriterInit`, `VP8BitWriterFinish`, `VP8BitWriterAppend`, `VP8BitWriterWipeOut`, `VP8BitWriterPos`, `VP8BitWriterBuf` and `VP8BitWriterSize`, with the internal `BitWriterResize` and `Flush`; `kNorm` (`NORM`), `kNewRange` (`NEW_RANGE`), `MIN_EXTRA_SIZE`; the `VP8L_WRITER_*` constants and the types `vp8l_atype_t` and `vp8l_wtype_t`, chosen by target (deviation 9); `VP8LBitWriter` with `VP8LBitWriterNumBytes`, `VP8LBitWriterInit`, `VP8LBitWriterClone`, `VP8LBitWriterWipeOut`, `VP8LBitWriterReset`, `VP8LBitWriterSwap`, `VP8LBitWriterFinish`, `VP8LPutBitsFlushBits`, `VP8LPutBitsInternal` and the inline `VP8LPutBits`. |
 
@@ -66,9 +69,10 @@ compared in one run, on this host (macOS ARM64, release oracle).
 | --- | --- | ---: | --- |
 | `tests/wp2_config.rs` | `target_configuration_matches_the_c_build` | 9 | `BITS`, the sizes of `bit_t`, `lbit_t`, `vp8l_atype_t` and `vp8l_wtype_t`, `VP8L_WRITER_BYTES`, `VP8L_WRITER_BITS`, `VP8L_WRITER_MAX_BITS`, and the fast-load mode, which the probe observes rather than reads. |
 | `tests/wp2_config.rs` | `widths_follow_the_target_choice`, `lossless_reader_constants_match_the_header` | (no oracle) | Consistency of the configuration and of the header constants. |
-| `tests/wp2_bit_reader.rs` | `bit_reader_states_match_the_c_reader` | 246,049 | About 30,000 commands (`VP8GetBit`, `VP8GetBitAlt`, `VP8GetValue`, `VP8Get`, `VP8GetSignedValue`, `VP8GetSigned`) on 55 streams: every length from 0 to 40 bytes, the lengths around the seven-byte loads, 255 to 4,096 bytes, constant and alternating bytes. After every command: the result and the register, range, bit count, the offsets of the next byte and of the limit, and the end flag. |
-| `tests/wp2_bit_reader.rs` | `truncated_streams_set_eof_and_shift_zeros` | 14,442 | Streams of 0, 1, 2, 7, 8 and 9 bytes read for 300 bits past their end: the end flag and the zero shifts after it. |
-| `tests/wp2_bit_reader.rs` | `signed_and_value_reads_match_the_c_reader` | 68,680 | 24 seeded streams of up to 200 bytes, with `VP8GetValue`, `VP8GetSignedValue`, `VP8Get` and `VP8GetSigned` interleaved. |
+| `tests/wp2_bit_reader.rs` | `bit_reader_states_match_the_c_reader` | 308,065 | About 38,000 commands (`VP8GetBit`, `VP8GetBitAlt`, `VP8GetValue`, `VP8Get`, `VP8GetSignedValue`, `VP8GetSigned`) on 55 streams: every length from 0 to 40 bytes, the lengths around the seven-byte loads, 255 to 4,096 bytes, constant and alternating bytes. The owner moves the input inside its buffer 500 times (`VP8RemapBitReader`), and 55 readers without a buffer are remapped first. After every command: the result, the register, range and bit count, whether the reader has a buffer, the indexes of the next byte, the end and the packed-read limit, and the end flag. |
+| `tests/wp2_bit_reader.rs` | `remap_moves_the_positions_and_leaves_a_reader_without_buffer_alone` | 8,416 | 42 moves of the input to indexes 0, 1, 32 and 64 of the buffer, with reads between them, on streams from 0 to 300 bytes; a reader without a buffer is remapped by seven offsets from -8 to 1000 and must stay unchanged. |
+| `tests/wp2_bit_reader.rs` | `truncated_streams_set_eof_and_shift_zeros` | 18,108 | Streams of 0, 1, 2, 7, 8 and 9 bytes read for 300 bits past their end: the end flag and the zero shifts after it. |
+| `tests/wp2_bit_reader.rs` | `signed_and_value_reads_match_the_c_reader` | 86,072 | 24 seeded streams of up to 200 bytes, with `VP8GetValue`, `VP8GetSignedValue`, `VP8Get` and `VP8GetSigned` interleaved. |
 | `tests/wp2_vp8l_bit_reader.rs` | `lossless_reader_states_match_the_c_reader` | 180,939 | Random commands (`VP8LReadBits` up to 32 bits, `VP8LPrefetchBits`, `VP8LSetBitPos`, `VP8LFillBitWindow`, `VP8LDoFillBitWindow`, `VP8LIsEndOfStream`, `VP8LBitReaderSetBuffer`) on 48 buffers from 0 to 1,000 bytes. After every command: the window, the position, the length, the bit position and the end flag. |
 | `tests/wp2_vp8l_bit_reader.rs` | `prefetch_window_refills_match_the_c_reader` | 18,204 | Every length from 0 to 40 bytes, read with 24-bit reads, fills and bit positions near the 64-bit window and the four-byte refill. |
 | `tests/wp2_vp8l_bit_reader.rs` | `set_buffer_keeps_the_position_and_recomputes_eos` | 4,129 | Moves to other buffers, shorter and longer, keeping the position and recomputing the end flag. |
@@ -78,29 +82,40 @@ compared in one run, on this host (macOS ARM64, release oracle).
 | `tests/wp2_vp8l_bit_writer.rs` | `refused_allocation_sets_the_error_and_writing_continues` | 22,359 | A refused writer, then a finish that allocates it, and a clone that carries the error flag to the other writer. |
 
 The generators of the two lossless tests run the Rust reader or writer in
-lockstep, because some calls are undefined in C and the tests must not issue
-them (deviation 13). The tables are also compared with the C source text: the five
-tables `kVP8Log2Range`, `kVP8NewRange`, `kBitMask`, `kNorm` and `kNewRange` have
-the same 128 or 25 values in both.
+lockstep, because some calls are undefined in C and the tests
+must not issue them (deviation 13). The tables are also compared with the C source
+text: the five tables `kVP8Log2Range`, `kVP8NewRange`, `kBitMask`, `kNorm` and
+`kNewRange` have the same 128 or 25 values in both.
 
 Local results, on this branch:
 
-- `python3 tools/check.py --oracle` passes: formatting, Clippy with
+- `python3 tools/check.py --oracle --msrv` passes: formatting, Clippy with
   `-D warnings`, provenance and the module skeleton, documentation links,
   `tools/unit_dependencies.py --check` (no undeclared references), and the tests
-  of the dev, release and `checked` profiles, with the oracle feature (no skips).
-  Each profile runs 26 tests, 13 of them WP2, and none failed. The same 26 pass
-  with the Rust 1.95 toolchain (`--msrv`), which the check also runs.
-- `python3 tools/check.py --oracle-variant asan-ubsan --stage test` passes: 26
+  of the dev, release and `checked` profiles, with the oracle feature (no skips),
+  and with the Rust 1.95 toolchain. Each profile runs 27 tests, 14 of them WP2,
+  and none failed.
+- `python3 tools/check.py --oracle-variant asan-ubsan --stage test` passes: 27
   tests in each profile, none failed, and no sanitizer report from the probes.
+  LeakSanitizer runs on Linux only, so the Linux CI job is its check.
 - The WP2 test binaries pass against the `debug` oracle, which keeps upstream's
-  assertions (13 tests). `tools/check.py --oracle-variant debug` stops earlier, in
+  assertions (14 tests). `tools/check.py --oracle-variant debug` stops earlier, in
   the WP1 probe `safe_alloc`, which aborts on `assert(nmemb * size > 0)` for zero
   counts (`src/utils/utils.c`). CI runs only the baseline for the debug variant,
   so this is not a WP2 result; the WP1 owner should see it.
-- Three mutations of the Rust code were each caught by the tests: the fast-load
-  path disabled (3 failing tests), the carry of the byte writer removed (2), and
-  the bit-0 branch of `VP8GetBit` changed (3). The files were restored afterwards.
+- Leaks in the writer probes: the CI job `Oracle (ubuntu-latest)` reported 1066
+  leaked objects from `vp8l_bit_writer`. The probes called `VP8LBitWriterInit` on a
+  writer that still held a buffer, and upstream's init zeroes the writer without
+  freeing it. The probes now wipe a writer before its init and wipe every writer
+  before exit (`VP8BitWriterWipeOut` in the byte-writer probe too). macOS `leaks`
+  reproduced two leaked buffers before the change and reports none after it. The
+  probe output is unchanged by the change.
+- Mutations of the Rust code, each caught by the tests and then reverted. On the
+  representation before 2026-11-06: the fast-load path disabled (3 failing tests),
+  the carry of the byte writer removed (2), and the bit-0 branch of `VP8GetBit`
+  changed (3). On the current representation: `VP8RemapBitReader` ignoring
+  `has_buf` (2 failing tests, with a panic on a negative offset) and not moving the
+  positions (2 failing tests).
 
 ## Not-applicable checks
 
@@ -147,13 +162,13 @@ These checks do not apply to WP2, or cannot be made here, with the reason.
 Deviations are changes of representation that ADR 0003 allows, or behavior that
 the Rust side cannot reproduce exactly. Each records the reason.
 
-1. **Borrowed input.** `VP8BitReader<'a>` and `VP8LBitReader<'a>` hold their input
-   as `&'a [u8]`, with `usize` offsets for the pointers (ADR 0003). The reader
-   functions take the slice given to `init` or `set_buffer`. This is the open
-   question above.
+1. **Readers hold positions, not the input.** `VP8BitReader` and `VP8LBitReader`
+   store `usize` positions and the input length, and the owner passes the input to
+   each call that reads it (the decision above; ADR 0003, "Readers over input").
 2. **Public fields.** The fields of the four structs are `pub`, as the C structs are
-   public in their headers, so that the tests can read the state. The C fields
-   `buf_end` and `len` are not stored: they are the slice length.
+   public in their headers, so that the tests can read the state. The C field
+   `buf_end` is stored as `VP8BitReader::buf_end`, because it no longer comes from
+   a slice length; `VP8LBitReader::len` is stored for the same reason.
 3. **Writer buffers.** `VP8BitWriter::buf` and `VP8LBitWriter::buf` are `Vec<u8>`.
    The length of the vector is the allocated size (`max_pos`, or `end - buf`),
    and `cur` is an offset. Allocations use `webp_safe_calloc::<u8>(n, 1)`, which
@@ -171,11 +186,12 @@ the Rust side cannot reproduce exactly. Each records the reason.
    every other target, as upstream selects them; `bit_t` is 64 bits when `BITS > 24`.
    The oracle reports the same values on this host (`tests/wp2_config.rs`).
 7. **Labels removed.** The `label` parameters of the reader functions are removed
-   (`BITTRACE` is off), so `VP8GetValue(br, n)` and `VP8GetBit(br, prob)` are the
-   Rust signatures.
-8. **Lengths of the input.** `VP8InitBitReader` and `VP8LInitBitReader` take the
-   slice, so the C size argument is the slice length. The assertion `size < 1 << 31`
-   is a debug assertion.
+   (`BITTRACE` is off), so `VP8GetValue(br, data, n)` and `VP8GetBit(br, data, prob)`
+   are the Rust signatures.
+8. **Input of init and set-buffer.** `VP8InitBitReader` takes the input slice, and
+   its length is the C size argument. `VP8BitReaderSetBuffer` and
+   `VP8LBitReaderSetBuffer` take the length only, because the input is passed to
+   the reads. The assertion `size < 1 << 31` is a debug assertion.
 9. **Writer constants.** `VP8L_WRITER_BYTES`, `VP8L_WRITER_BITS` and
    `VP8L_WRITER_MAX_BITS` are chosen by target: 4, 32 and 64 on x86-64, and 2, 16
    and 32 elsewhere. The types `vp8l_atype_t` and `vp8l_wtype_t` follow them. The
@@ -205,7 +221,7 @@ the Rust side cannot reproduce exactly. Each records the reason.
       it never wrote. The tests reset only after a clone of the same source.
     - `VP8LBitWriterClone` from a writer without a buffer passes a null pointer to
       `memcpy`. No sequence wipes a writer before a clone.
-    - `VP8LBitReaderSetBuffer` with a buffer shorter than the reader's position is a
+    - `VP8LBitReaderSetBuffer` with a length shorter than the reader's position is a
       parameter error (the comment of the function says so), and upstream's own
       debug assertion in `VP8LIsEndOfStream` fires there. The Rust debug assertion
       mirrors it. The tests substitute `fill` for such a call.
@@ -214,3 +230,18 @@ the Rust side cannot reproduce exactly. Each records the reason.
     - `VP8LReadBits` with a negative count indexes `kBitMask` out of range. The
       Rust index panics in every profile, after the debug assertion; C reads outside
       the table. No test issues it.
+    - `VP8RemapBitReader` with a position that would become negative is outside the
+      contract of the owner (the pointer would leave its allocation). The Rust
+      version panics; no test issues it.
+14. **Remap by an index delta.** `VP8RemapBitReader` adds a signed offset to the
+    positions. The owner passes the index delta of its bytes, not the pointer
+    difference of two allocations, which C's caller computes. Both sides of the
+    remap test move the input inside one allocation, so that the C pointer
+    difference and the index delta are the same number. The test does not move the
+    input to a second allocation, because a pointer difference between two
+    allocations contains the distance of their bases, which an index delta does not.
+15. **Readers without a buffer.** The C test `buf == NULL` is the flag `has_buf`. A
+    reader without a buffer reports its positions as 0 in the probe state, as it has
+    no index into a buffer. `VP8RemapBitReader` leaves such a reader unchanged, and
+    the tests check it by remapping readers without a buffer by offsets of both
+    signs.
