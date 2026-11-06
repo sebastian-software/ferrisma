@@ -10,7 +10,7 @@ recorded. The integrator aggregates this page from the package pages in
 
 | Package | Sub-wave | Status | Page |
 | --- | --- | --- | --- |
-| WP0 bootstrap | 0 | done (local host; CI not run) | [wp0](status/wp0.md) |
+| WP0 bootstrap | 0 | done (local host and CI) | [wp0](status/wp0.md) |
 | WP1 types, memory, workers | 1a | not started | [wp1](status/wp1.md) |
 | WP2 bit I/O | 1b | not started | [wp2](status/wp2.md) |
 | WP3 lossless shared | 1c | not started | [wp3](status/wp3.md) |
@@ -66,12 +66,17 @@ needed on this host: `md5sum` resolves to `/sbin/md5sum`, the FreeBSD-derived
 `md5` of macOS in its GNU-compatible mode, which prints `name: OK` lines like
 GNU coreutils. The script passes it explicitly as `--md5exec`; on macOS releases
 before 14, which lack `md5sum`, it falls back to `gmd5sum` from Homebrew
-coreutils.
+coreutils. On the Ubuntu 26.04 CI runner, `md5sum` resolves to the uutils
+coreutils binary (`/usr/lib/cargo/bin/coreutils/md5sum`), which accepts `-c -`
+as well.
+
+The first CI run reproduced the same counts for all three variants on the
+Linux x86-64 and macOS ARM64 runners listed under Platform evidence.
 
 ## Platform evidence
 
 | Host | Evidence |
 | --- | --- |
 | macOS ARM64, Apple clang 21, Rust 1.99.0 stable and 1.95.0 | `python3 tools/check.py --oracle --msrv`, the WP0 test against all three oracle variants, the baseline above |
-| Linux x86-64, Clang | none yet: the CI workflow runs once the repository has a remote |
-| macOS ARM64, GitHub runner | none yet, as above |
+| Linux x86-64, GitHub runner `ubuntu-26.04` (image 20261101.186.1), Ubuntu clang 21.1.8, CMake 4.4.5, Rust 1.99.1 stable and 1.95.0 | [CI run 42128339121](https://github.com/sebastian-software/libwebp-rs/actions/runs/42128339121) on `6e0315b`, 6 November 2026: `python3 tools/check.py`; the MSRV job (`--stage test --msrv`, build and tests on Rust 1.95.0); the oracle job, in which all three variants build natively (the first native evidence for the `-msse2` fix of ADR 0002), `tools/unit_dependencies.py --check` finds no undeclared reference, the WP0 test passes in all three profiles against the `release` and `asan-ubsan` oracles (LeakSanitizer active by default), and the baseline above passes for all three variants |
+| macOS ARM64, GitHub runner `macos-26-arm64` (image 20261026.0455.2), Apple clang 21.0.0 (clang-2100.1.1.101), CMake 4.4.4, Rust 1.99.1 stable | same run: `python3 tools/check.py` and the oracle job as on Linux |

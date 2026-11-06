@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-05
+- Updated: 2026-11-06
 
 ## Context
 
@@ -34,7 +34,8 @@ and Clang then rejects every function that returns a `double`
 oracle appends `-msse2` on x86-64 only. That restores the ABI baseline, which
 the Rust port uses as well; `-mno-sse4.1` and `-mno-avx2` stay and no intrinsics
 file is compiled. A cross-compile on macOS confirmed both the failure and the
-fix; the Linux CI job is the first native evidence.
+fix, and the first Linux CI run (Clang 21.1.8 on x86-64) confirmed the fix
+natively.
 
 Three variants land in `build/oracle/<variant>/`: `release` is the reference;
 `asan-ubsan` is the same build with AddressSanitizer and

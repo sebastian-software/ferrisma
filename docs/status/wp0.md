@@ -1,8 +1,8 @@
 # WP0: bootstrap
 
 - Status: done on 5 November 2026, revised on 6 November 2026 after the
-  maintainer's decisions on findings 1, 6 and 7 (local host); CI not run yet,
-  because the repository has no remote
+  maintainer's decisions on findings 1, 6 and 7; verified on the local host and
+  by the first CI run on 6 November 2026, which passed every job
 - Sub-wave: 0
 - Model: Claude Opus 5.5 (`claude-opus-5-5`)
 - Depends on: nothing
@@ -63,9 +63,39 @@ On the macOS ARM64 host described in [PORT_STATUS.md](../PORT_STATUS.md), on
 - A cross-compile of the oracle for x86-64 on the same host reproduced the
   `-mno-sse2` build failure and confirmed that `-msse2` fixes it (ADR 0002).
 
-The workflows have not run on GitHub; `act` is not installed, so they were checked
-by review only. The Linux x86-64 oracle job will be the first native evidence for
-the `-msse2` fix.
+On GitHub, the first run of `.github/workflows/check.yml`
+([42128339121](https://github.com/sebastian-software/libwebp-rs/actions/runs/42128339121),
+push of `6e0315b` to `main`, 6 November 2026) passed all six jobs without a change
+to the repository:
+
+| Job | Runner | Result |
+| --- | --- | --- |
+| Checks (ubuntu-latest) | `ubuntu-26.04`, x86-64 | passed: `python3 tools/check.py` (pins, skeleton, links, formatting, Clippy with `-D warnings`, tests in three profiles) |
+| Checks (macos-latest) | `macos-26-arm64` | passed: the same |
+| MSRV (Rust 1.95) | `ubuntu-26.04`, x86-64 | passed: tests on stable, then `cargo +1.95 build --all-targets` and `cargo +1.95 test` with Rust 1.95.0 |
+| Oracle (ubuntu-latest) | `ubuntu-26.04`, x86-64, Ubuntu clang 21.1.8 | passed: all three oracle variants build natively; dependency check, WP0 test and baseline against `release` and `asan-ubsan`; baseline of `debug` |
+| Oracle (macos-latest) | `macos-26-arm64`, Apple clang 21.0.0 | passed: the same |
+| Checks passed | `ubuntu-26.04` | passed |
+
+- The Linux x86-64 oracle job is the first native evidence for the `-msse2` fix
+  (ADR 0002): upstream's recorded flags end in `-mno-sse4.1 -mno-sse2`, and
+  `src/dsp/ssim.c`, whose functions return `double`, compiled and linked in
+  all three variants. `upstream-flags.txt` records only upstream's
+  `CMAKE_C_FLAGS`, so the `-msse2` from `add_compile_options` does not appear in
+  it.
+- Both oracle jobs report the baseline counts of the local host for all three
+  variants: 480 of 480 checksums (960 verifications) and 33 lossless vectors
+  (330 comparisons). `tests/wp0_features.rs` passes in the dev, release and
+  `checked` profiles against the `release` and `asan-ubsan` oracles; on Linux,
+  AddressSanitizer runs with LeakSanitizer enabled by default.
+- `tools/unit_dependencies.py --check` finds no undeclared reference on either
+  runner, so the ELF and Mach-O symbol tables agree with the declared
+  dependencies.
+- The jobs without an oracle run `tests/wp0_features.rs` too; without
+  `LIBWEBP_ORACLE_DIR` its two tests return early, so they count as evidence
+  only in the oracle jobs.
+- The `oracle-ubuntu-latest` and `oracle-macos-latest` artifacts keep
+  `oracle.json`, `upstream-flags.txt` and the baseline records of each variant.
 
 ## Not-applicable checks
 
