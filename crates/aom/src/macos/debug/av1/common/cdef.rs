@@ -13,6 +13,26 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut cdef_copy_rect8_16bit_to_16bit: Option<
+        unsafe extern "C-unwind" fn(
+            *mut uint16_t,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_copy_rect8_8bit_to_16bit: Option<
+        unsafe extern "C-unwind" fn(
+            *mut uint16_t,
+            core::ffi::c_int,
+            *const uint8_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
     fn av1_cdef_filter_fb(
         dst8: *mut uint8_t,
         dst16: *mut uint16_t,
@@ -1534,7 +1554,8 @@ pub unsafe extern "C-unwind" fn av1_cdef_copy_sb8_16_lowbd(
             (src_voffset as ptrdiff_t * sstride as ptrdiff_t + src_hoffset as ptrdiff_t)
                 as isize,
         ) as *const uint8_t;
-    cdef_copy_rect8_8bit_to_16bit_c(dst, dstride, base, sstride, hsize, vsize);
+    cdef_copy_rect8_8bit_to_16bit
+        .expect("non-null function pointer")(dst, dstride, base, sstride, hsize, vsize);
 }
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_cdef_copy_sb8_16_highbd(
@@ -1553,7 +1574,8 @@ pub unsafe extern "C-unwind" fn av1_cdef_copy_sb8_16_highbd(
             (src_voffset as ptrdiff_t * sstride as ptrdiff_t + src_hoffset as ptrdiff_t)
                 as isize,
         ) as *mut uint16_t;
-    cdef_copy_rect8_16bit_to_16bit_c(dst, dstride, base, sstride, hsize, vsize);
+    cdef_copy_rect8_16bit_to_16bit
+        .expect("non-null function pointer")(dst, dstride, base, sstride, hsize, vsize);
 }
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_cdef_copy_sb8_16(

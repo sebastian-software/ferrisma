@@ -35,12 +35,14 @@ extern "C-unwind" {
         xd: *const macroblockd,
         segment_id: core::ffi::c_int,
     ) -> bool;
-    fn av1_block_error_c(
-        coeff: *const tran_low_t,
-        dqcoeff: *const tran_low_t,
-        block_size: intptr_t,
-        ssz: *mut int64_t,
-    ) -> int64_t;
+    static mut av1_block_error: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *const tran_low_t,
+            intptr_t,
+            *mut int64_t,
+        ) -> int64_t,
+    >;
     fn av1_get_crc32c_value_c(
         crc_calculator: *mut core::ffi::c_void,
         p: *const uint8_t,
@@ -54,13 +56,15 @@ extern "C-unwind" {
         hcorr: *mut core::ffi::c_float,
         vcorr: *mut core::ffi::c_float,
     );
-    fn av1_highbd_block_error_c(
-        coeff: *const tran_low_t,
-        dqcoeff: *const tran_low_t,
-        block_size: intptr_t,
-        ssz: *mut int64_t,
-        bd: core::ffi::c_int,
-    ) -> int64_t;
+    static mut av1_highbd_block_error: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *const tran_low_t,
+            intptr_t,
+            *mut int64_t,
+            core::ffi::c_int,
+        ) -> int64_t,
+    >;
     fn av1_nn_fast_softmax_16_c(
         input_nodes: *const core::ffi::c_float,
         output: *mut core::ffi::c_float,
@@ -20198,13 +20202,10 @@ unsafe extern "C-unwind" fn dist_block_tx_domain(
     let xd: *mut MACROBLOCKD = &raw mut (*x).e_mbd;
     if is_cur_buf_hbd(xd) != 0 {
         if qmatrix.is_null() || (*x).txfm_search_params.use_qm_dist_metric == 0 {
-            *out_dist = av1_highbd_block_error_c(
-                coeff,
-                dqcoeff,
-                buffer_length as intptr_t,
-                &raw mut this_sse,
-                (*xd).bd,
-            );
+            *out_dist = av1_highbd_block_error
+                .expect(
+                    "non-null function pointer",
+                )(coeff, dqcoeff, buffer_length as intptr_t, &raw mut this_sse, (*xd).bd);
         } else {
             *out_dist = av1_block_error_qm(
                 coeff,
@@ -20217,12 +20218,10 @@ unsafe extern "C-unwind" fn dist_block_tx_domain(
             );
         }
     } else if qmatrix.is_null() || (*x).txfm_search_params.use_qm_dist_metric == 0 {
-        *out_dist = av1_block_error_c(
-            coeff,
-            dqcoeff,
-            buffer_length as intptr_t,
-            &raw mut this_sse,
-        );
+        *out_dist = av1_block_error
+            .expect(
+                "non-null function pointer",
+            )(coeff, dqcoeff, buffer_length as intptr_t, &raw mut this_sse);
     } else {
         *out_dist = av1_block_error_qm(
             coeff,

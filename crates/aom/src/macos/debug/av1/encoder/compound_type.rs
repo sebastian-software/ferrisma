@@ -126,16 +126,18 @@ extern "C-unwind" {
         width: core::ffi::c_int,
         height: core::ffi::c_int,
     ) -> int64_t;
-    fn aom_highbd_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
+    static mut aom_highbd_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
     fn aom_sse_c(
         a: *const uint8_t,
         a_stride: core::ffi::c_int,
@@ -144,16 +146,18 @@ extern "C-unwind" {
         width: core::ffi::c_int,
         height: core::ffi::c_int,
     ) -> int64_t;
-    fn aom_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
+    static mut aom_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
     fn aom_sum_squares_i16_c(src: *const int16_t, N: uint32_t) -> uint64_t;
     fn av1_interinter_compound_motion_search(
         cpi: *const AV1_COMP,
@@ -7572,7 +7576,10 @@ unsafe extern "C-unwind" fn pick_wedge(
     };
     let mut residual0: crate::platform::Aligned32<[int16_t; 16384]> = crate::platform::Aligned32([0; 16384]);
     if hbd != 0 {
-        aom_highbd_subtract_block_c(
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             residual0.0.as_mut_ptr(),
@@ -7583,7 +7590,10 @@ unsafe extern "C-unwind" fn pick_wedge(
             bw as ptrdiff_t,
         );
     } else {
-        aom_subtract_block_c(
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             residual0.0.as_mut_ptr(),
@@ -7950,7 +7960,10 @@ unsafe extern "C-unwind" fn pick_interintra_wedge(
     let mut residual1: crate::platform::Aligned32<[int16_t; 16384]> = crate::platform::Aligned32([0; 16384]);
     let mut diff10: crate::platform::Aligned32<[int16_t; 16384]> = crate::platform::Aligned32([0; 16384]);
     if is_cur_buf_hbd(xd) != 0 {
-        aom_highbd_subtract_block_c(
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             residual1.0.as_mut_ptr(),
@@ -7960,7 +7973,10 @@ unsafe extern "C-unwind" fn pick_interintra_wedge(
             (p1 as uintptr_t >> 1 as core::ffi::c_int) as *mut uint8_t,
             bw as ptrdiff_t,
         );
-        aom_highbd_subtract_block_c(
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             diff10.0.as_mut_ptr(),
@@ -7971,7 +7987,10 @@ unsafe extern "C-unwind" fn pick_interintra_wedge(
             bw as ptrdiff_t,
         );
     } else {
-        aom_subtract_block_c(
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             residual1.0.as_mut_ptr(),
@@ -7981,7 +8000,10 @@ unsafe extern "C-unwind" fn pick_interintra_wedge(
             p1,
             bw as ptrdiff_t,
         );
-        aom_subtract_block_c(
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             diff10.0.as_mut_ptr(),
@@ -8043,7 +8065,10 @@ unsafe extern "C-unwind" fn get_inter_predictors_masked_compound(
         .offset(0 as core::ffi::c_int as isize))
         .src;
     if is_cur_buf_hbd(xd) != 0 {
-        aom_highbd_subtract_block_c(
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             residual1,
@@ -8053,7 +8078,10 @@ unsafe extern "C-unwind" fn get_inter_predictors_masked_compound(
             (*preds1 as uintptr_t >> 1 as core::ffi::c_int) as *mut uint8_t,
             bw as ptrdiff_t,
         );
-        aom_highbd_subtract_block_c(
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             diff10,
@@ -8064,7 +8092,10 @@ unsafe extern "C-unwind" fn get_inter_predictors_masked_compound(
             bw as ptrdiff_t,
         );
     } else {
-        aom_subtract_block_c(
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             residual1,
@@ -8074,7 +8105,10 @@ unsafe extern "C-unwind" fn get_inter_predictors_masked_compound(
             *preds1,
             bw as ptrdiff_t,
         );
-        aom_subtract_block_c(
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             diff10,

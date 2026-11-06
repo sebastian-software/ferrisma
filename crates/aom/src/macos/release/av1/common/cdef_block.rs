@@ -12,6 +12,146 @@
 // Mechanically translated from upstream/aom/av1/common/cdef_block.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    static mut cdef_filter_16_0: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_16_1: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_16_2: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_16_3: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_8_0: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_8_1: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_8_2: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_filter_8_3: Option<
+        unsafe extern "C-unwind" fn(
+            *mut core::ffi::c_void,
+            core::ffi::c_int,
+            *const uint16_t,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut cdef_find_dir: Option<
+        unsafe extern "C-unwind" fn(
+            *const uint16_t,
+            core::ffi::c_int,
+            *mut int32_t,
+            core::ffi::c_int,
+        ) -> core::ffi::c_int,
+    >;
+    static mut cdef_find_dir_dual: Option<
+        unsafe extern "C-unwind" fn(
+            *const uint16_t,
+            *const uint16_t,
+            core::ffi::c_int,
+            *mut int32_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            *mut core::ffi::c_int,
+            *mut core::ffi::c_int,
+        ) -> (),
+    >;
 }
 pub type __darwin_size_t = usize;
 pub type int16_t = i16;
@@ -821,7 +961,10 @@ unsafe extern "C-unwind" fn aom_cdef_find_dir(
             + 8 as core::ffi::c_int * bx;
         let pos2: core::ffi::c_int = 8 as core::ffi::c_int * by2 * CDEF_BSTRIDE
             + 8 as core::ffi::c_int * bx2;
-        cdef_find_dir_dual_c(
+        cdef_find_dir_dual
+            .expect(
+                "non-null function pointer",
+            )(
             &*in_0.offset(pos1 as isize),
             &*in_0.offset(pos2 as isize),
             CDEF_BSTRIDE,
@@ -836,7 +979,10 @@ unsafe extern "C-unwind" fn aom_cdef_find_dir(
     if cdef_count % 2 as core::ffi::c_int != 0 {
         let by_0: core::ffi::c_int = (*dlist.offset(bi as isize)).by as core::ffi::c_int;
         let bx_0: core::ffi::c_int = (*dlist.offset(bi as isize)).bx as core::ffi::c_int;
-        (*dir.offset(by_0 as isize))[bx_0 as usize] = cdef_find_dir_c(
+        (*dir.offset(by_0 as isize))[bx_0 as usize] = cdef_find_dir
+            .expect(
+                "non-null function pointer",
+            )(
             &*in_0
                 .offset(
                     (8 as core::ffi::c_int * by_0 * CDEF_BSTRIDE
@@ -948,70 +1094,10 @@ pub unsafe extern "C-unwind" fn av1_cdef_filter_fb(
         let block_width: core::ffi::c_int = 8 as core::ffi::c_int >> xdec;
         let block_height: core::ffi::c_int = 8 as core::ffi::c_int >> ydec;
         let cdef_filter_fn: [cdef_filter_block_func; 4] = [
-            Some(
-                cdef_filter_8_0_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
-            Some(
-                cdef_filter_8_1_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
-            Some(
-                cdef_filter_8_2_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
-            Some(
-                cdef_filter_8_3_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
+            cdef_filter_8_0,
+            cdef_filter_8_1,
+            cdef_filter_8_2,
+            cdef_filter_8_3,
         ];
         bi = 0 as core::ffi::c_int;
         while bi < cdef_count {
@@ -1055,70 +1141,10 @@ pub unsafe extern "C-unwind" fn av1_cdef_filter_fb(
         let block_width_0: core::ffi::c_int = 8 as core::ffi::c_int >> xdec;
         let block_height_0: core::ffi::c_int = 8 as core::ffi::c_int >> ydec;
         let cdef_filter_fn_0: [cdef_filter_block_func; 4] = [
-            Some(
-                cdef_filter_16_0_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
-            Some(
-                cdef_filter_16_1_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
-            Some(
-                cdef_filter_16_2_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
-            Some(
-                cdef_filter_16_3_c
-                    as unsafe extern "C-unwind" fn(
-                        *mut core::ffi::c_void,
-                        core::ffi::c_int,
-                        *const uint16_t,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                        core::ffi::c_int,
-                    ) -> (),
-            ),
+            cdef_filter_16_0,
+            cdef_filter_16_1,
+            cdef_filter_16_2,
+            cdef_filter_16_3,
         ];
         bi = 0 as core::ffi::c_int;
         while bi < cdef_count {

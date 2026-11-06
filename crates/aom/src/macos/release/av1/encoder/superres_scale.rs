@@ -32,13 +32,15 @@ extern "C-unwind" {
         alloc_pyramid: bool,
         alloc_y_plane_only: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn av1_fwd_txfm2d_16x4_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
+    static mut av1_fwd_txfm2d_16x4: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
         error: aom_codec_err_t,
@@ -5561,7 +5563,10 @@ unsafe extern "C-unwind" fn analyze_hor_freq(
         while i < height - 4 as core::ffi::c_int {
             let mut j: core::ffi::c_int = 0 as core::ffi::c_int;
             while j < width - 16 as core::ffi::c_int {
-                av1_fwd_txfm2d_16x4_c(
+                av1_fwd_txfm2d_16x4
+                    .expect(
+                        "non-null function pointer",
+                    )(
                     src16
                         .offset(
                             (i * (*buf).c2rust_unnamed_3.c2rust_unnamed.y_stride)
@@ -5626,7 +5631,10 @@ unsafe extern "C-unwind" fn analyze_hor_freq(
                     }
                     ii += 1;
                 }
-                av1_fwd_txfm2d_16x4_c(
+                av1_fwd_txfm2d_16x4
+                    .expect(
+                        "non-null function pointer",
+                    )(
                     src16_0.0.as_mut_ptr(),
                     coeff.0.as_mut_ptr(),
                     16 as core::ffi::c_int,

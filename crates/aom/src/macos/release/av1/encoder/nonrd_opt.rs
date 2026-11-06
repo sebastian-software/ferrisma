@@ -63,16 +63,18 @@ extern "C-unwind" {
         src_stride: ptrdiff_t,
         coeff: *mut int16_t,
     );
-    fn aom_highbd_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
+    static mut aom_highbd_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
     fn aom_satd_c(
         coeff: *const tran_low_t,
         length: core::ffi::c_int,
@@ -81,28 +83,30 @@ extern "C-unwind" {
         coeff: *const int16_t,
         length: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn aom_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
-    fn av1_block_error_lp_c(
-        coeff: *const int16_t,
-        dqcoeff: *const int16_t,
-        block_size: intptr_t,
-    ) -> int64_t;
-    fn av1_highbd_block_error_c(
-        coeff: *const tran_low_t,
-        dqcoeff: *const tran_low_t,
-        block_size: intptr_t,
-        ssz: *mut int64_t,
-        bd: core::ffi::c_int,
-    ) -> int64_t;
+    static mut aom_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
+    static mut av1_block_error_lp: Option<
+        unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
+    >;
+    static mut av1_highbd_block_error: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *const tran_low_t,
+            intptr_t,
+            *mut int64_t,
+            core::ffi::c_int,
+        ) -> int64_t,
+    >;
     fn av1_quantize_fp_c(
         coeff_ptr: *const tran_low_t,
         n_coeffs: intptr_t,
@@ -8107,11 +8111,11 @@ unsafe extern "C-unwind" fn update_yrd_loop_vars(
         (*this_rdc).rate += aom_satd_lp_c(low_qcoeff, step << 4 as core::ffi::c_int);
     }
     (*this_rdc).dist
-        += av1_block_error_lp_c(
-            low_coeff,
-            low_dqcoeff,
-            (step << 4 as core::ffi::c_int) as intptr_t,
-        ) >> 2 as core::ffi::c_int;
+        += av1_block_error_lp
+            .expect(
+                "non-null function pointer",
+            )(low_coeff, low_dqcoeff, (step << 4 as core::ffi::c_int) as intptr_t)
+            >> 2 as core::ffi::c_int;
 }
 #[inline]
 unsafe extern "C-unwind" fn aom_process_hadamard_lp_8x16(
@@ -8173,7 +8177,10 @@ unsafe extern "C-unwind" fn update_yrd_loop_vars_hbd(
         (*this_rdc).rate += aom_satd_c(qcoeff, step << 4 as core::ffi::c_int);
     }
     (*this_rdc).dist
-        += av1_highbd_block_error_c(
+        += av1_highbd_block_error
+            .expect(
+                "non-null function pointer",
+            )(
             coeff,
             dqcoeff,
             (step << 4 as core::ffi::c_int) as intptr_t,
@@ -8222,7 +8229,10 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
     let use_hbd: core::ffi::c_int = is_cur_buf_hbd(xd) as core::ffi::c_int;
     let mut num_blk_skip_w: core::ffi::c_int = num_4x4_w;
     if use_hbd != 0 {
-        aom_highbd_subtract_block_c(
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             (*p).src_diff,
@@ -8233,7 +8243,10 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
             (*pd).dst.stride as ptrdiff_t,
         );
     } else {
-        aom_subtract_block_c(
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(
             bh,
             bw,
             (*p).src_diff,
@@ -8555,7 +8568,10 @@ pub unsafe extern "C-unwind" fn av1_block_yrd_idtx(
     }
     (*this_rdc).dist = 0 as int64_t;
     (*this_rdc).rate = 0 as core::ffi::c_int;
-    aom_subtract_block_c(
+    aom_subtract_block
+        .expect(
+            "non-null function pointer",
+        )(
         bh,
         bw,
         (*p).src_diff,

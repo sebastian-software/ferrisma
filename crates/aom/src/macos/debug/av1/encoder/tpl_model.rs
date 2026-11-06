@@ -52,47 +52,55 @@ extern "C-unwind" {
         row: core::ffi::c_int,
         col: core::ffi::c_int,
     );
-    fn aom_highbd_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
+    static mut aom_highbd_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
     fn aom_satd_c(
         coeff: *const tran_low_t,
         length: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn aom_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
+    static mut aom_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
     fn aom_extend_frame_borders_c(
         ybf: *mut yv12_buffer_config,
         num_planes: core::ffi::c_int,
     );
-    fn av1_block_error_c(
-        coeff: *const tran_low_t,
-        dqcoeff: *const tran_low_t,
-        block_size: intptr_t,
-        ssz: *mut int64_t,
-    ) -> int64_t;
-    fn av1_highbd_block_error_c(
-        coeff: *const tran_low_t,
-        dqcoeff: *const tran_low_t,
-        block_size: intptr_t,
-        ssz: *mut int64_t,
-        bd: core::ffi::c_int,
-    ) -> int64_t;
+    static mut av1_block_error: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *const tran_low_t,
+            intptr_t,
+            *mut int64_t,
+        ) -> int64_t,
+    >;
+    static mut av1_highbd_block_error: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *const tran_low_t,
+            intptr_t,
+            *mut int64_t,
+            core::ffi::c_int,
+        ) -> int64_t,
+    >;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
         error: aom_codec_err_t,
@@ -9071,13 +9079,10 @@ unsafe extern "C-unwind" fn get_quantize_error(
             scan_order,
             &raw mut quant_param,
         );
-        *recon_error = av1_highbd_block_error_c(
-            coeff,
-            dqcoeff,
-            pix_num as intptr_t,
-            sse,
-            (*xd).bd,
-        ) >> shift;
+        *recon_error = av1_highbd_block_error
+            .expect(
+                "non-null function pointer",
+            )(coeff, dqcoeff, pix_num as intptr_t, sse, (*xd).bd) >> shift;
     } else {
         av1_quantize_fp_facade(
             coeff,
@@ -9089,8 +9094,10 @@ unsafe extern "C-unwind" fn get_quantize_error(
             scan_order,
             &raw mut quant_param,
         );
-        *recon_error = av1_block_error_c(coeff, dqcoeff, pix_num as intptr_t, sse)
-            >> shift;
+        *recon_error = av1_block_error
+            .expect(
+                "non-null function pointer",
+            )(coeff, dqcoeff, pix_num as intptr_t, sse) >> shift;
     }
     *recon_error = if *recon_error > 1 as int64_t { *recon_error } else { 1 as int64_t };
     *sse = *sse >> shift;
@@ -9310,28 +9317,16 @@ unsafe extern "C-unwind" fn tpl_subtract_block(
         );
     } else {};
     if bd_info.use_highbitdepth_buf != 0 {
-        aom_highbd_subtract_block_c(
-            rows,
-            cols,
-            diff,
-            diff_stride,
-            src8,
-            src_stride,
-            pred8,
-            pred_stride,
-        );
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(rows, cols, diff, diff_stride, src8, src_stride, pred8, pred_stride);
         return;
     }
-    aom_subtract_block_c(
-        rows,
-        cols,
-        diff,
-        diff_stride,
-        src8,
-        src_stride,
-        pred8,
-        pred_stride,
-    );
+    aom_subtract_block
+        .expect(
+            "non-null function pointer",
+        )(rows, cols, diff, diff_stride, src8, src_stride, pred8, pred_stride);
 }
 #[inline]
 unsafe extern "C-unwind" fn tpl_get_satd_cost(

@@ -14,6 +14,14 @@
 use ::c2rust_bitfields;
 extern "C-unwind" {
     pub type aom_internal_error_info;
+    static mut av1_highbd_inv_txfm_add: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *mut uint8_t,
+            core::ffi::c_int,
+            *const TxfmParam,
+        ) -> (),
+    >;
     fn av1_highbd_iwht4x4_16_add_c(
         input: *const tran_low_t,
         dest: *mut uint8_t,
@@ -1718,7 +1726,10 @@ pub unsafe extern "C-unwind" fn av1_inv_txfm_add_c(
         }
         r += 1;
     }
-    av1_highbd_inv_txfm_add_c(
+    av1_highbd_inv_txfm_add
+        .expect(
+            "non-null function pointer",
+        )(
         dqcoeff,
         (tmp.0.as_mut_ptr() as uintptr_t >> 1 as core::ffi::c_int) as *mut uint8_t,
         tmp_stride,
@@ -1788,7 +1799,8 @@ pub unsafe extern "C-unwind" fn av1_inverse_transform_block(
         );
     } else {};
     if txfm_param.is_hbd != 0 {
-        av1_highbd_inv_txfm_add_c(dqcoeff, dst, stride, &raw mut txfm_param);
+        av1_highbd_inv_txfm_add
+            .expect("non-null function pointer")(dqcoeff, dst, stride, &raw mut txfm_param);
     } else {
         av1_inv_txfm_add_c(dqcoeff, dst, stride, &raw mut txfm_param);
     };

@@ -34,38 +34,44 @@ extern "C-unwind" {
         tx_size: TX_SIZE,
         tx_type: TX_TYPE,
     ) -> *const qm_val_t;
-    fn av1_highbd_inv_txfm_add_c(
-        input: *const tran_low_t,
-        dest: *mut uint8_t,
-        stride: core::ffi::c_int,
-        txfm_param: *const TxfmParam,
-    );
+    static mut av1_highbd_inv_txfm_add: Option<
+        unsafe extern "C-unwind" fn(
+            *const tran_low_t,
+            *mut uint8_t,
+            core::ffi::c_int,
+            *const TxfmParam,
+        ) -> (),
+    >;
     fn av1_inv_txfm_add_c(
         dqcoeff: *const tran_low_t,
         dst: *mut uint8_t,
         stride: core::ffi::c_int,
         txfm_param: *const TxfmParam,
     );
-    fn aom_highbd_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
-    fn aom_subtract_block_c(
-        rows: core::ffi::c_int,
-        cols: core::ffi::c_int,
-        diff_ptr: *mut int16_t,
-        diff_stride: ptrdiff_t,
-        src_ptr: *const uint8_t,
-        src_stride: ptrdiff_t,
-        pred_ptr: *const uint8_t,
-        pred_stride: ptrdiff_t,
-    );
+    static mut aom_highbd_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
+    static mut aom_subtract_block: Option<
+        unsafe extern "C-unwind" fn(
+            core::ffi::c_int,
+            core::ffi::c_int,
+            *mut int16_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+            *const uint8_t,
+            ptrdiff_t,
+        ) -> (),
+    >;
     fn cfl_store_tx(
         xd: *mut MACROBLOCKD,
         row: core::ffi::c_int,
@@ -7784,27 +7790,15 @@ pub unsafe extern "C-unwind" fn av1_subtract_block(
     let xd: *const MACROBLOCKD = &(*x).e_mbd;
     let mut bd_info: BitDepthInfo = get_bit_depth_info(xd);
     if bd_info.use_highbitdepth_buf != 0 {
-        aom_highbd_subtract_block_c(
-            rows,
-            cols,
-            diff,
-            diff_stride,
-            src8,
-            src_stride,
-            pred8,
-            pred_stride,
-        );
+        aom_highbd_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(rows, cols, diff, diff_stride, src8, src_stride, pred8, pred_stride);
     } else {
-        aom_subtract_block_c(
-            rows,
-            cols,
-            diff,
-            diff_stride,
-            src8,
-            src_stride,
-            pred8,
-            pred_stride,
-        );
+        aom_subtract_block
+            .expect(
+                "non-null function pointer",
+            )(rows, cols, diff, diff_stride, src8, src_stride, pred8, pred_stride);
     }
     if !do_border_pad {
         return;
@@ -8782,7 +8776,10 @@ unsafe extern "C-unwind" fn encode_block_pass1(
     if *((*p).eobs).offset(block as isize) as core::ffi::c_int > 0 as core::ffi::c_int {
         txfm_param.eob = *((*p).eobs).offset(block as isize) as core::ffi::c_int;
         if txfm_param.is_hbd != 0 {
-            av1_highbd_inv_txfm_add_c(dqcoeff, dst, (*pd).dst.stride, &raw mut txfm_param);
+            av1_highbd_inv_txfm_add
+                .expect(
+                    "non-null function pointer",
+                )(dqcoeff, dst, (*pd).dst.stride, &raw mut txfm_param);
             return;
         }
         av1_inv_txfm_add_c(dqcoeff, dst, (*pd).dst.stride, &raw mut txfm_param);
