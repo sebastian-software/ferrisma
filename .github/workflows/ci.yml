@@ -80,8 +80,7 @@ jobs:
 
   # libavif-rs encoder adapter (ADR-0024): outside the workspace, on the
   # nightly that libavif-rs pins, with libvmaf through pkg-config. libavif-rs
-  # builds on aarch64 macOS and x86-64 GNU Linux; Linux needs libvmaf 3.2,
-  # which Ubuntu does not package, so this job runs on macOS for now.
+  # builds on aarch64 macOS and x86-64 GNU Linux.
   libavif-backend:
     runs-on: macos-latest
     defaults:
@@ -97,6 +96,51 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Format
         run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --release --all-features --all-targets --locked -- -D warnings
+      - name: Test (decodes with libavif-rs's own decoder)
+        run: cargo test --release --all-features --locked
+
+  # The same adapter on x86-64 GNU Linux. Ubuntu packages an older libvmaf,
+  # so the job builds the libvmaf 3.2.1 that libavif-rs pins, with the
+  # options of libavif-rs's `tools/build_aom_vmaf.py` (Meson 1.7.2, static,
+  # no assembly), and caches it.
+  libavif-backend-linux:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: crates/ferrixel-libavif
+    env:
+      VMAF_PREFIX: ${{ github.workspace }}/.vmaf/install
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y ninja-build pkg-config
+      - name: Cache libvmaf 3.2.1
+        id: vmaf-cache
+        uses: actions/cache@v4
+        with:
+          path: .vmaf/install
+          key: libvmaf-v3.2.1-f85a853-meson-1.7.2-static-noasm-${{ runner.os }}-${{ runner.arch }}
+      - name: Build libvmaf 3.2.1
+        if: steps.vmaf-cache.outputs.cache-hit != 'true'
+        working-directory: .
+        run: |
+          python3 -m venv .vmaf/venv
+          .vmaf/venv/bin/pip install --quiet meson==1.7.2
+          git clone --quiet --depth=1 --branch v3.2.1 https://github.com/Netflix/vmaf.git .vmaf/src
+          test "$(git -C .vmaf/src rev-parse HEAD)" = f85a853692a8c730d0270cd733c8bb30b5b93b7c
+          .vmaf/venv/bin/meson setup .vmaf/build .vmaf/src/libvmaf --buildtype=release \
+            --prefix "$VMAF_PREFIX" --libdir=lib -Ddefault_library=static -Denable_asm=false \
+            -Denable_tests=false -Denable_docs=false -Denable_tools=false \
+            -Dbuilt_in_models=true -Denable_float=true
+          ninja -C .vmaf/build install
+      - name: Point pkg-config at libvmaf
+        run: |
+          echo "PKG_CONFIG_PATH=$VMAF_PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+          PKG_CONFIG_PATH="$VMAF_PREFIX/lib/pkgconfig" pkg-config --modversion libvmaf
+      - name: Install the pinned nightly from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Lint
         run: cargo clippy --release --all-features --all-targets --locked -- -D warnings
       - name: Test (decodes with libavif-rs's own decoder)
