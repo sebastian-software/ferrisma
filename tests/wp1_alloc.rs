@@ -9,6 +9,13 @@
 //! case reserves the same number of bytes in both languages. Calloc cases stay
 //! small when accepted: the Rust calloc writes its zeros, while C's calloc of a
 //! large block is lazily zeroed, and writing 16 GiB would not be a test.
+//!
+//! The C functions assert `nmemb * size > 0` on the accepted path (`utils.c`,
+//! lines 200 and 210). A zero count or a zero size therefore has no C decision to
+//! compare: the debug oracle aborts on it, and the other variants return whatever
+//! `malloc(0)` returns. Those requests are excluded from the comparison in every
+//! variant, and `zero_size_requests_are_recorded_for_rust_only` records the Rust
+//! decision for them.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -44,8 +51,18 @@ fn calloc_accepts(nmemb: u64, size: u64) -> bool {
     }
 }
 
+/// Whether the C functions reach their `nmemb * size > 0` assertion with a nonzero
+/// product, so that the comparison has a C decision to check. A zero count or a
+/// zero size reaches the assertion with a zero product, which C leaves undefined.
+/// A product that wraps in 64 bits fails the size test first, so it stays
+/// compared.
+fn has_c_decision(nmemb: u64, size: u64) -> bool {
+    nmemb != 0 && size != 0
+}
+
 /// The malloc cases, which may reserve up to `WEBP_MAX_ALLOCABLE_MEMORY` bytes
-/// lazily in both languages.
+/// lazily in both languages. The zero-size cases are listed here too, and the
+/// tests below split them with `has_c_decision`.
 fn malloc_cases() -> Vec<(u64, u64)> {
     vec![
         (0, 0),
@@ -114,17 +131,49 @@ fn safe_allocation_decisions_match_the_c_helpers() {
 
     let mut stdin = String::new();
     let mut expected = Fields::new();
-    for (nmemb, size) in malloc_cases() {
+    for (nmemb, size) in malloc_cases()
+        .into_iter()
+        .filter(|&(nmemb, size)| has_c_decision(nmemb, size))
+    {
         stdin.push_str(&format!("malloc {nmemb} {size}\n"));
         expected = expected.with("accepted", i32::from(malloc_accepts(nmemb, size)));
     }
-    for (nmemb, size) in calloc_cases() {
+    for (nmemb, size) in calloc_cases()
+        .into_iter()
+        .filter(|&(nmemb, size)| has_c_decision(nmemb, size))
+    {
         stdin.push_str(&format!("calloc {nmemb} {size}\n"));
         expected = expected.with("accepted", i32::from(calloc_accepts(nmemb, size)));
     }
 
     let c_decisions = probe.run::<&str>(&[], stdin.as_bytes()).success().fields();
     assert_eq!(c_decisions, expected);
+}
+
+/// Records the Rust decision for the zero-size requests that the comparison
+/// excludes. No C decision is compared here, so this needs no oracle. The size
+/// test accepts a zero count or a zero size. `WebPSafeMalloc` reserves capacity
+/// only, and `WebPSafeCalloc` fills `nmemb` zeroed elements.
+#[test]
+fn zero_size_requests_are_recorded_for_rust_only() {
+    for (nmemb, size) in malloc_cases()
+        .into_iter()
+        .filter(|&(nmemb, size)| !has_c_decision(nmemb, size))
+    {
+        assert!(malloc_accepts(nmemb, size), "malloc({nmemb}, {size})");
+    }
+    for (nmemb, size) in calloc_cases()
+        .into_iter()
+        .filter(|&(nmemb, size)| !has_c_decision(nmemb, size))
+    {
+        assert!(calloc_accepts(nmemb, size), "calloc({nmemb}, {size})");
+    }
+    let malloc_len = webp_safe_malloc::<[u8; 0]>(5, 0);
+    assert_eq!(malloc_len.as_ref().map(Vec::len), Some(0));
+    let calloc_len = webp_safe_calloc::<[u8; 0]>(5, 0);
+    assert_eq!(calloc_len.as_ref().map(Vec::len), Some(5));
+    let empty_len = webp_safe_calloc::<[u8; 0]>(0, 0);
+    assert_eq!(empty_len.as_ref().map(Vec::len), Some(0));
 }
 
 /// Checks the limit against the arithmetic of `CheckSizeArgumentsOverflow`
@@ -139,6 +188,4 @@ fn rejected_sizes_never_reserve_memory() {
     assert!(!malloc_accepts(u64::MAX, 1));
     assert!(!calloc_accepts(MAX + 1, 1));
     assert!(!calloc_accepts(1 << 63, 2));
-    assert!(malloc_accepts(0, 0));
-    assert!(calloc_accepts(0, 0));
 }
