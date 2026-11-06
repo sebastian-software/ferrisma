@@ -390,12 +390,19 @@ pub fn transcode(
             "compressed image exceeds max_input_bytes",
         ));
     }
+    let transform_threads = match (options.precision, options.transform_threads) {
+        (WorkingPrecision::F64Reference, _) => 1,
+        (WorkingPrecision::F32, 0) => {
+            std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
+        }
+        (WorkingPrecision::F32, threads) => threads,
+    };
     let source = open_source(encoded, format, options.max_input_pixels)?;
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
         source
     } else {
-        Box::new(OrientedSource::new(source)?)
+        Box::new(OrientedSource::new(source)?.with_threads(transform_threads))
     };
     let dimensions = source.info().size;
     let pixels = u64::from(dimensions.width) * u64::from(dimensions.height);
@@ -472,13 +479,6 @@ pub fn transcode(
     let mut output_sink = AvifSink::new(target_size, transparent, encode_settings, &budget)?;
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
-    let transform_threads = match (options.precision, options.transform_threads) {
-        (WorkingPrecision::F64Reference, _) => 1,
-        (WorkingPrecision::F32, 0) => {
-            std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
-        }
-        (WorkingPrecision::F32, threads) => threads,
-    };
     let kernels = match options.kernel_level_ceiling {
         Some(ceiling) => ferrixel_kernels::Kernels::with_ceiling(ceiling),
         None => ferrixel_kernels::Kernels::best(),

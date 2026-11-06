@@ -20,13 +20,15 @@
 //! decoder request, cancellation and the zero-full-frame contract are the
 //! same as in the reference.
 
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use ferrixel_kernels::{KernelError, Kernels, Taps};
 
 use crate::color::{AlphaMode, ColorEncoding};
-use crate::decoder::{ChannelLayout, DecodeReport, DecodeSource, DecodedRow, SampleType};
+use crate::decoder::{
+    ChannelLayout, DecodeReport, DecodeSource, DecodedRow, RowConversion, SampleType,
+};
 use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId};
@@ -370,6 +372,47 @@ pub(crate) fn linearize_row<const C: usize>(
     Ok(())
 }
 
+/// Per-thread buffers for a deferred source conversion; empty without one.
+pub(crate) struct ConversionScratch {
+    scratch: crate::memory::ManagedBuffer<f32>,
+    converted: crate::memory::ManagedBuffer<f32>,
+}
+
+impl ConversionScratch {
+    pub(crate) fn new(plan: &RowPlan, budget: &MemoryBudget) -> Result<Self, Error> {
+        let len = if plan.conversion.is_some() {
+            plan.source_samples
+        } else {
+            0
+        };
+        Ok(Self {
+            scratch: budget.allocate_typed::<f32>(len)?,
+            converted: budget.allocate_typed::<f32>(len)?,
+        })
+    }
+}
+
+/// Apply the plan's deferred source conversion, if any, then linearize.
+pub(crate) fn source_row_to_linear<const C: usize>(
+    plan: &RowPlan,
+    row: DecodedRow<'_>,
+    buffers: &mut ConversionScratch,
+    linear: &mut [f32],
+) -> Result<(), Error> {
+    let row = match &plan.conversion {
+        Some(conversion) => {
+            conversion.convert(
+                row,
+                buffers.scratch.as_mut_slice(),
+                buffers.converted.as_mut_slice(),
+            )?;
+            DecodedRow::F32(buffers.converted.as_slice())
+        }
+        None => row,
+    };
+    linearize_row::<C>(row, plan.primaries, &plan.color, &plan.p3, linear)
+}
+
 /// Encode one row of filtered linear samples to straight sRGB8 RGBA.
 pub(crate) fn quantize_row<const C: usize>(
     acc: &[f32],
@@ -410,7 +453,11 @@ pub(crate) fn quantize_row<const C: usize>(
 
 /// Everything both executors need, derived once from the graph and source.
 pub(crate) struct RowPlan {
+    /// Sample type of the rows the source emits (before `conversion`).
     pub sample: SampleType,
+    /// A source conversion deferred to the executor (ADR-0023): applied to
+    /// every needed row, on the worker that linearizes it.
+    pub conversion: Option<Arc<dyn RowConversion>>,
     /// The decoder region the plan reads, once, top to bottom.
     pub source_region: Rect,
     pub source_y: u32,
@@ -529,6 +576,7 @@ impl RowPlan {
         }
         Ok(Self {
             sample: info.sample,
+            conversion: None,
             source_region: plan.source,
             source_y: plan.source.y,
             source_height: plan.source.height,
@@ -588,7 +636,13 @@ fn run<const C: usize>(
     threads: usize,
     sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
-    let plan = RowPlan::new::<C>(graph, target, bound_source, source, requested)?;
+    let mut plan = RowPlan::new::<C>(graph, target, bound_source, source, requested)?;
+    // Take over the source's per-row conversion (the ICC transform) so that
+    // it runs where the rows are linearized, on the workers when parallel.
+    if let Some(conversion) = source.defer_conversion() {
+        plan.sample = conversion.input_sample();
+        plan.conversion = Some(conversion);
+    }
     let (report, source_time, transform_time) =
         if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
             crate::parallel_execute::run::<C>(&plan, source, budget, kernels, threads, sink)?
@@ -619,6 +673,7 @@ fn run_sequential<const C: usize>(
     let capacity = plan.capacity;
     let row_samples = plan.row_samples;
     let mut linear = budget.allocate_typed::<f32>(plan.linear_samples)?;
+    let mut conversion = ConversionScratch::new(plan, budget)?;
     let mut ring = budget.allocate_typed::<f32>(
         capacity
             .checked_mul(row_samples)
@@ -646,13 +701,7 @@ fn run_sequential<const C: usize>(
         let semantic_y = plan.semantic_y(decoder_y)?;
 
         if let Ok(row_rank) = plan.needed.binary_search(&semantic_y) {
-            linearize_row::<C>(
-                row,
-                plan.primaries,
-                &plan.color,
-                &plan.p3,
-                linear.as_mut_slice(),
-            )?;
+            source_row_to_linear::<C>(plan, row, &mut conversion, linear.as_mut_slice())?;
             let slot = row_rank % capacity;
             ring_rank[slot] = row_rank;
             let target = &mut ring.as_mut_slice()[slot * row_samples..(slot + 1) * row_samples];

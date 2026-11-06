@@ -7,10 +7,15 @@
 //! to the stored rectangle, reads that region once into a managed buffer, and
 //! emits upright rows. Crop coordinates are therefore display coordinates.
 
+use std::collections::BTreeMap;
+use std::sync::Mutex;
+use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
+use std::thread;
+
 use crate::decoder::{DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType};
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
-use crate::memory::MemoryBudget;
+use crate::memory::{ManagedBuffer, MemoryBudget};
 
 /// One of the eight EXIF orientations. Display pixel `(x, y)` reads the
 /// stored pixel obtained by optionally swapping the axes (`transpose`) and
@@ -134,6 +139,8 @@ pub(crate) struct OrientedSource<'a> {
     source: Box<dyn DecodeSource + 'a>,
     orientation: Orientation,
     info: DecoderInfo,
+    /// Threads that gather upright rows from the stored-order buffer.
+    threads: usize,
 }
 
 impl<'a> OrientedSource<'a> {
@@ -145,12 +152,24 @@ impl<'a> OrientedSource<'a> {
             source,
             orientation,
             info,
+            threads: 1,
         })
+    }
+
+    /// Gather upright rows on `threads` threads (ADR-0023). The rows and
+    /// their order are the same for every thread count.
+    #[cfg_attr(
+        not(feature = "avif-write"),
+        allow(dead_code, reason = "used by the facade")
+    )]
+    pub(crate) fn with_threads(mut self, threads: usize) -> Self {
+        self.threads = threads.max(1);
+        self
     }
 }
 
 /// Interleaved sample types that decoders emit.
-trait RowSample: Copy + Default {
+trait RowSample: Copy + Default + Send + Sync {
     fn wrap(row: &[Self]) -> DecodedRow<'_>;
     fn unwrap(row: DecodedRow<'_>) -> Option<&[Self]>;
 }
@@ -179,7 +198,6 @@ impl RowSample for f32 {
     }
 }
 
-/// Copy decoded stored rows into one managed region, then emit upright rows.
 /// Geometry shared by every row of one reorientation.
 struct Layout {
     orientation: Orientation,
@@ -187,6 +205,143 @@ struct Layout {
     stored: Rect,
     stored_size: Size,
     stride: usize,
+    channels: usize,
+    row_len: usize,
+}
+
+/// Fill display row `y`. Fixed-size pixel copies: a slice copy of
+/// `channels` elements per pixel compiles to one `memmove` call per pixel.
+fn gather_row<T: Copy>(pixels: &[T], out: &mut [T], layout: &Layout, y: u32) -> Result<(), Error> {
+    match layout.channels {
+        1 => gather::<T, 1>(pixels, out, layout, y),
+        3 => gather::<T, 3>(pixels, out, layout, y),
+        4 => gather::<T, 4>(pixels, out, layout, y),
+        _ => Err(Error::UnsupportedCodecLayout),
+    }
+}
+
+/// Below this many display rows, gather threads cost more than they save.
+const PARALLEL_MIN_ROWS: u32 = 64;
+/// Display rows per parallel gather job.
+const BLOCK_ROWS: u32 = 16;
+
+type Block<T> = Result<(usize, ManagedBuffer<T>), Error>;
+
+/// Gather blocks of display rows on `threads` workers and hand the rows to
+/// `sink` in order on the calling thread. At most `2 * threads` blocks are
+/// submitted and not yet emitted, which bounds the block memory. Errors,
+/// including a cancelling sink, close the job queue; the workers exit and
+/// the scope joins them before this returns (as in ADR-0022's pipeline).
+fn emit_parallel<T: RowSample>(
+    pixels: &[T],
+    layout: &Layout,
+    threads: usize,
+    budget: &MemoryBudget,
+    sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let blocks = usize::try_from(layout.display.height.div_ceil(BLOCK_ROWS))
+        .map_err(|_| Error::GeometryOverflow)?;
+    let window = threads.saturating_mul(2);
+    let (jobs, job_receiver) = mpsc::sync_channel::<usize>(window);
+    let job_receiver = Mutex::new(job_receiver);
+    let (done_sender, done) = mpsc::channel::<Block<T>>();
+    thread::scope(|scope| {
+        for _ in 0..threads.min(blocks) {
+            let done_sender = done_sender.clone();
+            let job_receiver = &job_receiver;
+            scope.spawn(move || gather_worker(pixels, layout, budget, job_receiver, &done_sender));
+        }
+        drop(done_sender);
+        emit_blocks(layout, blocks, window, jobs, &done, sink)
+    })
+}
+
+fn gather_worker<T: RowSample>(
+    pixels: &[T],
+    layout: &Layout,
+    budget: &MemoryBudget,
+    jobs: &Mutex<Receiver<usize>>,
+    done: &Sender<Block<T>>,
+) {
+    loop {
+        let job = match jobs.lock() {
+            Ok(receiver) => receiver.recv(),
+            Err(_) => return,
+        };
+        let Ok(block) = job else { return };
+        let result = gather_block(pixels, layout, budget, block).map(|rows| (block, rows));
+        if done.send(result).is_err() {
+            return;
+        }
+    }
+}
+
+fn block_rows(layout: &Layout, block: usize) -> Result<(u32, u32), Error> {
+    let first = u32::try_from(block)
+        .ok()
+        .and_then(|block| block.checked_mul(BLOCK_ROWS))
+        .and_then(|offset| layout.display.y.checked_add(offset))
+        .ok_or(Error::GeometryOverflow)?;
+    Ok((first, (layout.display.bottom() - first).min(BLOCK_ROWS)))
+}
+
+fn gather_block<T: RowSample>(
+    pixels: &[T],
+    layout: &Layout,
+    budget: &MemoryBudget,
+    block: usize,
+) -> Result<ManagedBuffer<T>, Error> {
+    let (first, count) = block_rows(layout, block)?;
+    let rows = usize::try_from(count).map_err(|_| Error::GeometryOverflow)?;
+    let mut buffer = budget.allocate_typed::<T>(
+        rows.checked_mul(layout.row_len)
+            .ok_or(Error::GeometryOverflow)?,
+    )?;
+    for (y, out) in (first..).zip(buffer.as_mut_slice().chunks_exact_mut(layout.row_len)) {
+        gather_row(pixels, out, layout, y)?;
+    }
+    Ok(buffer)
+}
+
+/// The calling thread's side of `emit_parallel`. It owns the job sender, so
+/// that returning for any reason closes the queue and the workers exit.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "dropping the sender on return is what stops the workers"
+)]
+fn emit_blocks<T: RowSample>(
+    layout: &Layout,
+    blocks: usize,
+    window: usize,
+    jobs: SyncSender<usize>,
+    done: &Receiver<Block<T>>,
+    sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let closed = |_| Error::IncompleteDecoderOutput;
+    let mut submitted = 0;
+    while submitted < blocks.min(window) {
+        jobs.send(submitted).map_err(closed)?;
+        submitted += 1;
+    }
+    let mut finished = BTreeMap::new();
+    for next in 0..blocks {
+        let rows = loop {
+            if let Some(rows) = finished.remove(&next) {
+                break rows;
+            }
+            let (block, rows) = done.recv().map_err(|_| Error::IncompleteDecoderOutput)??;
+            finished.insert(block, rows);
+        };
+        if submitted < blocks {
+            jobs.send(submitted).map_err(closed)?;
+            submitted += 1;
+        }
+        let (first, _) = block_rows(layout, next)?;
+        for (y, row) in (first..).zip(rows.as_slice().chunks_exact(layout.row_len)) {
+            sink(y, T::wrap(row))?;
+        }
+    }
+    Ok(())
 }
 
 /// Fill one display row from the stored-order buffer, `N` samples per pixel.
@@ -210,12 +365,15 @@ fn gather<T: Copy, const N: usize>(
     Ok(())
 }
 
+/// Copy decoded stored rows into one managed region, then emit upright rows.
+#[allow(clippy::too_many_arguments)] // Geometry, threads, budget and sink.
 fn reorient<T: RowSample>(
     source: &mut dyn DecodeSource,
     orientation: Orientation,
     display: Rect,
     stored: Rect,
     channels: usize,
+    threads: usize,
     budget: &MemoryBudget,
     sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
 ) -> Result<(DecodeReport, usize), Error> {
@@ -248,25 +406,24 @@ fn reorient<T: RowSample>(
         .ok()
         .and_then(|width| width.checked_mul(channels))
         .ok_or(Error::GeometryOverflow)?;
-    let mut row = budget.allocate_typed::<T>(row_len)?;
-    let pixels = region.as_slice();
     let layout = Layout {
         orientation,
         display,
         stored,
         stored_size,
         stride,
+        channels,
+        row_len,
     };
-    for y in display.y..display.bottom() {
-        // Fixed-size pixel copies: a slice copy of `channels` elements per
-        // pixel compiles to one `memmove` call per pixel.
-        match channels {
-            1 => gather::<T, 1>(pixels, row.as_mut_slice(), &layout, y)?,
-            3 => gather::<T, 3>(pixels, row.as_mut_slice(), &layout, y)?,
-            4 => gather::<T, 4>(pixels, row.as_mut_slice(), &layout, y)?,
-            _ => return Err(Error::UnsupportedCodecLayout),
+    let pixels = region.as_slice();
+    if threads > 1 && display.height >= PARALLEL_MIN_ROWS {
+        emit_parallel(pixels, &layout, threads, budget, sink)?;
+    } else {
+        let mut row = budget.allocate_typed::<T>(row_len)?;
+        for y in display.y..display.bottom() {
+            gather_row(pixels, row.as_mut_slice(), &layout, y)?;
+            sink(y, T::wrap(row.as_slice()))?;
         }
-        sink(y, T::wrap(row.as_slice()))?;
     }
     let bytes = length
         .checked_mul(std::mem::size_of::<T>())
@@ -300,6 +457,7 @@ impl DecodeSource for OrientedSource<'_> {
                 region,
                 stored,
                 channels,
+                self.threads,
                 budget,
                 sink,
             )?,
@@ -309,6 +467,7 @@ impl DecodeSource for OrientedSource<'_> {
                 region,
                 stored,
                 channels,
+                self.threads,
                 budget,
                 sink,
             )?,

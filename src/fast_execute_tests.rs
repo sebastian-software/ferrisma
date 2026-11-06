@@ -313,13 +313,18 @@ fn graph_for(
     output: Size,
     filter: Filter,
 ) -> (Graph, NodeId, NodeId) {
+    graph_for_info(&source.info, crop, output, filter)
+}
+
+fn graph_for_info(
+    info: &DecoderInfo,
+    crop: Option<Rect>,
+    output: Size,
+    filter: Filter,
+) -> (Graph, NodeId, NodeId) {
     let mut graph = Graph::new();
     let input = graph
-        .decoded_source(
-            source.info.size,
-            source.info.pixel_format(),
-            source.info.semantics(),
-        )
+        .decoded_source(info.size, info.pixel_format(), info.semantics())
         .unwrap();
     let cropped = match crop {
         Some(rect) => graph.crop(input, rect).unwrap(),
@@ -826,4 +831,72 @@ fn parallel_pipeline_cancels_and_fails_like_the_sequential_executor() {
         ),
         Err(Error::NonFinitePixelSample)
     );
+}
+
+/// The ICC adapter's conversion, deferred to the executor's workers
+/// (ADR-0023), gives the same bytes as converting inside the adapter, for
+/// every thread count.
+#[cfg(feature = "icc")]
+#[test]
+fn deferred_icc_conversion_is_byte_identical_to_converting_in_the_adapter() {
+    use crate::cms::IccSrgbSource;
+
+    /// Forwards everything except `defer_conversion`, so rows arrive
+    /// converted.
+    struct Converted<'a>(IccSrgbSource<'a>);
+    impl DecodeSource for Converted<'_> {
+        fn info(&self) -> &DecoderInfo {
+            self.0.info()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.0.read_region(region, budget, sink)
+        }
+    }
+
+    let (_, mut noise) = tall_sources().into_iter().next().unwrap();
+    noise.info.rendered_icc = Some(moxcms::ColorProfile::new_display_p3().encode().unwrap());
+    noise.info.rendered_cicp = None;
+    let size = Size::new(40, 150).unwrap();
+    let kernels = Kernels::best();
+    let run = |source: &mut dyn DecodeSource, threads: usize| -> Vec<u8> {
+        let (graph, input, output) = graph_for_info(source.info(), None, size, Filter::Lanczos3);
+        let budget = MemoryBudget::new(64 << 20);
+        let mut pixels = Vec::new();
+        execute_fast_srgb8(
+            &graph,
+            output,
+            input,
+            source,
+            Rect::new(0, 0, size.width, size.height).unwrap(),
+            &budget,
+            &kernels,
+            threads,
+            |_, row| {
+                pixels.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(budget.snapshot().live, 0, "managed memory must be released");
+        pixels
+    };
+    let adapter = || IccSrgbSource::new(Box::new(noise.clone())).unwrap();
+    let reference = run(&mut Converted(adapter()), 1);
+    for threads in [1, 2, 8] {
+        assert_eq!(
+            run(&mut adapter(), threads),
+            reference,
+            "deferred, {threads} threads"
+        );
+        assert_eq!(
+            run(&mut Converted(adapter()), threads),
+            reference,
+            "in the adapter, {threads} threads"
+        );
+    }
 }

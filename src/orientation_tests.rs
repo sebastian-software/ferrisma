@@ -277,6 +277,92 @@ fn reorientation_is_budgeted_reported_and_bounds_checked() {
     assert_eq!(Orientation::from_exif(9), None);
 }
 
+/// A stored grid tall and wide enough that every orientation has more
+/// display rows than the parallel threshold, with a partial last block.
+fn tall_grid() -> Grid {
+    (0..90_u32)
+        .map(|y| {
+            (0..70_u32)
+                .map(|x| ((x * 31 + y * 17) ^ (y >> 2)) as u8)
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn parallel_gather_matches_the_reference_for_every_orientation_and_thread_count() {
+    let stored = tall_grid();
+    for value in 1..=8 {
+        let expected = exif_reference(value, &stored);
+        let orientation = Orientation::from_exif(value).unwrap();
+        let (width, height) = (expected[0].len() as u32, expected.len() as u32);
+        let regions = [
+            Rect::new(0, 0, width, height).unwrap(),
+            Rect::new(3, 5, width - 7, height - 6).unwrap(),
+            Rect::new(1, 0, 9, 64).unwrap(),
+        ];
+        for float in [false, true] {
+            for region in regions {
+                let want: Grid = expected[region.y as usize..region.bottom() as usize]
+                    .iter()
+                    .map(|row| row[region.x as usize..region.right() as usize].to_vec())
+                    .collect();
+                for threads in [1, 2, 3, 8] {
+                    let mut source = OrientedSource::new(Box::new(GridSource::new(
+                        stored.clone(),
+                        orientation,
+                        float,
+                    )))
+                    .unwrap()
+                    .with_threads(threads);
+                    let budget = MemoryBudget::new(1 << 20);
+                    assert_eq!(
+                        read(&mut source, region, &budget),
+                        want,
+                        "EXIF {value}, float {float}, {region:?}, {threads} threads"
+                    );
+                    assert_eq!(budget.snapshot().live, 0, "buffers are released");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn parallel_gather_cancels_and_fails_cleanly() {
+    let orientation = Orientation::from_exif(6).unwrap();
+    let make = || {
+        OrientedSource::new(Box::new(GridSource::new(tall_grid(), orientation, false)))
+            .unwrap()
+            .with_threads(4)
+    };
+    let mut source = make();
+    let full = Rect::new(0, 0, 90, 70).unwrap();
+    // A sink that cancels after 20 rows stops the workers and frees memory.
+    let budget = MemoryBudget::new(1 << 20);
+    let mut rows = 0;
+    let result = source.read_region(full, &budget, &mut |y, _| {
+        if rows == 20 {
+            return Err(Error::Cancelled);
+        }
+        assert_eq!(y, rows);
+        rows += 1;
+        Ok(())
+    });
+    assert_eq!(result.err(), Some(Error::Cancelled));
+    assert_eq!(rows, 20);
+    assert_eq!(budget.snapshot().live, 0);
+    // Room for the stored region but not for a block of gathered rows: the
+    // worker's allocation error reaches the caller.
+    let region_bytes = 90 * 70 * 3;
+    let budget = MemoryBudget::new(region_bytes + 100);
+    assert!(matches!(
+        make().read_region(full, &budget, &mut |_, _| Ok(())),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    assert_eq!(budget.snapshot().live, 0);
+}
+
 /// Compare an adapter's upright output with ImageMagick/libheif references
 /// (`tests/fixtures/orientation/README.md`).
 #[cfg(any(feature = "jpeg-read", feature = "avif-read"))]

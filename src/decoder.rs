@@ -105,11 +105,38 @@ pub(crate) struct DecodeReport {
     pub engine_buffer_bytes: usize,
 }
 
+/// A stateless per-row conversion that a source wrapper applies to every
+/// row it emits, and that it can hand to the executor instead, so that the
+/// conversion runs on the executor's workers rather than on the thread that
+/// drives the decoder (ADR-0023). The converted row is what the wrapper's
+/// `info()` describes; deferred rows have `input_sample()` and the same
+/// number of samples.
+pub(crate) trait RowConversion: Send + Sync {
+    /// Sample type of the rows the source emits once the conversion is
+    /// deferred.
+    fn input_sample(&self) -> SampleType;
+    /// Convert one deferred row into `out` (same length), using `scratch`
+    /// (same length) as working space.
+    fn convert(
+        &self,
+        row: DecodedRow<'_>,
+        scratch: &mut [f32],
+        out: &mut [f32],
+    ) -> Result<(), Error>;
+}
+
 pub(crate) trait DecodeSource {
     fn info(&self) -> &DecoderInfo;
     /// How emitted (stored-order) samples must be reoriented for display.
     fn orientation(&self) -> Orientation {
         Orientation::IDENTITY
+    }
+    /// Stop applying this source's per-row conversion and return it; the
+    /// caller then applies it to every row before using the row. Called
+    /// before `read_region`. `None`, the default, means rows arrive
+    /// converted.
+    fn defer_conversion(&mut self) -> Option<std::sync::Arc<dyn RowConversion>> {
+        None
     }
     /// Borrows each output row only for the duration of the sink callback.
     fn read_region(

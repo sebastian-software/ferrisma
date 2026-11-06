@@ -2,8 +2,9 @@
 //!
 //! The calling thread drives the decoder. It copies every needed source row
 //! into an owned, budgeted buffer and submits a *horizontal job*; workers
-//! linearize the row and run the horizontal kernel into a new horizontal
-//! row, shared read-only. When all horizontal rows of an output row exist,
+//! apply a deferred source conversion if there is one (the ICC transform,
+//! ADR-0023), linearize the row and run the horizontal kernel into a new
+//! horizontal row, shared read-only. When all horizontal rows of an output row exist,
 //! the driver submits a *vertical job*; a worker runs the vertical kernel and
 //! quantizes. The driver reorders finished output rows and hands them to the
 //! sink in order. Every job runs exactly the kernels and operation order of
@@ -24,7 +25,9 @@ use ferrixel_kernels::Kernels;
 
 use crate::decoder::{DecodeReport, DecodeSource, DecodedRow};
 use crate::error::Error;
-use crate::fast_execute::{RowPlan, Tables, kernel_error, linearize_row, quantize_row, tables};
+use crate::fast_execute::{
+    ConversionScratch, RowPlan, Tables, kernel_error, quantize_row, source_row_to_linear, tables,
+};
 use crate::memory::{ManagedBuffer, MemoryBudget};
 
 /// An owned copy of one decoded source row.
@@ -89,8 +92,14 @@ fn worker<const C: usize>(
 ) {
     let scratch = budget
         .allocate_typed::<f32>(plan.linear_samples)
-        .and_then(|linear| Ok((linear, budget.allocate_typed::<f32>(plan.row_samples)?)));
-    let (mut linear, mut accumulator) = match scratch {
+        .and_then(|linear| {
+            Ok((
+                linear,
+                budget.allocate_typed::<f32>(plan.row_samples)?,
+                ConversionScratch::new(plan, budget)?,
+            ))
+        });
+    let (mut linear, mut accumulator, mut conversion) = match scratch {
         Ok(buffers) => buffers,
         Err(error) => {
             let _ = done.send(Err(error));
@@ -104,10 +113,15 @@ fn worker<const C: usize>(
         };
         let Ok(job) = job else { return };
         let result = match job {
-            Job::Horizontal { rank, samples } => {
-                horizontal::<C>(plan, budget, kernels, &samples, linear.as_mut_slice())
-                    .map(|row| Done::Horizontal { rank, row })
-            }
+            Job::Horizontal { rank, samples } => horizontal::<C>(
+                plan,
+                budget,
+                kernels,
+                &samples,
+                &mut conversion,
+                linear.as_mut_slice(),
+            )
+            .map(|row| Done::Horizontal { rank, row }),
             Job::Vertical { row, inputs } => vertical::<C>(
                 plan,
                 budget,
@@ -129,13 +143,14 @@ fn horizontal<const C: usize>(
     budget: &MemoryBudget,
     kernels: &Kernels,
     samples: &Samples,
+    conversion: &mut ConversionScratch,
     linear: &mut [f32],
 ) -> Result<Row, Error> {
     let row = match samples {
         Samples::U8(buffer) => DecodedRow::U8(buffer.as_slice()),
         Samples::F32(buffer) => DecodedRow::F32(buffer.as_slice()),
     };
-    linearize_row::<C>(row, plan.primaries, &plan.color, &plan.p3, linear)?;
+    source_row_to_linear::<C>(plan, row, conversion, linear)?;
     let mut out = budget.allocate_typed::<f32>(plan.row_samples)?;
     kernels
         .horizontal_rgba(linear, &plan.column_taps, out.as_mut_slice())

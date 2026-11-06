@@ -8,7 +8,7 @@
 
 ## Context
 
-After work package 4 the transform takes 20 ms for a 24 Mpx JPEG on 20 cores; the decode stage is the largest stage that Ferrixel controls. The work-package-0 harness measured it on synthetic plasma images only (88 ms at 24 Mpx, 173 ms at 48 Mpx). The first real photograph in the measurements, a 4032×3024 phone JPEG with an ICC profile and EXIF orientation 2 (libavif test data), showed 154 ms for its decode stage at 12 Mpx, and a profile placed most of that outside the JPEG decoder: in the ICC adapter's `f32` output being decoded again per sample through the `f64` reference transfer function, in the moxcms transform itself, and in the orientation wrapper's full-region buffer and copies. Camera JPEGs nearly always carry an ICC profile, so this is the common case, not an edge case.
+After work package 4 the transform takes 20 ms for a 24 Mpx JPEG on 20 cores; the decode stage is the largest stage that Ferrixel controls. The work-package-0 harness measured it on synthetic plasma images only (88 ms at 24 Mpx, 173 ms at 48 Mpx). The first real photograph in the measurements, a 4032×3024 phone JPEG with an ICC profile and EXIF orientation 6 (a quarter turn) (libavif test data), showed 154 ms for its decode stage at 12 Mpx, and a profile placed most of that outside the JPEG decoder: in the ICC adapter's `f32` output being decoded again per sample through the `f64` reference transfer function, in the moxcms transform itself, and in the orientation wrapper's full-region buffer and copies. Camera JPEGs nearly always carry an ICC profile, so this is the common case, not an edge case.
 
 Verified facts from the [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) and the code:
 
@@ -25,6 +25,7 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
    - Enable `zune-jpeg`'s `neon` and `x86` features (runtime-detected SIMD in the decoder; same treatment as `rav1e`'s assembly in ADR-0018).
    - The ICC adapter converts to **linear-light sRGB** directly (sRGB primaries, identity transfer; reported as CICP `[1, 8, 0, 1]`, which is already the graph's working-space signal). The color contract treats that signal as transfer-ready, the reference executor decodes it with the identity, and the fast executor copies it. This removes an encode and a decode of the transfer curve per sample and their rounding.
    - Measure the orientation wrapper on real photographs before changing ADR-0019; a streaming path is possible for mirror-only orientations but not for rotations.
+   - Take the per-row work of source wrappers off the thread that drives the decoder. A wrapper may hand its stateless per-row conversion to the executor (`DecodeSource::defer_conversion`, a `RowConversion`), which runs it where it linearizes the row, on the row-pipeline workers when parallel; the ICC adapter does this, and the reference executor keeps converting inside the adapter with the same function. The orientation wrapper gathers upright rows from its stored-order buffer in blocks on the transform threads and emits them in order. Both produce the same values as before for every thread count.
 3. **Shrink-on-load is a separate, explicit quality policy, not a planner optimization.** A future `DecodeScaling` option may let the caller accept DCT-domain scaling (1/2, 1/4, 1/8, chosen so that at least a 2× residual linear-light resize remains, as libvips does). It is off by default, reported in the processing report, and must come with a measured quality delta (SSIMULACRA2 against the full-decode result on a real-photo corpus). It needs a scaled-IDCT path in `zune-jpeg`, which is an upstream contribution or a maintained fork; that choice is the maintainer's, outside this ADR.
 4. **JPEG XL threads and AVIF native layouts are measured before they are enabled.** `jxl-oxide`'s `rayon` feature and a native YUV path for AVIF to AVIF wait for a measurement on real inputs.
 
@@ -47,6 +48,7 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 
 - The ICC adapter, fed a Display P3 profile written by moxcms, must match Ferrixel's own CSS Color 4 P3 to sRGB matrix within `2e-3` linear for in-gamut values (test `cms::tests`); out-of-gamut values are checked to be the clamped reference.
 - All existing differential tests (ADR-0021) and orientation fixtures (ADR-0019) stay green.
+- The deferred ICC conversion gives bit-identical rows to the adapter's own conversion, and the executor gives byte-identical output with the conversion deferred or not, on 1, 2 and 8 threads. The parallel gather matches the independent reference for all eight EXIF orientations, `u8` and `f32` rows, three crops and 1, 2, 3 and 8 threads, and cancels and fails with `live == 0`.
 - Decode and total time of real photographs before and after, at low machine load, recorded in the M2 baseline. The decision is falsified if enabling the decoder's SIMD or the linear ICC output makes any measured case slower.
 
 ## Review when
@@ -60,9 +62,20 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 
 | image | decode ms before | decode ms after | total ms before | total ms after |
 | --- | ---: | ---: | ---: | ---: |
-| phone photo 4032×3024, ICC, EXIF orientation 2 (libavif test data) | 150 | 111 | 341 | 296 |
+| phone photo 4032×3024, ICC, EXIF orientation 6 (libavif test data), to 1600×1200 | 150 | 111 | 341 | 296 |
 | flower photo 2268×1512 (libjxl test data) | 14 | 12 | 206 | 202 |
 | synthetic 24 Mpx | 83 | 68 | 234 | 225 |
 | synthetic 48 Mpx | 170 | 133 | 347 | 310 |
 
 The real photo's decode stage still splits roughly into a third JPEG decoding, a quarter moxcms and the rest the orientation buffer (full-region copy); moxcms and the orientation run serially on the driver thread in front of the row pipeline, which is the next lever for real photographs. No measured case got slower. Decisions 3 (shrink-on-load as an opt-in policy, which needs a scaled IDCT in `zune-jpeg` through an upstream contribution or a fork) and 4 (`jxl-oxide` threads, native AVIF YUV) are open.
+- 2026-11-06 — Corrected the test photo's orientation: `dog_exif_extended_xmp_icc.jpg` carries EXIF orientation 6 (a quarter turn), not 2, and the table above resized it to 1600×1200 rather than to its upright aspect.
+- 2026-11-06 — Decision 2 extended and implemented: the ICC conversion runs on the row-pipeline workers (`RowConversion`, deferred by the fast executor), and the orientation gather runs in blocks of 16 rows on the transform threads with at most twice the thread count of blocks in flight. A timing split of the old build on the dog photo, under load, put its decode stage at about 63 ms for `zune-jpeg`, 18 ms for the rotation gather, 34 ms for moxcms and 30 ms for the driver's row handoff, all on one thread. AVIF output is byte-identical to `526e752` for the dog photo (full frame and a crop, 1, 3 and all transform threads, and `--reference`) and for the flower photo. Before (`526e752`) and after, Apple M1 Ultra, best of five, all encoder and transform cores, speed 6:
+
+| image | decode ms before | decode ms after | total ms before | total ms after | load |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| phone photo 4032×3024, ICC, EXIF orientation 6, to 1600×2133 | 113 | 66 | 407 | 356 | 3.95 |
+| flower photo 2268×1512 (no ICC, no orientation) | 12 | 12 | 193 | 198 | 5.79 |
+| synthetic 24 Mpx | 70 | 68 | 220 | 216 | 5.79 |
+| synthetic 48 Mpx | 135 | 134 | 309 | 308 | 7.17 |
+
+The real photo's decode stage is now about the `zune-jpeg` decode itself, which is single-threaded. Inputs without ICC or orientation take the unchanged path; their differences are within the noise of the higher load during their runs (the flower's 5 ms are in the encoder, which this step does not touch).

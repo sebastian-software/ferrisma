@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-06
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -52,3 +52,4 @@ The JPEG XL decoder is replaced; a workload shows the region copy is significant
 - 2026-11-05 — Initial decision: apply EXIF and AVIF orientation through `OrientedSource`; JPEG XL stays rejected.
 - 2026-11-05 — Verified `jxl-oxide`'s own orientation and display-coordinate crops with libjxl-written fixtures; JPEG XL orientation is accepted.
 - 2026-11-06 — The display-order gather copies pixels as fixed-size arrays per channel count instead of a variable-length slice copy, which compiled to one `memmove` call per pixel. The 12 Mpx EXIF-oriented phone photo's decode stage fell from 152 ms to 112 ms (ADR-0023). Buffer semantics and the reported `orientation_buffer_bytes` are unchanged.
+- 2026-11-06 — With more than one transform thread and at least 64 display rows, the gather runs in blocks of 16 rows on scoped worker threads and the rows reach the sink in order on the calling thread (ADR-0023). At most twice the thread count of blocks are in flight, budgeted as engine-managed memory on top of the stored-order buffer; a budget that fits the buffer but no block fails with `BudgetExceeded`. Rows are identical for every thread count. `orientation_buffer_bytes` still reports only the stored-order buffer.

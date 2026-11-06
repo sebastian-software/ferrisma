@@ -241,12 +241,25 @@ ADR-0023 decision 2: `zune-jpeg` SIMD on, the ICC adapter emits linear-light sRG
 
 | image | decode ms before | decode ms after | total ms before | total ms after |
 | --- | ---: | ---: | ---: | ---: |
-| phone photo 4032×3024, ICC, EXIF orientation 2 (libavif test data) | 150 | 111 | 341 | 296 |
+| phone photo 4032×3024, ICC, EXIF orientation 6 (libavif test data), to 1600×1200 | 150 | 111 | 341 | 296 |
 | flower photo 2268×1512 (libjxl test data) | 14 | 12 | 206 | 202 |
 | synthetic 24 Mpx | 83 | 68 | 234 | 225 |
 | synthetic 48 Mpx | 170 | 133 | 347 | 310 |
 
 The real photograph is the first one in these tables. Its decode stage is more than ten times that of the synthetic 12 Mpx JPEG (150 against 45 ms before this step), because real entropy data is denser and because it carries an ICC profile and an EXIF orientation, both handled serially before the row pipeline.
+
+## 2026-11-06 — work package 5, second step: ICC and orientation off the driver thread
+
+ADR-0023 decision 2, extended: the moxcms conversion runs on the row-pipeline workers and the orientation gather runs in parallel blocks. Measured against `526e752` on the same machine (best of five, all encoder and transform cores, speed 6), each image's load average in the last column; the scripted run waited for a load below 4 before starting.
+
+| image | decode ms before | decode ms after | total ms before | total ms after | load |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| phone photo 4032×3024, ICC, EXIF orientation 6, to 1600×2133 | 113 | 66 | 407 | 356 | 3.95 |
+| flower photo 2268×1512 (no ICC, no orientation) | 12 | 12 | 193 | 198 | 5.79 |
+| synthetic 24 Mpx | 70 | 68 | 220 | 216 | 5.79 |
+| synthetic 48 Mpx | 135 | 134 | 309 | 308 | 7.17 |
+
+The phone photo's row in the previous section used a 1600×1200 output and EXIF orientation 6 (it was labeled 2 there at first); this one uses the upright aspect, so its encode stage is larger (about 260 ms). The other three inputs take the unchanged path; their differences are noise under the higher load of their runs.
 
 ## 2026-11-06 — quality-matched comparison with Sharp
 
