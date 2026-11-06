@@ -48,7 +48,8 @@ the `oracle` feature, so a missing oracle fails instead of skipping.
 | --- | --- | --- |
 | `tests/wp1_constants.rs` | `constants_and_enumerators_match_the_c_headers` | 173 values: every constant, enumerator and macro of the WP1 headers, the mode predicates for every `WEBP_CSP_MODE`, `WEBP_ABI_IS_INCOMPATIBLE` pairs, `MKFOURCC`, and the worker states. |
 | `tests/wp1_constants.rs` | `public_struct_layout_matches_the_c_compiler` | size, alignment and every field offset of the six `repr(C)` structs without pointers: `WebPBitstreamFeatures`, `WebPDecoderOptions`, `WebPConfig`, `WebPAuxStats`, `WebPAnimDecoderOptions` and `WebPAnimInfo`. |
-| `tests/wp1_alloc.rs` | `safe_allocation_decisions_match_the_c_helpers` | 43 accept-or-reject decisions of `WebPSafeMalloc` (27) and `WebPSafeCalloc` (16): zero counts, sizes 0 to 16 around `WEBP_MAX_ALLOCABLE_MEMORY`, sizes that fail the limit for one element, and products that wrap in 64 bits. |
+| `tests/wp1_alloc.rs` | `safe_allocation_decisions_match_the_c_helpers` | 34 accept-or-reject decisions for nonzero counts and sizes: `WebPSafeMalloc` (21) and `WebPSafeCalloc` (13), with sizes 1 to 16 around `WEBP_MAX_ALLOCABLE_MEMORY`, sizes that fail the limit for one element, and products that wrap in 64 bits. The 9 zero-count and zero-size requests are excluded in every variant (not-applicable check 12). |
+| `tests/wp1_alloc.rs` | `zero_size_requests_are_recorded_for_rust_only` | the Rust decision for the 9 excluded requests: both helpers accept them, and `WebPSafeCalloc` returns `nmemb` zeroed elements. No C decision is compared. Needs no oracle. |
 | `tests/wp1_alloc.rs` | `rejected_sizes_never_reserve_memory` | the limit is `1 << 34` on this 64-bit target, and the rejected cases are rejected without a reservation. Needs no oracle. |
 | `tests/wp1_random.rs` | `vp8_random_sequences_match_the_c_generator` | 4,200 generator values and 32 full-state dumps: 12 initializations (including `-1`, both zeros, `1.5` and `+inf`) with 250 values each, and 8 seeded states with arbitrary table words and indices, with 150 `VP8RandomBits2` calls each over every amplitude the encoder uses. |
 | `tests/wp1_utils.rs` | `utility_helpers_match_the_c_functions` | 3,478 commands: `GetLE16`/`24`/`32`, `PutLE16`/`24`/`32`, `BitsLog2Floor`, `BitsCtz`, `WebPMemToUint32`/`Int32`, `WebPUint32ToMem`/`Int32ToMem`, `HToLE16`/`32`, `BSwap16`/`32`/`64`, `CheckSizeOverflow`, `WEBP_ALIGN`, and `WebPCopyPlane` on 200 random geometries with positive and negative strides and offsets. |
@@ -62,10 +63,14 @@ Local results on this branch, with the release oracle: `python3 tools/check.py
 --oracle --msrv` passed. It runs format, Clippy with `-D warnings`, the upstream
 pins, the module skeleton, the documentation links, `tools/unit_dependencies.py
 --check`, and the tests of the dev, release and `checked` profiles, which report
-39 test results with none failed or skipped. It then builds and tests with Rust
-1.95, which reports 13 more results with none failed. The `asan-ubsan` variant
-(`python3 tools/check.py --oracle-variant asan-ubsan --stage test`) reports the
-same 39 results, with none failed and no sanitizer report.
+42 test results with none failed or skipped. It then builds and tests with Rust
+1.95, which reports 14 more results with none failed. The `debug` variant
+(`python3 tools/check.py --oracle-variant debug --stage test`) reports the same
+42 results, with none failed. The `asan-ubsan` variant (`python3 tools/check.py
+--oracle-variant asan-ubsan --stage test`) reports the same 42 results, with none
+failed and no sanitizer report. Before the zero-size exclusion, the `debug`
+variant aborted in `wp1_alloc` on the assertion of item 12; no other WP1 test
+aborted in `debug` or `asan-ubsan`.
 
 ## Not-applicable checks
 
@@ -108,6 +113,14 @@ These checks do not apply to WP1, or cannot be made, with the reason:
     off in the reference configuration (ADR 0002). Nothing is ported for them.
 11. `WebPGetColorPalette` (WP3), the MIPS and MSA sources (excluded in
     `tools/units.json`), and the SIMD variants (wave 4) are outside WP1.
+12. `WebPSafeMalloc` and `WebPSafeCalloc` with a zero count or a zero size. The C
+    functions assert `nmemb * size > 0` on the accepted path (`utils.c`, lines
+    200 and 210), so the C decision is undefined: the debug oracle aborts, and
+    the other variants return whatever `malloc(0)` returns. The nine such
+    requests are excluded from the comparison in every variant, and the probe
+    exits with status 2 on a zero value. `zero_size_requests_are_recorded_for_rust_only`
+    records the Rust decision, which accepts them. A product that wraps in 64
+    bits fails the size test before the assertion, so it stays compared.
 
 ## Recorded deviations
 

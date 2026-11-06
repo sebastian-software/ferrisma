@@ -4,6 +4,10 @@
 // line is `accepted=1` or `accepted=0`, in input order. The allocated block is
 // freed at once.
 //
+// NMEMB and SIZE must be nonzero. The C functions assert `nmemb * size > 0` on
+// the accepted path, so the probe exits with status 2 on a zero value instead of
+// letting the debug oracle abort.
+//
 // Usage: safe_alloc < cases.txt
 
 #include <stdio.h>
@@ -19,6 +23,12 @@ int main(int argc, char* argv[]) {
   ProbeCheckArgs(argc, 0, 0, "safe_alloc < cases.txt");
   while (scanf("%15s %llu %llu", operation, &nmemb, &size) == 3) {
     void* ptr;
+    if (nmemb == 0 || size == 0) {
+      fprintf(stderr,
+              "safe_alloc: NMEMB and SIZE must be nonzero; the C functions "
+              "assert nmemb * size > 0\n");
+      return 2;
+    }
     if (strcmp(operation, "malloc") == 0) {
       ptr = WebPSafeMalloc(nmemb, (size_t)size);
     } else if (strcmp(operation, "calloc") == 0) {
