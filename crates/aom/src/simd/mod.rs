@@ -18,48 +18,68 @@ pub mod types {
 }
 
 #[cfg(target_arch = "aarch64")]
-#[path = "aom_dsp/arm/mem_neon.rs"]
-pub mod aom_dsp__arm__mem_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "aom_dsp/arm/sum_neon.rs"]
-pub mod aom_dsp__arm__sum_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "aom_ports/aarch64_cpudetect.rs"]
-pub mod aom_ports__aarch64_cpudetect;
+#[path = "aom_dsp/arm/highbd_intrapred_neon.rs"]
+pub mod aom_dsp__arm__highbd_intrapred_neon;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/highbd_quantize_neon.rs"]
 pub mod aom_dsp__arm__highbd_quantize_neon;
 
 #[cfg(target_arch = "aarch64")]
-#[path = "av1/common/arm/cdef_block_neon.rs"]
-pub mod av1__common__arm__cdef_block_neon;
-#[path = "av1/common/arm/highbd_inv_txfm_neon.rs"]
-pub mod av1__common__arm__highbd_inv_txfm_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "av1/encoder/arm/av1_highbd_quantize_neon.rs"]
-pub mod av1__encoder__arm__av1_highbd_quantize_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "aom_dsp/arm/transpose_neon.rs"]
-pub mod aom_dsp__arm__transpose_neon;
+#[path = "aom_dsp/arm/mem_neon.rs"]
+pub mod aom_dsp__arm__mem_neon;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/subtract_neon.rs"]
 pub mod aom_dsp__arm__subtract_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/sum_neon.rs"]
+pub mod aom_dsp__arm__sum_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/transpose_neon.rs"]
+pub mod aom_dsp__arm__transpose_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_ports/aarch64_cpudetect.rs"]
+pub mod aom_ports__aarch64_cpudetect;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/cdef_block_neon.rs"]
+pub mod av1__common__arm__cdef_block_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/highbd_inv_txfm_neon.rs"]
+pub mod av1__common__arm__highbd_inv_txfm_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/highbd_reconintra_neon.rs"]
+pub mod av1__common__arm__highbd_reconintra_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/reconintra_neon.rs"]
+pub mod av1__common__arm__reconintra_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/av1_txfm.rs"]
+pub mod av1__common__av1_txfm;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/av1_error_neon.rs"]
 pub mod av1__encoder__arm__av1_error_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/av1_highbd_quantize_neon.rs"]
+pub mod av1__encoder__arm__av1_highbd_quantize_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/highbd_fwd_txfm_neon.rs"]
+pub mod av1__encoder__arm__highbd_fwd_txfm_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/highbd_rdopt_neon.rs"]
 pub mod av1__encoder__arm__highbd_rdopt_neon;
-#[path = "av1/common/av1_txfm.rs"]
-pub mod av1__common__av1_txfm;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/shift_neon.rs"]
@@ -68,17 +88,3 @@ pub mod av1__encoder__arm__shift_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/txfm_neon.rs"]
 pub mod av1__encoder__arm__txfm_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "av1/encoder/arm/highbd_fwd_txfm_neon.rs"]
-pub mod av1__encoder__arm__highbd_fwd_txfm_neon;
-#[path = "aom_dsp/arm/highbd_intrapred_neon.rs"]
-pub mod aom_dsp__arm__highbd_intrapred_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "av1/common/arm/reconintra_neon.rs"]
-pub mod av1__common__arm__reconintra_neon;
-
-#[cfg(target_arch = "aarch64")]
-#[path = "av1/common/arm/highbd_reconintra_neon.rs"]
-pub mod av1__common__arm__highbd_reconintra_neon;
