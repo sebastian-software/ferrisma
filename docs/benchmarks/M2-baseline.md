@@ -1,6 +1,6 @@
 # M2 baseline harness and first numbers
 
-**Status:** work package 0 of [M2](../milestones/M2-performance-architecture.md), in progress. This page records how the baseline is measured and what was observed on one machine. Nothing here is a performance claim; comparators are not quality-matched yet.
+**Status:** work package 0 of [M2](../milestones/M2-performance-architecture.md), in progress. This page records how the baseline is measured and what was observed on one machine. Nothing here is a performance claim; the comparators in this harness are not quality-matched. The quality-matched Sharp comparison is in [M2-sharp-comparison.md](M2-sharp-comparison.md).
 
 ## What is measured
 
@@ -8,7 +8,7 @@
 - **End-to-end latency** is measured outside the process with `hyperfine` (one warmup, `RUNS` timed runs, mean, standard deviation, min, max).
 - **Peak RSS** comes from one extra run under `/usr/bin/time -l` (macOS, bytes) or GNU `time -f %M` (Linux, KiB). It includes codec-internal memory that the engine budget deliberately does not cover.
 - **Sequential throughput** runs one process per small image, so it includes process start, codec initialization and encoder setup for every image. Ferrixel has no batch API yet; this number is the ceiling a batch API has to beat.
-- **Comparators** (Sharp through `scripts/bench/sharp-resize.cjs`, libvips through `vipsthumbnail --linear`) run only when installed and are labeled `comparable_quality=no`: filters, transfer intent, chroma mode, threading and AV1 encoders differ, and no SSIMULACRA2 matching exists yet.
+- **Comparators** (Sharp through `scripts/bench/sharp-resize.cjs`, libvips through `vipsthumbnail --linear`) run only when installed and are labeled `comparable_quality=no`: filters, transfer intent, chroma mode, threading and AV1 encoders differ in that harness. The quality-matched Sharp comparison (equal geometry, linear light, SSIMULACRA2-matched AVIF settings) is a separate harness, `scripts/bench/compare-sharp.py`, with results in [M2-sharp-comparison.md](M2-sharp-comparison.md).
 
 ## How to run
 
@@ -247,3 +247,7 @@ ADR-0023 decision 2: `zune-jpeg` SIMD on, the ICC adapter emits linear-light sRG
 | synthetic 48 Mpx | 170 | 133 | 347 | 310 |
 
 The real photograph is the first one in these tables. Its decode stage is more than ten times that of the synthetic 12 Mpx JPEG (150 against 45 ms before this step), because real entropy data is denser and because it carries an ICC profile and an EXIF orientation, both handled serially before the row pipeline.
+
+## 2026-11-06 — quality-matched comparison with Sharp
+
+The first comparator numbers at equal SSIMULACRA2, on real photographs instead of the synthetic corpus, are in [M2-sharp-comparison.md](M2-sharp-comparison.md). Sharp 0.34.5 writes 3.7–12.0 % smaller files at equal score. Ferrixel is 1.7–1.8× faster on 1600-wide outputs with all cores, 1.5–2.0× with one thread, and about 2× in batch throughput, with lower peak memory. On real input the dog photo's decode (155 ms for 12 Mpx with rotation and ICC) and its larger 1600×2133 encode (271 ms) make up most of Ferrixel's 461 ms. These numbers are for `0612ccf`, before the decode step above; that step is not part of the comparison.
