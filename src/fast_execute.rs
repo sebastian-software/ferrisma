@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 use ferrixel_kernels::{KernelError, Kernels, Taps};
 
 use crate::color::{AlphaMode, ColorEncoding};
-use crate::decoder::{ChannelLayout, DecodeSource, DecodedRow};
+use crate::decoder::{ChannelLayout, DecodeReport, DecodeSource, DecodedRow, SampleType};
 use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId};
@@ -117,14 +117,14 @@ pub(crate) fn tables() -> &'static Tables {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Primaries {
+pub(crate) enum Primaries {
     Srgb,
     DisplayP3,
 }
 
 /// Flat tap tables: taps of output position `i` are
 /// `index[start[i]..start[i + 1]]` with matching `weight`s.
-struct TapTable {
+pub(crate) struct TapTable {
     start: Vec<usize>,
     index: Vec<u32>,
     weight: Vec<f32>,
@@ -192,7 +192,7 @@ impl TapTable {
     }
 }
 
-fn kernel_error(error: KernelError) -> Error {
+pub(crate) fn kernel_error(error: KernelError) -> Error {
     match error {
         KernelError::InvalidTaps => Error::OutOfBounds,
         KernelError::LengthMismatch | KernelError::UnsupportedLevel(_) => {
@@ -204,6 +204,8 @@ fn kernel_error(error: KernelError) -> Error {
 /// Fast `f32` counterpart of `quality_execute::execute_quality_srgb8`, with
 /// the same graph contract, sink contract and report. The resample runs on
 /// `kernels` (ADR-0020); every pixel is stored as four `f32` channels.
+/// With `threads > 1` the rows run on a pipeline of workers (ADR-0022) that
+/// produces byte-identical output.
 #[allow(clippy::too_many_arguments)] // The reference signature plus the kernel table.
 pub(crate) fn execute_fast_srgb8(
     graph: &Graph,
@@ -213,6 +215,7 @@ pub(crate) fn execute_fast_srgb8(
     requested: Rect,
     budget: &MemoryBudget,
     kernels: &Kernels,
+    threads: usize,
     sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
     let info = source.info().clone();
@@ -225,6 +228,7 @@ pub(crate) fn execute_fast_srgb8(
             requested,
             budget,
             kernels,
+            threads,
             sink,
         ),
         (ChannelLayout::Rgba, AlphaMode::Straight) => run::<4>(
@@ -235,6 +239,7 @@ pub(crate) fn execute_fast_srgb8(
             requested,
             budget,
             kernels,
+            threads,
             sink,
         ),
         (ChannelLayout::Rgb | ChannelLayout::Rgba, _) => {
@@ -252,7 +257,7 @@ pub(crate) fn execute_fast_srgb8(
 /// Decode one source row to linear-light (premultiplied for `C == 4`) `f32`
 /// samples, once per sample, four values per pixel (the fourth is 0 for
 /// opaque RGB).
-fn linearize_row<const C: usize>(
+pub(crate) fn linearize_row<const C: usize>(
     row: DecodedRow<'_>,
     primaries: Primaries,
     color: &ColorEncoding,
@@ -326,7 +331,7 @@ fn linearize_row<const C: usize>(
 }
 
 /// Encode one row of filtered linear samples to straight sRGB8 RGBA.
-fn quantize_row<const C: usize>(
+pub(crate) fn quantize_row<const C: usize>(
     acc: &[f32],
     output: &mut [u8],
     tables: &Tables,
@@ -363,7 +368,174 @@ fn quantize_row<const C: usize>(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines, clippy::too_many_arguments)] // Planning, ring sizing and the row loop stay together.
+/// Everything both executors need, derived once from the graph and source.
+pub(crate) struct RowPlan {
+    pub sample: SampleType,
+    /// The decoder region the plan reads, once, top to bottom.
+    pub source_region: Rect,
+    pub source_y: u32,
+    pub source_height: u32,
+    pub footprint_y: u32,
+    pub requested_y: u32,
+    pub primaries: Primaries,
+    pub color: ColorEncoding,
+    pub p3: [[f32; 3]; 3],
+    pub row_samples: usize,
+    pub source_samples: usize,
+    pub linear_samples: usize,
+    pub output_rows: usize,
+    pub column_taps: Taps,
+    pub lines: TapTable,
+    /// Source rows any output row needs, ascending; vertical taps refer to
+    /// them by rank.
+    pub needed: Vec<u32>,
+    pub line_ranks: Vec<usize>,
+    /// Output row `i` can be produced once source row `ready[i]` arrived.
+    pub ready: Vec<u32>,
+    /// Smallest source row any output row `>= i` still needs.
+    pub future_min: Vec<u32>,
+    /// Largest number of horizontal rows alive at once.
+    pub capacity: usize,
+}
+
+impl RowPlan {
+    fn new<const C: usize>(
+        graph: &Graph,
+        target: NodeId,
+        bound_source: NodeId,
+        source: &dyn DecodeSource,
+        requested: Rect,
+    ) -> Result<Self, Error> {
+        let info = source.info().clone();
+        let plan = prepare(graph, target, bound_source, source, requested)?;
+        let color = info.semantics().color;
+        let primaries = match color {
+            ColorEncoding::Cicp([1, 13, 0, 1]) => Primaries::Srgb,
+            ColorEncoding::Cicp([12, 13, 0, 1]) => Primaries::DisplayP3,
+            _ => return Err(Error::UnsupportedColorEncoding),
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        let p3 = p3_to_srgb_matrix().map(|row| row.map(|value| value as f32));
+
+        let output_width = usize::try_from(requested.width).map_err(|_| Error::GeometryOverflow)?;
+        let row_samples = output_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+        let source_width =
+            usize::try_from(plan.source.width).map_err(|_| Error::GeometryOverflow)?;
+        // Decoded rows carry `C` samples per pixel; linearized rows carry four.
+        let source_samples = source_width.checked_mul(C).ok_or(Error::GeometryOverflow)?;
+        let linear_samples = source_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+
+        let columns = TapTable::build(
+            plan.input.width,
+            plan.output.width,
+            plan.resize.x,
+            requested.width,
+            plan.filter,
+            plan.footprint.x,
+        )?;
+        if columns
+            .index
+            .iter()
+            .any(|&x| usize::try_from(x).map_or(true, |x| x >= source_width))
+        {
+            return Err(Error::OutOfBounds);
+        }
+        let column_taps = columns.contiguous(source_width)?;
+        let lines = TapTable::build(
+            plan.input.height,
+            plan.output.height,
+            plan.resize.y,
+            requested.height,
+            plan.filter,
+            0,
+        )?;
+        let output_rows = usize::try_from(requested.height).map_err(|_| Error::GeometryOverflow)?;
+
+        let mut needed = lines.index.clone();
+        needed.sort_unstable();
+        needed.dedup();
+        let rank = |y: u32| {
+            needed
+                .binary_search(&y)
+                .map_err(|_| Error::IncompleteDecoderOutput)
+        };
+        let line_ranks = lines
+            .index
+            .iter()
+            .map(|&y| rank(y))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // The running maximum of last taps keeps emission in order. A row is
+        // dead once no remaining output row can reference it (Lanczos zero
+        // crossings make the first tap nonmonotonic, see the reference).
+        let mut ready = Vec::with_capacity(output_rows);
+        let mut running_max = 0_u32;
+        for row in 0..output_rows {
+            let (indices, _) = lines.taps(row);
+            let last = *indices.iter().max().ok_or(Error::IncompleteDecoderOutput)?;
+            running_max = running_max.max(last);
+            ready.push(running_max);
+        }
+        let mut future_min = vec![u32::MAX; output_rows + 1];
+        for row in (0..output_rows).rev() {
+            let (indices, _) = lines.taps(row);
+            let first = *indices.iter().min().ok_or(Error::IncompleteDecoderOutput)?;
+            future_min[row] = first.min(future_min[row + 1]);
+        }
+        let mut capacity = 1_usize;
+        for row in 0..output_rows {
+            capacity = capacity.max(rank(ready[row])? - rank(future_min[row])? + 1);
+        }
+        Ok(Self {
+            sample: info.sample,
+            source_region: plan.source,
+            source_y: plan.source.y,
+            source_height: plan.source.height,
+            footprint_y: plan.footprint.y,
+            requested_y: requested.y,
+            primaries,
+            color,
+            p3,
+            row_samples,
+            source_samples,
+            linear_samples,
+            output_rows,
+            column_taps,
+            lines,
+            needed,
+            line_ranks,
+            ready,
+            future_min,
+            capacity,
+        })
+    }
+
+    /// Graph-space source row of decoder row `decoder_y`.
+    pub(crate) fn semantic_y(&self, decoder_y: u32) -> Result<u32, Error> {
+        decoder_y
+            .checked_sub(self.source_y)
+            .and_then(|n| n.checked_add(self.footprint_y))
+            .ok_or(Error::GeometryOverflow)
+    }
+
+    pub(crate) fn output_y(&self, row: usize) -> Result<u32, Error> {
+        u32::try_from(row)
+            .ok()
+            .and_then(|row| self.requested_y.checked_add(row))
+            .ok_or(Error::GeometryOverflow)
+    }
+
+    /// Ranks and weights of output row `row`'s vertical taps.
+    pub(crate) fn vertical_taps(&self, row: usize) -> (&[usize], &[f32]) {
+        let range = self.lines.start[row]..self.lines.start[row + 1];
+        (&self.line_ranks[range.clone()], &self.lines.weight[range])
+    }
+}
+
+/// Below this many needed source rows, threads cost more than they save.
+const PARALLEL_MIN_ROWS: usize = 64;
+
+#[allow(clippy::too_many_arguments)] // Graph binding, budget, kernels, threads and sink.
 fn run<const C: usize>(
     graph: &Graph,
     target: NodeId,
@@ -372,95 +544,40 @@ fn run<const C: usize>(
     requested: Rect,
     budget: &MemoryBudget,
     kernels: &Kernels,
-    mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
+    threads: usize,
+    sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
-    let info = source.info().clone();
-    let plan = prepare(graph, target, bound_source, source, requested)?;
-    let color = info.semantics().color;
-    let primaries = match color {
-        ColorEncoding::Cicp([1, 13, 0, 1]) => Primaries::Srgb,
-        ColorEncoding::Cicp([12, 13, 0, 1]) => Primaries::DisplayP3,
-        _ => return Err(Error::UnsupportedColorEncoding),
-    };
-    #[allow(clippy::cast_possible_truncation)]
-    let p3 = p3_to_srgb_matrix().map(|row| row.map(|value| value as f32));
+    let plan = RowPlan::new::<C>(graph, target, bound_source, source, requested)?;
+    let (report, source_time, transform_time) =
+        if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
+            crate::parallel_execute::run::<C>(&plan, source, budget, kernels, threads, sink)?
+        } else {
+            run_sequential::<C>(&plan, source, budget, kernels, sink)?
+        };
+    Ok(QualityReport {
+        decoder: report,
+        output_rows: u64::try_from(plan.output_rows).map_err(|_| Error::GeometryOverflow)?,
+        decoder_requests: 1,
+        peak_engine_managed_bytes: budget.snapshot().peak,
+        explicit_full_frame_intermediates: 0,
+        source_time,
+        transform_time,
+    })
+}
+
+/// One thread: linearize and filter each needed row on arrival, keep
+/// horizontal rows in a ring addressed by rank, emit output rows in order.
+fn run_sequential<const C: usize>(
+    plan: &RowPlan,
+    source: &mut dyn DecodeSource,
+    budget: &MemoryBudget,
+    kernels: &Kernels,
+    mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
+) -> Result<(DecodeReport, Duration, Duration), Error> {
     let tables = tables();
-
-    let output_width = usize::try_from(requested.width).map_err(|_| Error::GeometryOverflow)?;
-    let row_samples = output_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
-    let source_width = usize::try_from(plan.source.width).map_err(|_| Error::GeometryOverflow)?;
-    // Decoded rows carry `C` samples per pixel; linearized rows carry four.
-    let source_samples = source_width.checked_mul(C).ok_or(Error::GeometryOverflow)?;
-    let linear_samples = source_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
-
-    let columns = TapTable::build(
-        plan.input.width,
-        plan.output.width,
-        plan.resize.x,
-        requested.width,
-        plan.filter,
-        plan.footprint.x,
-    )?;
-    if columns
-        .index
-        .iter()
-        .any(|&x| usize::try_from(x).map_or(true, |x| x >= source_width))
-    {
-        return Err(Error::OutOfBounds);
-    }
-    let column_taps = columns.contiguous(source_width)?;
-    let lines = TapTable::build(
-        plan.input.height,
-        plan.output.height,
-        plan.resize.y,
-        requested.height,
-        plan.filter,
-        0,
-    )?;
-    let output_rows = usize::try_from(requested.height).map_err(|_| Error::GeometryOverflow)?;
-
-    // Source rows any output row needs, in ascending order; vertical taps are
-    // stored as ranks into this list.
-    let mut needed = lines.index.clone();
-    needed.sort_unstable();
-    needed.dedup();
-    let rank = |y: u32| {
-        needed
-            .binary_search(&y)
-            .map_err(|_| Error::IncompleteDecoderOutput)
-    };
-    let line_ranks = lines
-        .index
-        .iter()
-        .map(|&y| rank(y))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    // Output row i can be produced once source row ready[i] has arrived:
-    // the running maximum of last taps keeps emission in order. A row is
-    // dead once no remaining output row can reference it (Lanczos zero
-    // crossings make the first tap nonmonotonic, see the reference).
-    let mut ready = Vec::with_capacity(output_rows);
-    let mut running_max = 0_u32;
-    for row in 0..output_rows {
-        let (indices, _) = lines.taps(row);
-        let last = *indices.iter().max().ok_or(Error::IncompleteDecoderOutput)?;
-        running_max = running_max.max(last);
-        ready.push(running_max);
-    }
-    let mut future_min = vec![u32::MAX; output_rows + 1];
-    for row in (0..output_rows).rev() {
-        let (indices, _) = lines.taps(row);
-        let first = *indices.iter().min().ok_or(Error::IncompleteDecoderOutput)?;
-        future_min[row] = first.min(future_min[row + 1]);
-    }
-    // Rows alive while output row i is produced: ranks rank(future_min[i])
-    // through rank(ready[i]). The largest such window sizes the ring.
-    let mut capacity = 1_usize;
-    for row in 0..output_rows {
-        capacity = capacity.max(rank(ready[row])? - rank(future_min[row])? + 1);
-    }
-
-    let mut linear = budget.allocate_typed::<f32>(linear_samples)?;
+    let capacity = plan.capacity;
+    let row_samples = plan.row_samples;
+    let mut linear = budget.allocate_typed::<f32>(plan.linear_samples)?;
     let mut ring = budget.allocate_typed::<f32>(
         capacity
             .checked_mul(row_samples)
@@ -468,44 +585,46 @@ fn run<const C: usize>(
     )?;
     let mut ring_rank = vec![usize::MAX; capacity];
     let mut accumulator = budget.allocate_typed::<f32>(row_samples)?;
-    let mut output =
-        budget.allocate_typed::<u8>(output_width.checked_mul(4).ok_or(Error::GeometryOverflow)?)?;
+    let mut output = budget.allocate_typed::<u8>(row_samples)?;
 
     let mut emitted = 0_usize;
     let mut decoded_rows = 0_u32;
-    let mut expected_y = plan.source.y;
+    let mut expected_y = plan.source_y;
     let mut transform_time = Duration::ZERO;
     let read_started = Instant::now();
-    let report = source.read_region(plan.source, budget, &mut |decoder_y, row| {
+    let report = source.read_region(plan.source_region, budget, &mut |decoder_y, row| {
         let row_started = Instant::now();
         if decoder_y != expected_y
-            || row.len() != source_samples
-            || row.sample_type() != info.sample
+            || row.len() != plan.source_samples
+            || row.sample_type() != plan.sample
         {
             return Err(Error::IncompleteDecoderOutput);
         }
         decoded_rows += 1;
         expected_y = expected_y.checked_add(1).ok_or(Error::GeometryOverflow)?;
-        let semantic_y = decoder_y
-            .checked_sub(plan.source.y)
-            .and_then(|n| n.checked_add(plan.footprint.y))
-            .ok_or(Error::GeometryOverflow)?;
+        let semantic_y = plan.semantic_y(decoder_y)?;
 
-        if let Ok(row_rank) = needed.binary_search(&semantic_y) {
-            linearize_row::<C>(row, primaries, &color, &p3, linear.as_mut_slice())?;
+        if let Ok(row_rank) = plan.needed.binary_search(&semantic_y) {
+            linearize_row::<C>(
+                row,
+                plan.primaries,
+                &plan.color,
+                &plan.p3,
+                linear.as_mut_slice(),
+            )?;
             let slot = row_rank % capacity;
             ring_rank[slot] = row_rank;
             let target = &mut ring.as_mut_slice()[slot * row_samples..(slot + 1) * row_samples];
             kernels
-                .horizontal_rgba(linear.as_slice(), &column_taps, target)
+                .horizontal_rgba(linear.as_slice(), &plan.column_taps, target)
                 .map_err(kernel_error)?;
         }
 
-        while emitted < output_rows && ready[emitted] <= semantic_y {
+        while emitted < plan.output_rows && plan.ready[emitted] <= semantic_y {
             let acc = accumulator.as_mut_slice();
             acc.fill(0.0);
-            let range = lines.start[emitted]..lines.start[emitted + 1];
-            for (&row_rank, &weight) in line_ranks[range.clone()].iter().zip(&lines.weight[range]) {
+            let (ranks, weights) = plan.vertical_taps(emitted);
+            for (&row_rank, &weight) in ranks.iter().zip(weights) {
                 let slot = row_rank % capacity;
                 if ring_rank[slot] != row_rank {
                     return Err(Error::IncompleteDecoderOutput);
@@ -514,9 +633,7 @@ fn run<const C: usize>(
                 kernels.axpy(acc, cached, weight).map_err(kernel_error)?;
             }
             quantize_row::<C>(acc, output.as_mut_slice(), tables)?;
-            let out_y =
-                requested.y + u32::try_from(emitted).map_err(|_| Error::GeometryOverflow)?;
-            sink(out_y, output.as_slice())?;
+            sink(plan.output_y(emitted)?, output.as_slice())?;
             emitted += 1;
         }
         transform_time += row_started.elapsed();
@@ -524,19 +641,11 @@ fn run<const C: usize>(
     })?;
     let source_time = read_started.elapsed().saturating_sub(transform_time);
 
-    if decoded_rows != plan.source.height
-        || emitted != output_rows
+    if decoded_rows != plan.source_height
+        || emitted != plan.output_rows
         || report.rows != u64::from(decoded_rows)
     {
         return Err(Error::IncompleteDecoderOutput);
     }
-    Ok(QualityReport {
-        decoder: report,
-        output_rows: u64::try_from(emitted).map_err(|_| Error::GeometryOverflow)?,
-        decoder_requests: 1,
-        peak_engine_managed_bytes: budget.snapshot().peak,
-        explicit_full_frame_intermediates: 0,
-        source_time,
-        transform_time,
-    })
+    Ok((report, source_time, transform_time))
 }

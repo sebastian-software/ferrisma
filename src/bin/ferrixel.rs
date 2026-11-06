@@ -50,6 +50,9 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         "--kernel-level=avx2" => options.kernel_level_ceiling = Some(KernelLevel::Avx2),
         "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
         "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
+        option if option.starts_with("--transform-threads=") => {
+            options.transform_threads = option[20..].parse()?;
+        }
         option if option.starts_with("--encoder-threads=") => {
             options.encoder_threads = option[18..].parse()?;
         }
@@ -83,7 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
         eprintln!(
-            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--chroma=444|420] [--kernel-level=scalar|neon|avx2] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: ferrixel input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--transform-threads=0 (0 = all cores)] [--chroma=444|420] [--kernel-level=scalar|neon|avx2] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         std::process::exit(2);
     }
@@ -126,7 +129,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!(
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
-         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={}",
+         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={} transform_threads={}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -141,6 +144,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         output.report.working_precision,
         output.report.encoder_threads,
         output.report.kernel_level,
+        output.report.transform_threads,
     );
     if output.report.opaque_decoder_memory || output.report.opaque_encoder_memory {
         eprintln!(

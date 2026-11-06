@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped; work package 4 (parallel execution) landed as a row pipeline and a batch engine
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -81,7 +81,7 @@ Ordered by evidence first, then algorithmic wins, then hardware-specific wins. A
 | --- | --- | --- |
 | [0020](../adr/0020-kernel-crate-and-isa-dispatch.md) (Proposed) | Kernel crate, ISA dispatch and the `unsafe` boundary | Decided: a separate `ferrixel-kernels` crate with `std::arch` intrinsics behind a safe API, hand-written runtime dispatch, the chosen level in plan and report, differential tests per level |
 | [0021](../adr/0021-working-precision-policy.md) (Experimental) | Working precision policy | Decided: `f32` with exact LUTs and a testable bound against the `f64` oracle; the Q1.14 path was prototyped, measured below its 1.25× threshold on every hardware class and dropped |
-| 0022 | Tiled fused executor and engine-owned parallelism | Band shapes and halos, decoder-ahead pipelining for sequential codecs, shared horizontal rows, budget across workers, batch scheduling, no global pool |
+| [0022](../adr/0022-parallel-row-pipeline-and-engine.md) (Experimental) | Parallel execution | Decided: a row pipeline instead of bands (decoders stream rows once, so bands would duplicate halos), byte-identical to the sequential executor, standard library only; an `Engine` schedules whole images for batches |
 | 0023 | Decode-side scaling and native YUV policy | Which codecs really skip work, how the scale factor enters the plan, the gamma-domain native path as a separate declared quality policy; facts in [the codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
 | 0024 | GPU execution policy | Cost model inputs, unified-memory fast path, when the planner may choose the device, dependency weight of `wgpu`, output equivalence bound |
 
@@ -140,3 +140,7 @@ Ferrixel now drives `rav1e` itself: rows become 10-bit YCbCr directly in the enc
 ## Progress note — package 3 completed (2026-11-06)
 
 The kernel crate has `Scalar`, `Neon`, `Avx2` and `Avx512` levels, with SIMD timings from three hardware classes through `examples/bench.rs` in CI ([run 42179398696](https://github.com/sebastian-software/ferrixel/actions/runs/42179398696)). On x86-64 the kernels matter most: the 24 Mpx to 1600 resample takes 2120 ms in the scalar body (no FMA in the baseline), 69 ms with AVX2 and 51 ms with AVX-512. On Apple M1 and Neoverse the explicit NEON level matches the scalar body, which LLVM already vectorizes. Two planned items were measured and dropped: SVE2 through autovectorization (vertical pass 3× slower than NEON on Neoverse) and the Q1.14 path of ADR-0021 (0.51–1.03× of `f32`, below the 1.25× threshold everywhere). Two kernel ideas were measured without gain on M1 and reverted: four interleaved accumulators and a branch-free linearize loop; linearization (about 24 % of the transform) and quantization (about 9 %) are bound by table lookups. The single largest remaining lever for the transform is running the row loop on several cores, which is work package 4.
+
+## Progress note — package 4 (2026-11-06)
+
+Implemented as ADR-0022 decides, not as the band sketch of the work-package table: decoders stream rows once from the top, so the driver thread hands each needed source row to workers (linearize and horizontal pass) and submits output rows (vertical pass and quantization) as soon as their inputs exist; finished rows reach the sink in order. The output is byte-identical to the sequential executor, which a test checks across inputs, geometries, levels and thread counts. On the dev machine the transform stage scales 5.5× (24 Mpx) and 6.7× (48 Mpx) to 19 and 29 ms; end to end with all cores 24 Mpx to 1600 wide now takes 0.262 s and 48 Mpx 0.358 s. The `Engine` batch API runs 221.6 small images per second, 14× the sequential rate. Decode (88 ms at 24 Mpx, single-threaded `zune-jpeg` with a full frame) and encode (about 140 ms) are now the largest stages; decode is work package 5. Not done: a long-lived pool across calls, nested parallelism, and scaling past the serial driver thread (copy and dispatch), which caps the transform near 8 threads.

@@ -37,6 +37,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0019](0019-source-side-orientation.md) | Apply EXIF/AVIF orientation through an explicit, budgeted source-side materialization | Experimental |
 | [0020](0020-kernel-crate-and-isa-dispatch.md) | Separate `ferrixel-kernels` crate, `std::arch` intrinsics behind a safe API, runtime ISA dispatch reported in the plan, scalar/SIMD differential tests | Experimental |
 | [0021](0021-working-precision-policy.md) | Working precision: `f32` with exact LUTs and a testable error bound against the `f64` oracle; the Q1.14 path was measured and dropped | Experimental |
+| [0022](0022-parallel-row-pipeline-and-engine.md) | Parallel row pipeline with ordered emission (byte-identical to the sequential executor, standard library only) and an `Engine` for batches | Experimental |
 
 ## Changing an ADR
 

@@ -271,3 +271,52 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
         ProcessingErrorKind::InvalidOptions
     );
 }
+
+#[test]
+fn engine_batches_match_single_image_results_in_order() {
+    use crate::pipeline::{BatchItem, Engine};
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        speed: 10,
+        transform_threads: 1,
+        encoder_threads: 1,
+        ..TransformOptions::default()
+    };
+    let sizes = [(3, 3), (8, 6), (5, 9), (1, 1), (12, 4), (7, 7)];
+    let items: Vec<BatchItem<'_>> = sizes
+        .iter()
+        .map(|&(width, height)| BatchItem {
+            encoded: jpeg,
+            format: ImageFormat::Jpeg,
+            options: TransformOptions {
+                output_width: width,
+                output_height: height,
+                ..options
+            },
+        })
+        .chain(std::iter::once(BatchItem {
+            encoded: &jpeg[..10],
+            format: ImageFormat::Jpeg,
+            options,
+        }))
+        .collect();
+    let engine = Engine::new(3);
+    assert_eq!(engine.threads(), 3);
+    let results = engine.transcode_batch(&items);
+    assert_eq!(results.len(), items.len());
+    for (item, result) in items.iter().zip(&results).take(sizes.len()) {
+        let single = transcode(item.encoded, item.format, item.options).unwrap();
+        let batched = result.as_ref().unwrap();
+        assert_eq!(single.avif_bytes, batched.avif_bytes);
+        assert_eq!(batched.report.transform_threads, 1);
+        assert_eq!(batched.report.encoder_threads, 1);
+    }
+    // A truncated image fails on its own without affecting the others.
+    assert_eq!(
+        results.last().unwrap().as_ref().unwrap_err().kind(),
+        ProcessingErrorKind::MalformedInput
+    );
+    assert!(Engine::new(0).threads() >= 1);
+    assert!(engine.transcode_batch(&[]).is_empty());
+}

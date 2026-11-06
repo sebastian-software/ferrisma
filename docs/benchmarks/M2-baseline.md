@@ -190,3 +190,47 @@ The f32 executor's resample now runs on `crates/ferrixel-kernels` (ADR-0020) wit
 The same run timed a Q1.14 prototype (ADR-0021 rule 2) against these `f32` kernels: 1.03× on M1, 0.51× (AVX2) and 0.57× (AVX-512) on x86-64, 0.68–0.90× on Arm. It stayed below the 1.25× threshold everywhere and was dropped; details in ADR-0021's amendment log.
 
 Engine-level transform times on M1 are unchanged by this step (24 Mpx 106 ms, 48 Mpx 191 ms with all encoder cores); no x86-64 end-to-end timing exists yet because the harness needs ImageMagick and the codecs on the runner.
+
+## 2026-11-06 — work package 4: parallel row pipeline and batch engine
+
+Transform stage alone (best of three runs, one encoder thread, `--transform-threads=N`):
+
+| threads | 24 Mpx transform ms | 48 Mpx transform ms |
+| ---: | ---: | ---: |
+| 1 | 104 | 194 |
+| 2 | 59 | 109 |
+| 4 | 33 | 57 |
+| 8 | 20 | 31 |
+| 12 | 21 | 31 |
+| 16 | 20 | 30 |
+| 20 | 19 | 29 |
+
+End to end with the harness (transform threads default to all cores; 5 runs):
+
+| image | all encoder cores: wall s | decode ms | transform ms | encode ms | peak RSS MiB | one encoder thread: wall s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| synthetic 1 Mpx JPEG | 0.156 | 4 | 7 | 143 | 92.8 | 1.109 |
+| synthetic 12 Mpx JPEG | 0.209 | 45 | 15 | 142 | 141.3 | 1.382 |
+| synthetic 24 Mpx JPEG | 0.262 | 88 | 20 | 149 | 166.7 | 1.353 |
+| synthetic 48 Mpx JPEG | 0.358 | 173 | 30 | 138 | 251.5 | 1.620 |
+| synthetic 12 Mpx AVIF | 0.258 | 96 | 14 | 135 | 165.5 | 1.431 |
+
+Throughput of 100 small images (640×427 to 320 wide), measured by the harness with `examples/batch.rs`:
+
+| mode | images/s |
+| --- | ---: |
+| one process per image | 13.9 |
+| sequential in one process | 15.6 |
+| `Engine::transcode_batch`, 20 workers | 216.4–221.6 |
+
+### Where M2 stands on this machine
+
+| 24 Mpx JPEG to 1600-wide AVIF | wall time |
+| --- | ---: |
+| start of M2 | 8.83 s |
+| after package 1 (f32 executor) | 3.20 s |
+| after package 2 (encoder, all cores) | 0.44 s |
+| after package 3 (kernels) | 0.35 s |
+| after package 4 (parallel transform) | 0.26 s |
+
+Decode (88 ms, single-threaded, full frame) and encode (about 150 ms) now make up nearly all of the remaining time; the transform is 20 ms. The next levers are decode-side scaling (work package 5) and the encoder backend, not the transform.

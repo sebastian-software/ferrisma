@@ -351,6 +351,7 @@ fn render(
             request,
             &budget,
             kernels,
+            1,
             sink,
         )
     } else {
@@ -535,6 +536,7 @@ fn fast_executor_uses_less_managed_memory_and_releases_it_on_cancellation() {
         request,
         &fast_budget,
         &Kernels::best(),
+        1,
         |_, _| Ok(()),
     )
     .unwrap();
@@ -552,6 +554,7 @@ fn fast_executor_uses_less_managed_memory_and_releases_it_on_cancellation() {
             request,
             &budget,
             &Kernels::best(),
+            1,
             |_, _| {
                 calls += 1;
                 Err(Error::Cancelled)
@@ -573,6 +576,7 @@ fn fast_executor_uses_less_managed_memory_and_releases_it_on_cancellation() {
             request,
             &tiny,
             &Kernels::best(),
+            1,
             |_, _| Ok(())
         ),
         Err(Error::BudgetExceeded { .. })
@@ -618,6 +622,7 @@ fn fast_executor_rejects_non_finite_float_samples_like_the_reference() {
                 request,
                 &budget,
                 &Kernels::best(),
+                1,
                 |_, _| Ok(()),
             )
         } else {
@@ -634,4 +639,186 @@ fn fast_executor_rejects_non_finite_float_samples_like_the_reference() {
         assert_eq!(result.unwrap_err(), Error::NonFinitePixelSample);
         assert_eq!(budget.snapshot().live, 0);
     }
+}
+
+/// Inputs tall enough (more than 64 needed rows) to take the parallel path.
+fn tall_sources() -> Vec<(&'static str, TestSource)> {
+    const TW: u32 = 80;
+    const TH: u32 = 300;
+    let mut rng = Rng(0xA076_1D64_78BD_642F);
+    let size = Size::new(TW, TH).unwrap();
+    let pixels = (TW * TH) as usize;
+    let rgb: Vec<u8> = (0..pixels * 3).map(|_| rng.byte(256)).collect();
+    let rgba: Vec<u8> = (0..pixels * 4).map(|_| rng.byte(256)).collect();
+    let float: Vec<f32> = (0..pixels * 3)
+        .map(|_| rng.unit().mul_add(1.4, -0.2))
+        .collect();
+    vec![
+        (
+            "RGB noise",
+            TestSource::new(size, ChannelLayout::Rgb, SRGB, Samples::U8(rgb.clone())),
+        ),
+        (
+            "P3 noise",
+            TestSource::new(size, ChannelLayout::Rgb, P3, Samples::U8(rgb)),
+        ),
+        (
+            "RGBA noise",
+            TestSource::new(size, ChannelLayout::Rgba, SRGB, Samples::U8(rgba)),
+        ),
+        (
+            "F32 extended",
+            TestSource::new(size, ChannelLayout::Rgb, SRGB, Samples::F32(float)),
+        ),
+    ]
+}
+
+/// Run the f32 executor with `threads`, returning the bytes or the error,
+/// and checking that every managed byte was released.
+#[allow(clippy::too_many_arguments)] // A test driver over every knob.
+fn run_threads(
+    source: &TestSource,
+    crop: Option<Rect>,
+    size: Size,
+    filter: Filter,
+    kernels: &Kernels,
+    threads: usize,
+    budget_bytes: usize,
+    mut stop_after: Option<usize>,
+) -> Result<Vec<u8>, Error> {
+    let (graph, input, output) = graph_for(source, crop, size, filter);
+    let mut source = source.clone();
+    let budget = MemoryBudget::new(budget_bytes);
+    let mut pixels = Vec::new();
+    let mut expected_y = 0;
+    let result = execute_fast_srgb8(
+        &graph,
+        output,
+        input,
+        &mut source,
+        Rect::new(0, 0, size.width, size.height).unwrap(),
+        &budget,
+        kernels,
+        threads,
+        |y, row| {
+            assert_eq!(y, expected_y, "rows must reach the sink in order");
+            expected_y += 1;
+            if let Some(remaining) = stop_after.as_mut() {
+                if *remaining == 0 {
+                    return Err(Error::Cancelled);
+                }
+                *remaining -= 1;
+            }
+            pixels.extend_from_slice(row);
+            Ok(())
+        },
+    );
+    assert_eq!(budget.snapshot().live, 0, "managed memory must be released");
+    result.map(|report| {
+        assert_eq!(source.calls, 1);
+        assert_eq!(report.output_rows, u64::from(size.height));
+        pixels
+    })
+}
+
+#[test]
+fn parallel_pipeline_is_byte_identical_to_the_sequential_executor() {
+    let geometries = [
+        (None, 80, 300),
+        (None, 120, 450),
+        (None, 40, 150),
+        (None, 11, 40),
+        (None, 80, 3),
+        (Some(Rect::new(3, 17, 70, 250).unwrap()), 33, 101),
+    ];
+    let mut levels = vec![Kernels::best()];
+    if Kernels::best().level() != ferrixel_kernels::IsaLevel::Scalar {
+        levels.push(Kernels::for_level(ferrixel_kernels::IsaLevel::Scalar).unwrap());
+    }
+    for (name, source) in tall_sources() {
+        for filter in [Filter::Area, Filter::Lanczos3] {
+            for (crop, width, height) in geometries {
+                let size = Size::new(width, height).unwrap();
+                for kernels in &levels {
+                    let sequential =
+                        run_threads(&source, crop, size, filter, kernels, 1, 64 << 20, None)
+                            .unwrap();
+                    for threads in [2, 3, 8] {
+                        let parallel = run_threads(
+                            &source,
+                            crop,
+                            size,
+                            filter,
+                            kernels,
+                            threads,
+                            64 << 20,
+                            None,
+                        )
+                        .unwrap();
+                        assert!(
+                            sequential == parallel,
+                            "{name} {filter:?} {crop:?} {width}x{height} {} threads {threads}",
+                            kernels.level()
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn parallel_pipeline_cancels_and_fails_like_the_sequential_executor() {
+    let sources = tall_sources();
+    let size = Size::new(40, 150).unwrap();
+    let kernels = Kernels::best();
+    // A sink that cancels after 7 rows stops the pipeline and frees memory.
+    for (_, source) in &sources {
+        assert_eq!(
+            run_threads(
+                source,
+                None,
+                size,
+                Filter::Lanczos3,
+                &kernels,
+                4,
+                64 << 20,
+                Some(7)
+            ),
+            Err(Error::Cancelled)
+        );
+    }
+    // A budget too small for the worker scratch fails cleanly.
+    let (_, source) = &sources[0];
+    assert!(matches!(
+        run_threads(
+            source,
+            None,
+            size,
+            Filter::Lanczos3,
+            &kernels,
+            4,
+            8 << 10,
+            None
+        ),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    // A non-finite float sample found by a worker reaches the caller.
+    let mut broken = sources[3].1.clone();
+    if let Samples::F32(values) = &mut broken.samples {
+        values[3 * 80 * 120 + 5] = f32::NAN;
+    }
+    assert_eq!(
+        run_threads(
+            &broken,
+            None,
+            size,
+            Filter::Area,
+            &kernels,
+            4,
+            64 << 20,
+            None
+        ),
+        Err(Error::NonFinitePixelSample)
+    );
 }

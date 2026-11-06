@@ -74,6 +74,10 @@ pub struct TransformOptions {
     /// supports. Lowering it never changes the result beyond the ADR-0021
     /// bound; it exists for verification, benchmarks and bug reports.
     pub kernel_level_ceiling: Option<KernelLevel>,
+    /// Threads for the decode-transform row pipeline (ADR-0022): 0 means
+    /// all available cores, 1 the sequential path. The output is
+    /// byte-identical for every value.
+    pub transform_threads: usize,
     pub profile_policy: InputProfilePolicy,
     pub quality: f32,
     pub speed: u8,
@@ -101,6 +105,7 @@ impl Default for TransformOptions {
             filter: ResizeFilter::Lanczos3,
             precision: WorkingPrecision::F32,
             kernel_level_ceiling: None,
+            transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
             quality: 75.0,
             speed: 6,
@@ -164,6 +169,9 @@ pub struct ProcessingReport {
     pub kernel_level_reason: KernelLevelReason,
     /// Encoder threads actually used (resolved when the option was 0).
     pub encoder_threads: usize,
+    /// Transform pipeline threads actually used; 1 for the sequential path
+    /// and the `f64` reference.
+    pub transform_threads: usize,
     pub timings: StageTimings,
 }
 
@@ -464,6 +472,13 @@ pub fn transcode(
     let mut output_sink = AvifSink::new(target_size, transparent, encode_settings, &budget)?;
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
+    let transform_threads = match (options.precision, options.transform_threads) {
+        (WorkingPrecision::F64Reference, _) => 1,
+        (WorkingPrecision::F32, 0) => {
+            std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
+        }
+        (WorkingPrecision::F32, threads) => threads,
+    };
     let kernels = match options.kernel_level_ceiling {
         Some(ceiling) => ferrixel_kernels::Kernels::with_ceiling(ceiling),
         None => ferrixel_kernels::Kernels::best(),
@@ -481,6 +496,7 @@ pub fn transcode(
             request,
             &budget,
             &kernels,
+            transform_threads,
             |y, row| output_sink.write_row(y, row),
         )?,
         WorkingPrecision::F64Reference => execute_quality_srgb8(
@@ -514,6 +530,7 @@ pub fn transcode(
         kernel_level,
         kernel_level_reason,
         encoder_threads,
+        transform_threads,
         timings: StageTimings {
             open,
             decode: processed.source_time,
@@ -526,4 +543,86 @@ pub fn transcode(
         avif_bytes: encoded_avif.bytes,
         report,
     })
+}
+
+/// One image of a batch: compressed bytes, their format and the options.
+#[derive(Clone, Copy, Debug)]
+pub struct BatchItem<'a> {
+    pub encoded: &'a [u8],
+    pub format: ImageFormat,
+    pub options: TransformOptions,
+}
+
+/// Runs many images in parallel (ADR-0022). The engine schedules whole
+/// images across its workers and runs each with one transform thread and
+/// one encoder thread: across many images this keeps every core busy with
+/// the smallest files (one AV1 tile per image), and the output of every
+/// image is identical to `transcode` with those two options set to 1.
+///
+/// Each image keeps its own `max_managed_bytes` budget, so the engine's
+/// managed memory is bounded by `threads` times the largest per-image budget.
+#[derive(Clone, Copy, Debug)]
+pub struct Engine {
+    threads: usize,
+}
+
+impl Engine {
+    /// An engine with `threads` workers; 0 means all available cores.
+    #[must_use]
+    pub fn new(threads: usize) -> Self {
+        let threads = match threads {
+            0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+            threads => threads,
+        };
+        Self { threads }
+    }
+
+    /// Number of workers.
+    #[must_use]
+    pub fn threads(&self) -> usize {
+        self.threads
+    }
+
+    /// Transcode every item; results come back in input order. A failing
+    /// image does not stop the others.
+    #[must_use]
+    pub fn transcode_batch(&self, items: &[BatchItem<'_>]) -> Vec<Result<Output, ProcessingError>> {
+        use std::sync::Mutex;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let next = AtomicUsize::new(0);
+        let results: Vec<Mutex<Option<Result<Output, ProcessingError>>>> =
+            items.iter().map(|_| Mutex::new(None)).collect();
+        let workers = self.threads.min(items.len()).max(1);
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                scope.spawn(|| {
+                    loop {
+                        let index = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(item) = items.get(index) else { break };
+                        let options = TransformOptions {
+                            transform_threads: 1,
+                            encoder_threads: 1,
+                            ..item.options
+                        };
+                        let result = transcode(item.encoded, item.format, options);
+                        if let Ok(mut slot) = results[index].lock() {
+                            *slot = Some(result);
+                        }
+                    }
+                });
+            }
+        });
+        results
+            .into_iter()
+            .map(|slot| {
+                slot.into_inner().ok().flatten().unwrap_or_else(|| {
+                    Err(ProcessingError::new(
+                        ProcessingErrorKind::Internal,
+                        "a batch worker stopped before finishing its image",
+                    ))
+                })
+            })
+            .collect()
+    }
 }

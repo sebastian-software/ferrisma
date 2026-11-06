@@ -127,3 +127,7 @@ Codecs and the ICC CMS are optional features: `zune-jpeg`, `jxl-oxide`, `avif-de
 ## Orientation (experimental)
 
 Decoders emit stored-order samples and report the EXIF orientation that displays them. A non-identity source is wrapped in `OrientedSource`, which maps each display rectangle back to its stored rectangle, reads it once into a budgeted buffer and emits upright rows. The graph therefore stays orientation-free and crops are display coordinates; the buffer is reported as `orientation_buffer_bytes`. JPEG XL needs no buffer because `jxl-oxide` renders upright output for display-coordinate crops itself. See [ADR-0019](adr/0019-source-side-orientation.md).
+
+## Parallel execution (experimental)
+
+[ADR-0022](adr/0022-parallel-row-pipeline-and-engine.md): with `transform_threads > 1` the f32 executor runs a row pipeline. The thread that drives the decoder copies each needed source row and submits it to workers, which linearize it and run the horizontal kernel; output rows whose horizontal inputs all exist are submitted for the vertical pass and quantization; a reorder buffer hands finished rows to the sink in order. A bounded job queue applies backpressure to the decoder, horizontal rows are released by the same rule as the sequential ring, and every buffer is charged to the shared budget. The output is byte-identical to the sequential path. `Engine::transcode_batch` schedules whole images across scoped workers instead, each with one transform and one encoder thread.

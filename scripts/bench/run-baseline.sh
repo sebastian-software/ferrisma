@@ -223,6 +223,13 @@ if (( ${#small[@]} > 0 )); then
     hyperfine --runs 2 --shell=bash --export-json "$out/hyperfine-throughput-ferrixel.json" "$loop" > "$out/hyperfine-throughput-ferrixel.txt" 2>&1
     mean=$(hyperfine_stats "$out/hyperfine-throughput-ferrixel.json" | cut -d, -f1)
     echo "ferrixel,${#small[@]},$mean,$(python3 -I -c "print(f'{${#small[@]} / $mean:.2f}')")" >> "$throughput"
+    # In-process batch through the Engine (ADR-0022): all cores, one image
+    # per worker; no process start per image.
+    (cd "$repo" && cargo build --release --features cli --example batch > /dev/null 2>&1)
+    "$repo/target/release/examples/batch" "$corpus/small" "$small_width" 0 "$s_out_h" > "$out/batch.txt" 2>&1 || true
+    engine_rate=$(awk '/^engine batch:/ {print $5}' "$out/batch.txt")
+    engine_seconds=$(awk '/^engine batch:/ {print $3}' "$out/batch.txt")
+    [[ -n "$engine_rate" ]] && echo "ferrixel-engine-batch,${#small[@]},$engine_seconds,$engine_rate" >> "$throughput"
     if [[ $sharp_available == 1 ]]; then
       loop="for f in $corpus/small/*; do node $repo/scripts/bench/sharp-resize.cjs \"\$f\" $tmp/small.avif $small_width $s_out_h $quality 4; done"
       NODE_PATH="$BENCH_SHARP_NODE_MODULES" hyperfine --runs 2 --shell=bash --export-json "$out/hyperfine-throughput-sharp.json" "$loop" > "$out/hyperfine-throughput-sharp.txt" 2>&1
