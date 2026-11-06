@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-06
 - **Supersedes:** The "no public fluent API or CLI as initial prerequisites" clause of [ADR-0008](0008-initial-vertical-slice.md), for M1 only
 - **Related:** [0008](0008-initial-vertical-slice.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [M1 plan](../milestones/M1-complete-image-pipeline.md) work package 8
 
@@ -67,3 +67,4 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 - 2026-11-06 — Kept `ChromaSubsampling::Yuv444` as the default after the 4:2:0 measurements (maintainer decision): full-resolution chroma matches Sharp's AVIF default and avoids a silent output change; callers opt into 4:2:0 explicitly.
 - 2026-11-06 — Added `KernelLevel` and `KernelLevelReason` (re-exported from `ferrixel-kernels`), `TransformOptions::kernel_level_ceiling` (`None` picks the best supported level), `ProcessingReport::kernel_level` and `kernel_level_reason`, and the CLI flag `--kernel-level=scalar|neon|avx2`, as ADR-0020 decision 5 requires.
 - 2026-11-06 — Added `TransformOptions::transform_threads` (default 0 = all cores; output byte-identical for every value), `ProcessingReport::transform_threads`, the CLI flag `--transform-threads`, and `Engine` with `BatchItem` for in-process batches (ADR-0022). The facade's surface grows by one type with two methods; a long-lived pool, async and streaming input remain out of scope.
+- 2026-11-06 — Pluggable encoders (ADR-0024): `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` traits with `EncodeRequest`, `EncodedImage` and `EncodeError`, and `ProcessingReport::encoder_backend`. The CLI moved into `ferrixel::cli::run(args, backend)` (compiled with `avif-write`), so adapter crates ship the same command; the `report:` line gained `encoder=`.

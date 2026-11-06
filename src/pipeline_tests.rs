@@ -320,3 +320,231 @@ fn engine_batches_match_single_image_results_in_order() {
     assert!(Engine::new(0).threads() >= 1);
     assert!(engine.transcode_batch(&[]).is_empty());
 }
+
+/// A backend that records what it is given; its "encoding" is the rows.
+mod backend {
+    use std::sync::Mutex;
+
+    use crate::pipeline::{
+        EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
+    };
+
+    #[derive(Default)]
+    pub struct Recorder {
+        pub requests: Mutex<Vec<EncodeRequest>>,
+        /// Fail `begin`, a row (after this many rows) or `finish`.
+        pub fail_begin: bool,
+        pub fail_after_rows: Option<usize>,
+        pub fail_finish: bool,
+    }
+
+    struct Rows<'a> {
+        backend: &'a Recorder,
+        request: EncodeRequest,
+        next: u32,
+        bytes: Vec<u8>,
+    }
+
+    impl EncoderBackend for Recorder {
+        fn name(&self) -> &'static str {
+            "recorder"
+        }
+        fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+            if self.fail_begin {
+                return Err(EncodeError::new(
+                    EncodeErrorKind::InvalidOptions,
+                    "no thanks",
+                ));
+            }
+            self.requests.lock().unwrap().push(*request);
+            Ok(Box::new(Rows {
+                backend: self,
+                request: *request,
+                next: 0,
+                bytes: Vec::new(),
+            }))
+        }
+    }
+
+    impl RowEncoder for Rows<'_> {
+        fn write_row(&mut self, y: u32, rgba: &[u8]) -> Result<(), EncodeError> {
+            assert_eq!(y, self.next, "rows arrive in order");
+            assert_eq!(rgba.len(), 4 * self.request.width as usize);
+            if self.backend.fail_after_rows == Some(y as usize) {
+                return Err(EncodeError::new(EncodeErrorKind::Failed, "row refused"));
+            }
+            self.next += 1;
+            self.bytes.extend_from_slice(rgba);
+            Ok(())
+        }
+        fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
+            assert_eq!(
+                self.next, self.request.height,
+                "finish follows the last row"
+            );
+            if self.backend.fail_finish {
+                return Err(EncodeError::new(EncodeErrorKind::ResourceExhausted, "full"));
+            }
+            let frame = self.bytes.len();
+            Ok(EncodedImage::new(self.bytes, frame, true))
+        }
+    }
+}
+
+#[test]
+fn a_backend_receives_the_request_and_every_output_row() {
+    use crate::pipeline::{ChromaSubsampling, transcode_with};
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        output_width: 7,
+        output_height: 5,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        quality: 42.5,
+        // Outside rav1e's range: the backend validates its own scale.
+        speed: 0,
+        encoder_threads: 3,
+        chroma_subsampling: ChromaSubsampling::Yuv420,
+        ..TransformOptions::default()
+    };
+    let recorder = backend::Recorder::default();
+    let output = transcode_with(jpeg, ImageFormat::Jpeg, options, &recorder).unwrap();
+    let requests = recorder.requests.lock().unwrap().clone();
+    assert_eq!(requests.len(), 1);
+    let request = requests[0];
+    assert_eq!((request.width, request.height), (7, 5));
+    assert!(!request.has_alpha);
+    assert!((request.quality - 42.5).abs() < f32::EPSILON);
+    assert_eq!(request.speed, 0);
+    assert_eq!(request.threads, 3);
+    assert_eq!(request.chroma, ChromaSubsampling::Yuv420);
+    // The "encoding" is the rows: opaque straight RGBA8, 7 x 5 pixels.
+    assert_eq!(output.avif_bytes.len(), 7 * 5 * 4);
+    assert!(output.avif_bytes.chunks(4).all(|pixel| pixel[3] == 255));
+    assert_eq!(output.report.encoder_backend, "recorder");
+    assert_eq!(output.report.encoder_output_frame_bytes, 7 * 5 * 4);
+    assert!(output.report.opaque_encoder_memory);
+    assert_eq!(
+        transcode(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                speed: 9,
+                ..options
+            }
+        )
+        .unwrap()
+        .report
+        .encoder_backend,
+        "rav1e"
+    );
+    // The rows do not depend on the transform thread count.
+    for threads in [1, 4] {
+        let again = transcode_with(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                transform_threads: threads,
+                ..options
+            },
+            &recorder,
+        )
+        .unwrap();
+        assert_eq!(again.avif_bytes, output.avif_bytes);
+    }
+}
+
+#[test]
+fn backend_errors_keep_their_kind_and_message() {
+    use crate::pipeline::transcode_with;
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        output_width: 6,
+        output_height: 4,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        ..TransformOptions::default()
+    };
+    let cases = [
+        (
+            backend::Recorder {
+                fail_begin: true,
+                ..Default::default()
+            },
+            ProcessingErrorKind::InvalidOptions,
+            "no thanks",
+        ),
+        (
+            backend::Recorder {
+                fail_after_rows: Some(2),
+                ..Default::default()
+            },
+            ProcessingErrorKind::EncodeFailed,
+            "row refused",
+        ),
+        (
+            backend::Recorder {
+                fail_finish: true,
+                ..Default::default()
+            },
+            ProcessingErrorKind::ResourceExhausted,
+            "full",
+        ),
+    ];
+    for (recorder, kind, message) in cases {
+        for precision in [
+            crate::pipeline::WorkingPrecision::F32,
+            crate::pipeline::WorkingPrecision::F64Reference,
+        ] {
+            let error = transcode_with(
+                jpeg,
+                ImageFormat::Jpeg,
+                TransformOptions {
+                    precision,
+                    ..options
+                },
+                &recorder,
+            )
+            .unwrap_err();
+            assert_eq!(error.kind(), kind, "{message}");
+            assert!(error.to_string().contains(message), "{error}");
+        }
+    }
+    // Input errors are reported as before, without asking the backend.
+    let recorder = backend::Recorder::default();
+    let error = transcode_with(&jpeg[..10], ImageFormat::Jpeg, options, &recorder).unwrap_err();
+    assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
+    assert!(recorder.requests.lock().unwrap().is_empty());
+}
+
+#[test]
+fn engine_batches_run_one_backend_encoder_per_image() {
+    use crate::pipeline::{BatchItem, Engine};
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let items: Vec<BatchItem<'_>> = [(3, 3), (8, 6), (5, 9), (12, 4)]
+        .iter()
+        .map(|&(width, height)| BatchItem {
+            encoded: jpeg,
+            format: ImageFormat::Jpeg,
+            options: TransformOptions {
+                output_width: width,
+                output_height: height,
+                profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+                encoder_threads: 0,
+                ..TransformOptions::default()
+            },
+        })
+        .collect();
+    let recorder = backend::Recorder::default();
+    let results = Engine::new(3).transcode_batch_with(&items, &recorder);
+    for (item, result) in items.iter().zip(&results) {
+        let output = result.as_ref().unwrap();
+        assert_eq!(
+            output.avif_bytes.len(),
+            (item.options.output_width * item.options.output_height * 4) as usize
+        );
+        assert_eq!(output.report.encoder_backend, "recorder");
+    }
+    let requests = recorder.requests.lock().unwrap();
+    assert_eq!(requests.len(), items.len());
+    // The engine runs every image with one encoder thread.
+    assert!(requests.iter().all(|request| request.threads == 1));
+}

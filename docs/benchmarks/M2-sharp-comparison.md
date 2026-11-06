@@ -289,7 +289,7 @@ python3 -I scripts/bench/compare-sharp.py all target/bench/sharp
 
 - Real 24 and 48 Mpx photographs, where Sharp's shrink-on-load (in its default gamma-space mode) and Ferrixel's full-frame decode matter most; work package 5 is Ferrixel's answer to the first.
 - A libvips CLI run (`vips`/`vipsthumbnail` were not installed, and no system packages were installed for this run).
-- An encoder with a better bytes–time curve than rav1e: the libavif-rs encoders of work package 2, or aom through libavif-rs.
+- An encoder with a better bytes–time curve than rav1e: the libavif-rs encoders of work package 2, or aom through libavif-rs. Measured on 2026-11-06 in [M2-libavif-backend.md](M2-libavif-backend.md): libavif-rs's AOM at speed 6 is at or below Sharp's bytes on all four photographs.
 - The same comparison on Linux arm64 and x86-64 (acceptance item 3).
 - Sharp's behavior with non-sRGB ICC input in a linear-light pipeline.
 - Butteraugli as the second quality opinion that acceptance item 2 asks for; only SSIMULACRA2 was used here.

@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-06
 - **Supersedes:** None
 - **Related:** [libavif-rs](https://github.com/sebastian-software/libavif-rs), [libjxl-rs](https://github.com/sebastian-software/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
 
@@ -33,6 +33,7 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | `jpeg-read` | `zune-jpeg` 0.5 | JPEG input (full-frame fallback) | Experimental, ADR-0012 |
 | `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | **Interim** until libjxl-rs is adoptable (ADR-0012) |
 | `avif-write` | `rav1e` 0.8 / `avif-serialize` 0.8 | First and only output encoder, driven directly since 2026-11-06 | **Interim choice** (permissive, Rust plus assembly); target: libavif-rs |
+| none (adapter crate) | `ferrixel-libavif` → libavif-rs (Rust AOM) | Optional output encoder through `transcode_with`, outside the workspace (ADR-0024) | **Adopted with gates (a) and (b) waived** by the maintainer: nightly, `unsafe` C ABI isolated in the adapter, libvmaf required; macOS arm64 CI |
 | `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Interim, provisional**; target: libavif-rs |
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | **Chosen for M1 evaluation**; color fidelity still unverified |
 | `webp-read`, `webp-write` (planned) | libwebp-rs (planned port) | WebP input and output, lossy and lossless | **Target only, no interim crate**; see the [evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md) |
@@ -89,3 +90,4 @@ libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pi
 - 2026-11-06 — libavif-rs admitted GNU Linux x86-64 (`f3b2981`), which covers Ferrixel's CI target. Gate (d) is now satisfiable for AVIF; gates (a) safe API and (b) stable toolchain remain open, and the libvmaf build requirement is an additional obstacle.
 - 2026-11-06 — `avif-write` drives `rav1e` directly through Ferrixel's own sink and writes the container with `avif-serialize`; `ravif` remains only as a dev-dependency for one test fixture. Reason: `ravif` derives AV1 tiles from the thread count and supports neither 4:2:0 nor tile control. The sink keeps `ravif`'s quantizer curve and speed overrides (`src/av1_tuning.rs`, BSD-3-Clause notice retained) because the encoder experiment found `rav1e`'s plain presets 1.6–2× slower at equal SSIMULACRA2; with them the direct path produces byte-identical output to `ravif`.
 - 2026-11-06 — `jpeg-read` enables `zune-jpeg`'s `neon` and `x86` features (ADR-0023): runtime-detected SIMD IDCT, upsampling and color conversion inside the decoder, with the decoder's own `unsafe`. Measured on the Apple M1 Ultra: the decode stage of the synthetic 24 and 48 Mpx JPEGs fell by about 20 %. The `icc` adapter now asks moxcms for linear-light sRGB output.
+- 2026-11-06 — The maintainer accepted libavif-rs as an encoder now, waiving gates (a) and (b) for it: ADR-0024 adds pluggable encoders and the `crates/ferrixel-libavif` adapter outside the workspace, so the core stays stable and `unsafe`-free. libavif-rs's dav1d port and `rav1d` export the same `dav1d_*` symbols, so the adapter cannot be combined with `avif-read`.

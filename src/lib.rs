@@ -16,6 +16,10 @@
 mod av1_tuning;
 #[cfg(feature = "avif-write")]
 mod avif_sink;
+// The command line needs only the encoder; decoders it lacks report
+// `FeatureDisabled`, so encoder adapters can ship it with a narrower set.
+#[cfg(feature = "avif-write")]
+pub mod cli;
 #[cfg(feature = "icc")]
 mod cms;
 mod codecs;
@@ -30,6 +34,8 @@ mod color_contract;
 )]
 mod decoded_resize;
 mod decoder;
+#[cfg(feature = "avif-write")]
+mod encoder_backend;
 mod error;
 #[cfg_attr(
     not(test),

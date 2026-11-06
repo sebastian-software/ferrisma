@@ -16,6 +16,9 @@ use crate::orientation::OrientedSource;
 use crate::quality_execute::execute_quality_srgb8;
 
 pub use crate::avif_sink::ChromaSubsampling;
+pub use crate::encoder_backend::{
+    EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
+};
 pub use crate::quality::Filter as ResizeFilter;
 pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
 
@@ -172,6 +175,9 @@ pub struct ProcessingReport {
     /// Transform pipeline threads actually used; 1 for the sequential path
     /// and the `f64` reference.
     pub transform_threads: usize,
+    /// The encoder that wrote the output: `"rav1e"` for `transcode`, the
+    /// backend's name for `transcode_with` (ADR-0024).
+    pub encoder_backend: &'static str,
     pub timings: StageTimings,
 }
 
@@ -237,6 +243,16 @@ impl fmt::Display for ProcessingError {
     }
 }
 impl std::error::Error for ProcessingError {}
+impl From<EncodeError> for ProcessingError {
+    fn from(value: EncodeError) -> Self {
+        let kind = match value.kind() {
+            EncodeErrorKind::InvalidOptions => ProcessingErrorKind::InvalidOptions,
+            EncodeErrorKind::ResourceExhausted => ProcessingErrorKind::ResourceExhausted,
+            EncodeErrorKind::Failed => ProcessingErrorKind::EncodeFailed,
+        };
+        Self::new(kind, format!("encoder backend: {value}"))
+    }
+}
 impl From<Error> for ProcessingError {
     fn from(value: Error) -> Self {
         use ProcessingErrorKind as Kind;
@@ -356,11 +372,85 @@ fn open_source<'a>(
 /// # Errors
 /// Returns an error for unsupported codec features, ambiguous profiles,
 /// invalid geometry/options, memory exhaustion or encoder failures.
-#[allow(clippy::too_many_lines)] // The stages stay visible in a small facade.
 pub fn transcode(
     encoded: &[u8],
     format: ImageFormat,
     options: TransformOptions,
+) -> Result<Output, ProcessingError> {
+    run(encoded, format, options, None)
+}
+
+/// [`transcode`] with another encoder (ADR-0024): the same decode, color,
+/// crop, resample and quantization, then the output rows go to `backend`
+/// instead of the built-in `rav1e` sink. `quality`, `speed`,
+/// `encoder_threads` and `chroma_subsampling` are passed to the backend in
+/// an [`EncodeRequest`]; the backend validates them on its own scale.
+///
+/// # Errors
+/// As [`transcode`], plus the backend's errors, mapped to their
+/// [`ProcessingErrorKind`].
+pub fn transcode_with(
+    encoded: &[u8],
+    format: ImageFormat,
+    options: TransformOptions,
+    backend: &dyn EncoderBackend,
+) -> Result<Output, ProcessingError> {
+    run(encoded, format, options, Some(backend))
+}
+
+/// The output side of one transcode: the built-in sink or a backend's.
+enum Sink<'b> {
+    Rav1e(Box<AvifSink>),
+    Backend {
+        encoder: Box<dyn RowEncoder + 'b>,
+        /// The backend error that stopped the pipeline, if any; the
+        /// executor only carries the internal `Error`.
+        failure: Option<EncodeError>,
+    },
+}
+
+impl Sink<'_> {
+    fn write_row(&mut self, y: u32, row: &[u8]) -> Result<(), Error> {
+        match self {
+            Self::Rav1e(sink) => sink.write_row(y, row),
+            Self::Backend { encoder, failure } => encoder.write_row(y, row).map_err(|error| {
+                *failure = Some(error);
+                Error::EncodeFailed
+            }),
+        }
+    }
+
+    /// The backend error behind `error`, if the backend caused it.
+    fn explain(&mut self, error: Error) -> ProcessingError {
+        match self {
+            Self::Backend { failure, .. } if failure.is_some() => failure
+                .take()
+                .map_or_else(|| error.into(), ProcessingError::from),
+            _ => error.into(),
+        }
+    }
+
+    fn finish(self, budget: &MemoryBudget) -> Result<EncodedImage, ProcessingError> {
+        match self {
+            Self::Rav1e(sink) => {
+                let avif = sink.finish(budget)?;
+                Ok(EncodedImage::new(
+                    avif.bytes,
+                    avif.frame_materialization_bytes,
+                    avif.opaque_encoder_memory_unbounded,
+                ))
+            }
+            Self::Backend { encoder, .. } => Ok(encoder.finish()?),
+        }
+    }
+}
+
+#[allow(clippy::too_many_lines)] // The stages stay visible in a small facade.
+fn run(
+    encoded: &[u8],
+    format: ImageFormat,
+    options: TransformOptions,
+    backend: Option<&dyn EncoderBackend>,
 ) -> Result<Output, ProcessingError> {
     let started = Instant::now();
     let encoder_threads = match options.encoder_threads {
@@ -376,7 +466,9 @@ pub fn transcode(
         parallel_tiles: options.encoder_threads != 1,
         chroma: options.chroma_subsampling,
     };
-    encode_settings.validate()?;
+    if backend.is_none() {
+        encode_settings.validate()?;
+    }
     let target_size = Size::new(options.output_width, options.output_height)?;
     if options.max_input_bytes == 0 || options.max_input_pixels == 0 {
         return Err(ProcessingError::new(
@@ -476,7 +568,27 @@ pub fn transcode(
 
     let budget = MemoryBudget::new(options.max_managed_bytes);
     let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
-    let mut output_sink = AvifSink::new(target_size, transparent, encode_settings, &budget)?;
+    let mut output_sink = match backend {
+        None => Sink::Rav1e(Box::new(AvifSink::new(
+            target_size,
+            transparent,
+            encode_settings,
+            &budget,
+        )?)),
+        Some(backend) => Sink::Backend {
+            encoder: backend.begin(&EncodeRequest {
+                width: target_size.width,
+                height: target_size.height,
+                has_alpha: transparent,
+                quality: options.quality,
+                speed: options.speed,
+                threads: encoder_threads,
+                chroma: options.chroma_subsampling,
+            })?,
+            failure: None,
+        },
+    };
+    let encoder_backend = backend.map_or("rav1e", EncoderBackend::name);
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
     let kernels = match options.kernel_level_ceiling {
@@ -498,7 +610,7 @@ pub fn transcode(
             &kernels,
             transform_threads,
             |y, row| output_sink.write_row(y, row),
-        )?,
+        ),
         WorkingPrecision::F64Reference => execute_quality_srgb8(
             &graph,
             finished,
@@ -507,8 +619,9 @@ pub fn transcode(
             request,
             &budget,
             |y, row| output_sink.write_row(y, row),
-        )?,
+        ),
     };
+    let processed = processed.map_err(|error| output_sink.explain(error))?;
     let encode_started = Instant::now();
     let encoded_avif = output_sink.finish(&budget)?;
     let encode = encode_started.elapsed();
@@ -525,12 +638,13 @@ pub fn transcode(
         encoder_output_frame_bytes: encoded_avif.frame_materialization_bytes,
         peak_managed_bytes: budget.snapshot().peak,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
-        opaque_encoder_memory: encoded_avif.opaque_encoder_memory_unbounded,
+        opaque_encoder_memory: encoded_avif.opaque_memory,
         working_precision: options.precision,
         kernel_level,
         kernel_level_reason,
         encoder_threads,
         transform_threads,
+        encoder_backend,
         timings: StageTimings {
             open,
             decode: processed.source_time,
@@ -587,42 +701,62 @@ impl Engine {
     /// image does not stop the others.
     #[must_use]
     pub fn transcode_batch(&self, items: &[BatchItem<'_>]) -> Vec<Result<Output, ProcessingError>> {
-        use std::sync::Mutex;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        let next = AtomicUsize::new(0);
-        let results: Vec<Mutex<Option<Result<Output, ProcessingError>>>> =
-            items.iter().map(|_| Mutex::new(None)).collect();
-        let workers = self.threads.min(items.len()).max(1);
-        std::thread::scope(|scope| {
-            for _ in 0..workers {
-                scope.spawn(|| {
-                    loop {
-                        let index = next.fetch_add(1, Ordering::Relaxed);
-                        let Some(item) = items.get(index) else { break };
-                        let options = TransformOptions {
-                            transform_threads: 1,
-                            encoder_threads: 1,
-                            ..item.options
-                        };
-                        let result = transcode(item.encoded, item.format, options);
-                        if let Ok(mut slot) = results[index].lock() {
-                            *slot = Some(result);
-                        }
-                    }
-                });
-            }
-        });
-        results
-            .into_iter()
-            .map(|slot| {
-                slot.into_inner().ok().flatten().unwrap_or_else(|| {
-                    Err(ProcessingError::new(
-                        ProcessingErrorKind::Internal,
-                        "a batch worker stopped before finishing its image",
-                    ))
-                })
-            })
-            .collect()
+        batch(self.threads, items, None)
     }
+
+    /// [`Engine::transcode_batch`] with another encoder (ADR-0024); every
+    /// image gets its own encoder from `backend`.
+    #[must_use]
+    pub fn transcode_batch_with(
+        &self,
+        items: &[BatchItem<'_>],
+        backend: &dyn EncoderBackend,
+    ) -> Vec<Result<Output, ProcessingError>> {
+        batch(self.threads, items, Some(backend))
+    }
+}
+
+/// Schedule whole images over `threads` scoped workers.
+fn batch(
+    threads: usize,
+    items: &[BatchItem<'_>],
+    backend: Option<&dyn EncoderBackend>,
+) -> Vec<Result<Output, ProcessingError>> {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let next = AtomicUsize::new(0);
+    let results: Vec<Mutex<Option<Result<Output, ProcessingError>>>> =
+        items.iter().map(|_| Mutex::new(None)).collect();
+    let workers = threads.min(items.len()).max(1);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(item) = items.get(index) else { break };
+                    let options = TransformOptions {
+                        transform_threads: 1,
+                        encoder_threads: 1,
+                        ..item.options
+                    };
+                    let result = run(item.encoded, item.format, options, backend);
+                    if let Ok(mut slot) = results[index].lock() {
+                        *slot = Some(result);
+                    }
+                }
+            });
+        }
+    });
+    results
+        .into_iter()
+        .map(|slot| {
+            slot.into_inner().ok().flatten().unwrap_or_else(|| {
+                Err(ProcessingError::new(
+                    ProcessingErrorKind::Internal,
+                    "a batch worker stopped before finishing its image",
+                ))
+            })
+        })
+        .collect()
 }
