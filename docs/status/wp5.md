@@ -1,14 +1,12 @@
 # WP5: SharpYUV
 
-- Status: the color space and matrix functions, the transfer functions and gamma
-  tables, the dispatch functions and the conversion core are translated and
-  verified. Not yet translated: `sharpyuv/sharpyuv_cpu.c` (`sharpyuv_cpu.rs`), which
-  waits for WP4 (`src/dsp/cpu.rs` is not on `main`). `SharpYuvInit` stays absent for
-  the reason given under [decisions](#decisions-of-the-integrator). The package is a
-  draft pull request until WP4 is merged and `sharpyuv_cpu.rs` is in.
-- Sub-wave: 1b (merges after WP4)
+- Status: complete for this package except `SharpYuvInit`. The color space and matrix
+  functions, the transfer functions and gamma tables, the dispatch functions, the CPU
+  query and the conversion core are translated and verified. `SharpYuvInit` stays absent
+  for the reason given under [decisions](#decisions-of-the-integrator).
+- Sub-wave: 1b
 - Model: Claude Haiku 5.5 (`claude-haiku-5-5`)
-- Depends on: WP1; WP4 for `sharpyuv_cpu.rs` only
+- Depends on: WP1; WP4 (merged as 9b784bb) for `sharpyuv_cpu.rs`
 - Probes: `tools/oracle/probes/wp5/` (with `support/`); tests: `tests/wp5_*.rs`
 
 Written by the package session; the integrator aggregates it into
@@ -23,7 +21,7 @@ which assigns the five modules to this package; the package adds no exceptions.
 | `src/sharpyuv/sharpyuv_csp.rs` | `sharpyuv/sharpyuv_csp.h`, `sharpyuv/sharpyuv_csp.c` | yes: `SharpYuvRange`, `SharpYuvColorSpace`, `SharpYuvMatrixType`, `SharpYuvComputeConversionMatrix`, the five predefined matrices and `SharpYuvGetConversionMatrix`. |
 | `src/sharpyuv/sharpyuv_dsp.rs` | `sharpyuv/sharpyuv_dsp.h`, `sharpyuv/sharpyuv_dsp.c` | partly: `SharpYuvUpdateY`, `SharpYuvUpdateRGB` and `SharpYuvFilterRow` as plain functions over their portable `_c` implementations (ADR 0003). `SharpYuvInitDsp` is not translated (deviation 1). |
 | `src/sharpyuv/sharpyuv_gamma.rs` | `sharpyuv/sharpyuv_gamma.h`, `sharpyuv/sharpyuv_gamma.c` | yes: both gamma tables as `LazyLock` statics with the C computation, `SharpYuvInitGammaTables` (which forces them), the 16 valid transfer functions, sRGB included, in both directions, and `SharpYuvGammaToLinear`, `SharpYuvLinearToGamma`. |
-| `src/sharpyuv/sharpyuv_cpu.rs` | `sharpyuv/sharpyuv_cpu.h`, `sharpyuv/sharpyuv_cpu.c` | no: waits for WP4. The C file re-compiles `src/dsp/cpu.c` under the name `SharpYuvGetCPUInfo`; see decisions. |
+| `src/sharpyuv/sharpyuv_cpu.rs` | `sharpyuv/sharpyuv_cpu.h`, `sharpyuv/sharpyuv_cpu.c` | yes: `SharpYuvGetCPUInfo` as a function with the `VP8CPUInfo` signature that calls WP4's `vp8_get_cpu_info`. The C file's re-compilation of `src/dsp/cpu.c` under that name has no counterpart (decision 1). |
 
 `SharpYuvConvertWithOptions` and `SharpYuvConvert` do not call `SharpYuvInit` (deviation 1).
 The SSE2 and NEON files (`sharpyuv_sse2.c`, `sharpyuv_neon.c`) are WP19 and WP20 and are
@@ -32,20 +30,27 @@ not touched.
 ## Decisions of the integrator
 
 The integrator answered the three open questions of the first report and asked for a fix
-to a CI failure. The decisions are recorded here and in the places named.
+to a CI failure. A later message confirmed that WP4 is merged (9b784bb) and asked for the
+CPU query and for a decision on `SharpYuvInit`, which is decision 1. The decisions are
+recorded here and in the places named.
 
 1. **Dispatch and init-once state (deviation 1).** Dispatch pointers are plain functions
    over the portable `_c` implementations, as WP4 does in its pull request #5. The
    functions that only assign pointers are absent: `SharpYuvInitDsp`, and the pointer and
    mutex state of `SharpYuvInit`. The runtime selection of the SSE2 and NEON variants
    belongs to WP19 and WP20.
-   - `SharpYuvInit` stays absent. Its only remaining work is to force the gamma tables,
-     which the Rust gamma tables already do on first use. Its CPU-information argument
-     would have to be recorded in state, and that state stays absent, so the function
-     cannot be translated faithfully. It is not translated.
-   - When WP4 is merged, `sharpyuv_cpu.rs` translates `SharpYuvGetCPUInfo` as a function
-     with that name that calls WP4's `vp8_get_cpu_info`, with the same `VP8CPUInfo`
-     signature. It is the C file's re-compilation of `cpu.c` under another name.
+   - `SharpYuvInit` stays absent. Forcing the gamma tables is the only part the Rust code
+     can keep, and the Rust gamma tables already compute on first use. The rest of the
+     function replaces the C pointer `SharpYuvGetCPUInfo` with the caller's argument.
+     ADR 0003 gives that pointer no Rust state: the query is a function, and the ABI
+     module that exports the pointer owns any override, which is the rule ADR 0003 states
+     for `VP8GetCPUInfo`. Dropping the argument would change what `SharpYuvGetCPUInfo`
+     answers after `SharpYuvInit(f)` once WP19 and WP20 consult the query, so the function
+     cannot be translated faithfully. No SharpYUV C ABI is planned (decision 3).
+   - `sharpyuv_cpu.rs` translates `SharpYuvGetCPUInfo` as a function with that name that
+     calls WP4's `vp8_get_cpu_info`, with the `VP8CPUInfo` signature. The C file is the
+     re-compilation of `cpu.c` under another name, so the answers are the same query. The
+     NULL pointer of the reference configuration is deviation 13.
 2. **Untyped sample buffers.** ADR 0003 now has the rule: a `void*` buffer whose sample
    type depends on the bit depth is `&[u8]` or `&mut [u8]` with a byte offset, and
    samples of more than one byte are read and written in native byte order (deviation 2).
@@ -74,16 +79,26 @@ values in the same order, so no input is stored.
 | `tests/wp5_matrix.rs` | `predefined_matrices_have_stable_addresses_and_invalid_types_have_none`, `options_accept_only_this_major_and_minor_version` | No oracle: matrix addresses are stable across calls, invalid types give `None`, and the options accept exactly major 0 and minor 4. |
 | `tests/wp5_gamma.rs` | `gamma_and_transfer_tables_match_the_c_functions` | 128 groups: `SharpYuvGammaToLinear` and `SharpYuvLinearToGamma` for the 16 valid transfer functions and bit depths 8, 10, 12 and 16, as little-endian bytes. Inputs up to 12 bits and the sRGB table at every bit depth are swept exhaustively; other 16-bit sweeps take every 257th value. Both tables are covered through the sRGB path. Exclusion 3 applies. |
 | `tests/wp5_dsp.rs` | `dispatch_functions_match_the_c_functions` | 600 groups: 200 seeded cases each of `SharpYuvUpdateY` (the returned sum and the whole destination), `SharpYuvUpdateRGB` and `SharpYuvFilterRow`, with lengths up to 40, bit depths 10, 12 and 14, and the entries beyond the length. |
+| `tests/wp5_cpu.rs` | `sharp_yuv_cpu_query_matches_the_c_pointer` | `SharpYuvGetCPUInfo` of `cpu.c` for the ten `CPUFeature` values and for 10, which is not a feature. The C probe prints `null=1` where the pointer is NULL, and then the Rust query must answer `false`; where the pointer is set, it prints each answer and the Rust query must match it. |
+| `tests/wp5_cpu.rs` | `sharp_yuv_cpu_query_is_the_wp4_query` | No oracle: the Rust function has the `VP8CPUInfo` type and gives the answers of `vp8_get_cpu_info`. |
 
 Results on this host (macOS ARM64, Apple clang 21), with the code of this revision:
 
-- The four differential tests pass in the dev, release and `checked` profiles against the
-  release oracle, and `python3 tools/check.py --oracle` passed before this revision.
-- `cargo clippy --all-targets --all-features -- -D warnings` and `cargo fmt --check` pass.
-- Under the **asan-ubsan** oracle, all four WP5 probes exit 0 with no sanitizer report,
+- `python3 tools/check.py --oracle --msrv` passes: the static checks, clippy with
+  `-D warnings`, `cargo fmt --check`, the `release` oracle, the tests in the dev, release
+  and `checked` profiles, and the build and tests with the 1.95 toolchain and the oracle
+  feature. The five WP5 test files are part of those runs.
+- On this host the oracle's `SharpYuvGetCPUInfo` is NULL, because the reference
+  configuration has no CPU query outside x86 (deviation 13). `tests/wp5_cpu.rs` therefore
+  checks the NULL branch here: the Rust query answers `false` for all eleven values. The
+  feature-by-feature comparison runs only where the pointer is set, on the x86-64 Linux CI
+  runner, and is not claimed for this host.
+- Under the **asan-ubsan** oracle, all five WP5 probes exit 0 with no sanitizer report,
   and their outputs are byte-identical to the release oracle's. The sanitizer checks
-  the C side only; the Rust tests against the asan-ubsan oracle are reported in the pull
-  request.
+  the C side only.
+- `python3 tools/check.py --oracle-variant asan-ubsan --stage test` passes: the WP5
+  differential tests run in the dev, release and `checked` profiles against the asan-ubsan
+  oracle.
 - A check of the test itself: changing `+ 2` to `+ 1` in `ScaleDown`'s rounding makes
   `convert_matches_the_oracle_inventory` fail, so the comparison is not vacuous.
 
@@ -109,7 +124,7 @@ groups, shapes, layouts, parameters, guard bytes and checks are the same. The in
 2. **`SharpYuvInit`, the CPU-information pointer and the repeated callback
    initialization.** The inventory's three calls with a callback and its `SharpYuvInit(NULL)`
    call depend on `SharpYuvInit`, which stays absent (decision 1). `SharpYuvGetCPUInfo`
-   is translated after WP4 merges.
+   is translated in `sharpyuv_cpu.rs`.
 3. **Allocation failure.** The inventory injects failures into the seven conversion
    allocations. The library has no test-only allocator (ADR 0003), so the `try_reserve_exact`
    failure path, which returns `false`, is not tested.
@@ -123,7 +138,8 @@ groups, shapes, layouts, parameters, guard bytes and checks are the same. The in
    results are equal on this host; other hosts (the Linux x86-64 runner) are not claimed.
 7. **Thread sanitizer.** Not run for this package. The 24 concurrent conversions pass in
    the normal build and under the asan-ubsan oracle.
-8. **MSRV 1.95.** `check.py --msrv` was not run for this package.
+8. **MSRV 1.95.** `check.py --msrv` passes on this revision: the build and the tests with
+   the 1.95 toolchain and the oracle feature.
 
 ## Exclusions
 
@@ -197,9 +213,12 @@ and each is excluded from the comparison explicitly (ground rule 8).
 12. **Integer overflow of `RGBToYUVComponent`.** The C `int` products are undefined when they
     overflow; the Rust arithmetic panics in the dev and `checked` profiles. No input in the
     inventory or the seeded cases overflows, which the `checked` runs confirm.
+13. **NULL CPU-information pointer.** Outside x86 the reference configuration sets
+    `SharpYuvGetCPUInfo` to NULL, and calling it would crash. The Rust query answers `false`
+    for every feature there, as WP4 records for `VP8GetCPUInfo` (ADR 0003). On x86 it answers
+    as the C pointer does.
 
 ## Open under this package
 
-- `sharpyuv_cpu.rs`: after WP4 is merged to `main`, rebase, translate `SharpYuvGetCPUInfo`
-  as decision 1 says, and extend the evidence with the CPU-information cases of the inventory.
-- The SIMD dispatch of `SharpYuvInitDsp` belongs to WP19 and WP20.
+- The SIMD dispatch of `SharpYuvInitDsp` belongs to WP19 and WP20. Those packages consult
+  `sharp_yuv_get_cpu_info`, which this package provides.
