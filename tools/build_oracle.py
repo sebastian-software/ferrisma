@@ -80,13 +80,23 @@ def cache_value(build, name):
     return match[1] if match else None
 
 
-def defines(header):
-    """Return the `#define NAME VALUE` lines of a generated header as a dict."""
-    found = {}
-    for name, value in re.findall(r"^#define[ \t]+(\w+)(?:[ \t]+(.*?))?[ \t]*(?:/\*.*)?$",
-                                  header.read_text(), re.M):
-        found[name] = value
-    return found
+def defines(compiler, c_flags, header):
+    """Return the macros that a generated header defines on this host.
+
+    The compiler evaluates the header (`-dM -E`), so conditional branches such
+    as jconfig.h's _WIN32 block count only where they apply; macros that the
+    compiler predefines without the header are left out.
+    """
+    def macros(source):
+        listing = subprocess.run([compiler, *shlex.split(c_flags), "-dM", "-E", "-x", "c", "-"],
+                                 input=source, check=True, stdout=subprocess.PIPE,
+                                 universal_newlines=True).stdout
+        return dict(re.findall(r"^#define (\w+)(?: (.*))?$", listing, re.M))
+
+    builtin = macros("")
+    found = macros(f'#include "{header}"\n')
+    return {name: value for name, value in sorted(found.items())
+            if builtin.get(name) != value}
 
 
 def is_x86_64():
@@ -141,8 +151,9 @@ def build(variant, jobs, fresh):
         *flags)
     run("cmake", "--build", probes_build, "--parallel", jobs)
 
-    jconfig = defines(upstream_build / "jconfig.h")
-    jconfigint = defines(upstream_build / "jconfigint.h")
+    compiler = cache_value(upstream_build, "CMAKE_C_COMPILER")
+    jconfig = defines(compiler, config["c_flags"], upstream_build / "jconfig.h")
+    jconfigint = defines(compiler, config["c_flags"], upstream_build / "jconfigint.h")
     for name, value in REQUIRED_DEFINES.items():
         if jconfig.get(name) != value:
             raise SystemExit(f"{variant}: jconfig.h defines {name}={jconfig.get(name)!r}, "
@@ -154,7 +165,6 @@ def build(variant, jobs, fresh):
     probes = sorted(str(path.relative_to(directory / "probes"))
                     for path in (directory / "probes").glob("*/*")
                     if path.is_file() and os.access(path, os.X_OK))
-    compiler = cache_value(upstream_build, "CMAKE_C_COMPILER")
     manifest = {
         "variant": variant,
         "reference": settings["reference"],
@@ -173,7 +183,7 @@ def build(variant, jobs, fresh):
         "floattest8": cache_value(upstream_build, "FLOATTEST8"),
         "floattest12": cache_value(upstream_build, "FLOATTEST12"),
         "jconfig_h": jconfig,
-        "jconfigint_h": {name: value for name, value in jconfigint.items() if name != "BUILD"},
+        "jconfigint_h": jconfigint,
         "library": str(upstream_build / "libjpeg.a"),
         "tools": {name: str(upstream_build / f"{name}-static")
                   for name in ("djpeg", "cjpeg", "jpegtran")},
