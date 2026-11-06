@@ -10,8 +10,10 @@ fourth sister port next to
 JPEG input, including scaled decoding for shrink-on-load, to
 [Ferrixel](https://github.com/sebastian-software/ferrixel).
 
-**Status:** bootstrap only. No upstream unit has been translated yet. See the
-[port plan](docs/PORT_PLAN.md) for the scope and the work packages.
+**Status:** tooling only. The C oracle, the probe harness, the bit-test
+inventory and the module skeleton exist; no upstream unit has been translated
+yet. See the [port plan](docs/PORT_PLAN.md) for the scope and the work
+packages, and the [port status](docs/PORT_STATUS.md) for what is verified.
 
 ## Why libjpeg-turbo, and why only the decoder
 
@@ -44,6 +46,13 @@ therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md
 git submodule update --init
 cargo build
 cargo test
+```
+
+The differential tests need the C oracle, which needs CMake and a C compiler:
+
+```sh
+python3 tools/build_oracle.py          # build/oracle/release
+python3 tools/check.py --oracle        # all checks, bit tests and oracle tests
 ```
 
 [AGENTS.md](AGENTS.md) has the rules for porting sessions.

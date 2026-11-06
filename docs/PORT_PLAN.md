@@ -8,7 +8,7 @@ depends on are merged.
 
 | WP | Content | Upstream units | Depends on | Done when |
 | --- | --- | --- | --- | --- |
-| 0 | Tooling and representation | oracle build script, probe runner, unit map from upstream files to Rust modules and packages, module skeleton, check script, CI oracle job; an ADR for the Rust representation of the libjpeg object model (method tables, the pool allocator, `JSAMPARRAY` row pointers, error exits and warnings, suspending data sources) | — | The oracle builds on both CI hosts; the 8-bit `djpeg` bit tests pass against the oracle and are inventoried with their scope |
+| 0 | Tooling and representation | oracle build script, probe runner, unit map from upstream files to Rust modules and packages, module skeleton, check script, CI oracle job; an ADR for the Rust representation of the libjpeg object model (method tables, the pool allocator, `JSAMPARRAY` row pointers, error exits and warnings, suspending data sources): [ADR 0005](adr/0005-rust-representation.md) | — | The oracle builds on both CI hosts; the 8-bit `djpeg` bit tests pass against the oracle and are inventoried with their scope |
 | 1 | Common infrastructure | `jerror.c`, `jcomapi.c`, `jutils.c`, `jmemmgr.c`, `jmemnobs.c`, types from `jpeglib.h`, `jpegint.h`, `jmorecfg.h`, `jerror.h` | 0 | Error codes, messages and allocation limits match the oracle |
 | 2 | Input and markers | `jdapimin.c`, `jdatasrc.c` (`jpeg_mem_src`), `jdinput.c`, `jdmarker.c`, `jdicc.c` | 1 | `jpeg_read_header` results, ICC extraction, warnings and errors match on the test images and the fuzz corpus |
 | 3 | Entropy decoding | `jdhuff.c`, `jdphuff.c`, `jaricom.c`, `jdarith.c` | 2 | Decoded coefficient blocks match for baseline, progressive and arithmetic files, including corrupt-data recovery |
