@@ -1,6 +1,6 @@
 # Represent the libjpeg object model in safe Rust
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-06
 - Updated: 2026-11-06
 
@@ -351,38 +351,31 @@ starts, its unsafe ADR decides how such callbacks are contained, for example
 by calling them only from the outermost exported frame or by converting the
 jump to `C-unwind` unwinding as libavif-rs ADR 0036 did for libaom.
 
-## Open questions for the maintainer
+## Decisions on the review questions (2026-11-06)
 
-1. **Out-of-scope branches.** Is it acceptable that out-of-scope requests fail
-   with `JERR_NOT_COMPILED`, `JERR_BAD_PRECISION` or `JERR_CONVERSION_NOTIMPL`
-   while the oracle succeeds, or should the port reject them earlier, for
-   example in `jpeg_start_decompress`?
-2. **`JPEGMEM`.** Upstream reads the `JPEGMEM` environment variable in
-   `jinit_memory_mgr`. Keep it for parity, or drop it so that Ferrixel's
-   decoder ignores the environment, as a recorded deviation?
-3. **Small allocations.** Is an infallible `Box` for fixed-size module structs
-   acceptable, given that C reports `JERR_OUT_OF_MEMORY` 2 when `malloc`
-   fails, or should every request be fallible?
-4. **Default `error_exit`.** It prints and returns instead of destroying the
-   object and exiting. Is printing to standard error by default acceptable for
-   a library used by Ferrixel, given that the safe API (work package 8) will
-   install its own error manager?
-5. **`c_long`.** `long` follows the target's C compiler, so Windows would get
-   32-bit `JLONG` like upstream on Windows. Neither CI host covers that case.
-   Accept, or fix `JLONG` at 64 bits and record Windows as unverified?
-6. **Common object.** Collapsing `j_common_ptr` into the decompression struct
-   is the smallest translation while the encoder is out of scope. An encoder
-   port would need a trait over both structs. Accept the collapse now?
-7. **Names.** Verbatim C names need item-scoped naming `expect`s on many
-   items (`decode_mcu_DC_first`, struct fields such as `MCU_ctr`). libwebp-rs
-   instead maps names through `tools/rust_name.py`. Keep C names verbatim?
-8. **Header mapping.** [tools/units.json](../../tools/units.json) gives
-   `jdct.h`, `jmemsys.h`, `jconfig.h.in`, `jversion.h.in` and `jstdhuff.c`
-   modules of their own, merges `jerror.h`, `jdhuff.h`, `jdcoefct.h`,
-   `jdmainct.h`, `jdmaster.h`, `jdsample.h` and `jdmerge.h` into the module of
-   the C file with the same name, and translates `jdmrgext.c` and `jdcolext.c`
-   as their own modules. ADR 0001 lists only the C files and four public
-   headers. Confirm the mapping.
+The maintainer accepted the proposed answers to the questions raised in review:
+
+1. **Out-of-scope requests** fail with upstream's codes (`JERR_NOT_COMPILED`,
+   `JERR_BAD_PRECISION`, `JERR_CONVERSION_NOTIMPL`) where the rules above put
+   them, while the oracle succeeds. The safe API (work package 8) may check
+   them up front.
+2. **`JPEGMEM`** is kept for parity: `jinit_memory_mgr` reads it as upstream
+   does. Ferrixel's adapter sets its memory limit explicitly.
+3. **Small allocations.** An infallible `Box` is fine for fixed-size module
+   structs; large buffers stay fallible.
+4. **Default `error_exit`** prints to standard error and returns. The work
+   package 8 API installs its own error manager.
+5. **`long`** maps to `core::ffi::c_long`. Windows is not a target and stays
+   unverified.
+6. **Common object.** `j_common_ptr` collapses into the decompression struct
+   while the encoder is out of scope.
+7. **Names.** C names stay verbatim, with item-scoped naming `expect`s.
+8. **Header mapping.** The mapping in [tools/units.json](../../tools/units.json)
+   is confirmed: `jdct.h`, `jmemsys.h`, `jconfig.h.in`, `jversion.h.in` and
+   `jstdhuff.c` have modules of their own; `jerror.h`, `jdhuff.h`,
+   `jdcoefct.h`, `jdmainct.h`, `jdmaster.h`, `jdsample.h` and `jdmerge.h`
+   share the module of the C file with the same name; `jdmrgext.c` and
+   `jdcolext.c` are modules of their own.
 
 ## Review triggers
 

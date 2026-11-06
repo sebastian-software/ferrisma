@@ -2,7 +2,7 @@
 
 | WP | State | Evidence |
 | --- | --- | --- |
-| 0 Tooling and representation | in review | Oracle, probes, bit-test inventory, unit map, check script and CI below; [ADR 0005](adr/0005-rust-representation.md) proposed |
+| 0 Tooling and representation | in review | Oracle, probes, bit-test inventory, unit map, check script and CI below; [ADR 0005](adr/0005-rust-representation.md) accepted |
 | 1–11 | not started | — |
 
 No upstream unit is translated. The 37 modules under `src/` hold only their
