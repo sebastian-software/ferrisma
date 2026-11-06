@@ -19,8 +19,9 @@
 //!
 //! Equivalence: `axpy` is bit-identical at every level (one fused
 //! multiply-add per element in the same order). `horizontal_rgba` is
-//! bit-identical between `Scalar` and `Neon`; `Avx2` sums two taps per
-//! vector and differs by rounding only, bounded by the differential tests.
+//! bit-identical between `Scalar`, `Neon` and `Sve2`; `Avx2` and `Avx512`
+//! sum two and four taps per vector and differ by rounding only, bounded by
+//! the differential tests.
 
 // Kernel bodies and `Lanes` methods must inline into their
 // `#[target_feature]` entry; otherwise intrinsics are compiled as calls
@@ -34,20 +35,21 @@ mod lanes;
 use std::fmt;
 use std::sync::OnceLock;
 
-/// Instruction-set levels in ascending order. `Sve2` and `Avx512` are
-/// detected and reported but not implemented yet; a machine that has them
-/// runs the next lower implemented level (reason [`LevelReason::Fallback`]).
+/// Instruction-set levels in ascending order. A level a machine supports
+/// but this crate does not implement falls back to the next lower one
+/// (reason [`LevelReason::Fallback`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IsaLevel {
     /// Portable Rust, the reference body.
     Scalar,
     /// 128-bit Advanced SIMD (aarch64 baseline).
     Neon,
-    /// Scalable vectors, aarch64 (detected, not implemented).
+    /// Scalable vectors, aarch64: the scalar body vectorized by LLVM, since
+    /// stable Rust has no SVE intrinsics.
     Sve2,
     /// 256-bit AVX2 with FMA (x86-64-v3).
     Avx2,
-    /// 512-bit AVX-512 F/BW/CD/DQ/VL (x86-64-v4; detected, not implemented).
+    /// 512-bit AVX-512 F/BW/CD/DQ/VL with FMA (x86-64-v4).
     Avx512,
 }
 
@@ -55,7 +57,10 @@ impl IsaLevel {
     /// Whether this crate has kernels for the level.
     #[must_use]
     pub const fn is_implemented(self) -> bool {
-        matches!(self, Self::Scalar | Self::Neon | Self::Avx2)
+        matches!(
+            self,
+            Self::Scalar | Self::Neon | Self::Sve2 | Self::Avx2 | Self::Avx512
+        )
     }
 
     /// Short lowercase name for reports and logs.
@@ -188,6 +193,49 @@ impl Taps {
     }
 }
 
+/// Validated `i16` taps with `precision` fractional bits for the Q1.14
+/// prototype (ADR-0021 rule 2). The caller guarantees the interval bound;
+/// results are clamped to `i16` either way.
+#[derive(Clone, Debug)]
+pub struct TapsQ14 {
+    source_pixels: usize,
+    starts: Vec<u32>,
+    offsets: Vec<u32>,
+    weights: Vec<i16>,
+    precision: u32,
+}
+
+impl TapsQ14 {
+    /// # Errors
+    /// [`KernelError::InvalidTaps`] for malformed tables, runs outside the
+    /// source row, or a precision outside `1..=16`.
+    pub fn new(
+        source_pixels: usize,
+        starts: Vec<u32>,
+        offsets: Vec<u32>,
+        weights: Vec<i16>,
+        precision: u32,
+    ) -> Result<Self, KernelError> {
+        if !(1..=16).contains(&precision) {
+            return Err(KernelError::InvalidTaps);
+        }
+        let float_weights = vec![0.0; weights.len()];
+        let checked = Taps::new(source_pixels, starts, offsets, float_weights)?;
+        Ok(Self {
+            source_pixels,
+            starts: checked.starts,
+            offsets: checked.offsets,
+            weights,
+            precision,
+        })
+    }
+
+    #[must_use]
+    pub fn outputs(&self) -> usize {
+        self.starts.len()
+    }
+}
+
 /// A table of kernels for one instruction-set level.
 #[derive(Clone, Copy)]
 pub struct Kernels {
@@ -302,6 +350,38 @@ impl Kernels {
             return Err(KernelError::LengthMismatch);
         }
         (self.table.horizontal_rgba)(source, taps, out);
+        Ok(())
+    }
+
+    /// Q1.14 prototype of `horizontal_rgba`: `i16` samples and weights,
+    /// `i32` sums, rounded and shifted by the taps' precision.
+    ///
+    /// # Errors
+    /// [`KernelError::LengthMismatch`] unless the slices match the taps.
+    pub fn horizontal_rgba_q14(
+        &self,
+        source: &[i16],
+        taps: &TapsQ14,
+        out: &mut [i16],
+    ) -> Result<(), KernelError> {
+        if Some(source.len()) != taps.source_pixels.checked_mul(4)
+            || Some(out.len()) != taps.outputs().checked_mul(4)
+        {
+            return Err(KernelError::LengthMismatch);
+        }
+        (self.table.horizontal_rgba_q14)(source, taps, out);
+        Ok(())
+    }
+
+    /// Q1.14 prototype of `axpy`: `acc[i] += row[i] * weight` in `i32`.
+    ///
+    /// # Errors
+    /// [`KernelError::LengthMismatch`] if the slices differ in length.
+    pub fn axpy_q14(&self, acc: &mut [i32], row: &[i16], weight: i16) -> Result<(), KernelError> {
+        if acc.len() != row.len() {
+            return Err(KernelError::LengthMismatch);
+        }
+        (self.table.axpy_q14)(acc, row, weight);
         Ok(())
     }
 

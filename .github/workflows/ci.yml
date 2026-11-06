@@ -24,6 +24,8 @@ jobs:
         run: cargo fmt --all --check
       - name: Report SIMD kernel levels exercised on this runner
         run: cargo run -p ferrixel-kernels --example detect
+      - name: Kernel throughput per level (informational)
+        run: cargo run --release -p ferrixel-kernels --example bench
       - name: Test core and kernels without codecs
         run: cargo test --workspace --all-targets
       - name: Test with optional codecs
@@ -69,6 +71,8 @@ jobs:
           components: clippy
       - name: Report SIMD kernel levels exercised on this runner
         run: cargo run -p ferrixel-kernels --example detect
+      - name: Kernel throughput per level (informational)
+        run: cargo run --release -p ferrixel-kernels --example bench
       - name: Test core and kernels without codecs
         run: cargo test --workspace --all-targets
       - name: Lint kernels

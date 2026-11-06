@@ -54,3 +54,39 @@ pub(crate) fn axpy<L: Lanes>(acc: &mut [f32], row: &[f32], weight: f32) {
         *a = r.mul_add(weight, *a);
     }
 }
+
+/// Q1.14 prototype (ADR-0021 rule 2): `i16` samples and weights, `i32`
+/// accumulation, one rounding shift by `precision` at the end. Plain loops,
+/// vectorized by LLVM inside each level's `#[target_feature]` entry.
+#[inline(always)]
+pub(crate) fn horizontal_rgba_q14(source: &[i16], taps: &crate::TapsQ14, out: &mut [i16]) {
+    let half = 1_i32 << (taps.precision - 1);
+    for (position, pixel) in out.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        let start = taps.starts[position] as usize * 4;
+        let weights =
+            &taps.weights[taps.offsets[position] as usize..taps.offsets[position + 1] as usize];
+        let run = &source[start..start + weights.len() * 4];
+        let mut acc = [half; 4];
+        for (values, &weight) in run.as_chunks::<4>().0.iter().zip(weights) {
+            for (sum, &value) in acc.iter_mut().zip(values) {
+                *sum += i32::from(value) * i32::from(weight);
+            }
+        }
+        for (out, sum) in pixel.iter_mut().zip(acc) {
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                *out =
+                    (sum >> taps.precision).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
+            }
+        }
+    }
+}
+
+/// `acc[i] += row[i] * weight` in `i32`; exact, so identical at every level.
+#[inline(always)]
+pub(crate) fn axpy_q14(acc: &mut [i32], row: &[i16], weight: i16) {
+    let weight = i32::from(weight);
+    for (sum, &value) in acc.iter_mut().zip(row) {
+        *sum += i32::from(value) * weight;
+    }
+}

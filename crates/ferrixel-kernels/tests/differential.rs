@@ -2,7 +2,7 @@
 //! Levels the host cannot run are printed as untested, never skipped
 //! silently.
 
-use ferrixel_kernels::{IsaLevel, KernelError, Kernels, Taps};
+use ferrixel_kernels::{IsaLevel, KernelError, Kernels, Taps, TapsQ14};
 
 struct Rng(u64);
 impl Rng {
@@ -118,7 +118,10 @@ fn horizontal_matches_the_scalar_body_within_four_ulp() {
             kernels
                 .horizontal_rgba(&source, &taps, &mut actual)
                 .unwrap();
-            let exact = matches!(kernels.level(), IsaLevel::Scalar | IsaLevel::Neon);
+            let exact = matches!(
+                kernels.level(),
+                IsaLevel::Scalar | IsaLevel::Neon | IsaLevel::Sve2
+            );
             for (index, (e, a)) in expected.iter().zip(&actual).enumerate() {
                 if exact {
                     assert_eq!(
@@ -183,4 +186,59 @@ fn best_reports_a_supported_level_and_honors_a_ceiling() {
         Kernels::with_ceiling(IsaLevel::Scalar).level(),
         IsaLevel::Scalar
     );
+}
+
+#[test]
+fn q14_kernels_are_bit_identical_at_every_level() {
+    let scalar = Kernels::for_level(IsaLevel::Scalar).unwrap();
+    let mut rng = Rng(0xD1B5_4A32_D192_ED03);
+    let small = |rng: &mut Rng, range: u64| -> i16 {
+        i16::try_from(rng.next() % range).unwrap() - i16::try_from(range / 4).unwrap()
+    };
+    for (source_pixels, outputs, max_taps) in
+        [(1, 1, 1), (7, 5, 7), (300, 1600, 24), (1000, 37, 300)]
+    {
+        let mut starts = Vec::new();
+        let mut offsets = vec![0_u32];
+        let mut weights = Vec::new();
+        for _ in 0..outputs {
+            let count = 1 + usize::try_from(
+                rng.next() % u64::try_from(max_taps.min(source_pixels)).unwrap(),
+            )
+            .unwrap();
+            let start =
+                usize::try_from(rng.next() % u64::try_from(source_pixels - count + 1).unwrap())
+                    .unwrap();
+            starts.push(u32::try_from(start).unwrap());
+            for _ in 0..count {
+                weights.push(small(&mut rng, 4096));
+            }
+            offsets.push(u32::try_from(weights.len()).unwrap());
+        }
+        let taps = TapsQ14::new(source_pixels, starts, offsets, weights, 14).unwrap();
+        let source: Vec<i16> = (0..source_pixels * 4)
+            .map(|_| small(&mut rng, 20000))
+            .collect();
+        let mut expected = vec![0_i16; outputs * 4];
+        scalar
+            .horizontal_rgba_q14(&source, &taps, &mut expected)
+            .unwrap();
+        let row: Vec<i16> = (0..outputs * 4).map(|_| small(&mut rng, 20000)).collect();
+        let mut expected_acc: Vec<i32> = (0..outputs * 4)
+            .map(|i| i32::try_from(i).unwrap())
+            .collect();
+        scalar.axpy_q14(&mut expected_acc, &row, -1234).unwrap();
+        for kernels in levels() {
+            let mut actual = vec![0_i16; outputs * 4];
+            kernels
+                .horizontal_rgba_q14(&source, &taps, &mut actual)
+                .unwrap();
+            assert_eq!(expected, actual, "{}", kernels.level());
+            let mut acc: Vec<i32> = (0..outputs * 4)
+                .map(|i| i32::try_from(i).unwrap())
+                .collect();
+            kernels.axpy_q14(&mut acc, &row, -1234).unwrap();
+            assert_eq!(expected_acc, acc, "{}", kernels.level());
+        }
+    }
 }
