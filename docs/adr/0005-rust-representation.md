@@ -1,0 +1,391 @@
+# Represent the libjpeg object model in safe Rust
+
+- Status: proposed
+- Created: 2026-11-06
+- Updated: 2026-11-06
+
+## Context
+
+libjpeg is object-oriented C. A decompression object (`jpeg_decompress_struct`)
+holds public parameters and state, plus pointers to about a dozen internal
+modules (`master`, `inputctl`, `marker`, `entropy`, `coef`, `idct`, `main`,
+`post`, `upsample`, `cconvert`). Each module is a struct of function pointers
+and public state (`jpeg_entropy_decoder`, `jpeg_d_main_controller` and the
+others in `jpegint.h`); the implementing file embeds it as the first member of
+a private struct (`huff_entropy_decoder`, `my_main_controller`) and casts back
+to that struct. Modules select their methods at run time, per configuration and
+per scan: `jdphuff.c` installs one of four `decode_mcu` functions, and
+`jdinput.c` points `inputctl->consume_input` at the coefficient controller's
+`consume_data`. All memory comes from a pool allocator (`jmemmgr.c`) with
+limits and error codes. Samples travel as arrays of row pointers (`JSAMPARRAY`,
+`JSAMPIMAGE`) that several modules rotate and alias. Errors call
+`err->error_exit`, which applications leave with `longjmp`. Data sources may
+suspend. The compression and decompression objects share a prefix of fields
+and are passed to common code as `j_common_ptr`.
+
+Safe Rust cannot copy these constructs, and `#![deny(unsafe_code)]` applies to
+every translated module ([ADR 0003](0003-toolchain-and-unsafe-policy.md)).
+Work packages 1 to 6 translate in parallel once this record is accepted
+([PORT_PLAN.md](../PORT_PLAN.md)), so they need the same answers without
+coordinating. libwebp-rs settled the same class of questions in its ADR 0003;
+this record follows it where the constructs match. A package that meets a
+construct these rules do not cover stops and asks for an amendment.
+
+## Decision
+
+### Types, names and arithmetic
+
+**Integer types.** Types map to fixed-width Rust types as the 8-bit
+instantiation defines them: `JSAMPLE` to `u8`, `JCOEF` to `i16`, `JDIMENSION`
+to `u32`, `UINT8` to `u8`, `UINT16` to `u16`, `INT16` to `i16`, `int` to `i32`,
+`unsigned int` to `u32`, `size_t` to `usize`, `float` (`FAST_FLOAT`) to `f32`,
+`double` to `f64`. `long`, `JLONG` and `INT32` (all `long` in upstream) map to
+`core::ffi::c_long`, and `unsigned long` to `core::ffi::c_ulong`, so that every
+target gets the width its C compiler uses: 64 bits on both CI hosts. Keep every
+width, signedness and conversion point of the source. Unsigned C arithmetic
+wraps, so use `wrapping_*` where the source can wrap; signed overflow is
+undefined in C, so plain Rust arithmetic is correct there and the `checked`
+profile reports a violation. `RIGHT_SHIFT_IS_UNSIGNED` is undefined on both
+hosts, so a signed right shift is Rust's arithmetic `>>`.
+
+**`boolean`.** `boolean` is `int` in upstream. A `boolean` field, parameter or
+return value becomes `bool`; `TRUE` and `FALSE` become `true` and `false`. The
+C ABI mirror (work package 7) converts at the boundary.
+
+**Enums.** A C enum (`J_COLOR_SPACE`, `J_DCT_METHOD`, `J_DITHER_MODE`,
+`J_BUF_MODE`) becomes a `#[repr(transparent)]` newtype over its C underlying
+type with one associated constant per enumerator, keeping names and values:
+`pub struct J_COLOR_SPACE(pub u32)` with `J_COLOR_SPACE::JCS_YCbCr`. Clang and
+GCC give these enums the type `unsigned int`. No Rust enum with discriminants is
+created from a C enum, so every value an application can store stays
+representable, and range checks behave as in C.
+
+**Names.** Translated items keep their C names verbatim: `jpeg_read_header`,
+`decode_mcu_DC_first`, `jpeg_decompress_struct`, `JSAMPARRAY`, field
+`MCU_ctr`. Most libjpeg names are lower case already, and verbatim names keep a
+`grep` against upstream exact. Where a name violates a rustc naming lint, the
+item carries an item-scoped `#[expect(non_camel_case_types, reason = "C type
+name")]`, `#[expect(non_snake_case, reason = "C field names")]` or
+`#[expect(non_upper_case_globals, ...)]`, as libwebp-rs does for its C type
+names; a struct whose fields keep C names takes one `expect` on the struct.
+
+**Macros and translation-time headers.** A function-like macro becomes an
+`#[inline]` function in the module of the header or file that defines it
+(`DESCALE`, `MULTIPLY`, `HUFF_DECODE` becomes a function with the macro's
+arguments and its `goto` targets as return values). Three headers have no
+module ([tools/units.json](../../tools/units.json), category `macro`):
+`jinclude.h` (system headers; `MEMZERO` and `MEMCOPY` become slice `fill` and
+`copy_from_slice` at each use, `SIZEOF` becomes the C size where it feeds
+arithmetic), `jsamplecomp.h` (precision-dependent names resolve to the 8-bit
+names: `_JSAMPLE` is `JSAMPLE`, `_jinit_color_deconverter` is
+`jinit_color_deconverter`) and `jpegapicomp.h` (field aliases resolve for
+`JPEG_LIB_VERSION` 62: `_DCT_scaled_size` is `DCT_scaled_size`,
+`_jpeg_width` is `image_width`). Configuration macros become constants in
+`src/jconfig.rs` and `src/jmorecfg.rs` with the values that the reference
+oracle's `jconfig.h` defines (`oracle.json`, `jconfig_h`). A `#ifdef` on such a
+constant becomes the branch that the reference configuration compiles.
+
+### The common object
+
+`jpeg_common_struct` exists in C so that `jcomapi.c`, `jerror.c` and
+`jmemmgr.c` serve both object types. The encoder is out of scope
+([ADR 0001](0001-mechanical-port.md)), so a `j_common_ptr` parameter becomes
+`&mut jpeg_decompress_struct`: `pub type j_common_ptr<'a, 'src> = &'a mut
+jpeg_decompress_struct<'src>`. The common fields (`err`, `mem`, `progress`,
+`client_data`, `is_decompressor`, `global_state`) are ordinary fields of the
+decompression struct. `is_decompressor` is always `true`. A branch that tests
+`!is_decompressor` or casts to `j_compress_ptr` is untranslated, like the rest
+of the encoder, and the function keeps an `// upstream:` comment that names it.
+Casts from `j_common_ptr` to `j_decompress_ptr` (`jpeg_abort` reaching
+`master->marker_list_end`) disappear.
+
+### Modules and method tables
+
+**Module objects.** Each module pointer of `jpeg_decompress_struct` becomes a
+field `Option<Box<M>>`, where `M` is the module's Rust type. For a slot that
+upstream fills with one implementation in scope, `M` is that implementation's
+private struct (`master: Option<Box<my_decomp_master>>`). For a slot with
+several implementations, `M` is an enum with one variant per in-scope
+implementation, named after the C struct: `entropy` holds
+`jpeg_entropy_decoder_impl::{huff_entropy_decoder, phuff_entropy_decoder,
+arith_entropy_decoder}`, and `upsample` holds the plain or the merged
+upsampler. `None` stands for C's `NULL` before `jinit_*` runs.
+
+**Public part.** The public struct from `jpegint.h` is the first field `pub_`
+of each private struct, as `pub` is in C: `entropy->pub.insufficient_data`
+becomes `entropy.pub_.insufficient_data`. A module type that is an enum has an
+accessor that returns the `pub_` of whichever variant it holds, so that other
+modules read `cinfo->entropy->insufficient_data` as
+`cinfo.entropy().insufficient_data`.
+
+**Methods are function pointers.** A method field of a public struct
+(`decode_mcu`, `consume_input`, `process_data`, `inverse_DCT[ci]`,
+`color_convert`) stays a field of safe Rust `fn` type, assigned where C
+assigns it. Its signature is the C signature with `j_decompress_ptr` replaced
+by `&mut jpeg_decompress_struct` and buffers replaced as described below. Rust
+`fn` pointers are `Copy` and need no `unsafe`, run-time selection stays where
+upstream does it, and the SIMD packages later assign SIMD functions at the
+same `jsimd_can_*` points ([ADR 0004](0004-simd-after-the-portable-port.md)).
+The method slots that exist only for 12-bit and 16-bit samples, lossless mode
+or SIMD (`process_data_12`, `decode_mcus`, `idct_simd` and the like) are absent
+until a package that translates them adds them.
+
+**Calls.** A call `(*cinfo->entropy->decode_mcu) (cinfo, MCU_data)` copies the
+`fn` pointer out of the module and then calls it with the whole object:
+`let decode_mcu = cinfo.entropy().decode_mcu; decode_mcu(cinfo, MCU_data)`.
+The dispatcher holds no borrow of the module during the call, so a method may
+point at another module's function, as `consume_input` points at
+`consume_data`.
+
+**A method's own state.** The C idiom `huff_entropy_ptr entropy =
+(huff_entropy_ptr)cinfo->entropy;` becomes a scoped take: the function moves
+the box out of `cinfo.entropy` (a pointer move) and matches the variant it
+expects; a mismatch is `unreachable!`, where C's cast would be undefined. The
+function puts the box back on every path out, errors included, before it
+returns. While it holds the box, it uses `cinfo` for everything else, as C
+does. Before it calls anything that can reach the same module through `cinfo`
+(a method pointer, another module's function, a public API function), it puts
+the box back and takes it again afterwards, so that state the callee writes
+through `cinfo` is visible as it is in C. A module found absent where C would
+find it is a translation error and panics; tests find it. A helper that C
+gives only `cinfo` but that works on the module receives the module as a
+second parameter. Each package records in its status entry the calls where it
+puts a module back.
+
+**Public hooks.** The objects an application supplies (`jpeg_error_mgr`,
+`jpeg_source_mgr`, `jpeg_progress_mgr`, the marker processors of
+`jpeg_set_marker_processor`) keep their public fields as struct fields and
+take their methods as a trait object owned by the struct
+(`Box<dyn jpeg_source_methods + 'src>`), whose default methods are upstream's
+functions. The trait object carries the application's context, which replaces
+`client_data`; the C ABI mirror keeps `client_data`. A hook method receives
+`&mut jpeg_decompress_struct` and, like a module, its own struct taken out of
+the object for the duration of the call.
+
+### Error exits and warnings
+
+C reports an error by storing `msg_code` and `msg_parm` in `cinfo->err` and
+calling `error_exit`, which never returns: the default handler prints, destroys
+the object and calls `exit`, and applications `longjmp` instead. Rust cannot
+jump over Rust frames soundly, and a library may not exit the process.
+
+**Errors return.** Every function that can reach `ERREXIT`, directly or
+through a callee, returns `Result<T, ErrorExit>`, and callers propagate with
+`?`. `ErrorExit` is a zero-sized marker: the error itself lives where C keeps
+it, in `cinfo.err.msg_code` and `cinfo.err.msg_parm`. `ERREXIT(cinfo, code)`
+and its variants become functions that store the code and parameters exactly
+as the macros do, call the `error_exit` hook, and return `Err(ErrorExit)`; the
+call site is `return Err(errexit(cinfo, JERR_...))`. Because errors return
+along the ordinary path, every state change made before the error stays, as it
+does after a `longjmp`, and taken modules are put back on the way out (see
+above). Panics are reserved for translation errors and never carry a libjpeg
+error, so the decoder behaves the same under `panic = "abort"`.
+
+**The default error manager.** `jpeg_std_error` installs upstream's
+`emit_message`, `output_message` (to standard error), `format_message` and
+`reset_error_mgr`. Its `error_exit` calls `output_message` and returns; it
+neither destroys the object nor exits. The caller decides what to do with an
+object after `Err`, as a C application does after its `longjmp`. `jpeg_destroy`
+is the owner dropping the object.
+
+**Warnings and traces.** `WARNMS` and `TRACEMS` call `emit_message`, which a C
+application may also leave with `longjmp` (TurboJPEG does so for its
+stop-on-warning flag). `emit_message` therefore returns `Result<(),
+ErrorExit>`, and every `WARNMS` and `TRACEMS` site propagates it. The default
+keeps upstream's counting of `num_warnings` and its trace-level filtering and
+returns `Ok`.
+
+**Messages.** `msg_parm` is a union of `int i[8]` and `char s[80]`, and the
+active member depends on the message text, not on a field. It becomes an
+80-byte array with accessors that read and write the `int`s in native byte
+order, so the union's aliasing is preserved. `format_message` implements the
+`printf` conversions that `jerror.h` uses, and work package 1 proves every
+message text against the oracle.
+
+**Progress and other application callbacks** (`progress_monitor`, source
+manager methods, marker processors) also return `Result`, so an application
+can stop decoding from any point where a C application could `longjmp`.
+
+### Suspending data sources
+
+**Source manager.** `jpeg_source_mgr<'src>` keeps `next_input_byte` as an
+offset and `bytes_in_buffer` as a count into its current buffer, which is a
+field `buffer: InputBuffer<'src>`, either `Borrowed(&'src [u8])` or
+`Owned(Vec<u8>)`. Decoder code reads the bytes through the field, so it
+borrows only the source, never the whole object. `fill_input_buffer` may
+replace the buffer: `jpeg_mem_src` installs the static fake EOI as
+`Borrowed`, and a streaming source refills an `Owned` buffer in place.
+`resync_to_restart` defaults to `jpeg_resync_to_restart`.
+
+**Suspension is kept.** `fill_input_buffer` returns `Result<bool, ErrorExit>`,
+where `Ok(false)` means suspend. Every suspension path of the decoder is
+translated as it is: return codes (`JPEG_SUSPENDED`, `FALSE` from a method),
+the saved restart points in `jdmarker.c`, the MCU back-up in `jdhuff.c` and
+the input controller's state machine. Suspension is not an error. The memory
+source in scope never suspends, so work package 2 adds a probe with a
+suspending source that feeds a few bytes per call, and every later package
+that touches a suspension path tests it with that probe.
+
+### The memory manager
+
+`jmemmgr.c` decides which large or malformed inputs fail, so its arithmetic is
+behavior; the C pointers it hands out are not.
+
+**Exact accounting.** The Rust memory manager keeps `jmemmgr.c`'s bookkeeping
+with the same arithmetic and order: small and large pool lists as size records
+with their slop rules (`first_pool_slop`, `extra_pool_slop`, the 50-byte
+minimum), header sizes, `ALIGN_SIZE` rounding, `total_space_allocated`,
+`max_alloc_chunk` (`MAX_ALLOC_CHUNK`, 1 000 000 000) and
+`max_memory_to_use`. Each request names the C size of what it allocates, not
+the Rust size: every translated struct that upstream allocates has a constant
+with its C `sizeof` on the target, verified by a probe, and `sizeof(small_pool_hdr)`
+and `sizeof(large_pool_hdr)` are constants too. `ALIGN_SIZE` is
+`MAX(sizeof(void *), sizeof(double))`, 8 on both hosts, because the reference
+configuration has no SIMD; the SIMD packages revisit it (32 with
+`WITH_SIMD`), since it also sets the row padding of `alloc_sarray`. Every
+check fails at the same request with the same code: `JERR_OUT_OF_MEMORY` with
+its `which` parameter (1 to 11), `JERR_BAD_POOL_ID`, `JERR_WIDTH_OVERFLOW`,
+`JERR_BAD_VIRTUAL_ACCESS`, `JERR_VIRTUAL_BUG`, and `JERR_NO_BACKING_STORE` from
+`jmemnobs.c` when `max_memory_to_use` is too small for the virtual arrays.
+`jinit_memory_mgr` reads `JPEGMEM` from the environment as upstream does.
+
+**Owned storage.** The storage behind each request is a Rust value that the
+requesting code owns: `alloc_small` and `alloc_large` return a `Box` or `Vec`
+built from the caller's value, `alloc_sarray` and `alloc_barray` return the
+buffers described below. Large requests reserve with `Vec::try_reserve_exact`
+and report a refused reservation as the `out_of_memory` code that a failing
+`jpeg_get_large` or `jpeg_get_small` produces; a small fixed-size `Box` is
+allocated infallibly. Rust initializes every allocation; C code that reads
+`malloc`ed memory before writing it is undefined and is recorded where found.
+
+**Pools.** `free_pool(JPOOL_IMAGE)` drops the image pool's records, so
+`total_space_allocated` falls as it does in C, and resets every field of the
+object that upstream fills from `JPOOL_IMAGE` to its empty value, which drops
+the storage. Work package 1 derives that list of fields from upstream's
+allocation calls and checks it with a test; later packages extend it when they
+add a field. `JPOOL_PERMANENT` storage lives until the object is dropped.
+`self_destruct` is the drop.
+
+**Virtual arrays.** `request_virt_barray`, `realize_virt_arrays` and
+`access_virt_barray` keep their checks, `maxaccess`, `pre_zero`,
+`first_undef_row` and `dirty` logic; with no backing store, `rows_in_mem`
+always equals `rows_in_array` or the request fails with
+`JERR_NO_BACKING_STORE`, as in `jmemnobs.c`. `access_virt_barray` returns a
+view of the requested rows of the array's storage. Virtual sample arrays are
+used only by two-pass quantization and are not translated.
+
+### Sample and coefficient buffers
+
+**Storage and row lists.** A buffer from `alloc_sarray` is one
+`Vec<JSAMPLE>` with the row stride that `alloc_sarray` computes (samples per
+row rounded up to `2 * ALIGN_SIZE`), plus the list of row starts as offsets.
+`alloc_sarray`'s chunking affects only the accounting, which stays exact. A
+`JSAMPARRAY` becomes a pair of storage and row offsets: `JSAMPROWS<'a>` with
+`&'a [JSAMPLE]` and `&'a [usize]` for input, `JSAMPROWS_MUT<'a>` with
+`&'a mut [JSAMPLE]` for output. Pointer arithmetic on a row array
+(`output_buf + *out_row_ctr`) slices the offset list. A module that keeps
+several pointer lists into one buffer, such as the main controller's context
+rows ("funny pointers" in `jdmainct.c`) or a wraparound list, keeps its lists
+as `Vec<usize>` next to the storage and rotates them as C rotates pointers.
+`JSAMPIMAGE` becomes one such pair per component.
+
+**Caller rows.** `jpeg_read_scanlines` and `jpeg_read_raw_data` receive the
+application's rows, which C allows to lie anywhere. `JSAMPROWS_MUT` therefore
+has a second form, a slice of separate row slices (`&mut [&mut [JSAMPLE]]`),
+and offers the row operations that modules use (`row`, `row_mut`, copying one
+row onto another) for both forms. A copy within one array, such as
+`jcopy_sample_rows(output_data, outrow, output_data, outrow + 1, ...)`, uses
+`copy_within` or a split borrow.
+
+**Blocks.** `JBLOCK` is `[JCOEF; 64]`. A `JBLOCKROW` or `JBLOCKARRAY` follows
+the sample rules with `JBLOCK` elements. The `MCU_data` argument of
+`decode_mcu` is `Option<&mut [&mut JBLOCK]>`: the caller collects mutable
+borrows of the MCU's blocks from whichever buffers C points into, and `None`
+is C's `NULL` that `jpeg_skip_scanlines` passes. A pointer list that a module
+stores beyond one call (`coef->MCU_buffer`) is kept as block indexes into the
+module's storage and turned into borrows per call.
+
+**Disjoint borrows.** When C passes two pointers into one structure that the
+callee mutates, the Rust code splits the structure into separate borrows, and
+the package records the split. A pointer that may be `NULL` becomes an
+`Option`.
+
+### Out-of-scope branches inside in-scope files
+
+In-scope files contain branches for features that are not translated: color
+quantization (`jdmaster.c`, `jdapistd.c`, `jdpostct.c`), lossless mode
+(`jdinput.c`, `jdmaster.c`), 12- and 16-bit precision (`jdmaster.c` selecting
+`j12init_*`), RGB565 output (`jdcolor.c`, `jdmerge.c`) and the stdio source
+(`jdatasrc.c`). Each such branch follows upstream's own behavior for a
+compiled-out feature where upstream has one: with `QUANT_1PASS_SUPPORTED`,
+`QUANT_2PASS_SUPPORTED` and `D_LOSSLESS_SUPPORTED` treated as undefined, the
+branches raise `JERR_NOT_COMPILED` where upstream's `#else` does. Where
+upstream has no switch, the branch raises the error upstream uses for the same
+condition elsewhere: `JERR_BAD_PRECISION` for a data precision other than 8,
+`JERR_CONVERSION_NOTIMPL` for RGB565 output. The stdio source functions are
+absent ([tools/units.json](../../tools/units.json), `not_translated`). The
+oracle supports all of these, so the differential tests list such inputs as
+out of scope with this reason instead of comparing them.
+
+### Visibility
+
+Every module is `pub`, so that tests and later packages can reach units
+before the API exists, and so that unused translated items are not dead code.
+Work package 8 decides what the safe API re-exports.
+
+## Consequences
+
+Safe Rust can express the 8-bit decoder under these rules, with explicit costs:
+a `Result` on most signatures, a pointer move per method call that touches its
+own module, row offset lists instead of row pointers, and memory accounting
+that runs beside Rust's allocator. The structure stays upstream's: the same
+modules, method slots, selection points and suspension paths, which keeps the
+diff of a new upstream version applicable and leaves room for the SIMD
+packages. The decoder never exits, prints only through the replaceable error
+manager, and reports every libjpeg error through `cinfo.err` as C does.
+
+The C ABI (work package 7) still needs its own decision: a C application's
+`error_exit`, `emit_message`, source or progress callback may `longjmp`, and
+the ABI calls those callbacks from inside Rust frames. Before that package
+starts, its unsafe ADR decides how such callbacks are contained, for example
+by calling them only from the outermost exported frame or by converting the
+jump to `C-unwind` unwinding as libavif-rs ADR 0036 did for libaom.
+
+## Open questions for the maintainer
+
+1. **Out-of-scope branches.** Is it acceptable that out-of-scope requests fail
+   with `JERR_NOT_COMPILED`, `JERR_BAD_PRECISION` or `JERR_CONVERSION_NOTIMPL`
+   while the oracle succeeds, or should the port reject them earlier, for
+   example in `jpeg_start_decompress`?
+2. **`JPEGMEM`.** Upstream reads the `JPEGMEM` environment variable in
+   `jinit_memory_mgr`. Keep it for parity, or drop it so that Ferrixel's
+   decoder ignores the environment, as a recorded deviation?
+3. **Small allocations.** Is an infallible `Box` for fixed-size module structs
+   acceptable, given that C reports `JERR_OUT_OF_MEMORY` 2 when `malloc`
+   fails, or should every request be fallible?
+4. **Default `error_exit`.** It prints and returns instead of destroying the
+   object and exiting. Is printing to standard error by default acceptable for
+   a library used by Ferrixel, given that the safe API (work package 8) will
+   install its own error manager?
+5. **`c_long`.** `long` follows the target's C compiler, so Windows would get
+   32-bit `JLONG` like upstream on Windows. Neither CI host covers that case.
+   Accept, or fix `JLONG` at 64 bits and record Windows as unverified?
+6. **Common object.** Collapsing `j_common_ptr` into the decompression struct
+   is the smallest translation while the encoder is out of scope. An encoder
+   port would need a trait over both structs. Accept the collapse now?
+7. **Names.** Verbatim C names need item-scoped naming `expect`s on many
+   items (`decode_mcu_DC_first`, struct fields such as `MCU_ctr`). libwebp-rs
+   instead maps names through `tools/rust_name.py`. Keep C names verbatim?
+8. **Header mapping.** [tools/units.json](../../tools/units.json) gives
+   `jdct.h`, `jmemsys.h`, `jconfig.h.in`, `jversion.h.in` and `jstdhuff.c`
+   modules of their own, merges `jerror.h`, `jdhuff.h`, `jdcoefct.h`,
+   `jdmainct.h`, `jdmaster.h`, `jdsample.h` and `jdmerge.h` into the module of
+   the C file with the same name, and translates `jdmrgext.c` and `jdcolext.c`
+   as their own modules. ADR 0001 lists only the C files and four public
+   headers. Confirm the mapping.
+
+## Review triggers
+
+Amend this record when a package meets a construct it does not cover, when a
+rule forces a change of observable behavior, before the C ABI or SIMD packages
+start, or when the encoder or another precision enters the scope.

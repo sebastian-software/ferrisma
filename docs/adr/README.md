@@ -13,3 +13,4 @@ reports it.
 - [0002: Compare against the original C decoder in separate processes](0002-differential-oracle.md)
 - [0003: Build on stable Rust with unsafe code denied by default](0003-toolchain-and-unsafe-policy.md)
 - [0004: Port SIMD after the portable decoder, as intrinsics on both architectures](0004-simd-after-the-portable-port.md)
+- [0005: Represent the libjpeg object model in safe Rust](0005-rust-representation.md) (proposed)
