@@ -1211,6 +1211,53 @@
         "WebPEncodeLosslessBGRA"
       ],
       "reason": "the simple encoding API calls `WebPEncode`"
+    },
+    {
+      "module": "src/webp/decode.rs",
+      "upstream": "src/webp/decode.h",
+      "package": "WP12",
+      "functions": [
+        "WebPInitDecBuffer",
+        "WebPGetFeatures",
+        "WebPInitDecoderConfig",
+        "WebPIDecGetYUV"
+      ],
+      "reason": "each one calls an entry point that WP12 translates from `src/dec/buffer_dec.c`, `src/dec/webp_dec.c` or `src/dec/idec_dec.c`"
+    },
+    {
+      "module": "src/webp/encode.rs",
+      "upstream": "src/webp/encode.h",
+      "package": "WP9",
+      "functions": [
+        "WebPConfigInit",
+        "WebPConfigPreset",
+        "WebPPictureInit"
+      ],
+      "reason": "each one calls an entry point that WP9 translates from `src/enc/config_enc.c` or `src/enc/picture_enc.c`"
+    },
+    {
+      "module": "src/webp/demux.rs",
+      "upstream": "src/webp/demux.h",
+      "package": "WP8",
+      "functions": [
+        "WebPDemux",
+        "WebPDemuxPartial"
+      ],
+      "types": [
+        "WebPIterator",
+        "WebPChunkIterator"
+      ],
+      "reason": "the functions call `WebPDemuxInternal`, which WP8 translates from `src/demux/demux.c`, and the iterators hold the demuxer's state"
+    },
+    {
+      "module": "src/webp/demux.rs",
+      "upstream": "src/webp/demux.h",
+      "package": "WP14",
+      "functions": [
+        "WebPAnimDecoderOptionsInit",
+        "WebPAnimDecoderNew"
+      ],
+      "reason": "each one calls an `Internal` entry point that WP14 translates from `src/demux/anim_decode.c`"
     }
   ],
   "reviewed_includes": [

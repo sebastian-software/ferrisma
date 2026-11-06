@@ -17,11 +17,15 @@
 //!
 //! Work package: WP1 (types, memory, workers).
 //!
-//! Not translated yet, pending open questions in `docs/status/wp1.md`: the
-//! picture and writer structs `WebPPicture` and `WebPMemoryWriter` with their
-//! callback typedefs `WebPWriterFunction` and `WebPProgressHook` (question 3),
-//! and the inline initializers that call `WebPConfigInitInternal` and
-//! `WebPPictureInitInternal` (question 5).
+//! Exception: WP9 translates `WebPConfigInit`, `WebPConfigPreset` and `WebPPictureInit` from `src/webp/encode.h`, because each one calls an entry point that WP9 translates from `src/enc/config_enc.c` or `src/enc/picture_enc.c`.
+//!
+//! The picture keeps its samples in storages with the lifetime `'a`, as the decoder
+//! buffers do (ADR 0003, decided 2026-11-06). Its writer and progress hook are
+//! closures that own their context, which replaces `custom_ptr` and `user_data`.
+//! The inline initializers `WebPConfigInit`, `WebPConfigPreset` and
+//! `WebPPictureInit` are WP9's (exceptions in `tools/units.json`).
+
+use crate::webp::types::{PlaneOffset, PlaneStorage};
 
 // upstream: src/webp/encode.h WEBP_ENCODER_ABI_VERSION
 pub const WEBP_ENCODER_ABI_VERSION: i32 = 0x0210;
@@ -230,4 +234,101 @@ impl WebPEncodingError {
     pub const VP8_ENC_ERROR_USER_ABORT: Self = Self(10);
     // upstream: src/webp/encode.h VP8_ENC_ERROR_LAST
     pub const VP8_ENC_ERROR_LAST: Self = Self(11);
+}
+
+/// Read-only copy of the plain fields of a picture, which a writer or a progress
+/// hook receives by reference (ADR 0003). Rust-only: the upstream callbacks read
+/// no plain field of the picture. `WebPMemoryWrite` reads `custom_ptr`, the
+/// progress report of `examples/cwebp.c` reads `user_data`, and both are replaced
+/// by the closures, so the copy is empty. WP9 adds fields if a callback needs them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WebPPictureInfo;
+
+// upstream: src/webp/encode.h WebPWriterFunction
+/// Writes `data` and returns `false` on failure (C: `WebPWriterFunction`). The
+/// closure owns its context, which C passes as `picture->custom_ptr`.
+pub type WebPWriterFunction<'a> = Box<dyn FnMut(&[u8], &WebPPictureInfo) -> bool + 'a>;
+
+// upstream: src/webp/encode.h WebPProgressHook
+/// Reports `percent` and returns `false` to request an abort (C: `WebPProgressHook`).
+/// The closure owns its context, which C passes as `picture->user_data`.
+pub type WebPProgressHook<'a> = Box<dyn FnMut(i32, &WebPPictureInfo) -> bool + 'a>;
+
+// upstream: src/webp/encode.h WebPMemoryWriter
+/// The buffer that `WebPMemoryWrite` fills (C: `WebPMemoryWriter`). `mem` owns the
+/// bytes and holds `max_size` of them, of which the first `size` are written; WP9's
+/// writer keeps that invariant.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WebPMemoryWriter {
+    /// Final buffer, of length `max_size`.
+    pub mem: Vec<u8>,
+    /// Final size of the written data.
+    pub size: usize,
+    /// Total capacity.
+    pub max_size: usize,
+    /// Padding for later use.
+    pub pad: [u32; 1],
+}
+
+// upstream: src/webp/encode.h WebPPicture
+/// Main exchange structure: input samples, output bytes and statistics (C:
+/// `WebPPicture`).
+///
+/// A plane that C holds as `NULL` is `None`. The Y, U, V and A planes live in
+/// `yuva` and the ARGB plane in `argb_storage`; each storage is owned or borrowed
+/// as a whole, as ADR 0003 requires. The caller's `extra_info` and `stats` are
+/// borrowed for `'a`. The fields `custom_ptr` and `user_data` are replaced by the
+/// closures of `writer` and `progress_hook`, and the unused pointer padding of C is
+/// not kept.
+#[derive(Default)]
+pub struct WebPPicture<'a> {
+    // INPUT
+    /// Main flag: ARGB input when non-zero, YUV input otherwise (C: `use_argb`).
+    pub use_argb: i32,
+    /// Colorspace of the YUV input (C: `colorspace`).
+    pub colorspace: WebPEncCSP,
+    /// Dimensions, at most `WEBP_MAX_DIMENSION` (C: `width`, `height`).
+    pub width: i32,
+    pub height: i32,
+    /// Luma, chroma U and chroma V planes (C: `y`, `u`, `v`).
+    pub y: Option<PlaneOffset>,
+    pub u: Option<PlaneOffset>,
+    pub v: Option<PlaneOffset>,
+    /// Luma and chroma strides (C: `y_stride`, `uv_stride`).
+    pub y_stride: i32,
+    pub uv_stride: i32,
+    /// Alpha plane and its stride (C: `a`, `a_stride`).
+    pub a: Option<PlaneOffset>,
+    pub a_stride: i32,
+    /// Padding for later use.
+    pub pad1: [u32; 2],
+    /// ARGB plane, and its stride in pixels (C: `argb`, `argb_stride`).
+    pub argb: Option<PlaneOffset>,
+    pub argb_stride: i32,
+    /// Padding for later use.
+    pub pad2: [u32; 3],
+
+    // OUTPUT
+    /// Byte-emission hook; `None` when C's `writer` is `NULL` (C: `writer`).
+    pub writer: Option<WebPWriterFunction<'a>>,
+    /// Map of extra information, one entry per macroblock, when requested (C: `extra_info_type`).
+    pub extra_info_type: i32,
+    /// The caller's extra-information map (C: `extra_info`).
+    pub extra_info: Option<&'a mut [u8]>,
+    /// Side statistics, when requested (C: `stats`).
+    pub stats: Option<&'a mut WebPAuxStats>,
+    /// The first error recorded during encoding (C: `error_code`).
+    pub error_code: WebPEncodingError,
+    /// Progress report; `None` when C's `progress_hook` is `NULL`.
+    pub progress_hook: Option<WebPProgressHook<'a>>,
+    /// Padding for later use.
+    pub pad3: [u32; 3],
+    /// Padding for later use.
+    pub pad6: [u32; 8],
+
+    // PRIVATE
+    /// The Y, U, V and A planes: C's `memory_` when the picture allocated them.
+    pub yuva: PlaneStorage<'a, u8>,
+    /// The ARGB plane: C's `memory_argb_` when the picture allocated it.
+    pub argb_storage: PlaneStorage<'a, u32>,
 }

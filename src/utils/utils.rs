@@ -39,10 +39,11 @@
 //! - `WebPMalloc` and `WebPFree` hand memory to C callers; they belong to the C
 //!   ABI module (ADR 0004, `src/abi/types.rs`, WP12).
 //! - `WebPSafeFree` only frees; the owner of a `Vec` drops it instead.
-//! - `WebPCopyPixels` takes `WebPPicture` (open question 3 in `docs/status/wp1.md`).
 //! - `WebPLog2FloorC` and `WebPLogTable8bit` are the fallback of `BitsLog2Floor`
 //!   and `BitsCtz`, which GCC and Clang never compile; they use the builtins.
 //! - The `PRINT_MEM_INFO` bookkeeping is off in the reference configuration.
+
+use crate::webp::encode::WebPPicture;
 
 // upstream: src/utils/utils.h WEBP_ALIGN_CST
 /// Mask of the alignment that `webp_align` applies.
@@ -289,15 +290,74 @@ pub fn webp_copy_plane(
     width: i32,
     height: i32,
 ) {
+    copy_rows(
+        src, src_offset, src_stride, dst, dst_offset, dst_stride, width, height,
+    );
+}
+
+/// Copies `width` by `height` samples of any type from `src` to `dst`, honoring both
+/// strides. This is the row loop of `WebPCopyPlane`, which copies bytes, and of
+/// `WebPCopyPixels`, which copies `u32` samples with the same row arithmetic.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "mirrors the C copy of WebPCopyPlane"
+)]
+fn copy_rows<T: Copy>(
+    src: &[T],
+    src_offset: usize,
+    src_stride: i32,
+    dst: &mut [T],
+    dst_offset: usize,
+    dst_stride: i32,
+    width: i32,
+    height: i32,
+) {
     debug_assert!(i64::from(src_stride).abs() >= i64::from(width));
     debug_assert!(i64::from(dst_stride).abs() >= i64::from(width));
     if height <= 0 {
         return;
     }
-    let row_len = usize::try_from(width).expect("WebPCopyPlane needs a non-negative width");
+    let row_len = usize::try_from(width).expect("the copy needs a non-negative width");
     for row in 0..usize::try_from(height).expect("height is positive here") {
         let from = row_start(src_offset, src_stride, row);
         let to = row_start(dst_offset, dst_stride, row);
         dst[to..to + row_len].copy_from_slice(&src[from..from + row_len]);
     }
+}
+
+// upstream: src/utils/utils.c WebPCopyPixels
+/// Copies the ARGB samples of `src` into `dst`, honoring both strides. C copies
+/// `4 * width` bytes per row, with `4 * argb_stride` bytes between rows, and this
+/// copies the same `u32` samples with the strides in pixels.
+///
+/// # Panics
+///
+/// Panics when either picture has no ARGB plane or a row falls outside its storage.
+/// C asserts equal dimensions and `use_argb` in debug builds; the same asserts run
+/// here in the debug and `checked` profiles.
+pub fn webp_copy_pixels(src: &WebPPicture<'_>, dst: &mut WebPPicture<'_>) {
+    debug_assert!(src.width == dst.width && src.height == dst.height);
+    debug_assert!(src.use_argb != 0 && dst.use_argb != 0);
+    let source_plane = src.argb.expect("WebPCopyPixels needs an ARGB source plane");
+    let target_plane = dst
+        .argb
+        .expect("WebPCopyPixels needs an ARGB destination plane");
+    let source = src
+        .argb_storage
+        .region(source_plane.region)
+        .expect("the source ARGB region exists");
+    let target = dst
+        .argb_storage
+        .region_mut(target_plane.region)
+        .expect("the destination ARGB region exists");
+    copy_rows(
+        source,
+        source_plane.offset,
+        src.argb_stride,
+        target,
+        target_plane.offset,
+        dst.argb_stride,
+        src.width,
+        src.height,
+    );
 }

@@ -17,10 +17,13 @@
 //!
 //! Work package: WP1 (types, memory, workers).
 //!
-//! Not translated yet, pending open questions in `docs/status/wp1.md`: the
-//! output buffer structs `WebPRGBABuffer`, `WebPYUVABuffer`, `WebPDecBuffer`
-//! and `WebPDecoderConfig` (question 1), and the inline entry points that call
-//! `*Internal` functions of later packages (question 5).
+//! Exception: WP12 translates `WebPInitDecBuffer`, `WebPGetFeatures`, `WebPInitDecoderConfig` and `WebPIDecGetYUV` from `src/webp/decode.h`, because each one calls an entry point that WP12 translates from `src/dec/buffer_dec.c`, `src/dec/webp_dec.c` or `src/dec/idec_dec.c`.
+//!
+//! The output buffers borrow external memory and own internal memory through
+//! one storage per buffer (ADR 0003, decided 2026-11-06). The lifetime `'a`
+//! reaches `WebPDecParams`, `WebPIDecoder` and the safe decoder API (WP12, WP16).
+
+use crate::webp::types::{PlaneOffset, PlaneStorage};
 
 // upstream: src/webp/decode.h WEBP_DECODER_ABI_VERSION
 pub const WEBP_DECODER_ABI_VERSION: i32 = 0x0210;
@@ -173,4 +176,116 @@ pub struct WebPDecoderOptions {
     pub alpha_dithering_strength: i32,
     /// Padding for later use.
     pub pad: [u32; 5],
+}
+
+// upstream: src/webp/decode.h WebPRGBABuffer
+/// View of a buffer as RGBA samples (C: `WebPRGBABuffer`). The plane is an offset
+/// into the buffer's storage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WebPRGBABuffer {
+    /// Start of the samples (C: `rgba`).
+    pub rgba: PlaneOffset,
+    /// Bytes from one scanline to the next (C: `stride`).
+    pub stride: i32,
+    /// Total size of the samples in bytes (C: `size`).
+    pub size: usize,
+}
+
+// upstream: src/webp/decode.h WebPYUVABuffer
+/// View of a buffer as YUVA samples (C: `WebPYUVABuffer`). The planes are offsets
+/// into the buffer's storage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WebPYUVABuffer {
+    /// Luma samples (C: `y`).
+    pub y: PlaneOffset,
+    /// Chroma U samples (C: `u`).
+    pub u: PlaneOffset,
+    /// Chroma V samples (C: `v`).
+    pub v: PlaneOffset,
+    /// Alpha samples; `None` when the buffer has no alpha plane (C: `a == NULL`).
+    pub a: Option<PlaneOffset>,
+    /// Luma stride (C: `y_stride`).
+    pub y_stride: i32,
+    /// Chroma U stride (C: `u_stride`).
+    pub u_stride: i32,
+    /// Chroma V stride (C: `v_stride`).
+    pub v_stride: i32,
+    /// Alpha stride (C: `a_stride`).
+    pub a_stride: i32,
+    /// Luma plane size (C: `y_size`).
+    pub y_size: usize,
+    /// Chroma U plane size (C: `u_size`).
+    pub u_size: usize,
+    /// Chroma V plane size (C: `v_size`).
+    pub v_size: usize,
+    /// Alpha plane size (C: `a_size`).
+    pub a_size: usize,
+}
+
+/// The `u` member of `WebPDecBuffer`, which its colorspace selects (ADR 0003: the
+/// union becomes an enum with one variant per member). The name is Rust-only,
+/// because the C union is anonymous. The variant must match the colorspace, as the
+/// C member does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WebPDecBufferPlanes {
+    /// The RGBA or ARGB member, for the RGB colorspaces.
+    RGBA(WebPRGBABuffer),
+    /// The YUVA member, for `MODE_YUV` and `MODE_YUVA`.
+    YUVA(WebPYUVABuffer),
+}
+
+impl Default for WebPDecBufferPlanes {
+    fn default() -> Self {
+        Self::RGBA(WebPRGBABuffer::default())
+    }
+}
+
+// upstream: src/webp/decode.h WebPDecBuffer
+/// Generic structure describing the output sample buffer (C: `WebPDecBuffer`).
+///
+/// `storage` is C's `private_memory` when the object allocated the samples, and
+/// the caller's slices when C would set `is_external_memory`. The C field
+/// `is_external_memory` is therefore the variant of `storage` and is not stored
+/// again. The value 2 of that field, which marks slow external memory, is a
+/// performance hint of WP12 and is not represented.
+#[derive(Debug)]
+pub struct WebPDecBuffer<'a> {
+    /// Colorspace of the samples (C: `colorspace`).
+    pub colorspace: WEBP_CSP_MODE,
+    /// Width in pixels (C: `width`).
+    pub width: i32,
+    /// Height in pixels (C: `height`).
+    pub height: i32,
+    /// The planes of the buffer, selected by `colorspace` (C: `u`).
+    pub u: WebPDecBufferPlanes,
+    /// Padding for later use.
+    pub pad: [u32; 4],
+    /// The memory that holds the samples (C: `private_memory`, or the caller's memory).
+    pub storage: PlaneStorage<'a, u8>,
+}
+
+impl Default for WebPDecBuffer<'_> {
+    /// An empty buffer in `MODE_RGB` (C: `WebPInitDecBuffer` zeroes the structure).
+    fn default() -> Self {
+        Self {
+            colorspace: WEBP_CSP_MODE::MODE_RGB,
+            width: 0,
+            height: 0,
+            u: WebPDecBufferPlanes::default(),
+            pad: [0; 4],
+            storage: PlaneStorage::default(),
+        }
+    }
+}
+
+// upstream: src/webp/decode.h WebPDecoderConfig
+/// Main object storing the configuration for advanced decoding (C: `WebPDecoderConfig`).
+#[derive(Debug, Default)]
+pub struct WebPDecoderConfig<'a> {
+    /// Immutable bitstream features (C: `input`).
+    pub input: WebPBitstreamFeatures,
+    /// Output buffer, which may borrow the caller's memory (C: `output`).
+    pub output: WebPDecBuffer<'a>,
+    /// Decoding options (C: `options`).
+    pub options: WebPDecoderOptions,
 }

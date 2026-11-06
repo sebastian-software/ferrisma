@@ -16,11 +16,13 @@
 //!
 //! Work package: WP1 (types, memory, workers).
 //!
-//! Not translated yet, pending open questions in `docs/status/wp1.md`: the
-//! iterators `WebPIterator` and `WebPChunkIterator`, which hold `WebPData`
-//! (question 2), and the inline entry points that call `WebPDemuxInternal`,
-//! `WebPAnimDecoderOptionsInitInternal` and `WebPAnimDecoderNewInternal`
-//! (question 5).
+//! Exception: WP8 translates `WebPDemux`, `WebPDemuxPartial`, `WebPIterator` and `WebPChunkIterator` from `src/webp/demux.h`, because the functions call `WebPDemuxInternal`, which WP8 translates from `src/demux/demux.c`, and the iterators hold the demuxer's state.
+//!
+//! Exception: WP14 translates `WebPAnimDecoderOptionsInit` and `WebPAnimDecoderNew` from `src/webp/demux.h`, because each one calls an `Internal` entry point that WP14 translates from `src/demux/anim_decode.c`.
+//!
+//! The iterators `WebPIterator` and `WebPChunkIterator` are WP8's, because they
+//! hold the demuxer's state (exceptions in `tools/units.json`). They hold the
+//! `WebPData` that WP1 provides in `mux_types.rs`.
 
 use crate::webp::decode::WEBP_CSP_MODE;
 
