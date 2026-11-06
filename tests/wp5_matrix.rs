@@ -159,9 +159,11 @@ fn version_matrices_and_options_match_the_c_functions() {
     // Seeded color spaces beyond the inventory.
     let mut rng = Rng(0x0063_6f6c_6f72);
     for index in 0..256 {
-        let kr = (rng.next_u64() >> 40) as f32 / 16_777_216.0_f32;
-        let kb = (rng.next_u64() >> 40) as f32 / 16_777_216.0_f32;
-        let bit_depth = 8 + rng.below(9) as i32;
+        // The bounds of tools/oracle/probes/wp5/csp.c: kr and kb in [0, 0.5) and bit
+        // depths from 8 to 15, which keep every intermediate of the C function in int.
+        let kr = (rng.next_u64() >> 40) as f32 / 33_554_432.0_f32;
+        let kb = (rng.next_u64() >> 40) as f32 / 33_554_432.0_f32;
+        let bit_depth = 8 + rng.below(8) as i32;
         let range = rng.below(2) as u32;
         let color_space = SharpYuvColorSpace {
             kr,

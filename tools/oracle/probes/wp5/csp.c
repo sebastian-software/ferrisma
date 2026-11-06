@@ -122,13 +122,18 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  // Seeded color spaces beyond the inventory: kr and kb are drawn from [0, 1),
-  // the range and bit depth from their valid sets.
+  // Seeded color spaces beyond the inventory. Inside SharpYuvComputeConversionMatrix
+  // every intermediate must fit int (ground rule 8): ToFixed16 converts
+  // f * 65536 + 0.5 to int, so |f| must stay below 32768. Here kr and kb are drawn
+  // from [0, 0.5), which keeps 1 - kr and 1 - kb at least 0.5, so every scale factor
+  // is at most 1 and every coefficient is at most 1 in magnitude. The bit depth is
+  // drawn from 8 to 15: at 16 bits the offset 128 << 8 times 65536 overflows int for
+  // every color space, which is undefined in C (docs/status/wp5.md).
   rng.state = 0x636f6c6f72ULL;
   for (k = 0; k < 256; ++k) {
-    const float kr = (float)(Wp5RngNext(&rng) >> 40) / 16777216.0f;
-    const float kb = (float)(Wp5RngNext(&rng) >> 40) / 16777216.0f;
-    const int bit_depth = 8 + (int)Wp5RngBelow(&rng, 9);
+    const float kr = (float)(Wp5RngNext(&rng) >> 40) / 33554432.0f;
+    const float kb = (float)(Wp5RngNext(&rng) >> 40) / 33554432.0f;
+    const int bit_depth = 8 + (int)Wp5RngBelow(&rng, 8);
     const int value_range = (int)Wp5RngBelow(&rng, 2);
     snprintf(name, sizeof(name), "computed-random-%d", k);
     PrintComputed(name, kr, kb, bit_depth, value_range);
