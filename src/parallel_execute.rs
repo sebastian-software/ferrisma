@@ -103,6 +103,14 @@ fn worker<const C: usize>(
         Ok(buffers) => buffers,
         Err(error) => {
             let _ = done.send(Err(error));
+            // Keep taking jobs until the driver closes the queue, so that a
+            // driver that submitted before it saw the error never blocks on
+            // a full queue that no worker drains.
+            while let Ok(receiver) = jobs.lock() {
+                if receiver.recv().is_err() {
+                    return;
+                }
+            }
             return;
         }
     };
@@ -203,8 +211,12 @@ impl Driver<'_> {
     }
 
     fn absorb(&mut self, result: Result<Done, Error>) -> Result<(), Error> {
+        // An error ends the run, and it may not answer a job: a worker that
+        // cannot allocate its scratch reports before it takes any job. Only
+        // a finished job is counted off.
+        let done = result?;
         self.outstanding -= 1;
-        match result? {
+        match done {
             Done::Horizontal { rank, row } => self.rows[rank] = Some(row),
             Done::Vertical { row, bytes } => {
                 self.finished.insert(row, bytes);
