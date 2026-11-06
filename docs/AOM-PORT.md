@@ -51,7 +51,8 @@ Use upstream's `AOM_TARGET_CPU=generic` build, with both encoder and decoder,
 non-realtime-only encoder, and the original default experiments. Compile with
 `-ffp-contract=off`. Debug and Release retain their actual original assertion
 and preprocessing differences; Rust development builds remain unoptimized.
-SIMD/assembly paths and later optimization are separate work.
+SIMD/assembly paths and later optimization are separate work; the macOS Neon
+layer is described under [Neon dispatch](#neon-dispatch-adr-0056).
 
 Keep `CONFIG_TUNE_VMAF=1`, matching the existing Homebrew engine's optional
 VMAF encoding modes. libvmaf is a distinct runtime dependency and remains
@@ -723,3 +724,74 @@ original codec global and rejects native codec objects or archives. The same
 parser supports the separate C oracle audit. Existing macOS audits still pass
 for all 15 consumer maps and the selected oracle executables. The native GNU
 consumer and isolated-oracle ownership audits also pass in both profiles.
+
+## Neon dispatch (ADR 0056)
+
+The macOS ARM64 profiles dispatch 242 RTCD functions to hand-translated Neon
+kernels; GNU Linux keeps the generic headers. The kernels live under
+`crates/aom/src/simd` at their original paths:
+
+| Original file | Dispatched functions |
+| --- | --- |
+| `av1/encoder/arm/highbd_fwd_txfm_neon.c` | 19 `av1_fwd_txfm2d_*` |
+| `av1/common/arm/highbd_inv_txfm_neon.c` | `av1_highbd_inv_txfm_add` |
+| `av1/common/arm/cdef_block_neon.c` | 12 CDEF filter, direction, and copy functions |
+| `aom_dsp/arm/highbd_intrapred_neon.c` | 190 high-bitdepth predictors, 3 directional predictors |
+| `av1/common/arm/reconintra_neon.c`, `highbd_reconintra_neon.c` | filter-intra predictor, edge filter and upsampling |
+| `av1/encoder/arm/av1_highbd_quantize_neon.c`, `aom_dsp/arm/highbd_quantize_neon.c` | 7 high-bitdepth quantizers |
+| `av1/encoder/arm/av1_error_neon.c`, `highbd_rdopt_neon.c` | 3 block-error functions |
+| `aom_dsp/arm/subtract_neon.c` | 2 subtract functions |
+
+The shared helpers `mem_neon.h`, `sum_neon.h`, `transpose_neon.h`,
+`shift_neon.h`, and `txfm_neon.h`, and the `HAVE_NEON` tables of
+`av1_txfm.c`, are translated alongside. `crates/aom/rtcd/arm64.pl` lists the
+dispatched names and records why the per-size inverse-transform entry points
+are not dispatched; the high-bitdepth Hadamard kernels are excluded because
+their coefficient order differs from C.
+
+Evidence on macOS ARM64 (Apple M1 Ultra):
+
+- `tools/transpile_aom.py --check` and `--release --check` reproduce both
+  regenerated profiles, and `tools/check_translation.py` passes.
+- `cargo test --release -p libavif-aom --test simd` runs 63 supplementary
+  transcriptions of the original exact-match SIMD tests for these kernels
+  (quantize, error block, subtract, CDEF, forward and inverse transforms,
+  intra prediction, directional prediction, filter intra, intra edge); all
+  pass against the translated `_c` functions.
+- `tools/check_aom_simd_identity.py` encodes six images from the libavif test
+  data in 76 configurations (speeds 4, 6, 7, 9; 8-, 10-, and 12-bit; 4:2:0 and
+  4:4:4; lossless; one thread and all threads) with Neon dispatch and with
+  `AOM_SIMD_CAPS_MASK=0`. All 76 AVIF outputs are byte-identical; see
+  [the identity record](aom-simd-identity-validation.json).
+- `tools/check_aom_roundtrip.py` passes its 12 exact public API round trips
+  against the C reference with Neon active.
+- The default root Release port passes the same 64 CTest registrations and
+  9,473 GoogleTest cases as the baseline linked to the C AOM reference, and
+  `tools/differential.py --decoder-codec aom` finds all 10 AVIF bitstreams and
+  10 decoded PNGs byte-identical.
+
+The original libaom SIMD tests do not run yet: the original test build uses the
+generic configuration and compiles no Neon instantiations. The linkage and
+ownership inventories of earlier acceptance records predate the new RTCD
+pointer globals and `_neon` symbols and must be recorded again before the next
+acceptance claim.
+
+Encoder time for the 1600x2133 photo of the identity corpus, quality 56,
+4:2:0, through `examples/encode_still.rs`, median of five runs, each started
+with a 1-minute load average below 4 on the shared 20-core machine (see
+[the performance record](aom-neon-performance.json)):
+
+| Depth | Speed | Threads | Before (ms) | Neon (ms) | Change |
+| --- | --- | --- | --- | --- | --- |
+| 10 | 6 | 1 | 2686 | 1540 | -43% |
+| 10 | 6 | 20 | 225 | 138 | -39% |
+| 10 | 7 | 1 | 1322 | 799 | -40% |
+| 10 | 7 | 20 | 126 | 86 | -32% |
+| 8 | 6 | 1 | 2390 | 1395 | -42% |
+| 8 | 6 | 20 | 196 | 122 | -38% |
+| 8 | 7 | 1 | 1191 | 758 | -36% |
+| 8 | 7 | 20 | 112 | 79 | -29% |
+
+All three builds write the same bytes in every configuration. The scalar path
+of this branch (`AOM_SIMD_CAPS_MASK=0`) stays within 2.5% of the portable
+baseline, so the RTCD indirection costs little when SIMD is off.

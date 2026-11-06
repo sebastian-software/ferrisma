@@ -1,0 +1,247 @@
+{
+  "check": "Rust AOM encoder time before and after the ADR 0056 Neon kernels",
+  "host": {
+    "cpu": "Apple M1 Ultra",
+    "cores": 20,
+    "os": "macOS (Darwin 27.0.0)",
+    "shared": true,
+    "load_rule": "each run started only when the 1-minute load average was below 4"
+  },
+  "input": {
+    "image": "dog-1600x2133 of tools/check_aom_simd_identity.py",
+    "bmp_sha256": "00d589d0215c1bd3fa6dc1441d7df73aefba94c432dca1c12710e61c5c9ef637"
+  },
+  "encoder": "examples/encode_still.rs: avifImageRGBToYUV then avifEncoderWrite, quality 56, 4:2:0, autoTiling when threads != 1; time of avifEncoderWrite only",
+  "build": "cargo build --release --example encode_still with CARGO_PROFILE_RELEASE_DEBUG=line-tables-only, nightly-2026-09-07",
+  "binaries": {
+    "base f3b2981": "f3b2981 (portable translation) plus the example",
+    "neon": "this branch, Neon dispatch detected at run time",
+    "neon, AOM_SIMD_CAPS_MASK=0": "this branch, every _c path selected"
+  },
+  "method": "five rounds; each round runs the three binaries in turn; median and minimum of five",
+  "results": [
+    {
+      "speed": 6,
+      "threads": 1,
+      "depth": 10,
+      "median_ms": {
+        "base f3b2981": 2685.8,
+        "neon": 1540.3,
+        "neon, AOM_SIMD_CAPS_MASK=0": 2684.5
+      },
+      "min_ms": {
+        "base f3b2981": 2670.0,
+        "neon": 1533.9,
+        "neon, AOM_SIMD_CAPS_MASK=0": 2676.1
+      },
+      "bytes": {
+        "base f3b2981": 221619,
+        "neon": 221619,
+        "neon, AOM_SIMD_CAPS_MASK=0": 221619
+      },
+      "load_1min_max": 3.99,
+      "load_1min_mean": 3.94
+    },
+    {
+      "speed": 6,
+      "threads": 20,
+      "depth": 10,
+      "median_ms": {
+        "base f3b2981": 224.9,
+        "neon": 138.2,
+        "neon, AOM_SIMD_CAPS_MASK=0": 230.5
+      },
+      "min_ms": {
+        "base f3b2981": 218.2,
+        "neon": 136.5,
+        "neon, AOM_SIMD_CAPS_MASK=0": 222.2
+      },
+      "bytes": {
+        "base f3b2981": 223023,
+        "neon": 223023,
+        "neon, AOM_SIMD_CAPS_MASK=0": 223023
+      },
+      "load_1min_max": 3.94,
+      "load_1min_mean": 3.92
+    },
+    {
+      "speed": 7,
+      "threads": 1,
+      "depth": 10,
+      "median_ms": {
+        "base f3b2981": 1322.2,
+        "neon": 799.4,
+        "neon, AOM_SIMD_CAPS_MASK=0": 1327.6
+      },
+      "min_ms": {
+        "base f3b2981": 1319.0,
+        "neon": 795.6,
+        "neon, AOM_SIMD_CAPS_MASK=0": 1321.3
+      },
+      "bytes": {
+        "base f3b2981": 230114,
+        "neon": 230114,
+        "neon, AOM_SIMD_CAPS_MASK=0": 230114
+      },
+      "load_1min_max": 3.96,
+      "load_1min_mean": 3.93
+    },
+    {
+      "speed": 7,
+      "threads": 20,
+      "depth": 10,
+      "median_ms": {
+        "base f3b2981": 125.7,
+        "neon": 86.0,
+        "neon, AOM_SIMD_CAPS_MASK=0": 128.2
+      },
+      "min_ms": {
+        "base f3b2981": 124.5,
+        "neon": 84.0,
+        "neon, AOM_SIMD_CAPS_MASK=0": 126.6
+      },
+      "bytes": {
+        "base f3b2981": 232698,
+        "neon": 232698,
+        "neon, AOM_SIMD_CAPS_MASK=0": 232698
+      },
+      "load_1min_max": 3.96,
+      "load_1min_mean": 3.93
+    },
+    {
+      "speed": 6,
+      "threads": 1,
+      "depth": 8,
+      "median_ms": {
+        "base f3b2981": 2390.5,
+        "neon": 1394.7,
+        "neon, AOM_SIMD_CAPS_MASK=0": 2391.1
+      },
+      "min_ms": {
+        "base f3b2981": 2381.6,
+        "neon": 1390.7,
+        "neon, AOM_SIMD_CAPS_MASK=0": 2380.7
+      },
+      "bytes": {
+        "base f3b2981": 218262,
+        "neon": 218262,
+        "neon, AOM_SIMD_CAPS_MASK=0": 218262
+      },
+      "load_1min_max": 4.0,
+      "load_1min_mean": 3.95
+    },
+    {
+      "speed": 6,
+      "threads": 20,
+      "depth": 8,
+      "median_ms": {
+        "base f3b2981": 196.4,
+        "neon": 121.8,
+        "neon, AOM_SIMD_CAPS_MASK=0": 194.8
+      },
+      "min_ms": {
+        "base f3b2981": 192.4,
+        "neon": 121.5,
+        "neon, AOM_SIMD_CAPS_MASK=0": 192.8
+      },
+      "bytes": {
+        "base f3b2981": 219470,
+        "neon": 219470,
+        "neon, AOM_SIMD_CAPS_MASK=0": 219470
+      },
+      "load_1min_max": 3.97,
+      "load_1min_mean": 3.94
+    },
+    {
+      "speed": 7,
+      "threads": 1,
+      "depth": 8,
+      "median_ms": {
+        "base f3b2981": 1191.4,
+        "neon": 758.2,
+        "neon, AOM_SIMD_CAPS_MASK=0": 1190.3
+      },
+      "min_ms": {
+        "base f3b2981": 1181.6,
+        "neon": 757.8,
+        "neon, AOM_SIMD_CAPS_MASK=0": 1182.1
+      },
+      "bytes": {
+        "base f3b2981": 231703,
+        "neon": 231703,
+        "neon, AOM_SIMD_CAPS_MASK=0": 231703
+      },
+      "load_1min_max": 3.97,
+      "load_1min_mean": 3.93
+    },
+    {
+      "speed": 7,
+      "threads": 20,
+      "depth": 8,
+      "median_ms": {
+        "base f3b2981": 111.5,
+        "neon": 78.9,
+        "neon, AOM_SIMD_CAPS_MASK=0": 112.2
+      },
+      "min_ms": {
+        "base f3b2981": 108.5,
+        "neon": 77.0,
+        "neon, AOM_SIMD_CAPS_MASK=0": 109.6
+      },
+      "bytes": {
+        "base f3b2981": 234185,
+        "neon": 234185,
+        "neon, AOM_SIMD_CAPS_MASK=0": 234185
+      },
+      "load_1min_max": 3.97,
+      "load_1min_mean": 3.96
+    }
+  ],
+  "profile_before": {
+    "tool": "macOS sample, 1 ms interval, top-of-stack self time, 10-bit speed 6 and 7 one thread, 8-bit speed 6 one thread (inlined callees count toward their caller)",
+    "shares_percent": {
+      "10-bit speed 6": {
+        "inverse transform": 19.8,
+        "forward transform": 17.3,
+        "CDEF": 8.3,
+        "quantization": 7.5,
+        "partition CNN": 7.4,
+        "trellis optimize_txb": 8.4,
+        "memset/memmove": 5.3,
+        "intra prediction": 5.5,
+        "c2rust bitfields": 2.2,
+        "HOG gradient": 2.5,
+        "subtract": 1.2,
+        "Hadamard/SATD": 0.8
+      },
+      "10-bit speed 7": {
+        "inverse transform": 18.8,
+        "forward transform": 16.2,
+        "CDEF": 0.0,
+        "quantization": 7.6,
+        "partition CNN": 0.2,
+        "trellis optimize_txb": 8.0,
+        "memset/memmove": 7.2,
+        "intra prediction": 6.7,
+        "c2rust bitfields": 3.8,
+        "HOG gradient": 2.0,
+        "subtract": 1.3,
+        "Hadamard/SATD": 0.7
+      },
+      "8-bit speed 6": {
+        "inverse transform": 23.6,
+        "forward transform": 16.4,
+        "CDEF": 9.8,
+        "quantization": 6.4,
+        "partition CNN": 7.3,
+        "trellis optimize_txb": 7.4,
+        "memset/memmove": 5.9,
+        "intra prediction": 4.1,
+        "c2rust bitfields": 1.3,
+        "HOG gradient": 2.5,
+        "subtract": 0.8,
+        "Hadamard/SATD": 0.9
+      }
+    }
+  }
+}
