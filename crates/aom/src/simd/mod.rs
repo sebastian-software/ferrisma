@@ -22,5 +22,9 @@ pub mod types {
 pub mod aom_ports__aarch64_cpudetect;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/highbd_quantize_neon.rs"]
+pub mod aom_dsp__arm__highbd_quantize_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/av1_highbd_quantize_neon.rs"]
 pub mod av1__encoder__arm__av1_highbd_quantize_neon;

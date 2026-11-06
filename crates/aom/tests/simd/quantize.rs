@@ -208,6 +208,21 @@ impl FullPrecisionQuantizeTest {
     }
 }
 
+macro_rules! quantize_c {
+    ($($name:ident),*) => {
+        extern "C-unwind" {
+            $(fn $name(coeff_ptr: *const i32, n_coeffs: isize, zbin_ptr: *const i16,
+                       round_ptr: *const i16, quant_ptr: *const i16, quant_shift_ptr: *const i16,
+                       qcoeff_ptr: *mut i32, dqcoeff_ptr: *mut i32, dequant_ptr: *const i16,
+                       eob_ptr: *mut u16, scan: *const i16, iscan: *const i16);)*
+        }
+    };
+}
+
+quantize_c!(aom_highbd_quantize_b_c, aom_highbd_quantize_b_32x32_c, aom_highbd_quantize_b_64x64_c,
+            aom_highbd_quantize_b_adaptive_c, aom_highbd_quantize_b_32x32_adaptive_c,
+            aom_highbd_quantize_b_64x64_adaptive_c);
+
 extern "C-unwind" {
     fn av1_highbd_quantize_fp_c(coeff_ptr: *const i32, n_coeffs: isize, zbin_ptr: *const i16,
                                 round_ptr: *const i16, quant_ptr: *const i16,
@@ -219,6 +234,7 @@ extern "C-unwind" {
 #[cfg(target_arch = "aarch64")]
 mod neon {
     use super::*;
+    use aom::simd::aom_dsp__arm__highbd_quantize_neon::*;
     use aom::simd::av1__encoder__arm__av1_highbd_quantize_neon::av1_highbd_quantize_fp_neon;
 
     fn run(c: Kernel, neon: Kernel, tx_size: usize, kind: QuantType, bd: u32) {
@@ -242,4 +258,26 @@ mod neon {
         run(Kernel::Hbd(av1_highbd_quantize_fp_c, 2), Kernel::Hbd(av1_highbd_quantize_fp_neon, 2),
             TX_64X64, QuantType::Fp, 12);
     }
+
+    macro_rules! plain {
+        ($test:ident, $c:ident, $neon:ident, $tx:expr, $kind:expr, $bd:expr) => {
+            #[test]
+            fn $test() {
+                run(Kernel::Plain($c), Kernel::Plain($neon), $tx, $kind, $bd);
+            }
+        };
+    }
+
+    plain!(highbd_quantize_b, aom_highbd_quantize_b_c, aom_highbd_quantize_b_neon, TX_16X16,
+           QuantType::B, 12);
+    plain!(highbd_quantize_b_32x32, aom_highbd_quantize_b_32x32_c,
+           aom_highbd_quantize_b_32x32_neon, TX_32X32, QuantType::B, 12);
+    plain!(highbd_quantize_b_64x64, aom_highbd_quantize_b_64x64_c,
+           aom_highbd_quantize_b_64x64_neon, TX_64X64, QuantType::B, 12);
+    plain!(highbd_quantize_b_adaptive, aom_highbd_quantize_b_adaptive_c,
+           aom_highbd_quantize_b_adaptive_neon, TX_16X16, QuantType::B, 12);
+    plain!(highbd_quantize_b_32x32_adaptive, aom_highbd_quantize_b_32x32_adaptive_c,
+           aom_highbd_quantize_b_32x32_adaptive_neon, TX_32X32, QuantType::B, 12);
+    plain!(highbd_quantize_b_64x64_adaptive, aom_highbd_quantize_b_64x64_adaptive_c,
+           aom_highbd_quantize_b_64x64_adaptive_neon, TX_64X64, QuantType::B, 12);
 }

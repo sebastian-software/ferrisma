@@ -5,6 +5,12 @@
 # does not implement, so the generated dispatch header names only existing
 # functions. Every listed function must have a `<name>_neon` definition.
 my %ported_neon = map { $_ => 1 } qw/
+  aom_highbd_quantize_b
+  aom_highbd_quantize_b_32x32
+  aom_highbd_quantize_b_32x32_adaptive
+  aom_highbd_quantize_b_64x64
+  aom_highbd_quantize_b_64x64_adaptive
+  aom_highbd_quantize_b_adaptive
   av1_highbd_quantize_fp
 /;
 foreach my $fn (keys %ALL_FUNCS) {
