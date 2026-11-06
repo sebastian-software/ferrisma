@@ -6,5 +6,7 @@
 
 #[path = "simd/acm_random.rs"]
 mod acm_random;
+#[path = "simd/cdef.rs"]
+mod cdef;
 #[path = "simd/quantize.rs"]
 mod quantize;

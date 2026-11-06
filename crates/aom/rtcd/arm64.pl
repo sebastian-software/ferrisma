@@ -12,6 +12,18 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_quantize_b_64x64_adaptive
   aom_highbd_quantize_b_adaptive
   av1_highbd_quantize_fp
+  cdef_copy_rect8_16bit_to_16bit
+  cdef_copy_rect8_8bit_to_16bit
+  cdef_filter_16_0
+  cdef_filter_16_1
+  cdef_filter_16_2
+  cdef_filter_16_3
+  cdef_filter_8_0
+  cdef_filter_8_1
+  cdef_filter_8_2
+  cdef_filter_8_3
+  cdef_find_dir
+  cdef_find_dir_dual
 /;
 foreach my $fn (keys %ALL_FUNCS) {
   undef ${"${fn}_neon"} unless $ported_neon{$fn};

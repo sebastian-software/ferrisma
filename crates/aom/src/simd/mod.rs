@@ -34,6 +34,10 @@ pub mod aom_ports__aarch64_cpudetect;
 pub mod aom_dsp__arm__highbd_quantize_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/cdef_block_neon.rs"]
+pub mod av1__common__arm__cdef_block_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/av1_highbd_quantize_neon.rs"]
 pub mod av1__encoder__arm__av1_highbd_quantize_neon;
 
