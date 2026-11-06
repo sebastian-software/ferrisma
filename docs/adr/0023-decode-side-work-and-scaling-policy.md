@@ -79,3 +79,4 @@ The real photo's decode stage still splits roughly into a third JPEG decoding, a
 | synthetic 48 Mpx | 135 | 134 | 309 | 308 | 7.17 |
 
 The real photo's decode stage is now about the `zune-jpeg` decode itself, which is single-threaded. Inputs without ICC or orientation take the unchanged path; their differences are within the noise of the higher load during their runs (the flower's 5 ms are in the encoder, which this step does not touch).
+- 2026-11-06 — Decision 3's scaled IDCT comes from a JPEG decoder port under ADR-0025 (libjpeg-turbo or jpegli, both with libjpeg's `scale_num`/`scale_denom`), not from a `zune-jpeg` contribution or fork; the fork stays only as a fallback. The policy itself (opt-in, reported, quality measured) is unchanged.

@@ -40,6 +40,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0022](0022-parallel-row-pipeline-and-engine.md) | Parallel row pipeline with ordered emission (byte-identical to the sequential executor, standard library only) and an `Engine` for batches | Experimental |
 | [0023](0023-decode-side-work-and-scaling-policy.md) | Full-resolution decode by default; decoder SIMD, linear ICC output and cheaper orientation; shrink-on-load only as an explicit, measured quality policy | Experimental |
 | [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) | Pluggable row-level encoder backends; libavif-rs (Rust AOM) as an adapter crate outside the workspace, `rav1e` stays the default | Experimental |
+| [0025](0025-codec-selection-reference-conformance-and-image-scope.md) | Codec selection: reference implementation or proven conformance, ports reduced to the still-image scope, deviations and removals only after measurement, mechanical oracle for later optimization; JPEG decode before encode | Accepted |
 
 ## Changing an ADR
 
