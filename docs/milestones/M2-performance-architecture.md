@@ -1,6 +1,6 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) in progress
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
@@ -80,7 +80,7 @@ Ordered by evidence first, then algorithmic wins, then hardware-specific wins. A
 | ADR | Topic | Core question |
 | --- | --- | --- |
 | [0020](../adr/0020-kernel-crate-and-isa-dispatch.md) (Proposed) | Kernel crate, ISA dispatch and the `unsafe` boundary | Decided: a separate `ferrixel-kernels` crate with `std::arch` intrinsics behind a safe API, hand-written runtime dispatch, the chosen level in plan and report, differential tests per level |
-| [0021](../adr/0021-working-precision-policy.md) (Proposed) | Working precision policy | Decided: `f32` by default, Q1.14 fixed point for opaque 8-bit SDR input under a per-plan interval bound, exact LUTs, a testable bound against the `f64` oracle, backed by `docs/research/precision-experiment` |
+| [0021](../adr/0021-working-precision-policy.md) (Experimental) | Working precision policy | Decided: `f32` with exact LUTs and a testable bound against the `f64` oracle; the Q1.14 path was prototyped, measured below its 1.25× threshold on every hardware class and dropped |
 | 0022 | Tiled fused executor and engine-owned parallelism | Band shapes and halos, decoder-ahead pipelining for sequential codecs, shared horizontal rows, budget across workers, batch scheduling, no global pool |
 | 0023 | Decode-side scaling and native YUV policy | Which codecs really skip work, how the scale factor enters the plan, the gamma-domain native path as a separate declared quality policy; facts in [the codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
 | 0024 | GPU execution policy | Cost model inputs, unified-memory fast path, when the planner may choose the device, dependency weight of `wgpu`, output equivalence bound |
@@ -136,3 +136,7 @@ Ferrixel now drives `rav1e` itself: rows become 10-bit YCbCr directly in the enc
 ## Progress note — package 3, first step (2026-11-06)
 
 `crates/ferrixel-kernels` exists (ADR-0020, now Experimental): a safe API over `std::arch` kernels with runtime dispatch, `Scalar`, `Neon` and `Avx2` levels for the horizontal resample and the vertical `axpy`, 21 audited `unsafe` blocks, differential tests per level, the chosen level in `ProcessingReport` and a CLI/option ceiling. The f32 executor uses it with four-channel pixels; the ADR-0021 oracle test now runs for every level the host supports, and CI adds an `ubuntu-24.04-arm` job. On Apple M1 the transform stage fell by 1.4–1.6× (24 Mpx 169 ms to 106 ms), from the layout rather than the intrinsics; x86-64 AVX2 is tested but not yet timed. Remaining in package 3: the Q1.14 path of ADR-0021 with its own kernels and measurement, table-driven linearize and quantize kernels, AVX-512 and SVE2 levels (the first CI run showed AVX-512 on the hosted x86-64 runner and SVE2 on `ubuntu-24.04-arm`, so both can be tested there), and an x86-64 timing run.
+
+## Progress note — package 3 completed (2026-11-06)
+
+The kernel crate has `Scalar`, `Neon`, `Avx2` and `Avx512` levels, with SIMD timings from three hardware classes through `examples/bench.rs` in CI ([run 42179398696](https://github.com/sebastian-software/ferrixel/actions/runs/42179398696)). On x86-64 the kernels matter most: the 24 Mpx to 1600 resample takes 2120 ms in the scalar body (no FMA in the baseline), 69 ms with AVX2 and 51 ms with AVX-512. On Apple M1 and Neoverse the explicit NEON level matches the scalar body, which LLVM already vectorizes. Two planned items were measured and dropped: SVE2 through autovectorization (vertical pass 3× slower than NEON on Neoverse) and the Q1.14 path of ADR-0021 (0.51–1.03× of `f32`, below the 1.25× threshold everywhere). Two kernel ideas were measured without gain on M1 and reverted: four interleaved accumulators and a branch-free linearize loop; linearization (about 24 % of the transform) and quantization (about 9 %) are bound by table lookups. The single largest remaining lever for the transform is running the row loop on several cores, which is work package 4.

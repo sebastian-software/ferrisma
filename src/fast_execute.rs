@@ -325,6 +325,44 @@ fn linearize_row<const C: usize>(
     Ok(())
 }
 
+/// Encode one row of filtered linear samples to straight sRGB8 RGBA.
+fn quantize_row<const C: usize>(
+    acc: &[f32],
+    output: &mut [u8],
+    tables: &Tables,
+) -> Result<(), Error> {
+    for (pixel, rgba) in acc
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(output.as_chunks_mut::<4>().0)
+    {
+        if pixel.iter().any(|sample| !sample.is_finite()) {
+            return Err(Error::NonFinitePixelSample);
+        }
+        if C == 3 {
+            for channel in 0..3 {
+                rgba[channel] = tables.encode(pixel[channel].clamp(0.0, 1.0));
+            }
+            rgba[3] = u8::MAX;
+        } else {
+            let alpha = pixel[3].clamp(0.0, 1.0);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let alpha_byte = (alpha * 255.0).round() as u8;
+            rgba[3] = alpha_byte;
+            // ADR-0014: alpha byte 0 is transparent black.
+            for channel in 0..3 {
+                rgba[channel] = if alpha_byte == 0 {
+                    0
+                } else {
+                    tables.encode((pixel[channel] / alpha).clamp(0.0, 1.0))
+                };
+            }
+        }
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)] // Planning, ring sizing and the row loop stay together.
 fn run<const C: usize>(
     graph: &Graph,
@@ -475,35 +513,7 @@ fn run<const C: usize>(
                 let cached = &ring.as_slice()[slot * row_samples..(slot + 1) * row_samples];
                 kernels.axpy(acc, cached, weight).map_err(kernel_error)?;
             }
-            for (pixel, rgba) in acc
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .zip(output.as_mut_slice().as_chunks_mut::<4>().0)
-            {
-                if pixel.iter().any(|sample| !sample.is_finite()) {
-                    return Err(Error::NonFinitePixelSample);
-                }
-                if C == 3 {
-                    for channel in 0..3 {
-                        rgba[channel] = tables.encode(pixel[channel].clamp(0.0, 1.0));
-                    }
-                    rgba[3] = u8::MAX;
-                } else {
-                    let alpha = pixel[3].clamp(0.0, 1.0);
-                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    let alpha_byte = (alpha * 255.0).round() as u8;
-                    rgba[3] = alpha_byte;
-                    // ADR-0014: alpha byte 0 is transparent black.
-                    for channel in 0..3 {
-                        rgba[channel] = if alpha_byte == 0 {
-                            0
-                        } else {
-                            tables.encode((pixel[channel] / alpha).clamp(0.0, 1.0))
-                        };
-                    }
-                }
-            }
+            quantize_row::<C>(acc, output.as_mut_slice(), tables)?;
             let out_y =
                 requested.y + u32::try_from(emitted).map_err(|_| Error::GeometryOverflow)?;
             sink(out_y, output.as_slice())?;

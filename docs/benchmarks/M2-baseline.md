@@ -171,3 +171,22 @@ The f32 executor's resample now runs on `crates/ferrixel-kernels` (ADR-0020) wit
 1. **The layout, not the intrinsics, made this step faster on Apple M1.** The scalar body over four-channel pixels is vectorized by LLVM with the NEON baseline, so `scalar` and `neon` run at the same speed; both are 1.4–1.6× faster than the three-channel per-tap loop of package 1. On x86-64 the baseline has no FMA, so the scalar body calls `fmaf`; `avx2` should matter there, and it is covered by the differential tests on the CI x86-64 runner, but no x86-64 timing exists yet.
 2. **Interleaving accumulators did not help.** Four output positions with separate accumulators measured 116 ms (`neon`) and 155 ms (`scalar`) at 24 Mpx and was reverted; iterating taps with chunk iterators instead of indices changed nothing (192 ms at 48 Mpx either way).
 3. **Where the transform time goes now** (48 Mpx, `sample`): horizontal pass about 57 %, linearization and quantization about 33 %, vertical pass about 10 %. The remaining single-core levers are the Q1.14 integer path (twice the lanes, ADR-0021 rule 2) and table-driven linearize/quantize kernels; the larger lever is running the row loop on several cores (work package 4).
+
+## 2026-11-06 — kernel levels on three hardware classes
+
+`crates/ferrixel-kernels/examples/bench.rs` times the resample kernels on the shape of the 24 Mpx row (6000×4000 to 1600×1067, Lanczos3, synthetic data). Apple M1 locally; x86-64 and Arm on GitHub-hosted runners in [CI run 42179398696](https://github.com/sebastian-software/ferrixel/actions/runs/42179398696). Hosted runners are shared virtual machines; treat their numbers as indicative.
+
+| hardware | level | horizontal ms | vertical ms | total ms |
+| --- | --- | ---: | ---: | ---: |
+| Apple M1 Ultra | scalar | 63.0 | 13.8 | 76.8 |
+| Apple M1 Ultra | neon | 61.7 | 13.7 | 75.5 |
+| x86-64 runner (AVX-512) | scalar | 1679.7 | 440.2 | 2119.9 |
+| x86-64 runner | avx2 | 53.2 | 15.6 | 68.8 |
+| x86-64 runner | avx512 | 37.7 | 13.2 | 50.9 |
+| Arm runner (Neoverse, SVE2) | scalar | 74.7 | 20.3 | 95.0 |
+| Arm runner | neon | 78.3 | 20.1 | 98.4 |
+| Arm runner | sve2 (autovectorized, removed) | 74.6 | 62.1 | 136.7 |
+
+The same run timed a Q1.14 prototype (ADR-0021 rule 2) against these `f32` kernels: 1.03× on M1, 0.51× (AVX2) and 0.57× (AVX-512) on x86-64, 0.68–0.90× on Arm. It stayed below the 1.25× threshold everywhere and was dropped; details in ADR-0021's amendment log.
+
+Engine-level transform times on M1 are unchanged by this step (24 Mpx 106 ms, 48 Mpx 191 ms with all encoder cores); no x86-64 end-to-end timing exists yet because the harness needs ImageMagick and the codecs on the runner.

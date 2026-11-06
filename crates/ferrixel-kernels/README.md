@@ -9,9 +9,10 @@ Runtime-dispatched SIMD kernels for Ferrixel behind a safe API, as decided in [A
 | `scalar` | implemented | Reference body; the oracle of the differential tests |
 | `neon` | implemented | One RGBA pixel per 128-bit vector; bit-identical to `scalar` |
 | `avx2` | implemented | Two pixels (taps) per 256-bit vector with FMA; reassociated horizontal sums, within the tested bound |
-| `sve2`, `avx512` | detected, not implemented | Reported as `Fallback` to the next lower implemented level |
+| `avx512` | implemented | Four pixels (taps) per 512-bit vector with FMA; 1.35× over `avx2` on the hosted x86-64 runner |
+| `sve2` | detected, not implemented | The scalar body compiled for SVE2 was 3× slower than `neon` in the vertical pass on Neoverse; SVE2 machines run `neon` (`Fallback`) |
 
-`cargo run -p ferrixel-kernels --example detect` prints the machine level, the chosen level and the levels the tests exercise on this host.
+`cargo run -p ferrixel-kernels --example detect` prints the machine level, the chosen level and the levels the tests exercise on this host; `cargo run --release -p ferrixel-kernels --example bench` times each level on the 24 Mpx to 1600 resample shape. CI runs both on every runner.
 
 ## Kernels
 
@@ -25,6 +26,7 @@ Runtime-dispatched SIMD kernels for Ferrixel behind a safe API, as decided in [A
 | Date | `unsafe {` blocks | Change |
 | --- | ---: | --- |
 | 2026-11-06 | 21 | Initial `Scalar`, `Neon` and `Avx2` levels for `horizontal_rgba` and `axpy` |
+| 2026-11-06 | 40 | `Avx512` level (lanes and dispatch) |
 
 Growth without an amendment to ADR-0020 is a review finding (`grep -rn 'unsafe {' crates/ferrixel-kernels/src | wc -l`).
 
