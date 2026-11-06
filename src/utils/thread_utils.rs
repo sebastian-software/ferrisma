@@ -32,10 +32,9 @@
 //!
 //! Work package: WP1 (types, memory, workers).
 //!
-//! Not translated, pending open question 4 in `docs/status/wp1.md`:
-//! `WebPWorkerInterface`, `WebPSetWorkerInterface` and `WebPGetWorkerInterface`.
-//! The worker methods below are the default interface, which every library call
-//! site uses through `WebPGetWorkerInterface()`.
+//! `WebPWorkerInterface`, `WebPSetWorkerInterface` and `WebPGetWorkerInterface`
+//! are not translated (ADR 0003, decided 2026-11-06). Callers use the worker
+//! methods directly, and no public header declares the replacement table.
 //!
 //! Every worker starts a `std::thread` on `reset`, as the reference configuration
 //! with `WEBP_USE_THREAD` does. The thread and the caller share one `Mutex` with
