@@ -1,0 +1,1438 @@
+{
+  "comment": "Every add_bittest case of upstream/libjpeg-turbo/CMakeLists.txt at the pin, as CTest declares it for the static build (tools/bittests.py --print-inventory), with its scope under ADR 0001. 'in': an 8-bit djpeg case that work package 7 runs against the port with upstream's MD5; 'covers' repeats upstream's comment on what the case exercises. 'out': not run against the port, with the reason. Out-of-scope cases still run against the oracle; cjpeg and jpegtran cases produce the inputs of several in-scope cases. Upstream's MD5 sums stay in upstream's CMakeLists.txt and are not copied here.",
+  "reasons": {
+    "encoder": "cjpeg compresses; the encoder is not translated (ADR 0001)",
+    "transcoding": "jpegtran transcodes; transcoding is not translated (ADR 0001)",
+    "12-bit": "12-bit samples are not translated (ADR 0001)",
+    "16-bit": "16-bit samples are not translated (ADR 0001)",
+    "lossless": "lossless JPEG is not translated (ADR 0001)",
+    "quantized": "color quantization (-colors) is not translated (ADR 0001)",
+    "rgb565": "RGB565 output is not translated (ADR 0001)"
+  },
+  "counts": {
+    "cases": 97,
+    "djpeg_cases": 70,
+    "in_scope": 30,
+    "out_encoder": 21,
+    "out_transcoding": 6,
+    "out_12-bit": 27,
+    "out_16-bit": 1,
+    "out_lossless": 1,
+    "out_quantized": 1,
+    "out_rgb565": 10
+  },
+  "cases": [
+    {
+      "program": "cjpeg16",
+      "name": "lossless",
+      "args": [
+        "-lossless",
+        "4",
+        "-restart",
+        "1",
+        "-quality",
+        "1",
+        "-grayscale",
+        "-optimize",
+        "-dct",
+        "float",
+        "-smooth",
+        "100",
+        "-baseline",
+        "-qslots",
+        "1,0,0",
+        "-sample",
+        "1x2,3x4,2x1",
+        "-precision",
+        "16"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg16",
+      "name": "lossless",
+      "args": [
+        "-fast",
+        "-scale",
+        "1/8",
+        "-dct",
+        "float",
+        "-dither",
+        "none",
+        "-nosmooth",
+        "-onepass",
+        "-png"
+      ],
+      "input": "testout16_lossless.jpg",
+      "scope": "out",
+      "reason": "16-bit"
+    },
+    {
+      "program": "cjpeg",
+      "name": "rgb-islow",
+      "args": [
+        "-rgb",
+        "-dct",
+        "int",
+        "-icc",
+        "testimages/test1.icc"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "rgb-islow",
+      "args": [
+        "-dct",
+        "int",
+        "-ppm",
+        "-icc",
+        "testout-static_rgb_islow.icc"
+      ],
+      "input": "testout-static_rgb_islow.jpg",
+      "scope": "in",
+      "covers": "CC: null; SAMP: fullsize; IDCT: islow; ENT: huff; ICC profile extraction"
+    },
+    {
+      "program": "jpegtran",
+      "name": "icc",
+      "args": [
+        "-copy",
+        "all",
+        "-icc",
+        "testimages/test3.icc"
+      ],
+      "input": "testout-static_rgb_islow.jpg",
+      "scope": "out",
+      "reason": "transcoding"
+    },
+    {
+      "program": "djpeg",
+      "name": "rgb-islow-565",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb565",
+        "-dither",
+        "none",
+        "-bmp"
+      ],
+      "input": "testout-static_rgb_islow.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "djpeg",
+      "name": "rgb-islow-565D",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb565"
+      ],
+      "input": "testout-static_rgb_islow.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "cjpeg",
+      "name": "422-ifast-opt",
+      "args": [
+        "-sample",
+        "2x1",
+        "-dct",
+        "fast",
+        "-opt"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "422-ifast",
+      "args": [
+        "-dct",
+        "fast",
+        "-ppm"
+      ],
+      "input": "testout-static_422_ifast_opt.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: fullsize/h2v1 fancy; IDCT: ifast; ENT: huff"
+    },
+    {
+      "program": "cjpeg",
+      "name": "440-islow",
+      "args": [
+        "-sample",
+        "1x2",
+        "-dct",
+        "int"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "440-islow",
+      "args": [
+        "-dct",
+        "int",
+        "-ppm"
+      ],
+      "input": "testout-static_440_islow.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: fullsize/h1v2 fancy; IDCT: islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "422m-ifast",
+      "args": [
+        "-dct",
+        "fast",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testout-static_422_ifast_opt.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: h2v1 merged; IDCT: ifast; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "422m-ifast-565",
+      "args": [
+        "-dct",
+        "int",
+        "-nosmooth",
+        "-rgb565",
+        "-dither",
+        "none"
+      ],
+      "input": "testout-static_422_ifast_opt.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "djpeg",
+      "name": "422m-ifast-565D",
+      "args": [
+        "-dct",
+        "int",
+        "-nosmooth",
+        "-rgb565",
+        "-bmp"
+      ],
+      "input": "testout-static_422_ifast_opt.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "cjpeg",
+      "name": "420-q100-ifast-prog",
+      "args": [
+        "-sample",
+        "2x2",
+        "-quality",
+        "100",
+        "-dct",
+        "fast",
+        "-scans",
+        "testimages/test.scan"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-q100-ifast-prog",
+      "args": [
+        "-dct",
+        "fast",
+        "-ppm"
+      ],
+      "input": "testout-static_420_q100_ifast_prog.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: fullsize/h2v2 fancy; IDCT: ifast; ENT: prog huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-q100-ifast-prog",
+      "args": [
+        "-dct",
+        "fast",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testout-static_420_q100_ifast_prog.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: h2v2 merged; IDCT: ifast; ENT: prog huff"
+    },
+    {
+      "program": "cjpeg",
+      "name": "gray-islow",
+      "args": [
+        "-gray",
+        "-dct",
+        "int",
+        "-noicc"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "gray-islow",
+      "args": [
+        "-dct",
+        "int",
+        "-ppm"
+      ],
+      "input": "testout-static_gray_islow.jpg",
+      "scope": "in",
+      "covers": "CC: Gray->Gray; SAMP: fullsize; IDCT: islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "gray-islow-rgb",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb",
+        "-ppm"
+      ],
+      "input": "testout-static_gray_islow.jpg",
+      "scope": "in",
+      "covers": "CC: Gray->RGB; SAMP: fullsize; IDCT: islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "gray-islow-565",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb565",
+        "-dither",
+        "none",
+        "-bmp"
+      ],
+      "input": "testout-static_gray_islow.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "djpeg",
+      "name": "gray-islow-565D",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb565"
+      ],
+      "input": "testout-static_gray_islow.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "cjpeg",
+      "name": "420s-islow-opt",
+      "args": [
+        "-sample",
+        "2x2",
+        "-smooth",
+        "1",
+        "-dct",
+        "int",
+        "-opt"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "cjpeg",
+      "name": "3x2-float-prog",
+      "args": [
+        "-sample",
+        "3x2",
+        "-dct",
+        "float",
+        "-prog"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "3x2-float-prog",
+      "args": [
+        "-dct",
+        "float",
+        "-ppm"
+      ],
+      "input": "testout-static_3x2_float_prog.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: fullsize/int; IDCT: float; ENT: prog huff"
+    },
+    {
+      "program": "cjpeg",
+      "name": "3x2-ifast-prog",
+      "args": [
+        "-sample",
+        "3x2",
+        "-dct",
+        "fast",
+        "-prog"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "3x2-ifast-prog",
+      "args": [
+        "-dct",
+        "fast",
+        "-ppm"
+      ],
+      "input": "testout-static_3x2_ifast_prog.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: fullsize/int; IDCT: ifast; ENT: prog huff"
+    },
+    {
+      "program": "cjpeg",
+      "name": "420-islow-ari",
+      "args": [
+        "-dct",
+        "int",
+        "-arithmetic"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "jpegtran",
+      "name": "420-islow-ari",
+      "args": [
+        "-arithmetic"
+      ],
+      "input": "testimages/testimgint.jpg",
+      "scope": "out",
+      "reason": "transcoding"
+    },
+    {
+      "program": "cjpeg",
+      "name": "444-islow-progari",
+      "args": [
+        "-sample",
+        "1x1",
+        "-dct",
+        "int",
+        "-prog",
+        "-arithmetic"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-ifast-ari",
+      "args": [
+        "-fast",
+        "-skip",
+        "1,20",
+        "-ppm"
+      ],
+      "input": "testimages/testimgari.jpg",
+      "scope": "in",
+      "covers": "CC: YCC->RGB; SAMP: h2v2 merged; IDCT: ifast; ENT: arith; jpeg_skip_scanlines"
+    },
+    {
+      "program": "jpegtran",
+      "name": "420-islow",
+      "args": [],
+      "input": "testimages/testimgari.jpg",
+      "scope": "out",
+      "reason": "transcoding"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-2_1",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "2/1",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 2/1; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 16x16 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-15_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "15/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 15/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 15x15 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-13_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "13/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 13/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 13x13 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-11_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "11/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 11/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 11x11 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-9_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "9/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 9/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 9x9 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-7_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "7/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 7/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 7x7 and 14x14 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-3_4",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "3/4",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 3/4; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 6x6 and 12x12 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-5_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "5/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 5/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 5x5 and 10x10 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-1_2",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "1/2",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 1/2; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 4x4 and 8x8 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-3_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "3/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 3/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 3x3 and 6x6 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-1_4",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "1/4",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 1/4; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 2x2 and 4x4 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-1_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "1/8",
+        "-nosmooth",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "scaled decoding 1/8; CC: YCC->RGB; SAMP: h2v2 merged; IDCT: 1x1 and 2x2 islow; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-256",
+      "args": [
+        "-dct",
+        "int",
+        "-colors",
+        "256",
+        "-bmp"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "out",
+      "reason": "quantized"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-565",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb565",
+        "-dither",
+        "none"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-565D",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb565",
+        "-bmp"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-565",
+      "args": [
+        "-dct",
+        "int",
+        "-nosmooth",
+        "-rgb565",
+        "-dither",
+        "none",
+        "-bmp"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "djpeg",
+      "name": "420m-islow-565D",
+      "args": [
+        "-dct",
+        "int",
+        "-nosmooth",
+        "-rgb565"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "out",
+      "reason": "rgb565"
+    },
+    {
+      "program": "cjpeg",
+      "name": "lossless",
+      "args": [
+        "-lossless",
+        "4",
+        "-restart",
+        "1",
+        "-quality",
+        "1",
+        "-grayscale",
+        "-optimize",
+        "-dct",
+        "float",
+        "-smooth",
+        "100",
+        "-baseline",
+        "-qslots",
+        "1,0,0",
+        "-sample",
+        "1x2,3x4,2x1"
+      ],
+      "input": "testimages/testorig.ppm",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg",
+      "name": "lossless",
+      "args": [
+        "-fast",
+        "-scale",
+        "1/8",
+        "-dct",
+        "float",
+        "-dither",
+        "none",
+        "-nosmooth",
+        "-onepass",
+        "-ppm"
+      ],
+      "input": "testout-static_lossless.jpg",
+      "scope": "out",
+      "reason": "lossless"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-skip15_31",
+      "args": [
+        "-dct",
+        "int",
+        "-skip",
+        "15,31",
+        "-ppm"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "in",
+      "covers": "jpeg_skip_scanlines; context rows: yes; intra-iMCU row: yes; iMCU row prefetch: no; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-ari-skip16_139",
+      "args": [
+        "-dct",
+        "int",
+        "-skip",
+        "16,139",
+        "-ppm"
+      ],
+      "input": "testimages/testimgari.jpg",
+      "scope": "in",
+      "covers": "jpeg_skip_scanlines; context rows: yes; intra-iMCU row: no; iMCU row prefetch: yes; ENT: arith"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-prog-crop62x62_71_71",
+      "args": [
+        "-dct",
+        "int",
+        "-crop",
+        "62x62+71+71",
+        "-ppm"
+      ],
+      "input": "testout-static_420_islow_prog.jpg",
+      "scope": "in",
+      "covers": "jpeg_crop_scanline and jpeg_skip_scanlines; context rows: yes; intra-iMCU row: no; iMCU row prefetch: no; ENT: prog huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "420-islow-ari-crop53x53_4_4",
+      "args": [
+        "-dct",
+        "int",
+        "-crop",
+        "53x53+4+4",
+        "-ppm"
+      ],
+      "input": "testimages/testimgari.jpg",
+      "scope": "in",
+      "covers": "jpeg_crop_scanline and jpeg_skip_scanlines; context rows: yes; intra-iMCU row: no; iMCU row prefetch: no; ENT: arith"
+    },
+    {
+      "program": "djpeg",
+      "name": "444-islow-skip1_6",
+      "args": [
+        "-dct",
+        "int",
+        "-skip",
+        "1,6",
+        "-ppm"
+      ],
+      "input": "testout-static_444_islow.jpg",
+      "scope": "in",
+      "covers": "jpeg_skip_scanlines; context rows: no; intra-iMCU row: yes; ENT: huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "444-islow-prog-crop98x98_13_13",
+      "args": [
+        "-dct",
+        "int",
+        "-crop",
+        "98x98+13+13",
+        "-ppm"
+      ],
+      "input": "testout-static_444_islow_prog.jpg",
+      "scope": "in",
+      "covers": "jpeg_crop_scanline and jpeg_skip_scanlines; context rows: no; intra-iMCU row: no; ENT: prog huff"
+    },
+    {
+      "program": "djpeg",
+      "name": "444-islow-ari-crop37x37_0_0",
+      "args": [
+        "-dct",
+        "int",
+        "-crop",
+        "37x37+0+0",
+        "-ppm"
+      ],
+      "input": "testout-static_444_islow_ari.jpg",
+      "scope": "in",
+      "covers": "jpeg_crop_scanline and jpeg_skip_scanlines; context rows: no; intra-iMCU row: no; ENT: arith"
+    },
+    {
+      "program": "jpegtran",
+      "name": "crop",
+      "args": [
+        "-crop",
+        "120x90+20+50",
+        "-transpose",
+        "-perfect"
+      ],
+      "input": "testimages/testorig.jpg",
+      "scope": "out",
+      "reason": "transcoding"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "rgb-islow",
+      "args": [
+        "-rgb",
+        "-dct",
+        "int",
+        "-icc",
+        "testimages/test1.icc",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "rgb-islow",
+      "args": [
+        "-dct",
+        "int",
+        "-png",
+        "-icc",
+        "testout12-static_rgb_islow.icc"
+      ],
+      "input": "testout12-static_rgb_islow.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "jpegtran12",
+      "name": "icc",
+      "args": [
+        "-copy",
+        "all",
+        "-icc",
+        "testimages/test3.icc"
+      ],
+      "input": "testout12-static_rgb_islow.jpg",
+      "scope": "out",
+      "reason": "transcoding"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "422-ifast-opt",
+      "args": [
+        "-sample",
+        "2x1",
+        "-dct",
+        "fast",
+        "-opt",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "422-ifast",
+      "args": [
+        "-dct",
+        "fast",
+        "-png"
+      ],
+      "input": "testout12-static_422_ifast_opt.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "440-islow",
+      "args": [
+        "-sample",
+        "1x2",
+        "-dct",
+        "int",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "440-islow",
+      "args": [
+        "-dct",
+        "int",
+        "-png"
+      ],
+      "input": "testout12-static_440_islow.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "422m-ifast",
+      "args": [
+        "-dct",
+        "fast",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testout12-static_422_ifast_opt.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "420-q100-ifast-prog",
+      "args": [
+        "-sample",
+        "2x2",
+        "-quality",
+        "100",
+        "-dct",
+        "fast",
+        "-scans",
+        "testimages/test.scan",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420-q100-ifast-prog",
+      "args": [
+        "-dct",
+        "fast",
+        "-png"
+      ],
+      "input": "testout12-static_420_q100_ifast_prog.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-q100-ifast-prog",
+      "args": [
+        "-dct",
+        "fast",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testout12-static_420_q100_ifast_prog.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "gray-islow",
+      "args": [
+        "-gray",
+        "-dct",
+        "int",
+        "-noicc",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "gray-islow",
+      "args": [
+        "-dct",
+        "int",
+        "-png"
+      ],
+      "input": "testout12-static_gray_islow.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "gray-islow-rgb",
+      "args": [
+        "-dct",
+        "int",
+        "-rgb",
+        "-png"
+      ],
+      "input": "testout12-static_gray_islow.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "420s-islow-opt",
+      "args": [
+        "-sample",
+        "2x2",
+        "-smooth",
+        "1",
+        "-dct",
+        "int",
+        "-opt",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "3x2-float-prog",
+      "args": [
+        "-sample",
+        "3x2",
+        "-dct",
+        "float",
+        "-prog",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "3x2-float-prog",
+      "args": [
+        "-dct",
+        "float",
+        "-png"
+      ],
+      "input": "testout12-static_3x2_float_prog.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "3x2-ifast-prog",
+      "args": [
+        "-sample",
+        "3x2",
+        "-dct",
+        "fast",
+        "-prog",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "3x2-ifast-prog",
+      "args": [
+        "-dct",
+        "fast",
+        "-png"
+      ],
+      "input": "testout12-static_3x2_ifast_prog.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-2_1",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "2/1",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-15_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "15/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-13_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "13/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-11_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "11/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-9_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "9/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-7_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "7/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-3_4",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "3/4",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-5_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "5/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-1_2",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "1/2",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-3_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "3/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-1_4",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "1/4",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420m-islow-1_8",
+      "args": [
+        "-dct",
+        "int",
+        "-scale",
+        "1/8",
+        "-nosmooth",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "cjpeg12",
+      "name": "lossless",
+      "args": [
+        "-lossless",
+        "4",
+        "-restart",
+        "1",
+        "-quality",
+        "1",
+        "-grayscale",
+        "-optimize",
+        "-dct",
+        "float",
+        "-smooth",
+        "100",
+        "-baseline",
+        "-qslots",
+        "1,0,0",
+        "-sample",
+        "1x2,3x4,2x1",
+        "-precision",
+        "12"
+      ],
+      "input": "testimages/monkey16.png",
+      "scope": "out",
+      "reason": "encoder"
+    },
+    {
+      "program": "djpeg12",
+      "name": "lossless",
+      "args": [
+        "-fast",
+        "-scale",
+        "1/8",
+        "-dct",
+        "float",
+        "-dither",
+        "none",
+        "-nosmooth",
+        "-onepass",
+        "-png"
+      ],
+      "input": "testout12-static_lossless.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420-islow-skip15_31",
+      "args": [
+        "-dct",
+        "int",
+        "-skip",
+        "15,31",
+        "-png"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "420-islow-prog-crop62x62_71_71",
+      "args": [
+        "-dct",
+        "int",
+        "-crop",
+        "62x62+71+71",
+        "-png"
+      ],
+      "input": "testout12-static_420_islow_prog.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "444-islow-skip1_6",
+      "args": [
+        "-dct",
+        "int",
+        "-skip",
+        "1,6",
+        "-png"
+      ],
+      "input": "testout12-static_444_islow.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "djpeg12",
+      "name": "444-islow-prog-crop98x98_13_13",
+      "args": [
+        "-dct",
+        "int",
+        "-crop",
+        "98x98+13+13",
+        "-png"
+      ],
+      "input": "testout12-static_444_islow_prog.jpg",
+      "scope": "out",
+      "reason": "12-bit"
+    },
+    {
+      "program": "jpegtran12",
+      "name": "crop",
+      "args": [
+        "-crop",
+        "120x90+20+50",
+        "-transpose",
+        "-perfect"
+      ],
+      "input": "testimages/monkey12.jpg",
+      "scope": "out",
+      "reason": "transcoding"
+    }
+  ]
+}
