@@ -1184,6 +1184,18 @@
       "reason": "the picture functions and the VP8L encoder report errors and progress through them"
     },
     {
+      "module": "src/dsp/lossless_common.rs",
+      "upstream": "src/dsp/lossless_common.h",
+      "package": "WP11",
+      "functions": [
+        "VP8LFastLog2",
+        "VP8LFastSLog2",
+        "VP8LPrefixEncodeBits",
+        "VP8LPrefixEncode"
+      ],
+      "reason": "they read `kLog2Table`, `kSLog2Table`, `VP8LFastLog2Slow`, `VP8LFastSLog2Slow`, `kPrefixEncodeCode` and `kPrefixEncodeExtraBitsValue`, which WP11 translates from `src/dsp/lossless_enc.c`"
+    },
+    {
       "module": "src/enc/webp_enc.rs",
       "upstream": "src/enc/webp_enc.c",
       "package": "WP13",

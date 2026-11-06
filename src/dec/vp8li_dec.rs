@@ -19,3 +19,23 @@
 //! Work package: WP7 (VP8L decoder).
 //!
 //! Exception: WP3 translates `VP8LTransform` from `src/dec/vp8li_dec.h`, because the inverse transforms in `src/dsp/lossless.c` take it.
+
+use crate::webp::format_constants::VP8LImageTransformType;
+
+// upstream: src/dec/vp8li_dec.h VP8LTransform
+/// One VP8L image transform. Exception item of WP3 in WP7's module
+/// (`tools/units.json`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct VP8LTransform {
+    /// Transform type.
+    pub r#type: VP8LImageTransformType,
+    /// Subsampling bits defining transform window.
+    pub bits: i32,
+    /// Transform window X index.
+    pub xsize: i32,
+    /// Transform window Y index.
+    pub ysize: i32,
+    /// Transform data, which the transform owns; empty where C has
+    /// `data == NULL`.
+    pub data: Vec<u32>,
+}
