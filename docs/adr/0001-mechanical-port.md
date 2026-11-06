@@ -69,6 +69,10 @@ that two packages that never coordinate produce the same names.
   table drops the `k` and takes the upper snake case of the rest:
   `kZigzag` → `ZIGZAG`, `kYModesIntra4` → `Y_MODES_INTRA4`. Other lower-case
   globals take the upper snake case of their name.
+- An enumerator that is not upper snake case keeps its exact C name, under an
+  item-level `#[expect(non_upper_case_globals, reason = "C enumerator name")]`:
+  `MODE_rgbA`, `MODE_bgrA`, `MODE_Argb` and `MODE_rgbA_4444` (decided 2026-11-06).
+  Converting these names would hide the correspondence that the rule exists for.
 - Struct fields keep their C names; a field that is not snake case takes the
   function rule.
 

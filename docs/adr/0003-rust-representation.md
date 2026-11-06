@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-05
+- Updated: 2026-11-06
 
 ## Context
 
@@ -40,6 +40,13 @@ borrows or owned parts; record each such split in the package's status file.
 where the source frees them. A buffer that C callers own stays borrowed
 (`&[u8]`, `&mut [u8]`). Memory handed to or received from C belongs to the
 ABI module ([ADR 0004](0004-c-abi-boundary.md)).
+
+**Raw data (decided 2026-11-06).** `WebPData<'a>` has `Cow<'a, [u8]>` semantics:
+borrowed input or owned output in one type. `WebPDataInit` is `Default`, which is
+empty and borrowed. `WebPDataClear` resets the value to empty, which drops owned
+bytes. `WebPDataCopy` returns the owned variant, and it applies the allocation test
+of `WebPMalloc`. `WebPIterator` and `WebPChunkIterator` are WP8's, because they hold
+the demuxer's state; `tools/units.json` records them as exceptions.
 
 **Allocation limits.** `WebPSafeMalloc` and `WebPSafeCalloc` decide which large
 or malformed inputs fail, so their checks are part of the behavior. WP1
@@ -80,6 +87,26 @@ active member is selected by another field (`WebPDecBuffer::u`, selected by
 `colorspace`) becomes a Rust `enum` with one variant per member; the ABI mirror
 keeps the union.
 
+**Buffers and planes (decided 2026-11-06).** The samples of a buffer are one
+storage, `PlaneStorage<'a, T>` in `src/webp/types.rs`. `Internal(Vec<T>)` holds
+memory that the object allocated (`private_memory`, `memory_`, `memory_argb_`).
+`External(Vec<&'a mut [T]>)` holds the caller's slices: one slice for an RGBA or
+ARGB buffer, and up to four (Y, U, V and A, in that order) for a YUVA buffer. A
+plane is a `PlaneOffset { region, offset }`, where `region` is the slice index
+(always 0 for `Internal`, which holds every plane of a buffer) and `offset` counts
+elements. `WebPRGBABuffer` and `WebPYUVABuffer` describe their planes with these
+offsets, strides and sizes. The `u` union of `WebPDecBuffer` becomes the enum
+`WebPDecBufferPlanes`, because the C union is anonymous. `WebPDecBuffer<'a>`,
+`WebPDecoderConfig<'a>` and `WebPPicture<'a>` carry the lifetime. The C field
+`is_external_memory` is the variant of the storage and is not stored again. Its
+value 2, which marks slow external memory, is a performance hint of WP12 and is not
+represented. The lifetime reaches `WebPDecParams`, `WebPIDecoder` and the safe
+decoder API (WP12, WP16). In the ABI mirror (ADR 0004), the caller's pointer is
+bound to that lifetime under `unsafe`, with a `// SAFETY:` argument for each
+operation. The planes of one picture share one storage, so a picture is owned or
+borrowed as a whole. `WebPPicture` holds `stats` and `extra_info` as `&'a mut`
+values, because the caller owns them.
+
 **Errors.** Status codes keep their numeric values.
 
 - A function that returns a `VP8StatusCode`, `WebPEncodingError` or another
@@ -105,6 +132,23 @@ callback whose context is part of the callback value (a closure, or a trait
 object owned or borrowed by the structure). Keep every call point, the order of
 calls and the meaning of their return values. The package that owns the
 structure chooses the concrete form and records it.
+
+**Concrete callback forms (decided 2026-11-06).** `WebPWriterFunction` is
+`Box<dyn FnMut(&[u8], &WebPPictureInfo) -> bool + 'a>` and `WebPProgressHook` is
+`Box<dyn FnMut(i32, &WebPPictureInfo) -> bool + 'a>`. Each closure owns its context,
+which replaces `custom_ptr` and `user_data`. `WebPPictureInfo` is a by-value copy
+of the picture's plain fields, which the callbacks receive by reference. Its fields
+are derived from the upstream callbacks. `WebPMemoryWrite` (`src/enc/picture_enc.c`)
+reads `custom_ptr`. `DummyWriter` (`src/enc/picture_enc.c`) reads no field. The
+`MyWriter` of `examples/cwebp.c` reads `custom_ptr`, and its `ProgressReport` reads
+`user_data`. The library passes the picture on to the hook in `WebPReportProgress`
+(`src/enc/webp_enc.c`) and `VP8IteratorProgress` (`src/enc/iterator_enc.c`).
+`imageio/` installs neither a writer nor a hook. No plain field is read, so
+`WebPPictureInfo` has no fields in WP1. WP9 adds a field under this record when a
+callback needs one, which is an additive change. `WebPMemoryWriter` stays a struct
+in `src/webp/encode.rs`, and WP9's functions implement the writer form.
+`WebPCopyPixels` copies the ARGB plane with the row arithmetic of `WebPCopyPlane`,
+on `u32` samples, with the strides in pixels.
 
 **DSP dispatch.** A global function pointer such as `VP8Transform` becomes a
 plain function with the snake-case name of the pointer (`vp8_transform`) that
@@ -133,8 +177,15 @@ variable. The hook and its two data pointers become a hook over data that the
 worker owns while it is in `WORK` and returns at `Sync`; data shared in C
 between the calling thread and the hook is split so that each side owns what
 it mutates, at the source's `Launch` and `Sync` points (WP6, WP10, WP11, WP13
-apply this to their workers and record the split). `WebPSetWorkerInterface`
-and `WebPGetWorkerInterface` belong to an internal header and are not exported.
+apply this to their workers and record the split). WP1 chose the concrete form of
+`WebPWorker<D1, D2>`: the hook is `fn(&mut D1, &mut D2) -> bool`; the job moves to
+the thread at `Launch` and comes back at `Sync` or `End`; `set_job` panics while the
+worker works; a panicking hook counts as a failed hook, so that `Sync` returns; `Drop`
+ends the thread (decided 2026-11-06). The replaceable worker interface
+(`WebPWorkerInterface`, `WebPSetWorkerInterface` and `WebPGetWorkerInterface`) is
+removed (decided 2026-11-06). It is an internal extension point that no public
+header declares, and the ABI export does not need it. Callers use the worker methods
+directly.
 
 **Floating point.** Keep `f32` and `f64` operations in source order with the
 same constants and the same libm functions (`f64::powf` for `pow`, `f32::exp`
@@ -154,3 +205,8 @@ follows the same patterns, and the wave 4 SIMD work does not touch call sites.
 Amend this record when a package meets a construct it does not cover, when a
 rule forces a change of observable behavior, or before wave 4 adds runtime
 selection.
+
+Open under this record (2026-11-06): `WebPPictureView` reads its source picture,
+so it may need a shared borrow of the planes. `PlaneStorage` would then gain a
+shared variant, which amends this record; WP9 raises it. `WebPPictureInfo` gains
+a field only when a callback reads a plain field.
