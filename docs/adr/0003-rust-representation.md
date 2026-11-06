@@ -119,6 +119,15 @@ operation. The planes of one picture share one storage, so a picture is owned or
 borrowed as a whole. `WebPPicture` holds `stats` and `extra_info` as `&'a mut`
 values, because the caller owns them.
 
+**Untyped sample buffers (decided 2026-11-06, WP5).** A C `void*` buffer whose
+sample type the code selects by a bit depth (`uint8_t` for 8 bits, `uint16_t`
+otherwise) becomes `&[u8]` or `&mut [u8]`, with a byte offset to its first sample
+and byte strides, as the `void*` pointer has them in C. Samples of more than one
+byte are read and written in native byte order (`u16::from_ne_bytes` and
+`u16::to_ne_bytes`) at the byte positions that the C `uint16_t*` indexing addresses,
+so the Rust code needs no alignment that C requires. The rule covers only buffers
+whose C type is `void*`; typed buffers keep their element type.
+
 **Errors.** Status codes keep their numeric values.
 
 - A function that returns a `VP8StatusCode`, `WebPEncodingError` or another
