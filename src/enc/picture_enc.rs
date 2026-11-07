@@ -341,6 +341,9 @@ pub(crate) fn yuva_planes_mut<'a>(
 ) -> [Option<&'a mut [u8]>; 4] {
     let mut out: [Option<&'a mut [u8]>; 4] = [None, None, None, None];
     match storage {
+        PlaneStorage::Shared(_) => {
+            panic!("a shared view of a picture cannot be written");
+        }
         PlaneStorage::External(slices) => {
             let mut regions: Vec<Option<&'a mut [u8]>> =
                 slices.iter_mut().map(|slice| Some(&mut **slice)).collect();
