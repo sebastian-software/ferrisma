@@ -30,8 +30,8 @@ use std::path::Path;
 
 use oracle::Oracle;
 use wp12_support::{
-    Geometry, Options, Rng, compare, decode, features, geometry_for, into, output_dimensions,
-    read_prefix, simple, token, validate, vectors,
+    Geometry, Options, Rng, compare, consistent_cut, decode, features, geometry_for, into,
+    output_dimensions, read_prefix, simple, token, validate, vectors,
 };
 
 /// The width, height and alpha flag of a vector, from the Rust translation
@@ -461,4 +461,88 @@ fn simple_api_and_into_functions_match() {
         }
     }
     run("simple_api_and_into_functions_match", &commands, &expected);
+}
+
+#[test]
+fn slow_memory_decodes_as_c() {
+    let mut commands = Vec::new();
+    let mut expected = String::new();
+    // Slow external memory (is_external_memory 2) takes the temporary-buffer
+    // path only for a premultiplied colorspace and an image with alpha; the
+    // other combinations decode directly. Each case runs with slow and with
+    // ordinary caller memory, so that the two paths stand side by side: a valid
+    // buffer, a buffer one byte too small (an invalid buffer), and a truncated
+    // input (a failed decoding) into a valid and into an invalid buffer.
+    for path in vectors() {
+        let (width, height, alpha) = dimensions(&path);
+        if width <= 0 {
+            continue;
+        }
+        let len = std::fs::metadata(&path).unwrap().len() as i64;
+        let cut_path = consistent_cut(&path, 3, 4);
+        let modes: &[u32] = if alpha { &[7, 8, 9, 10, 1] } else { &[7, 10] };
+        for &mode in modes {
+            let valid = geometry_for(mode, width, height, 3, false);
+            let mut small = geometry_for(mode, width, height, 0, false);
+            small.0[0].1 -= 1;
+            for geometry in [valid, small] {
+                for slow in [false, true] {
+                    let geometry = if slow {
+                        geometry.clone().slow()
+                    } else {
+                        geometry.clone()
+                    };
+                    for cut in [-1, len * 3 / 4] {
+                        push_decode(
+                            &mut commands,
+                            &mut expected,
+                            &path,
+                            cut,
+                            mode,
+                            Options::default(),
+                            &geometry,
+                        );
+                    }
+                    // A decoding that fails after the buffer is allocated.
+                    push_decode(
+                        &mut commands,
+                        &mut expected,
+                        &cut_path,
+                        -1,
+                        mode,
+                        Options::default(),
+                        &geometry,
+                    );
+                }
+            }
+        }
+        if alpha {
+            // With options: flip, and a crop with scaling.
+            let mut flip = Options::default();
+            flip.0[Options::FLIP] = 1;
+            let mut crop = Options::default();
+            crop.0[Options::CROP] = 1;
+            crop.0[Options::CROP_LEFT] = width / 4;
+            crop.0[Options::CROP_TOP] = height / 4;
+            crop.0[Options::CROP_WIDTH] = (width / 2).max(1);
+            crop.0[Options::CROP_HEIGHT] = (height / 2).max(1);
+            crop.0[Options::SCALE] = 1;
+            crop.0[Options::SCALED_WIDTH] = (width / 3).max(1);
+            crop.0[Options::SCALED_HEIGHT] = (height / 3).max(1);
+            for options in [flip, crop] {
+                let (w, h) = output_dimensions(width, height, &options).unwrap();
+                let geometry = geometry_for(8, w, h, 1, false).slow();
+                push_decode(
+                    &mut commands,
+                    &mut expected,
+                    &path,
+                    -1,
+                    8,
+                    options,
+                    &geometry,
+                );
+            }
+        }
+    }
+    run("slow_memory_decodes_as_c", &commands, &expected);
 }

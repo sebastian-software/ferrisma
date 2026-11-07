@@ -270,16 +270,20 @@ fn incremental_decoders_match_with_options_and_buffers() {
     }
     for (kind, mode, geometry) in [
         ("rgb", 11, Geometry::default()),
-        ("rgb", 1, Geometry(vec![(0, 400)])),
-        ("rgb", 1, Geometry(vec![(40, 0)])),
-        ("yuva", 12, Geometry(vec![(16, 256), (8, 64)])),
-        ("yuva", 12, Geometry(vec![(16, 256), (0, 64), (8, 64)])),
+        ("rgb", 1, Geometry(vec![(0, 400)], false)),
+        ("rgb", 1, Geometry(vec![(40, 0)], false)),
+        ("yuva", 12, Geometry(vec![(16, 256), (8, 64)], false)),
         (
             "yuva",
             12,
-            Geometry(vec![(16, 256), (8, 64), (8, 64), (16, 0)]),
+            Geometry(vec![(16, 256), (0, 64), (8, 64)], false),
         ),
-        ("yuv", 11, Geometry(vec![(16, 0), (8, 64), (8, 64)])),
+        (
+            "yuva",
+            12,
+            Geometry(vec![(16, 256), (8, 64), (8, 64), (16, 0)], false),
+        ),
+        ("yuv", 11, Geometry(vec![(16, 0), (8, 64), (8, 64)], false)),
     ] {
         let path = oracle::test_data().join("test.webp");
         Case {
@@ -346,4 +350,53 @@ fn incremental_threads_match_on_wide_lossy_images() {
         &commands,
         &expected,
     );
+}
+
+#[test]
+fn incremental_slow_memory_matches_c() {
+    // `WebPIDecode` with the data, so that the features select slow memory
+    // for a premultiplied colorspace and an image with alpha: the getters stay
+    // NULL until the decoder copies into the caller's buffer at the end. Also
+    // with a truncated input (no copy) and with a buffer one byte too small
+    // (the copy fails at the end).
+    let mut commands = Vec::new();
+    let mut expected = String::new();
+    let mut rng = Rng(2525);
+    for path in vectors() {
+        let (width, height, alpha) = dimensions(&path);
+        if width <= 0 || !alpha {
+            continue;
+        }
+        let size = std::fs::metadata(&path).unwrap().len();
+        let mode = [7u32, 8, 9, 10][rng.below(4) as usize];
+        let valid = geometry_for(mode, width, height, 2, false).slow();
+        let mut small = geometry_for(mode, width, height, 0, false).slow();
+        small.0[0].1 -= 1;
+        let mut flip = Options::default();
+        flip.0[Options::FLIP] = 1;
+        flip.0[Options::THREADS] = 1;
+        // The last case is RGBA, which is not premultiplied: slow memory then
+        // decodes directly.
+        let rgba = geometry_for(1, width, height, 2, false).slow();
+        for (len, chunk, append, mode, options, geometry) in [
+            (-1, 64, 1, mode, Options::default(), &valid),
+            (-1, 4096, 0, mode, flip, &valid),
+            (size as i64 * 2 / 3, 64, 1, mode, Options::default(), &valid),
+            (-1, 4096, 1, mode, Options::default(), &small),
+            (-1, 64, 0, 1, Options::default(), &rgba),
+        ] {
+            Case {
+                path: &path,
+                len,
+                chunk,
+                append,
+                kind: "fconfig",
+                mode,
+                options,
+                geometry: geometry.clone(),
+            }
+            .push(&mut commands, &mut expected);
+        }
+    }
+    run("incremental_slow_memory_matches_c", &commands, &expected);
 }

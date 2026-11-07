@@ -17,7 +17,9 @@ mod wp12_support;
 use std::path::Path;
 
 use oracle::Oracle;
-use wp12_support::{Geometry, Options, Rng, compare, geometry_for, output_dimensions, vectors};
+use wp12_support::{
+    Geometry, Options, Rng, compare, consistent_cut, geometry_for, output_dimensions, vectors,
+};
 
 fn dimensions(path: &Path) -> (i32, i32, bool) {
     let data = std::fs::read(path).unwrap();
@@ -183,4 +185,40 @@ fn abi_decodes_incrementally_as_c() {
         ));
     }
     run("abi_decodes_incrementally_as_c", &commands);
+}
+
+#[test]
+fn abi_maps_slow_memory_as_c() {
+    // is_external_memory 2 through the C ABI: WebPDecode and the incremental
+    // decoder with a premultiplied colorspace on the images with alpha, with
+    // valid and too small buffers and truncated inputs.
+    let mut commands = Vec::new();
+    for path in vectors() {
+        let p = path.display();
+        let (width, height, alpha) = dimensions(&path);
+        if width <= 0 || !alpha {
+            continue;
+        }
+        let size = std::fs::metadata(&path).unwrap().len();
+        let none = Options::default().token();
+        for mode in [7u32, 9] {
+            let valid = geometry_for(mode, width, height, 1, false).slow();
+            let mut small = geometry_for(mode, width, height, 0, false).slow();
+            small.0[0].1 -= 1;
+            for geometry in [&valid, &small] {
+                let g = geometry.token();
+                commands.push(format!("decode {p} -1 {mode} {none} {g}\n"));
+                commands.push(format!("decode {p} {} {mode} {none} {g}\n", size * 3 / 4));
+                let cut = consistent_cut(&path, 3, 4);
+                commands.push(format!("decode {} -1 {mode} {none} {g}\n", cut.display()));
+                commands.push(format!("incr {p} -1 64 1 fconfig {mode} {none} {g}\n"));
+                commands.push(format!("incr {p} -1 4096 0 fconfig {mode} {none} {g}\n"));
+                commands.push(format!(
+                    "incr {p} {} 64 1 fconfig {mode} {none} {g}\n",
+                    size * 2 / 3
+                ));
+            }
+        }
+    }
+    run("abi_maps_slow_memory_as_c", &commands);
 }

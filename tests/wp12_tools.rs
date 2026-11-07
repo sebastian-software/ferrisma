@@ -293,3 +293,81 @@ fn dwebp_writes_the_files_of_the_oracle() {
     }
     assert!(files > 300);
 }
+
+#[test]
+fn dwebp_slow_memory_writes_the_files_of_the_oracle() {
+    let Some(oracle) = Oracle::locate("dwebp_slow_memory_writes_the_files_of_the_oracle") else {
+        return;
+    };
+    let c_tool = oracle.tool("dwebp");
+    let rust_tool = consumer_tool(&oracle, "dwebp");
+    let directory = scratch(&oracle, "dwebp-slow");
+    // `-external_memory 2` with a premultiplied pixel format on the vectors with
+    // alpha takes the slow-memory path, directly and incrementally; truncated
+    // copies make the decoding fail, where the slow path leaves the caller's
+    // buffer untouched.
+    let mut runs = 0;
+    for path in oracle::test_vectors() {
+        let name = path.file_name().unwrap().to_str().unwrap();
+        if name == "bryce.webp" || name == "lossless_big_random_alpha.webp" {
+            continue;
+        }
+        let data = std::fs::read(&path).unwrap();
+        let mut features = webp::webp::decode::WebPBitstreamFeatures::default();
+        if webp::webp::decode::webp_get_features(&data, &mut features).is_err()
+            || features.has_alpha == 0
+        {
+            continue;
+        }
+        // A cut with consistent RIFF and chunk sizes fails inside the
+        // bitstream, after the output buffer is allocated.
+        let truncated = directory.join(format!("{name}.cut"));
+        let mut cut = data[..data.len() * 3 / 4].to_vec();
+        let mut pos = 12;
+        let mut last = 12;
+        while pos + 8 <= cut.len() {
+            last = pos;
+            let size = u32::from_le_bytes(cut[pos + 4..pos + 8].try_into().unwrap()) as usize;
+            pos += 8 + size + (size & 1);
+        }
+        let last_size = (cut.len() - last - 8) as u32;
+        cut[last + 4..last + 8].copy_from_slice(&last_size.to_le_bytes());
+        let riff_size = (cut.len() - 8) as u32;
+        cut[4..8].copy_from_slice(&riff_size.to_le_bytes());
+        std::fs::write(&truncated, &cut).unwrap();
+        for input in [path.as_path(), truncated.as_path()] {
+            for format in ["rgbA", "bgrA", "Argb", "rgbA_4444", "RGBA"] {
+                for incremental in [false, true] {
+                    let c_out = directory.join("c.out");
+                    let rust_out = directory.join("rust.out");
+                    let _ = std::fs::remove_file(&c_out);
+                    let _ = std::fs::remove_file(&rust_out);
+                    let mut args: Vec<&str> = vec![
+                        input.to_str().unwrap(),
+                        "-pixel_format",
+                        format,
+                        "-external_memory",
+                        "2",
+                    ];
+                    if incremental {
+                        args.push("-incremental");
+                    }
+                    let mut c_args = args.clone();
+                    c_args.extend(["-o", c_out.to_str().unwrap()]);
+                    let mut rust_args = args.clone();
+                    rust_args.extend(["-o", rust_out.to_str().unwrap()]);
+                    let c = tool_output(&c_tool, &c_args);
+                    let rust = tool_output(&rust_tool, &rust_args);
+                    assert_eq!(c.2, rust.2, "dwebp {args:?}: exit status");
+                    assert_eq!(
+                        std::fs::read(&c_out).ok(),
+                        std::fs::read(&rust_out).ok(),
+                        "dwebp {args:?}: output file"
+                    );
+                    runs += 1;
+                }
+            }
+        }
+    }
+    assert!(runs >= 200, "{runs} runs");
+}

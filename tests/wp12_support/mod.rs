@@ -148,20 +148,29 @@ impl Options {
     }
 }
 
-/// The caller memory of a command: (stride, size) per plane.
+/// The caller memory of a command: (stride, size) per plane, and whether it is
+/// slow external memory (C: `is_external_memory` 2).
 #[derive(Clone, Debug, Default)]
-pub struct Geometry(pub Vec<(i32, usize)>);
+pub struct Geometry(pub Vec<(i32, usize)>, pub bool);
 
 impl Geometry {
     pub fn token(&self) -> String {
         if self.0.is_empty() {
             return "-".to_owned();
         }
-        self.0
+        let planes = self
+            .0
             .iter()
             .map(|(stride, size)| format!("{stride},{size}"))
             .collect::<Vec<_>>()
-            .join(",")
+            .join(",");
+        if self.1 { format!("S{planes}") } else { planes }
+    }
+
+    /// The same memory as slow external memory.
+    pub fn slow(mut self) -> Self {
+        self.1 = true;
+        self
     }
 
     /// The guarded blocks, filled with the probe's pattern.
@@ -246,7 +255,11 @@ fn plane_offset(storage: &PlaneStorage<'_, u8>, plane: Option<PlaneOffset>) -> i
 
 /// `PrintBuffer` without the memory digests.
 fn print_buffer_fields(out: &mut String, buf: &WebPDecBuffer<'_>) {
-    let external = i32::from(matches!(buf.storage, PlaneStorage::External(_)));
+    let external = match buf.storage {
+        PlaneStorage::External(_) if buf.slow_memory => 2,
+        PlaneStorage::External(_) => 1,
+        _ => 0,
+    };
     writeln!(
         out,
         "out={},{},{},{external}",
@@ -367,6 +380,7 @@ fn set_geometry<'a>(buf: &mut WebPDecBuffer<'a>, geometry: &Geometry, slices: Ve
         });
     }
     buf.storage = PlaneStorage::External(slices);
+    buf.slow_memory = geometry.1;
 }
 
 /// `Decode` of the probe.
@@ -637,10 +651,11 @@ pub fn incremental(
         let slices = plane_slices(&mut blocks);
         let mut mode = mode;
         let idec = match kind {
-            "config" => {
+            "config" | "fconfig" => {
                 config.output.colorspace = WEBP_CSP_MODE(mode);
                 set_geometry(&mut config.output, geometry, slices);
-                webp_i_decode(&[], Some(&mut config))
+                let input: &[u8] = if kind == "fconfig" { data } else { &[] };
+                webp_i_decode(input, Some(&mut config))
             }
             "new" => {
                 mode = WEBP_CSP_MODE::MODE_RGB.0;
@@ -690,7 +705,7 @@ pub fn incremental(
                 break;
             }
         }
-        if kind != "config" {
+        if kind != "config" && kind != "fconfig" {
             match webp_i_decoded_area(&idec, None, None, None, None) {
                 Some(area) => {
                     print_buffer_fields(out, area);
@@ -703,7 +718,7 @@ pub fn incremental(
             }
         }
     }
-    if kind == "config" {
+    if kind == "config" || kind == "fconfig" {
         print_buffer_fields(out, &config.output);
         if geometry.0.is_empty() {
             print_internal_memory(out, &config.output, partial);
@@ -743,10 +758,13 @@ pub fn geometry_for(mode: u32, width: i32, height: i32, pad: i32, alpha: bool) -
     let (w, h) = (width as usize, height as usize);
     if (mode as usize) < 11 {
         let stride = width * MODE_BPP[mode as usize] as i32 + pad;
-        Geometry(vec![(
-            stride,
-            stride as usize * (h - 1) + w * MODE_BPP[mode as usize],
-        )])
+        Geometry(
+            vec![(
+                stride,
+                stride as usize * (h - 1) + w * MODE_BPP[mode as usize],
+            )],
+            false,
+        )
     } else {
         let uv_w = w.div_ceil(2);
         let uv_h = h.div_ceil(2);
@@ -760,7 +778,7 @@ pub fn geometry_for(mode: u32, width: i32, height: i32, pad: i32, alpha: bool) -
         if alpha {
             planes.push((y_stride, y_stride as usize * h));
         }
-        Geometry(planes)
+        Geometry(planes, false)
     }
 }
 
@@ -801,4 +819,35 @@ pub fn compare(test: &str, actual: &[u8], expected: &str) {
         actual_lines.len(),
         expected_lines.len()
     );
+}
+
+/// A copy of a RIFF WebP file cut to `fraction` of its length with the RIFF size
+/// and the size of the last chunk patched to match, so that the headers parse
+/// and the decoding fails inside the bitstream, after the output buffer is
+/// allocated. Written under `target/wp12-cut/`; returns its path.
+pub fn consistent_cut(path: &Path, numerator: usize, denominator: usize) -> PathBuf {
+    let data = std::fs::read(path).unwrap();
+    let len = data.len() * numerator / denominator;
+    let mut cut = data[..len].to_vec();
+    let mut pos = 12;
+    let mut last = None;
+    while pos + 8 <= len {
+        last = Some(pos);
+        let size = u32::from_le_bytes(cut[pos + 4..pos + 8].try_into().unwrap()) as usize;
+        pos += 8 + size + (size & 1);
+    }
+    if let Some(last) = last {
+        let size = (len - last - 8) as u32;
+        cut[last + 4..last + 8].copy_from_slice(&size.to_le_bytes());
+        cut[4..8].copy_from_slice(&((len - 8) as u32).to_le_bytes());
+    }
+    let directory = crate::oracle::repository().join("target/wp12-cut");
+    std::fs::create_dir_all(&directory).unwrap();
+    let name = format!(
+        "{}.{numerator}-{denominator}",
+        path.file_name().unwrap().to_str().unwrap()
+    );
+    let output = directory.join(name);
+    std::fs::write(&output, &cut).unwrap();
+    output
 }

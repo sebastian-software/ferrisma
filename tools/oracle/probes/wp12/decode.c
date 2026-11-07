@@ -35,7 +35,8 @@
 //   incr PATH LEN CHUNK APPEND KIND MODE OPTIONS GEOMETRY
 //
 //     The incremental decoder: KIND "config" (WebPIDecode with a configuration
-//     of MODE and OPTIONS, the output allocated by the library or GEOMETRY),
+//     of MODE and OPTIONS, the output allocated by the library or GEOMETRY;
+//     "fconfig" also passes the data, so that the features are parsed),
 //     "new" (WebPINewDecoder(NULL)), "rgb" (WebPINewRGB(MODE, ...)), "yuva"
 //     (WebPINewYUVA) or "yuv" (WebPINewYUV), with GEOMETRY "-" for library
 //     memory. The input arrives in CHUNK-byte steps through WebPIAppend
@@ -143,18 +144,24 @@ static void ParseOptions(const char* text, WebPDecoderOptions* const options) {
 // filled with a pattern.
 typedef struct {
   int count;
+  int slow;  // is_external_memory 2 instead of 1
   int stride[4];
   size_t size[4];
   uint8_t* block[4];
 } Geometry;
 
 // GEOMETRY is "-" (no caller memory), "STRIDE,SIZE" (one plane) or
-// "YSTRIDE,YSIZE,USTRIDE,USIZE,VSTRIDE,VSIZE[,ASTRIDE,ASIZE]".
+// "YSTRIDE,YSIZE,USTRIDE,USIZE,VSTRIDE,VSIZE[,ASTRIDE,ASIZE]", with a leading
+// "S" for slow external memory (is_external_memory 2).
 static void ParseGeometry(const char* text, Geometry* const geometry) {
   long long v[8];
   int i;
   memset(geometry, 0, sizeof(*geometry));
   if (strcmp(text, "-") == 0) return;
+  if (text[0] == 'S') {
+    geometry->slow = 1;
+    ++text;
+  }
   geometry->count = sscanf(text, "%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld",
                            &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6],
                            &v[7]) / 2;
@@ -256,7 +263,7 @@ static size_t PrivateSize(const WebPDecBuffer* const buf) {
 static void SetGeometry(WebPDecBuffer* const buf,
                         const Geometry* const geometry) {
   if (geometry->count == 0) return;
-  buf->is_external_memory = 1;
+  buf->is_external_memory = geometry->slow ? 2 : 1;
   if (WebPIsRGBMode(buf->colorspace)) {
     buf->u.RGBA.rgba = Plane(geometry, 0);
     buf->u.RGBA.stride = geometry->stride[0];
@@ -469,10 +476,13 @@ static void Incremental(const uint8_t* data, size_t size, size_t chunk,
   if (!WebPInitDecoderConfig(&config)) exit(2);
   ParseOptions(options, &config.options);
   ParseGeometry(geometry_text, &geometry);
-  if (!strcmp(kind, "config")) {
+  if (!strcmp(kind, "config") || !strcmp(kind, "fconfig")) {
     config.output.colorspace = (WEBP_CSP_MODE)mode;
     SetGeometry(&config.output, &geometry);
-    idec = WebPIDecode(NULL, 0, &config);
+    // "fconfig" lets WebPIDecode parse the features into config.input first,
+    // as dwebp does, which selects slow memory for an image with alpha.
+    idec = !strcmp(kind, "fconfig") ? WebPIDecode(data, size, &config)
+                                    : WebPIDecode(NULL, 0, &config);
   } else if (!strcmp(kind, "new")) {
     mode = MODE_RGB;
     idec = WebPINewDecoder(NULL);
@@ -533,7 +543,7 @@ static void Incremental(const uint8_t* data, size_t size, size_t chunk,
   {
     const WebPDecBuffer* const area = WebPIDecodedArea(idec, NULL, NULL, NULL,
                                                        NULL);
-    if (!strcmp(kind, "config")) {
+    if (!strcmp(kind, "config") || !strcmp(kind, "fconfig")) {
       PrintBuffer(&config.output, &geometry,
                   config.output.private_memory ? PrivateSize(&config.output)
                                                : 0);
