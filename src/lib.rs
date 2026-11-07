@@ -2,8 +2,9 @@
 //!
 //! One module per upstream file, named after it, as `tools/units.json` maps
 //! them; each module starts with the upstream file's leading comment block.
-//! Work package 1 (common infrastructure: types, errors and messages, the
-//! memory manager, utilities) is translated; the other modules hold only their
+//! Work packages 1 (common infrastructure: types, errors and messages, the
+//! memory manager, utilities) and 2 (input and markers, up to
+//! `jpeg_read_header`) are translated; the other modules hold only their
 //! provenance headers. See `docs/PORT_PLAN.md` for the scope and the work
 //! packages, `docs/PORT_STATUS.md` for what is translated and verified, and
 //! `docs/adr/` for the decisions that bind them.

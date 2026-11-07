@@ -916,15 +916,29 @@ pub fn free_pool(cinfo: j_common_ptr<'_, '_>, pool_id: i32) -> Result<(), ErrorE
 pub fn release_pool_fields(cinfo: j_common_ptr<'_, '_>, pool_id: i32) {
     if pool_id == JPOOL_PERMANENT {
         // jpeg_alloc_quant_table and jpeg_alloc_huff_table (jdmarker.c,
-        // jstdhuff.c) and the source manager of jdatasrc.c.
+        // jstdhuff.c), the source manager of jdatasrc.c, and the modules
+        // that jpeg_CreateDecompress creates.
         cinfo.quant_tbl_ptrs = Default::default();
         cinfo.dc_huff_tbl_ptrs = Default::default();
         cinfo.ac_huff_tbl_ptrs = Default::default();
         cinfo.src = None;
+        cinfo.master = None;
+        cinfo.inputctl = None;
+        cinfo.marker = None;
     }
-    // JPOOL_IMAGE: the virtual block arrays, released by free_pool. The
-    // fields that work packages 2 to 6 fill from this pool are added with
-    // them.
+    if pool_id == JPOOL_IMAGE {
+        // The virtual block arrays are released by free_pool. A marker being
+        // saved belongs to the image pool although the permanent marker
+        // reader holds it; reset_marker_reader drops it in C's next use.
+        cinfo.comp_info = None;
+        cinfo.marker_list = None;
+        cinfo.coef_bits = None;
+        cinfo.entropy = None;
+        cinfo.coef = None;
+        if let Some(marker) = cinfo.marker.as_deref_mut() {
+            marker.cur_marker = None;
+        }
+    }
 }
 
 // upstream: src/jmemmgr.c self_destruct

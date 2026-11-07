@@ -17,18 +17,54 @@
 //!
 //! Work package: 1 (Common infrastructure).
 //!
-//! `jpeg_abort` is translated by work package 2, with
-//! `jpeg_CreateDecompress`, because it clears `cinfo->master->marker_list_end`
-//! and `cinfo->marker_list`, which that package adds (ADR 0005, "Module
+//! Work package 2 translates `jpeg_abort`, with `jpeg_CreateDecompress`,
+//! because it clears `cinfo->master->marker_list_end` and
+//! `cinfo->marker_list`, which that package adds (ADR 0005, "Module
 //! interfaces arrive with their modules"). `WITH_PROFILE` is off in the
-//! reference configuration, so the profiling report of `jpeg_destroy` is not
-//! translated.
+//! reference configuration, so the profiling code of `jpeg_abort` and
+//! `jpeg_destroy` is not translated.
 
 use crate::jerror::ErrorExit;
 use crate::jmemmgr::alloc_small_box;
+use crate::jpegint::DSTATE_START;
 use crate::jpeglib::{
-    JHUFF_TBL, JPOOL_PERMANENT, JQUANT_TBL, SIZEOF_JHUFF_TBL, SIZEOF_JQUANT_TBL, j_common_ptr,
+    JHUFF_TBL, JPOOL_NUMPOOLS, JPOOL_PERMANENT, JQUANT_TBL, SIZEOF_JHUFF_TBL, SIZEOF_JQUANT_TBL,
+    j_common_ptr,
 };
+
+// upstream: src/jcomapi.c jpeg_abort
+/// Aborts processing of a JPEG decompression operation, but doesn't destroy
+/// the object itself: releases all nonpermanent memory pools and resets the
+/// object for reuse. Closing the data source is the application's
+/// responsibility.
+///
+/// # Errors
+///
+/// What `free_pool` reports; nothing in practice.
+pub fn jpeg_abort(cinfo: j_common_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    /* Do nothing if called on a not-initialized or destroyed JPEG object. */
+    if cinfo.mem.is_none() {
+        return Ok(());
+    }
+
+    /* Releasing pools in reverse order might help avoid fragmentation
+     * with some (brain-damaged) malloc libraries.
+     */
+    for pool in (JPOOL_PERMANENT + 1..JPOOL_NUMPOOLS).rev() {
+        let free_pool = cinfo.mem().pub_.free_pool;
+        free_pool(cinfo, pool)?;
+    }
+
+    /* Reset overall state for possible reuse of object */
+    // The is_decompressor branch; the compressor's branch is not translated.
+    cinfo.global_state = DSTATE_START;
+    /* Try to keep application from accessing now-deleted marker list.
+     * A bit kludgy to do it here, but this is the most central place.
+     */
+    cinfo.marker_list = None;
+    cinfo.master_mut().pub_.marker_list_end = None;
+    Ok(())
+}
 
 // upstream: src/jcomapi.c jpeg_destroy
 /// Destruction of a JPEG object: everything is released except the object

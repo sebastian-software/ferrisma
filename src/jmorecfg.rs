@@ -28,9 +28,15 @@
 //! `EXTERN`, `JMETHOD` and `FAR` macros only decorate C declarations and have
 //! no Rust form. The capability options are branches that the translated code
 //! takes or leaves where they are tested; the constants below record which of
-//! them the reference configuration defines.
+//! the decoder's options the reference configuration defines. The encoder's
+//! options (`C_*_SUPPORTED`, `ENTROPY_OPT_SUPPORTED`,
+//! `INPUT_SMOOTHING_SUPPORTED`) are out of scope with the encoder.
 
 use core::ffi::c_long;
+
+// upstream: src/jmorecfg.h MAX_COMPONENTS
+/// Maximum number of image components.
+pub const MAX_COMPONENTS: usize = 10;
 
 // upstream: src/jmorecfg.h JSAMPLE
 /// One image sample, 8-bit data precision.

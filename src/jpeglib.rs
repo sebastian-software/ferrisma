@@ -31,23 +31,29 @@
 //! one owned buffer with a list of row offsets ([`SampleArray`],
 //! [`BlockArray`]), viewed through [`JSAMPROWS`] and [`JSAMPROWS_MUT`].
 //!
-//! `jpeg_decompress_struct` holds the fields that work package 1 can
-//! represent on its own. A later package adds a field when it translates the
-//! code that fills it: the module slots with their interfaces, and
-//! `comp_info`, `cur_comp_info`, `coef_bits`, `colormap`,
-//! `sample_range_limit` and `marker_list`, together with
-//! `jpeg_component_info::dct_table`, `jpeg_marker_struct` and
-//! `jpeg_marker_parser_method` (ADR 0005, "Module interfaces arrive with their
-//! modules"). The function declarations of this header are translated in the
+//! `jpeg_decompress_struct` holds the fields of work packages 1 and 2. A later
+//! package adds a field when it translates the code that fills it: the slots
+//! `main`, `post`, `idct`, `upsample`, `cconvert` and `cquantize` with their
+//! interfaces, `colormap`, `sample_range_limit` and
+//! `jpeg_component_info::dct_table` (ADR 0005, "Module interfaces arrive with
+//! their modules"). The `entropy` and `coef` slots exist, but stay empty until
+//! work packages 3 and 4 add their implementations. The function declarations of this header are translated in the
 //! modules that define them.
 
 use core::ffi::c_long;
 
+use crate::jdinput::my_input_controller;
+use crate::jdmarker::my_marker_reader;
+use crate::jdmaster::my_decomp_master;
 use crate::jerror::{ErrorExit, jpeg_error_methods};
 use crate::jmemmgr::my_memory_mgr;
 use crate::jmorecfg::{
     C_BOOLEAN, C_INT, C_JDIMENSION, C_POINTER, CLayout, JCOEF, JDIMENSION, JOCTET, JSAMPLE, UINT8,
     UINT16,
+};
+use crate::jpegint::{
+    jpeg_d_coef_controller, jpeg_d_coef_controller_impl, jpeg_entropy_decoder,
+    jpeg_entropy_decoder_impl,
 };
 
 // upstream: src/jpeglib.h DCTSIZE
@@ -403,6 +409,80 @@ pub const SIZEOF_jpeg_component_info: usize = CLayout::structure(&[
 ])
 .size;
 
+// upstream: src/jpeglib.h jpeg_marker_struct
+/// A saved `APPn` or COM marker, linked into `cinfo.marker_list`.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct jpeg_marker_struct {
+    /// Next in list, or `None`.
+    pub next: jpeg_saved_marker_ptr,
+    /// Marker code: `JPEG_COM`, or `JPEG_APP0 + n`.
+    pub marker: UINT8,
+    /// Number of bytes of data in the file.
+    pub original_length: u32,
+    /// Number of bytes of data saved at `data`.
+    pub data_length: u32,
+    /// The data contained in the marker; `data_length` bytes.
+    pub data: Vec<JOCTET>,
+}
+
+impl Drop for jpeg_marker_struct {
+    /// Unlinks the rest of the list iteratively, so that a long list does
+    /// not exhaust the stack when it is dropped.
+    fn drop(&mut self) {
+        let mut next = self.next.take();
+        while let Some(mut marker) = next {
+            next = marker.next.take();
+        }
+    }
+}
+
+// upstream: src/jpeglib.h jpeg_saved_marker_ptr
+#[expect(non_camel_case_types, reason = "C type name")]
+pub type jpeg_saved_marker_ptr = Option<Box<jpeg_marker_struct>>;
+
+/// `sizeof(struct jpeg_marker_struct)` on the target.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_marker_struct: usize =
+    CLayout::structure(&[C_POINTER, CLayout::of::<UINT8>(), C_INT, C_INT, C_POINTER]).size;
+
+/// An application's processor for COM or `APPn` markers, installed with
+/// `jpeg_set_marker_processor` (ADR 0005, "Public hooks"). Not an upstream
+/// item.
+#[expect(non_camel_case_types, reason = "named after the C typedef")]
+pub trait jpeg_marker_processor {
+    /// Processes the marker in `cinfo.unread_marker`; `Ok(false)` suspends.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the application returns.
+    fn process_marker(&mut self, cinfo: &mut jpeg_decompress_struct<'_>)
+    -> Result<bool, ErrorExit>;
+}
+
+// upstream: src/jpeglib.h jpeg_marker_parser_method
+/// A marker processing method: one of the library's, or an application's
+/// processor.
+#[expect(non_camel_case_types, reason = "C type name")]
+pub enum jpeg_marker_parser_method<'src> {
+    /// A library routine (`skip_variable`, `get_interesting_appn`,
+    /// `save_marker`).
+    Library(fn(j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit>),
+    /// An application's processor.
+    Application(Box<dyn jpeg_marker_processor + 'src>),
+}
+
+impl core::fmt::Debug for jpeg_marker_parser_method<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            jpeg_marker_parser_method::Library(routine) => {
+                f.debug_tuple("Library").field(routine).finish()
+            }
+            jpeg_marker_parser_method::Application(_) => f.write_str("Application"),
+        }
+    }
+}
+
 // upstream: src/jpeglib.h JCS_EXTENSIONS
 pub const JCS_EXTENSIONS: i32 = 1;
 // upstream: src/jpeglib.h JCS_ALPHA_EXTENSIONS
@@ -593,6 +673,10 @@ pub struct jpeg_decompress_struct<'src> {
     /// Number of iMCU rows read.
     pub output_iMCU_row: JDIMENSION,
 
+    /// `coef_bits[c][i]`: -1 or the current Al value for each coefficient;
+    /// `None` when reading a non-progressive file.
+    pub coef_bits: Option<Vec<[i32; DCTSIZE2]>>,
+
     /// Coefficient quantization tables, or `None` if not defined.
     pub quant_tbl_ptrs: [Option<Box<JQUANT_TBL>>; NUM_QUANT_TBLS],
     /// DC Huffman coding tables, or `None` if not defined.
@@ -602,6 +686,10 @@ pub struct jpeg_decompress_struct<'src> {
 
     /// Bits of precision in image data.
     pub data_precision: i32,
+
+    /// `comp_info[i]` describes the component that appears i'th in SOF;
+    /// `None` until `get_sof` allocates it.
+    pub comp_info: Option<Vec<jpeg_component_info>>,
 
     /// `true` if `SOFn` specifies progressive mode.
     pub progressive_mode: bool,
@@ -637,6 +725,9 @@ pub struct jpeg_decompress_struct<'src> {
     /// `true` = first samples are cosited.
     pub CCIR601_sampling: bool,
 
+    /// Head of list of saved markers.
+    pub marker_list: jpeg_saved_marker_ptr,
+
     /// Largest `h_samp_factor`.
     pub max_h_samp_factor: i32,
     /// Largest `v_samp_factor`.
@@ -648,6 +739,9 @@ pub struct jpeg_decompress_struct<'src> {
 
     /// Number of JPEG components in this scan.
     pub comps_in_scan: i32,
+    /// `cur_comp_info[i]` is the index in `comp_info` of the component that
+    /// appears i'th in SOS, where C keeps a pointer.
+    pub cur_comp_info: [Option<usize>; MAX_COMPS_IN_SCAN],
     /// Number of MCUs across the image.
     pub MCUs_per_row: JDIMENSION,
     /// Number of MCU rows in the image.
@@ -669,6 +763,17 @@ pub struct jpeg_decompress_struct<'src> {
     /// Zero or the code of a JPEG marker that has been read from the data
     /// source but not yet processed.
     pub unread_marker: i32,
+
+    /// Master control module.
+    pub master: Option<Box<my_decomp_master>>,
+    /// Coefficient buffer control; empty until work package 4.
+    pub coef: Option<Box<jpeg_d_coef_controller_impl>>,
+    /// Input control module.
+    pub inputctl: Option<Box<my_input_controller>>,
+    /// Marker reading and parsing.
+    pub marker: Option<Box<my_marker_reader<'src>>>,
+    /// Entropy decoding; empty until work package 3.
+    pub entropy: Option<Box<jpeg_entropy_decoder_impl>>,
 }
 
 impl<'src> jpeg_decompress_struct<'src> {
@@ -716,10 +821,12 @@ impl<'src> jpeg_decompress_struct<'src> {
             input_iMCU_row: 0,
             output_scan_number: 0,
             output_iMCU_row: 0,
+            coef_bits: None,
             quant_tbl_ptrs: Default::default(),
             dc_huff_tbl_ptrs: Default::default(),
             ac_huff_tbl_ptrs: Default::default(),
             data_precision: 0,
+            comp_info: None,
             progressive_mode: false,
             arith_code: false,
             arith_dc_L: [0; NUM_ARITH_TBLS],
@@ -735,11 +842,13 @@ impl<'src> jpeg_decompress_struct<'src> {
             saw_Adobe_marker: false,
             Adobe_transform: 0,
             CCIR601_sampling: false,
+            marker_list: None,
             max_h_samp_factor: 0,
             max_v_samp_factor: 0,
             min_DCT_scaled_size: 0,
             total_iMCU_rows: 0,
             comps_in_scan: 0,
+            cur_comp_info: [None; MAX_COMPS_IN_SCAN],
             MCUs_per_row: 0,
             MCU_rows_in_scan: 0,
             blocks_in_MCU: 0,
@@ -749,6 +858,11 @@ impl<'src> jpeg_decompress_struct<'src> {
             Ah: 0,
             Al: 0,
             unread_marker: 0,
+            master: None,
+            coef: None,
+            inputctl: None,
+            marker: None,
+            entropy: None,
         }
     }
 
@@ -770,6 +884,340 @@ impl<'src> jpeg_decompress_struct<'src> {
     /// When the memory manager is absent; see [`jpeg_decompress_struct::mem`].
     pub fn mem_mut(&mut self) -> &mut my_memory_mgr {
         self.mem.as_deref_mut().expect("cinfo->mem is NULL")
+    }
+
+    /// `cinfo->master`.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn master(&self) -> &my_decomp_master {
+        self.master.as_deref().expect("cinfo->master is NULL")
+    }
+
+    /// `cinfo->master`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn master_mut(&mut self) -> &mut my_decomp_master {
+        self.master.as_deref_mut().expect("cinfo->master is NULL")
+    }
+
+    /// `cinfo->inputctl`.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn inputctl(&self) -> &my_input_controller {
+        self.inputctl.as_deref().expect("cinfo->inputctl is NULL")
+    }
+
+    /// `cinfo->inputctl`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn inputctl_mut(&mut self) -> &mut my_input_controller {
+        self.inputctl
+            .as_deref_mut()
+            .expect("cinfo->inputctl is NULL")
+    }
+
+    /// `cinfo->marker`.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn marker(&self) -> &my_marker_reader<'src> {
+        self.marker.as_deref().expect("cinfo->marker is NULL")
+    }
+
+    /// `cinfo->marker`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn marker_mut(&mut self) -> &mut my_marker_reader<'src> {
+        self.marker.as_deref_mut().expect("cinfo->marker is NULL")
+    }
+
+    /// `cinfo->entropy`: the public part of whichever decoder it holds.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn entropy(&self) -> &jpeg_entropy_decoder {
+        self.entropy
+            .as_deref()
+            .expect("cinfo->entropy is NULL")
+            .pub_()
+    }
+
+    /// `cinfo->coef`: the public part of the coefficient controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn coef(&self) -> &jpeg_d_coef_controller {
+        self.coef.as_deref().expect("cinfo->coef is NULL").pub_()
+    }
+
+    /// `cinfo->src`.
+    ///
+    /// # Panics
+    ///
+    /// When the source manager is absent.
+    #[must_use]
+    pub fn src(&self) -> &jpeg_source_mgr<'src> {
+        self.src.as_deref().expect("cinfo->src is NULL")
+    }
+
+    /// `cinfo->src`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the source manager is absent.
+    pub fn src_mut(&mut self) -> &mut jpeg_source_mgr<'src> {
+        self.src.as_deref_mut().expect("cinfo->src is NULL")
+    }
+
+    /// `cinfo->comp_info`.
+    ///
+    /// # Panics
+    ///
+    /// When `get_sof` has not allocated it.
+    #[must_use]
+    pub fn comp_info(&self) -> &[jpeg_component_info] {
+        self.comp_info.as_deref().expect("cinfo->comp_info is NULL")
+    }
+
+    /// `cinfo->comp_info`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When `get_sof` has not allocated it.
+    pub fn comp_info_mut(&mut self) -> &mut [jpeg_component_info] {
+        self.comp_info
+            .as_deref_mut()
+            .expect("cinfo->comp_info is NULL")
+    }
+}
+
+/// `sizeof(struct jpeg_decompress_struct)` on the target, for
+/// `jpeg_create_decompress`: every C field, including those that later
+/// packages add and the `client_data` that the port replaces.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_decompress_struct: usize = {
+    let u8_ = CLayout::of::<u8>();
+    let u16_ = CLayout::of::<u16>();
+    let f64_ = CLayout::of::<f64>();
+    let enum_ = C_INT;
+    CLayout::structure(&[
+        // jpeg_common_fields: err, mem, progress, client_data,
+        // is_decompressor, global_state
+        C_POINTER.array(4),
+        C_BOOLEAN,
+        C_INT,
+        // src, image_width, image_height, num_components, jpeg_color_space
+        C_POINTER,
+        C_JDIMENSION,
+        C_JDIMENSION,
+        C_INT,
+        enum_,
+        // out_color_space .. enable_2pass_quant
+        enum_,
+        C_INT.array(2),
+        f64_,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        enum_,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        enum_,
+        C_BOOLEAN,
+        C_INT,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        // output_width .. colormap
+        C_JDIMENSION,
+        C_JDIMENSION,
+        C_INT,
+        C_INT,
+        C_INT,
+        C_INT,
+        C_POINTER,
+        // output_scanline .. coef_bits
+        C_JDIMENSION,
+        C_INT,
+        C_JDIMENSION,
+        C_INT,
+        C_JDIMENSION,
+        C_POINTER,
+        // the table pointers
+        C_POINTER.array(NUM_QUANT_TBLS),
+        C_POINTER.array(NUM_HUFF_TBLS),
+        C_POINTER.array(NUM_HUFF_TBLS),
+        // data_precision .. arith_ac_K
+        C_INT,
+        C_POINTER,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        u8_.array(NUM_ARITH_TBLS),
+        u8_.array(NUM_ARITH_TBLS),
+        u8_.array(NUM_ARITH_TBLS),
+        // restart_interval .. marker_list
+        C_INT,
+        C_BOOLEAN,
+        u8_,
+        u8_,
+        u8_,
+        u16_,
+        u16_,
+        C_BOOLEAN,
+        u8_,
+        C_BOOLEAN,
+        C_POINTER,
+        // max_h_samp_factor .. sample_range_limit
+        C_INT,
+        C_INT,
+        C_INT,
+        C_JDIMENSION,
+        C_POINTER,
+        // comps_in_scan .. unread_marker
+        C_INT,
+        C_POINTER.array(MAX_COMPS_IN_SCAN),
+        C_JDIMENSION,
+        C_JDIMENSION,
+        C_INT,
+        C_INT.array(D_MAX_BLOCKS_IN_MCU),
+        C_INT.array(4),
+        C_INT,
+        // master .. cquantize
+        C_POINTER.array(11),
+    ])
+    .size
+};
+
+/// `(*cinfo->src->init_source) (cinfo)`: takes the source methods out of
+/// `cinfo.src`, calls the method and puts them back (ADR 0005, "Public
+/// hooks"). Not an upstream item.
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods, where C would call
+/// through a null pointer.
+pub fn call_init_source(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.init_source(cinfo);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->fill_input_buffer) (cinfo)`; see [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_fill_input_buffer(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.fill_input_buffer(cinfo);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->skip_input_data) (cinfo, num_bytes)`; see
+/// [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_skip_input_data(
+    cinfo: j_decompress_ptr<'_, '_>,
+    num_bytes: c_long,
+) -> Result<(), ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.skip_input_data(cinfo, num_bytes);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->resync_to_restart) (cinfo, desired)`; see
+/// [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_resync_to_restart(
+    cinfo: j_decompress_ptr<'_, '_>,
+    desired: i32,
+) -> Result<bool, ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.resync_to_restart(cinfo, desired);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->term_source) (cinfo)`; see [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_term_source(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.term_source(cinfo);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+fn take_source_methods<'src>(
+    cinfo: &mut jpeg_decompress_struct<'src>,
+) -> Box<dyn jpeg_source_methods + 'src> {
+    cinfo
+        .src
+        .as_deref_mut()
+        .expect("cinfo->src is NULL")
+        .methods
+        .take()
+        .expect("the source manager's methods are NULL")
+}
+
+fn restore_source_methods<'src>(
+    cinfo: &mut jpeg_decompress_struct<'src>,
+    methods: Box<dyn jpeg_source_methods + 'src>,
+) {
+    // A method may have installed other methods; those are kept.
+    if let Some(src) = cinfo.src.as_deref_mut()
+        && src.methods.is_none()
+    {
+        src.methods = Some(methods);
     }
 }
 
@@ -994,7 +1442,19 @@ pub trait jpeg_source_methods {
     ///
     /// A libjpeg error, recorded in `cinfo.err`.
     fn term_source(&mut self, cinfo: &mut jpeg_decompress_struct<'_>) -> Result<(), ErrorExit>;
+
+    /// Whether these are the methods that `jpeg_mem_src` installs: the
+    /// port's form of upstream's test `cinfo->src->init_source ==
+    /// init_mem_source`. Not an upstream item.
+    fn is_mem_source(&self) -> bool {
+        false
+    }
 }
+
+/// `sizeof(struct jpeg_source_mgr)` on the target.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_source_mgr: usize =
+    CLayout::structure(&[C_POINTER, crate::jmorecfg::C_SIZE_T, C_POINTER.array(5)]).size;
 
 // upstream: src/jpeglib.h jpeg_source_mgr
 /// Data source object for decompression.

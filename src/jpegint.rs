@@ -23,11 +23,14 @@
 //!
 //! Work package: 1 (Common infrastructure).
 //!
-//! The module interfaces (`jpeg_decomp_master`, `jpeg_input_controller`,
-//! `jpeg_entropy_decoder` and the others) are added by the work package that
-//! translates the module, together with its private struct and its slot in
+//! The module interfaces are added by the work package that translates the
+//! module, together with its private struct and its slot in
 //! `jpeg_decompress_struct` (ADR 0005, "Module interfaces arrive with their
-//! modules"). The compression interfaces, the `CSTATE_*` values, `JDIFF` and
+//! modules"). Work package 2 adds `jpeg_input_controller` and
+//! `jpeg_marker_reader`, the data fields of `jpeg_decomp_master` (its methods
+//! arrive with `jdmaster.c` in work package 6), and the parts of
+//! `jpeg_entropy_decoder` and `jpeg_d_coef_controller` that `jdinput.c` calls
+//! (ADR 0005, decisions of 2026-11-07). The compression interfaces, the `CSTATE_*` values, `JDIFF` and
 //! the `jinit_*` declarations of untranslated modules are out of scope (ADR
 //! 0001). `MALLOC` has no Rust form: storage comes from Rust's allocator
 //! (ADR 0005, "Owned storage"). `SHIFT_TEMPS` declares nothing without
@@ -35,7 +38,9 @@
 
 use core::ffi::{c_long, c_ulong};
 
-use crate::jpeglib::J_COLOR_SPACE;
+use crate::jerror::ErrorExit;
+use crate::jmorecfg::{JDIMENSION, MAX_COMPONENTS};
+use crate::jpeglib::{J_COLOR_SPACE, j_decompress_ptr};
 
 // upstream: src/jpegint.h J_BUF_MODE
 /// Operating modes for buffer controllers.
@@ -145,4 +150,134 @@ pub fn MIN<T: PartialOrd>(a: T, b: T) -> T {
 #[must_use]
 pub fn RIGHT_SHIFT(x: JLONG, shft: u32) -> JLONG {
     x >> shft
+}
+
+// upstream: src/jpegint.h jpeg_decomp_master
+/// Master control module: its state variables. The methods
+/// `prepare_for_output_pass` and `finish_output_pass` arrive with
+/// `jdmaster.c` (work package 6), and `WITH_PROFILE` is off.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[expect(non_snake_case, reason = "C field names")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct jpeg_decomp_master {
+    /// True during 1st pass for 2-pass quant.
+    pub is_dummy_pass: bool,
+    /// True if decompressing a lossless image.
+    pub lossless: bool,
+    /// Partial decompression: first iMCU column.
+    pub first_iMCU_col: JDIMENSION,
+    /// Partial decompression: last iMCU column.
+    pub last_iMCU_col: JDIMENSION,
+    /// Partial decompression: first MCU column of each component.
+    pub first_MCU_col: [JDIMENSION; MAX_COMPONENTS],
+    /// Partial decompression: last MCU column of each component.
+    pub last_MCU_col: [JDIMENSION; MAX_COMPONENTS],
+    /// Reuse the upsampler's buffers.
+    pub jinit_upsampler_no_alloc: bool,
+    /// Last iMCU row that was successfully decoded.
+    pub last_good_iMCU_row: JDIMENSION,
+    /// Tail of the list of saved markers: the position of the last entry of
+    /// `cinfo.marker_list`, or `None` where C's pointer is null.
+    pub marker_list_end: Option<usize>,
+    /// SIMD-specific variable.
+    pub simd_support: u32,
+    /// SIMD-specific variable.
+    pub simd_huffman: u32,
+    /// The data precision of the JPEG image.
+    pub jpeg_data_precision: i32,
+}
+
+// upstream: src/jpegint.h jpeg_input_controller
+/// Input control module.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_input_controller {
+    /// Reads markers or compressed data; `JPEG_SUSPENDED`, `JPEG_REACHED_SOS`,
+    /// `JPEG_REACHED_EOI`, `JPEG_ROW_COMPLETED` or `JPEG_SCAN_COMPLETED`.
+    pub consume_input: fn(j_decompress_ptr<'_, '_>) -> Result<i32, ErrorExit>,
+    /// Resets state to begin a fresh datastream.
+    pub reset_input_controller: fn(j_decompress_ptr<'_, '_>),
+    /// Initializes the input modules to read a scan of compressed data.
+    pub start_input_pass: fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>,
+    /// Finishes up after inputting a compressed-data scan.
+    pub finish_input_pass: fn(j_decompress_ptr<'_, '_>),
+    /// True if file has multiple scans.
+    pub has_multiple_scans: bool,
+    /// True when EOI has been consumed.
+    pub eoi_reached: bool,
+}
+
+// upstream: src/jpegint.h jpeg_marker_reader
+/// Marker reading and parsing.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[expect(non_snake_case, reason = "C field names")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_marker_reader {
+    /// Resets marker processing state to begin a fresh datastream.
+    pub reset_marker_reader: fn(j_decompress_ptr<'_, '_>),
+    /// Reads markers until SOS or EOI: `JPEG_SUSPENDED`, `JPEG_REACHED_SOS` or
+    /// `JPEG_REACHED_EOI`.
+    pub read_markers: fn(j_decompress_ptr<'_, '_>) -> Result<i32, ErrorExit>,
+    /// Reads a restart marker, for the entropy decoder; `false` suspends.
+    pub read_restart_marker: fn(j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit>,
+    /// Found SOI?
+    pub saw_SOI: bool,
+    /// Found SOF?
+    pub saw_SOF: bool,
+    /// Next restart number expected (0-7).
+    pub next_restart_num: i32,
+    /// Number of bytes skipped looking for a marker.
+    pub discarded_bytes: u32,
+}
+
+// upstream: src/jpegint.h jpeg_entropy_decoder
+/// Entropy decoding: the method that `jdinput.c` calls. Work package 3 adds
+/// the others and the state variable.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_entropy_decoder {
+    /// Prepares for a scan.
+    pub start_pass: fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>,
+}
+
+// upstream: src/jpegint.h jpeg_d_coef_controller
+/// Coefficient buffer control: the methods that `jdinput.c` uses. Work
+/// package 4 adds the others and the state variables.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_d_coef_controller {
+    /// Initializes for an input pass.
+    pub start_input_pass: fn(j_decompress_ptr<'_, '_>),
+    /// Consumes compressed data; returns like `consume_input`.
+    pub consume_data: fn(j_decompress_ptr<'_, '_>) -> Result<i32, ErrorExit>,
+}
+
+/// The implementations of the `entropy` slot (ADR 0005, "Module objects"):
+/// none until work package 3 adds `huff_entropy_decoder`,
+/// `phuff_entropy_decoder` and `arith_entropy_decoder`, so the slot stays
+/// `None`. Not an upstream item.
+#[expect(non_camel_case_types, reason = "named after the C struct")]
+#[derive(Debug)]
+pub enum jpeg_entropy_decoder_impl {}
+
+impl jpeg_entropy_decoder_impl {
+    /// The public part of whichever implementation the slot holds.
+    #[must_use]
+    pub fn pub_(&self) -> &jpeg_entropy_decoder {
+        match *self {}
+    }
+}
+
+/// The implementations of the `coef` slot: none until work package 4 adds
+/// `my_coef_controller`, so the slot stays `None`. Not an upstream item.
+#[expect(non_camel_case_types, reason = "named after the C struct")]
+#[derive(Debug)]
+pub enum jpeg_d_coef_controller_impl {}
+
+impl jpeg_d_coef_controller_impl {
+    /// The public part of whichever implementation the slot holds.
+    #[must_use]
+    pub fn pub_(&self) -> &jpeg_d_coef_controller {
+        match *self {}
+    }
 }
