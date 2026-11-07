@@ -461,6 +461,11 @@ fn damaged_streams_match_the_oracle() {
 /// is checked.
 #[test]
 fn rgb565_is_out_of_scope() {
+    // Gated like the oracle tests, which are the ones that read the
+    // upstream checkout.
+    if Oracle::locate("rgb565_is_out_of_scope").is_none() {
+        return;
+    }
     let data = image("testorig.jpg");
     for args in [&["-out", "16"][..], &["-out", "16", "-nofancy"]] {
         let fields = wp5::run_rust(args, &data);

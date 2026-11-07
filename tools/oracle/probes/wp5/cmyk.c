@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
   if (sscanf((char *)data, "P6 %d %d %d%n", &width, &height, &maxval, &offset) != 3 ||
       maxval != 255) {
     fprintf(stderr, "cmyk: not a binary 8-bit PPM\n");
+    free(data);
     return 2;
   }
   pixels = data + offset + 1;
@@ -78,5 +79,6 @@ int main(int argc, char *argv[])
   jpeg_destroy_compress(&cinfo);
   free(row);
   free(out);
+  free(data);
   return 0;
 }

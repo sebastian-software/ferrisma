@@ -50,6 +50,9 @@ static SuspendingSource suspending;
 static long suspend;
 static long calls;
 static int stuck;
+/* The application's rows, freed by FreeScanlines on every exit. */
+static JSAMPARRAY scanlines;
+static int scanline_count;
 
 /* A log of return values, with runs of the same value counted. */
 typedef struct {
@@ -200,6 +203,18 @@ static void PrintFinal(void)
   Wp2PrintError(&err);
 }
 
+static void FreeScanlines(void)
+{
+  int i;
+
+  if (!scanlines)
+    return;
+  for (i = 0; i < scanline_count; i++)
+    free(scanlines[i]);
+  free(scanlines);
+  scanlines = NULL;
+}
+
 int main(int argc, char *argv[])
 {
   int i, ci, trace = 0, rows = 1, merged;
@@ -207,7 +222,6 @@ int main(int argc, char *argv[])
   unsigned char *data;
   size_t size;
   int status;
-  JSAMPARRAY scanlines = NULL;
   JDIMENSION row_stride = 0, row;
 
   for (i = 1; i < argc; i++) {
@@ -237,6 +251,8 @@ int main(int argc, char *argv[])
   cinfo.err = Wp2ErrorInit(&err);
   if (setjmp(err.setjmp_buffer)) {
     PrintFinal();
+    FreeScanlines();
+    free(data);
     return 0;
   }
   jpeg_create_decompress(&cinfo);
@@ -256,6 +272,7 @@ int main(int argc, char *argv[])
   printf("header=%d\n", status);
   if (status != JPEG_HEADER_OK) {
     PrintFinal();
+    free(data);
     return 0;
   }
 
@@ -334,6 +351,7 @@ int main(int argc, char *argv[])
     /* The application's rows */
     row_stride = cinfo.output_width * (JDIMENSION)cinfo.output_components;
     scanlines = (JSAMPARRAY)calloc((size_t)rows, sizeof(JSAMPROW));
+    scanline_count = rows;
     for (i = 0; i < rows; i++)
       scanlines[i] = (JSAMPROW)calloc(row_stride, 1);
 
@@ -364,5 +382,7 @@ int main(int argc, char *argv[])
       ConsumeToEOI();
   }
   PrintFinal();
+  FreeScanlines();
+  free(data);
   return 0;
 }
