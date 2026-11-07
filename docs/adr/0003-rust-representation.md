@@ -161,7 +161,14 @@ represented. The lifetime reaches `WebPDecParams`, `WebPIDecoder` and the safe
 decoder API (WP12, WP16). In the ABI mirror (ADR 0004), the caller's pointer is
 bound to that lifetime under `unsafe`, with a `// SAFETY:` argument for each
 operation. The planes of one picture share one storage, so a picture is owned or
-borrowed as a whole. `WebPPicture` holds `stats` and `extra_info` as `&'a mut`
+borrowed as a whole. A plane of a `WebPDecBuffer` is C's `NULL` when the buffer
+holds no memory of its own (an empty `Internal` storage, C's
+`private_memory == NULL`) or when its region does not exist in the caller's
+storage; an empty caller slice is a pointer to no bytes, as in C. The member of
+`WebPDecBufferPlanes` that the colorspace does not select reads as a zeroed
+member, which is what C's zeroed union holds before a buffer is allocated
+(decided 2026-11-07, WP12). The C ABI gives a `NULL` caller plane no region, and
+caller planes whose memory overlaps share one region. `WebPPicture` holds `stats` and `extra_info` as `&'a mut`
 values, because the caller owns them.
 
 **Shared views (decided 2026-11-07, WP9).** `PlaneStorage` has a third variant,
