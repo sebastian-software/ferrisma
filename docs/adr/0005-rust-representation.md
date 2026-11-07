@@ -45,7 +45,11 @@ target gets the width its C compiler uses: 64 bits on both CI hosts. Keep every
 width, signedness and conversion point of the source. Unsigned C arithmetic
 wraps, so use `wrapping_*` where the source can wrap; signed overflow is
 undefined in C, so plain Rust arithmetic is correct there and the `checked`
-profile reports a violation. `RIGHT_SHIFT_IS_UNSIGNED` is undefined on both
+profile reports a violation. Where upstream exempts a function from the
+sanitizer's integer-overflow checks because corrupt input overflows it (the
+DC prediction sums of `jdhuff.c`'s `decode_mcu_slow` and `decode_mcu_fast`),
+the port uses `wrapping_*` there, as the compiled C wraps, so that such input
+decodes in every profile. `RIGHT_SHIFT_IS_UNSIGNED` is undefined on both
 hosts, so a signed right shift is Rust's arithmetic `>>`.
 
 **`boolean`.** `boolean` is `int` in upstream. A `boolean` field, parameter or
@@ -128,8 +132,9 @@ translates the struct of `jdmaster.h` (the data fields of
 `jpeg_decomp_master` and `my_decomp_master`), because `jpeg_CreateDecompress`
 creates it, and the parts of `jpeg_entropy_decoder` and
 `jpeg_d_coef_controller` that `jdinput.c`'s `start_input_pass` calls; their
-slots are enums without variants, always `None`, until work packages 3 and 4
-add the implementations. A function that calls a module of a later package
+slots were enums without variants until work package 3 added the three
+entropy decoders, and the coefficient controller's stays one until work
+package 4. A function that calls a module of a later package
 and that its own package can leave out, such as `jpeg_finish_decompress`
 calling `master->finish_output_pass`, arrives with that later package.
 
@@ -174,7 +179,24 @@ gives only `cinfo` but that works on the module receives the module as a
 second parameter. A function that holds no borrow of its module across a
 call may instead reach the module through `cinfo` each time it uses it
 (`cinfo.marker_mut().cur_marker`), which needs no put-back. Each package
-records in its status entry the calls where it puts a module back.
+records in its status entry the calls where it puts a module back. A call
+that reaches only other modules and the application's hooks need not put the
+box back when none of them reaches this module in upstream: the entropy
+decoders keep theirs across the source's `fill_input_buffer`, the error
+manager's `emit_message` and the marker reader's `read_restart_marker`,
+because `jpegint.h`'s modules are not part of the application interface; a
+hook that looked at `cinfo.entropy` meanwhile would find `None`. A helper that
+several implementations share receives the public part instead of the module
+(`jpeg_fill_bit_buffer` takes `&mut jpeg_entropy_decoder` for
+`cinfo->entropy->insufficient_data`).
+
+**Pointers into a module's data.** A pointer that a module keeps to data of
+its own or of the object becomes an index or a copy. The tables that each
+block of an MCU uses are numbers into the module's derived-table arrays;
+`jdarith.c`'s statistics-bin pointer `st` is an area (a DC or AC table, or
+the fixed bin) and an offset. A derived Huffman table copies the public table
+it was derived from, which C links: the public tables change only between
+scans, and every scan derives its tables again in `start_pass`.
 
 **Public hooks.** The objects an application supplies (`jpeg_error_mgr`,
 `jpeg_source_mgr`, `jpeg_progress_mgr`, the marker processors of
@@ -443,6 +465,20 @@ The maintainer decided two questions that work package 1 raised:
    `jpeg_entropy_decoder` and `jpeg_d_coef_controller` that
    `start_input_pass` uses, with empty slots, so that `jdinput.c` is
    translated in full.
+
+## Refinements from work package 3 (2026-11-07)
+
+Work package 3 refined three rules above, for the maintainer's review in its
+pull request:
+
+1. **Scoped take across hooks.** The entropy decoders keep their module
+   across calls that reach only the source manager, the error manager and the
+   marker reader, which never reach the entropy decoder in upstream ("A
+   method's own state").
+2. **Pointers into a module's data** become indexes and copies, as the new
+   paragraph of that name says.
+3. **Overflow that upstream exempts from the sanitizer** wraps ("Integer
+   types").
 
 ## Review triggers
 

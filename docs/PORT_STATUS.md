@@ -4,11 +4,12 @@
 | --- | --- | --- |
 | 0 Tooling and representation | done | Oracle, probes, bit-test inventory, unit map, check script and CI below; [ADR 0005](adr/0005-rust-representation.md) accepted |
 | 1 Common infrastructure | done | 11 modules translated; message, memory and utility probes below |
-| 2 Input and markers | in review | `jpeg_read_header` and the input side translated; header probe below |
-| 3–11 | not started | — |
+| 2 Input and markers | done | `jpeg_read_header` and the input side translated; header probe below |
+| 3 Entropy decoding | in review | Huffman, progressive Huffman and arithmetic decoders translated; entropy probe below |
+| 4–11 | not started | — |
 
-Work packages 1 and 2 are translated: 16 modules, and the struct of
-`jdmaster.h`. The other 21 modules under `src/` hold only their provenance
+Work packages 1 to 3 are translated: 21 modules, and the struct of
+`jdmaster.h`. The other 16 modules under `src/` hold only their provenance
 headers ([tools/units.json](../tools/units.json)).
 
 ## Work package 0
@@ -251,3 +252,86 @@ oracle sets `TRUE`; the test maps that one field. Lossless files are out of
 scope: with `D_LOSSLESS_SUPPORTED` treated as undefined, a 16-bit lossless
 header fails with `JERR_BAD_PRECISION` where the oracle reads it, which
 `lossless_files_are_out_of_scope` asserts instead of comparing.
+
+## Work package 3
+
+**Translated.**
+
+| Module | Upstream | Content |
+| --- | --- | --- |
+| `jdhuff` | `jdhuff.h`, `jdhuff.c` | the derived tables and `jpeg_make_d_derived_tbl`, the bit-reading macros, `jpeg_fill_bit_buffer`, `jpeg_huff_decode`, `HUFF_EXTEND`, the sequential decoder with its slow and fast MCU paths, `jinit_huff_decoder` |
+| `jstdhuff` | `jstdhuff.c` | `add_huff_table` and `std_huff_tables`, the decompressor's branch |
+| `jdphuff` | `jdphuff.c` | all functions: `start_pass_phuff_decoder` and the four progressive MCU decoders |
+| `jaricom` | `jaricom.c` | `jpeg_aritab` |
+| `jdarith` | `jdarith.c` | all functions: `arith_decode`, the sequential and the four progressive MCU decoders, `start_pass`, `jinit_arith_decoder` |
+| `jpegint`, `jpeglib` | `jpegint.h`, `jpeglib.h` | the rest of `jpeg_entropy_decoder` (`decode_mcu`, `insufficient_data`) and the three implementations of the `entropy` slot |
+
+`jdinput`'s `per_scan_setup` and `latch_quant_tables` are now public, so that
+the tests can start a scan with a coefficient controller of their own.
+
+**Not translated.** `decode_mcus` and `process_restart` of
+`jpeg_entropy_decoder` serve lossless mode, which is out of scope (ADR 0001),
+and so are `jdlhuff.c` and `jdlossls.c`. Nothing selects a decoder yet:
+`master_selection` arrives with `jdmaster.c` in work package 6, and the
+coefficient controller that calls `decode_mcu` with work package 4.
+
+**Representation.** Each decoder takes its module out of `cinfo.entropy`
+for the duration of every method and puts it back on every path out. It keeps
+the module across the source's `fill_input_buffer`, the error manager's
+`emit_message` and the marker reader's `read_restart_marker`, so no call puts
+it back early; `jpeg_fill_bit_buffer` receives the decoder's public part
+(ADR 0005, refinements from work package 3). The bit-reading macros are
+functions over the locals they name, and their `goto` targets are return
+values; `decode_mcu_AC_refine`'s `undoit` is a labeled block. A derived
+Huffman table copies its public table, the tables of an MCU's blocks are
+numbers into the derived-table arrays, and the arithmetic decoder's
+statistics-bin pointer is an area and an offset. The DC prediction sums of the
+sequential Huffman decoder wrap, as the compiled C does where upstream exempts
+them from the sanitizer. `cinfo->coef_bits` is filled with -1 for the current
+scan status as in C; its second half, which C leaves uninitialized until
+`start_pass` writes it, starts at zero.
+
+**Verified against the oracle.** The probe `tools/oracle/probes/wp3/entropy`
+reads a header, initializes the decoder that `master_selection` would
+choose, installs a coefficient controller that mirrors `jdcoefct.c`'s
+multi-scan `start_input_pass` and `consume_data` and keeps every block, and
+calls `consume_input` until EOI, as buffered-image decoding does. It prints
+every message, the decoder state after each scan (`insufficient_data`,
+`unread_marker`, the restart and source positions, `last_good_iMCU_row`,
+the progression status in `coef_bits`), every result of `consume_input`, and
+an FNV-1a hash of every block row of every component. `tests/wp3_entropy.rs`
+runs the same sequence on the port (`tests/support/wp3.rs`, which mirrors
+`jdinput.c`'s `start_input_pass` and `consume_markers` around its own
+controller, because the port's controller slot stays empty until work
+package 4) and compares the outputs exactly:
+
+| Test | Inputs |
+| --- | --- |
+| `test_images_match_the_oracle` | `testorig.jpg`, `testimgari.jpg`, `testimgint.jpg`, `monkey12.jpg` (12-bit) |
+| `encoder_variants_match_the_oracle` | 31 `cjpeg` variants of `testorig.ppm`: sequential, optimized, progressive, arithmetic and arithmetic progressive coding, restart intervals in rows and blocks for each kind, sampling 1x1, 2x1, 1x2, 4x1, 3x2, grayscale, RGB, quality 100 and 5, 12-bit data for each kind, and `test.scan`'s scan script with Huffman and arithmetic coding; with tracing |
+| `skipped_coefficients_match_the_oracle` | the variants with `DCT_scaled_size` 1 and 2 and with components not needed; the sequential ones also with `MCU_data = NULL` for the first 1, 4 and all iMCU rows |
+| `suspension_matches_the_oracle` | suspending input that releases 1, 7, 64 or 1000 bytes per step, for `testorig.jpg` and the progressive, arithmetic (which cannot suspend: `JERR_CANT_SUSPEND`), restart, quality-100 progressive and scan-script variants |
+| `truncations_match_the_oracle` | every variant cut at 12 points of its entropy-coded data |
+| `mutations_match_the_oracle` | 992 mutations of the variants' entropy-coded data: 8 positions each, set to xor 0x55, 0xFF, 0x00 and 0xD9, every second one followed by a zero byte |
+| `synthetic_streams_match_the_oracle` | 172 streams built from the variants: no DHT (the standard tables of `jstdhuff.c`), an overfull code, DC symbol 16, a 16-bit AC code, scans naming undefined or other tables, changed arithmetic conditioning (DAC), an AC scan before its DC scan, a repeated scan, a refinement before its first pass, a DC-only stream, a second scan in a single-scan stream, `Ss`, `Se`, `Ah` and `Al` out of range and inconsistent, wrong, missing and doubled restart markers and fill bytes before them; with tracing |
+| `dc_overflow_matches_the_oracle` | 73 683 blocks whose DC differences are all +32767: the progressive decoder fails with `JERR_BAD_DCT_COEF`, the sequential one wraps |
+| `standard_tables_reproduce_the_coefficients` | the port alone: without DHT, `testorig.jpg`'s coefficients are those of the original stream |
+
+Together the cases reach every warning of the decoders (`JWRN_HIT_MARKER`,
+`JWRN_HUFF_BAD_CODE`, `JWRN_ARITH_BAD_CODE`, `JWRN_NOT_SEQUENTIAL`,
+`JWRN_BOGUS_PROGRESSION`, with `JWRN_MUST_RESYNC` and `JWRN_JPEG_EOF` from the
+input side) and the errors `JERR_BAD_HUFF_TABLE`, `JERR_NO_HUFF_TABLE`,
+`JERR_BAD_PROGRESSION`, `JERR_BAD_DCT_COEF` and `JERR_CANT_SUSPEND`.
+`JERR_NO_ARITH_TABLE` cannot be reached from a stream: a scan names tables 0
+to 15 and there are 16. Locally on macOS ARM64 (Apple Clang 21), all of this
+passes against the `release` and `asan-ubsan` oracles in the dev, release and
+`checked` profiles.
+
+The probe links WP2's support library, so C's memory is zeroed as in the
+port (see work package 2), and prints the memory pools after decoding with
+its `Wp2PrintMemory`, which the header probe now shares. Their used sizes
+contain the C size of every allocation of the decoders, so the sizes of
+`huff_entropy_decoder`, `phuff_entropy_decoder`, `arith_entropy_decoder` and
+`d_derived_tbl`, the statistics areas and `coef_bits` are verified.
+
+**Differences by design.** None in the decoders' output.
