@@ -71,14 +71,23 @@ def cache_value(build, name):
     return match[1] if match else None
 
 
+# ANSI escape sequences, which a colored terminal setting adds to cargo's notes.
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
 def rust_staticlib():
     """Build the Rust static library; return its path and native libraries."""
-    print("+ cargo rustc --release --lib -- --print native-static-libs", flush=True)
-    result = subprocess.run(["cargo", "rustc", "--release", "--lib", "--",
-                             "--print", "native-static-libs"], cwd=ROOT, check=True,
+    command = ["cargo", "--color", "never", "rustc", "--release", "--lib", "--",
+               "--print", "native-static-libs"]
+    print("+ " + " ".join(command), flush=True)
+    # CI may set CARGO_TERM_COLOR=always, which colors rustc's note; the
+    # library list goes to the linker, so it must be plain text.
+    result = subprocess.run(command, cwd=ROOT, check=True,
+                            env=dict(os.environ, CARGO_TERM_COLOR="never"),
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     print(result.stdout, end="", flush=True)
-    native = re.findall(r"native-static-libs: (.*)$", result.stdout, re.M)
+    plain = ANSI_ESCAPE.sub("", result.stdout)
+    native = re.findall(r"native-static-libs: (.*)$", plain, re.M)
     if not native:
         raise SystemExit("cargo did not report the native libraries of the static library")
     library = ROOT / "target/release/libwebp.a"
