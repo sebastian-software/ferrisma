@@ -143,9 +143,13 @@ fn owns_samples<T>(storage: &PlaneStorage<'_, T>) -> bool {
 
 // upstream: src/enc/picture_rescale_enc.c RescalePlane
 /// Rescales one plane of `num_channels` samples per pixel (C: `RescalePlane`).
+///
+/// C reuses the caller's `work` block for every plane. The rescaler owns its two
+/// side rows (WP4 deviation 8), so each call gives it a vector of exactly
+/// `2 * num_channels * dst_width` elements; the caller keeps C's allocation check.
 #[expect(
     clippy::too_many_arguments,
-    reason = "the C signature has ten parameters"
+    reason = "the C signature has ten parameters; only the work block moved inside"
 )]
 fn rescale_plane(
     src: &[u8],
@@ -156,13 +160,12 @@ fn rescale_plane(
     dst_width: i32,
     dst_height: i32,
     dst_stride: i32,
-    work: &mut [rescaler_t],
     num_channels: i32,
 ) -> bool {
+    let work: Vec<rescaler_t> = vec![0; index(2 * num_channels * dst_width)];
     let Some(mut rescaler) = webp_rescaler_init(
         src_width,
         src_height,
-        dst,
         dst_width,
         dst_height,
         dst_stride,
@@ -175,7 +178,7 @@ fn rescale_plane(
     while y < src_height {
         let row = offset_by(0, i64::from(y) * i64::from(src_stride));
         y += webp_rescaler_import(&mut rescaler, src_height - y, &src[row..], src_stride);
-        webp_rescaler_export(&mut rescaler);
+        webp_rescaler_export(&mut rescaler, dst);
     }
     true
 }
@@ -224,13 +227,16 @@ fn rescale_into(
     height: i32,
 ) -> Result<(), WebPEncodingError> {
     if picture.use_argb == 0 {
-        let Some(mut work) = webp_safe_malloc::<rescaler_t>(
+        // C allocates one work block for every plane; the check stays, and
+        // `rescale_plane` gives each rescaler its own side rows.
+        if webp_safe_malloc::<rescaler_t>(
             2 * u64::try_from(width).unwrap_or(0),
             std::mem::size_of::<rescaler_t>(),
-        ) else {
+        )
+        .is_none()
+        {
             return Err(WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY);
-        };
-        work.resize(index(2 * width), 0);
+        }
         // If present, we need to rescale alpha first (for AlphaMultiplyY).
         if let Some(a_plane) = picture.a {
             // WebPInitAlphaProcessing() only assigns portable pointers (ADR 0003).
@@ -245,7 +251,6 @@ fn rescale_into(
                 width,
                 height,
                 tmp.a_stride,
-                &mut work,
                 1,
             ) {
                 return Err(WebPEncodingError::VP8_ENC_ERROR_BAD_DIMENSION);
@@ -269,7 +274,6 @@ fn rescale_into(
             width,
             height,
             tmp.y_stride,
-            &mut work,
             1,
         );
         let u_src = yuva_samples(&picture.yuva, picture.u.expect("the U plane is allocated"));
@@ -284,7 +288,6 @@ fn rescale_into(
                 halve(width),
                 halve(height),
                 tmp.uv_stride,
-                &mut work,
                 1,
             );
         let v_src = yuva_samples(&picture.yuva, picture.v.expect("the V plane is allocated"));
@@ -299,7 +302,6 @@ fn rescale_into(
                 halve(width),
                 halve(height),
                 tmp.uv_stride,
-                &mut work,
                 1,
             );
         if !rescaled_v {
@@ -307,13 +309,14 @@ fn rescale_into(
         }
         alpha_multiply_y(tmp, true);
     } else {
-        let Some(mut work) = webp_safe_malloc::<rescaler_t>(
+        if webp_safe_malloc::<rescaler_t>(
             2 * u64::try_from(width).unwrap_or(0) * 4,
             std::mem::size_of::<rescaler_t>(),
-        ) else {
+        )
+        .is_none()
+        {
             return Err(WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY);
-        };
-        work.resize(index(2 * width * 4), 0);
+        }
         // In order to correctly interpolate colors, we need to apply the alpha
         // weighting first (black-matting), scale the RGB values, and remove
         // the premultiplication afterward (while preserving the alpha channel).
@@ -333,7 +336,6 @@ fn rescale_into(
             width,
             height,
             tmp.argb_stride * 4,
-            &mut work,
             4,
         ) {
             return Err(WebPEncodingError::VP8_ENC_ERROR_BAD_DIMENSION);
