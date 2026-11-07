@@ -125,7 +125,25 @@ pub struct Probe {
 impl Probe {
     /// Runs the probe with `args` and `stdin` and collects its output.
     pub fn run<A: AsRef<OsStr>>(&self, args: &[A], stdin: &[u8]) -> Output {
-        let mut child = Command::new(&self.path)
+        self.run_env(args, stdin, &[])
+    }
+
+    /// Runs the probe like [`Probe::run`], with the environment changed by
+    /// `env`: each variable is set to `Some` value or removed for `None`.
+    pub fn run_env<A: AsRef<OsStr>>(
+        &self,
+        args: &[A],
+        stdin: &[u8],
+        env: &[(&str, Option<&str>)],
+    ) -> Output {
+        let mut command = Command::new(&self.path);
+        for (name, value) in env {
+            match value {
+                Some(value) => command.env(name, value),
+                None => command.env_remove(name),
+            };
+        }
+        let mut child = command
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
