@@ -68,11 +68,12 @@ pub fn webp_rescaler_frac(x: i32, y: i32) -> u32 {
 // upstream: src/utils/rescaler_utils.h WebPRescaler
 /// Structure used for on-the-fly rescaling.
 ///
-/// `dst` holds the destination buffer and `dst_pos` the row that the next
-/// export writes, which the C pointer `dst` denotes. `irow` and `frow` are the
-/// two side rows, borrowed from the caller's work area and swapped as the rows
-/// advance.
-pub struct WebPRescaler<'a> {
+/// The side rows `irow` and `frow` are owned: `webp_rescaler_init` takes them
+/// from the work vector it receives, and the import swaps them as the rows
+/// advance. The output buffer is not held. `dst_pos` is the start of the row
+/// that the next export writes, which the C pointer `dst` denotes, and each
+/// export receives the buffer it writes into.
+pub struct WebPRescaler {
     /// true if we're expanding in the x direction
     pub x_expand: bool,
     /// true if we're expanding in the y direction
@@ -100,44 +101,39 @@ pub struct WebPRescaler<'a> {
     /// row counters for input and output
     pub src_y: i32,
     pub dst_y: i32,
-    /// the destination buffer, and the start of the row to write next
-    pub(crate) dst: &'a mut [u8],
+    /// the start of the output row to write next, and the stride between rows
     pub(crate) dst_pos: usize,
     pub dst_stride: i32,
-    /// work buffers
-    pub(crate) irow: &'a mut [rescaler_t],
-    pub(crate) frow: &'a mut [rescaler_t],
+    /// the two side rows, owned by the rescaler
+    pub(crate) irow: Vec<rescaler_t>,
+    pub(crate) frow: Vec<rescaler_t>,
 }
 
 // upstream: src/utils/rescaler_utils.c WebPRescalerInit
-/// Initializes a rescaler over the destination `dst` and the scratch area
-/// `work`, which needs `2 * dst_width * num_channels` elements. The side rows
-/// are zeroed. Returns `None` when the work size does not fit in the address
-/// space, which the C code reports as 0.
+/// Initializes a rescaler that writes output rows `dst_stride` bytes apart. The
+/// work vector holds the two side rows, `num_channels * dst_width` elements
+/// each, and the rescaler takes ownership of it. The side rows are zeroed, as
+/// the C `memset` zeroes them. Returns `None` when the work size does not fit
+/// in the address space, which the C code reports as 0.
 ///
 /// # Panics
 ///
 /// Panics when `dst_width` or `num_channels` is not positive, which the C code
-/// does not define, or when `work` is shorter than the side rows.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "mirrors the parameters of WebPRescalerInit"
-)]
+/// does not define, or when `work` does not hold exactly the two side rows.
 #[expect(
     clippy::similar_names,
     reason = "the C names fxy_scale, fy_scale and fx_scale of the scaling factors"
 )]
 #[must_use]
-pub fn webp_rescaler_init<'a>(
+pub fn webp_rescaler_init(
     src_width: i32,
     src_height: i32,
-    dst: &'a mut [u8],
     dst_width: i32,
     dst_height: i32,
     dst_stride: i32,
     num_channels: i32,
-    work: &'a mut [rescaler_t],
-) -> Option<WebPRescaler<'a>> {
+    work: Vec<rescaler_t>,
+) -> Option<WebPRescaler> {
     let x_add = src_width;
     let x_sub = dst_width;
     let y_add = src_height;
@@ -150,6 +146,12 @@ pub fn webp_rescaler_init<'a>(
     if !check_size_overflow(total_size) {
         return None;
     }
+    assert!(
+        work.len() == 2 * row_len,
+        "the work holds {} elements, and the two side rows need {}",
+        work.len(),
+        2 * row_len
+    );
     let x_expand = src_width < dst_width;
     let y_expand = src_height < dst_height;
     let x_add_out = if x_expand { x_sub - 1 } else { x_add };
@@ -177,8 +179,10 @@ pub fn webp_rescaler_init<'a>(
         let fxy_ratio = u32::try_from(ratio).unwrap_or(0);
         (webp_rescaler_frac(1, y_sub_out), fxy_ratio)
     };
-    let (irow, rest) = work.split_at_mut(row_len);
-    let frow = &mut rest[..row_len];
+    // The C code points `irow` at the start of `work` and `frow` at the element
+    // that follows the first row; the split gives the same two rows.
+    let mut irow = work;
+    let mut frow = irow.split_off(row_len);
     irow.fill(0);
     frow.fill(0);
     Some(WebPRescaler {
@@ -199,7 +203,6 @@ pub fn webp_rescaler_init<'a>(
         dst_height,
         src_y: 0,
         dst_y: 0,
-        dst,
         dst_pos: 0,
         dst_stride,
         irow,
@@ -256,7 +259,7 @@ pub fn webp_rescaler_get_scaled_dimensions(
 /// The number of input lines needed to produce the next output line, at most
 /// `max_num_lines`.
 #[must_use]
-pub fn webp_rescale_needed_lines(rescaler: &WebPRescaler<'_>, max_num_lines: i32) -> i32 {
+pub fn webp_rescale_needed_lines(rescaler: &WebPRescaler, max_num_lines: i32) -> i32 {
     let num_lines = (rescaler.y_accum + rescaler.y_sub - 1) / rescaler.y_sub;
     if num_lines > max_num_lines {
         max_num_lines
@@ -273,7 +276,7 @@ pub fn webp_rescale_needed_lines(rescaler: &WebPRescaler<'_>, max_num_lines: i32
 ///
 /// Panics when `src` holds fewer rows than the import reads.
 pub fn webp_rescaler_import(
-    rescaler: &mut WebPRescaler<'_>,
+    rescaler: &mut WebPRescaler,
     num_lines: i32,
     src: &[u8],
     src_stride: i32,
@@ -304,11 +307,16 @@ pub fn webp_rescaler_import(
 }
 
 // upstream: src/utils/rescaler_utils.c WebPRescalerExport
-/// Exports every row that is ready. Returns the number of rows written.
-pub fn webp_rescaler_export(rescaler: &mut WebPRescaler<'_>) -> i32 {
+/// Exports every row that is ready into `dst`, the output buffer, from the row
+/// `dst_pos` on. Returns the number of rows written.
+///
+/// # Panics
+///
+/// Panics when `dst` is shorter than the rows that the export writes.
+pub fn webp_rescaler_export(rescaler: &mut WebPRescaler, dst: &mut [u8]) -> i32 {
     let mut total_exported = 0_i32;
     while webp_rescaler_has_pending_output(rescaler) {
-        webp_rescaler_export_row(rescaler);
+        webp_rescaler_export_row(rescaler, dst);
         total_exported += 1;
     }
     total_exported
@@ -317,20 +325,20 @@ pub fn webp_rescaler_export(rescaler: &mut WebPRescaler<'_>) -> i32 {
 // upstream: src/utils/rescaler_utils.h WebPRescalerInputDone
 /// Whether the input is finished.
 #[must_use]
-pub fn webp_rescaler_input_done(rescaler: &WebPRescaler<'_>) -> bool {
+pub fn webp_rescaler_input_done(rescaler: &WebPRescaler) -> bool {
     rescaler.src_y >= rescaler.src_height
 }
 
 // upstream: src/utils/rescaler_utils.h WebPRescalerOutputDone
 /// Whether the output is finished.
 #[must_use]
-pub fn webp_rescaler_output_done(rescaler: &WebPRescaler<'_>) -> bool {
+pub fn webp_rescaler_output_done(rescaler: &WebPRescaler) -> bool {
     rescaler.dst_y >= rescaler.dst_height
 }
 
 // upstream: src/utils/rescaler_utils.h WebPRescalerHasPendingOutput
 /// Whether output rows are ready.
 #[must_use]
-pub fn webp_rescaler_has_pending_output(rescaler: &WebPRescaler<'_>) -> bool {
+pub fn webp_rescaler_has_pending_output(rescaler: &WebPRescaler) -> bool {
     !webp_rescaler_output_done(rescaler) && rescaler.y_accum <= 0
 }
