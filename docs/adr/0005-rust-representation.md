@@ -50,7 +50,10 @@ sanitizer's integer-overflow checks because corrupt input overflows it (the
 DC prediction sums of `jdhuff.c`'s `decode_mcu_slow` and `decode_mcu_fast`),
 the port uses `wrapping_*` there, as the compiled C wraps, so that such input
 decodes in every profile. `RIGHT_SHIFT_IS_UNSIGNED` is undefined on both
-hosts, so a signed right shift is Rust's arithmetic `>>`.
+hosts, so a signed right shift is Rust's arithmetic `>>`. A conversion from
+`float` to an integer is `as`, which truncates as C does for every value in
+range and saturates where C's result is undefined (an IDCT output far out of
+range); the differential tests keep to inputs that C defines.
 
 **`boolean`.** `boolean` is `int` in upstream. A `boolean` field, parameter or
 return value becomes `bool`; `TRUE` and `FALSE` become `true` and `false`. The
@@ -133,8 +136,9 @@ translates the struct of `jdmaster.h` (the data fields of
 creates it, and the parts of `jpeg_entropy_decoder` and
 `jpeg_d_coef_controller` that `jdinput.c`'s `start_input_pass` calls; their
 slots were enums without variants until work package 3 added the three
-entropy decoders, and the coefficient controller's stays one until work
-package 4. A function that calls a module of a later package
+entropy decoders and work package 4 the coefficient controller, whose slot
+then holds `my_coef_controller` itself, its one implementation in scope. A
+function that calls a module of a later package
 and that its own package can leave out, such as `jpeg_finish_decompress`
 calling `master->finish_output_pass`, arrives with that later package.
 
@@ -189,6 +193,13 @@ hook that looked at `cinfo.entropy` meanwhile would find `None`. A helper that
 several implementations share receives the public part instead of the module
 (`jpeg_fill_bit_buffer` takes `&mut jpeg_entropy_decoder` for
 `cinfo->entropy->insufficient_data`).
+
+**Methods that only read the object.** A method that C gives `cinfo` but that
+neither writes the object nor calls anything that does takes
+`&jpeg_decompress_struct`, so that its other arguments may borrow from the
+object as C's pointers point into it: an IDCT routine receives `compptr` from
+`cinfo.comp_info` and, in multi-pass mode, its coefficient block from a
+virtual array of `cinfo.mem`.
 
 **Pointers into a module's data.** A pointer that a module keeps to data of
 its own or of the object becomes an index or a copy. The tables that each
@@ -478,6 +489,28 @@ pull request:
 2. **Pointers into a module's data** become indexes and copies, as the new
    paragraph of that name says.
 3. **Overflow that upstream exempts from the sanitizer** wraps ("Integer
+   types").
+
+## Refinements from work package 4 (2026-11-07)
+
+Work package 4 refined these rules, for the maintainer's review in its pull
+request:
+
+1. **Methods that only read the object** take it shared (the paragraph of
+   that name): `inverse_DCT_method_ptr` is
+   `fn(&jpeg_decompress_struct, &jpeg_component_info, &JBLOCK,
+   JSAMPROWS_MUT, JDIMENSION)`.
+2. **Scoped take of the virtual arrays.** In multi-pass mode `consume_data`
+   lends the MCU's blocks to `decode_mcu` straight from the virtual arrays.
+   It takes the memory manager's list of arrays out of `cinfo.mem` while it
+   decodes an iMCU row and puts it back on every path out, as a module takes
+   its box; the entropy decoder and the hooks it reaches never use the
+   memory manager in upstream ("A method's own state").
+3. **Unions of arrays.** `jddctmgr.c`'s `multiplier_table`, a union of an
+   `int`, an `int` and a `float` array, keeps one array of `int`s whose bits
+   the float accessors reinterpret, as `msg_parm` keeps its union
+   ("Messages").
+4. **Float-to-integer conversions** saturate where C is undefined ("Integer
    types").
 
 ## Review triggers

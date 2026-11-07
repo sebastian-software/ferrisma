@@ -5,11 +5,12 @@
 | 0 Tooling and representation | done | Oracle, probes, bit-test inventory, unit map, check script and CI below; [ADR 0005](adr/0005-rust-representation.md) accepted |
 | 1 Common infrastructure | done | 11 modules translated; message, memory and utility probes below |
 | 2 Input and markers | done | `jpeg_read_header` and the input side translated; header probe below |
-| 3 Entropy decoding | in review | Huffman, progressive Huffman and arithmetic decoders translated; entropy probe below |
-| 4–11 | not started | — |
+| 3 Entropy decoding | done | Huffman, progressive Huffman and arithmetic decoders translated; entropy probe below |
+| 4 Coefficients and IDCT | in review | Coefficient controller, IDCT manager and all IDCT routines translated; IDCT and pipeline probes below |
+| 5–11 | not started | — |
 
-Work packages 1 to 3 are translated: 21 modules, and the struct of
-`jdmaster.h`. The other 16 modules under `src/` hold only their provenance
+Work packages 1 to 4 are translated: 28 modules, and the struct of
+`jdmaster.h`. The other 9 modules under `src/` hold only their provenance
 headers ([tools/units.json](../tools/units.json)).
 
 ## Work package 0
@@ -335,3 +336,104 @@ contain the C size of every allocation of the decoders, so the sizes of
 `d_derived_tbl`, the statistics areas and `coef_bits` are verified.
 
 **Differences by design.** None in the decoders' output.
+
+## Work package 4
+
+**Translated.**
+
+| Module | Upstream | Content |
+| --- | --- | --- |
+| `jdcoefct` | `jdcoefct.h`, `jdcoefct.c` | all functions: `start_iMCU_row`, the input and output pass setup, `decompress_onepass`, `dummy_consume_data`, `consume_data`, `decompress_data`, block smoothing (`smoothing_ok`, `decompress_smooth_data`) and `jinit_d_coef_controller` |
+| `jddctmgr` | `jddctmgr.c` | `my_idct_controller`, `multiplier_table`, `start_pass` with the islow, ifast and float multiplier tables, `jinit_inverse_dct` |
+| `jdct` | `jdct.h` | the inverse-DCT types and macros (`DCTELEM`, the multiplier types, `IDCT_range_limit`, `RANGE_MASK`, `FIX`, `DESCALE`, `MULTIPLY16C16`, `MULTIPLY16V16`) |
+| `jidctint` | `jidctint.c` | `jpeg_idct_islow` and the scaled IDCTs 3x3, 5x5, 6x6, 7x7 and 9x9 to 16x16 |
+| `jidctfst` | `jidctfst.c` | `jpeg_idct_ifast` |
+| `jidctflt` | `jidctflt.c` | `jpeg_idct_float` |
+| `jidctred` | `jidctred.c` | `jpeg_idct_4x4`, `jpeg_idct_2x2`, `jpeg_idct_1x1` |
+| `jpegint`, `jpeglib` | `jpegint.h`, `jpeglib.h` | the rest of `jpeg_d_coef_controller`, `jpeg_inverse_dct` and `inverse_DCT_method_ptr`, the `idct` slot, `jpeg_component_info::dct_table` and `sample_range_limit` |
+
+The `coef` slot holds `my_coef_controller`, its one implementation in scope,
+and `free_pool(JPOOL_IMAGE)` now also resets `idct` and `sample_range_limit`
+(`tools/pools.json` lists `sample_range_limit` under work package 4, which
+adds it, although `jdmaster.c` fills it in work package 6).
+
+**Not translated.** `decompress_data_12`, `decompress_data_16`,
+`inverse_DCT_12` and the SIMD IDCT slots serve other precisions, lossless
+mode and SIMD (ADR 0001, ADR 0004), and so does `jddiffct.c`; the
+forward-DCT declarations of `jdct.h` serve the encoder. `WITH_PROFILE` is
+off. Nothing calls `jinit_d_coef_controller` or `jinit_inverse_dct` yet:
+`master_selection` arrives with `jdmaster.c` in work package 6, and the main
+controller that calls `decompress_data` with work package 5.
+
+**Representation.** The controller's methods take its module out of
+`cinfo.coef`; `decompress_data` and `decompress_smooth_data` run their input
+loop, which reaches `consume_data` through `cinfo`, before they take it. In
+single-pass mode the module owns the one-MCU buffer and lends all ten blocks
+to `decode_mcu`. In multi-pass mode `consume_data` takes the memory manager's
+virtual arrays out of `cinfo.mem` while it decodes an iMCU row and lends each
+MCU's blocks to `decode_mcu` from them; `whole_image` holds `None` where C's
+`memset` leaves null pointers, and `coef_arrays` is a copy of it. The IDCT
+routines take `cinfo` shared beside `compptr` and the block, which may lie in
+a virtual array; their output is a row list of the caller's sample array
+(`JSAMPROWS_MUT`), and C's pointer walks over the block, the multiplier table
+and the workspace are indexes. The multiplier table keeps the bits of C's
+union in one array of `int`s. `start_output_pass` returns a `Result` where C
+returns nothing, because `smoothing_ok` allocates the latch. `sample_range_limit`
+is the whole allocation of `prepare_range_limit_table`, and
+`jpeg_decompress_struct::sample_range_limit` returns it from C's pointer on
+(ADR 0005, refinements from work package 4).
+
+**Verified against the oracle.** Two probes cover the package, and
+`tests/support/wp4.rs` runs the same sequences on the port, with copies of
+`jdmaster.c`'s `prepare_range_limit_table` and of the parts of
+`master_selection` and `prepare_for_output_pass` that set up these modules.
+Both print the memory pools, so the C sizes of `my_coef_controller`, its
+virtual arrays, the one-MCU buffer, the workspace, the smoothing latch,
+`my_idct_controller`, `multiplier_table` and the range-limit table are
+verified.
+
+`tools/oracle/probes/wp4/idct` gives one component a random quantization
+table, lets `jinit_inverse_dct` and `start_pass` select the routine for a
+method and a scaled size, and hashes the output of every transformed block
+(`tests/wp4_idct.rs`):
+
+| Test | Inputs |
+| --- | --- |
+| `scaled_sizes` | every scaled size from 1 to 16 with the accurate integer method, 400 image-like, DC-only, single-coefficient and dense blocks for each of 3 seeds, and 400 blocks with arbitrary coefficients (including -32768 and 32767) and quantizers up to 65535 |
+| `methods` | the islow, ifast and float methods at full size, 1000 blocks for each of 5 seeds and quantizers up to 1, 16 and 255 |
+| `start_pass_errors` | an unknown method at full size (`JERR_NOT_COMPILED`), scaled sizes 0, 17 and -1 (`JERR_BAD_DCTSIZE`), and an unknown method at a scaled size, which is accepted |
+
+`tools/oracle/probes/wp4/coefidct` reads a header, sets up the IDCT, the
+entropy decoder and the coefficient controller as `master_selection` does,
+and runs output passes as `jpeg_start_decompress` and
+`jpeg_finish_decompress` do, or as buffered-image mode's progressive-display
+loop of `jpeg_start_output` and `jpeg_finish_output` does. It hashes all
+output rows after each iMCU row of every pass and prints every result of
+`consume_input` and `decompress_data`, the final input and output positions
+and `last_good_iMCU_row` (`tests/wp4_coefidct.rs`):
+
+| Test | Inputs |
+| --- | --- |
+| `test_images_match_the_oracle` | `testorig.jpg`, `testimgari.jpg`, `testimgint.jpg` in six modes: single-pass or full-image decoding, buffered-image mode with and without block smoothing, the ifast and float methods, and a buffered run that changes from float to ifast after the first pass; `monkey12.jpg` fails with `JERR_BAD_PRECISION` |
+| `encoder_variants_match_the_oracle` | WP3's 31 `cjpeg` variants in the same six modes |
+| `scaled_sizes_match_the_oracle` | the 27 8-bit variants at every scaled size from 1 to 16, the 12 multi-scan ones also in buffered mode, and four mixes of per-component sizes and methods |
+| `unneeded_components_and_cropping_match_the_oracle` | the 8-bit variants with components not needed, and with the first and last iMCU and MCU columns set as `jpeg_crop_scanline` sets them, in both modes and with scaling |
+| `errors_match_the_oracle` | a scaled size of 17 or 18 (`JERR_BAD_DCTSIZE`) and an unknown method (`JERR_NOT_COMPILED`) in both modes, and a negative size |
+| `suspension_matches_the_oracle` | suspending input that releases 1, 7, 64 or 1000 bytes per step, in both modes, for `testorig.jpg` and the progressive, arithmetic, restart, arithmetic progressive and scan-script variants |
+| `truncations_match_the_oracle` | the 8-bit variants cut at 12 points of their entropy-coded data, in both modes |
+| `mutations_match_the_oracle` | 864 mutations of the 8-bit variants' entropy-coded data as in WP3, in both modes |
+
+Block smoothing changes the output of 9 of the 10 passes of the progressive
+variant, so `decompress_smooth_data` and `smoothing_ok` are compared on
+partial and complete progression states, DC-only scans included, and the
+truncations compare passes over incomplete scans. The
+fast integer method computes in `int`, and the float method converts to
+`int`; arbitrary coefficients and 16-bit quantizers overflow both in C, so
+those methods are compared on image-like blocks and real streams, and the
+damaged streams use the accurate method. Locally on macOS ARM64 (Apple
+Clang 21), all of this passes against the `release` and `asan-ubsan` oracles
+in the dev, release and `checked` profiles.
+
+**Differences by design.** None in the output. A float IDCT output outside
+the range of `int`, which is undefined in C, saturates in the port (ADR
+0005, refinements from work package 4).
