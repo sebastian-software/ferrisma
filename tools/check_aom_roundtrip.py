@@ -8,7 +8,6 @@ from pathlib import Path
 import subprocess
 
 from aom_sanitizer import instrumented_libraries
-from aom_vmaf import link_flags
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,7 +22,6 @@ def main():
     profile = 'debug' if args.debug else 'release'
     work = ROOT / (f'build/aom-roundtrip-{profile}' + ('-asan' if args.asan else ''))
     work.mkdir(parents=True, exist_ok=True)
-    vmaf = link_flags()
     source = ROOT / 'tests/ports/aom_roundtrip.c'
     reference, candidate = ROOT / f'build/aom-native-{profile}/libaom.a', ROOT / f'target/{profile}/libaom.a'
     compiler, environment, runtime = os.environ.get('CC', 'cc'), os.environ.copy(), []
@@ -34,7 +32,7 @@ def main():
                     *(['-fsanitize=address', '-fno-omit-frame-pointer'] if args.asan else []),
                     '-c', source, '-o', caller], env=environment, check=True)
     for implementation, archive in [('c', reference), ('rust', candidate)]:
-        subprocess.run([compiler, caller, archive, *vmaf, *runtime,
+        subprocess.run([compiler, caller, archive, *runtime,
                         '-lm', '-lpthread', '-o', work / implementation], env=environment, check=True)
     records = []
     for depth in [8, 10, 12]:

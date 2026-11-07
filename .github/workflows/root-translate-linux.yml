@@ -113,10 +113,6 @@ jobs:
           python3 tests/ports/root_production_test.py
           python3 tools/update_production_selection.py --check
           cargo fetch --locked
-      - name: Build the pinned retained VMAF reference
-        run: |
-          python3 tools/build_aom_vmaf.py --fetch --jobs 2
-          echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
       - name: Build complete pinned original root references
         env:
           REQUESTED_PROFILE: ${{ inputs.profile }}

@@ -78,7 +78,7 @@ if (aom / 'TRANSLATION-macos-debug.json').exists():
                 raise SystemExit(f'Generated libaom reference header changed: {header}')
         config = (aom / f'reference/{platform}/{profile}/config/aom_config.h').read_text()
         for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1', 'CONFIG_AV1_HIGHBITDEPTH 1',
-                        'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 1']:
+                        'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 0']:
             if f'#define {setting}\n' not in config:
                 raise SystemExit(f'Incomplete libaom configuration: {path}: {setting}')
     print(f'All {len(expected)} complete portable libaom translation units are represented in {len(list(aom.glob("TRANSLATION-*.json")))} profiles')

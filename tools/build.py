@@ -109,15 +109,15 @@ def main():
             parser.error('--aom-reference-build requires a nonsanitized original C baseline; ASan needs a separately instrumented AOM reference')
         args.aom_reference_build = args.aom_reference_build.resolve()
         profile = 'debug' if args.debug else 'release'
+        from build_aom import LIBRARY_UNITS, library_entries
         reference = json.loads((args.aom_reference_build / 'reference-profile.json').read_text())
         reference_platform = 'macos' if sys.platform == 'darwin' else 'linux'
         translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{reference_platform}-{profile}.json').read_text())
-        if (reference['profile'] != profile or reference['library_translation_units'] != 168
+        if (reference['profile'] != profile or reference['library_translation_units'] != LIBRARY_UNITS
                 or '-ffp-contract=off' not in shlex.split(reference['c_flags'])
                 or not (args.aom_reference_build / 'libaom.a').is_file()):
             raise SystemExit('The C baseline requires the complete noncontracting AOM reference in the matching profile')
-        from build_aom import library_entries
-        if len(library_entries(args.aom_reference_build)) != 168:
+        if len(library_entries(args.aom_reference_build)) != LIBRARY_UNITS:
             raise SystemExit('The original AOM reference archive does not have the declared complete source closure')
         for name, expected in translation['generated_reference_headers'].items():
             if hashlib.sha256((args.aom_reference_build / name).read_bytes()).hexdigest() != expected:

@@ -93,7 +93,7 @@ def main():
         inventory_sha256=hashlib.sha256(inventory_path.read_bytes()).hexdigest(),
         distinct_reviewed_header_functions=len(observed), direct_header_role_review_complete=True,
         complete_included_template_and_indirect_role_review=False, execution_coverage_claimed_by_this_review=False,
-        cpp_rate_control_boundary='av1/ratectrl_rtc.cc builds the separate aom_av1_rc library, which upstream does not install. It is outside the selected 168-C-unit libaom archive and is retained as an original native consumer in test_aom_rc. No Rust wrapper implementation is claimed.',
+        cpp_rate_control_boundary='av1/ratectrl_rtc.cc builds the separate aom_av1_rc library, which upstream does not install. It is outside the selected 166-C-unit libaom archive and is retained as an original native consumer in test_aom_rc. No Rust wrapper implementation is claimed.',
         other_native_test_infrastructure=['GoogleTest', 'libyuv', 'WebM I/O', 'original C++ reference/fixture code'],
         bindings=records)
     path = ROOT / 'docs/aom-header-role-review.json'

@@ -152,7 +152,7 @@ def main():
     record = dict(platform=native_platform, profile=profile, original_aom_globals=len(reference),
         original_aom_globals_in_rust=len(candidate), missing_original_globals=[],
         original_aom_globals_outside_rust=[], original_libavif_implementation_objects=[],
-        native_default_engine_dependencies=[], native_vmaf_retained=True,
+        native_default_engine_dependencies=[],
         original_reference_archive_sha256=digest(native / 'libaom.a'),
         translation_manifest_sha256=digest(manifest_path), rust_root_archive_sha256=digest(archive),
         rust_shared_library_sha256=digest(shared), shared_library_dependencies=shared_graph, consumers=consumers)

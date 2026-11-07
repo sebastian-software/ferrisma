@@ -34,23 +34,19 @@ jobs:
       - name: Install the pinned translation toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake
+          sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config cmake
           rustup toolchain install nightly-2026-09-07 --profile minimal
           rustup toolchain install 1.80.1 --profile minimal
           if [ "${{ inputs.mode }}" != compile ] && [ "${{ inputs.mode }}" != dsp ] && [ "${{ inputs.mode }}" != oracles ]; then
             cargo +1.80.1 install c2rust --version 0.21.0 --locked
           fi
-          python3 -m venv build/aom-tools
-          build/aom-tools/bin/python -m pip install meson==1.7.2
-      - name: Verify source and build the retained native VMAF reference
+      - name: Verify source and translation contracts
         run: |
           python3 tools/verify_upstream.py --tracked
           python3 tools/generate_licenses.py --check
           python3 tests/ports/aom_jumps_test.py
           python3 tools/review_aom_header_roles.py --check
           python3 tools/check_translation.py
-          python3 tools/build_aom_vmaf.py --fetch
-          echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
       - name: Check committed Rust types before building original consumers
         if: inputs.mode != 'generate'
         env:
@@ -173,16 +169,6 @@ jobs:
             python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
             python3 tools/check_aom_oracles.py --suite "$aom_suite"
           done
-      - name: Compare native VMAF modes with the integer model
-        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
-        run: |
-          python3 tools/check_aom_vmaf.py --debug
-          python3 tools/check_aom_vmaf.py
-      - name: Compare native VMAF modes with the float model
-        if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
-        run: |
-          python3 tools/check_aom_vmaf.py --debug --model float
-          python3 tools/check_aom_vmaf.py --model float
       - name: Compare single-allocation failures
         if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
         run: |
@@ -228,7 +214,6 @@ jobs:
             build/aom-native-*/reference-profile.json
             build/aom-native-*/library-compile-commands.json
             build/aom-native-*/test_*-inventory.json
-            build/aom-vmaf/reference-profile.json
             build/aom-rust-*/linkage.json
             build/aom-rust-*/symbol-audit.json
             build/aom-native-*/tests-focused-*/summary.json
@@ -260,6 +245,3 @@ jobs:
             build/aom-rust-*/tests-focused-*/*.log
             build/aom-rust-*/tests-focused-*/*.xml
             build/aom-rust-*/tests-focused-*/shard-*.json
-            build/aom-vmaf-modes-*/summary.json
-            build/aom-vmaf-modes-*/failure.json
-            build/aom-vmaf-modes-*/*.log

@@ -23,10 +23,8 @@ jobs:
       - name: Install the reference build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config python3-venv cmake
+          sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config cmake
           rustup toolchain install nightly-2026-09-07 --profile minimal
-          python3 -m venv build/aom-tools
-          build/aom-tools/bin/python -m pip install meson==1.7.2
       - name: Verify the complete source and error-target contract
         run: |
           python3 tools/verify_upstream.py --tracked
@@ -34,8 +32,6 @@ jobs:
           python3 tests/ports/aom_jumps_test.py
           python3 tools/review_aom_header_roles.py --check
           python3 tools/check_translation.py
-          python3 tools/build_aom_vmaf.py --fetch
-          echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/build/aom-vmaf-install/lib/pkgconfig" >> "$GITHUB_ENV"
       - name: Build both original profiles and all three original test consumers
         run: |
           python3 tools/build_aom.py --debug --jobs 2

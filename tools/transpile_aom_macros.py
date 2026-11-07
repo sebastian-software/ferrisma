@@ -11,7 +11,7 @@ import sys
 
 from aom_corrections import compatibility
 from aom_jumps import map_jumps
-from build_aom import library_entries
+from build_aom import LIBRARY_UNITS, library_entries
 from check_abi import compiler_flags
 from transpile_dav1d import corrected
 
@@ -88,7 +88,7 @@ def main():
     for header in headers:
         if sha256(reference_source / header) != provenance[header]:
             raise SystemExit(f'Modified original macro header: {header}')
-    record = dict(kind='optional original macro test subjects; outside the 168 production translation units',
+    record = dict(kind=f'optional original macro test subjects; outside the {LIBRARY_UNITS} production translation units',
                   translator='c2rust 0.21.0', llvm='16.0.6', preprocessing_profile=profile,
                   generation_target='x86_64-unknown-linux-gnu' if platform == 'linux' else 'aarch64-apple-darwin',
                   source_wrapper_sha256=sha256(source),

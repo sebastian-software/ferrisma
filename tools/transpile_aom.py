@@ -17,7 +17,7 @@ from aom_corrections import compatibility
 from aom_api import facade
 from aom_inline_bridges import SUBJECTS, append_bridges
 from aom_jumps import map_jumps
-from build_aom import library_entries
+from build_aom import LIBRARY_UNITS, library_entries
 from transpile_dav1d import corrected
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,7 +87,7 @@ def main():
     platform = 'linux' if sys.platform == 'linux' else 'macos'
     build = ROOT / f'build/aom-native-{profile}'
     entries = library_entries(build)
-    if len(entries) != 168:
+    if len(entries) != LIBRARY_UNITS:
         raise SystemExit(f'Unexpected archive closure: {len(entries)}')
     work = ROOT / f'build/aom-translate/{profile}'
     work.mkdir(parents=True, exist_ok=True)

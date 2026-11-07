@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from build_aom import library_entries
+from build_aom import LIBRARY_UNITS, library_entries
 from check_abi import compiler_flags
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,15 +44,13 @@ def instrumented_libraries():
              'build/aom-native-release/library-compile-commands.json', 'tools/aom_sanitizer.py']
     key = hashlib.sha256(json.dumps({name: digest(ROOT / name) for name in files}, sort_keys=True).encode()
                          + subprocess.check_output(['rustc', '-vV']) + dylib.read_bytes()
-                         + subprocess.check_output([compiler, '--version'], env=environment)
-                         + subprocess.check_output(['pkg-config', '--libs', '--modversion', 'libvmaf'])
-                         + os.environ.get('PKG_CONFIG_PATH', '').encode()).hexdigest()
+                         + subprocess.check_output([compiler, '--version'], env=environment)).hexdigest()
     cached = json.loads(record_path.read_text()) if record_path.exists() else {}
     if (cached.get('key') != key or not reference.exists() or not candidate.exists()
             or cached.get('original_sha256') != digest(reference)
             or cached.get('rust_sha256') != digest(candidate)):
         entries = library_entries(ROOT / 'build/aom-native-release')
-        if len(entries) != 168:
+        if len(entries) != LIBRARY_UNITS:
             raise SystemExit('Missing complete original sanitizer source closure')
 
         def compile_unit(item):
@@ -80,7 +78,7 @@ def instrumented_libraries():
         record = dict(key=key, original_translation_units=len(entries),
                       compiler=subprocess.check_output([compiler, '--version'], env=environment, text=True).splitlines()[0],
                       original_sha256=digest(reference), rust_sha256=digest(candidate), runtime_sha256=digest(dylib),
-                      original_release_preprocessing=True, sanitizer='address', native_vmaf_uninstrumented=True)
+                      original_release_preprocessing=True, sanitizer='address')
         record_path.write_text(json.dumps(record, indent=2) + '\n')
     link = ['-fno-sanitize=address', '-L' + str(runtime), '-lrustc-nightly_rt.asan',
             '-Wl,-rpath,' + str(runtime)]
@@ -128,7 +126,7 @@ def llvm_prefix():
 def instrumented_reference():
     """Build only the complete instrumented original C AOM closure for root consumers.
 
-    The archive contains all 168 units of the matching Release reference, with
+    The archive contains all 166 units of the matching Release reference, with
     each original compilation command plus ASan instrumentation. Native VMAF
     remains uninstrumented. The Rust implementation is built by its consumer.
     """
@@ -141,7 +139,7 @@ def instrumented_reference():
     subprocess.run(['python3', ROOT / 'tools/verify_upstream.py'], check=True)
     native = ROOT / 'build/aom-native-release'
     profile = json.loads((native / 'reference-profile.json').read_text())
-    if profile['profile'] != 'release' or profile['library_translation_units'] != 168:
+    if profile['profile'] != 'release' or profile['library_translation_units'] != LIBRARY_UNITS:
         raise SystemExit('The instrumented AOM closure requires the complete original Release reference')
     work = ROOT / f'build/aom-root-asan-reference-{triple}'
     work.mkdir(parents=True, exist_ok=True)
@@ -155,7 +153,7 @@ def instrumented_reference():
     cached = json.loads(record_path.read_text()) if record_path.exists() else {}
     if cached.get('key') != key or not archive.exists() or cached.get('original_sha256') != digest(archive):
         entries = library_entries(native)
-        if len(entries) != 168:
+        if len(entries) != LIBRARY_UNITS:
             raise SystemExit('Missing complete original sanitizer source closure')
 
         def compile_unit(item):
@@ -173,7 +171,7 @@ def instrumented_reference():
         record = dict(key=key, target=triple, original_translation_units=len(entries),
                       compiler=subprocess.check_output([compiler, '--version'], env=environment, text=True).splitlines()[0],
                       original_sha256=digest(archive), runtime=str(runtime), runtime_sha256=digest(runtime),
-                      original_release_preprocessing=True, sanitizer='address', native_vmaf_uninstrumented=True)
+                      original_release_preprocessing=True, sanitizer='address')
         record_path.write_text(json.dumps(record, indent=2) + '\n')
     shutil.copyfile(native / 'reference-profile.json', work / 'reference-profile.json')
     return work, prefix, link

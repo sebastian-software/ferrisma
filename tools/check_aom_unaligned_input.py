@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import subprocess
 
-from aom_vmaf import link_flags
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,9 +41,8 @@ def main():
     caller = work / 'caller.o'
     subprocess.run([compiler, '-std=c11', '-ffp-contract=off', '-g', '-I', ROOT / 'upstream/aom',
                     '-c', source, '-o', caller], check=True)
-    vmaf = link_flags()
     for implementation, archive in [('c', reference), ('rust', candidate)]:
-        subprocess.run([compiler, caller, archive, *vmaf, '-lm', '-lpthread',
+        subprocess.run([compiler, caller, archive, '-lm', '-lpthread',
                         '-o', work / implementation], check=True)
     records = []
     for depth in [8, 10, 12]:

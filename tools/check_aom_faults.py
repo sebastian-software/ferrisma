@@ -10,9 +10,8 @@ import shutil
 import subprocess
 import sys
 
-from build_aom import library_entries
+from build_aom import LIBRARY_UNITS, library_entries
 from aom_sanitizer import instrumented_libraries
-from aom_vmaf import link_flags
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,7 +56,7 @@ def main():
                 originals.append(target)
     members = [name for name in subprocess.check_output(['ar', '-t', archive], text=True).splitlines()
                if name.startswith('aom.') and name.endswith('.rcgu.o')]
-    if len(originals) != 168 or not members:
+    if len(originals) != LIBRARY_UNITS or not members:
         raise SystemExit('Incomplete C or Rust codec object closure')
     extracted = work / 'rust-original-objects'
     extracted.mkdir(exist_ok=True)
@@ -66,8 +65,7 @@ def main():
         target = extracted / member
         target.write_bytes(subprocess.check_output(['ar', '-p', archive, member]))
         rust.append(target)
-    native = link_flags()
-    native += ['-lm', '-lpthread', *(['-lresolv', '-liconv'] if darwin else ['-ldl', '-lrt', '-lutil'])]
+    native = ['-lm', '-lpthread', *(['-lresolv', '-liconv'] if darwin else ['-ldl', '-lrt', '-lutil'])]
     source = ROOT / ('tests/ports/aom_thread_faults.c' if args.thread_failures else 'tests/ports/aom_faults.c')
     caller = work / 'caller.o'
     subprocess.run([compiler, '-std=c11', '-g', '-I', ROOT / 'upstream/aom',
@@ -130,7 +128,7 @@ def main():
                   original_translation_units=len(originals), rewritten_rust_codegen_objects=len(rust),
                   source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                   input_sha256=hashlib.sha256(fixture.read_bytes()).hexdigest(),
-                  native_vmaf_unhooked=True, rust_runtime_and_unwind_payload_unhooked=True,
+                  rust_runtime_and_unwind_payload_unhooked=True,
                   records=records)
     (work / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
 

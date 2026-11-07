@@ -140,7 +140,7 @@ def main():
         _, runtime, _ = native_runtime()
         aom_reference = ROOT / f'build/aom-root-asan-reference-{record["generation_target"]}'
         aom_record = json.loads((aom_reference / 'build.json').read_text())
-        if (aom_record['original_translation_units'] != 168 or aom_record['sanitizer'] != args.sanitizer
+        if (aom_record['original_translation_units'] != 166 or aom_record['sanitizer'] != args.sanitizer
                 or aom_record['original_sha256'] != digest(aom_reference / 'libaom.a')
                 or aom_record['runtime_sha256'] != digest(runtime)):
             raise SystemExit('The sanitized C baseline lacks the complete instrumented original AOM closure')
@@ -149,7 +149,7 @@ def main():
             raise SystemExit('The sanitized C baseline is not linked to the instrumented original AOM closure')
         sanitizer_record = dict(sanitizer=args.sanitizer, runtime=str(runtime), runtime_sha256=digest(runtime),
                                 original_aom_reference_sha256=aom_record['original_sha256'],
-                                original_aom_translation_units=168, native_vmaf_uninstrumented=True,
+                                original_aom_translation_units=166,
                                 original_c_flags_match_profile_preprocessing=True)
     full = inventory(baseline)
     if full != inventory(port):

@@ -9,6 +9,7 @@ import re
 from aom_inline_bridges import SUBJECTS, append_bridges
 from aom_corrections import control_va_list
 from aom_jumps import JUMP_CORRECTIONS, map_scopes
+from build_aom import LIBRARY_UNITS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,7 +53,7 @@ def main():
     artifact = args.artifact.resolve()
     original = json.loads((ROOT / 'docs/aom-reference-macos-debug.json').read_text())
     expected = {name.replace('<generated>/', 'generated/') for name in original['library_sources']}
-    records = []
+    records, current_artifacts = [], []
     for profile in ['debug', 'release']:
         relative_manifest = Path(f'crates/aom/TRANSLATION-linux-{profile}.json')
         manifest_path = artifact / relative_manifest
@@ -71,12 +72,16 @@ def main():
                 refresh_paths.add(Path(unit['rust']))
             refresh_paths.add(relative_manifest)
         if (manifest['generation_target'] != 'x86_64-unknown-linux-gnu'
-                or manifest['preprocessing_profile'] != profile or len(manifest['units']) != 168):
+                or manifest['preprocessing_profile'] != profile or len(manifest['units']) != LIBRARY_UNITS):
             raise SystemExit('Unexpected native Linux translation profile')
-        if manifest.get('optional_inline_test_bridges'):
-            raise SystemExit('This importer expects profiles generated before optional inline bridges')
+        # The current translator already applies the callback correction, the
+        # glibc error-target mapping and the optional inline wrappers on Linux;
+        # its artifacts are imported unchanged. Earlier artifacts predate those
+        # stages and are transformed here.
+        current = bool(manifest.get('optional_inline_test_bridges'))
+        current_artifacts.append(current)
         closure, prepared, units, emitted, bridges, corrected_units = [], {}, [], set(), [], []
-        for unit in manifest['units']:
+        for unit in ([] if current else manifest['units']):
             source, target = Path(unit['source']), Path(unit['rust'])
             prefix = Path('upstream/aom') if source.is_relative_to('upstream/aom') else Path(f'crates/aom/reference/linux/{profile}')
             closure.append(str(source.relative_to(prefix)))
@@ -102,6 +107,23 @@ def main():
                               rust_sha256=hashlib.sha256(text.encode()).hexdigest(),
                               production_rust_sha256=production_sha256, corrections=changes))
             prepared[target] = text.encode()
+        if current:
+            for unit in manifest['units']:
+                source, target = Path(unit['source']), Path(unit['rust'])
+                prefix = Path('upstream/aom') if source.is_relative_to('upstream/aom') else Path(f'crates/aom/reference/linux/{profile}')
+                closure.append(str(source.relative_to(prefix)))
+                if not target.is_relative_to(f'crates/aom/src/linux/{profile}'):
+                    raise SystemExit('Translation output escapes the selected Linux profile')
+                content = (artifact / target).read_bytes()
+                if hashlib.sha256(content).hexdigest() != unit['rust_sha256']:
+                    raise SystemExit(f'Artifact translation hash differs: {target}')
+                prepared[target] = content
+            emitted = {item['function'] for item in manifest['optional_inline_test_bridges']}
+            bridges = manifest['optional_inline_test_bridges']
+            for relative in [Path(f'crates/aom/src/macros-linux-{profile}.rs'),
+                             Path(f'translations/aom-macros-linux-{profile}.json')]:
+                if (artifact / relative).is_file():
+                    prepared[relative] = (artifact / relative).read_bytes()
         if set(closure) != expected or len(closure) != len(expected):
             raise SystemExit('Linux profile changed the complete original archive closure')
         if emitted != {name for _, names in SUBJECTS.values() for name in names}:
@@ -112,7 +134,7 @@ def main():
                 raise SystemExit(f'Artifact configuration hash differs: {name}')
         config = (artifact / reference / 'config/aom_config.h').read_text()
         for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1', 'CONFIG_AV1_HIGHBITDEPTH 1',
-                        'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 1']:
+                        'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 0']:
             if f'#define {setting}\n' not in config:
                 raise SystemExit(f'Incomplete native Linux configuration: {setting}')
         for path in (artifact / reference).rglob('*'):
@@ -121,10 +143,13 @@ def main():
         for filename in [f'modules-linux-{profile}.rs', f'api-linux-{profile}.rs']:
             relative = Path('crates/aom/src') / filename
             prepared[relative] = (artifact / relative).read_bytes()
-        result = dict(translator=manifest['translator'], llvm=manifest['llvm'], preprocessing_profile=profile,
-                      generation_target=manifest['generation_target'], generated_reference_headers=manifest['generated_reference_headers'],
-                      optional_inline_test_bridges=bridges, units=units)
-        prepared[relative_manifest] = (json.dumps(result, indent=2) + '\n').encode()
+        if current:
+            prepared[relative_manifest] = manifest_path.read_bytes()
+        else:
+            result = dict(translator=manifest['translator'], llvm=manifest['llvm'], preprocessing_profile=profile,
+                          generation_target=manifest['generation_target'], generated_reference_headers=manifest['generated_reference_headers'],
+                          optional_inline_test_bridges=bridges, units=units)
+            prepared[relative_manifest] = (json.dumps(result, indent=2) + '\n').encode()
         for relative, content in prepared.items():
             target = ROOT / relative
             if args.check and not target.exists():
@@ -140,11 +165,18 @@ def main():
         records.append(dict(profile=profile, native_reference=reference_record,
                             artifact_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                             imported_manifest_sha256=hashlib.sha256(prepared[relative_manifest]).hexdigest(),
-                            production_bodies_unchanged=not corrected_units,
-                            corrected_production_bodies=corrected_units, optional_inline_wrappers=len(bridges)))
+                            **(dict(corrections_recorded_in_manifest=True) if current else
+                               dict(production_bodies_unchanged=not corrected_units,
+                                    corrected_production_bodies=corrected_units)),
+                            optional_inline_wrappers=len(bridges)))
+    if len(set(current_artifacts)) != 1:
+        raise SystemExit('Both Linux profiles must come from the same translator generation')
+    transformation = ('None: the current translator generated both profiles with every correction and optional inline wrapper'
+                      if current_artifacts[0] else
+                      'Map the array-decayed control va_list callback type and glibc _setjmp error targets, then append the same optional inline wrappers as the current translator')
     record = dict(run_id=args.run_id, source_revision='af3dc9aadc793c1b00edc003e3fc19a44fdeb574',
                   status='native Linux source profiles generated; compilation and acceptance pending',
-                  artifact_transformation='Map the array-decayed control va_list callback type and glibc _setjmp error targets, then append the same optional inline wrappers as the current translator',
+                  artifact_transformation=transformation,
                   native_reference_and_original_tests_preserved=True, profiles=records)
     record_path = ROOT / 'docs/aom-linux-source-import.json'
     content = json.dumps(record, indent=2) + '\n'

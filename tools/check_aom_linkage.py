@@ -139,7 +139,7 @@ def main():
                   rust_archive_sha256=hashlib.sha256(rust_archive.read_bytes()).hexdigest(),
                   consumers=consumers, archives_only=args.archives_only,
                   rust_definition_scope='Every original codec global in all Rust codec codegen members; compiler metadata excluded',
-                  header_inline_test_coverage_proven=False, native_vmaf_retained=True)
+                  header_inline_test_coverage_proven=False)
     (output / 'symbol-audit.json').write_text(json.dumps(report, indent=2) + '\n')
     print(f'{len(reference)} original globals resolve to Rust codec objects; {len(consumers)} consumer maps audited')
 

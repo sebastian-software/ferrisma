@@ -11,6 +11,9 @@ import subprocess
 from build_dav1d import copy_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
+# Translation units of the still-image profile (ADR 0057): the complete generic
+# archive without the two VMAF units, av1/encoder/tune_vmaf.c and aom_dsp/vmaf.c.
+LIBRARY_UNITS = 166
 
 
 def test_names(listing):
@@ -49,7 +52,7 @@ def main():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--jobs', type=int, default=8)
     parser.add_argument('--library-only', action='store_true',
-                        help='Build all 168 original library units for root validation without building standalone test binaries')
+                        help=f'Build all {LIBRARY_UNITS} original library units for root validation without building standalone test binaries')
     args = parser.parse_args()
     subprocess.run(['python3', ROOT / 'tools/verify_upstream.py'], check=True)
     source = ROOT / 'build/aom-native-source'
@@ -57,7 +60,7 @@ def main():
     profile = 'debug' if args.debug else 'release'
     build = ROOT / f'build/aom-native-{profile}'
     flags = f'-ffp-contract=off -fmacro-prefix-map={source}=upstream/aom'
-    options = ['-DAOM_TARGET_CPU=generic', '-DCONFIG_TUNE_VMAF=1',
+    options = ['-DAOM_TARGET_CPU=generic', '-DCONFIG_TUNE_VMAF=0',
                '-DCMAKE_POSITION_INDEPENDENT_CODE=ON', '-DENABLE_DOCS=OFF']
     command = ['cmake', '-S', source, '-B', build, '-G', 'Ninja',
                f'-DCMAKE_BUILD_TYPE={profile.title()}',
@@ -66,13 +69,13 @@ def main():
     subprocess.run([str(item) for item in command], check=True)
     subprocess.run(['ninja', '-C', build, '-j', str(args.jobs), *(['libaom.a'] if args.library_only else [])], check=True)
     entries = library_entries(build)
-    if len(entries) != 168:
+    if len(entries) != LIBRARY_UNITS:
         raise SystemExit(f'Unexpected complete portable source closure: {len(entries)}')
     config = (build / 'config/aom_config.h').read_text()
     for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1',
                     'CONFIG_AV1_HIGHBITDEPTH 1', 'CONFIG_MULTITHREAD 1',
                     'CONFIG_DENOISE 1', 'CONFIG_QUANT_MATRIX 1',
-                    'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 1']:
+                    'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 0']:
         if f'#define {setting}\n' not in config:
             raise SystemExit(f'Missing required configuration: {setting}')
     for line in config.splitlines():
@@ -108,8 +111,7 @@ def main():
                   library_translation_units=len(entries), generated_units=3,
                   original_test_inventories=inventories, original_test_inputs=len(data),
                   config_sha256=hashlib.sha256(config.encode()).hexdigest(),
-                  transitive_runtime_dependencies={'libvmaf': subprocess.check_output(
-                      ['pkg-config', '--modversion', 'libvmaf'], text=True).strip()})
+                  transitive_runtime_dependencies={})
     (build / 'reference-profile.json').write_text(json.dumps(record, indent=2) + '\n')
     print(json.dumps(record, indent=2))
 

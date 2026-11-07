@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 
-from build_aom import library_entries
+from build_aom import LIBRARY_UNITS, library_entries
 from check_aom_linkage import definitions
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +19,7 @@ def reference_archive(profile, build=None):
     source = build / 'libaom.a'
     work = ROOT / f'build/aom-reference-{profile}'
     work.mkdir(parents=True, exist_ok=True)
-    if len(library_entries(build)) != 168:
+    if len(library_entries(build)) != LIBRARY_UNITS:
         raise SystemExit('Independent C reference requires the complete original archive')
     symbols = definitions(source)
     decoration = '_' if sys.platform == 'darwin' else ''
@@ -56,9 +56,9 @@ def reference_archive(profile, build=None):
                 if name not in ['__.SYMDEF', '__.SYMDEF SORTED']]
 
     members = object_members(source)
-    if len(members) != 168 or object_members(target) != members:
+    if len(members) != LIBRARY_UNITS or object_members(target) != members:
         raise SystemExit('Independent C reference changed original archive members')
-    record = dict(key=key, profile=profile, original_translation_units=168, archive_members=len(members),
+    record = dict(key=key, profile=profile, original_translation_units=LIBRARY_UNITS, archive_members=len(members),
                   renamed_original_globals=len(symbols), unrenamed_original_codec_references=[],
                   original_archive_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                   archive_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),
