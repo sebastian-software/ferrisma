@@ -156,8 +156,11 @@ offsets, strides and sizes. The `u` union of `WebPDecBuffer` becomes the enum
 `WebPDecBufferPlanes`, because the C union is anonymous. `WebPDecBuffer<'a>`,
 `WebPDecoderConfig<'a>` and `WebPPicture<'a>` carry the lifetime. The C field
 `is_external_memory` is the variant of the storage and is not stored again. Its
-value 2, which marks slow external memory, is a performance hint of WP12 and is not
-represented. The lifetime reaches `WebPDecParams`, `WebPIDecoder` and the safe
+values 2 and more mark slow external memory, which changes observable behavior
+(the decoder works in its own buffer and copies at the end, so status precedence,
+the caller's buffer after a failure and the incremental getters differ); a
+`WebPDecBuffer` represents them with the flag `slow_memory`, meaningful only with
+`External` storage (amended 2026-11-07, WP12). The lifetime reaches `WebPDecParams`, `WebPIDecoder` and the safe
 decoder API (WP12, WP16). In the ABI mirror (ADR 0004), the caller's pointer is
 bound to that lifetime under `unsafe`, with a `// SAFETY:` argument for each
 operation. The planes of one picture share one storage, so a picture is owned or

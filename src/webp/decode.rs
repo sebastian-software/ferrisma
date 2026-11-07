@@ -245,9 +245,9 @@ impl Default for WebPDecBufferPlanes {
 ///
 /// `storage` is C's `private_memory` when the object allocated the samples, and
 /// the caller's slices when C would set `is_external_memory`. The C field
-/// `is_external_memory` is therefore the variant of `storage` and is not stored
-/// again. The value 2 of that field, which marks slow external memory, is a
-/// performance hint of WP12 and is not represented.
+/// `is_external_memory` is therefore the variant of `storage`, and its values 2
+/// and more, which mark slow external memory, are `slow_memory` (ADR 0003,
+/// amended 2026-11-07, WP12).
 #[derive(Debug)]
 pub struct WebPDecBuffer<'a> {
     /// Colorspace of the samples (C: `colorspace`).
@@ -256,6 +256,10 @@ pub struct WebPDecBuffer<'a> {
     pub width: i32,
     /// Height in pixels (C: `height`).
     pub height: i32,
+    /// Slow external memory (C: `is_external_memory >= 2`): the decoder avoids
+    /// multiple reads and writes of it. Meaningful only with `External`
+    /// storage, and false for the other storages.
+    pub slow_memory: bool,
     /// The planes of the buffer, selected by `colorspace` (C: `u`).
     pub u: WebPDecBufferPlanes,
     /// Padding for later use.
@@ -271,6 +275,7 @@ impl Default for WebPDecBuffer<'_> {
             colorspace: WEBP_CSP_MODE::MODE_RGB,
             width: 0,
             height: 0,
+            slow_memory: false,
             u: WebPDecBufferPlanes::default(),
             pad: [0; 4],
             storage: PlaneStorage::default(),
