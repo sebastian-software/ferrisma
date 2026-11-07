@@ -39,3 +39,310 @@
 //! Translation of `src/jidctfst.c` from libjpeg-turbo 3.2.1.
 //!
 //! Work package: 4 (Coefficients and IDCT).
+//!
+//! The 8-bit configuration applies: `CONST_BITS` 8 and `PASS1_BITS` 2.
+//! `USE_ACCURATE_ROUNDING` is undefined, so this file's `DESCALE` is
+//! `RIGHT_SHIFT`, which truncates, and `MULTIPLY` descales with it.
+//! `RIGHT_SHIFT_IS_UNSIGNED` is undefined, so `IRIGHT_SHIFT` is `x >> shft`,
+//! and `ISHIFT_TEMPS` and `SCALING_FACTOR` declare nothing. The `(int)` casts
+//! of `DCTELEM` values are identities and are dropped. `NO_ZERO_ROW_TEST` is
+//! undefined, so the zero-row tests are kept. The range limit comes from
+//! `IDCT_range_limit`. Pointer walks become indexes.
+
+use crate::jdct::{DCTELEM, IDCT_range_limit, IFAST_MULT_TYPE, RANGE_MASK};
+use crate::jmorecfg::{JCOEF, JDIMENSION, JSAMPLE};
+use crate::jpegint::{JLONG, RIGHT_SHIFT};
+use crate::jpeglib::{
+    DCTSIZE, DCTSIZE2, JBLOCK, JSAMPROWS_MUT, jpeg_component_info, jpeg_decompress_struct,
+};
+
+// upstream: src/jidctfst.c CONST_BITS
+const CONST_BITS: u32 = 8;
+// upstream: src/jidctfst.c PASS1_BITS
+const PASS1_BITS: u32 = 2;
+
+// upstream: src/jidctfst.c FIX_1_082392200
+/// `FIX(1.082392200)` with `CONST_BITS` 8.
+const FIX_1_082392200: JLONG = 277;
+// upstream: src/jidctfst.c FIX_1_414213562
+/// `FIX(1.414213562)` with `CONST_BITS` 8.
+const FIX_1_414213562: JLONG = 362;
+// upstream: src/jidctfst.c FIX_1_847759065
+/// `FIX(1.847759065)` with `CONST_BITS` 8.
+const FIX_1_847759065: JLONG = 473;
+// upstream: src/jidctfst.c FIX_2_613125930
+/// `FIX(2.613125930)` with `CONST_BITS` 8.
+const FIX_2_613125930: JLONG = 669;
+
+// upstream: src/jidctfst.c DESCALE
+/// `RIGHT_SHIFT(x, n)`: `USE_ACCURATE_ROUNDING` is undefined in this file,
+/// so the descale truncates instead of rounding.
+#[expect(non_snake_case, reason = "C macro name")]
+#[inline]
+fn DESCALE(x: JLONG, n: u32) -> JLONG {
+    RIGHT_SHIFT(x, n)
+}
+
+// upstream: src/jidctfst.c MULTIPLY
+/// Multiplies a `DCTELEM` variable by a `JLONG` constant, descales the
+/// product by `CONST_BITS`, and yields a `DCTELEM` result.
+#[expect(non_snake_case, reason = "C macro name")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "C's conversion of the descaled product to DCTELEM"
+)]
+#[inline]
+fn MULTIPLY(var: DCTELEM, const_: JLONG) -> DCTELEM {
+    DESCALE(JLONG::from(var) * const_, CONST_BITS) as DCTELEM
+}
+
+// upstream: src/jidctfst.c DEQUANTIZE
+/// Dequantizes a coefficient by multiplying it by the multiplier-table
+/// entry; produces a `DCTELEM` result.
+#[expect(non_snake_case, reason = "C macro name")]
+#[inline]
+fn DEQUANTIZE(coef: JCOEF, quantval: IFAST_MULT_TYPE) -> DCTELEM {
+    IFAST_MULT_TYPE::from(coef) * quantval
+}
+
+// upstream: src/jidctfst.c IRIGHT_SHIFT
+/// `((x) >> (shft))`: the arithmetic shift of a `DCTELEM`, because
+/// `RIGHT_SHIFT_IS_UNSIGNED` is undefined in this file.
+#[expect(non_snake_case, reason = "C macro name")]
+#[inline]
+fn IRIGHT_SHIFT(x: DCTELEM, shft: u32) -> DCTELEM {
+    x >> shft
+}
+
+// upstream: src/jidctfst.c IDESCALE
+/// `((int)IRIGHT_SHIFT(x, n))`, which truncates because `USE_ACCURATE_ROUNDING`
+/// is undefined. The `int` cast is the identity on a `DCTELEM`.
+#[expect(non_snake_case, reason = "C macro name")]
+#[inline]
+fn IDESCALE(x: DCTELEM, n: u32) -> DCTELEM {
+    IRIGHT_SHIFT(x, n)
+}
+
+/// `range_limit[(int)x & RANGE_MASK]`: the sample for a descaled IDCT
+/// output. Not an upstream item.
+#[expect(clippy::cast_sign_loss, reason = "the masked index is nonnegative")]
+#[inline]
+fn range_limit_sample(range_limit: &[JSAMPLE], x: DCTELEM) -> JSAMPLE {
+    range_limit[(x & RANGE_MASK) as usize]
+}
+
+// upstream: src/jidctfst.c _jpeg_idct_ifast
+/// Performs dequantization and inverse DCT on one block of coefficients.
+///
+/// # Panics
+///
+/// When the multiplier table or the range-limit table is absent, or
+/// `output_buf` has fewer than 8 rows or 8 columns from `output_col` on.
+#[expect(clippy::too_many_lines, reason = "translated as one function")]
+#[expect(clippy::similar_names, reason = "C names tmp10, tmp12 and so on")]
+#[expect(clippy::identity_op, reason = "C's DCTSIZE * k indexing")]
+#[expect(clippy::erasing_op, reason = "C's DCTSIZE * k indexing")]
+pub fn jpeg_idct_ifast(
+    cinfo: &jpeg_decompress_struct<'_>,
+    compptr: &jpeg_component_info,
+    coef_block: &JBLOCK,
+    mut output_buf: JSAMPROWS_MUT<'_, '_>,
+    output_col: JDIMENSION,
+) {
+    let mut tmp0: DCTELEM;
+    let mut tmp1: DCTELEM;
+    let mut tmp2: DCTELEM;
+    let mut tmp3: DCTELEM;
+    let mut tmp4: DCTELEM;
+    let mut tmp5: DCTELEM;
+    let mut tmp6: DCTELEM;
+    let mut tmp7: DCTELEM;
+    let mut tmp10: DCTELEM;
+    let mut tmp11: DCTELEM;
+    let mut tmp12: DCTELEM;
+    let mut tmp13: DCTELEM;
+    let mut z5: DCTELEM;
+    let mut z10: DCTELEM;
+    let mut z11: DCTELEM;
+    let mut z12: DCTELEM;
+    let mut z13: DCTELEM;
+    let range_limit = IDCT_range_limit(cinfo);
+    let mut workspace = [0i32; DCTSIZE2]; /* buffers data between passes */
+
+    /* Pass 1: process columns from input, store into work array. */
+
+    let inptr = coef_block;
+    let quantptr = compptr
+        .dct_table
+        .as_deref()
+        .expect("compptr->dct_table is NULL")
+        .ifast_array();
+    let wsptr = &mut workspace;
+    for col in 0..DCTSIZE {
+        /* Due to quantization, we will usually find that many of the input
+         * coefficients are zero, especially the AC terms.  We can exploit this
+         * by short-circuiting the IDCT calculation for any column in which all
+         * the AC terms are zero.  In that case each output is equal to the
+         * DC coefficient (with scale factor as needed).
+         * With typical images and quantization tables, half or more of the
+         * column DCT calculations can be simplified this way.
+         */
+
+        if inptr[DCTSIZE * 1 + col] == 0
+            && inptr[DCTSIZE * 2 + col] == 0
+            && inptr[DCTSIZE * 3 + col] == 0
+            && inptr[DCTSIZE * 4 + col] == 0
+            && inptr[DCTSIZE * 5 + col] == 0
+            && inptr[DCTSIZE * 6 + col] == 0
+            && inptr[DCTSIZE * 7 + col] == 0
+        {
+            /* AC terms all zero */
+            let dcval = DEQUANTIZE(inptr[DCTSIZE * 0 + col], quantptr[DCTSIZE * 0 + col]);
+
+            wsptr[DCTSIZE * 0 + col] = dcval;
+            wsptr[DCTSIZE * 1 + col] = dcval;
+            wsptr[DCTSIZE * 2 + col] = dcval;
+            wsptr[DCTSIZE * 3 + col] = dcval;
+            wsptr[DCTSIZE * 4 + col] = dcval;
+            wsptr[DCTSIZE * 5 + col] = dcval;
+            wsptr[DCTSIZE * 6 + col] = dcval;
+            wsptr[DCTSIZE * 7 + col] = dcval;
+
+            continue; /* advance pointers to next column */
+        }
+
+        /* Even part */
+
+        tmp0 = DEQUANTIZE(inptr[DCTSIZE * 0 + col], quantptr[DCTSIZE * 0 + col]);
+        tmp1 = DEQUANTIZE(inptr[DCTSIZE * 2 + col], quantptr[DCTSIZE * 2 + col]);
+        tmp2 = DEQUANTIZE(inptr[DCTSIZE * 4 + col], quantptr[DCTSIZE * 4 + col]);
+        tmp3 = DEQUANTIZE(inptr[DCTSIZE * 6 + col], quantptr[DCTSIZE * 6 + col]);
+
+        tmp10 = tmp0 + tmp2; /* phase 3 */
+        tmp11 = tmp0 - tmp2;
+
+        tmp13 = tmp1 + tmp3; /* phases 5-3 */
+        tmp12 = MULTIPLY(tmp1 - tmp3, FIX_1_414213562) - tmp13; /* 2*c4 */
+
+        tmp0 = tmp10 + tmp13; /* phase 2 */
+        tmp3 = tmp10 - tmp13;
+        tmp1 = tmp11 + tmp12;
+        tmp2 = tmp11 - tmp12;
+
+        /* Odd part */
+
+        tmp4 = DEQUANTIZE(inptr[DCTSIZE * 1 + col], quantptr[DCTSIZE * 1 + col]);
+        tmp5 = DEQUANTIZE(inptr[DCTSIZE * 3 + col], quantptr[DCTSIZE * 3 + col]);
+        tmp6 = DEQUANTIZE(inptr[DCTSIZE * 5 + col], quantptr[DCTSIZE * 5 + col]);
+        tmp7 = DEQUANTIZE(inptr[DCTSIZE * 7 + col], quantptr[DCTSIZE * 7 + col]);
+
+        z13 = tmp6 + tmp5; /* phase 6 */
+        z10 = tmp6 - tmp5;
+        z11 = tmp4 + tmp7;
+        z12 = tmp4 - tmp7;
+
+        tmp7 = z11 + z13; /* phase 5 */
+        tmp11 = MULTIPLY(z11 - z13, FIX_1_414213562); /* 2*c4 */
+
+        z5 = MULTIPLY(z10 + z12, FIX_1_847759065); /* 2*c2 */
+        tmp10 = MULTIPLY(z12, FIX_1_082392200) - z5; /* 2*(c2-c6) */
+        tmp12 = MULTIPLY(z10, -FIX_2_613125930) + z5; /* -2*(c2+c6) */
+
+        tmp6 = tmp12 - tmp7; /* phase 2 */
+        tmp5 = tmp11 - tmp6;
+        tmp4 = tmp10 + tmp5;
+
+        wsptr[DCTSIZE * 0 + col] = tmp0 + tmp7;
+        wsptr[DCTSIZE * 7 + col] = tmp0 - tmp7;
+        wsptr[DCTSIZE * 1 + col] = tmp1 + tmp6;
+        wsptr[DCTSIZE * 6 + col] = tmp1 - tmp6;
+        wsptr[DCTSIZE * 2 + col] = tmp2 + tmp5;
+        wsptr[DCTSIZE * 5 + col] = tmp2 - tmp5;
+        wsptr[DCTSIZE * 4 + col] = tmp3 + tmp4;
+        wsptr[DCTSIZE * 3 + col] = tmp3 - tmp4;
+    }
+
+    /* Pass 2: process rows from work array, store into output array. */
+    /* Note that we must descale the results by a factor of 8 == 2**3, */
+    /* and also undo the PASS1_BITS scaling. */
+
+    for ctr in 0..DCTSIZE {
+        let wsptr = &workspace[ctr * DCTSIZE..(ctr + 1) * DCTSIZE];
+        let outptr = &mut output_buf.row_mut(ctr)[output_col as usize..];
+        /* Rows of zeroes can be exploited in the same way as we did with columns.
+         * However, the column calculation has created many nonzero AC terms, so
+         * the simplification applies less often (typically 5% to 10% of the time).
+         * On machines with very fast multiplication, it's possible that the
+         * test takes more time than it's worth.  In that case this section
+         * may be commented out.
+         */
+
+        /* NO_ZERO_ROW_TEST is undefined, so the test is compiled in. */
+        if wsptr[1] == 0
+            && wsptr[2] == 0
+            && wsptr[3] == 0
+            && wsptr[4] == 0
+            && wsptr[5] == 0
+            && wsptr[6] == 0
+            && wsptr[7] == 0
+        {
+            /* AC terms all zero */
+            let dcval = range_limit_sample(range_limit, IDESCALE(wsptr[0], PASS1_BITS + 3));
+
+            outptr[0] = dcval;
+            outptr[1] = dcval;
+            outptr[2] = dcval;
+            outptr[3] = dcval;
+            outptr[4] = dcval;
+            outptr[5] = dcval;
+            outptr[6] = dcval;
+            outptr[7] = dcval;
+
+            continue; /* advance pointer to next row */
+        }
+
+        /* Even part */
+
+        tmp10 = wsptr[0] + wsptr[4];
+        tmp11 = wsptr[0] - wsptr[4];
+
+        tmp13 = wsptr[2] + wsptr[6];
+        tmp12 = MULTIPLY(wsptr[2] - wsptr[6], FIX_1_414213562) - tmp13;
+
+        tmp0 = tmp10 + tmp13;
+        tmp3 = tmp10 - tmp13;
+        tmp1 = tmp11 + tmp12;
+        tmp2 = tmp11 - tmp12;
+
+        /* Odd part */
+
+        z13 = wsptr[5] + wsptr[3];
+        z10 = wsptr[5] - wsptr[3];
+        z11 = wsptr[1] + wsptr[7];
+        z12 = wsptr[1] - wsptr[7];
+
+        tmp7 = z11 + z13; /* phase 5 */
+        tmp11 = MULTIPLY(z11 - z13, FIX_1_414213562); /* 2*c4 */
+
+        z5 = MULTIPLY(z10 + z12, FIX_1_847759065); /* 2*c2 */
+        tmp10 = MULTIPLY(z12, FIX_1_082392200) - z5; /* 2*(c2-c6) */
+        tmp12 = MULTIPLY(z10, -FIX_2_613125930) + z5; /* -2*(c2+c6) */
+
+        tmp6 = tmp12 - tmp7; /* phase 2 */
+        tmp5 = tmp11 - tmp6;
+        tmp4 = tmp10 + tmp5;
+
+        /* Final output stage: scale down by a factor of 8 and range-limit */
+
+        outptr[0] = range_limit_sample(range_limit, IDESCALE(tmp0 + tmp7, PASS1_BITS + 3));
+        outptr[7] = range_limit_sample(range_limit, IDESCALE(tmp0 - tmp7, PASS1_BITS + 3));
+        outptr[1] = range_limit_sample(range_limit, IDESCALE(tmp1 + tmp6, PASS1_BITS + 3));
+        outptr[6] = range_limit_sample(range_limit, IDESCALE(tmp1 - tmp6, PASS1_BITS + 3));
+        outptr[2] = range_limit_sample(range_limit, IDESCALE(tmp2 + tmp5, PASS1_BITS + 3));
+        outptr[5] = range_limit_sample(range_limit, IDESCALE(tmp2 - tmp5, PASS1_BITS + 3));
+        outptr[4] = range_limit_sample(range_limit, IDESCALE(tmp3 + tmp4, PASS1_BITS + 3));
+        outptr[3] = range_limit_sample(range_limit, IDESCALE(tmp3 - tmp4, PASS1_BITS + 3));
+
+        /* advance pointer to next row */
+    }
+}

@@ -22,7 +22,7 @@
       "cconvert": "5",
       "post": "5",
       "main": "5",
-      "sample_range_limit": "6"
+      "sample_range_limit": "4"
     }
   },
   "allocations": [

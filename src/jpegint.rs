@@ -30,7 +30,9 @@
 //! `jpeg_marker_reader`, the data fields of `jpeg_decomp_master` (its methods
 //! arrive with `jdmaster.c` in work package 6), and the part of
 //! `jpeg_d_coef_controller` that `jdinput.c` calls (ADR 0005, decisions of
-//! 2026-11-07); work package 3 completes `jpeg_entropy_decoder`. The compression interfaces, the `CSTATE_*` values, `JDIFF` and
+//! 2026-11-07); work package 3 completes `jpeg_entropy_decoder`, and work
+//! package 4 completes `jpeg_d_coef_controller` and adds
+//! `jpeg_inverse_dct`. The compression interfaces, the `CSTATE_*` values, `JDIFF` and
 //! the `jinit_*` declarations of untranslated modules are out of scope (ADR
 //! 0001). `MALLOC` has no Rust form: storage comes from Rust's allocator
 //! (ADR 0005, "Owned storage"). `SHIFT_TEMPS` declares nothing without
@@ -40,7 +42,10 @@ use core::ffi::{c_long, c_ulong};
 
 use crate::jerror::ErrorExit;
 use crate::jmorecfg::{JDIMENSION, MAX_COMPONENTS};
-use crate::jpeglib::{J_COLOR_SPACE, JBLOCK, j_decompress_ptr};
+use crate::jpeglib::{
+    J_COLOR_SPACE, JBLOCK, JSAMPROWS_MUT, j_decompress_ptr, jpeg_component_info,
+    jpeg_decompress_struct, jvirt_barray_ptr,
+};
 
 // upstream: src/jpegint.h J_BUF_MODE
 /// Operating modes for buffer controllers.
@@ -251,15 +256,68 @@ pub struct jpeg_entropy_decoder {
 }
 
 // upstream: src/jpegint.h jpeg_d_coef_controller
-/// Coefficient buffer control: the methods that `jdinput.c` uses. Work
-/// package 4 adds the others and the state variables.
+/// Coefficient buffer control. `decompress_data_12` and `decompress_data_16`
+/// serve other precisions and lossless mode and are absent (ADR 0005,
+/// "Methods are function pointers").
 #[expect(non_camel_case_types, reason = "C type name")]
+#[expect(non_snake_case, reason = "C field names")]
 #[derive(Clone, Copy, Debug)]
 pub struct jpeg_d_coef_controller {
     /// Initializes for an input pass.
     pub start_input_pass: fn(j_decompress_ptr<'_, '_>),
     /// Consumes compressed data; returns like `consume_input`.
     pub consume_data: fn(j_decompress_ptr<'_, '_>) -> Result<i32, ErrorExit>,
+    /// Initializes for an output pass. Returns a `Result` where C returns
+    /// nothing, because block smoothing allocates its latch on the first
+    /// pass.
+    pub start_output_pass: fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>,
+    /// Decompresses one iMCU row into `output_buf`, which holds a row list
+    /// per component (C's `JSAMPIMAGE`): `JPEG_ROW_COMPLETED`,
+    /// `JPEG_SCAN_COMPLETED` or `JPEG_SUSPENDED`.
+    pub decompress_data:
+        fn(j_decompress_ptr<'_, '_>, &mut [JSAMPROWS_MUT<'_, '_>]) -> Result<i32, ErrorExit>,
+
+    /// Counts MCUs processed in the current row; used by lossless mode's
+    /// difference buffer controller, which is not translated.
+    pub MCU_ctr: JDIMENSION,
+    /// Counts MCU rows within the iMCU row; lossless mode only.
+    pub MCU_vert_offset: i32,
+    /// Number of such rows needed; lossless mode only.
+    pub MCU_rows_per_iMCU_row: i32,
+
+    /// The coefficient virtual arrays, one per component, or `None`: a copy
+    /// of `my_coef_controller::whole_image`, which C links (ADR 0005,
+    /// "Pointers into a module's data").
+    pub coef_arrays: Option<[Option<jvirt_barray_ptr>; MAX_COMPONENTS]>,
+}
+
+// upstream: src/jpegint.h inverse_DCT_method_ptr
+/// An inverse DCT routine: dequantizes and transforms `coef_block` into the
+/// rows of `output_buf` from column `output_col` on. It only reads the
+/// object, so it takes `cinfo` shared, beside `compptr`, which points into
+/// `cinfo.comp_info` (ADR 0005, "Disjoint borrows"); `JCOEFPTR` is a block
+/// the routine only reads.
+#[expect(non_camel_case_types, reason = "C type name")]
+pub type inverse_DCT_method_ptr = fn(
+    &jpeg_decompress_struct<'_>,
+    &jpeg_component_info,
+    &JBLOCK,
+    JSAMPROWS_MUT<'_, '_>,
+    JDIMENSION,
+);
+
+// upstream: src/jpegint.h jpeg_inverse_dct
+/// Inverse DCT (also performs dequantization). `inverse_DCT_12` and the
+/// SIMD slots are absent (ADR 0005, "Methods are function pointers").
+#[expect(non_camel_case_types, reason = "C type name")]
+#[expect(non_snake_case, reason = "C field names")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_inverse_dct {
+    /// Prepares for an output pass.
+    pub start_pass: fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>,
+    /// The IDCT routine of each component; `None` until `start_pass` selects
+    /// it, where C leaves the pointer unset.
+    pub inverse_DCT: [Option<inverse_DCT_method_ptr>; MAX_COMPONENTS],
 }
 
 /// The implementations of the `entropy` slot (ADR 0005, "Module objects").
@@ -297,19 +355,5 @@ impl jpeg_entropy_decoder_impl {
             jpeg_entropy_decoder_impl::phuff_entropy_decoder(entropy) => &mut entropy.pub_,
             jpeg_entropy_decoder_impl::arith_entropy_decoder(entropy) => &mut entropy.pub_,
         }
-    }
-}
-
-/// The implementations of the `coef` slot: none until work package 4 adds
-/// `my_coef_controller`, so the slot stays `None`. Not an upstream item.
-#[expect(non_camel_case_types, reason = "named after the C struct")]
-#[derive(Debug)]
-pub enum jpeg_d_coef_controller_impl {}
-
-impl jpeg_d_coef_controller_impl {
-    /// The public part of whichever implementation the slot holds.
-    #[must_use]
-    pub fn pub_(&self) -> &jpeg_d_coef_controller {
-        match *self {}
     }
 }

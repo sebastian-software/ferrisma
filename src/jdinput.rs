@@ -24,10 +24,9 @@
 //! Work package: 2 (Input and markers).
 //!
 //! `start_input_pass` calls the entropy decoder and the coefficient
-//! controller, whose slot stays empty until work package 4; it is reached
-//! only after `jpeg_start_decompress`. `per_scan_setup` and
-//! `latch_quant_tables` are public, so that work package 3's tests can start
-//! a scan with a coefficient controller of their own. The `JPEG_LIB_VERSION >= 70`
+//! controller; it is reached only after `jpeg_start_decompress`.
+//! `per_scan_setup` and `latch_quant_tables` are public, so that work package
+//! 3's tests can start a scan with a coefficient controller of their own. The `JPEG_LIB_VERSION >= 70`
 //! and `>= 80` branches and, with `D_LOSSLESS_SUPPORTED` treated as
 //! undefined, the lossless precision check are not compiled (ADR 0005).
 

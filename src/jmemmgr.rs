@@ -935,6 +935,8 @@ pub fn release_pool_fields(cinfo: j_common_ptr<'_, '_>, pool_id: i32) {
         cinfo.coef_bits = None;
         cinfo.entropy = None;
         cinfo.coef = None;
+        cinfo.idct = None;
+        cinfo.sample_range_limit = None;
         if let Some(marker) = cinfo.marker.as_deref_mut() {
             marker.cur_marker = None;
         }

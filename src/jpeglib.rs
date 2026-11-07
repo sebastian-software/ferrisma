@@ -31,17 +31,20 @@
 //! one owned buffer with a list of row offsets ([`SampleArray`],
 //! [`BlockArray`]), viewed through [`JSAMPROWS`] and [`JSAMPROWS_MUT`].
 //!
-//! `jpeg_decompress_struct` holds the fields of work packages 1 and 2. A later
+//! `jpeg_decompress_struct` holds the fields of work packages 1 to 4. A later
 //! package adds a field when it translates the code that fills it: the slots
-//! `main`, `post`, `idct`, `upsample`, `cconvert` and `cquantize` with their
-//! interfaces, `colormap`, `sample_range_limit` and
-//! `jpeg_component_info::dct_table` (ADR 0005, "Module interfaces arrive with
-//! their modules"). The `coef` slot exists, but stays empty until work package
-//! 4 adds its implementation. The function declarations of this header are translated in the
-//! modules that define them.
+//! `main`, `post`, `upsample`, `cconvert` and `cquantize` with their
+//! interfaces, and `colormap` (ADR 0005, "Module interfaces arrive with their
+//! modules"). Work package 4 adds `idct`, the implementation of `coef`,
+//! `jpeg_component_info::dct_table` and `sample_range_limit`, which the IDCT
+//! is the first to read; `jdmaster.c` fills it in work package 6. The
+//! function declarations of this header are translated in the modules that
+//! define them.
 
 use core::ffi::c_long;
 
+use crate::jdcoefct::my_coef_controller;
+use crate::jddctmgr::{multiplier_table, my_idct_controller};
 use crate::jdinput::my_input_controller;
 use crate::jdmarker::my_marker_reader;
 use crate::jdmaster::my_decomp_master;
@@ -52,8 +55,7 @@ use crate::jmorecfg::{
     UINT16,
 };
 use crate::jpegint::{
-    jpeg_d_coef_controller, jpeg_d_coef_controller_impl, jpeg_entropy_decoder,
-    jpeg_entropy_decoder_impl,
+    jpeg_d_coef_controller, jpeg_entropy_decoder, jpeg_entropy_decoder_impl, jpeg_inverse_dct,
 };
 
 // upstream: src/jpeglib.h DCTSIZE
@@ -80,6 +82,12 @@ pub const MAX_SAMP_FACTOR: i32 = 4;
 // upstream: src/jpeglib.h D_MAX_BLOCKS_IN_MCU
 /// The decompressor's limit on data units per MCU.
 pub const D_MAX_BLOCKS_IN_MCU: usize = 10;
+
+/// How far C's `sample_range_limit` points into its allocation:
+/// `MAXJSAMPLE + 1` samples, which `jdmaster.c`'s
+/// `prepare_range_limit_table` skips "to allow negative subscripts of simple
+/// table". Not an upstream item.
+pub const SAMPLE_RANGE_LIMIT_OFFSET: usize = (crate::jmorecfg::MAXJSAMPLE + 1) as usize;
 
 // upstream: src/jpeglib.h JBLOCK
 /// One block of coefficients.
@@ -347,8 +355,7 @@ pub const SIZEOF_JHUFF_TBL: usize = CLayout::structure(&[
 .size;
 
 // upstream: src/jpeglib.h jpeg_component_info
-/// Basic info about one component (color channel). `dct_table`, the IDCT's
-/// private per-component storage, is added by work package 4.
+/// Basic info about one component (color channel).
 #[expect(non_camel_case_types, reason = "C type name")]
 #[expect(non_snake_case, reason = "C field names")]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -393,6 +400,9 @@ pub struct jpeg_component_info {
     pub last_row_height: i32,
     /// Saved quantization table for the component; `None` if none yet saved.
     pub quant_table: Option<Box<JQUANT_TBL>>,
+    /// Private per-component storage for the IDCT module: its multiplier
+    /// table, `None` until `jinit_inverse_dct` allocates it.
+    pub dct_table: Option<Box<multiplier_table>>,
 }
 
 /// `sizeof(jpeg_component_info)` on the target, `dct_table` included.
@@ -736,6 +746,12 @@ pub struct jpeg_decompress_struct<'src> {
     pub min_DCT_scaled_size: i32,
     /// Number of iMCU rows in image.
     pub total_iMCU_rows: JDIMENSION,
+    /// Table for fast range-limiting, `None` until `jdmaster.c` allocates
+    /// it: the whole allocation, into which C's pointer points
+    /// [`SAMPLE_RANGE_LIMIT_OFFSET`] samples deep, so that its users may
+    /// index below it. [`jpeg_decompress_struct::sample_range_limit`] is
+    /// C's pointer.
+    pub sample_range_limit: Option<Vec<JSAMPLE>>,
 
     /// Number of JPEG components in this scan.
     pub comps_in_scan: i32,
@@ -766,14 +782,16 @@ pub struct jpeg_decompress_struct<'src> {
 
     /// Master control module.
     pub master: Option<Box<my_decomp_master>>,
-    /// Coefficient buffer control; empty until work package 4.
-    pub coef: Option<Box<jpeg_d_coef_controller_impl>>,
+    /// Coefficient buffer control.
+    pub coef: Option<Box<my_coef_controller>>,
     /// Input control module.
     pub inputctl: Option<Box<my_input_controller>>,
     /// Marker reading and parsing.
     pub marker: Option<Box<my_marker_reader<'src>>>,
     /// Entropy decoding.
     pub entropy: Option<Box<jpeg_entropy_decoder_impl>>,
+    /// Inverse DCT, which also dequantizes.
+    pub idct: Option<Box<my_idct_controller>>,
 }
 
 impl<'src> jpeg_decompress_struct<'src> {
@@ -847,6 +865,7 @@ impl<'src> jpeg_decompress_struct<'src> {
             max_v_samp_factor: 0,
             min_DCT_scaled_size: 0,
             total_iMCU_rows: 0,
+            sample_range_limit: None,
             comps_in_scan: 0,
             cur_comp_info: [None; MAX_COMPS_IN_SCAN],
             MCUs_per_row: 0,
@@ -863,6 +882,7 @@ impl<'src> jpeg_decompress_struct<'src> {
             inputctl: None,
             marker: None,
             entropy: None,
+            idct: None,
         }
     }
 
@@ -978,7 +998,39 @@ impl<'src> jpeg_decompress_struct<'src> {
     /// When the module is absent.
     #[must_use]
     pub fn coef(&self) -> &jpeg_d_coef_controller {
-        self.coef.as_deref().expect("cinfo->coef is NULL").pub_()
+        &self.coef.as_deref().expect("cinfo->coef is NULL").pub_
+    }
+
+    /// `cinfo->coef`, mutably: the public part of the coefficient controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn coef_mut(&mut self) -> &mut jpeg_d_coef_controller {
+        &mut self.coef.as_deref_mut().expect("cinfo->coef is NULL").pub_
+    }
+
+    /// `cinfo->idct`: the public part of the IDCT controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn idct(&self) -> &jpeg_inverse_dct {
+        &self.idct.as_deref().expect("cinfo->idct is NULL").pub_
+    }
+
+    /// `cinfo->sample_range_limit`: the table from C's pointer on.
+    ///
+    /// # Panics
+    ///
+    /// When the table is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn sample_range_limit(&self) -> &[JSAMPLE] {
+        &self
+            .sample_range_limit
+            .as_deref()
+            .expect("cinfo->sample_range_limit is NULL")[SAMPLE_RANGE_LIMIT_OFFSET..]
     }
 
     /// `cinfo->src`.
