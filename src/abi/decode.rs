@@ -442,12 +442,21 @@ fn plane_pointer(bases: &[*mut u8], storage: &PlaneStorage<'_, u8>, plane: Plane
 /// strides, sizes and plane pointers, and `private_memory` for library memory.
 /// Library samples move into a library block. A plane pointer of a buffer
 /// whose library memory was never allocated or was released keeps its C value,
-/// as C leaves it.
+/// as C leaves it. Empty library memory releases the C buffer's block when
+/// `released` says that the translation released it (C: `WebPFreeDecBuffer`
+/// in `DecodeInto`). Returns false when the block for the samples could not be
+/// allocated.
 ///
 /// # Safety
 ///
 /// `c` is the buffer that `buffer` was converted from, and `memory` its memory.
-unsafe fn buffer_to_c(c: &mut WebPDecBuffer, buffer: &RsDecBuffer<'_>, memory: &BufferMemory) {
+unsafe fn buffer_to_c(
+    c: &mut WebPDecBuffer,
+    buffer: &RsDecBuffer<'_>,
+    memory: &BufferMemory,
+    released: bool,
+) -> bool {
+    let mut ok = true;
     c.width = buffer.width;
     c.height = buffer.height;
     c.pad = buffer.pad;
@@ -459,10 +468,15 @@ unsafe fn buffer_to_c(c: &mut WebPDecBuffer, buffer: &RsDecBuffer<'_>, memory: &
                 unsafe { release_library_block(c.private_memory) };
             }
             c.private_memory = block;
-            vec![block]
+            ok = !block.is_null();
+            if block.is_null() {
+                Vec::new()
+            } else {
+                vec![block]
+            }
         }
         (PlaneStorage::Internal(_), BufferMemory::Library) => {
-            if !c.private_memory.is_null() {
+            if released && !c.private_memory.is_null() {
                 // The translation released the buffer's memory.
                 // SAFETY: the buffer gives up its library block.
                 unsafe { release_library_block(c.private_memory) };
@@ -510,6 +524,7 @@ unsafe fn buffer_to_c(c: &mut WebPDecBuffer, buffer: &RsDecBuffer<'_>, memory: &
         // the translation (`src/dec/buffer_dec.rs`): C's view is unchanged.
         _ => {}
     }
+    ok
 }
 
 //------------------------------------------------------------------------------
@@ -1196,7 +1211,10 @@ pub unsafe extern "C" fn webp_decode(
     let status = dec::webp_decode(data, &mut rust);
     config.input = rust.input;
     // SAFETY: the output was converted from this buffer with this memory.
-    unsafe { buffer_to_c(&mut config.output, &rust.output, &memory) };
+    if !unsafe { buffer_to_c(&mut config.output, &rust.output, &memory, true) } {
+        // The samples could not reach C: as C's failed allocation.
+        return VP8StatusCode::VP8_STATUS_OUT_OF_MEMORY;
+    }
     status_code(status)
 }
 
@@ -1344,12 +1362,14 @@ impl WebPIDecoder {
         // The C view: from the regions of the lent memory, or from the
         // translation's own samples when no block could be allocated.
         let output = self.idec.params_output_mut();
-        let memory = if let PlaneStorage::Internal(samples) = &mut output.storage
-            && !samples.is_empty()
-        {
-            BufferMemory::Lent(Lent(vec![(samples.as_mut_ptr(), samples.len())]))
-        } else {
-            BufferMemory::Lent(self.lent.clone())
+        let memory = match &mut output.storage {
+            // No block could be allocated: the translation's own samples.
+            PlaneStorage::Internal(samples) if !samples.is_empty() => {
+                BufferMemory::Lent(Lent(vec![(samples.as_mut_ptr(), samples.len())]))
+            }
+            // Not allocated yet: C's plane pointers stay as they are.
+            PlaneStorage::Internal(_) => BufferMemory::Library,
+            _ => BufferMemory::Lent(self.lent.clone()),
         };
         let view = if has_user { user } else { &raw mut self.own };
         let output: &RsDecBuffer<'_> = output;
@@ -1360,8 +1380,9 @@ impl WebPIDecoder {
             view.is_external_memory = c_int::from(!self.library_block && !self.lent.0.is_empty());
         }
         // SAFETY: the view of the buffer that `output` was converted from or
-        // that the decoder created, with its memory.
-        unsafe { buffer_to_c(view, output, &memory) };
+        // that the decoder created, with its memory. The incremental decoder
+        // never releases its output memory before it is deleted.
+        let _ = unsafe { buffer_to_c(view, output, &memory, false) };
     }
 
     /// Runs `call` with the output memory lent, then writes the C views.
