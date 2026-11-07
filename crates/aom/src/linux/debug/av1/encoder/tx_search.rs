@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
@@ -141,6 +140,63 @@ extern "C-unwind" {
         t_above: *mut ENTROPY_CONTEXT,
         t_left: *mut ENTROPY_CONTEXT,
     );
+    fn aom_convolve_copy_c(
+        src: *const uint8_t,
+        src_stride: ptrdiff_t,
+        dst: *mut uint8_t,
+        dst_stride: ptrdiff_t,
+        w: core::ffi::c_int,
+        h: core::ffi::c_int,
+    );
+    fn aom_get_blk_sse_sum_c(
+        data: *const int16_t,
+        stride: core::ffi::c_int,
+        bw: core::ffi::c_int,
+        bh: core::ffi::c_int,
+        x_sum: *mut core::ffi::c_int,
+        x2_sum: *mut int64_t,
+    );
+    fn aom_highbd_convolve_copy_c(
+        src: *const uint16_t,
+        src_stride: ptrdiff_t,
+        dst: *mut uint16_t,
+        dst_stride: ptrdiff_t,
+        w: core::ffi::c_int,
+        h: core::ffi::c_int,
+    );
+    fn aom_highbd_sse_c(
+        a8: *const uint8_t,
+        a_stride: core::ffi::c_int,
+        b8: *const uint8_t,
+        b_stride: core::ffi::c_int,
+        width: core::ffi::c_int,
+        height: core::ffi::c_int,
+    ) -> int64_t;
+    fn aom_satd_c(
+        coeff: *const tran_low_t,
+        length: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+    fn aom_sse_c(
+        a: *const uint8_t,
+        a_stride: core::ffi::c_int,
+        b: *const uint8_t,
+        b_stride: core::ffi::c_int,
+        width: core::ffi::c_int,
+        height: core::ffi::c_int,
+    ) -> int64_t;
+    fn aom_sum_squares_2d_i16_c(
+        src: *const int16_t,
+        stride: core::ffi::c_int,
+        width: core::ffi::c_int,
+        height: core::ffi::c_int,
+    ) -> uint64_t;
+    fn aom_sum_sse_2d_i16_c(
+        src: *const int16_t,
+        src_stride: core::ffi::c_int,
+        width: core::ffi::c_int,
+        height: core::ffi::c_int,
+        sum: *mut core::ffi::c_int,
+    ) -> uint64_t;
     fn av1_foreach_transformed_block_in_plane(
         xd: *const MACROBLOCKD,
         plane_bsize: BLOCK_SIZE,
@@ -230,63 +286,6 @@ extern "C-unwind" {
         do_border_pad: bool,
     );
     static av1_scan_orders: [[SCAN_ORDER; 16]; 19];
-    fn aom_convolve_copy_c(
-        src: *const uint8_t,
-        src_stride: ptrdiff_t,
-        dst: *mut uint8_t,
-        dst_stride: ptrdiff_t,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-    );
-    fn aom_get_blk_sse_sum_c(
-        data: *const int16_t,
-        stride: core::ffi::c_int,
-        bw: core::ffi::c_int,
-        bh: core::ffi::c_int,
-        x_sum: *mut core::ffi::c_int,
-        x2_sum: *mut int64_t,
-    );
-    fn aom_highbd_convolve_copy_c(
-        src: *const uint16_t,
-        src_stride: ptrdiff_t,
-        dst: *mut uint16_t,
-        dst_stride: ptrdiff_t,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-    );
-    fn aom_highbd_sse_c(
-        a8: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b8: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
-    fn aom_satd_c(
-        coeff: *const tran_low_t,
-        length: core::ffi::c_int,
-    ) -> core::ffi::c_int;
-    fn aom_sse_c(
-        a: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
-    fn aom_sum_squares_2d_i16_c(
-        src: *const int16_t,
-        stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> uint64_t;
-    fn aom_sum_sse_2d_i16_c(
-        src: *const int16_t,
-        src_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-        sum: *mut core::ffi::c_int,
-    ) -> uint64_t;
     fn av1_cost_coeffs_txb(
         x: *const MACROBLOCK,
         plane: core::ffi::c_int,
@@ -3380,7 +3379,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3803,16 +3801,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -7553,6 +7541,65 @@ static mut c2rust_aom_float_table_6: [core::ffi::c_float; 14] = [
     0.10339f32,
     0.13464f32,
 ];
+#[inline]
+unsafe extern "C-unwind" fn av1_get_skip_txfm_context(
+    mut xd: *const MACROBLOCKD,
+) -> core::ffi::c_int {
+    let above_mi: *const MB_MODE_INFO = (*xd).above_mbmi;
+    let left_mi: *const MB_MODE_INFO = (*xd).left_mbmi;
+    let above_skip_txfm: core::ffi::c_int = if !above_mi.is_null() {
+        (*above_mi).skip_txfm as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    };
+    let left_skip_txfm: core::ffi::c_int = if !left_mi.is_null() {
+        (*left_mi).skip_txfm as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    };
+    return above_skip_txfm + left_skip_txfm;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_tx_size_context(
+    mut xd: *const MACROBLOCKD,
+) -> core::ffi::c_int {
+    let mut mbmi: *const MB_MODE_INFO = *((*xd).mi)
+        .offset(0 as core::ffi::c_int as isize);
+    let above_mbmi: *const MB_MODE_INFO = (*xd).above_mbmi;
+    let left_mbmi: *const MB_MODE_INFO = (*xd).left_mbmi;
+    let max_tx_size: TX_SIZE = max_txsize_rect_lookup[(*mbmi).bsize as usize];
+    let max_tx_wide: core::ffi::c_int = tx_size_wide[max_tx_size as usize];
+    let max_tx_high: core::ffi::c_int = tx_size_high[max_tx_size as usize];
+    let has_above: core::ffi::c_int = (*xd).up_available as core::ffi::c_int;
+    let has_left: core::ffi::c_int = (*xd).left_available as core::ffi::c_int;
+    let mut above: core::ffi::c_int = (*((*xd).above_txfm_context)
+        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int >= max_tx_wide)
+        as core::ffi::c_int;
+    let mut left: core::ffi::c_int = (*((*xd).left_txfm_context)
+        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int >= max_tx_high)
+        as core::ffi::c_int;
+    if has_above != 0 {
+        if is_inter_block(above_mbmi) != 0 {
+            above = (block_size_wide[(*above_mbmi).bsize as usize] as core::ffi::c_int
+                >= max_tx_wide) as core::ffi::c_int;
+        }
+    }
+    if has_left != 0 {
+        if is_inter_block(left_mbmi) != 0 {
+            left = (block_size_high[(*left_mbmi).bsize as usize] as core::ffi::c_int
+                >= max_tx_high) as core::ffi::c_int;
+        }
+    }
+    if has_above != 0 && has_left != 0 {
+        return above + left
+    } else if has_above != 0 {
+        return above
+    } else if has_left != 0 {
+        return left
+    } else {
+        return 0 as core::ffi::c_int
+    };
+}
 pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
 #[inline]
 unsafe extern "C-unwind" fn av1_init_rd_stats(mut rd_stats: *mut RD_STATS) {
@@ -7627,6 +7674,74 @@ unsafe extern "C-unwind" fn av1_merge_rd_stats_weighted(
     }
     (*rd_stats_dst).skip_txfm = ((*rd_stats_dst).skip_txfm as core::ffi::c_int
         & (*rd_stats_src).skip_txfm as core::ffi::c_int) as uint8_t;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_visible_dimensions(
+    mut x: *const MACROBLOCK,
+    mut plane: core::ffi::c_int,
+    mut plane_bsize: BLOCK_SIZE,
+    mut blk_col: core::ffi::c_int,
+    mut blk_row: core::ffi::c_int,
+    mut cols: core::ffi::c_int,
+    mut rows: core::ffi::c_int,
+    mut clip_dims: bool,
+    mut visible_cols: *mut core::ffi::c_int,
+    mut visible_rows: *mut core::ffi::c_int,
+) -> core::ffi::c_int {
+    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int
+        && (*x).pix_to_right_edge >= 0 as core::ffi::c_int || !clip_dims
+    {
+        if !visible_cols.is_null() && !visible_rows.is_null() {
+            *visible_rows = rows;
+            *visible_cols = cols;
+        }
+        return 0 as core::ffi::c_int;
+    }
+    let xd: *const MACROBLOCKD = &(*x).e_mbd;
+    let pd: *const macroblockd_plane = &*((*xd).plane).as_ptr().offset(plane as isize)
+        as *const macroblockd_plane;
+    let mut valid_cols: core::ffi::c_int = 0;
+    let mut valid_rows: core::ffi::c_int = 0;
+    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int {
+        valid_rows = rows;
+    } else {
+        let block_height: core::ffi::c_int = block_size_high[plane_bsize as usize]
+            as core::ffi::c_int;
+        let block_rows: core::ffi::c_int = -(-(*x).pix_to_bottom_edge
+            + ((1 as core::ffi::c_int) << (*pd).subsampling_y >> 1 as core::ffi::c_int)
+            >> (*pd).subsampling_y) + block_height;
+        valid_rows = clamp(
+            block_rows - (blk_row << MI_SIZE_LOG2),
+            0 as core::ffi::c_int,
+            rows,
+        );
+    }
+    if (*x).pix_to_right_edge >= 0 as core::ffi::c_int {
+        valid_cols = cols;
+    } else {
+        let block_width: core::ffi::c_int = block_size_wide[plane_bsize as usize]
+            as core::ffi::c_int;
+        let block_cols: core::ffi::c_int = -(-(*x).pix_to_right_edge
+            + ((1 as core::ffi::c_int) << (*pd).subsampling_x >> 1 as core::ffi::c_int)
+            >> (*pd).subsampling_x) + block_width;
+        valid_cols = clamp(
+            block_cols - (blk_col << MI_SIZE_LOG2),
+            0 as core::ffi::c_int,
+            cols,
+        );
+    }
+    if !visible_cols.is_null() && !visible_rows.is_null() {
+        *visible_cols = valid_cols;
+        *visible_rows = valid_rows;
+    }
+    return (valid_cols < cols || valid_rows < rows) as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn bsize_to_num_blk(mut bsize: BLOCK_SIZE) -> core::ffi::c_int {
+    let mut num_blk: core::ffi::c_int = (1 as core::ffi::c_int)
+        << num_pels_log2_lookup[bsize as usize] as core::ffi::c_int
+            - 2 as core::ffi::c_int * MI_SIZE_LOG2;
+    return num_blk;
 }
 #[inline]
 unsafe extern "C-unwind" fn av1_set_txb_context(
@@ -8391,65 +8506,6 @@ unsafe extern "C-unwind" fn get_txb_ctx(
     };
 }
 #[inline]
-unsafe extern "C-unwind" fn av1_get_skip_txfm_context(
-    mut xd: *const MACROBLOCKD,
-) -> core::ffi::c_int {
-    let above_mi: *const MB_MODE_INFO = (*xd).above_mbmi;
-    let left_mi: *const MB_MODE_INFO = (*xd).left_mbmi;
-    let above_skip_txfm: core::ffi::c_int = if !above_mi.is_null() {
-        (*above_mi).skip_txfm as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    };
-    let left_skip_txfm: core::ffi::c_int = if !left_mi.is_null() {
-        (*left_mi).skip_txfm as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    };
-    return above_skip_txfm + left_skip_txfm;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_tx_size_context(
-    mut xd: *const MACROBLOCKD,
-) -> core::ffi::c_int {
-    let mut mbmi: *const MB_MODE_INFO = *((*xd).mi)
-        .offset(0 as core::ffi::c_int as isize);
-    let above_mbmi: *const MB_MODE_INFO = (*xd).above_mbmi;
-    let left_mbmi: *const MB_MODE_INFO = (*xd).left_mbmi;
-    let max_tx_size: TX_SIZE = max_txsize_rect_lookup[(*mbmi).bsize as usize];
-    let max_tx_wide: core::ffi::c_int = tx_size_wide[max_tx_size as usize];
-    let max_tx_high: core::ffi::c_int = tx_size_high[max_tx_size as usize];
-    let has_above: core::ffi::c_int = (*xd).up_available as core::ffi::c_int;
-    let has_left: core::ffi::c_int = (*xd).left_available as core::ffi::c_int;
-    let mut above: core::ffi::c_int = (*((*xd).above_txfm_context)
-        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int >= max_tx_wide)
-        as core::ffi::c_int;
-    let mut left: core::ffi::c_int = (*((*xd).left_txfm_context)
-        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int >= max_tx_high)
-        as core::ffi::c_int;
-    if has_above != 0 {
-        if is_inter_block(above_mbmi) != 0 {
-            above = (block_size_wide[(*above_mbmi).bsize as usize] as core::ffi::c_int
-                >= max_tx_wide) as core::ffi::c_int;
-        }
-    }
-    if has_left != 0 {
-        if is_inter_block(left_mbmi) != 0 {
-            left = (block_size_high[(*left_mbmi).bsize as usize] as core::ffi::c_int
-                >= max_tx_high) as core::ffi::c_int;
-        }
-    }
-    if has_above != 0 && has_left != 0 {
-        return above + left
-    } else if has_above != 0 {
-        return above
-    } else if has_left != 0 {
-        return left
-    } else {
-        return 0 as core::ffi::c_int
-    };
-}
-#[inline]
 unsafe extern "C-unwind" fn get_default_scan(
     mut tx_size: TX_SIZE,
     mut tx_type: TX_TYPE,
@@ -8464,74 +8520,6 @@ unsafe extern "C-unwind" fn get_scan(
     mut tx_type: TX_TYPE,
 ) -> *const SCAN_ORDER {
     return get_default_scan(tx_size, tx_type);
-}
-#[inline]
-unsafe extern "C-unwind" fn get_visible_dimensions(
-    mut x: *const MACROBLOCK,
-    mut plane: core::ffi::c_int,
-    mut plane_bsize: BLOCK_SIZE,
-    mut blk_col: core::ffi::c_int,
-    mut blk_row: core::ffi::c_int,
-    mut cols: core::ffi::c_int,
-    mut rows: core::ffi::c_int,
-    mut clip_dims: bool,
-    mut visible_cols: *mut core::ffi::c_int,
-    mut visible_rows: *mut core::ffi::c_int,
-) -> core::ffi::c_int {
-    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int
-        && (*x).pix_to_right_edge >= 0 as core::ffi::c_int || !clip_dims
-    {
-        if !visible_cols.is_null() && !visible_rows.is_null() {
-            *visible_rows = rows;
-            *visible_cols = cols;
-        }
-        return 0 as core::ffi::c_int;
-    }
-    let xd: *const MACROBLOCKD = &(*x).e_mbd;
-    let pd: *const macroblockd_plane = &*((*xd).plane).as_ptr().offset(plane as isize)
-        as *const macroblockd_plane;
-    let mut valid_cols: core::ffi::c_int = 0;
-    let mut valid_rows: core::ffi::c_int = 0;
-    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int {
-        valid_rows = rows;
-    } else {
-        let block_height: core::ffi::c_int = block_size_high[plane_bsize as usize]
-            as core::ffi::c_int;
-        let block_rows: core::ffi::c_int = -(-(*x).pix_to_bottom_edge
-            + ((1 as core::ffi::c_int) << (*pd).subsampling_y >> 1 as core::ffi::c_int)
-            >> (*pd).subsampling_y) + block_height;
-        valid_rows = clamp(
-            block_rows - (blk_row << MI_SIZE_LOG2),
-            0 as core::ffi::c_int,
-            rows,
-        );
-    }
-    if (*x).pix_to_right_edge >= 0 as core::ffi::c_int {
-        valid_cols = cols;
-    } else {
-        let block_width: core::ffi::c_int = block_size_wide[plane_bsize as usize]
-            as core::ffi::c_int;
-        let block_cols: core::ffi::c_int = -(-(*x).pix_to_right_edge
-            + ((1 as core::ffi::c_int) << (*pd).subsampling_x >> 1 as core::ffi::c_int)
-            >> (*pd).subsampling_x) + block_width;
-        valid_cols = clamp(
-            block_cols - (blk_col << MI_SIZE_LOG2),
-            0 as core::ffi::c_int,
-            cols,
-        );
-    }
-    if !visible_cols.is_null() && !visible_rows.is_null() {
-        *visible_cols = valid_cols;
-        *visible_rows = valid_rows;
-    }
-    return (valid_cols < cols || valid_rows < rows) as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn bsize_to_num_blk(mut bsize: BLOCK_SIZE) -> core::ffi::c_int {
-    let mut num_blk: core::ffi::c_int = (1 as core::ffi::c_int)
-        << num_pels_log2_lookup[bsize as usize] as core::ffi::c_int
-            - 2 as core::ffi::c_int * MI_SIZE_LOG2;
-    return num_blk;
 }
 pub const MODELRD_TYPE_TX_SEARCH_PRUNE: core::ffi::c_int = 1 as core::ffi::c_int;
 unsafe extern "C-unwind" fn calculate_sse(

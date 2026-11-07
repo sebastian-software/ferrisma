@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn av1_nn_predict_c(
@@ -3036,7 +3035,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3459,16 +3457,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6005,62 +5993,754 @@ unsafe extern "C-unwind" fn get_mi_ext_idx(
     return mi_ext_row * mbmi_ext_stride + mi_ext_col;
 }
 #[inline]
-unsafe extern "C-unwind" fn av1_get_mv_joint(mut mv: *const MV) -> MV_JOINT_TYPE {
-    return (((*mv).col != 0) as core::ffi::c_int
-        | (((*mv).row != 0) as core::ffi::c_int) << 1 as core::ffi::c_int)
-        as MV_JOINT_TYPE;
+unsafe extern "C-unwind" fn get_ref_mv_for_mv_stats(
+    mut mbmi: *const MB_MODE_INFO,
+    mut mbmi_ext_frame: *const MB_MODE_INFO_EXT_FRAME,
+    mut ref_idx: core::ffi::c_int,
+) -> int_mv {
+    let mut ref_mv_idx: core::ffi::c_int = (*mbmi).ref_mv_idx() as core::ffi::c_int;
+    if (*mbmi).mode as core::ffi::c_int == NEAR_NEWMV as core::ffi::c_int
+        || (*mbmi).mode as core::ffi::c_int == NEW_NEARMV as core::ffi::c_int
+    {
+        if has_second_ref(mbmi) != 0 {} else {
+            __assert_fail(
+                b"has_second_ref(mbmi)\0" as *const u8 as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                26 as core::ffi::c_uint,
+                (::core::mem::transmute::<
+                    [u8; 90],
+                    [core::ffi::c_char; 90],
+                >(
+                    *b"int_mv get_ref_mv_for_mv_stats(const MB_MODE_INFO *, const MB_MODE_INFO_EXT_FRAME *, int)\0",
+                ))
+                    .as_ptr(),
+            );
+        };
+        ref_mv_idx += 1 as core::ffi::c_int;
+    }
+    let mut ref_frames: *const MV_REFERENCE_FRAME = ((*mbmi).ref_frame).as_ptr();
+    let ref_frame_type: int8_t = av1_ref_frame_type(ref_frames) as int8_t;
+    let mut curr_ref_mv_stack: *const CANDIDATE_MV = ((*mbmi_ext_frame).ref_mv_stack)
+        .as_ptr();
+    if *ref_frames.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
+        > INTRA_FRAME as core::ffi::c_int
+    {
+        if ref_idx == 0 as core::ffi::c_int || ref_idx == 1 as core::ffi::c_int {} else {
+            __assert_fail(
+                b"ref_idx == 0 || ref_idx == 1\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                35 as core::ffi::c_uint,
+                (::core::mem::transmute::<
+                    [u8; 90],
+                    [core::ffi::c_char; 90],
+                >(
+                    *b"int_mv get_ref_mv_for_mv_stats(const MB_MODE_INFO *, const MB_MODE_INFO_EXT_FRAME *, int)\0",
+                ))
+                    .as_ptr(),
+            );
+        };
+        return if ref_idx != 0 {
+            (*curr_ref_mv_stack.offset(ref_mv_idx as isize)).comp_mv
+        } else {
+            (*curr_ref_mv_stack.offset(ref_mv_idx as isize)).this_mv
+        };
+    }
+    if ref_idx == 0 as core::ffi::c_int {} else {
+        __assert_fail(
+            b"ref_idx == 0\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+                as *const core::ffi::c_char,
+            40 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 90],
+                [core::ffi::c_char; 90],
+            >(
+                *b"int_mv get_ref_mv_for_mv_stats(const MB_MODE_INFO *, const MB_MODE_INFO_EXT_FRAME *, int)\0",
+            ))
+                .as_ptr(),
+        );
+    };
+    return if ref_mv_idx < (*mbmi_ext_frame).ref_mv_count as core::ffi::c_int {
+        (*curr_ref_mv_stack.offset(ref_mv_idx as isize)).this_mv
+    } else {
+        (*mbmi_ext_frame).global_mvs[ref_frame_type as usize]
+    };
 }
 #[inline]
-unsafe extern "C-unwind" fn av1_mv_class_base(mut c: MV_CLASS_TYPE) -> core::ffi::c_int {
-    return if c as core::ffi::c_int != 0 {
-        CLASS0_SIZE << c as core::ffi::c_int + 2 as core::ffi::c_int
+unsafe extern "C-unwind" fn get_symbol_cost(
+    mut cdf: *const aom_cdf_prob,
+    mut symbol: core::ffi::c_int,
+) -> core::ffi::c_int {
+    let cur_cdf: aom_cdf_prob = (CDF_PROB_TOP
+        - *cdf.offset(symbol as isize) as core::ffi::c_int) as aom_cdf_prob;
+    let prev_cdf: aom_cdf_prob = (if symbol != 0 {
+        CDF_PROB_TOP
+            - *cdf.offset((symbol - 1 as core::ffi::c_int) as isize) as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    }) as aom_cdf_prob;
+    let p15: aom_cdf_prob = (if cur_cdf as core::ffi::c_int
+        - prev_cdf as core::ffi::c_int > 4 as core::ffi::c_int
+    {
+        cur_cdf as core::ffi::c_int - prev_cdf as core::ffi::c_int
+    } else {
+        4 as core::ffi::c_int
+    }) as aom_cdf_prob;
+    return av1_cost_symbol(p15);
+}
+#[inline]
+unsafe extern "C-unwind" fn keep_one_comp_stat(
+    mut mv_stats: *mut MV_STATS,
+    mut comp_val: core::ffi::c_int,
+    mut comp_idx: core::ffi::c_int,
+    mut cpi: *const AV1_COMP,
+    mut rates: *mut core::ffi::c_int,
+) -> core::ffi::c_int {
+    if comp_val != 0 as core::ffi::c_int
+        && !(b"mv component should not have zero value!\0" as *const u8
+            as *const core::ffi::c_char)
+            .is_null()
+    {} else {
+        __assert_fail(
+            b"comp_val != 0 && \"mv component should not have zero value!\"\0"
+                as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+                as *const core::ffi::c_char,
+            57 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 70],
+                [core::ffi::c_char; 70],
+            >(
+                *b"int keep_one_comp_stat(MV_STATS *, int, int, const AV1_COMP *, int *)\0",
+            ))
+                .as_ptr(),
+        );
+    };
+    let sign: core::ffi::c_int = (comp_val < 0 as core::ffi::c_int) as core::ffi::c_int;
+    let mag: core::ffi::c_int = if sign != 0 { -comp_val } else { comp_val };
+    let mag_minus_1: core::ffi::c_int = mag - 1 as core::ffi::c_int;
+    let mut offset: core::ffi::c_int = 0;
+    let mv_class: core::ffi::c_int = av1_get_mv_class(mag_minus_1, &raw mut offset)
+        as core::ffi::c_int;
+    let int_part: core::ffi::c_int = offset >> 3 as core::ffi::c_int;
+    let frac_part: core::ffi::c_int = offset >> 1 as core::ffi::c_int
+        & 3 as core::ffi::c_int;
+    let high_part: core::ffi::c_int = offset & 1 as core::ffi::c_int;
+    let use_hp: core::ffi::c_int = (*cpi).common.features.allow_high_precision_mv
+        as core::ffi::c_int;
+    let mut r_idx: core::ffi::c_int = 0 as core::ffi::c_int;
+    let x: *const MACROBLOCK = &(*cpi).td.mb;
+    let xd: *const MACROBLOCKD = &(*x).e_mbd;
+    let mut ec_ctx: *mut FRAME_CONTEXT = (*xd).tile_ctx;
+    let mut nmvc: *mut nmv_context = &raw mut (*ec_ctx).nmvc;
+    let mut mvcomp_ctx: *mut nmv_component = ((*nmvc).comps).as_mut_ptr();
+    let mut cur_mvcomp_ctx: *mut nmv_component = &raw mut *mvcomp_ctx
+        .offset(comp_idx as isize) as *mut nmv_component;
+    let mut sign_cdf: *mut aom_cdf_prob = ((*cur_mvcomp_ctx).sign_cdf).as_mut_ptr();
+    let mut class_cdf: *mut aom_cdf_prob = ((*cur_mvcomp_ctx).classes_cdf).as_mut_ptr();
+    let mut class0_cdf: *mut aom_cdf_prob = ((*cur_mvcomp_ctx).class0_cdf).as_mut_ptr();
+    let mut bits_cdf: *mut [aom_cdf_prob; 3] = ((*cur_mvcomp_ctx).bits_cdf).as_mut_ptr()
+        as *mut [aom_cdf_prob; 3];
+    let mut frac_part_cdf: *mut aom_cdf_prob = if mv_class != 0 {
+        ((*cur_mvcomp_ctx).fp_cdf).as_mut_ptr()
+    } else {
+        ((*cur_mvcomp_ctx).class0_fp_cdf[int_part as usize]).as_mut_ptr()
+    };
+    let mut high_part_cdf: *mut aom_cdf_prob = if mv_class != 0 {
+        ((*cur_mvcomp_ctx).hp_cdf).as_mut_ptr()
+    } else {
+        ((*cur_mvcomp_ctx).class0_hp_cdf).as_mut_ptr()
+    };
+    let sign_rate: core::ffi::c_int = get_symbol_cost(sign_cdf, sign)
+        as core::ffi::c_int;
+    let fresh3 = r_idx;
+    r_idx = r_idx + 1;
+    *rates.offset(fresh3 as isize) = sign_rate;
+    update_cdf(sign_cdf, sign as int8_t, 2 as core::ffi::c_int);
+    let class_rate: core::ffi::c_int = get_symbol_cost(class_cdf, mv_class)
+        as core::ffi::c_int;
+    let fresh4 = r_idx;
+    r_idx = r_idx + 1;
+    *rates.offset(fresh4 as isize) = class_rate;
+    update_cdf(class_cdf, mv_class as int8_t, MV_CLASSES);
+    let mut int_bit_rate: core::ffi::c_int = 0 as core::ffi::c_int;
+    if mv_class == MV_CLASS_0 as core::ffi::c_int {
+        int_bit_rate = get_symbol_cost(class0_cdf, int_part);
+        update_cdf(class0_cdf, int_part as int8_t, CLASS0_SIZE);
+    } else {
+        let n: core::ffi::c_int = mv_class + CLASS0_BITS - 1 as core::ffi::c_int;
+        let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+        while i < n {
+            int_bit_rate
+                += get_symbol_cost(
+                    (*bits_cdf.offset(i as isize)).as_mut_ptr(),
+                    int_part >> i & 1 as core::ffi::c_int,
+                );
+            update_cdf(
+                (*bits_cdf.offset(i as isize)).as_mut_ptr(),
+                (int_part >> i & 1 as core::ffi::c_int) as int8_t,
+                2 as core::ffi::c_int,
+            );
+            i += 1;
+        }
+    }
+    let fresh5 = r_idx;
+    r_idx = r_idx + 1;
+    *rates.offset(fresh5 as isize) = int_bit_rate;
+    let frac_part_rate: core::ffi::c_int = get_symbol_cost(frac_part_cdf, frac_part)
+        as core::ffi::c_int;
+    let fresh6 = r_idx;
+    r_idx = r_idx + 1;
+    *rates.offset(fresh6 as isize) = frac_part_rate;
+    update_cdf(frac_part_cdf, frac_part as int8_t, MV_FP_SIZE);
+    let high_part_rate: core::ffi::c_int = if use_hp != 0 {
+        get_symbol_cost(high_part_cdf, high_part) as core::ffi::c_int
     } else {
         0 as core::ffi::c_int
     };
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_log_in_base_2(mut n: core::ffi::c_uint) -> uint8_t {
-    return (if n == 0 as core::ffi::c_uint { 0 as core::ffi::c_int } else { get_msb(n) })
-        as uint8_t;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_get_mv_class(
-    mut z: core::ffi::c_int,
-    mut offset: *mut core::ffi::c_int,
-) -> MV_CLASS_TYPE {
-    if z >= 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"z >= 0\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
-                as *const core::ffi::c_char,
-            68 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 43],
-                [core::ffi::c_char; 43],
-            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
-                .as_ptr(),
-        );
-    };
-    let c: MV_CLASS_TYPE = av1_log_in_base_2(
-        (z >> 3 as core::ffi::c_int) as core::ffi::c_uint,
-    );
-    if c as core::ffi::c_int <= MV_CLASS_10 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"c <= MV_CLASS_10\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
-                as *const core::ffi::c_char,
-            70 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 43],
-                [core::ffi::c_char; 43],
-            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
-                .as_ptr(),
-        );
-    };
-    if !offset.is_null() {
-        *offset = z - av1_mv_class_base(c);
+    if use_hp != 0 {
+        update_cdf(high_part_cdf, high_part as int8_t, 2 as core::ffi::c_int);
     }
-    return c;
+    let fresh7 = r_idx;
+    r_idx = r_idx + 1;
+    *rates.offset(fresh7 as isize) = high_part_rate;
+    (*mv_stats).last_bit_zero += (high_part == 0) as core::ffi::c_int;
+    (*mv_stats).last_bit_nonzero += high_part;
+    let total_rate: core::ffi::c_int = sign_rate + class_rate + int_bit_rate
+        + frac_part_rate + high_part_rate;
+    return total_rate;
+}
+#[inline]
+unsafe extern "C-unwind" fn keep_one_mv_stat(
+    mut mv_stats: *mut MV_STATS,
+    mut ref_mv: *const MV,
+    mut cur_mv: *const MV,
+    mut cpi: *const AV1_COMP,
+) {
+    let x: *const MACROBLOCK = &(*cpi).td.mb;
+    let xd: *const MACROBLOCKD = &(*x).e_mbd;
+    let mut ec_ctx: *mut FRAME_CONTEXT = (*xd).tile_ctx;
+    let mut nmvc: *mut nmv_context = &raw mut (*ec_ctx).nmvc;
+    let mut joint_cdf: *mut aom_cdf_prob = ((*nmvc).joints_cdf).as_mut_ptr();
+    let use_hp: core::ffi::c_int = (*cpi).common.features.allow_high_precision_mv
+        as core::ffi::c_int;
+    let diff: MV = {
+        let mut init = mv {
+            row: ((*cur_mv).row as core::ffi::c_int - (*ref_mv).row as core::ffi::c_int)
+                as int16_t,
+            col: ((*cur_mv).col as core::ffi::c_int - (*ref_mv).col as core::ffi::c_int)
+                as int16_t,
+        };
+        init
+    };
+    let mv_joint: core::ffi::c_int = av1_get_mv_joint(&diff) as core::ffi::c_int;
+    let hp_diff: MV = diff;
+    let hp_mv_joint: core::ffi::c_int = av1_get_mv_joint(&hp_diff) as core::ffi::c_int;
+    let truncated_diff: MV = {
+        let mut init = mv {
+            row: (diff.row as core::ffi::c_int / 2 as core::ffi::c_int
+                * 2 as core::ffi::c_int) as int16_t,
+            col: (diff.col as core::ffi::c_int / 2 as core::ffi::c_int
+                * 2 as core::ffi::c_int) as int16_t,
+        };
+        init
+    };
+    let lp_diff: MV = if use_hp != 0 { truncated_diff } else { diff };
+    let lp_mv_joint: core::ffi::c_int = av1_get_mv_joint(&lp_diff) as core::ffi::c_int;
+    let mv_joint_rate: core::ffi::c_int = get_symbol_cost(joint_cdf, mv_joint)
+        as core::ffi::c_int;
+    let hp_mv_joint_rate: core::ffi::c_int = get_symbol_cost(joint_cdf, hp_mv_joint)
+        as core::ffi::c_int;
+    let lp_mv_joint_rate: core::ffi::c_int = get_symbol_cost(joint_cdf, lp_mv_joint)
+        as core::ffi::c_int;
+    update_cdf(joint_cdf, mv_joint as int8_t, MV_JOINTS);
+    (*mv_stats).total_mv_rate += mv_joint_rate;
+    (*mv_stats).hp_total_mv_rate += hp_mv_joint_rate;
+    (*mv_stats).lp_total_mv_rate += lp_mv_joint_rate;
+    (*mv_stats).mv_joint_count[mv_joint as usize] += 1;
+    let mut comp_idx: core::ffi::c_int = 0 as core::ffi::c_int;
+    while comp_idx < 2 as core::ffi::c_int {
+        let comp_val: core::ffi::c_int = if comp_idx != 0 {
+            diff.col as core::ffi::c_int
+        } else {
+            diff.row as core::ffi::c_int
+        };
+        let hp_comp_val: core::ffi::c_int = if comp_idx != 0 {
+            hp_diff.col as core::ffi::c_int
+        } else {
+            hp_diff.row as core::ffi::c_int
+        };
+        let lp_comp_val: core::ffi::c_int = if comp_idx != 0 {
+            lp_diff.col as core::ffi::c_int
+        } else {
+            lp_diff.row as core::ffi::c_int
+        };
+        let mut rates: [core::ffi::c_int; 5] = [0; 5];
+        memset(
+            rates.as_mut_ptr() as *mut core::ffi::c_void,
+            0 as core::ffi::c_int,
+            (5 as size_t)
+                .wrapping_mul(::core::mem::size_of::<core::ffi::c_int>() as size_t),
+        );
+        let comp_rate: core::ffi::c_int = if comp_val != 0 {
+            keep_one_comp_stat(mv_stats, comp_val, comp_idx, cpi, rates.as_mut_ptr())
+                as core::ffi::c_int
+        } else {
+            0 as core::ffi::c_int
+        };
+        let hp_rate: core::ffi::c_int = if hp_comp_val != 0 {
+            rates[0 as core::ffi::c_int as usize] + rates[1 as core::ffi::c_int as usize]
+                + rates[2 as core::ffi::c_int as usize]
+                + rates[3 as core::ffi::c_int as usize]
+                + rates[4 as core::ffi::c_int as usize]
+        } else {
+            0 as core::ffi::c_int
+        };
+        let lp_rate: core::ffi::c_int = if lp_comp_val != 0 {
+            rates[0 as core::ffi::c_int as usize] + rates[1 as core::ffi::c_int as usize]
+                + rates[2 as core::ffi::c_int as usize]
+                + rates[3 as core::ffi::c_int as usize]
+        } else {
+            0 as core::ffi::c_int
+        };
+        (*mv_stats).total_mv_rate += comp_rate;
+        (*mv_stats).hp_total_mv_rate += hp_rate;
+        (*mv_stats).lp_total_mv_rate += lp_rate;
+        comp_idx += 1;
+    }
+}
+#[inline]
+unsafe extern "C-unwind" fn collect_mv_stats_b(
+    mut mv_stats: *mut MV_STATS,
+    mut cpi: *const AV1_COMP,
+    mut mi_row: core::ffi::c_int,
+    mut mi_col: core::ffi::c_int,
+) {
+    let mut cm: *const AV1_COMMON = &(*cpi).common;
+    let mi_params: *const CommonModeInfoParams = &(*cm).mi_params;
+    if mi_row >= (*mi_params).mi_rows || mi_col >= (*mi_params).mi_cols {
+        return;
+    }
+    let mut mbmi: *const MB_MODE_INFO = *((*mi_params).mi_grid_base)
+        .offset((mi_row * (*mi_params).mi_stride + mi_col) as isize);
+    let mut mbmi_ext_frame: *const MB_MODE_INFO_EXT_FRAME = ((*cpi)
+        .mbmi_ext_info
+        .frame_base)
+        .offset(
+            get_mi_ext_idx(
+                mi_row,
+                mi_col,
+                (*cm).mi_params.mi_alloc_bsize,
+                (*cpi).mbmi_ext_info.stride,
+            ) as isize,
+        );
+    if is_inter_block(mbmi) == 0 {
+        (*mv_stats).intra_count += 1;
+        return;
+    }
+    (*mv_stats).inter_count += 1;
+    let mode: PREDICTION_MODE = (*mbmi).mode;
+    let is_compound: core::ffi::c_int = has_second_ref(mbmi) as core::ffi::c_int;
+    if mode as core::ffi::c_int == NEWMV as core::ffi::c_int
+        || mode as core::ffi::c_int == NEW_NEWMV as core::ffi::c_int
+    {
+        let mut ref_idx: core::ffi::c_int = 0 as core::ffi::c_int;
+        while ref_idx < 1 as core::ffi::c_int + is_compound {
+            let ref_mv: MV = (get_ref_mv_for_mv_stats(mbmi, mbmi_ext_frame, ref_idx))
+                .as_mv as MV;
+            let cur_mv: MV = (*mbmi).mv[ref_idx as usize].as_mv;
+            keep_one_mv_stat(mv_stats, &ref_mv, &cur_mv, cpi);
+            ref_idx += 1;
+        }
+    } else if mode as core::ffi::c_int == NEAREST_NEWMV as core::ffi::c_int
+        || mode as core::ffi::c_int == NEAR_NEWMV as core::ffi::c_int
+        || mode as core::ffi::c_int == NEW_NEARESTMV as core::ffi::c_int
+        || mode as core::ffi::c_int == NEW_NEARMV as core::ffi::c_int
+    {
+        (*mv_stats).default_mvs += 1 as core::ffi::c_int;
+        let ref_idx_0: core::ffi::c_int = (mode as core::ffi::c_int
+            == NEAREST_NEWMV as core::ffi::c_int
+            || mode as core::ffi::c_int == NEAR_NEWMV as core::ffi::c_int)
+            as core::ffi::c_int;
+        let ref_mv_0: MV = (get_ref_mv_for_mv_stats(mbmi, mbmi_ext_frame, ref_idx_0))
+            .as_mv as MV;
+        let cur_mv_0: MV = (*mbmi).mv[ref_idx_0 as usize].as_mv;
+        keep_one_mv_stat(mv_stats, &ref_mv_0, &cur_mv_0, cpi);
+    } else {
+        (*mv_stats).default_mvs += 1 as core::ffi::c_int + is_compound;
+    }
+    let bsize: BLOCK_SIZE = (*mbmi).bsize;
+    let num_rows: core::ffi::c_int = block_size_high[bsize as usize] as core::ffi::c_int;
+    let num_cols: core::ffi::c_int = block_size_wide[bsize as usize] as core::ffi::c_int;
+    let y_stride: core::ffi::c_int = (*(*cpi).source)
+        .c2rust_unnamed_3
+        .c2rust_unnamed
+        .y_stride;
+    let px_row: core::ffi::c_int = 4 as core::ffi::c_int * mi_row;
+    let px_col: core::ffi::c_int = 4 as core::ffi::c_int * mi_col;
+    let buf_is_hbd: core::ffi::c_int = (*(*cpi).source).flags & YV12_FLAG_HIGHBITDEPTH;
+    let bd: core::ffi::c_int = (*(*cm).seq_params).bit_depth as core::ffi::c_int;
+    if buf_is_hbd != 0 {
+        let mut source_buf: *mut uint16_t = ((((*(*cpi).source)
+            .c2rust_unnamed_4
+            .c2rust_unnamed
+            .y_buffer as uintptr_t) << 1 as core::ffi::c_int) as *mut uint16_t)
+            .offset((px_row * y_stride) as isize)
+            .offset(px_col as isize);
+        let mut row: core::ffi::c_int = 0 as core::ffi::c_int;
+        while row < num_rows - 1 as core::ffi::c_int {
+            let mut col: core::ffi::c_int = 0 as core::ffi::c_int;
+            while col < num_cols - 1 as core::ffi::c_int {
+                let offset: core::ffi::c_int = row * y_stride + col;
+                let horz_diff: core::ffi::c_int = abs(
+                    *source_buf.offset((offset + 1 as core::ffi::c_int) as isize)
+                        as core::ffi::c_int
+                        - *source_buf.offset(offset as isize) as core::ffi::c_int,
+                ) as core::ffi::c_int >> bd - 8 as core::ffi::c_int;
+                let vert_diff: core::ffi::c_int = abs(
+                    *source_buf.offset((offset + y_stride) as isize) as core::ffi::c_int
+                        - *source_buf.offset(offset as isize) as core::ffi::c_int,
+                ) as core::ffi::c_int >> bd - 8 as core::ffi::c_int;
+                (*mv_stats).horz_text += horz_diff;
+                (*mv_stats).vert_text += vert_diff;
+                (*mv_stats).diag_text += horz_diff * vert_diff;
+                col += 1;
+            }
+            row += 1;
+        }
+    } else {
+        let mut source_buf_0: *mut uint8_t = ((*(*cpi).source)
+            .c2rust_unnamed_4
+            .c2rust_unnamed
+            .y_buffer)
+            .offset((px_row * y_stride) as isize)
+            .offset(px_col as isize);
+        let mut row_0: core::ffi::c_int = 0 as core::ffi::c_int;
+        while row_0 < num_rows - 1 as core::ffi::c_int {
+            let mut col_0: core::ffi::c_int = 0 as core::ffi::c_int;
+            while col_0 < num_cols - 1 as core::ffi::c_int {
+                let offset_0: core::ffi::c_int = row_0 * y_stride + col_0;
+                let horz_diff_0: core::ffi::c_int = abs(
+                    *source_buf_0.offset((offset_0 + 1 as core::ffi::c_int) as isize)
+                        as core::ffi::c_int
+                        - *source_buf_0.offset(offset_0 as isize) as core::ffi::c_int,
+                ) as core::ffi::c_int;
+                let vert_diff_0: core::ffi::c_int = abs(
+                    *source_buf_0.offset((offset_0 + y_stride) as isize)
+                        as core::ffi::c_int
+                        - *source_buf_0.offset(offset_0 as isize) as core::ffi::c_int,
+                ) as core::ffi::c_int;
+                (*mv_stats).horz_text += horz_diff_0;
+                (*mv_stats).vert_text += vert_diff_0;
+                (*mv_stats).diag_text += horz_diff_0 * vert_diff_0;
+                col_0 += 1;
+            }
+            row_0 += 1;
+        }
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn collect_mv_stats_sb(
+    mut mv_stats: *mut MV_STATS,
+    mut cpi: *const AV1_COMP,
+    mut mi_row: core::ffi::c_int,
+    mut mi_col: core::ffi::c_int,
+    mut bsize: BLOCK_SIZE,
+) {
+    if (bsize as core::ffi::c_int) < BLOCK_SIZES_ALL as core::ffi::c_int {} else {
+        __assert_fail(
+            b"bsize < BLOCK_SIZES_ALL\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+                as *const core::ffi::c_char,
+            265 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 77],
+                [core::ffi::c_char; 77],
+            >(
+                *b"void collect_mv_stats_sb(MV_STATS *, const AV1_COMP *, int, int, BLOCK_SIZE)\0",
+            ))
+                .as_ptr(),
+        );
+    };
+    let mut cm: *const AV1_COMMON = &(*cpi).common;
+    if mi_row >= (*cm).mi_params.mi_rows || mi_col >= (*cm).mi_params.mi_cols {
+        return;
+    }
+    let partition: PARTITION_TYPE = get_partition(cm, mi_row, mi_col, bsize)
+        as PARTITION_TYPE;
+    let subsize: BLOCK_SIZE = get_partition_subsize(bsize, partition) as BLOCK_SIZE;
+    let hbs: core::ffi::c_int = mi_size_wide[bsize as usize] as core::ffi::c_int
+        / 2 as core::ffi::c_int;
+    let qbs: core::ffi::c_int = mi_size_wide[bsize as usize] as core::ffi::c_int
+        / 4 as core::ffi::c_int;
+    match partition as core::ffi::c_int {
+        0 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+        }
+        1 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
+        }
+        2 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
+        }
+        3 => {
+            collect_mv_stats_sb(mv_stats, cpi, mi_row, mi_col, subsize);
+            collect_mv_stats_sb(mv_stats, cpi, mi_row, mi_col + hbs, subsize);
+            collect_mv_stats_sb(mv_stats, cpi, mi_row + hbs, mi_col, subsize);
+            collect_mv_stats_sb(mv_stats, cpi, mi_row + hbs, mi_col + hbs, subsize);
+        }
+        4 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
+            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
+        }
+        5 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col + hbs);
+        }
+        6 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
+        }
+        7 => {
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
+            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
+            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col + hbs);
+        }
+        8 => {
+            let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+            while i < 4 as core::ffi::c_int {
+                let this_mi_row: core::ffi::c_int = mi_row + i * qbs;
+                collect_mv_stats_b(mv_stats, cpi, this_mi_row, mi_col);
+                i += 1;
+            }
+        }
+        9 => {
+            let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
+            while i_0 < 4 as core::ffi::c_int {
+                let this_mi_col: core::ffi::c_int = mi_col + i_0 * qbs;
+                collect_mv_stats_b(mv_stats, cpi, mi_row, this_mi_col);
+                i_0 += 1;
+            }
+        }
+        _ => {
+            if 0 as core::ffi::c_int != 0 {} else {
+                __assert_fail(
+                    b"0\0" as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    326 as core::ffi::c_uint,
+                    (::core::mem::transmute::<
+                        [u8; 77],
+                        [core::ffi::c_char; 77],
+                    >(
+                        *b"void collect_mv_stats_sb(MV_STATS *, const AV1_COMP *, int, int, BLOCK_SIZE)\0",
+                    ))
+                        .as_ptr(),
+                );
+            };
+        }
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn collect_mv_stats_tile(
+    mut mv_stats: *mut MV_STATS,
+    mut cpi: *const AV1_COMP,
+    mut tile_info: *const TileInfo,
+) {
+    let mut cm: *const AV1_COMMON = &(*cpi).common;
+    let mi_row_start: core::ffi::c_int = (*tile_info).mi_row_start;
+    let mi_row_end: core::ffi::c_int = (*tile_info).mi_row_end;
+    let mi_col_start: core::ffi::c_int = (*tile_info).mi_col_start;
+    let mi_col_end: core::ffi::c_int = (*tile_info).mi_col_end;
+    let sb_size_mi: core::ffi::c_int = (*(*cm).seq_params).mib_size;
+    let mut sb_size: BLOCK_SIZE = (*(*cm).seq_params).sb_size;
+    let mut mi_row: core::ffi::c_int = mi_row_start;
+    while mi_row < mi_row_end {
+        let mut mi_col: core::ffi::c_int = mi_col_start;
+        while mi_col < mi_col_end {
+            collect_mv_stats_sb(mv_stats, cpi, mi_row, mi_col, sb_size);
+            mi_col += sb_size_mi;
+        }
+        mi_row += sb_size_mi;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C-unwind" fn av1_collect_mv_stats(
+    mut cpi: *mut AV1_COMP,
+    mut current_q: core::ffi::c_int,
+) {
+    let mut mv_stats: *mut MV_STATS = &raw mut (*cpi).mv_stats;
+    let mut cm: *const AV1_COMMON = &raw mut (*cpi).common;
+    let tile_cols: core::ffi::c_int = (*cm).tiles.cols;
+    let tile_rows: core::ffi::c_int = (*cm).tiles.rows;
+    let mut tile_row: core::ffi::c_int = 0 as core::ffi::c_int;
+    while tile_row < tile_rows {
+        let mut tile_info: TileInfo = TileInfo {
+            mi_row_start: 0,
+            mi_row_end: 0,
+            mi_col_start: 0,
+            mi_col_end: 0,
+            tile_row: 0,
+            tile_col: 0,
+        };
+        av1_tile_set_row(&raw mut tile_info, cm as *const AV1Common, tile_row);
+        let mut tile_col: core::ffi::c_int = 0 as core::ffi::c_int;
+        while tile_col < tile_cols {
+            let tile_idx: core::ffi::c_int = tile_row * tile_cols + tile_col;
+            av1_tile_set_col(&raw mut tile_info, cm as *const AV1Common, tile_col);
+            (*((*cpi).tile_data).offset(tile_idx as isize)).tctx = *(*cm).fc;
+            (*cpi).td.mb.e_mbd.tile_ctx = &raw mut (*((*cpi).tile_data)
+                .offset(tile_idx as isize))
+                .tctx;
+            collect_mv_stats_tile(mv_stats, cpi, &raw mut tile_info);
+            tile_col += 1;
+        }
+        tile_row += 1;
+    }
+    (*mv_stats).q = current_q;
+    (*mv_stats).order = (*cpi).common.current_frame.order_hint as core::ffi::c_int;
+    (*mv_stats).valid = 1 as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_smart_mv_prec(
+    mut cpi: *mut AV1_COMP,
+    mut mv_stats: *const MV_STATS,
+    mut current_q: core::ffi::c_int,
+) -> core::ffi::c_int {
+    let mut cm: *const AV1_COMMON = &raw mut (*cpi).common;
+    let order_hint: core::ffi::c_int = (*cpi).common.current_frame.order_hint
+        as core::ffi::c_int;
+    let order_diff: core::ffi::c_int = order_hint - (*mv_stats).order;
+    let area: core::ffi::c_float = ((*cm).width * (*cm).height) as core::ffi::c_float;
+    let mut features: [core::ffi::c_float; 18] = [
+        current_q as core::ffi::c_float,
+        (*mv_stats).q as core::ffi::c_float,
+        order_diff as core::ffi::c_float,
+        (*mv_stats).inter_count as core::ffi::c_float / area,
+        (*mv_stats).intra_count as core::ffi::c_float / area,
+        (*mv_stats).default_mvs as core::ffi::c_float / area,
+        (*mv_stats).mv_joint_count[0 as core::ffi::c_int as usize] as core::ffi::c_float
+            / area,
+        (*mv_stats).mv_joint_count[1 as core::ffi::c_int as usize] as core::ffi::c_float
+            / area,
+        (*mv_stats).mv_joint_count[2 as core::ffi::c_int as usize] as core::ffi::c_float
+            / area,
+        (*mv_stats).mv_joint_count[3 as core::ffi::c_int as usize] as core::ffi::c_float
+            / area,
+        (*mv_stats).last_bit_zero as core::ffi::c_float / area,
+        (*mv_stats).last_bit_nonzero as core::ffi::c_float / area,
+        (*mv_stats).total_mv_rate as core::ffi::c_float / area,
+        (*mv_stats).hp_total_mv_rate as core::ffi::c_float / area,
+        (*mv_stats).lp_total_mv_rate as core::ffi::c_float / area,
+        (*mv_stats).horz_text as core::ffi::c_float / area,
+        (*mv_stats).vert_text as core::ffi::c_float / area,
+        (*mv_stats).diag_text as core::ffi::c_float / area,
+    ];
+    let mut f_idx: core::ffi::c_int = 0 as core::ffi::c_int;
+    while f_idx < MV_PREC_FEATURE_SIZE {
+        features[f_idx as usize] = (features[f_idx as usize]
+            - av1_mv_prec_mean[f_idx as usize]) / av1_mv_prec_std[f_idx as usize];
+        f_idx += 1;
+    }
+    let mut score: core::ffi::c_float = 0.0f32;
+    av1_nn_predict_c(
+        features.as_mut_ptr(),
+        &raw const av1_mv_prec_dnn_config,
+        1 as core::ffi::c_int,
+        &raw mut score,
+    );
+    let use_high_hp: core::ffi::c_int = (score >= 0.0f32) as core::ffi::c_int;
+    return use_high_hp;
+}
+#[no_mangle]
+pub unsafe extern "C-unwind" fn av1_pick_and_set_high_precision_mv(
+    mut cpi: *mut AV1_COMP,
+    mut qindex: core::ffi::c_int,
+) {
+    let mut use_hp: core::ffi::c_int = (qindex < HIGH_PRECISION_MV_QTHRESH)
+        as core::ffi::c_int;
+    let mut mv_stats: *mut MV_STATS = &raw mut (*cpi).mv_stats;
+    if (*cpi).sf.hl_sf.high_precision_mv_usage as core::ffi::c_int
+        == QTR_ONLY as core::ffi::c_int
+    {
+        use_hp = 0 as core::ffi::c_int;
+    } else if (*cpi).sf.hl_sf.high_precision_mv_usage as core::ffi::c_int
+        == LAST_MV_DATA as core::ffi::c_int && av1_frame_allows_smart_mv(cpi) != 0
+        && (*mv_stats).valid != 0
+    {
+        use_hp = get_smart_mv_prec(cpi, mv_stats, qindex);
+    }
+    av1_set_high_precision_mv(
+        cpi,
+        use_hp,
+        (*cpi).common.features.cur_frame_force_integer_mv as core::ffi::c_int,
+    );
+}
+pub const HIGH_PRECISION_MV_QTHRESH: core::ffi::c_int = 128 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn av1_frame_allows_smart_mv(
+    mut cpi: *const AV1_COMP,
+) -> core::ffi::c_int {
+    let gf_group_index: core::ffi::c_int = (*cpi).gf_frame_index as core::ffi::c_int;
+    let gf_update_type: core::ffi::c_int = (*(*cpi).ppi)
+        .gf_group
+        .update_type[gf_group_index as usize] as core::ffi::c_int;
+    return (frame_is_intra_only(&(*cpi).common) == 0
+        && !(gf_update_type == INTNL_OVERLAY_UPDATE as core::ffi::c_int
+            || gf_update_type == OVERLAY_UPDATE as core::ffi::c_int))
+        as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_set_high_precision_mv(
+    mut cpi: *mut AV1_COMP,
+    mut allow_high_precision_mv: core::ffi::c_int,
+    mut cur_frame_force_integer_mv: core::ffi::c_int,
+) {
+    let mv_costs: *mut MvCosts = (*cpi).td.mb.mv_costs;
+    if mv_costs.is_null() {
+        return;
+    }
+    (*cpi).common.features.allow_high_precision_mv = allow_high_precision_mv != 0
+        && cur_frame_force_integer_mv == 0;
+    let copy_hp: core::ffi::c_int = (*cpi).common.features.allow_high_precision_mv
+        as core::ffi::c_int;
+    (*mv_costs).nmv_cost[0 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
+        .nmv_cost_alloc)
+        .as_mut_ptr()
+        .offset(0 as core::ffi::c_int as isize))
+        .as_mut_ptr()
+        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
+    (*mv_costs).nmv_cost[1 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
+        .nmv_cost_alloc)
+        .as_mut_ptr()
+        .offset(1 as core::ffi::c_int as isize))
+        .as_mut_ptr()
+        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
+    (*mv_costs).nmv_cost_hp[0 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
+        .nmv_cost_hp_alloc)
+        .as_mut_ptr()
+        .offset(0 as core::ffi::c_int as isize))
+        .as_mut_ptr()
+        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
+    (*mv_costs).nmv_cost_hp[1 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
+        .nmv_cost_hp_alloc)
+        .as_mut_ptr()
+        .offset(1 as core::ffi::c_int as isize))
+        .as_mut_ptr()
+        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
+    (*mv_costs).mv_cost_stack = if copy_hp != 0 {
+        ((*mv_costs).nmv_cost_hp).as_mut_ptr()
+    } else {
+        ((*mv_costs).nmv_cost).as_mut_ptr()
+    };
 }
 pub const MV_PREC_FEATURE_SIZE: core::ffi::c_int = 18 as core::ffi::c_int;
 pub const NUM_DNN_LAYERS: core::ffi::c_int = 1 as core::ffi::c_int;
@@ -6794,696 +7474,62 @@ static mut av1_mv_prec_dnn_config: NN_CONFIG = unsafe {
     }
 };
 #[inline]
-unsafe extern "C-unwind" fn get_ref_mv_for_mv_stats(
-    mut mbmi: *const MB_MODE_INFO,
-    mut mbmi_ext_frame: *const MB_MODE_INFO_EXT_FRAME,
-    mut ref_idx: core::ffi::c_int,
-) -> int_mv {
-    let mut ref_mv_idx: core::ffi::c_int = (*mbmi).ref_mv_idx() as core::ffi::c_int;
-    if (*mbmi).mode as core::ffi::c_int == NEAR_NEWMV as core::ffi::c_int
-        || (*mbmi).mode as core::ffi::c_int == NEW_NEARMV as core::ffi::c_int
-    {
-        if has_second_ref(mbmi) != 0 {} else {
-            __assert_fail(
-                b"has_second_ref(mbmi)\0" as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                26 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 90],
-                    [core::ffi::c_char; 90],
-                >(
-                    *b"int_mv get_ref_mv_for_mv_stats(const MB_MODE_INFO *, const MB_MODE_INFO_EXT_FRAME *, int)\0",
-                ))
-                    .as_ptr(),
-            );
-        };
-        ref_mv_idx += 1 as core::ffi::c_int;
-    }
-    let mut ref_frames: *const MV_REFERENCE_FRAME = ((*mbmi).ref_frame).as_ptr();
-    let ref_frame_type: int8_t = av1_ref_frame_type(ref_frames) as int8_t;
-    let mut curr_ref_mv_stack: *const CANDIDATE_MV = ((*mbmi_ext_frame).ref_mv_stack)
-        .as_ptr();
-    if *ref_frames.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
-        > INTRA_FRAME as core::ffi::c_int
-    {
-        if ref_idx == 0 as core::ffi::c_int || ref_idx == 1 as core::ffi::c_int {} else {
-            __assert_fail(
-                b"ref_idx == 0 || ref_idx == 1\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                35 as core::ffi::c_uint,
-                (::core::mem::transmute::<
-                    [u8; 90],
-                    [core::ffi::c_char; 90],
-                >(
-                    *b"int_mv get_ref_mv_for_mv_stats(const MB_MODE_INFO *, const MB_MODE_INFO_EXT_FRAME *, int)\0",
-                ))
-                    .as_ptr(),
-            );
-        };
-        return if ref_idx != 0 {
-            (*curr_ref_mv_stack.offset(ref_mv_idx as isize)).comp_mv
-        } else {
-            (*curr_ref_mv_stack.offset(ref_mv_idx as isize)).this_mv
-        };
-    }
-    if ref_idx == 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"ref_idx == 0\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
-                as *const core::ffi::c_char,
-            40 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 90],
-                [core::ffi::c_char; 90],
-            >(
-                *b"int_mv get_ref_mv_for_mv_stats(const MB_MODE_INFO *, const MB_MODE_INFO_EXT_FRAME *, int)\0",
-            ))
-                .as_ptr(),
-        );
-    };
-    return if ref_mv_idx < (*mbmi_ext_frame).ref_mv_count as core::ffi::c_int {
-        (*curr_ref_mv_stack.offset(ref_mv_idx as isize)).this_mv
-    } else {
-        (*mbmi_ext_frame).global_mvs[ref_frame_type as usize]
-    };
+unsafe extern "C-unwind" fn av1_get_mv_joint(mut mv: *const MV) -> MV_JOINT_TYPE {
+    return (((*mv).col != 0) as core::ffi::c_int
+        | (((*mv).row != 0) as core::ffi::c_int) << 1 as core::ffi::c_int)
+        as MV_JOINT_TYPE;
 }
 #[inline]
-unsafe extern "C-unwind" fn get_symbol_cost(
-    mut cdf: *const aom_cdf_prob,
-    mut symbol: core::ffi::c_int,
-) -> core::ffi::c_int {
-    let cur_cdf: aom_cdf_prob = (CDF_PROB_TOP
-        - *cdf.offset(symbol as isize) as core::ffi::c_int) as aom_cdf_prob;
-    let prev_cdf: aom_cdf_prob = (if symbol != 0 {
-        CDF_PROB_TOP
-            - *cdf.offset((symbol - 1 as core::ffi::c_int) as isize) as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    }) as aom_cdf_prob;
-    let p15: aom_cdf_prob = (if cur_cdf as core::ffi::c_int
-        - prev_cdf as core::ffi::c_int > 4 as core::ffi::c_int
-    {
-        cur_cdf as core::ffi::c_int - prev_cdf as core::ffi::c_int
-    } else {
-        4 as core::ffi::c_int
-    }) as aom_cdf_prob;
-    return av1_cost_symbol(p15);
-}
-#[inline]
-unsafe extern "C-unwind" fn keep_one_comp_stat(
-    mut mv_stats: *mut MV_STATS,
-    mut comp_val: core::ffi::c_int,
-    mut comp_idx: core::ffi::c_int,
-    mut cpi: *const AV1_COMP,
-    mut rates: *mut core::ffi::c_int,
-) -> core::ffi::c_int {
-    if comp_val != 0 as core::ffi::c_int
-        && !(b"mv component should not have zero value!\0" as *const u8
-            as *const core::ffi::c_char)
-            .is_null()
-    {} else {
-        __assert_fail(
-            b"comp_val != 0 && \"mv component should not have zero value!\"\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
-                as *const core::ffi::c_char,
-            57 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 70],
-                [core::ffi::c_char; 70],
-            >(
-                *b"int keep_one_comp_stat(MV_STATS *, int, int, const AV1_COMP *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    };
-    let sign: core::ffi::c_int = (comp_val < 0 as core::ffi::c_int) as core::ffi::c_int;
-    let mag: core::ffi::c_int = if sign != 0 { -comp_val } else { comp_val };
-    let mag_minus_1: core::ffi::c_int = mag - 1 as core::ffi::c_int;
-    let mut offset: core::ffi::c_int = 0;
-    let mv_class: core::ffi::c_int = av1_get_mv_class(mag_minus_1, &raw mut offset)
-        as core::ffi::c_int;
-    let int_part: core::ffi::c_int = offset >> 3 as core::ffi::c_int;
-    let frac_part: core::ffi::c_int = offset >> 1 as core::ffi::c_int
-        & 3 as core::ffi::c_int;
-    let high_part: core::ffi::c_int = offset & 1 as core::ffi::c_int;
-    let use_hp: core::ffi::c_int = (*cpi).common.features.allow_high_precision_mv
-        as core::ffi::c_int;
-    let mut r_idx: core::ffi::c_int = 0 as core::ffi::c_int;
-    let x: *const MACROBLOCK = &(*cpi).td.mb;
-    let xd: *const MACROBLOCKD = &(*x).e_mbd;
-    let mut ec_ctx: *mut FRAME_CONTEXT = (*xd).tile_ctx;
-    let mut nmvc: *mut nmv_context = &raw mut (*ec_ctx).nmvc;
-    let mut mvcomp_ctx: *mut nmv_component = ((*nmvc).comps).as_mut_ptr();
-    let mut cur_mvcomp_ctx: *mut nmv_component = &raw mut *mvcomp_ctx
-        .offset(comp_idx as isize) as *mut nmv_component;
-    let mut sign_cdf: *mut aom_cdf_prob = ((*cur_mvcomp_ctx).sign_cdf).as_mut_ptr();
-    let mut class_cdf: *mut aom_cdf_prob = ((*cur_mvcomp_ctx).classes_cdf).as_mut_ptr();
-    let mut class0_cdf: *mut aom_cdf_prob = ((*cur_mvcomp_ctx).class0_cdf).as_mut_ptr();
-    let mut bits_cdf: *mut [aom_cdf_prob; 3] = ((*cur_mvcomp_ctx).bits_cdf).as_mut_ptr()
-        as *mut [aom_cdf_prob; 3];
-    let mut frac_part_cdf: *mut aom_cdf_prob = if mv_class != 0 {
-        ((*cur_mvcomp_ctx).fp_cdf).as_mut_ptr()
-    } else {
-        ((*cur_mvcomp_ctx).class0_fp_cdf[int_part as usize]).as_mut_ptr()
-    };
-    let mut high_part_cdf: *mut aom_cdf_prob = if mv_class != 0 {
-        ((*cur_mvcomp_ctx).hp_cdf).as_mut_ptr()
-    } else {
-        ((*cur_mvcomp_ctx).class0_hp_cdf).as_mut_ptr()
-    };
-    let sign_rate: core::ffi::c_int = get_symbol_cost(sign_cdf, sign)
-        as core::ffi::c_int;
-    let fresh3 = r_idx;
-    r_idx = r_idx + 1;
-    *rates.offset(fresh3 as isize) = sign_rate;
-    update_cdf(sign_cdf, sign as int8_t, 2 as core::ffi::c_int);
-    let class_rate: core::ffi::c_int = get_symbol_cost(class_cdf, mv_class)
-        as core::ffi::c_int;
-    let fresh4 = r_idx;
-    r_idx = r_idx + 1;
-    *rates.offset(fresh4 as isize) = class_rate;
-    update_cdf(class_cdf, mv_class as int8_t, MV_CLASSES);
-    let mut int_bit_rate: core::ffi::c_int = 0 as core::ffi::c_int;
-    if mv_class == MV_CLASS_0 as core::ffi::c_int {
-        int_bit_rate = get_symbol_cost(class0_cdf, int_part);
-        update_cdf(class0_cdf, int_part as int8_t, CLASS0_SIZE);
-    } else {
-        let n: core::ffi::c_int = mv_class + CLASS0_BITS - 1 as core::ffi::c_int;
-        let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-        while i < n {
-            int_bit_rate
-                += get_symbol_cost(
-                    (*bits_cdf.offset(i as isize)).as_mut_ptr(),
-                    int_part >> i & 1 as core::ffi::c_int,
-                );
-            update_cdf(
-                (*bits_cdf.offset(i as isize)).as_mut_ptr(),
-                (int_part >> i & 1 as core::ffi::c_int) as int8_t,
-                2 as core::ffi::c_int,
-            );
-            i += 1;
-        }
-    }
-    let fresh5 = r_idx;
-    r_idx = r_idx + 1;
-    *rates.offset(fresh5 as isize) = int_bit_rate;
-    let frac_part_rate: core::ffi::c_int = get_symbol_cost(frac_part_cdf, frac_part)
-        as core::ffi::c_int;
-    let fresh6 = r_idx;
-    r_idx = r_idx + 1;
-    *rates.offset(fresh6 as isize) = frac_part_rate;
-    update_cdf(frac_part_cdf, frac_part as int8_t, MV_FP_SIZE);
-    let high_part_rate: core::ffi::c_int = if use_hp != 0 {
-        get_symbol_cost(high_part_cdf, high_part) as core::ffi::c_int
+unsafe extern "C-unwind" fn av1_mv_class_base(mut c: MV_CLASS_TYPE) -> core::ffi::c_int {
+    return if c as core::ffi::c_int != 0 {
+        CLASS0_SIZE << c as core::ffi::c_int + 2 as core::ffi::c_int
     } else {
         0 as core::ffi::c_int
     };
-    if use_hp != 0 {
-        update_cdf(high_part_cdf, high_part as int8_t, 2 as core::ffi::c_int);
-    }
-    let fresh7 = r_idx;
-    r_idx = r_idx + 1;
-    *rates.offset(fresh7 as isize) = high_part_rate;
-    (*mv_stats).last_bit_zero += (high_part == 0) as core::ffi::c_int;
-    (*mv_stats).last_bit_nonzero += high_part;
-    let total_rate: core::ffi::c_int = sign_rate + class_rate + int_bit_rate
-        + frac_part_rate + high_part_rate;
-    return total_rate;
 }
 #[inline]
-unsafe extern "C-unwind" fn keep_one_mv_stat(
-    mut mv_stats: *mut MV_STATS,
-    mut ref_mv: *const MV,
-    mut cur_mv: *const MV,
-    mut cpi: *const AV1_COMP,
-) {
-    let x: *const MACROBLOCK = &(*cpi).td.mb;
-    let xd: *const MACROBLOCKD = &(*x).e_mbd;
-    let mut ec_ctx: *mut FRAME_CONTEXT = (*xd).tile_ctx;
-    let mut nmvc: *mut nmv_context = &raw mut (*ec_ctx).nmvc;
-    let mut joint_cdf: *mut aom_cdf_prob = ((*nmvc).joints_cdf).as_mut_ptr();
-    let use_hp: core::ffi::c_int = (*cpi).common.features.allow_high_precision_mv
-        as core::ffi::c_int;
-    let diff: MV = {
-        let mut init = mv {
-            row: ((*cur_mv).row as core::ffi::c_int - (*ref_mv).row as core::ffi::c_int)
-                as int16_t,
-            col: ((*cur_mv).col as core::ffi::c_int - (*ref_mv).col as core::ffi::c_int)
-                as int16_t,
-        };
-        init
-    };
-    let mv_joint: core::ffi::c_int = av1_get_mv_joint(&diff) as core::ffi::c_int;
-    let hp_diff: MV = diff;
-    let hp_mv_joint: core::ffi::c_int = av1_get_mv_joint(&hp_diff) as core::ffi::c_int;
-    let truncated_diff: MV = {
-        let mut init = mv {
-            row: (diff.row as core::ffi::c_int / 2 as core::ffi::c_int
-                * 2 as core::ffi::c_int) as int16_t,
-            col: (diff.col as core::ffi::c_int / 2 as core::ffi::c_int
-                * 2 as core::ffi::c_int) as int16_t,
-        };
-        init
-    };
-    let lp_diff: MV = if use_hp != 0 { truncated_diff } else { diff };
-    let lp_mv_joint: core::ffi::c_int = av1_get_mv_joint(&lp_diff) as core::ffi::c_int;
-    let mv_joint_rate: core::ffi::c_int = get_symbol_cost(joint_cdf, mv_joint)
-        as core::ffi::c_int;
-    let hp_mv_joint_rate: core::ffi::c_int = get_symbol_cost(joint_cdf, hp_mv_joint)
-        as core::ffi::c_int;
-    let lp_mv_joint_rate: core::ffi::c_int = get_symbol_cost(joint_cdf, lp_mv_joint)
-        as core::ffi::c_int;
-    update_cdf(joint_cdf, mv_joint as int8_t, MV_JOINTS);
-    (*mv_stats).total_mv_rate += mv_joint_rate;
-    (*mv_stats).hp_total_mv_rate += hp_mv_joint_rate;
-    (*mv_stats).lp_total_mv_rate += lp_mv_joint_rate;
-    (*mv_stats).mv_joint_count[mv_joint as usize] += 1;
-    let mut comp_idx: core::ffi::c_int = 0 as core::ffi::c_int;
-    while comp_idx < 2 as core::ffi::c_int {
-        let comp_val: core::ffi::c_int = if comp_idx != 0 {
-            diff.col as core::ffi::c_int
-        } else {
-            diff.row as core::ffi::c_int
-        };
-        let hp_comp_val: core::ffi::c_int = if comp_idx != 0 {
-            hp_diff.col as core::ffi::c_int
-        } else {
-            hp_diff.row as core::ffi::c_int
-        };
-        let lp_comp_val: core::ffi::c_int = if comp_idx != 0 {
-            lp_diff.col as core::ffi::c_int
-        } else {
-            lp_diff.row as core::ffi::c_int
-        };
-        let mut rates: [core::ffi::c_int; 5] = [0; 5];
-        memset(
-            rates.as_mut_ptr() as *mut core::ffi::c_void,
-            0 as core::ffi::c_int,
-            (5 as size_t)
-                .wrapping_mul(::core::mem::size_of::<core::ffi::c_int>() as size_t),
-        );
-        let comp_rate: core::ffi::c_int = if comp_val != 0 {
-            keep_one_comp_stat(mv_stats, comp_val, comp_idx, cpi, rates.as_mut_ptr())
-                as core::ffi::c_int
-        } else {
-            0 as core::ffi::c_int
-        };
-        let hp_rate: core::ffi::c_int = if hp_comp_val != 0 {
-            rates[0 as core::ffi::c_int as usize] + rates[1 as core::ffi::c_int as usize]
-                + rates[2 as core::ffi::c_int as usize]
-                + rates[3 as core::ffi::c_int as usize]
-                + rates[4 as core::ffi::c_int as usize]
-        } else {
-            0 as core::ffi::c_int
-        };
-        let lp_rate: core::ffi::c_int = if lp_comp_val != 0 {
-            rates[0 as core::ffi::c_int as usize] + rates[1 as core::ffi::c_int as usize]
-                + rates[2 as core::ffi::c_int as usize]
-                + rates[3 as core::ffi::c_int as usize]
-        } else {
-            0 as core::ffi::c_int
-        };
-        (*mv_stats).total_mv_rate += comp_rate;
-        (*mv_stats).hp_total_mv_rate += hp_rate;
-        (*mv_stats).lp_total_mv_rate += lp_rate;
-        comp_idx += 1;
-    }
+unsafe extern "C-unwind" fn av1_log_in_base_2(mut n: core::ffi::c_uint) -> uint8_t {
+    return (if n == 0 as core::ffi::c_uint { 0 as core::ffi::c_int } else { get_msb(n) })
+        as uint8_t;
 }
 #[inline]
-unsafe extern "C-unwind" fn collect_mv_stats_b(
-    mut mv_stats: *mut MV_STATS,
-    mut cpi: *const AV1_COMP,
-    mut mi_row: core::ffi::c_int,
-    mut mi_col: core::ffi::c_int,
-) {
-    let mut cm: *const AV1_COMMON = &(*cpi).common;
-    let mi_params: *const CommonModeInfoParams = &(*cm).mi_params;
-    if mi_row >= (*mi_params).mi_rows || mi_col >= (*mi_params).mi_cols {
-        return;
-    }
-    let mut mbmi: *const MB_MODE_INFO = *((*mi_params).mi_grid_base)
-        .offset((mi_row * (*mi_params).mi_stride + mi_col) as isize);
-    let mut mbmi_ext_frame: *const MB_MODE_INFO_EXT_FRAME = ((*cpi)
-        .mbmi_ext_info
-        .frame_base)
-        .offset(
-            get_mi_ext_idx(
-                mi_row,
-                mi_col,
-                (*cm).mi_params.mi_alloc_bsize,
-                (*cpi).mbmi_ext_info.stride,
-            ) as isize,
-        );
-    if is_inter_block(mbmi) == 0 {
-        (*mv_stats).intra_count += 1;
-        return;
-    }
-    (*mv_stats).inter_count += 1;
-    let mode: PREDICTION_MODE = (*mbmi).mode;
-    let is_compound: core::ffi::c_int = has_second_ref(mbmi) as core::ffi::c_int;
-    if mode as core::ffi::c_int == NEWMV as core::ffi::c_int
-        || mode as core::ffi::c_int == NEW_NEWMV as core::ffi::c_int
-    {
-        let mut ref_idx: core::ffi::c_int = 0 as core::ffi::c_int;
-        while ref_idx < 1 as core::ffi::c_int + is_compound {
-            let ref_mv: MV = (get_ref_mv_for_mv_stats(mbmi, mbmi_ext_frame, ref_idx))
-                .as_mv as MV;
-            let cur_mv: MV = (*mbmi).mv[ref_idx as usize].as_mv;
-            keep_one_mv_stat(mv_stats, &ref_mv, &cur_mv, cpi);
-            ref_idx += 1;
-        }
-    } else if mode as core::ffi::c_int == NEAREST_NEWMV as core::ffi::c_int
-        || mode as core::ffi::c_int == NEAR_NEWMV as core::ffi::c_int
-        || mode as core::ffi::c_int == NEW_NEARESTMV as core::ffi::c_int
-        || mode as core::ffi::c_int == NEW_NEARMV as core::ffi::c_int
-    {
-        (*mv_stats).default_mvs += 1 as core::ffi::c_int;
-        let ref_idx_0: core::ffi::c_int = (mode as core::ffi::c_int
-            == NEAREST_NEWMV as core::ffi::c_int
-            || mode as core::ffi::c_int == NEAR_NEWMV as core::ffi::c_int)
-            as core::ffi::c_int;
-        let ref_mv_0: MV = (get_ref_mv_for_mv_stats(mbmi, mbmi_ext_frame, ref_idx_0))
-            .as_mv as MV;
-        let cur_mv_0: MV = (*mbmi).mv[ref_idx_0 as usize].as_mv;
-        keep_one_mv_stat(mv_stats, &ref_mv_0, &cur_mv_0, cpi);
-    } else {
-        (*mv_stats).default_mvs += 1 as core::ffi::c_int + is_compound;
-    }
-    let bsize: BLOCK_SIZE = (*mbmi).bsize;
-    let num_rows: core::ffi::c_int = block_size_high[bsize as usize] as core::ffi::c_int;
-    let num_cols: core::ffi::c_int = block_size_wide[bsize as usize] as core::ffi::c_int;
-    let y_stride: core::ffi::c_int = (*(*cpi).source)
-        .c2rust_unnamed_3
-        .c2rust_unnamed
-        .y_stride;
-    let px_row: core::ffi::c_int = 4 as core::ffi::c_int * mi_row;
-    let px_col: core::ffi::c_int = 4 as core::ffi::c_int * mi_col;
-    let buf_is_hbd: core::ffi::c_int = (*(*cpi).source).flags & YV12_FLAG_HIGHBITDEPTH;
-    let bd: core::ffi::c_int = (*(*cm).seq_params).bit_depth as core::ffi::c_int;
-    if buf_is_hbd != 0 {
-        let mut source_buf: *mut uint16_t = ((((*(*cpi).source)
-            .c2rust_unnamed_4
-            .c2rust_unnamed
-            .y_buffer as uintptr_t) << 1 as core::ffi::c_int) as *mut uint16_t)
-            .offset((px_row * y_stride) as isize)
-            .offset(px_col as isize);
-        let mut row: core::ffi::c_int = 0 as core::ffi::c_int;
-        while row < num_rows - 1 as core::ffi::c_int {
-            let mut col: core::ffi::c_int = 0 as core::ffi::c_int;
-            while col < num_cols - 1 as core::ffi::c_int {
-                let offset: core::ffi::c_int = row * y_stride + col;
-                let horz_diff: core::ffi::c_int = abs(
-                    *source_buf.offset((offset + 1 as core::ffi::c_int) as isize)
-                        as core::ffi::c_int
-                        - *source_buf.offset(offset as isize) as core::ffi::c_int,
-                ) as core::ffi::c_int >> bd - 8 as core::ffi::c_int;
-                let vert_diff: core::ffi::c_int = abs(
-                    *source_buf.offset((offset + y_stride) as isize) as core::ffi::c_int
-                        - *source_buf.offset(offset as isize) as core::ffi::c_int,
-                ) as core::ffi::c_int >> bd - 8 as core::ffi::c_int;
-                (*mv_stats).horz_text += horz_diff;
-                (*mv_stats).vert_text += vert_diff;
-                (*mv_stats).diag_text += horz_diff * vert_diff;
-                col += 1;
-            }
-            row += 1;
-        }
-    } else {
-        let mut source_buf_0: *mut uint8_t = ((*(*cpi).source)
-            .c2rust_unnamed_4
-            .c2rust_unnamed
-            .y_buffer)
-            .offset((px_row * y_stride) as isize)
-            .offset(px_col as isize);
-        let mut row_0: core::ffi::c_int = 0 as core::ffi::c_int;
-        while row_0 < num_rows - 1 as core::ffi::c_int {
-            let mut col_0: core::ffi::c_int = 0 as core::ffi::c_int;
-            while col_0 < num_cols - 1 as core::ffi::c_int {
-                let offset_0: core::ffi::c_int = row_0 * y_stride + col_0;
-                let horz_diff_0: core::ffi::c_int = abs(
-                    *source_buf_0.offset((offset_0 + 1 as core::ffi::c_int) as isize)
-                        as core::ffi::c_int
-                        - *source_buf_0.offset(offset_0 as isize) as core::ffi::c_int,
-                ) as core::ffi::c_int;
-                let vert_diff_0: core::ffi::c_int = abs(
-                    *source_buf_0.offset((offset_0 + y_stride) as isize)
-                        as core::ffi::c_int
-                        - *source_buf_0.offset(offset_0 as isize) as core::ffi::c_int,
-                ) as core::ffi::c_int;
-                (*mv_stats).horz_text += horz_diff_0;
-                (*mv_stats).vert_text += vert_diff_0;
-                (*mv_stats).diag_text += horz_diff_0 * vert_diff_0;
-                col_0 += 1;
-            }
-            row_0 += 1;
-        }
-    };
-}
-#[inline]
-unsafe extern "C-unwind" fn collect_mv_stats_sb(
-    mut mv_stats: *mut MV_STATS,
-    mut cpi: *const AV1_COMP,
-    mut mi_row: core::ffi::c_int,
-    mut mi_col: core::ffi::c_int,
-    mut bsize: BLOCK_SIZE,
-) {
-    if (bsize as core::ffi::c_int) < BLOCK_SIZES_ALL as core::ffi::c_int {} else {
+unsafe extern "C-unwind" fn av1_get_mv_class(
+    mut z: core::ffi::c_int,
+    mut offset: *mut core::ffi::c_int,
+) -> MV_CLASS_TYPE {
+    if z >= 0 as core::ffi::c_int {} else {
         __assert_fail(
-            b"bsize < BLOCK_SIZES_ALL\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
+            b"z >= 0\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
                 as *const core::ffi::c_char,
-            265 as core::ffi::c_uint,
+            68 as core::ffi::c_uint,
             (::core::mem::transmute::<
-                [u8; 77],
-                [core::ffi::c_char; 77],
-            >(
-                *b"void collect_mv_stats_sb(MV_STATS *, const AV1_COMP *, int, int, BLOCK_SIZE)\0",
-            ))
+                [u8; 43],
+                [core::ffi::c_char; 43],
+            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
                 .as_ptr(),
         );
     };
-    let mut cm: *const AV1_COMMON = &(*cpi).common;
-    if mi_row >= (*cm).mi_params.mi_rows || mi_col >= (*cm).mi_params.mi_cols {
-        return;
-    }
-    let partition: PARTITION_TYPE = get_partition(cm, mi_row, mi_col, bsize)
-        as PARTITION_TYPE;
-    let subsize: BLOCK_SIZE = get_partition_subsize(bsize, partition) as BLOCK_SIZE;
-    let hbs: core::ffi::c_int = mi_size_wide[bsize as usize] as core::ffi::c_int
-        / 2 as core::ffi::c_int;
-    let qbs: core::ffi::c_int = mi_size_wide[bsize as usize] as core::ffi::c_int
-        / 4 as core::ffi::c_int;
-    match partition as core::ffi::c_int {
-        0 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-        }
-        1 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
-        }
-        2 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
-        }
-        3 => {
-            collect_mv_stats_sb(mv_stats, cpi, mi_row, mi_col, subsize);
-            collect_mv_stats_sb(mv_stats, cpi, mi_row, mi_col + hbs, subsize);
-            collect_mv_stats_sb(mv_stats, cpi, mi_row + hbs, mi_col, subsize);
-            collect_mv_stats_sb(mv_stats, cpi, mi_row + hbs, mi_col + hbs, subsize);
-        }
-        4 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
-            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
-        }
-        5 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col + hbs);
-        }
-        6 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
-        }
-        7 => {
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col);
-            collect_mv_stats_b(mv_stats, cpi, mi_row, mi_col + hbs);
-            collect_mv_stats_b(mv_stats, cpi, mi_row + hbs, mi_col + hbs);
-        }
-        8 => {
-            let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-            while i < 4 as core::ffi::c_int {
-                let this_mi_row: core::ffi::c_int = mi_row + i * qbs;
-                collect_mv_stats_b(mv_stats, cpi, this_mi_row, mi_col);
-                i += 1;
-            }
-        }
-        9 => {
-            let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
-            while i_0 < 4 as core::ffi::c_int {
-                let this_mi_col: core::ffi::c_int = mi_col + i_0 * qbs;
-                collect_mv_stats_b(mv_stats, cpi, mi_row, this_mi_col);
-                i_0 += 1;
-            }
-        }
-        _ => {
-            if 0 as core::ffi::c_int != 0 {} else {
-                __assert_fail(
-                    b"0\0" as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/mv_prec.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    326 as core::ffi::c_uint,
-                    (::core::mem::transmute::<
-                        [u8; 77],
-                        [core::ffi::c_char; 77],
-                    >(
-                        *b"void collect_mv_stats_sb(MV_STATS *, const AV1_COMP *, int, int, BLOCK_SIZE)\0",
-                    ))
-                        .as_ptr(),
-                );
-            };
-        }
+    let c: MV_CLASS_TYPE = av1_log_in_base_2(
+        (z >> 3 as core::ffi::c_int) as core::ffi::c_uint,
+    );
+    if c as core::ffi::c_int <= MV_CLASS_10 as core::ffi::c_int {} else {
+        __assert_fail(
+            b"c <= MV_CLASS_10\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
+                as *const core::ffi::c_char,
+            70 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 43],
+                [core::ffi::c_char; 43],
+            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
+                .as_ptr(),
+        );
     };
-}
-#[inline]
-unsafe extern "C-unwind" fn collect_mv_stats_tile(
-    mut mv_stats: *mut MV_STATS,
-    mut cpi: *const AV1_COMP,
-    mut tile_info: *const TileInfo,
-) {
-    let mut cm: *const AV1_COMMON = &(*cpi).common;
-    let mi_row_start: core::ffi::c_int = (*tile_info).mi_row_start;
-    let mi_row_end: core::ffi::c_int = (*tile_info).mi_row_end;
-    let mi_col_start: core::ffi::c_int = (*tile_info).mi_col_start;
-    let mi_col_end: core::ffi::c_int = (*tile_info).mi_col_end;
-    let sb_size_mi: core::ffi::c_int = (*(*cm).seq_params).mib_size;
-    let mut sb_size: BLOCK_SIZE = (*(*cm).seq_params).sb_size;
-    let mut mi_row: core::ffi::c_int = mi_row_start;
-    while mi_row < mi_row_end {
-        let mut mi_col: core::ffi::c_int = mi_col_start;
-        while mi_col < mi_col_end {
-            collect_mv_stats_sb(mv_stats, cpi, mi_row, mi_col, sb_size);
-            mi_col += sb_size_mi;
-        }
-        mi_row += sb_size_mi;
+    if !offset.is_null() {
+        *offset = z - av1_mv_class_base(c);
     }
-}
-#[no_mangle]
-pub unsafe extern "C-unwind" fn av1_collect_mv_stats(
-    mut cpi: *mut AV1_COMP,
-    mut current_q: core::ffi::c_int,
-) {
-    let mut mv_stats: *mut MV_STATS = &raw mut (*cpi).mv_stats;
-    let mut cm: *const AV1_COMMON = &raw mut (*cpi).common;
-    let tile_cols: core::ffi::c_int = (*cm).tiles.cols;
-    let tile_rows: core::ffi::c_int = (*cm).tiles.rows;
-    let mut tile_row: core::ffi::c_int = 0 as core::ffi::c_int;
-    while tile_row < tile_rows {
-        let mut tile_info: TileInfo = TileInfo {
-            mi_row_start: 0,
-            mi_row_end: 0,
-            mi_col_start: 0,
-            mi_col_end: 0,
-            tile_row: 0,
-            tile_col: 0,
-        };
-        av1_tile_set_row(&raw mut tile_info, cm as *const AV1Common, tile_row);
-        let mut tile_col: core::ffi::c_int = 0 as core::ffi::c_int;
-        while tile_col < tile_cols {
-            let tile_idx: core::ffi::c_int = tile_row * tile_cols + tile_col;
-            av1_tile_set_col(&raw mut tile_info, cm as *const AV1Common, tile_col);
-            (*((*cpi).tile_data).offset(tile_idx as isize)).tctx = *(*cm).fc;
-            (*cpi).td.mb.e_mbd.tile_ctx = &raw mut (*((*cpi).tile_data)
-                .offset(tile_idx as isize))
-                .tctx;
-            collect_mv_stats_tile(mv_stats, cpi, &raw mut tile_info);
-            tile_col += 1;
-        }
-        tile_row += 1;
-    }
-    (*mv_stats).q = current_q;
-    (*mv_stats).order = (*cpi).common.current_frame.order_hint as core::ffi::c_int;
-    (*mv_stats).valid = 1 as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_smart_mv_prec(
-    mut cpi: *mut AV1_COMP,
-    mut mv_stats: *const MV_STATS,
-    mut current_q: core::ffi::c_int,
-) -> core::ffi::c_int {
-    let mut cm: *const AV1_COMMON = &raw mut (*cpi).common;
-    let order_hint: core::ffi::c_int = (*cpi).common.current_frame.order_hint
-        as core::ffi::c_int;
-    let order_diff: core::ffi::c_int = order_hint - (*mv_stats).order;
-    let area: core::ffi::c_float = ((*cm).width * (*cm).height) as core::ffi::c_float;
-    let mut features: [core::ffi::c_float; 18] = [
-        current_q as core::ffi::c_float,
-        (*mv_stats).q as core::ffi::c_float,
-        order_diff as core::ffi::c_float,
-        (*mv_stats).inter_count as core::ffi::c_float / area,
-        (*mv_stats).intra_count as core::ffi::c_float / area,
-        (*mv_stats).default_mvs as core::ffi::c_float / area,
-        (*mv_stats).mv_joint_count[0 as core::ffi::c_int as usize] as core::ffi::c_float
-            / area,
-        (*mv_stats).mv_joint_count[1 as core::ffi::c_int as usize] as core::ffi::c_float
-            / area,
-        (*mv_stats).mv_joint_count[2 as core::ffi::c_int as usize] as core::ffi::c_float
-            / area,
-        (*mv_stats).mv_joint_count[3 as core::ffi::c_int as usize] as core::ffi::c_float
-            / area,
-        (*mv_stats).last_bit_zero as core::ffi::c_float / area,
-        (*mv_stats).last_bit_nonzero as core::ffi::c_float / area,
-        (*mv_stats).total_mv_rate as core::ffi::c_float / area,
-        (*mv_stats).hp_total_mv_rate as core::ffi::c_float / area,
-        (*mv_stats).lp_total_mv_rate as core::ffi::c_float / area,
-        (*mv_stats).horz_text as core::ffi::c_float / area,
-        (*mv_stats).vert_text as core::ffi::c_float / area,
-        (*mv_stats).diag_text as core::ffi::c_float / area,
-    ];
-    let mut f_idx: core::ffi::c_int = 0 as core::ffi::c_int;
-    while f_idx < MV_PREC_FEATURE_SIZE {
-        features[f_idx as usize] = (features[f_idx as usize]
-            - av1_mv_prec_mean[f_idx as usize]) / av1_mv_prec_std[f_idx as usize];
-        f_idx += 1;
-    }
-    let mut score: core::ffi::c_float = 0.0f32;
-    av1_nn_predict_c(
-        features.as_mut_ptr(),
-        &raw const av1_mv_prec_dnn_config,
-        1 as core::ffi::c_int,
-        &raw mut score,
-    );
-    let use_high_hp: core::ffi::c_int = (score >= 0.0f32) as core::ffi::c_int;
-    return use_high_hp;
-}
-#[no_mangle]
-pub unsafe extern "C-unwind" fn av1_pick_and_set_high_precision_mv(
-    mut cpi: *mut AV1_COMP,
-    mut qindex: core::ffi::c_int,
-) {
-    let mut use_hp: core::ffi::c_int = (qindex < HIGH_PRECISION_MV_QTHRESH)
-        as core::ffi::c_int;
-    let mut mv_stats: *mut MV_STATS = &raw mut (*cpi).mv_stats;
-    if (*cpi).sf.hl_sf.high_precision_mv_usage as core::ffi::c_int
-        == QTR_ONLY as core::ffi::c_int
-    {
-        use_hp = 0 as core::ffi::c_int;
-    } else if (*cpi).sf.hl_sf.high_precision_mv_usage as core::ffi::c_int
-        == LAST_MV_DATA as core::ffi::c_int && av1_frame_allows_smart_mv(cpi) != 0
-        && (*mv_stats).valid != 0
-    {
-        use_hp = get_smart_mv_prec(cpi, mv_stats, qindex);
-    }
-    av1_set_high_precision_mv(
-        cpi,
-        use_hp,
-        (*cpi).common.features.cur_frame_force_integer_mv as core::ffi::c_int,
-    );
+    return c;
 }
 pub const AV1_PROB_COST_SHIFT: core::ffi::c_int = 9 as core::ffi::c_int;
 #[inline]
@@ -7529,64 +7575,6 @@ unsafe extern "C-unwind" fn av1_cost_symbol(mut p15: aom_cdf_prob) -> core::ffi:
     };
     return av1_prob_cost[(prob - 128 as core::ffi::c_int) as usize] as core::ffi::c_int
         + shift * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
-}
-pub const HIGH_PRECISION_MV_QTHRESH: core::ffi::c_int = 128 as core::ffi::c_int;
-#[inline]
-unsafe extern "C-unwind" fn av1_frame_allows_smart_mv(
-    mut cpi: *const AV1_COMP,
-) -> core::ffi::c_int {
-    let gf_group_index: core::ffi::c_int = (*cpi).gf_frame_index as core::ffi::c_int;
-    let gf_update_type: core::ffi::c_int = (*(*cpi).ppi)
-        .gf_group
-        .update_type[gf_group_index as usize] as core::ffi::c_int;
-    return (frame_is_intra_only(&(*cpi).common) == 0
-        && !(gf_update_type == INTNL_OVERLAY_UPDATE as core::ffi::c_int
-            || gf_update_type == OVERLAY_UPDATE as core::ffi::c_int))
-        as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_set_high_precision_mv(
-    mut cpi: *mut AV1_COMP,
-    mut allow_high_precision_mv: core::ffi::c_int,
-    mut cur_frame_force_integer_mv: core::ffi::c_int,
-) {
-    let mv_costs: *mut MvCosts = (*cpi).td.mb.mv_costs;
-    if mv_costs.is_null() {
-        return;
-    }
-    (*cpi).common.features.allow_high_precision_mv = allow_high_precision_mv != 0
-        && cur_frame_force_integer_mv == 0;
-    let copy_hp: core::ffi::c_int = (*cpi).common.features.allow_high_precision_mv
-        as core::ffi::c_int;
-    (*mv_costs).nmv_cost[0 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
-        .nmv_cost_alloc)
-        .as_mut_ptr()
-        .offset(0 as core::ffi::c_int as isize))
-        .as_mut_ptr()
-        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
-    (*mv_costs).nmv_cost[1 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
-        .nmv_cost_alloc)
-        .as_mut_ptr()
-        .offset(1 as core::ffi::c_int as isize))
-        .as_mut_ptr()
-        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
-    (*mv_costs).nmv_cost_hp[0 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
-        .nmv_cost_hp_alloc)
-        .as_mut_ptr()
-        .offset(0 as core::ffi::c_int as isize))
-        .as_mut_ptr()
-        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
-    (*mv_costs).nmv_cost_hp[1 as core::ffi::c_int as usize] = &raw mut *(*((*mv_costs)
-        .nmv_cost_hp_alloc)
-        .as_mut_ptr()
-        .offset(1 as core::ffi::c_int as isize))
-        .as_mut_ptr()
-        .offset(MV_MAX as isize) as *mut core::ffi::c_int;
-    (*mv_costs).mv_cost_stack = if copy_hp != 0 {
-        ((*mv_costs).nmv_cost_hp).as_mut_ptr()
-    } else {
-        ((*mv_costs).nmv_cost).as_mut_ptr()
-    };
 }
 
 extern "C" {

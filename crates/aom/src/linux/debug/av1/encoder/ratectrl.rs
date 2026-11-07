@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
@@ -2675,7 +2674,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3429,16 +3427,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5804,6 +5792,96 @@ pub const FIXED_GF_INTERVAL_RT: core::ffi::c_int = 80 as core::ffi::c_int;
 pub const MAX_ARF_LAYERS: core::ffi::c_int = 6 as core::ffi::c_int;
 pub const DEFAULT_KF_BOOST_RT: core::ffi::c_int = 2300 as core::ffi::c_int;
 pub const DEFAULT_GF_BOOST_RT: core::ffi::c_int = 2000 as core::ffi::c_int;
+pub const AM_SEGMENT_ID_ACTIVE: core::ffi::c_int = 0 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn size_in_mi(mut size: core::ffi::c_int) -> core::ffi::c_int {
+    let aligned_size: core::ffi::c_int = size
+        + (((1 as core::ffi::c_int) << 3 as core::ffi::c_int) - 1 as core::ffi::c_int)
+        & !(((1 as core::ffi::c_int) << 3 as core::ffi::c_int) - 1 as core::ffi::c_int);
+    return aligned_size >> MI_SIZE_LOG2;
+}
+#[inline]
+unsafe extern "C-unwind" fn restore_cdef_coding_context(
+    dst: *mut CdefInfo,
+    src: *const CdefInfo,
+) {
+    (*dst).cdef_bits = (*src).cdef_bits;
+    (*dst).cdef_damping = (*src).cdef_damping;
+    memcpy(
+        ((*dst).cdef_strengths).as_mut_ptr() as *mut core::ffi::c_void,
+        ((*src).cdef_strengths).as_ptr() as *const core::ffi::c_void,
+        ::core::mem::size_of::<[core::ffi::c_int; 16]>() as size_t,
+    );
+    memcpy(
+        ((*dst).cdef_uv_strengths).as_mut_ptr() as *mut core::ffi::c_void,
+        ((*src).cdef_uv_strengths).as_ptr() as *const core::ffi::c_void,
+        ::core::mem::size_of::<[core::ffi::c_int; 16]>() as size_t,
+    );
+    (*dst).nb_cdef_strengths = (*src).nb_cdef_strengths;
+}
+#[inline]
+unsafe extern "C-unwind" fn restore_extra_coding_context(mut cpi: *mut AV1_COMP) {
+    let cc: *mut CODING_CONTEXT = &raw mut (*cpi).coding_context;
+    let mut cm: *mut AV1_COMMON = &raw mut (*cpi).common;
+    (*cm).lf = (*cc).lf;
+    restore_cdef_coding_context(&raw mut (*cm).cdef_info, &raw mut (*cc).cdef_info);
+    (*cpi).rc = (*cc).rc;
+    (*(*cpi).ppi).mv_stats = (*cc).mv_stats;
+    (*cpi).common.current_frame.frame_number = (*cc).frame_number;
+    (*cpi).frame_index_set = (*cc).frame_index_set;
+}
+#[inline]
+unsafe extern "C-unwind" fn release_scaled_references(mut cpi: *mut AV1_COMP) {
+    let cm: *mut AV1_COMMON = &raw mut (*cpi).common;
+    let refresh_golden: bool = if (*cpi).refresh_frame.golden_frame as core::ffi::c_int
+        != 0
+    {
+        1 as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    } != 0;
+    let mut release_golden: bool = true_0 != 0;
+    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+    while i < INTER_REFS_PER_FRAME as core::ffi::c_int {
+        let buf: *mut RefCntBuffer = (*cpi).scaled_ref_buf[i as usize];
+        let golden_ref: core::ffi::c_int = (i
+            == GOLDEN_FRAME as core::ffi::c_int - 1 as core::ffi::c_int)
+            as core::ffi::c_int;
+        if golden_ref != 0 && is_one_pass_rt_params(cpi) != 0
+            && (*(*cpi).ppi).use_svc == 0 && !buf.is_null()
+        {
+            let ref_0: *const RefCntBuffer = get_ref_frame_buf(
+                cm,
+                GOLDEN_FRAME as core::ffi::c_int as MV_REFERENCE_FRAME,
+            );
+            let same_resoln: bool = (*buf)
+                .buf
+                .c2rust_unnamed_1
+                .c2rust_unnamed
+                .y_crop_width
+                == (*ref_0).buf.c2rust_unnamed_1.c2rust_unnamed.y_crop_width
+                && (*buf).buf.c2rust_unnamed_2.c2rust_unnamed.y_crop_height
+                    == (*ref_0).buf.c2rust_unnamed_2.c2rust_unnamed.y_crop_height;
+            release_golden = refresh_golden as core::ffi::c_int != 0
+                || same_resoln as core::ffi::c_int != 0;
+        }
+        if !buf.is_null()
+            && (golden_ref == 0
+                || golden_ref != 0 && release_golden as core::ffi::c_int != 0)
+        {
+            (*buf).ref_count -= 1;
+            (*cpi).scaled_ref_buf[i as usize] = 0 as *mut RefCntBuffer;
+        }
+        i += 1;
+    }
+}
+#[inline]
+unsafe extern "C-unwind" fn restore_all_coding_context(mut cpi: *mut AV1_COMP) {
+    restore_extra_coding_context(cpi);
+    if frame_is_intra_only(&raw mut (*cpi).common) == 0 {
+        release_scaled_references(cpi);
+    }
+}
 pub const RES_NUM: core::ffi::c_int = 2 as core::ffi::c_int;
 pub const MODE_NUM: core::ffi::c_int = 2 as core::ffi::c_int;
 pub const MIN_BPB_FACTOR: core::ffi::c_double = 0.005f64;
@@ -16200,96 +16278,6 @@ pub unsafe extern "C-unwind" fn av1_postencode_drop_cbr(
 #[inline]
 unsafe extern "C-unwind" fn av1_superres_scaled(mut cm: *const AV1_COMMON) -> core::ffi::c_int {
     return ((*cm).width != (*cm).superres_upscaled_width) as core::ffi::c_int;
-}
-pub const AM_SEGMENT_ID_ACTIVE: core::ffi::c_int = 0 as core::ffi::c_int;
-#[inline]
-unsafe extern "C-unwind" fn size_in_mi(mut size: core::ffi::c_int) -> core::ffi::c_int {
-    let aligned_size: core::ffi::c_int = size
-        + (((1 as core::ffi::c_int) << 3 as core::ffi::c_int) - 1 as core::ffi::c_int)
-        & !(((1 as core::ffi::c_int) << 3 as core::ffi::c_int) - 1 as core::ffi::c_int);
-    return aligned_size >> MI_SIZE_LOG2;
-}
-#[inline]
-unsafe extern "C-unwind" fn restore_cdef_coding_context(
-    dst: *mut CdefInfo,
-    src: *const CdefInfo,
-) {
-    (*dst).cdef_bits = (*src).cdef_bits;
-    (*dst).cdef_damping = (*src).cdef_damping;
-    memcpy(
-        ((*dst).cdef_strengths).as_mut_ptr() as *mut core::ffi::c_void,
-        ((*src).cdef_strengths).as_ptr() as *const core::ffi::c_void,
-        ::core::mem::size_of::<[core::ffi::c_int; 16]>() as size_t,
-    );
-    memcpy(
-        ((*dst).cdef_uv_strengths).as_mut_ptr() as *mut core::ffi::c_void,
-        ((*src).cdef_uv_strengths).as_ptr() as *const core::ffi::c_void,
-        ::core::mem::size_of::<[core::ffi::c_int; 16]>() as size_t,
-    );
-    (*dst).nb_cdef_strengths = (*src).nb_cdef_strengths;
-}
-#[inline]
-unsafe extern "C-unwind" fn restore_extra_coding_context(mut cpi: *mut AV1_COMP) {
-    let cc: *mut CODING_CONTEXT = &raw mut (*cpi).coding_context;
-    let mut cm: *mut AV1_COMMON = &raw mut (*cpi).common;
-    (*cm).lf = (*cc).lf;
-    restore_cdef_coding_context(&raw mut (*cm).cdef_info, &raw mut (*cc).cdef_info);
-    (*cpi).rc = (*cc).rc;
-    (*(*cpi).ppi).mv_stats = (*cc).mv_stats;
-    (*cpi).common.current_frame.frame_number = (*cc).frame_number;
-    (*cpi).frame_index_set = (*cc).frame_index_set;
-}
-#[inline]
-unsafe extern "C-unwind" fn release_scaled_references(mut cpi: *mut AV1_COMP) {
-    let cm: *mut AV1_COMMON = &raw mut (*cpi).common;
-    let refresh_golden: bool = if (*cpi).refresh_frame.golden_frame as core::ffi::c_int
-        != 0
-    {
-        1 as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    } != 0;
-    let mut release_golden: bool = true_0 != 0;
-    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-    while i < INTER_REFS_PER_FRAME as core::ffi::c_int {
-        let buf: *mut RefCntBuffer = (*cpi).scaled_ref_buf[i as usize];
-        let golden_ref: core::ffi::c_int = (i
-            == GOLDEN_FRAME as core::ffi::c_int - 1 as core::ffi::c_int)
-            as core::ffi::c_int;
-        if golden_ref != 0 && is_one_pass_rt_params(cpi) != 0
-            && (*(*cpi).ppi).use_svc == 0 && !buf.is_null()
-        {
-            let ref_0: *const RefCntBuffer = get_ref_frame_buf(
-                cm,
-                GOLDEN_FRAME as core::ffi::c_int as MV_REFERENCE_FRAME,
-            );
-            let same_resoln: bool = (*buf)
-                .buf
-                .c2rust_unnamed_1
-                .c2rust_unnamed
-                .y_crop_width
-                == (*ref_0).buf.c2rust_unnamed_1.c2rust_unnamed.y_crop_width
-                && (*buf).buf.c2rust_unnamed_2.c2rust_unnamed.y_crop_height
-                    == (*ref_0).buf.c2rust_unnamed_2.c2rust_unnamed.y_crop_height;
-            release_golden = refresh_golden as core::ffi::c_int != 0
-                || same_resoln as core::ffi::c_int != 0;
-        }
-        if !buf.is_null()
-            && (golden_ref == 0
-                || golden_ref != 0 && release_golden as core::ffi::c_int != 0)
-        {
-            (*buf).ref_count -= 1;
-            (*cpi).scaled_ref_buf[i as usize] = 0 as *mut RefCntBuffer;
-        }
-        i += 1;
-    }
-}
-#[inline]
-unsafe extern "C-unwind" fn restore_all_coding_context(mut cpi: *mut AV1_COMP) {
-    restore_extra_coding_context(cpi);
-    if frame_is_intra_only(&raw mut (*cpi).common) == 0 {
-        release_scaled_references(cpi);
-    }
 }
 pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
 pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;

@@ -17,7 +17,6 @@ extern "C-unwind" {
     pub type _IO_codecvt;
     pub type _IO_marker;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn aom_internal_error(
@@ -90,6 +89,13 @@ extern "C-unwind" {
         mi_col: core::ffi::c_int,
         bsize: BLOCK_SIZE,
     );
+    fn av1_get_perpixel_variance_facade(
+        cpi: *const AV1_COMP,
+        xd: *const MACROBLOCKD,
+        ref_0: *const buf_2d,
+        bsize: BLOCK_SIZE,
+        plane: core::ffi::c_int,
+    ) -> core::ffi::c_uint;
     fn av1_noise_estimate_extract_level(ne: *mut NOISE_ESTIMATE) -> NOISE_LEVEL;
     fn av1_int_pro_motion_estimation(
         cpi: *const AV1_COMP,
@@ -108,13 +114,6 @@ extern "C-unwind" {
         cpi: *const AV1_COMP,
         ref_frame: core::ffi::c_int,
     ) -> *mut YV12_BUFFER_CONFIG;
-    fn av1_get_perpixel_variance_facade(
-        cpi: *const AV1_COMP,
-        xd: *const MACROBLOCKD,
-        ref_0: *const buf_2d,
-        bsize: BLOCK_SIZE,
-        plane: core::ffi::c_int,
-    ) -> core::ffi::c_uint;
     fn av1_enc_build_inter_predictor(
         cm: *const AV1_COMMON,
         xd: *mut MACROBLOCKD,
@@ -2799,7 +2798,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3553,16 +3551,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {

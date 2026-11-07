@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn av1_get_palette_cache(
@@ -3256,7 +3255,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3679,16 +3677,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6261,381 +6249,6 @@ unsafe extern "C-unwind" fn av1_filter_intra_allowed(
             as core::ffi::c_int == 0 as core::ffi::c_int
         && av1_filter_intra_allowed_bsize(cm, (*mbmi).bsize) != 0) as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn calc_dist_dim1(
-    mut p1: *const int16_t,
-    mut p2: *const int16_t,
-) -> core::ffi::c_int {
-    return abs(
-        *p1.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
-            - *p2.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int,
-    );
-}
-#[no_mangle]
-pub unsafe extern "C-unwind" fn av1_calc_indices_dim1_c(
-    mut data: *const int16_t,
-    mut centroids: *const int16_t,
-    mut indices: *mut uint8_t,
-    mut dist: *mut int64_t,
-    mut n: core::ffi::c_int,
-    mut k: core::ffi::c_int,
-) {
-    if !dist.is_null() {
-        *dist = 0 as int64_t;
-    }
-    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-    while i < n {
-        let mut min_dist: core::ffi::c_int = calc_dist_dim1(
-            data.offset((i * AV1_K_MEANS_DIM) as isize),
-            centroids,
-        );
-        *indices.offset(i as isize) = 0 as uint8_t;
-        let mut j: core::ffi::c_int = 1 as core::ffi::c_int;
-        while j < k {
-            let this_dist: core::ffi::c_int = calc_dist_dim1(
-                data.offset((i * AV1_K_MEANS_DIM) as isize),
-                centroids.offset((j * AV1_K_MEANS_DIM) as isize),
-            ) as core::ffi::c_int;
-            if this_dist < min_dist {
-                min_dist = this_dist;
-                *indices.offset(i as isize) = j as uint8_t;
-            }
-            j += 1;
-        }
-        if !dist.is_null() {
-            *dist += (min_dist * min_dist) as int64_t;
-        }
-        i += 1;
-    }
-}
-unsafe extern "C-unwind" fn calc_centroids_dim1(
-    mut data: *const int16_t,
-    mut centroids: *mut int16_t,
-    mut indices: *const uint8_t,
-    mut n: core::ffi::c_int,
-    mut k: core::ffi::c_int,
-) {
-    let mut i: core::ffi::c_int = 0;
-    let mut j: core::ffi::c_int = 0;
-    let mut count: [core::ffi::c_int; 8] = [0 as core::ffi::c_int; 8];
-    let mut centroids_sum: [core::ffi::c_int; 8] = [0; 8];
-    let mut rand_state: core::ffi::c_uint = *data.offset(0 as core::ffi::c_int as isize)
-        as core::ffi::c_uint;
-    memset(
-        centroids_sum.as_mut_ptr() as *mut core::ffi::c_void,
-        0 as core::ffi::c_int,
-        (::core::mem::size_of::<core::ffi::c_int>() as size_t)
-            .wrapping_mul(k as size_t)
-            .wrapping_mul(AV1_K_MEANS_DIM as size_t),
-    );
-    i = 0 as core::ffi::c_int;
-    while i < n {
-        let index: core::ffi::c_int = *indices.offset(i as isize) as core::ffi::c_int;
-        count[index as usize] += 1;
-        j = 0 as core::ffi::c_int;
-        while j < AV1_K_MEANS_DIM {
-            centroids_sum[(index * AV1_K_MEANS_DIM + j) as usize]
-                += *data.offset((i * AV1_K_MEANS_DIM + j) as isize) as core::ffi::c_int;
-            j += 1;
-        }
-        i += 1;
-    }
-    i = 0 as core::ffi::c_int;
-    while i < k {
-        if count[i as usize] == 0 as core::ffi::c_int {
-            memcpy(
-                centroids.offset((i * AV1_K_MEANS_DIM) as isize)
-                    as *mut core::ffi::c_void,
-                data
-                    .offset(
-                        (lcg_rand16(&raw mut rand_state))
-                            .wrapping_rem(n as uint32_t)
-                            .wrapping_mul(AV1_K_MEANS_DIM as uint32_t) as isize,
-                    ) as *const core::ffi::c_void,
-                (::core::mem::size_of::<int16_t>() as size_t)
-                    .wrapping_mul(AV1_K_MEANS_DIM as size_t),
-            );
-        } else {
-            j = 0 as core::ffi::c_int;
-            while j < AV1_K_MEANS_DIM {
-                *centroids.offset((i * AV1_K_MEANS_DIM + j) as isize) = ((centroids_sum[(i
-                    * 1 as core::ffi::c_int + j) as usize]
-                    + (count[i as usize] >> 1 as core::ffi::c_int)) / count[i as usize])
-                    as int16_t;
-                j += 1;
-            }
-        }
-        i += 1;
-    }
-}
-#[no_mangle]
-pub unsafe extern "C-unwind" fn av1_k_means_dim1(
-    mut data: *const int16_t,
-    mut centroids: *mut int16_t,
-    mut indices: *mut uint8_t,
-    mut n: core::ffi::c_int,
-    mut k: core::ffi::c_int,
-    mut max_itr: core::ffi::c_int,
-) {
-    let mut centroids_tmp: [int16_t; 8] = [0; 8];
-    let mut indices_tmp: [uint8_t; 4096] = [0; 4096];
-    let mut meta_centroids: [*mut int16_t; 2] = [centroids, centroids_tmp.as_mut_ptr()];
-    let mut meta_indices: [*mut uint8_t; 2] = [indices, indices_tmp.as_mut_ptr()];
-    let mut i: core::ffi::c_int = 0;
-    let mut l: core::ffi::c_int = 0 as core::ffi::c_int;
-    let mut prev_l: core::ffi::c_int = 0;
-    let mut best_l: core::ffi::c_int = 0 as core::ffi::c_int;
-    let mut this_dist: int64_t = 0;
-    av1_calc_indices_dim1_c(data, centroids, indices, &raw mut this_dist, n, k);
-    i = 0 as core::ffi::c_int;
-    while i < max_itr {
-        let prev_dist: int64_t = this_dist;
-        prev_l = l;
-        l = if l == 1 as core::ffi::c_int {
-            0 as core::ffi::c_int
-        } else {
-            1 as core::ffi::c_int
-        };
-        calc_centroids_dim1(
-            data,
-            meta_centroids[l as usize],
-            meta_indices[prev_l as usize],
-            n,
-            k,
-        );
-        if memcmp(
-            meta_centroids[l as usize] as *const core::ffi::c_void,
-            meta_centroids[prev_l as usize] as *const core::ffi::c_void,
-            (::core::mem::size_of::<int16_t>() as size_t)
-                .wrapping_mul(k as size_t)
-                .wrapping_mul(AV1_K_MEANS_DIM as size_t),
-        ) == 0
-        {
-            break;
-        }
-        av1_calc_indices_dim1_c(
-            data,
-            meta_centroids[l as usize],
-            meta_indices[l as usize],
-            &raw mut this_dist,
-            n,
-            k,
-        );
-        if this_dist > prev_dist {
-            best_l = prev_l;
-            break;
-        } else {
-            i += 1;
-        }
-    }
-    if i == max_itr {
-        best_l = l;
-    }
-    if best_l != 0 as core::ffi::c_int {
-        memcpy(
-            centroids as *mut core::ffi::c_void,
-            meta_centroids[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
-            (::core::mem::size_of::<int16_t>() as size_t)
-                .wrapping_mul(k as size_t)
-                .wrapping_mul(AV1_K_MEANS_DIM as size_t),
-        );
-        memcpy(
-            indices as *mut core::ffi::c_void,
-            meta_indices[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
-            (::core::mem::size_of::<uint8_t>() as size_t).wrapping_mul(n as size_t),
-        );
-    }
-}
-unsafe extern "C-unwind" fn calc_dist_dim2(
-    mut p1: *const int16_t,
-    mut p2: *const int16_t,
-) -> core::ffi::c_int {
-    let mut dist: core::ffi::c_int = 0 as core::ffi::c_int;
-    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-    while i < AV1_K_MEANS_DIM_0 {
-        let diff: core::ffi::c_int = *p1.offset(i as isize) as core::ffi::c_int
-            - *p2.offset(i as isize) as core::ffi::c_int;
-        dist += diff * diff;
-        i += 1;
-    }
-    return dist;
-}
-#[no_mangle]
-pub unsafe extern "C-unwind" fn av1_calc_indices_dim2_c(
-    mut data: *const int16_t,
-    mut centroids: *const int16_t,
-    mut indices: *mut uint8_t,
-    mut dist: *mut int64_t,
-    mut n: core::ffi::c_int,
-    mut k: core::ffi::c_int,
-) {
-    if !dist.is_null() {
-        *dist = 0 as int64_t;
-    }
-    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-    while i < n {
-        let mut min_dist: core::ffi::c_int = calc_dist_dim2(
-            data.offset((i * AV1_K_MEANS_DIM_0) as isize),
-            centroids,
-        );
-        *indices.offset(i as isize) = 0 as uint8_t;
-        let mut j: core::ffi::c_int = 1 as core::ffi::c_int;
-        while j < k {
-            let this_dist: core::ffi::c_int = calc_dist_dim2(
-                data.offset((i * AV1_K_MEANS_DIM_0) as isize),
-                centroids.offset((j * AV1_K_MEANS_DIM_0) as isize),
-            ) as core::ffi::c_int;
-            if this_dist < min_dist {
-                min_dist = this_dist;
-                *indices.offset(i as isize) = j as uint8_t;
-            }
-            j += 1;
-        }
-        if !dist.is_null() {
-            *dist += min_dist as int64_t;
-        }
-        i += 1;
-    }
-}
-unsafe extern "C-unwind" fn calc_centroids_dim2(
-    mut data: *const int16_t,
-    mut centroids: *mut int16_t,
-    mut indices: *const uint8_t,
-    mut n: core::ffi::c_int,
-    mut k: core::ffi::c_int,
-) {
-    let mut i: core::ffi::c_int = 0;
-    let mut j: core::ffi::c_int = 0;
-    let mut count: [core::ffi::c_int; 8] = [0 as core::ffi::c_int; 8];
-    let mut centroids_sum: [core::ffi::c_int; 16] = [0; 16];
-    let mut rand_state: core::ffi::c_uint = *data.offset(0 as core::ffi::c_int as isize)
-        as core::ffi::c_uint;
-    memset(
-        centroids_sum.as_mut_ptr() as *mut core::ffi::c_void,
-        0 as core::ffi::c_int,
-        (::core::mem::size_of::<core::ffi::c_int>() as size_t)
-            .wrapping_mul(k as size_t)
-            .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
-    );
-    i = 0 as core::ffi::c_int;
-    while i < n {
-        let index: core::ffi::c_int = *indices.offset(i as isize) as core::ffi::c_int;
-        count[index as usize] += 1;
-        j = 0 as core::ffi::c_int;
-        while j < AV1_K_MEANS_DIM_0 {
-            centroids_sum[(index * AV1_K_MEANS_DIM_0 + j) as usize]
-                += *data.offset((i * AV1_K_MEANS_DIM_0 + j) as isize)
-                    as core::ffi::c_int;
-            j += 1;
-        }
-        i += 1;
-    }
-    i = 0 as core::ffi::c_int;
-    while i < k {
-        if count[i as usize] == 0 as core::ffi::c_int {
-            memcpy(
-                centroids.offset((i * AV1_K_MEANS_DIM_0) as isize)
-                    as *mut core::ffi::c_void,
-                data
-                    .offset(
-                        (lcg_rand16(&raw mut rand_state))
-                            .wrapping_rem(n as uint32_t)
-                            .wrapping_mul(AV1_K_MEANS_DIM_0 as uint32_t) as isize,
-                    ) as *const core::ffi::c_void,
-                (::core::mem::size_of::<int16_t>() as size_t)
-                    .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
-            );
-        } else {
-            j = 0 as core::ffi::c_int;
-            while j < AV1_K_MEANS_DIM_0 {
-                *centroids.offset((i * AV1_K_MEANS_DIM_0 + j) as isize) = ((centroids_sum[(i
-                    * 2 as core::ffi::c_int + j) as usize]
-                    + (count[i as usize] >> 1 as core::ffi::c_int)) / count[i as usize])
-                    as int16_t;
-                j += 1;
-            }
-        }
-        i += 1;
-    }
-}
-#[no_mangle]
-pub unsafe extern "C-unwind" fn av1_k_means_dim2(
-    mut data: *const int16_t,
-    mut centroids: *mut int16_t,
-    mut indices: *mut uint8_t,
-    mut n: core::ffi::c_int,
-    mut k: core::ffi::c_int,
-    mut max_itr: core::ffi::c_int,
-) {
-    let mut centroids_tmp: [int16_t; 16] = [0; 16];
-    let mut indices_tmp: [uint8_t; 4096] = [0; 4096];
-    let mut meta_centroids: [*mut int16_t; 2] = [centroids, centroids_tmp.as_mut_ptr()];
-    let mut meta_indices: [*mut uint8_t; 2] = [indices, indices_tmp.as_mut_ptr()];
-    let mut i: core::ffi::c_int = 0;
-    let mut l: core::ffi::c_int = 0 as core::ffi::c_int;
-    let mut prev_l: core::ffi::c_int = 0;
-    let mut best_l: core::ffi::c_int = 0 as core::ffi::c_int;
-    let mut this_dist: int64_t = 0;
-    av1_calc_indices_dim2_c(data, centroids, indices, &raw mut this_dist, n, k);
-    i = 0 as core::ffi::c_int;
-    while i < max_itr {
-        let prev_dist: int64_t = this_dist;
-        prev_l = l;
-        l = if l == 1 as core::ffi::c_int {
-            0 as core::ffi::c_int
-        } else {
-            1 as core::ffi::c_int
-        };
-        calc_centroids_dim2(
-            data,
-            meta_centroids[l as usize],
-            meta_indices[prev_l as usize],
-            n,
-            k,
-        );
-        if memcmp(
-            meta_centroids[l as usize] as *const core::ffi::c_void,
-            meta_centroids[prev_l as usize] as *const core::ffi::c_void,
-            (::core::mem::size_of::<int16_t>() as size_t)
-                .wrapping_mul(k as size_t)
-                .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
-        ) == 0
-        {
-            break;
-        }
-        av1_calc_indices_dim2_c(
-            data,
-            meta_centroids[l as usize],
-            meta_indices[l as usize],
-            &raw mut this_dist,
-            n,
-            k,
-        );
-        if this_dist > prev_dist {
-            best_l = prev_l;
-            break;
-        } else {
-            i += 1;
-        }
-    }
-    if i == max_itr {
-        best_l = l;
-    }
-    if best_l != 0 as core::ffi::c_int {
-        memcpy(
-            centroids as *mut core::ffi::c_void,
-            meta_centroids[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
-            (::core::mem::size_of::<int16_t>() as size_t)
-                .wrapping_mul(k as size_t)
-                .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
-        );
-        memcpy(
-            indices as *mut core::ffi::c_void,
-            meta_indices[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
-            (::core::mem::size_of::<uint8_t>() as size_t).wrapping_mul(n as size_t),
-        );
-    }
-}
-pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
 static mut av1_mode_defs: [MODE_DEFINITION; 169] = [
     {
         let mut init = MODE_DEFINITION {
@@ -8507,6 +8120,381 @@ unsafe extern "C-unwind" fn store_winner_mode_stats(
         max_winner_mode_count
     };
 }
+unsafe extern "C-unwind" fn calc_dist_dim1(
+    mut p1: *const int16_t,
+    mut p2: *const int16_t,
+) -> core::ffi::c_int {
+    return abs(
+        *p1.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+            - *p2.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int,
+    );
+}
+#[no_mangle]
+pub unsafe extern "C-unwind" fn av1_calc_indices_dim1_c(
+    mut data: *const int16_t,
+    mut centroids: *const int16_t,
+    mut indices: *mut uint8_t,
+    mut dist: *mut int64_t,
+    mut n: core::ffi::c_int,
+    mut k: core::ffi::c_int,
+) {
+    if !dist.is_null() {
+        *dist = 0 as int64_t;
+    }
+    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+    while i < n {
+        let mut min_dist: core::ffi::c_int = calc_dist_dim1(
+            data.offset((i * AV1_K_MEANS_DIM) as isize),
+            centroids,
+        );
+        *indices.offset(i as isize) = 0 as uint8_t;
+        let mut j: core::ffi::c_int = 1 as core::ffi::c_int;
+        while j < k {
+            let this_dist: core::ffi::c_int = calc_dist_dim1(
+                data.offset((i * AV1_K_MEANS_DIM) as isize),
+                centroids.offset((j * AV1_K_MEANS_DIM) as isize),
+            ) as core::ffi::c_int;
+            if this_dist < min_dist {
+                min_dist = this_dist;
+                *indices.offset(i as isize) = j as uint8_t;
+            }
+            j += 1;
+        }
+        if !dist.is_null() {
+            *dist += (min_dist * min_dist) as int64_t;
+        }
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn calc_centroids_dim1(
+    mut data: *const int16_t,
+    mut centroids: *mut int16_t,
+    mut indices: *const uint8_t,
+    mut n: core::ffi::c_int,
+    mut k: core::ffi::c_int,
+) {
+    let mut i: core::ffi::c_int = 0;
+    let mut j: core::ffi::c_int = 0;
+    let mut count: [core::ffi::c_int; 8] = [0 as core::ffi::c_int; 8];
+    let mut centroids_sum: [core::ffi::c_int; 8] = [0; 8];
+    let mut rand_state: core::ffi::c_uint = *data.offset(0 as core::ffi::c_int as isize)
+        as core::ffi::c_uint;
+    memset(
+        centroids_sum.as_mut_ptr() as *mut core::ffi::c_void,
+        0 as core::ffi::c_int,
+        (::core::mem::size_of::<core::ffi::c_int>() as size_t)
+            .wrapping_mul(k as size_t)
+            .wrapping_mul(AV1_K_MEANS_DIM as size_t),
+    );
+    i = 0 as core::ffi::c_int;
+    while i < n {
+        let index: core::ffi::c_int = *indices.offset(i as isize) as core::ffi::c_int;
+        count[index as usize] += 1;
+        j = 0 as core::ffi::c_int;
+        while j < AV1_K_MEANS_DIM {
+            centroids_sum[(index * AV1_K_MEANS_DIM + j) as usize]
+                += *data.offset((i * AV1_K_MEANS_DIM + j) as isize) as core::ffi::c_int;
+            j += 1;
+        }
+        i += 1;
+    }
+    i = 0 as core::ffi::c_int;
+    while i < k {
+        if count[i as usize] == 0 as core::ffi::c_int {
+            memcpy(
+                centroids.offset((i * AV1_K_MEANS_DIM) as isize)
+                    as *mut core::ffi::c_void,
+                data
+                    .offset(
+                        (lcg_rand16(&raw mut rand_state))
+                            .wrapping_rem(n as uint32_t)
+                            .wrapping_mul(AV1_K_MEANS_DIM as uint32_t) as isize,
+                    ) as *const core::ffi::c_void,
+                (::core::mem::size_of::<int16_t>() as size_t)
+                    .wrapping_mul(AV1_K_MEANS_DIM as size_t),
+            );
+        } else {
+            j = 0 as core::ffi::c_int;
+            while j < AV1_K_MEANS_DIM {
+                *centroids.offset((i * AV1_K_MEANS_DIM + j) as isize) = ((centroids_sum[(i
+                    * 1 as core::ffi::c_int + j) as usize]
+                    + (count[i as usize] >> 1 as core::ffi::c_int)) / count[i as usize])
+                    as int16_t;
+                j += 1;
+            }
+        }
+        i += 1;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C-unwind" fn av1_k_means_dim1(
+    mut data: *const int16_t,
+    mut centroids: *mut int16_t,
+    mut indices: *mut uint8_t,
+    mut n: core::ffi::c_int,
+    mut k: core::ffi::c_int,
+    mut max_itr: core::ffi::c_int,
+) {
+    let mut centroids_tmp: [int16_t; 8] = [0; 8];
+    let mut indices_tmp: [uint8_t; 4096] = [0; 4096];
+    let mut meta_centroids: [*mut int16_t; 2] = [centroids, centroids_tmp.as_mut_ptr()];
+    let mut meta_indices: [*mut uint8_t; 2] = [indices, indices_tmp.as_mut_ptr()];
+    let mut i: core::ffi::c_int = 0;
+    let mut l: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut prev_l: core::ffi::c_int = 0;
+    let mut best_l: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut this_dist: int64_t = 0;
+    av1_calc_indices_dim1_c(data, centroids, indices, &raw mut this_dist, n, k);
+    i = 0 as core::ffi::c_int;
+    while i < max_itr {
+        let prev_dist: int64_t = this_dist;
+        prev_l = l;
+        l = if l == 1 as core::ffi::c_int {
+            0 as core::ffi::c_int
+        } else {
+            1 as core::ffi::c_int
+        };
+        calc_centroids_dim1(
+            data,
+            meta_centroids[l as usize],
+            meta_indices[prev_l as usize],
+            n,
+            k,
+        );
+        if memcmp(
+            meta_centroids[l as usize] as *const core::ffi::c_void,
+            meta_centroids[prev_l as usize] as *const core::ffi::c_void,
+            (::core::mem::size_of::<int16_t>() as size_t)
+                .wrapping_mul(k as size_t)
+                .wrapping_mul(AV1_K_MEANS_DIM as size_t),
+        ) == 0
+        {
+            break;
+        }
+        av1_calc_indices_dim1_c(
+            data,
+            meta_centroids[l as usize],
+            meta_indices[l as usize],
+            &raw mut this_dist,
+            n,
+            k,
+        );
+        if this_dist > prev_dist {
+            best_l = prev_l;
+            break;
+        } else {
+            i += 1;
+        }
+    }
+    if i == max_itr {
+        best_l = l;
+    }
+    if best_l != 0 as core::ffi::c_int {
+        memcpy(
+            centroids as *mut core::ffi::c_void,
+            meta_centroids[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
+            (::core::mem::size_of::<int16_t>() as size_t)
+                .wrapping_mul(k as size_t)
+                .wrapping_mul(AV1_K_MEANS_DIM as size_t),
+        );
+        memcpy(
+            indices as *mut core::ffi::c_void,
+            meta_indices[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
+            (::core::mem::size_of::<uint8_t>() as size_t).wrapping_mul(n as size_t),
+        );
+    }
+}
+unsafe extern "C-unwind" fn calc_dist_dim2(
+    mut p1: *const int16_t,
+    mut p2: *const int16_t,
+) -> core::ffi::c_int {
+    let mut dist: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+    while i < AV1_K_MEANS_DIM_0 {
+        let diff: core::ffi::c_int = *p1.offset(i as isize) as core::ffi::c_int
+            - *p2.offset(i as isize) as core::ffi::c_int;
+        dist += diff * diff;
+        i += 1;
+    }
+    return dist;
+}
+#[no_mangle]
+pub unsafe extern "C-unwind" fn av1_calc_indices_dim2_c(
+    mut data: *const int16_t,
+    mut centroids: *const int16_t,
+    mut indices: *mut uint8_t,
+    mut dist: *mut int64_t,
+    mut n: core::ffi::c_int,
+    mut k: core::ffi::c_int,
+) {
+    if !dist.is_null() {
+        *dist = 0 as int64_t;
+    }
+    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+    while i < n {
+        let mut min_dist: core::ffi::c_int = calc_dist_dim2(
+            data.offset((i * AV1_K_MEANS_DIM_0) as isize),
+            centroids,
+        );
+        *indices.offset(i as isize) = 0 as uint8_t;
+        let mut j: core::ffi::c_int = 1 as core::ffi::c_int;
+        while j < k {
+            let this_dist: core::ffi::c_int = calc_dist_dim2(
+                data.offset((i * AV1_K_MEANS_DIM_0) as isize),
+                centroids.offset((j * AV1_K_MEANS_DIM_0) as isize),
+            ) as core::ffi::c_int;
+            if this_dist < min_dist {
+                min_dist = this_dist;
+                *indices.offset(i as isize) = j as uint8_t;
+            }
+            j += 1;
+        }
+        if !dist.is_null() {
+            *dist += min_dist as int64_t;
+        }
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn calc_centroids_dim2(
+    mut data: *const int16_t,
+    mut centroids: *mut int16_t,
+    mut indices: *const uint8_t,
+    mut n: core::ffi::c_int,
+    mut k: core::ffi::c_int,
+) {
+    let mut i: core::ffi::c_int = 0;
+    let mut j: core::ffi::c_int = 0;
+    let mut count: [core::ffi::c_int; 8] = [0 as core::ffi::c_int; 8];
+    let mut centroids_sum: [core::ffi::c_int; 16] = [0; 16];
+    let mut rand_state: core::ffi::c_uint = *data.offset(0 as core::ffi::c_int as isize)
+        as core::ffi::c_uint;
+    memset(
+        centroids_sum.as_mut_ptr() as *mut core::ffi::c_void,
+        0 as core::ffi::c_int,
+        (::core::mem::size_of::<core::ffi::c_int>() as size_t)
+            .wrapping_mul(k as size_t)
+            .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
+    );
+    i = 0 as core::ffi::c_int;
+    while i < n {
+        let index: core::ffi::c_int = *indices.offset(i as isize) as core::ffi::c_int;
+        count[index as usize] += 1;
+        j = 0 as core::ffi::c_int;
+        while j < AV1_K_MEANS_DIM_0 {
+            centroids_sum[(index * AV1_K_MEANS_DIM_0 + j) as usize]
+                += *data.offset((i * AV1_K_MEANS_DIM_0 + j) as isize)
+                    as core::ffi::c_int;
+            j += 1;
+        }
+        i += 1;
+    }
+    i = 0 as core::ffi::c_int;
+    while i < k {
+        if count[i as usize] == 0 as core::ffi::c_int {
+            memcpy(
+                centroids.offset((i * AV1_K_MEANS_DIM_0) as isize)
+                    as *mut core::ffi::c_void,
+                data
+                    .offset(
+                        (lcg_rand16(&raw mut rand_state))
+                            .wrapping_rem(n as uint32_t)
+                            .wrapping_mul(AV1_K_MEANS_DIM_0 as uint32_t) as isize,
+                    ) as *const core::ffi::c_void,
+                (::core::mem::size_of::<int16_t>() as size_t)
+                    .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
+            );
+        } else {
+            j = 0 as core::ffi::c_int;
+            while j < AV1_K_MEANS_DIM_0 {
+                *centroids.offset((i * AV1_K_MEANS_DIM_0 + j) as isize) = ((centroids_sum[(i
+                    * 2 as core::ffi::c_int + j) as usize]
+                    + (count[i as usize] >> 1 as core::ffi::c_int)) / count[i as usize])
+                    as int16_t;
+                j += 1;
+            }
+        }
+        i += 1;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C-unwind" fn av1_k_means_dim2(
+    mut data: *const int16_t,
+    mut centroids: *mut int16_t,
+    mut indices: *mut uint8_t,
+    mut n: core::ffi::c_int,
+    mut k: core::ffi::c_int,
+    mut max_itr: core::ffi::c_int,
+) {
+    let mut centroids_tmp: [int16_t; 16] = [0; 16];
+    let mut indices_tmp: [uint8_t; 4096] = [0; 4096];
+    let mut meta_centroids: [*mut int16_t; 2] = [centroids, centroids_tmp.as_mut_ptr()];
+    let mut meta_indices: [*mut uint8_t; 2] = [indices, indices_tmp.as_mut_ptr()];
+    let mut i: core::ffi::c_int = 0;
+    let mut l: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut prev_l: core::ffi::c_int = 0;
+    let mut best_l: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut this_dist: int64_t = 0;
+    av1_calc_indices_dim2_c(data, centroids, indices, &raw mut this_dist, n, k);
+    i = 0 as core::ffi::c_int;
+    while i < max_itr {
+        let prev_dist: int64_t = this_dist;
+        prev_l = l;
+        l = if l == 1 as core::ffi::c_int {
+            0 as core::ffi::c_int
+        } else {
+            1 as core::ffi::c_int
+        };
+        calc_centroids_dim2(
+            data,
+            meta_centroids[l as usize],
+            meta_indices[prev_l as usize],
+            n,
+            k,
+        );
+        if memcmp(
+            meta_centroids[l as usize] as *const core::ffi::c_void,
+            meta_centroids[prev_l as usize] as *const core::ffi::c_void,
+            (::core::mem::size_of::<int16_t>() as size_t)
+                .wrapping_mul(k as size_t)
+                .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
+        ) == 0
+        {
+            break;
+        }
+        av1_calc_indices_dim2_c(
+            data,
+            meta_centroids[l as usize],
+            meta_indices[l as usize],
+            &raw mut this_dist,
+            n,
+            k,
+        );
+        if this_dist > prev_dist {
+            best_l = prev_l;
+            break;
+        } else {
+            i += 1;
+        }
+    }
+    if i == max_itr {
+        best_l = l;
+    }
+    if best_l != 0 as core::ffi::c_int {
+        memcpy(
+            centroids as *mut core::ffi::c_void,
+            meta_centroids[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
+            (::core::mem::size_of::<int16_t>() as size_t)
+                .wrapping_mul(k as size_t)
+                .wrapping_mul(AV1_K_MEANS_DIM_0 as size_t),
+        );
+        memcpy(
+            indices as *mut core::ffi::c_void,
+            meta_indices[1 as core::ffi::c_int as usize] as *const core::ffi::c_void,
+            (::core::mem::size_of::<uint8_t>() as size_t).wrapping_mul(n as size_t),
+        );
+    }
+}
+pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
 #[inline]
 unsafe extern "C-unwind" fn av1_calc_indices(
     mut data: *const int16_t,

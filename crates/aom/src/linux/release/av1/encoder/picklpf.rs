@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn aom_yv12_copy_u_c(
@@ -3030,7 +3029,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3453,16 +3451,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5490,8 +5478,6 @@ unsafe extern "C-unwind" fn is_inter_tx_size_search_level_one(
         as core::ffi::c_int;
 }
 pub const INVALID_IDX: core::ffi::c_int = -(1 as core::ffi::c_int);
-pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
-pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;
 unsafe extern "C-unwind" fn yv12_copy_plane(
     mut src_bc: *const YV12_BUFFER_CONFIG,
     mut dst_bc: *mut YV12_BUFFER_CONFIG,
@@ -6110,6 +6096,8 @@ pub unsafe extern "C-unwind" fn av1_pick_filter_level(
             .filter_level[1 as core::ffi::c_int as usize];
     };
 }
+pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
+pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;
 
 extern "C" {
     fn memset(

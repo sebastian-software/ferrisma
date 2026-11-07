@@ -26,7 +26,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
@@ -3086,7 +3085,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3509,16 +3507,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5720,7 +5708,6 @@ unsafe extern "C-unwind" fn is_in_operating_point(
 unsafe extern "C-unwind" fn av1_use_tpl_for_extrc(mut ext_rc: *const AOM_EXT_RATECTRL) -> bool {
     return (*ext_rc).ready != 0 && ((*ext_rc).funcs.send_tpl_gop_stats).is_some();
 }
-pub const NORMAL_BOOST: core::ffi::c_int = 100 as core::ffi::c_int;
 pub const DEFAULT_KF_BOOST: core::ffi::c_int = 2300 as core::ffi::c_int;
 pub const DEFAULT_GF_BOOST: core::ffi::c_int = 2000 as core::ffi::c_int;
 pub const MIN_ACTIVE_AREA: core::ffi::c_double = 0.5f64;
@@ -11563,18 +11550,6 @@ pub unsafe extern "C-unwind" fn av1_twopass_postencode_update(mut cpi: *mut AV1_
                 .common
                 .quant_params
                 .base_qindex;
-            if (*cpi).vmaf_info.original_qindex != -(1 as core::ffi::c_int)
-                && ((*cpi).oxcf.tune_cfg.tuning as core::ffi::c_uint
-                    >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int
-                        as core::ffi::c_uint
-                    && (*cpi).oxcf.tune_cfg.tuning as core::ffi::c_uint
-                        <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int
-                            as core::ffi::c_uint)
-            {
-                (*p_rc).active_best_quality[i as usize] = (*cpi)
-                    .vmaf_info
-                    .original_qindex;
-            }
             i += 1;
         }
     }
@@ -11814,6 +11789,7 @@ unsafe extern "C-unwind" fn av1_get_kf_boost_projection_factor(
     factor = 75.0f64 + 14.0f64 * factor;
     return factor;
 }
+pub const NORMAL_BOOST: core::ffi::c_int = 100 as core::ffi::c_int;
 pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
 pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;

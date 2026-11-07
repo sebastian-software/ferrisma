@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
@@ -3069,7 +3068,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3492,16 +3490,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6138,55 +6126,6 @@ unsafe extern "C-unwind" fn get_frame_update_type(
     return (*gf_group).update_type[gf_frame_index as usize];
 }
 pub const INVALID_IDX: core::ffi::c_int = -(1 as core::ffi::c_int);
-pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
-pub const SWITCHABLE_INTERP_RATE_FACTOR: core::ffi::c_int = 1 as core::ffi::c_int;
-#[inline]
-unsafe extern "C-unwind" fn av1_init_rd_stats(mut rd_stats: *mut RD_STATS) {
-    (*rd_stats).rate = 0 as core::ffi::c_int;
-    (*rd_stats).dist = 0 as int64_t;
-    (*rd_stats).rdcost = 0 as int64_t;
-    (*rd_stats).sse = 0 as int64_t;
-    (*rd_stats).skip_txfm = 1 as uint8_t;
-    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_invalid_rd_stats(mut rd_stats: *mut RD_STATS) {
-    (*rd_stats).rate = INT_MAX;
-    (*rd_stats).dist = INT64_MAX as int64_t;
-    (*rd_stats).rdcost = INT64_MAX as int64_t;
-    (*rd_stats).sse = INT64_MAX as int64_t;
-    (*rd_stats).skip_txfm = 0 as uint8_t;
-    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_merge_rd_stats(
-    mut rd_stats_dst: *mut RD_STATS,
-    mut rd_stats_src: *const RD_STATS,
-) {
-    if (*rd_stats_dst).rate == INT_MAX || (*rd_stats_src).rate == INT_MAX {
-        av1_invalid_rd_stats(rd_stats_dst);
-        return;
-    }
-    (*rd_stats_dst).rate = (if ((*rd_stats_dst).rate as int64_t
-        + (*rd_stats_src).rate as int64_t) < 2147483647 as int64_t
-    {
-        (*rd_stats_dst).rate as int64_t + (*rd_stats_src).rate as int64_t
-    } else {
-        2147483647 as int64_t
-    }) as core::ffi::c_int;
-    if (*rd_stats_dst).zero_rate == 0 {
-        (*rd_stats_dst).zero_rate = (*rd_stats_src).zero_rate;
-    }
-    (*rd_stats_dst).dist += (*rd_stats_src).dist;
-    if (*rd_stats_dst).sse < INT64_MAX as int64_t
-        && (*rd_stats_src).sse < INT64_MAX as int64_t
-    {
-        (*rd_stats_dst).sse += (*rd_stats_src).sse;
-    }
-    (*rd_stats_dst).skip_txfm = ((*rd_stats_dst).skip_txfm as core::ffi::c_int
-        & (*rd_stats_src).skip_txfm as core::ffi::c_int) as uint8_t;
-}
-pub const MAX_INTERP_FILTER_STATS: core::ffi::c_int = 128 as core::ffi::c_int;
 #[inline]
 unsafe extern "C-unwind" fn restore_dst_buf(
     mut xd: *mut MACROBLOCKD,
@@ -6274,6 +6213,55 @@ unsafe extern "C-unwind" fn get_visible_dimensions(
     }
     return (valid_cols < cols || valid_rows < rows) as core::ffi::c_int;
 }
+pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
+pub const SWITCHABLE_INTERP_RATE_FACTOR: core::ffi::c_int = 1 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn av1_init_rd_stats(mut rd_stats: *mut RD_STATS) {
+    (*rd_stats).rate = 0 as core::ffi::c_int;
+    (*rd_stats).dist = 0 as int64_t;
+    (*rd_stats).rdcost = 0 as int64_t;
+    (*rd_stats).sse = 0 as int64_t;
+    (*rd_stats).skip_txfm = 1 as uint8_t;
+    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_invalid_rd_stats(mut rd_stats: *mut RD_STATS) {
+    (*rd_stats).rate = INT_MAX;
+    (*rd_stats).dist = INT64_MAX as int64_t;
+    (*rd_stats).rdcost = INT64_MAX as int64_t;
+    (*rd_stats).sse = INT64_MAX as int64_t;
+    (*rd_stats).skip_txfm = 0 as uint8_t;
+    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_merge_rd_stats(
+    mut rd_stats_dst: *mut RD_STATS,
+    mut rd_stats_src: *const RD_STATS,
+) {
+    if (*rd_stats_dst).rate == INT_MAX || (*rd_stats_src).rate == INT_MAX {
+        av1_invalid_rd_stats(rd_stats_dst);
+        return;
+    }
+    (*rd_stats_dst).rate = (if ((*rd_stats_dst).rate as int64_t
+        + (*rd_stats_src).rate as int64_t) < 2147483647 as int64_t
+    {
+        (*rd_stats_dst).rate as int64_t + (*rd_stats_src).rate as int64_t
+    } else {
+        2147483647 as int64_t
+    }) as core::ffi::c_int;
+    if (*rd_stats_dst).zero_rate == 0 {
+        (*rd_stats_dst).zero_rate = (*rd_stats_src).zero_rate;
+    }
+    (*rd_stats_dst).dist += (*rd_stats_src).dist;
+    if (*rd_stats_dst).sse < INT64_MAX as int64_t
+        && (*rd_stats_src).sse < INT64_MAX as int64_t
+    {
+        (*rd_stats_dst).sse += (*rd_stats_src).sse;
+    }
+    (*rd_stats_dst).skip_txfm = ((*rd_stats_dst).skip_txfm as core::ffi::c_int
+        & (*rd_stats_src).skip_txfm as core::ffi::c_int) as uint8_t;
+}
+pub const MAX_INTERP_FILTER_STATS: core::ffi::c_int = 128 as core::ffi::c_int;
 static mut filter_sets: [int_interpfilters; 9] = [
     int_interpfilters {
         as_int: 0 as core::ffi::c_int as uint32_t,

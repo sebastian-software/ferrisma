@@ -17,7 +17,6 @@ extern "C-unwind" {
     pub type _IO_codecvt;
     pub type _IO_marker;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     fn aom_realloc_frame_buffer(
         ybf: *mut YV12_BUFFER_CONFIG,
@@ -181,12 +180,6 @@ extern "C-unwind" {
         enable_overlay: core::ffi::c_int,
         is_second_arf: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn av1_svc_primary_ref_frame(cpi: *const AV1_COMP) -> core::ffi::c_int;
-    fn av1_svc_set_last_source(
-        cpi: *mut AV1_COMP,
-        frame_input: *mut EncodeFrameInput,
-        prev_source: *mut YV12_BUFFER_CONFIG,
-    );
     fn av1_setup_tpl_buffers(
         ppi: *mut AV1_PRIMARY,
         mi_params: *mut CommonModeInfoParams,
@@ -205,7 +198,12 @@ extern "C-unwind" {
         frame_params: *const EncodeFrameParams,
     );
     fn av1_init_tpl_stats(tpl_data: *mut TplParams);
-    fn av1_update_vmaf_curve(cpi: *mut AV1_COMP);
+    fn av1_svc_primary_ref_frame(cpi: *const AV1_COMP) -> core::ffi::c_int;
+    fn av1_svc_set_last_source(
+        cpi: *mut AV1_COMP,
+        frame_input: *mut EncodeFrameInput,
+        prev_source: *mut YV12_BUFFER_CONFIG,
+    );
     fn av1_cyclic_refresh_update_parameters(cpi: *mut AV1_COMP);
     fn av1_gop_is_second_arf(
         gf_group: *const GF_GROUP,
@@ -3179,7 +3177,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3602,16 +3599,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5947,6 +5934,35 @@ unsafe extern "C-unwind" fn av1_use_tpl_for_extrc(mut ext_rc: *const AOM_EXT_RAT
     return (*ext_rc).ready != 0 && ((*ext_rc).funcs.send_tpl_gop_stats).is_some();
 }
 #[inline]
+unsafe extern "C-unwind" fn is_frame_droppable(
+    rtc_ref: *const RTC_REF,
+    ext_refresh_frame_flags: *const ExtRefreshFrameFlagsInfo,
+) -> core::ffi::c_int {
+    if (*rtc_ref).set_ref_frame_config != 0 {
+        return (*rtc_ref).non_reference_frame
+    } else if (*ext_refresh_frame_flags).update_pending {
+        return !((*ext_refresh_frame_flags).alt_ref_frame as core::ffi::c_int != 0
+            || (*ext_refresh_frame_flags).alt2_ref_frame as core::ffi::c_int != 0
+            || (*ext_refresh_frame_flags).bwd_ref_frame as core::ffi::c_int != 0
+            || (*ext_refresh_frame_flags).golden_frame as core::ffi::c_int != 0
+            || (*ext_refresh_frame_flags).last_frame as core::ffi::c_int != 0)
+            as core::ffi::c_int
+    } else {
+        return 0 as core::ffi::c_int
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn get_current_frame_ref_type(
+    cpi: *const AV1_COMP,
+) -> core::ffi::c_int {
+    match (*(*cpi).ppi).gf_group.layer_depth[(*cpi).gf_frame_index as usize] {
+        0 => return 0 as core::ffi::c_int,
+        1 => return 1 as core::ffi::c_int,
+        MAX_ARF_LAYERS | 7 => return 4 as core::ffi::c_int,
+        _ => return 7 as core::ffi::c_int,
+    };
+}
+#[inline]
 unsafe extern "C-unwind" fn set_refresh_frame_flags(
     refresh_frame: *mut RefreshFrameInfo,
     mut refresh_gf: bool,
@@ -7885,14 +7901,6 @@ pub unsafe extern "C-unwind" fn av1_encode_strategy(
         update_frame_flags(&raw mut (*cpi).common, &raw mut (*cpi).refresh_frame, frame_flags);
         set_additional_frame_flags(cm, frame_flags);
     }
-    if is_stat_generation_stage(cpi) == 0
-        && ((*oxcf).tune_cfg.tuning as core::ffi::c_uint
-            >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-            && (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-                <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint)
-    {
-        av1_update_vmaf_curve(cpi as *mut AV1_COMP);
-    }
     *size = frame_size;
     if *size > 0 as size_t {
         (*cpi).droppable = is_frame_droppable(
@@ -7928,35 +7936,6 @@ pub unsafe extern "C-unwind" fn av1_encode_strategy(
         );
     }
     return AOM_CODEC_OK as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn is_frame_droppable(
-    rtc_ref: *const RTC_REF,
-    ext_refresh_frame_flags: *const ExtRefreshFrameFlagsInfo,
-) -> core::ffi::c_int {
-    if (*rtc_ref).set_ref_frame_config != 0 {
-        return (*rtc_ref).non_reference_frame
-    } else if (*ext_refresh_frame_flags).update_pending {
-        return !((*ext_refresh_frame_flags).alt_ref_frame as core::ffi::c_int != 0
-            || (*ext_refresh_frame_flags).alt2_ref_frame as core::ffi::c_int != 0
-            || (*ext_refresh_frame_flags).bwd_ref_frame as core::ffi::c_int != 0
-            || (*ext_refresh_frame_flags).golden_frame as core::ffi::c_int != 0
-            || (*ext_refresh_frame_flags).last_frame as core::ffi::c_int != 0)
-            as core::ffi::c_int
-    } else {
-        return 0 as core::ffi::c_int
-    };
-}
-#[inline]
-unsafe extern "C-unwind" fn get_current_frame_ref_type(
-    cpi: *const AV1_COMP,
-) -> core::ffi::c_int {
-    match (*(*cpi).ppi).gf_group.layer_depth[(*cpi).gf_frame_index as usize] {
-        0 => return 0 as core::ffi::c_int,
-        1 => return 1 as core::ffi::c_int,
-        MAX_ARF_LAYERS | 7 => return 4 as core::ffi::c_int,
-        _ => return 7 as core::ffi::c_int,
-    };
 }
 #[inline]
 unsafe extern "C-unwind" fn dealloc_context_buffers_ext(

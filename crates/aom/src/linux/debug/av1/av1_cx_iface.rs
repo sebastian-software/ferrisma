@@ -17,7 +17,6 @@ extern "C-unwind" {
     pub type _IO_wide_data;
     pub type _IO_codecvt;
     pub type _IO_marker;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_img_plane_width(
@@ -189,19 +188,7 @@ extern "C-unwind" {
         dest_size: size_t,
     ) -> core::ffi::c_int;
     fn av1_dealloc_src_diff_buf(mb: *mut macroblock, num_planes: core::ffi::c_int);
-    fn av1_lookahead_init(
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-        subsampling_x: core::ffi::c_int,
-        subsampling_y: core::ffi::c_int,
-        use_highbitdepth: core::ffi::c_int,
-        depth: core::ffi::c_int,
-        border_in_pixels: core::ffi::c_int,
-        byte_alignment: core::ffi::c_int,
-        num_lap_buffers: core::ffi::c_int,
-        is_all_intra: bool,
-        alloc_pyramid: bool,
-    ) -> *mut lookahead_ctx;
+    fn av1_twopass_zero_stats(section: *mut FIRSTPASS_STATS);
     fn av1_init_layer_context(cpi: *mut AV1_COMP);
     fn av1_alloc_layer_context(cpi: *mut AV1_COMP, num_layers: core::ffi::c_int) -> bool;
     fn av1_update_layer_context_change_config(
@@ -245,10 +232,6 @@ extern "C-unwind" {
         n: core::ffi::c_int,
         err_msg: *mut core::ffi::c_char,
     ) -> core::ffi::c_int;
-    fn aom_init_vmaf_model(
-        vmaf_model: *mut *mut VmafModel,
-        model_path: *const core::ffi::c_char,
-    );
     fn av1_fp_compute_num_enc_workers(cpi: *mut AV1_COMP) -> core::ffi::c_int;
     fn av1_compute_num_workers_for_mt(cpi: *mut AV1_COMP);
     fn av1_get_max_num_workers(cpi: *const AV1_COMP) -> core::ffi::c_int;
@@ -279,7 +262,19 @@ extern "C-unwind" {
         ext_ratectrl: *mut AOM_EXT_RATECTRL,
     ) -> aom_codec_err_t;
     fn av1_extrc_delete(ext_ratectrl: *mut AOM_EXT_RATECTRL) -> aom_codec_err_t;
-    fn av1_twopass_zero_stats(section: *mut FIRSTPASS_STATS);
+    fn av1_lookahead_init(
+        width: core::ffi::c_int,
+        height: core::ffi::c_int,
+        subsampling_x: core::ffi::c_int,
+        subsampling_y: core::ffi::c_int,
+        use_highbitdepth: core::ffi::c_int,
+        depth: core::ffi::c_int,
+        border_in_pixels: core::ffi::c_int,
+        byte_alignment: core::ffi::c_int,
+        num_lap_buffers: core::ffi::c_int,
+        is_all_intra: bool,
+        alloc_pyramid: bool,
+    ) -> *mut lookahead_ctx;
     fn av1_ext_part_create(
         funcs: aom_ext_part_funcs_t,
         config: aom_ext_part_config_t,
@@ -2810,7 +2805,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3764,16 +3758,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6387,7 +6371,6 @@ pub struct av1_codec_arg_definitions {
     pub num_tg: arg_def_t,
     pub mtu_size: arg_def_t,
     pub timing_info: arg_def_t,
-    pub vmaf_model_path: arg_def_t,
     pub partition_info_path: arg_def_t,
     pub enable_rate_guide_deltaq: arg_def_t,
     pub rate_distribution_info: arg_def_t,
@@ -7925,6 +7908,15 @@ unsafe extern "C-unwind" fn validate_config(
         == AOM_TUNE_BUTTERAUGLI as core::ffi::c_int as core::ffi::c_uint
     {
         (*ctx).base.err_detail = b"This error may be related to the wrong configuration options: try to set -DCONFIG_TUNE_BUTTERAUGLI=1 at the time CMake is run.\0"
+            as *const u8 as *const core::ffi::c_char;
+        return AOM_CODEC_INVALID_PARAM;
+    }
+    if (*extra_cfg).tuning as core::ffi::c_uint
+        >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
+        && (*extra_cfg).tuning as core::ffi::c_uint
+            <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
+    {
+        (*ctx).base.err_detail = b"This error may be related to the wrong configuration options: try to set -DCONFIG_TUNE_VMAF=1 at the time CMake is run.\0"
             as *const u8 as *const core::ffi::c_char;
         return AOM_CODEC_INVALID_PARAM;
     }
@@ -11194,10 +11186,6 @@ unsafe extern "C-unwind" fn check_and_free_string(
 }
 unsafe extern "C-unwind" fn destroy_extra_config(mut extra_cfg: *mut av1_extracfg) {
     check_and_free_string(
-        default_extra_cfg.vmaf_model_path,
-        &raw mut (*extra_cfg).vmaf_model_path,
-    );
-    check_and_free_string(
         default_extra_cfg.two_pass_output,
         &raw mut (*extra_cfg).two_pass_output,
     );
@@ -11469,16 +11457,6 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
     av1_apply_encoding_flags((*ppi).cpi as *mut AV1_COMP, flags);
     if !cpi_lap.is_null() {
         av1_apply_encoding_flags(cpi_lap, flags);
-    }
-    if (*ctx).extra_cfg.tuning as core::ffi::c_uint
-        >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-        && (*ctx).extra_cfg.tuning as core::ffi::c_uint
-            <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-    {
-        aom_init_vmaf_model(
-            &raw mut (*(*ppi).cpi).vmaf_info.vmaf_model,
-            (*(*ppi).cpi).oxcf.tune_cfg.vmaf_model_path,
-        );
     }
     if is_stat_generation_stage((*ppi).cpi) != 0
         || is_one_pass_rt_params((*ppi).cpi) != 0
@@ -13569,19 +13547,6 @@ unsafe extern "C-unwind" fn encoder_set_option(
         extra_cfg.tuning = arg_parse_enum_helper(&raw mut arg, err_string)
             as aom_tune_metric;
         err = handle_tuning(&raw mut extra_cfg);
-    } else if arg_match_helper(
-        &raw mut arg,
-        &g_av1_codec_arg_defs.vmaf_model_path,
-        argv.as_mut_ptr(),
-        err_string,
-    ) != 0
-    {
-        err = allocate_and_set_string(
-            value,
-            default_extra_cfg.vmaf_model_path,
-            &raw mut extra_cfg.vmaf_model_path,
-            err_string,
-        );
     } else if arg_match_helper(
         &raw mut arg,
         &g_av1_codec_arg_defs.partition_info_path,
@@ -17294,8 +17259,6 @@ pub const AOM_ENC_ALLINTRA_BORDER: core::ffi::c_int = 64 as core::ffi::c_int;
 pub const YV12_FLAG_HIGHBITDEPTH: core::ffi::c_int = 8 as core::ffi::c_int;
 pub const MAX_STATIC_GF_GROUP_LENGTH: core::ffi::c_int = 250 as core::ffi::c_int;
 pub const MAX_MB_PLANE: core::ffi::c_int = 3 as core::ffi::c_int;
-pub const MAX_LAG_BUFFERS: core::ffi::c_int = 48 as core::ffi::c_int;
-pub const LAP_LAG_IN_FRAMES: core::ffi::c_int = 17 as core::ffi::c_int;
 pub const RANSAC_NUM_MOTIONS: core::ffi::c_int = 1 as core::ffi::c_int;
 #[inline]
 unsafe extern "C-unwind" fn tpl_dealloc_temp_buffers(mut tpl_tmp_buffers: *mut TplBuffers) {
@@ -17327,15 +17290,6 @@ unsafe extern "C-unwind" fn tf_dealloc_data(
     (*tf_data).count = 0 as *mut uint16_t;
     aom_free((*tf_data).pred as *mut core::ffi::c_void);
     (*tf_data).pred = 0 as *mut uint8_t;
-}
-pub const ARG_ERR_MSG_MAX_LEN: core::ffi::c_int = 200 as core::ffi::c_int;
-#[inline]
-unsafe extern "C-unwind" fn clamp(
-    mut value: core::ffi::c_int,
-    mut low: core::ffi::c_int,
-    mut high: core::ffi::c_int,
-) -> core::ffi::c_int {
-    return if value < low { low } else if value > high { high } else { value };
 }
 #[inline]
 unsafe extern "C-unwind" fn yuvconfig2image(
@@ -17528,6 +17482,17 @@ unsafe extern "C-unwind" fn image2yuvconfig(
     (*yv12).metadata = (*img).metadata;
     return AOM_CODEC_OK;
 }
+pub const ARG_ERR_MSG_MAX_LEN: core::ffi::c_int = 200 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn clamp(
+    mut value: core::ffi::c_int,
+    mut low: core::ffi::c_int,
+    mut high: core::ffi::c_int,
+) -> core::ffi::c_int {
+    return if value < low { low } else if value > high { high } else { value };
+}
+pub const MAX_LAG_BUFFERS: core::ffi::c_int = 48 as core::ffi::c_int;
+pub const LAP_LAG_IN_FRAMES: core::ffi::c_int = 17 as core::ffi::c_int;
 #[inline]
 unsafe extern "C-unwind" fn restore_cdef_coding_context(
     dst: *mut CdefInfo,

@@ -17,7 +17,6 @@ extern "C-unwind" {
     pub type _IO_codecvt;
     pub type _IO_marker;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     static mut stderr: *mut FILE;
     fn aom_codec_pkt_list_add(
@@ -257,23 +256,6 @@ extern "C-unwind" {
         is_allintra: bool,
         tuning: aom_tune_metric,
     );
-    fn av1_haar_ac_sad_mxn_uint8_input(
-        input: *const uint8_t,
-        stride: core::ffi::c_int,
-        hbd: core::ffi::c_int,
-        num_8x8_rows: core::ffi::c_int,
-        num_8x8_cols: core::ffi::c_int,
-    ) -> int64_t;
-    fn av1_setup_src_planes(
-        x: *mut macroblock,
-        src: *const yv12_buffer_config,
-        mi_row: core::ffi::c_int,
-        mi_col: core::ffi::c_int,
-        num_planes: core::ffi::c_int,
-        bsize: BLOCK_SIZE,
-    );
-    fn av1_alloc_tile_data(cpi: *mut AV1_COMP);
-    fn av1_init_tile_data(cpi: *mut AV1_COMP);
     fn av1_get_mvpred_sse(
         mv_cost_params: *const MV_COST_PARAMS,
         best_mv: FULLPEL_MV,
@@ -302,6 +284,16 @@ extern "C-unwind" {
         best_mv_stats: *mut FULLPEL_MV_STATS,
         second_best_mv: *mut FULLPEL_MV,
     ) -> core::ffi::c_int;
+    fn av1_setup_src_planes(
+        x: *mut macroblock,
+        src: *const yv12_buffer_config,
+        mi_row: core::ffi::c_int,
+        mi_col: core::ffi::c_int,
+        num_planes: core::ffi::c_int,
+        bsize: BLOCK_SIZE,
+    );
+    fn av1_alloc_tile_data(cpi: *mut AV1_COMP);
+    fn av1_init_tile_data(cpi: *mut AV1_COMP);
     fn av1_foreach_transformed_block_in_plane(
         xd: *const MACROBLOCKD,
         plane_bsize: BLOCK_SIZE,
@@ -333,6 +325,13 @@ extern "C-unwind" {
         cpi: *const AV1_COMP,
         ref_frame: core::ffi::c_int,
     ) -> *mut YV12_BUFFER_CONFIG;
+    fn av1_haar_ac_sad_mxn_uint8_input(
+        input: *const uint8_t,
+        stride: core::ffi::c_int,
+        hbd: core::ffi::c_int,
+        num_8x8_rows: core::ffi::c_int,
+        num_8x8_cols: core::ffi::c_int,
+    ) -> int64_t;
     fn av1_scale_references(
         cpi: *mut AV1_COMP,
         filter: InterpFilter,
@@ -3469,7 +3468,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3892,16 +3890,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6572,71 +6560,6 @@ static mut av1_ref_frame_flag_list: [uint8_t; 8] = [
     AOM_ALT_FLAG as core::ffi::c_int as uint8_t,
 ];
 pub const INVALID_IDX: core::ffi::c_int = -(1 as core::ffi::c_int);
-static mut search_method_lookup: [SEARCH_METHODS; 9] = [
-    DIAMOND as core::ffi::c_int as SEARCH_METHODS,
-    NSTEP as core::ffi::c_int as SEARCH_METHODS,
-    NSTEP_8PT as core::ffi::c_int as SEARCH_METHODS,
-    CLAMPED_DIAMOND as core::ffi::c_int as SEARCH_METHODS,
-    HEX as core::ffi::c_int as SEARCH_METHODS,
-    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
-    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
-    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
-    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
-];
-#[inline]
-unsafe extern "C-unwind" fn av1_refresh_search_site_config(
-    mut ss_cfg_buf: *mut search_site_config,
-    mut search_method: SEARCH_METHODS,
-    ref_stride: core::ffi::c_int,
-) {
-    let level: core::ffi::c_int = (search_method as core::ffi::c_int
-        == NSTEP_8PT as core::ffi::c_int
-        || search_method as core::ffi::c_int == CLAMPED_DIAMOND as core::ffi::c_int)
-        as core::ffi::c_int;
-    search_method = search_method_lookup[search_method as usize];
-    (av1_init_motion_compensation[search_method as usize])
-        .expect(
-            "non-null function pointer",
-        )(&raw mut *ss_cfg_buf.offset(search_method as isize), ref_stride, level);
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_set_mv_row_limits(
-    mi_params: *const CommonModeInfoParams,
-    mut mv_limits: *mut FullMvLimits,
-    mut mi_row: core::ffi::c_int,
-    mut mi_height: core::ffi::c_int,
-    mut border: core::ffi::c_int,
-) {
-    let min1: core::ffi::c_int = -(mi_row * MI_SIZE + border
-        - 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
-    let min2: core::ffi::c_int = -((mi_row + mi_height) * MI_SIZE
-        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
-    (*mv_limits).row_min = if min1 > min2 { min1 } else { min2 };
-    let max1: core::ffi::c_int = ((*mi_params).mi_rows - mi_row - mi_height) * MI_SIZE
-        + border - 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
-    let max2: core::ffi::c_int = ((*mi_params).mi_rows - mi_row) * MI_SIZE
-        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
-    (*mv_limits).row_max = if max1 < max2 { max1 } else { max2 };
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_set_mv_col_limits(
-    mi_params: *const CommonModeInfoParams,
-    mut mv_limits: *mut FullMvLimits,
-    mut mi_col: core::ffi::c_int,
-    mut mi_width: core::ffi::c_int,
-    mut border: core::ffi::c_int,
-) {
-    let min1: core::ffi::c_int = -(mi_col * MI_SIZE + border
-        - 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
-    let min2: core::ffi::c_int = -((mi_col + mi_width) * MI_SIZE
-        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
-    (*mv_limits).col_min = if min1 > min2 { min1 } else { min2 };
-    let max1: core::ffi::c_int = ((*mi_params).mi_cols - mi_col - mi_width) * MI_SIZE
-        + border - 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
-    let max2: core::ffi::c_int = ((*mi_params).mi_cols - mi_col) * MI_SIZE
-        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
-    (*mv_limits).col_max = if max1 < max2 { max1 } else { max2 };
-}
 pub const FIRST_PASS_Q: core::ffi::c_double = 10.0f64;
 pub const INTRA_MODE_PENALTY: core::ffi::c_int = 1024 as core::ffi::c_int;
 pub const NEW_MV_MODE_PENALTY: core::ffi::c_int = 32 as core::ffi::c_int;
@@ -9464,6 +9387,71 @@ pub unsafe extern "C-unwind" fn av1_firstpass_info_future_count(
         return (*firstpass_info).future_stats_count - offset_from_cur;
     }
     return 0 as core::ffi::c_int;
+}
+static mut search_method_lookup: [SEARCH_METHODS; 9] = [
+    DIAMOND as core::ffi::c_int as SEARCH_METHODS,
+    NSTEP as core::ffi::c_int as SEARCH_METHODS,
+    NSTEP_8PT as core::ffi::c_int as SEARCH_METHODS,
+    CLAMPED_DIAMOND as core::ffi::c_int as SEARCH_METHODS,
+    HEX as core::ffi::c_int as SEARCH_METHODS,
+    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
+    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
+    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
+    BIGDIA as core::ffi::c_int as SEARCH_METHODS,
+];
+#[inline]
+unsafe extern "C-unwind" fn av1_refresh_search_site_config(
+    mut ss_cfg_buf: *mut search_site_config,
+    mut search_method: SEARCH_METHODS,
+    ref_stride: core::ffi::c_int,
+) {
+    let level: core::ffi::c_int = (search_method as core::ffi::c_int
+        == NSTEP_8PT as core::ffi::c_int
+        || search_method as core::ffi::c_int == CLAMPED_DIAMOND as core::ffi::c_int)
+        as core::ffi::c_int;
+    search_method = search_method_lookup[search_method as usize];
+    (av1_init_motion_compensation[search_method as usize])
+        .expect(
+            "non-null function pointer",
+        )(&raw mut *ss_cfg_buf.offset(search_method as isize), ref_stride, level);
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_set_mv_row_limits(
+    mi_params: *const CommonModeInfoParams,
+    mut mv_limits: *mut FullMvLimits,
+    mut mi_row: core::ffi::c_int,
+    mut mi_height: core::ffi::c_int,
+    mut border: core::ffi::c_int,
+) {
+    let min1: core::ffi::c_int = -(mi_row * MI_SIZE + border
+        - 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
+    let min2: core::ffi::c_int = -((mi_row + mi_height) * MI_SIZE
+        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
+    (*mv_limits).row_min = if min1 > min2 { min1 } else { min2 };
+    let max1: core::ffi::c_int = ((*mi_params).mi_rows - mi_row - mi_height) * MI_SIZE
+        + border - 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
+    let max2: core::ffi::c_int = ((*mi_params).mi_rows - mi_row) * MI_SIZE
+        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
+    (*mv_limits).row_max = if max1 < max2 { max1 } else { max2 };
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_set_mv_col_limits(
+    mi_params: *const CommonModeInfoParams,
+    mut mv_limits: *mut FullMvLimits,
+    mut mi_col: core::ffi::c_int,
+    mut mi_width: core::ffi::c_int,
+    mut border: core::ffi::c_int,
+) {
+    let min1: core::ffi::c_int = -(mi_col * MI_SIZE + border
+        - 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
+    let min2: core::ffi::c_int = -((mi_col + mi_width) * MI_SIZE
+        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND);
+    (*mv_limits).col_min = if min1 > min2 { min1 } else { min2 };
+    let max1: core::ffi::c_int = ((*mi_params).mi_cols - mi_col - mi_width) * MI_SIZE
+        + border - 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
+    let max2: core::ffi::c_int = ((*mi_params).mi_cols - mi_col) * MI_SIZE
+        + 2 as core::ffi::c_int * AOM_INTERP_EXTEND;
+    (*mv_limits).col_max = if max1 < max2 { max1 } else { max2 };
 }
 #[inline]
 unsafe extern "C-unwind" fn size_in_mi(mut size: core::ffi::c_int) -> core::ffi::c_int {

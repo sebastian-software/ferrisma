@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn aom_internal_error(
@@ -2952,7 +2951,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3375,16 +3373,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5386,7 +5374,6 @@ pub const INVALID_IDX: core::ffi::c_int = -(1 as core::ffi::c_int);
 pub const MAX_STATIC_GF_GROUP_LENGTH: core::ffi::c_int = 250 as core::ffi::c_int;
 pub const FIXED_GF_INTERVAL: core::ffi::c_int = 16 as core::ffi::c_int;
 pub const MAX_ARF_LAYERS: core::ffi::c_int = 6 as core::ffi::c_int;
-pub const NORMAL_BOOST: core::ffi::c_int = 100 as core::ffi::c_int;
 unsafe extern "C-unwind" fn set_frame_parallel_level(
     mut frame_parallel_level: *mut core::ffi::c_int,
     mut parallel_frame_count: *mut core::ffi::c_int,
@@ -6964,6 +6951,7 @@ pub unsafe extern "C-unwind" fn av1_gop_is_second_arf(
     return 0 as core::ffi::c_int;
 }
 pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
+pub const NORMAL_BOOST: core::ffi::c_int = 100 as core::ffi::c_int;
 pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
 

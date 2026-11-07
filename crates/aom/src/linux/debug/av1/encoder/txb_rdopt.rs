@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn av1_get_iqmatrix(
@@ -51,7 +50,6 @@ extern "C-unwind" {
     );
     static av1_eob_offset_bits: [int16_t; 12];
     static mut av1_nz_map_ctx_offset: [*const int8_t; 19];
-    static av1_scan_orders: [[SCAN_ORDER; 16]; 19];
     fn av1_get_eob_pos_token(
         eob: core::ffi::c_int,
         extra: *mut core::ffi::c_int,
@@ -62,6 +60,7 @@ extern "C-unwind" {
         eob: core::ffi::c_int,
     ) -> uint8_t;
     fn av1_get_tx_scale(tx_size: TX_SIZE) -> core::ffi::c_int;
+    static av1_scan_orders: [[SCAN_ORDER; 16]; 19];
 }
 pub type size_t = usize;
 pub type __int8_t = i8;
@@ -3059,7 +3058,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3482,16 +3480,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6314,7 +6302,491 @@ unsafe extern "C-unwind" fn get_lower_levels_ctx_general(
     }
     return get_lower_levels_ctx(levels, coeff_idx, bhl, tx_size, tx_class);
 }
+static mut plane_rd_mult_chroma: [[core::ffi::c_int; 2]; 2] = [
+    [17 as core::ffi::c_int, 13 as core::ffi::c_int],
+    [16 as core::ffi::c_int, 10 as core::ffi::c_int],
+];
+static mut plane_rd_mult: [[core::ffi::c_int; 2]; 2] = [
+    [17 as core::ffi::c_int, 20 as core::ffi::c_int],
+    [16 as core::ffi::c_int, 20 as core::ffi::c_int],
+];
+static mut golomb_bits_cost: [core::ffi::c_int; 32] = [
+    0 as core::ffi::c_int,
+    512 as core::ffi::c_int,
+    512 as core::ffi::c_int * 3 as core::ffi::c_int,
+    512 as core::ffi::c_int * 3 as core::ffi::c_int,
+    512 as core::ffi::c_int * 5 as core::ffi::c_int,
+    512 as core::ffi::c_int * 5 as core::ffi::c_int,
+    512 as core::ffi::c_int * 5 as core::ffi::c_int,
+    512 as core::ffi::c_int * 5 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 7 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+    512 as core::ffi::c_int * 9 as core::ffi::c_int,
+];
+static mut golomb_cost_diff: [core::ffi::c_int; 32] = [
+    0 as core::ffi::c_int,
+    512 as core::ffi::c_int,
+    512 as core::ffi::c_int * 2 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    512 as core::ffi::c_int * 2 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    512 as core::ffi::c_int * 2 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    512 as core::ffi::c_int * 2 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+    0 as core::ffi::c_int,
+];
+static mut costLUT: [core::ffi::c_int; 15] = [
+    -(1143 as core::ffi::c_int),
+    53 as core::ffi::c_int,
+    545 as core::ffi::c_int,
+    825 as core::ffi::c_int,
+    1031 as core::ffi::c_int,
+    1209 as core::ffi::c_int,
+    1393 as core::ffi::c_int,
+    1577 as core::ffi::c_int,
+    1763 as core::ffi::c_int,
+    1947 as core::ffi::c_int,
+    2132 as core::ffi::c_int,
+    2317 as core::ffi::c_int,
+    2501 as core::ffi::c_int,
+    2686 as core::ffi::c_int,
+    2871 as core::ffi::c_int,
+];
+static mut const_term: core::ffi::c_int = (1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT;
+static mut loge_par: core::ffi::c_int = (((14427 as core::ffi::c_int)
+    << AV1_PROB_COST_SHIFT) + 5000 as core::ffi::c_int) / 10000 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn get_dqv(
+    mut dequant: *const int16_t,
+    mut coeff_idx: core::ffi::c_int,
+    mut iqmatrix: *const qm_val_t,
+) -> core::ffi::c_int {
+    let mut dqv: core::ffi::c_int = *dequant
+        .offset((coeff_idx != 0) as core::ffi::c_int as isize) as core::ffi::c_int;
+    if !iqmatrix.is_null() {
+        dqv = *iqmatrix.offset(coeff_idx as isize) as core::ffi::c_int * dqv
+            + ((1 as core::ffi::c_int) << AOM_QM_BITS - 1 as core::ffi::c_int)
+            >> AOM_QM_BITS;
+    }
+    return dqv;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_coeff_dist(
+    mut tcoeff: tran_low_t,
+    mut dqcoeff: tran_low_t,
+    mut shift: core::ffi::c_int,
+    mut qmatrix: *const qm_val_t,
+    mut coeff_idx: core::ffi::c_int,
+) -> int64_t {
+    let mut diff: int64_t = ((tcoeff - dqcoeff) * ((1 as tran_low_t) << shift))
+        as int64_t;
+    if qmatrix.is_null() {
+        return diff * diff;
+    }
+    diff *= *qmatrix.offset(coeff_idx as isize) as int64_t;
+    let error: int64_t = diff * diff
+        + ((1 as core::ffi::c_int)
+            << 2 as core::ffi::c_int * AOM_QM_BITS - 1 as core::ffi::c_int) as int64_t
+        >> 2 as core::ffi::c_int * AOM_QM_BITS;
+    return error;
+}
+unsafe extern "C-unwind" fn get_eob_cost(
+    mut eob: core::ffi::c_int,
+    mut txb_eob_costs: *const LV_MAP_EOB_COST,
+    mut txb_costs: *const LV_MAP_COEFF_COST,
+    mut tx_class: TX_CLASS,
+) -> core::ffi::c_int {
+    let mut eob_extra: core::ffi::c_int = 0;
+    let eob_pt: core::ffi::c_int = av1_get_eob_pos_token(eob, &raw mut eob_extra)
+        as core::ffi::c_int;
+    let mut eob_cost: core::ffi::c_int = 0 as core::ffi::c_int;
+    let eob_multi_ctx: core::ffi::c_int = if tx_class as core::ffi::c_int
+        == TX_CLASS_2D as core::ffi::c_int
+    {
+        0 as core::ffi::c_int
+    } else {
+        1 as core::ffi::c_int
+    };
+    eob_cost = (*txb_eob_costs)
+        .eob_cost[eob_multi_ctx as usize][(eob_pt - 1 as core::ffi::c_int) as usize];
+    if av1_eob_offset_bits[eob_pt as usize] as core::ffi::c_int > 0 as core::ffi::c_int {
+        let eob_ctx: core::ffi::c_int = eob_pt - 3 as core::ffi::c_int;
+        let eob_shift: core::ffi::c_int = av1_eob_offset_bits[eob_pt as usize]
+            as core::ffi::c_int - 1 as core::ffi::c_int;
+        let bit: core::ffi::c_int = if eob_extra & (1 as core::ffi::c_int) << eob_shift
+            != 0
+        {
+            1 as core::ffi::c_int
+        } else {
+            0 as core::ffi::c_int
+        };
+        eob_cost += (*txb_costs).eob_extra_cost[eob_ctx as usize][bit as usize];
+        let offset_bits: core::ffi::c_int = av1_eob_offset_bits[eob_pt as usize]
+            as core::ffi::c_int;
+        if offset_bits > 1 as core::ffi::c_int {
+            eob_cost
+                += (offset_bits - 1 as core::ffi::c_int)
+                    * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
+        }
+    }
+    return eob_cost;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_golomb_cost(mut abs_qc: core::ffi::c_int) -> core::ffi::c_int {
+    if abs_qc >= 1 as core::ffi::c_int + NUM_BASE_LEVELS + COEFF_BASE_RANGE {
+        let r: core::ffi::c_int = abs_qc - COEFF_BASE_RANGE - NUM_BASE_LEVELS;
+        let length: core::ffi::c_int = get_msb(r as core::ffi::c_uint)
+            as core::ffi::c_int + 1 as core::ffi::c_int;
+        return (2 as core::ffi::c_int * length - 1 as core::ffi::c_int)
+            * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
+    }
+    return 0 as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_br_cost(
+    mut level: tran_low_t,
+    mut coeff_lps: *const core::ffi::c_int,
+) -> core::ffi::c_int {
+    let base_range: core::ffi::c_int = if (level - 1 as tran_low_t - 2 as tran_low_t)
+        < 4 as tran_low_t * (4 as tran_low_t - 1 as tran_low_t)
+    {
+        level as core::ffi::c_int - 1 as core::ffi::c_int - 2 as core::ffi::c_int
+    } else {
+        4 as core::ffi::c_int * (4 as core::ffi::c_int - 1 as core::ffi::c_int)
+    };
+    return *coeff_lps.offset(base_range as isize)
+        + get_golomb_cost(level as core::ffi::c_int);
+}
+#[inline]
+unsafe extern "C-unwind" fn get_br_cost_with_diff(
+    mut level: tran_low_t,
+    mut coeff_lps: *const core::ffi::c_int,
+    mut diff: *mut core::ffi::c_int,
+) -> core::ffi::c_int {
+    let base_range: core::ffi::c_int = if (level - 1 as tran_low_t - 2 as tran_low_t)
+        < 4 as tran_low_t * (4 as tran_low_t - 1 as tran_low_t)
+    {
+        level as core::ffi::c_int - 1 as core::ffi::c_int - 2 as core::ffi::c_int
+    } else {
+        4 as core::ffi::c_int * (4 as core::ffi::c_int - 1 as core::ffi::c_int)
+    };
+    let mut golomb_bits: core::ffi::c_int = 0 as core::ffi::c_int;
+    if level
+        <= COEFF_BASE_RANGE as tran_low_t + 1 as tran_low_t
+            + NUM_BASE_LEVELS as tran_low_t
+    {
+        *diff
+            += *coeff_lps
+                .offset(
+                    (base_range + COEFF_BASE_RANGE + 1 as core::ffi::c_int) as isize,
+                );
+    }
+    if level
+        >= COEFF_BASE_RANGE as tran_low_t + 1 as tran_low_t
+            + NUM_BASE_LEVELS as tran_low_t
+    {
+        let mut r: core::ffi::c_int = level as core::ffi::c_int - COEFF_BASE_RANGE
+            - NUM_BASE_LEVELS;
+        if r < 32 as core::ffi::c_int {
+            golomb_bits = golomb_bits_cost[r as usize];
+            *diff += golomb_cost_diff[r as usize];
+        } else {
+            golomb_bits = get_golomb_cost(level as core::ffi::c_int);
+            *diff
+                += if r & r - 1 as core::ffi::c_int == 0 as core::ffi::c_int {
+                    1024 as core::ffi::c_int
+                } else {
+                    0 as core::ffi::c_int
+                };
+        }
+    }
+    return *coeff_lps.offset(base_range as isize) + golomb_bits;
+}
+#[inline(always)]
+unsafe extern "C-unwind" fn get_two_coeff_cost_simple(
+    mut ci: core::ffi::c_int,
+    mut abs_qc: tran_low_t,
+    mut coeff_ctx: core::ffi::c_int,
+    mut txb_costs: *const LV_MAP_COEFF_COST,
+    mut bhl: core::ffi::c_int,
+    mut tx_class: TX_CLASS,
+    mut levels: *const uint8_t,
+    mut cost_low: *mut core::ffi::c_int,
+) -> core::ffi::c_int {
+    if ci > 0 as core::ffi::c_int {} else {
+        __assert_fail(
+            b"ci > 0\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/txb_rdopt_utils.h\0" as *const u8
+                as *const core::ffi::c_char,
+            126 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 118],
+                [core::ffi::c_char; 118],
+            >(
+                *b"int get_two_coeff_cost_simple(int, tran_low_t, int, const LV_MAP_COEFF_COST *, int, TX_CLASS, const uint8_t *, int *)\0",
+            ))
+                .as_ptr(),
+        );
+    };
+    let mut cost: core::ffi::c_int = (*txb_costs)
+        .base_cost[coeff_ctx
+        as usize][(if abs_qc < 3 as tran_low_t { abs_qc } else { 3 as tran_low_t })
+        as usize];
+    let mut diff: core::ffi::c_int = 0 as core::ffi::c_int;
+    if abs_qc <= 3 as tran_low_t {
+        diff = (*txb_costs)
+            .base_cost[coeff_ctx as usize][(abs_qc + 4 as tran_low_t) as usize];
+    }
+    if abs_qc != 0 {
+        cost += 1 as core::ffi::c_int * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
+        if abs_qc > NUM_BASE_LEVELS as tran_low_t {
+            let br_ctx: core::ffi::c_int = get_br_ctx(levels, ci, bhl, tx_class)
+                as core::ffi::c_int;
+            let mut brcost_diff: core::ffi::c_int = 0 as core::ffi::c_int;
+            cost
+                += get_br_cost_with_diff(
+                    abs_qc,
+                    ((*txb_costs).lps_cost[br_ctx as usize]).as_ptr(),
+                    &raw mut brcost_diff,
+                );
+            diff += brcost_diff;
+        }
+    }
+    *cost_low = cost - diff;
+    return cost;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_coeff_cost_eob(
+    mut ci: core::ffi::c_int,
+    mut abs_qc: tran_low_t,
+    mut sign: core::ffi::c_int,
+    mut coeff_ctx: core::ffi::c_int,
+    mut dc_sign_ctx: core::ffi::c_int,
+    mut txb_costs: *const LV_MAP_COEFF_COST,
+    mut bhl: core::ffi::c_int,
+    mut tx_class: TX_CLASS,
+) -> core::ffi::c_int {
+    let mut cost: core::ffi::c_int = 0 as core::ffi::c_int;
+    cost
+        += (*txb_costs)
+            .base_eob_cost[coeff_ctx
+            as usize][((if abs_qc < 3 as tran_low_t { abs_qc } else { 3 as tran_low_t })
+            - 1 as tran_low_t) as usize];
+    if abs_qc != 0 as tran_low_t {
+        if ci == 0 as core::ffi::c_int {
+            cost += (*txb_costs).dc_sign_cost[dc_sign_ctx as usize][sign as usize];
+        } else {
+            cost
+                += 1 as core::ffi::c_int
+                    * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
+        }
+        if abs_qc > NUM_BASE_LEVELS as tran_low_t {
+            let mut br_ctx: core::ffi::c_int = 0;
+            br_ctx = get_br_ctx_eob(ci, bhl, tx_class);
+            cost
+                += get_br_cost(
+                    abs_qc,
+                    ((*txb_costs).lps_cost[br_ctx as usize]).as_ptr(),
+                );
+        }
+    }
+    return cost;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_coeff_cost_general(
+    mut is_last: core::ffi::c_int,
+    mut ci: core::ffi::c_int,
+    mut abs_qc: tran_low_t,
+    mut sign: core::ffi::c_int,
+    mut coeff_ctx: core::ffi::c_int,
+    mut dc_sign_ctx: core::ffi::c_int,
+    mut txb_costs: *const LV_MAP_COEFF_COST,
+    mut bhl: core::ffi::c_int,
+    mut tx_class: TX_CLASS,
+    mut levels: *const uint8_t,
+) -> core::ffi::c_int {
+    let mut cost: core::ffi::c_int = 0 as core::ffi::c_int;
+    if is_last != 0 {
+        cost
+            += (*txb_costs)
+                .base_eob_cost[coeff_ctx
+                as usize][((if abs_qc < 3 as tran_low_t {
+                abs_qc
+            } else {
+                3 as tran_low_t
+            }) - 1 as tran_low_t) as usize];
+    } else {
+        cost
+            += (*txb_costs)
+                .base_cost[coeff_ctx
+                as usize][(if abs_qc < 3 as tran_low_t {
+                abs_qc
+            } else {
+                3 as tran_low_t
+            }) as usize];
+    }
+    if abs_qc != 0 as tran_low_t {
+        if ci == 0 as core::ffi::c_int {
+            cost += (*txb_costs).dc_sign_cost[dc_sign_ctx as usize][sign as usize];
+        } else {
+            cost
+                += 1 as core::ffi::c_int
+                    * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
+        }
+        if abs_qc > NUM_BASE_LEVELS as tran_low_t {
+            let mut br_ctx: core::ffi::c_int = 0;
+            if is_last != 0 {
+                br_ctx = get_br_ctx_eob(ci, bhl, tx_class);
+            } else {
+                br_ctx = get_br_ctx(levels, ci, bhl, tx_class);
+            }
+            cost
+                += get_br_cost(
+                    abs_qc,
+                    ((*txb_costs).lps_cost[br_ctx as usize]).as_ptr(),
+                );
+        }
+    }
+    return cost;
+}
+#[inline]
+unsafe extern "C-unwind" fn get_qc_dqc_low(
+    mut abs_qc: tran_low_t,
+    mut sign: core::ffi::c_int,
+    mut dqv: core::ffi::c_int,
+    mut shift: core::ffi::c_int,
+    mut qc_low: *mut tran_low_t,
+    mut dqc_low: *mut tran_low_t,
+) {
+    let mut abs_qc_low: tran_low_t = abs_qc - 1 as tran_low_t;
+    *qc_low = (-(sign as tran_low_t) ^ abs_qc_low) + sign as tran_low_t;
+    if (if sign != 0 { -abs_qc_low } else { abs_qc_low }) == *qc_low {} else {
+        __assert_fail(
+            b"(sign ? -abs_qc_low : abs_qc_low) == *qc_low\0" as *const u8
+                as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/txb_rdopt_utils.h\0" as *const u8
+                as *const core::ffi::c_char,
+            201 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 75],
+                [core::ffi::c_char; 75],
+            >(
+                *b"void get_qc_dqc_low(tran_low_t, int, int, int, tran_low_t *, tran_low_t *)\0",
+            ))
+                .as_ptr(),
+        );
+    };
+    let mut abs_dqc_low: tran_low_t = abs_qc_low * dqv as tran_low_t >> shift;
+    *dqc_low = (-(sign as tran_low_t) ^ abs_dqc_low) + sign as tran_low_t;
+    if (if sign != 0 { -abs_dqc_low } else { abs_dqc_low }) == *dqc_low {} else {
+        __assert_fail(
+            b"(sign ? -abs_dqc_low : abs_dqc_low) == *dqc_low\0" as *const u8
+                as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/txb_rdopt_utils.h\0" as *const u8
+                as *const core::ffi::c_char,
+            204 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 75],
+                [core::ffi::c_char; 75],
+            >(
+                *b"void get_qc_dqc_low(tran_low_t, int, int, int, tran_low_t *, tran_low_t *)\0",
+            ))
+                .as_ptr(),
+        );
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn update_coeff_eob_fast(
+    mut eob: *mut core::ffi::c_int,
+    mut shift: core::ffi::c_int,
+    mut dequant_ptr: *const int16_t,
+    mut scan: *const int16_t,
+    mut coeff_ptr: *const tran_low_t,
+    mut qcoeff_ptr: *mut tran_low_t,
+    mut dqcoeff_ptr: *mut tran_low_t,
+) {
+    let mut eob_out: core::ffi::c_int = *eob;
+    let mut zbin: [core::ffi::c_int; 2] = [
+        *dequant_ptr.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+            + (*dequant_ptr.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                * 70 as core::ffi::c_int
+                + ((1 as core::ffi::c_int) << 7 as core::ffi::c_int
+                    >> 1 as core::ffi::c_int) >> 7 as core::ffi::c_int),
+        *dequant_ptr.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
+            + (*dequant_ptr.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
+                * 70 as core::ffi::c_int
+                + ((1 as core::ffi::c_int) << 7 as core::ffi::c_int
+                    >> 1 as core::ffi::c_int) >> 7 as core::ffi::c_int),
+    ];
+    let mut i: core::ffi::c_int = *eob - 1 as core::ffi::c_int;
+    while i >= 0 as core::ffi::c_int {
+        let rc: core::ffi::c_int = *scan.offset(i as isize) as core::ffi::c_int;
+        let qcoeff: core::ffi::c_int = *qcoeff_ptr.offset(rc as isize);
+        let coeff: core::ffi::c_int = *coeff_ptr.offset(rc as isize);
+        let coeff_sign: core::ffi::c_int = if coeff < 0 as core::ffi::c_int {
+            -(1 as core::ffi::c_int)
+        } else {
+            0 as core::ffi::c_int
+        };
+        let mut abs_coeff: int64_t = ((coeff ^ coeff_sign) - coeff_sign) as int64_t;
+        if !(abs_coeff << 1 as core::ffi::c_int + shift
+            < zbin[(rc != 0 as core::ffi::c_int) as core::ffi::c_int as usize] as int64_t
+            || qcoeff == 0 as core::ffi::c_int)
+        {
+            break;
+        }
+        eob_out -= 1;
+        *qcoeff_ptr.offset(rc as isize) = 0 as core::ffi::c_int as tran_low_t;
+        *dqcoeff_ptr.offset(rc as isize) = 0 as core::ffi::c_int as tran_low_t;
+        i -= 1;
+    }
+    *eob = eob_out;
+}
 pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
+pub const AV1_PROB_COST_SHIFT: core::ffi::c_int = 9 as core::ffi::c_int;
 #[inline]
 unsafe extern "C-unwind" fn update_coeff_general(
     mut accu_rate: *mut core::ffi::c_int,
@@ -7987,75 +8459,6 @@ pub unsafe extern "C-unwind" fn av1_cost_coeffs_txb_laplacian(
         reduced_tx_set_used,
     );
 }
-pub const AV1_PROB_COST_SHIFT: core::ffi::c_int = 9 as core::ffi::c_int;
-static mut golomb_bits_cost: [core::ffi::c_int; 32] = [
-    0 as core::ffi::c_int,
-    512 as core::ffi::c_int,
-    512 as core::ffi::c_int * 3 as core::ffi::c_int,
-    512 as core::ffi::c_int * 3 as core::ffi::c_int,
-    512 as core::ffi::c_int * 5 as core::ffi::c_int,
-    512 as core::ffi::c_int * 5 as core::ffi::c_int,
-    512 as core::ffi::c_int * 5 as core::ffi::c_int,
-    512 as core::ffi::c_int * 5 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 7 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-    512 as core::ffi::c_int * 9 as core::ffi::c_int,
-];
-static mut golomb_cost_diff: [core::ffi::c_int; 32] = [
-    0 as core::ffi::c_int,
-    512 as core::ffi::c_int,
-    512 as core::ffi::c_int * 2 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    512 as core::ffi::c_int * 2 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    512 as core::ffi::c_int * 2 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    512 as core::ffi::c_int * 2 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-    0 as core::ffi::c_int,
-];
 #[inline]
 unsafe extern "C-unwind" fn get_default_scan(
     mut tx_size: TX_SIZE,
@@ -8071,421 +8474,6 @@ unsafe extern "C-unwind" fn get_scan(
     mut tx_type: TX_TYPE,
 ) -> *const SCAN_ORDER {
     return get_default_scan(tx_size, tx_type);
-}
-static mut plane_rd_mult_chroma: [[core::ffi::c_int; 2]; 2] = [
-    [17 as core::ffi::c_int, 13 as core::ffi::c_int],
-    [16 as core::ffi::c_int, 10 as core::ffi::c_int],
-];
-static mut plane_rd_mult: [[core::ffi::c_int; 2]; 2] = [
-    [17 as core::ffi::c_int, 20 as core::ffi::c_int],
-    [16 as core::ffi::c_int, 20 as core::ffi::c_int],
-];
-static mut costLUT: [core::ffi::c_int; 15] = [
-    -(1143 as core::ffi::c_int),
-    53 as core::ffi::c_int,
-    545 as core::ffi::c_int,
-    825 as core::ffi::c_int,
-    1031 as core::ffi::c_int,
-    1209 as core::ffi::c_int,
-    1393 as core::ffi::c_int,
-    1577 as core::ffi::c_int,
-    1763 as core::ffi::c_int,
-    1947 as core::ffi::c_int,
-    2132 as core::ffi::c_int,
-    2317 as core::ffi::c_int,
-    2501 as core::ffi::c_int,
-    2686 as core::ffi::c_int,
-    2871 as core::ffi::c_int,
-];
-static mut const_term: core::ffi::c_int = (1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT;
-static mut loge_par: core::ffi::c_int = (((14427 as core::ffi::c_int)
-    << AV1_PROB_COST_SHIFT) + 5000 as core::ffi::c_int) / 10000 as core::ffi::c_int;
-#[inline]
-unsafe extern "C-unwind" fn get_dqv(
-    mut dequant: *const int16_t,
-    mut coeff_idx: core::ffi::c_int,
-    mut iqmatrix: *const qm_val_t,
-) -> core::ffi::c_int {
-    let mut dqv: core::ffi::c_int = *dequant
-        .offset((coeff_idx != 0) as core::ffi::c_int as isize) as core::ffi::c_int;
-    if !iqmatrix.is_null() {
-        dqv = *iqmatrix.offset(coeff_idx as isize) as core::ffi::c_int * dqv
-            + ((1 as core::ffi::c_int) << AOM_QM_BITS - 1 as core::ffi::c_int)
-            >> AOM_QM_BITS;
-    }
-    return dqv;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_coeff_dist(
-    mut tcoeff: tran_low_t,
-    mut dqcoeff: tran_low_t,
-    mut shift: core::ffi::c_int,
-    mut qmatrix: *const qm_val_t,
-    mut coeff_idx: core::ffi::c_int,
-) -> int64_t {
-    let mut diff: int64_t = ((tcoeff - dqcoeff) * ((1 as tran_low_t) << shift))
-        as int64_t;
-    if qmatrix.is_null() {
-        return diff * diff;
-    }
-    diff *= *qmatrix.offset(coeff_idx as isize) as int64_t;
-    let error: int64_t = diff * diff
-        + ((1 as core::ffi::c_int)
-            << 2 as core::ffi::c_int * AOM_QM_BITS - 1 as core::ffi::c_int) as int64_t
-        >> 2 as core::ffi::c_int * AOM_QM_BITS;
-    return error;
-}
-unsafe extern "C-unwind" fn get_eob_cost(
-    mut eob: core::ffi::c_int,
-    mut txb_eob_costs: *const LV_MAP_EOB_COST,
-    mut txb_costs: *const LV_MAP_COEFF_COST,
-    mut tx_class: TX_CLASS,
-) -> core::ffi::c_int {
-    let mut eob_extra: core::ffi::c_int = 0;
-    let eob_pt: core::ffi::c_int = av1_get_eob_pos_token(eob, &raw mut eob_extra)
-        as core::ffi::c_int;
-    let mut eob_cost: core::ffi::c_int = 0 as core::ffi::c_int;
-    let eob_multi_ctx: core::ffi::c_int = if tx_class as core::ffi::c_int
-        == TX_CLASS_2D as core::ffi::c_int
-    {
-        0 as core::ffi::c_int
-    } else {
-        1 as core::ffi::c_int
-    };
-    eob_cost = (*txb_eob_costs)
-        .eob_cost[eob_multi_ctx as usize][(eob_pt - 1 as core::ffi::c_int) as usize];
-    if av1_eob_offset_bits[eob_pt as usize] as core::ffi::c_int > 0 as core::ffi::c_int {
-        let eob_ctx: core::ffi::c_int = eob_pt - 3 as core::ffi::c_int;
-        let eob_shift: core::ffi::c_int = av1_eob_offset_bits[eob_pt as usize]
-            as core::ffi::c_int - 1 as core::ffi::c_int;
-        let bit: core::ffi::c_int = if eob_extra & (1 as core::ffi::c_int) << eob_shift
-            != 0
-        {
-            1 as core::ffi::c_int
-        } else {
-            0 as core::ffi::c_int
-        };
-        eob_cost += (*txb_costs).eob_extra_cost[eob_ctx as usize][bit as usize];
-        let offset_bits: core::ffi::c_int = av1_eob_offset_bits[eob_pt as usize]
-            as core::ffi::c_int;
-        if offset_bits > 1 as core::ffi::c_int {
-            eob_cost
-                += (offset_bits - 1 as core::ffi::c_int)
-                    * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
-        }
-    }
-    return eob_cost;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_golomb_cost(mut abs_qc: core::ffi::c_int) -> core::ffi::c_int {
-    if abs_qc >= 1 as core::ffi::c_int + NUM_BASE_LEVELS + COEFF_BASE_RANGE {
-        let r: core::ffi::c_int = abs_qc - COEFF_BASE_RANGE - NUM_BASE_LEVELS;
-        let length: core::ffi::c_int = get_msb(r as core::ffi::c_uint)
-            as core::ffi::c_int + 1 as core::ffi::c_int;
-        return (2 as core::ffi::c_int * length - 1 as core::ffi::c_int)
-            * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
-    }
-    return 0 as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_br_cost(
-    mut level: tran_low_t,
-    mut coeff_lps: *const core::ffi::c_int,
-) -> core::ffi::c_int {
-    let base_range: core::ffi::c_int = if (level - 1 as tran_low_t - 2 as tran_low_t)
-        < 4 as tran_low_t * (4 as tran_low_t - 1 as tran_low_t)
-    {
-        level as core::ffi::c_int - 1 as core::ffi::c_int - 2 as core::ffi::c_int
-    } else {
-        4 as core::ffi::c_int * (4 as core::ffi::c_int - 1 as core::ffi::c_int)
-    };
-    return *coeff_lps.offset(base_range as isize)
-        + get_golomb_cost(level as core::ffi::c_int);
-}
-#[inline]
-unsafe extern "C-unwind" fn get_br_cost_with_diff(
-    mut level: tran_low_t,
-    mut coeff_lps: *const core::ffi::c_int,
-    mut diff: *mut core::ffi::c_int,
-) -> core::ffi::c_int {
-    let base_range: core::ffi::c_int = if (level - 1 as tran_low_t - 2 as tran_low_t)
-        < 4 as tran_low_t * (4 as tran_low_t - 1 as tran_low_t)
-    {
-        level as core::ffi::c_int - 1 as core::ffi::c_int - 2 as core::ffi::c_int
-    } else {
-        4 as core::ffi::c_int * (4 as core::ffi::c_int - 1 as core::ffi::c_int)
-    };
-    let mut golomb_bits: core::ffi::c_int = 0 as core::ffi::c_int;
-    if level
-        <= COEFF_BASE_RANGE as tran_low_t + 1 as tran_low_t
-            + NUM_BASE_LEVELS as tran_low_t
-    {
-        *diff
-            += *coeff_lps
-                .offset(
-                    (base_range + COEFF_BASE_RANGE + 1 as core::ffi::c_int) as isize,
-                );
-    }
-    if level
-        >= COEFF_BASE_RANGE as tran_low_t + 1 as tran_low_t
-            + NUM_BASE_LEVELS as tran_low_t
-    {
-        let mut r: core::ffi::c_int = level as core::ffi::c_int - COEFF_BASE_RANGE
-            - NUM_BASE_LEVELS;
-        if r < 32 as core::ffi::c_int {
-            golomb_bits = golomb_bits_cost[r as usize];
-            *diff += golomb_cost_diff[r as usize];
-        } else {
-            golomb_bits = get_golomb_cost(level as core::ffi::c_int);
-            *diff
-                += if r & r - 1 as core::ffi::c_int == 0 as core::ffi::c_int {
-                    1024 as core::ffi::c_int
-                } else {
-                    0 as core::ffi::c_int
-                };
-        }
-    }
-    return *coeff_lps.offset(base_range as isize) + golomb_bits;
-}
-#[inline(always)]
-unsafe extern "C-unwind" fn get_two_coeff_cost_simple(
-    mut ci: core::ffi::c_int,
-    mut abs_qc: tran_low_t,
-    mut coeff_ctx: core::ffi::c_int,
-    mut txb_costs: *const LV_MAP_COEFF_COST,
-    mut bhl: core::ffi::c_int,
-    mut tx_class: TX_CLASS,
-    mut levels: *const uint8_t,
-    mut cost_low: *mut core::ffi::c_int,
-) -> core::ffi::c_int {
-    if ci > 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"ci > 0\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/txb_rdopt_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            126 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 118],
-                [core::ffi::c_char; 118],
-            >(
-                *b"int get_two_coeff_cost_simple(int, tran_low_t, int, const LV_MAP_COEFF_COST *, int, TX_CLASS, const uint8_t *, int *)\0",
-            ))
-                .as_ptr(),
-        );
-    };
-    let mut cost: core::ffi::c_int = (*txb_costs)
-        .base_cost[coeff_ctx
-        as usize][(if abs_qc < 3 as tran_low_t { abs_qc } else { 3 as tran_low_t })
-        as usize];
-    let mut diff: core::ffi::c_int = 0 as core::ffi::c_int;
-    if abs_qc <= 3 as tran_low_t {
-        diff = (*txb_costs)
-            .base_cost[coeff_ctx as usize][(abs_qc + 4 as tran_low_t) as usize];
-    }
-    if abs_qc != 0 {
-        cost += 1 as core::ffi::c_int * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
-        if abs_qc > NUM_BASE_LEVELS as tran_low_t {
-            let br_ctx: core::ffi::c_int = get_br_ctx(levels, ci, bhl, tx_class)
-                as core::ffi::c_int;
-            let mut brcost_diff: core::ffi::c_int = 0 as core::ffi::c_int;
-            cost
-                += get_br_cost_with_diff(
-                    abs_qc,
-                    ((*txb_costs).lps_cost[br_ctx as usize]).as_ptr(),
-                    &raw mut brcost_diff,
-                );
-            diff += brcost_diff;
-        }
-    }
-    *cost_low = cost - diff;
-    return cost;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_coeff_cost_eob(
-    mut ci: core::ffi::c_int,
-    mut abs_qc: tran_low_t,
-    mut sign: core::ffi::c_int,
-    mut coeff_ctx: core::ffi::c_int,
-    mut dc_sign_ctx: core::ffi::c_int,
-    mut txb_costs: *const LV_MAP_COEFF_COST,
-    mut bhl: core::ffi::c_int,
-    mut tx_class: TX_CLASS,
-) -> core::ffi::c_int {
-    let mut cost: core::ffi::c_int = 0 as core::ffi::c_int;
-    cost
-        += (*txb_costs)
-            .base_eob_cost[coeff_ctx
-            as usize][((if abs_qc < 3 as tran_low_t { abs_qc } else { 3 as tran_low_t })
-            - 1 as tran_low_t) as usize];
-    if abs_qc != 0 as tran_low_t {
-        if ci == 0 as core::ffi::c_int {
-            cost += (*txb_costs).dc_sign_cost[dc_sign_ctx as usize][sign as usize];
-        } else {
-            cost
-                += 1 as core::ffi::c_int
-                    * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
-        }
-        if abs_qc > NUM_BASE_LEVELS as tran_low_t {
-            let mut br_ctx: core::ffi::c_int = 0;
-            br_ctx = get_br_ctx_eob(ci, bhl, tx_class);
-            cost
-                += get_br_cost(
-                    abs_qc,
-                    ((*txb_costs).lps_cost[br_ctx as usize]).as_ptr(),
-                );
-        }
-    }
-    return cost;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_coeff_cost_general(
-    mut is_last: core::ffi::c_int,
-    mut ci: core::ffi::c_int,
-    mut abs_qc: tran_low_t,
-    mut sign: core::ffi::c_int,
-    mut coeff_ctx: core::ffi::c_int,
-    mut dc_sign_ctx: core::ffi::c_int,
-    mut txb_costs: *const LV_MAP_COEFF_COST,
-    mut bhl: core::ffi::c_int,
-    mut tx_class: TX_CLASS,
-    mut levels: *const uint8_t,
-) -> core::ffi::c_int {
-    let mut cost: core::ffi::c_int = 0 as core::ffi::c_int;
-    if is_last != 0 {
-        cost
-            += (*txb_costs)
-                .base_eob_cost[coeff_ctx
-                as usize][((if abs_qc < 3 as tran_low_t {
-                abs_qc
-            } else {
-                3 as tran_low_t
-            }) - 1 as tran_low_t) as usize];
-    } else {
-        cost
-            += (*txb_costs)
-                .base_cost[coeff_ctx
-                as usize][(if abs_qc < 3 as tran_low_t {
-                abs_qc
-            } else {
-                3 as tran_low_t
-            }) as usize];
-    }
-    if abs_qc != 0 as tran_low_t {
-        if ci == 0 as core::ffi::c_int {
-            cost += (*txb_costs).dc_sign_cost[dc_sign_ctx as usize][sign as usize];
-        } else {
-            cost
-                += 1 as core::ffi::c_int
-                    * ((1 as core::ffi::c_int) << AV1_PROB_COST_SHIFT);
-        }
-        if abs_qc > NUM_BASE_LEVELS as tran_low_t {
-            let mut br_ctx: core::ffi::c_int = 0;
-            if is_last != 0 {
-                br_ctx = get_br_ctx_eob(ci, bhl, tx_class);
-            } else {
-                br_ctx = get_br_ctx(levels, ci, bhl, tx_class);
-            }
-            cost
-                += get_br_cost(
-                    abs_qc,
-                    ((*txb_costs).lps_cost[br_ctx as usize]).as_ptr(),
-                );
-        }
-    }
-    return cost;
-}
-#[inline]
-unsafe extern "C-unwind" fn get_qc_dqc_low(
-    mut abs_qc: tran_low_t,
-    mut sign: core::ffi::c_int,
-    mut dqv: core::ffi::c_int,
-    mut shift: core::ffi::c_int,
-    mut qc_low: *mut tran_low_t,
-    mut dqc_low: *mut tran_low_t,
-) {
-    let mut abs_qc_low: tran_low_t = abs_qc - 1 as tran_low_t;
-    *qc_low = (-(sign as tran_low_t) ^ abs_qc_low) + sign as tran_low_t;
-    if (if sign != 0 { -abs_qc_low } else { abs_qc_low }) == *qc_low {} else {
-        __assert_fail(
-            b"(sign ? -abs_qc_low : abs_qc_low) == *qc_low\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/txb_rdopt_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            201 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 75],
-                [core::ffi::c_char; 75],
-            >(
-                *b"void get_qc_dqc_low(tran_low_t, int, int, int, tran_low_t *, tran_low_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    };
-    let mut abs_dqc_low: tran_low_t = abs_qc_low * dqv as tran_low_t >> shift;
-    *dqc_low = (-(sign as tran_low_t) ^ abs_dqc_low) + sign as tran_low_t;
-    if (if sign != 0 { -abs_dqc_low } else { abs_dqc_low }) == *dqc_low {} else {
-        __assert_fail(
-            b"(sign ? -abs_dqc_low : abs_dqc_low) == *dqc_low\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/txb_rdopt_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            204 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 75],
-                [core::ffi::c_char; 75],
-            >(
-                *b"void get_qc_dqc_low(tran_low_t, int, int, int, tran_low_t *, tran_low_t *)\0",
-            ))
-                .as_ptr(),
-        );
-    };
-}
-#[inline]
-unsafe extern "C-unwind" fn update_coeff_eob_fast(
-    mut eob: *mut core::ffi::c_int,
-    mut shift: core::ffi::c_int,
-    mut dequant_ptr: *const int16_t,
-    mut scan: *const int16_t,
-    mut coeff_ptr: *const tran_low_t,
-    mut qcoeff_ptr: *mut tran_low_t,
-    mut dqcoeff_ptr: *mut tran_low_t,
-) {
-    let mut eob_out: core::ffi::c_int = *eob;
-    let mut zbin: [core::ffi::c_int; 2] = [
-        *dequant_ptr.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
-            + (*dequant_ptr.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
-                * 70 as core::ffi::c_int
-                + ((1 as core::ffi::c_int) << 7 as core::ffi::c_int
-                    >> 1 as core::ffi::c_int) >> 7 as core::ffi::c_int),
-        *dequant_ptr.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
-            + (*dequant_ptr.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
-                * 70 as core::ffi::c_int
-                + ((1 as core::ffi::c_int) << 7 as core::ffi::c_int
-                    >> 1 as core::ffi::c_int) >> 7 as core::ffi::c_int),
-    ];
-    let mut i: core::ffi::c_int = *eob - 1 as core::ffi::c_int;
-    while i >= 0 as core::ffi::c_int {
-        let rc: core::ffi::c_int = *scan.offset(i as isize) as core::ffi::c_int;
-        let qcoeff: core::ffi::c_int = *qcoeff_ptr.offset(rc as isize);
-        let coeff: core::ffi::c_int = *coeff_ptr.offset(rc as isize);
-        let coeff_sign: core::ffi::c_int = if coeff < 0 as core::ffi::c_int {
-            -(1 as core::ffi::c_int)
-        } else {
-            0 as core::ffi::c_int
-        };
-        let mut abs_coeff: int64_t = ((coeff ^ coeff_sign) - coeff_sign) as int64_t;
-        if !(abs_coeff << 1 as core::ffi::c_int + shift
-            < zbin[(rc != 0 as core::ffi::c_int) as core::ffi::c_int as usize] as int64_t
-            || qcoeff == 0 as core::ffi::c_int)
-        {
-            break;
-        }
-        eob_out -= 1;
-        *qcoeff_ptr.offset(rc as isize) = 0 as core::ffi::c_int as tran_low_t;
-        *dqcoeff_ptr.offset(rc as isize) = 0 as core::ffi::c_int as tran_low_t;
-        i -= 1;
-    }
-    *eob = eob_out;
 }
 
 extern "C" {

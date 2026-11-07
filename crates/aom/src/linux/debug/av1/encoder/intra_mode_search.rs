@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
@@ -38,6 +37,11 @@ extern "C-unwind" {
     );
     fn av1_left_block_mode(left_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
     fn av1_above_block_mode(above_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
+    fn av1_get_palette_cache(
+        xd: *const MACROBLOCKD,
+        plane: core::ffi::c_int,
+        cache: *mut uint16_t,
+    ) -> core::ffi::c_int;
     fn av1_subtract_block(
         x: *const MACROBLOCK,
         rows: core::ffi::c_int,
@@ -63,11 +67,6 @@ extern "C-unwind" {
         dry_run: RUN_TYPE,
         enable_optimize_b: TRELLIS_OPT_TYPE,
     );
-    fn av1_get_palette_cache(
-        xd: *const MACROBLOCKD,
-        plane: core::ffi::c_int,
-        cache: *mut uint16_t,
-    ) -> core::ffi::c_int;
     fn av1_cost_color_map(
         x: *const MACROBLOCK,
         plane: core::ffi::c_int,
@@ -3241,7 +3240,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3664,16 +3662,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6857,157 +6845,6 @@ unsafe extern "C-unwind" fn av1_get_block_dimensions(
         };
     }
 }
-pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
-#[inline]
-unsafe extern "C-unwind" fn av1_init_rd_stats(mut rd_stats: *mut RD_STATS) {
-    (*rd_stats).rate = 0 as core::ffi::c_int;
-    (*rd_stats).dist = 0 as int64_t;
-    (*rd_stats).rdcost = 0 as int64_t;
-    (*rd_stats).sse = 0 as int64_t;
-    (*rd_stats).skip_txfm = 1 as uint8_t;
-    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_invalid_rd_stats(mut rd_stats: *mut RD_STATS) {
-    (*rd_stats).rate = INT_MAX;
-    (*rd_stats).dist = INT64_MAX as int64_t;
-    (*rd_stats).rdcost = INT64_MAX as int64_t;
-    (*rd_stats).sse = INT64_MAX as int64_t;
-    (*rd_stats).skip_txfm = 0 as uint8_t;
-    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_merge_rd_stats(
-    mut rd_stats_dst: *mut RD_STATS,
-    mut rd_stats_src: *const RD_STATS,
-) {
-    if (*rd_stats_dst).rate == INT_MAX || (*rd_stats_src).rate == INT_MAX {
-        av1_invalid_rd_stats(rd_stats_dst);
-        return;
-    }
-    (*rd_stats_dst).rate = (if ((*rd_stats_dst).rate as int64_t
-        + (*rd_stats_src).rate as int64_t) < 2147483647 as int64_t
-    {
-        (*rd_stats_dst).rate as int64_t + (*rd_stats_src).rate as int64_t
-    } else {
-        2147483647 as int64_t
-    }) as core::ffi::c_int;
-    if (*rd_stats_dst).zero_rate == 0 {
-        (*rd_stats_dst).zero_rate = (*rd_stats_src).zero_rate;
-    }
-    (*rd_stats_dst).dist += (*rd_stats_src).dist;
-    if (*rd_stats_dst).sse < INT64_MAX as int64_t
-        && (*rd_stats_src).sse < INT64_MAX as int64_t
-    {
-        (*rd_stats_dst).sse += (*rd_stats_src).sse;
-    }
-    (*rd_stats_dst).skip_txfm = ((*rd_stats_dst).skip_txfm as core::ffi::c_int
-        & (*rd_stats_src).skip_txfm as core::ffi::c_int) as uint8_t;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_calculate_rd_cost(
-    mut mult: core::ffi::c_int,
-    mut rate: core::ffi::c_int,
-    mut dist: int64_t,
-) -> int64_t {
-    if mult >= 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"mult >= 0\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/rd.h\0" as *const u8 as *const core::ffi::c_char,
-            220 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 49],
-                [core::ffi::c_char; 49],
-            >(*b"int64_t av1_calculate_rd_cost(int, int, int64_t)\0"))
-                .as_ptr(),
-        );
-    };
-    if rate >= 0 as core::ffi::c_int {
-        return (rate as int64_t * mult as int64_t
-            + ((1 as core::ffi::c_int) << 9 as core::ffi::c_int >> 1 as core::ffi::c_int)
-                as int64_t >> 9 as core::ffi::c_int)
-            + dist * ((1 as core::ffi::c_int) << RDDIV_BITS) as int64_t;
-    }
-    return dist * ((1 as core::ffi::c_int) << RDDIV_BITS) as int64_t
-        - (-rate as int64_t * mult as int64_t
-            + ((1 as core::ffi::c_int) << 9 as core::ffi::c_int >> 1 as core::ffi::c_int)
-                as int64_t >> 9 as core::ffi::c_int);
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_rd_cost_update(
-    mut mult: core::ffi::c_int,
-    mut rd_cost: *mut RD_STATS,
-) {
-    if (*rd_cost).rate < INT_MAX && (*rd_cost).dist < INT64_MAX as int64_t
-        && (*rd_cost).rdcost < INT64_MAX as int64_t
-    {
-        (*rd_cost).rdcost = av1_calculate_rd_cost(
-            mult,
-            (*rd_cost).rate,
-            (*rd_cost).dist,
-        );
-    } else {
-        av1_invalid_rd_stats(rd_cost);
-    };
-}
-#[inline]
-unsafe extern "C-unwind" fn get_rd_opt_coeff_thresh(
-    coeff_opt_threshold: *const [uint32_t; 2],
-    mut txfm_params: *mut TxfmSearchParams,
-    mut enable_winner_mode_for_coeff_opt: core::ffi::c_int,
-    mut is_winner_mode: core::ffi::c_int,
-) {
-    if enable_winner_mode_for_coeff_opt == 0 {
-        (*txfm_params).coeff_opt_thresholds[0 as core::ffi::c_int as usize] = (*coeff_opt_threshold
-            .offset(
-                DEFAULT_EVAL as core::ffi::c_int as isize,
-            ))[0 as core::ffi::c_int as usize] as core::ffi::c_uint;
-        (*txfm_params).coeff_opt_thresholds[1 as core::ffi::c_int as usize] = (*coeff_opt_threshold
-            .offset(
-                DEFAULT_EVAL as core::ffi::c_int as isize,
-            ))[1 as core::ffi::c_int as usize] as core::ffi::c_uint;
-        return;
-    }
-    if is_winner_mode != 0 {
-        (*txfm_params).coeff_opt_thresholds[0 as core::ffi::c_int as usize] = (*coeff_opt_threshold
-            .offset(
-                WINNER_MODE_EVAL as core::ffi::c_int as isize,
-            ))[0 as core::ffi::c_int as usize] as core::ffi::c_uint;
-        (*txfm_params).coeff_opt_thresholds[1 as core::ffi::c_int as usize] = (*coeff_opt_threshold
-            .offset(
-                WINNER_MODE_EVAL as core::ffi::c_int as isize,
-            ))[1 as core::ffi::c_int as usize] as core::ffi::c_uint;
-    } else {
-        (*txfm_params).coeff_opt_thresholds[0 as core::ffi::c_int as usize] = (*coeff_opt_threshold
-            .offset(
-                MODE_EVAL as core::ffi::c_int as isize,
-            ))[0 as core::ffi::c_int as usize] as core::ffi::c_uint;
-        (*txfm_params).coeff_opt_thresholds[1 as core::ffi::c_int as usize] = (*coeff_opt_threshold
-            .offset(
-                MODE_EVAL as core::ffi::c_int as isize,
-            ))[1 as core::ffi::c_int as usize] as core::ffi::c_uint;
-    };
-}
-#[inline]
-unsafe extern "C-unwind" fn reset_mb_rd_record(mb_rd_record: *mut MB_RD_RECORD) {
-    if mb_rd_record.is_null() {
-        return;
-    }
-    (*mb_rd_record).index_start = 0 as core::ffi::c_int;
-    (*mb_rd_record).num = (*mb_rd_record).index_start;
-}
-#[inline]
-unsafe extern "C-unwind" fn init_intra_mode_search_state(
-    mut intra_search_state: *mut IntraModeSearchState,
-) {
-    memset(
-        intra_search_state as *mut core::ffi::c_void,
-        0 as core::ffi::c_int,
-        ::core::mem::size_of::<IntraModeSearchState>() as size_t,
-    );
-    (*intra_search_state).rate_uv_intra = INT_MAX;
-}
-pub const AV1_PROB_COST_SHIFT: core::ffi::c_int = 9 as core::ffi::c_int;
 pub const SIZE_OF_ANGLE_DELTA_RD_COST_ARRAY: core::ffi::c_int = 2 as core::ffi::c_int
     * MAX_ANGLE_DELTA + 3 as core::ffi::c_int;
 static mut luma_delta_angles_order: [int8_t; 6] = [
@@ -10576,6 +10413,157 @@ unsafe extern "C-unwind" fn get_tx_size_context(
         return 0 as core::ffi::c_int
     };
 }
+pub const RDDIV_BITS: core::ffi::c_int = 7 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn av1_init_rd_stats(mut rd_stats: *mut RD_STATS) {
+    (*rd_stats).rate = 0 as core::ffi::c_int;
+    (*rd_stats).dist = 0 as int64_t;
+    (*rd_stats).rdcost = 0 as int64_t;
+    (*rd_stats).sse = 0 as int64_t;
+    (*rd_stats).skip_txfm = 1 as uint8_t;
+    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_invalid_rd_stats(mut rd_stats: *mut RD_STATS) {
+    (*rd_stats).rate = INT_MAX;
+    (*rd_stats).dist = INT64_MAX as int64_t;
+    (*rd_stats).rdcost = INT64_MAX as int64_t;
+    (*rd_stats).sse = INT64_MAX as int64_t;
+    (*rd_stats).skip_txfm = 0 as uint8_t;
+    (*rd_stats).zero_rate = 0 as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_merge_rd_stats(
+    mut rd_stats_dst: *mut RD_STATS,
+    mut rd_stats_src: *const RD_STATS,
+) {
+    if (*rd_stats_dst).rate == INT_MAX || (*rd_stats_src).rate == INT_MAX {
+        av1_invalid_rd_stats(rd_stats_dst);
+        return;
+    }
+    (*rd_stats_dst).rate = (if ((*rd_stats_dst).rate as int64_t
+        + (*rd_stats_src).rate as int64_t) < 2147483647 as int64_t
+    {
+        (*rd_stats_dst).rate as int64_t + (*rd_stats_src).rate as int64_t
+    } else {
+        2147483647 as int64_t
+    }) as core::ffi::c_int;
+    if (*rd_stats_dst).zero_rate == 0 {
+        (*rd_stats_dst).zero_rate = (*rd_stats_src).zero_rate;
+    }
+    (*rd_stats_dst).dist += (*rd_stats_src).dist;
+    if (*rd_stats_dst).sse < INT64_MAX as int64_t
+        && (*rd_stats_src).sse < INT64_MAX as int64_t
+    {
+        (*rd_stats_dst).sse += (*rd_stats_src).sse;
+    }
+    (*rd_stats_dst).skip_txfm = ((*rd_stats_dst).skip_txfm as core::ffi::c_int
+        & (*rd_stats_src).skip_txfm as core::ffi::c_int) as uint8_t;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_calculate_rd_cost(
+    mut mult: core::ffi::c_int,
+    mut rate: core::ffi::c_int,
+    mut dist: int64_t,
+) -> int64_t {
+    if mult >= 0 as core::ffi::c_int {} else {
+        __assert_fail(
+            b"mult >= 0\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/rd.h\0" as *const u8 as *const core::ffi::c_char,
+            220 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 49],
+                [core::ffi::c_char; 49],
+            >(*b"int64_t av1_calculate_rd_cost(int, int, int64_t)\0"))
+                .as_ptr(),
+        );
+    };
+    if rate >= 0 as core::ffi::c_int {
+        return (rate as int64_t * mult as int64_t
+            + ((1 as core::ffi::c_int) << 9 as core::ffi::c_int >> 1 as core::ffi::c_int)
+                as int64_t >> 9 as core::ffi::c_int)
+            + dist * ((1 as core::ffi::c_int) << RDDIV_BITS) as int64_t;
+    }
+    return dist * ((1 as core::ffi::c_int) << RDDIV_BITS) as int64_t
+        - (-rate as int64_t * mult as int64_t
+            + ((1 as core::ffi::c_int) << 9 as core::ffi::c_int >> 1 as core::ffi::c_int)
+                as int64_t >> 9 as core::ffi::c_int);
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_rd_cost_update(
+    mut mult: core::ffi::c_int,
+    mut rd_cost: *mut RD_STATS,
+) {
+    if (*rd_cost).rate < INT_MAX && (*rd_cost).dist < INT64_MAX as int64_t
+        && (*rd_cost).rdcost < INT64_MAX as int64_t
+    {
+        (*rd_cost).rdcost = av1_calculate_rd_cost(
+            mult,
+            (*rd_cost).rate,
+            (*rd_cost).dist,
+        );
+    } else {
+        av1_invalid_rd_stats(rd_cost);
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn get_rd_opt_coeff_thresh(
+    coeff_opt_threshold: *const [uint32_t; 2],
+    mut txfm_params: *mut TxfmSearchParams,
+    mut enable_winner_mode_for_coeff_opt: core::ffi::c_int,
+    mut is_winner_mode: core::ffi::c_int,
+) {
+    if enable_winner_mode_for_coeff_opt == 0 {
+        (*txfm_params).coeff_opt_thresholds[0 as core::ffi::c_int as usize] = (*coeff_opt_threshold
+            .offset(
+                DEFAULT_EVAL as core::ffi::c_int as isize,
+            ))[0 as core::ffi::c_int as usize] as core::ffi::c_uint;
+        (*txfm_params).coeff_opt_thresholds[1 as core::ffi::c_int as usize] = (*coeff_opt_threshold
+            .offset(
+                DEFAULT_EVAL as core::ffi::c_int as isize,
+            ))[1 as core::ffi::c_int as usize] as core::ffi::c_uint;
+        return;
+    }
+    if is_winner_mode != 0 {
+        (*txfm_params).coeff_opt_thresholds[0 as core::ffi::c_int as usize] = (*coeff_opt_threshold
+            .offset(
+                WINNER_MODE_EVAL as core::ffi::c_int as isize,
+            ))[0 as core::ffi::c_int as usize] as core::ffi::c_uint;
+        (*txfm_params).coeff_opt_thresholds[1 as core::ffi::c_int as usize] = (*coeff_opt_threshold
+            .offset(
+                WINNER_MODE_EVAL as core::ffi::c_int as isize,
+            ))[1 as core::ffi::c_int as usize] as core::ffi::c_uint;
+    } else {
+        (*txfm_params).coeff_opt_thresholds[0 as core::ffi::c_int as usize] = (*coeff_opt_threshold
+            .offset(
+                MODE_EVAL as core::ffi::c_int as isize,
+            ))[0 as core::ffi::c_int as usize] as core::ffi::c_uint;
+        (*txfm_params).coeff_opt_thresholds[1 as core::ffi::c_int as usize] = (*coeff_opt_threshold
+            .offset(
+                MODE_EVAL as core::ffi::c_int as isize,
+            ))[1 as core::ffi::c_int as usize] as core::ffi::c_uint;
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn reset_mb_rd_record(mb_rd_record: *mut MB_RD_RECORD) {
+    if mb_rd_record.is_null() {
+        return;
+    }
+    (*mb_rd_record).index_start = 0 as core::ffi::c_int;
+    (*mb_rd_record).num = (*mb_rd_record).index_start;
+}
+#[inline]
+unsafe extern "C-unwind" fn init_intra_mode_search_state(
+    mut intra_search_state: *mut IntraModeSearchState,
+) {
+    memset(
+        intra_search_state as *mut core::ffi::c_void,
+        0 as core::ffi::c_int,
+        ::core::mem::size_of::<IntraModeSearchState>() as size_t,
+    );
+    (*intra_search_state).rate_uv_intra = INT_MAX;
+}
+pub const AV1_PROB_COST_SHIFT: core::ffi::c_int = 9 as core::ffi::c_int;
 pub const BINS: core::ffi::c_int = 32 as core::ffi::c_int;
 static mut av1_intra_hog_model_bias: [core::ffi::c_float; 8] = [
     0.450578f32,

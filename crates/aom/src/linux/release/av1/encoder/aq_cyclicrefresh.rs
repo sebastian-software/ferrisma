@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn aom_calloc(num: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -57,6 +56,13 @@ extern "C-unwind" {
         qindex: core::ffi::c_int,
         rate_target_ratio: core::ffi::c_double,
     ) -> core::ffi::c_int;
+    fn av1_enable_segmentation(seg: *mut segmentation);
+    fn av1_disable_segmentation(seg: *mut segmentation);
+    fn av1_disable_segfeature(
+        seg: *mut segmentation,
+        segment_id: core::ffi::c_int,
+        feature_id: SEG_LVL_FEATURES,
+    );
     fn av1_compute_rd_mult(
         qindex: core::ffi::c_int,
         bit_depth: aom_bit_depth_t,
@@ -69,13 +75,6 @@ extern "C-unwind" {
         tuning: aom_tune_metric,
         mode: MODE,
     ) -> core::ffi::c_int;
-    fn av1_enable_segmentation(seg: *mut segmentation);
-    fn av1_disable_segmentation(seg: *mut segmentation);
-    fn av1_disable_segfeature(
-        seg: *mut segmentation,
-        segment_id: core::ffi::c_int,
-        feature_id: SEG_LVL_FEATURES,
-    );
 }
 pub type __int8_t = i8;
 pub type __uint8_t = u8;
@@ -2630,7 +2629,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3384,16 +3382,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5663,6 +5651,8 @@ unsafe extern "C-unwind" fn is_one_pass_rt_lag_params(
         as core::ffi::c_int;
 }
 pub const FIXED_GF_INTERVAL_RT: core::ffi::c_int = 80 as core::ffi::c_int;
+pub const AM_SEGMENT_ID_ACTIVE: core::ffi::c_int = 0 as core::ffi::c_int;
+pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const CR_SEGMENT_ID_BASE: core::ffi::c_int = 0 as core::ffi::c_int;
 pub const CR_SEGMENT_ID_BOOST1: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const CR_SEGMENT_ID_BOOST2: core::ffi::c_int = 2 as core::ffi::c_int;
@@ -6560,8 +6550,6 @@ pub unsafe extern "C-unwind" fn av1_cyclic_refresh_disable_lf_cdef(
     }
     return 0 as core::ffi::c_int;
 }
-pub const AM_SEGMENT_ID_ACTIVE: core::ffi::c_int = 0 as core::ffi::c_int;
-pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
 
 extern "C" {
     fn round(__x: core::ffi::c_double) -> core::ffi::c_double;

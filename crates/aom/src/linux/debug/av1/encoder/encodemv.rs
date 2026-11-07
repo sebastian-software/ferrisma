@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn av1_cost_tokens_from_cdf(
@@ -3030,7 +3029,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3453,16 +3451,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5735,6 +5723,64 @@ unsafe extern "C-unwind" fn aom_write_symbol(
         update_cdf(cdf, symb as int8_t, nsymbs);
     }
 }
+#[inline]
+unsafe extern "C-unwind" fn av1_get_mv_joint(mut mv: *const MV) -> MV_JOINT_TYPE {
+    return (((*mv).col != 0) as core::ffi::c_int
+        | (((*mv).row != 0) as core::ffi::c_int) << 1 as core::ffi::c_int)
+        as MV_JOINT_TYPE;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_mv_class_base(mut c: MV_CLASS_TYPE) -> core::ffi::c_int {
+    return if c as core::ffi::c_int != 0 {
+        CLASS0_SIZE << c as core::ffi::c_int + 2 as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    };
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_log_in_base_2(mut n: core::ffi::c_uint) -> uint8_t {
+    return (if n == 0 as core::ffi::c_uint { 0 as core::ffi::c_int } else { get_msb(n) })
+        as uint8_t;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_get_mv_class(
+    mut z: core::ffi::c_int,
+    mut offset: *mut core::ffi::c_int,
+) -> MV_CLASS_TYPE {
+    if z >= 0 as core::ffi::c_int {} else {
+        __assert_fail(
+            b"z >= 0\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
+                as *const core::ffi::c_char,
+            68 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 43],
+                [core::ffi::c_char; 43],
+            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
+                .as_ptr(),
+        );
+    };
+    let c: MV_CLASS_TYPE = av1_log_in_base_2(
+        (z >> 3 as core::ffi::c_int) as core::ffi::c_uint,
+    );
+    if c as core::ffi::c_int <= MV_CLASS_10 as core::ffi::c_int {} else {
+        __assert_fail(
+            b"c <= MV_CLASS_10\0" as *const u8 as *const core::ffi::c_char,
+            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
+                as *const core::ffi::c_char,
+            70 as core::ffi::c_uint,
+            (::core::mem::transmute::<
+                [u8; 43],
+                [core::ffi::c_char; 43],
+            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
+                .as_ptr(),
+        );
+    };
+    if !offset.is_null() {
+        *offset = z - av1_mv_class_base(c);
+    }
+    return c;
+}
 unsafe extern "C-unwind" fn update_mv_component_stats(
     mut comp: core::ffi::c_int,
     mut mvcomp: *mut nmv_component,
@@ -6406,64 +6452,6 @@ pub unsafe extern "C-unwind" fn av1_find_best_ref_mvs_from_stack(
         mbmi_ext,
     );
     lower_mv_precision(&raw mut (*near_mv).as_mv, allow_hp, is_integer);
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_get_mv_joint(mut mv: *const MV) -> MV_JOINT_TYPE {
-    return (((*mv).col != 0) as core::ffi::c_int
-        | (((*mv).row != 0) as core::ffi::c_int) << 1 as core::ffi::c_int)
-        as MV_JOINT_TYPE;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_mv_class_base(mut c: MV_CLASS_TYPE) -> core::ffi::c_int {
-    return if c as core::ffi::c_int != 0 {
-        CLASS0_SIZE << c as core::ffi::c_int + 2 as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    };
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_log_in_base_2(mut n: core::ffi::c_uint) -> uint8_t {
-    return (if n == 0 as core::ffi::c_uint { 0 as core::ffi::c_int } else { get_msb(n) })
-        as uint8_t;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_get_mv_class(
-    mut z: core::ffi::c_int,
-    mut offset: *mut core::ffi::c_int,
-) -> MV_CLASS_TYPE {
-    if z >= 0 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"z >= 0\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
-                as *const core::ffi::c_char,
-            68 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 43],
-                [core::ffi::c_char; 43],
-            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
-                .as_ptr(),
-        );
-    };
-    let c: MV_CLASS_TYPE = av1_log_in_base_2(
-        (z >> 3 as core::ffi::c_int) as core::ffi::c_uint,
-    );
-    if c as core::ffi::c_int <= MV_CLASS_10 as core::ffi::c_int {} else {
-        __assert_fail(
-            b"c <= MV_CLASS_10\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodemv.h\0" as *const u8
-                as *const core::ffi::c_char,
-            70 as core::ffi::c_uint,
-            (::core::mem::transmute::<
-                [u8; 43],
-                [core::ffi::c_char; 43],
-            >(*b"MV_CLASS_TYPE av1_get_mv_class(int, int *)\0"))
-                .as_ptr(),
-        );
-    };
-    if !offset.is_null() {
-        *offset = z - av1_mv_class_base(c);
-    }
-    return c;
 }
 
 extern "C" {

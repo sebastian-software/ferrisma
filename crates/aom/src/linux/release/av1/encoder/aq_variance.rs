@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn av1_clearall_segfeatures(seg: *mut segmentation);
@@ -39,6 +38,8 @@ extern "C-unwind" {
         qindex: core::ffi::c_int,
         rate_target_ratio: core::ffi::c_double,
     ) -> core::ffi::c_int;
+    fn av1_enable_segmentation(seg: *mut segmentation);
+    fn av1_disable_segmentation(seg: *mut segmentation);
     fn av1_haar_ac_sad_mxn_uint8_input(
         input: *const uint8_t,
         stride: core::ffi::c_int,
@@ -46,8 +47,6 @@ extern "C-unwind" {
         num_8x8_rows: core::ffi::c_int,
         num_8x8_cols: core::ffi::c_int,
     ) -> int64_t;
-    fn av1_enable_segmentation(seg: *mut segmentation);
-    fn av1_disable_segmentation(seg: *mut segmentation);
 }
 pub type __int8_t = i8;
 pub type __uint8_t = u8;
@@ -2946,7 +2945,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3369,16 +3367,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -5508,6 +5496,7 @@ unsafe extern "C-unwind" fn is_stat_consumption_stage_twopass(
         >= AOM_RC_SECOND_PASS as core::ffi::c_int as core::ffi::c_uint)
         as core::ffi::c_int;
 }
+pub const DELTA_Q_PERCEPTUAL_MODULATION: core::ffi::c_int = 1 as core::ffi::c_int;
 static mut rate_ratio: [core::ffi::c_double; 8] = [
     2.2f64,
     1.7f64,
@@ -6209,7 +6198,6 @@ pub unsafe extern "C-unwind" fn av1_log_block_var(
     }
     return var as core::ffi::c_int;
 }
-pub const DELTA_Q_PERCEPTUAL_MODULATION: core::ffi::c_int = 1 as core::ffi::c_int;
 
 extern "C" {
     fn log1p(__x: core::ffi::c_double) -> core::ffi::c_double;

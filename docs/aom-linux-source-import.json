@@ -1,8 +1,8 @@
 {
-  "run_id": 41417830280,
+  "run_id": 42370060809,
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "status": "native Linux source profiles generated; compilation and acceptance pending",
-  "artifact_transformation": "Map the array-decayed control va_list callback type and glibc _setjmp error targets, then append the same optional inline wrappers as the current translator",
+  "artifact_transformation": "None: the current translator generated both profiles with every correction and optional inline wrapper",
   "native_reference_and_original_tests_preserved": true,
   "profiles": [
     {
@@ -12,13 +12,15 @@
         "profile": "debug",
         "options": [
           "-DAOM_TARGET_CPU=generic",
-          "-DCONFIG_TUNE_VMAF=1",
+          "-DCONFIG_TUNE_VMAF=0",
           "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
           "-DENABLE_DOCS=OFF"
         ],
         "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
         "compiler": "Ubuntu clang version 16.0.6 (23ubuntu4)",
-        "library_translation_units": 168,
+        "library_only_reference": false,
+        "original_tests_executed": false,
+        "library_translation_units": 166,
         "generated_units": 3,
         "original_test_inventories": {
           "test_libaom": {
@@ -38,28 +40,12 @@
           }
         },
         "original_test_inputs": 568,
-        "config_sha256": "b3a1c2579ac5fef17394bf4867f4350638ff6092e586931efb1ce4d21e5e2855",
-        "transitive_runtime_dependencies": {
-          "libvmaf": "3.2.0"
-        }
+        "config_sha256": "baa0bc1ff3fd3edb1034e079dcb2e21b7fecbe91e34229e0adff738f801d5a8d",
+        "transitive_runtime_dependencies": {}
       },
-      "artifact_manifest_sha256": "1373bb9da84b2c576bef08095f8e9b7fcee0732a132b0468707194cfec928287",
-      "imported_manifest_sha256": "36d4715b42e88053336c418b26344d7516516f201e3021bbd17b6f9cd8a790da",
-      "production_bodies_unchanged": false,
-      "corrected_production_bodies": [
-        "crates/aom/src/linux/debug/aom/src/aom_codec.rs",
-        "crates/aom/src/linux/debug/aom/src/aom_decoder.rs",
-        "crates/aom/src/linux/debug/aom/src/aom_encoder.rs",
-        "crates/aom/src/linux/debug/aom_dsp/grain_table.rs",
-        "crates/aom/src/linux/debug/av1/common/thread_common.rs",
-        "crates/aom/src/linux/debug/av1/av1_dx_iface.rs",
-        "crates/aom/src/linux/debug/av1/decoder/decodeframe.rs",
-        "crates/aom/src/linux/debug/av1/decoder/decoder.rs",
-        "crates/aom/src/linux/debug/av1/av1_cx_iface.rs",
-        "crates/aom/src/linux/debug/av1/encoder/context_tree.rs",
-        "crates/aom/src/linux/debug/av1/encoder/encoder.rs",
-        "crates/aom/src/linux/debug/av1/encoder/ethread.rs"
-      ],
+      "artifact_manifest_sha256": "7649b2038c9ca1e9ccb808b6e7e503c0c10d44322f6a816c4be2728615be427e",
+      "imported_manifest_sha256": "7649b2038c9ca1e9ccb808b6e7e503c0c10d44322f6a816c4be2728615be427e",
+      "corrections_recorded_in_manifest": true,
       "optional_inline_wrappers": 12
     },
     {
@@ -69,13 +55,15 @@
         "profile": "release",
         "options": [
           "-DAOM_TARGET_CPU=generic",
-          "-DCONFIG_TUNE_VMAF=1",
+          "-DCONFIG_TUNE_VMAF=0",
           "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
           "-DENABLE_DOCS=OFF"
         ],
         "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
         "compiler": "Ubuntu clang version 16.0.6 (23ubuntu4)",
-        "library_translation_units": 168,
+        "library_only_reference": false,
+        "original_tests_executed": false,
+        "library_translation_units": 166,
         "generated_units": 3,
         "original_test_inventories": {
           "test_libaom": {
@@ -95,28 +83,12 @@
           }
         },
         "original_test_inputs": 568,
-        "config_sha256": "73fed02ff2d9ed47cf8964f4dc39f511868064de2bd1329519448990549a2079",
-        "transitive_runtime_dependencies": {
-          "libvmaf": "3.2.0"
-        }
+        "config_sha256": "989d9a5908bd5f1a708100a26fae554703f05316c252df7602c579df49b0b905",
+        "transitive_runtime_dependencies": {}
       },
-      "artifact_manifest_sha256": "a42e9839db9b5a7bc1e7505a5fc3a390ea62af61e6f318600c42d2c611cc1ff4",
-      "imported_manifest_sha256": "d86f0b5ed1ce66e1182da605745c3e38ee1f1a7cfa80805ed609722806a790a5",
-      "production_bodies_unchanged": false,
-      "corrected_production_bodies": [
-        "crates/aom/src/linux/release/aom/src/aom_codec.rs",
-        "crates/aom/src/linux/release/aom/src/aom_decoder.rs",
-        "crates/aom/src/linux/release/aom/src/aom_encoder.rs",
-        "crates/aom/src/linux/release/aom_dsp/grain_table.rs",
-        "crates/aom/src/linux/release/av1/common/thread_common.rs",
-        "crates/aom/src/linux/release/av1/av1_dx_iface.rs",
-        "crates/aom/src/linux/release/av1/decoder/decodeframe.rs",
-        "crates/aom/src/linux/release/av1/decoder/decoder.rs",
-        "crates/aom/src/linux/release/av1/av1_cx_iface.rs",
-        "crates/aom/src/linux/release/av1/encoder/context_tree.rs",
-        "crates/aom/src/linux/release/av1/encoder/encoder.rs",
-        "crates/aom/src/linux/release/av1/encoder/ethread.rs"
-      ],
+      "artifact_manifest_sha256": "07bee100bd670fbcf96944f73dc06fbd840edb76fdcec6c7376f67720f22d6ed",
+      "imported_manifest_sha256": "07bee100bd670fbcf96944f73dc06fbd840edb76fdcec6c7376f67720f22d6ed",
+      "corrections_recorded_in_manifest": true,
       "optional_inline_wrappers": 12
     }
   ]

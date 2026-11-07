@@ -290,7 +290,6 @@ pub struct av1_codec_arg_definitions {
     pub num_tg: arg_def_t,
     pub mtu_size: arg_def_t,
     pub timing_info: arg_def_t,
-    pub vmaf_model_path: arg_def_t,
     pub partition_info_path: arg_def_t,
     pub enable_rate_guide_deltaq: arg_def_t,
     pub rate_distribution_info: arg_def_t,
@@ -2795,18 +2794,6 @@ pub static mut g_av1_codec_arg_defs: av1_codec_arg_definitions_t = unsafe {
                     desc: b"Signal timing info in the bitstream (model only works for no hidden frames, no super-res yet):\0"
                         as *const u8 as *const core::ffi::c_char,
                     enums: core::ptr::addr_of!(timing_info_enum).cast::<arg_enum_list>(),
-                };
-                init
-            },
-            vmaf_model_path: {
-                let mut init = arg_def {
-                    short_name: 0 as *const core::ffi::c_char,
-                    long_name: b"vmaf-model-path\0" as *const u8
-                        as *const core::ffi::c_char,
-                    has_val: 1 as core::ffi::c_int,
-                    desc: b"Path to the VMAF model file\0" as *const u8
-                        as *const core::ffi::c_char,
-                    enums: 0 as *const arg_enum_list,
                 };
                 init
             },

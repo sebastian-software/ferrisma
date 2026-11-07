@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_uleb_decode(
@@ -3052,7 +3051,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3806,16 +3804,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -9295,6 +9283,7 @@ pub const CDEF_STRENGTH_BITS: core::ffi::c_int = 6 as core::ffi::c_int;
 unsafe extern "C-unwind" fn av1_superres_scaled(mut cm: *const AV1_COMMON) -> core::ffi::c_int {
     return ((*cm).width != (*cm).superres_upscaled_width) as core::ffi::c_int;
 }
+pub const CHAR_BIT: core::ffi::c_int = __CHAR_BIT__;
 #[inline]
 unsafe extern "C-unwind" fn is_token_info_allocated(mut token_info: *const TokenInfo) -> bool {
     return !((*token_info)
@@ -15668,7 +15657,6 @@ pub unsafe extern "C-unwind" fn av1_pack_bitstream(
     *size = data.offset_from(dst) as core::ffi::c_long as size_t;
     return AOM_CODEC_OK as core::ffi::c_int;
 }
-pub const CHAR_BIT: core::ffi::c_int = __CHAR_BIT__;
 pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;
 

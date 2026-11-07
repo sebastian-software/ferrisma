@@ -19,7 +19,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     fn av1_left_block_mode(left_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
@@ -69,15 +68,8 @@ extern "C-unwind" {
         mi_col: core::ffi::c_int,
     ) -> core::ffi::c_int;
     fn av1_count_overlappable_neighbors(cm: *const AV1_COMMON, xd: *mut MACROBLOCKD);
-    fn av1_get_ref_mv(x: *const MACROBLOCK, ref_idx: core::ffi::c_int) -> int_mv;
-    fn av1_find_best_ref_mvs_from_stack(
-        allow_hp: core::ffi::c_int,
-        mbmi_ext: *const MB_MODE_INFO_EXT,
-        ref_frame: MV_REFERENCE_FRAME,
-        nearest_mv: *mut int_mv,
-        near_mv: *mut int_mv,
-        is_integer: core::ffi::c_int,
-    );
+    fn av1_get_intra_inter_context(xd: *const MACROBLOCKD) -> core::ffi::c_int;
+    fn av1_get_comp_reference_type_context(xd: *const MACROBLOCKD) -> core::ffi::c_int;
     fn av1_mv_bit_cost(
         mv: *const MV,
         ref_mv: *const MV,
@@ -160,15 +152,6 @@ extern "C-unwind" {
         search_method: WARP_SEARCH_METHOD,
         num_iterations: core::ffi::c_int,
     ) -> core::ffi::c_uint;
-    fn av1_search_palette_mode_luma(
-        cpi: *const AV1_COMP,
-        x: *mut MACROBLOCK,
-        bsize: BLOCK_SIZE,
-        ref_frame_cost: core::ffi::c_uint,
-        ctx: *mut PICK_MODE_CONTEXT,
-        this_rd_cost: *mut RD_STATS,
-        best_rd: int64_t,
-    );
     fn av1_noise_estimate_extract_level(ne: *mut NOISE_ESTIMATE) -> NOISE_LEVEL;
     fn av1_foreach_transformed_block_in_plane(
         xd: *const MACROBLOCKD,
@@ -176,6 +159,15 @@ extern "C-unwind" {
         plane: core::ffi::c_int,
         visit: foreach_transformed_block_visitor,
         arg: *mut core::ffi::c_void,
+    );
+    fn av1_get_ref_mv(x: *const MACROBLOCK, ref_idx: core::ffi::c_int) -> int_mv;
+    fn av1_find_best_ref_mvs_from_stack(
+        allow_hp: core::ffi::c_int,
+        mbmi_ext: *const MB_MODE_INFO_EXT,
+        ref_frame: MV_REFERENCE_FRAME,
+        nearest_mv: *mut int_mv,
+        near_mv: *mut int_mv,
+        is_integer: core::ffi::c_int,
     );
     fn av1_model_rd_curvfit(
         bsize: BLOCK_SIZE,
@@ -209,8 +201,15 @@ extern "C-unwind" {
         scale_uv: *const scale_factors,
         num_planes: core::ffi::c_int,
     );
-    fn av1_get_intra_inter_context(xd: *const MACROBLOCKD) -> core::ffi::c_int;
-    fn av1_get_comp_reference_type_context(xd: *const MACROBLOCKD) -> core::ffi::c_int;
+    fn av1_search_palette_mode_luma(
+        cpi: *const AV1_COMP,
+        x: *mut MACROBLOCK,
+        bsize: BLOCK_SIZE,
+        ref_frame_cost: core::ffi::c_uint,
+        ctx: *mut PICK_MODE_CONTEXT,
+        this_rd_cost: *mut RD_STATS,
+        best_rd: int64_t,
+    );
     fn aom_convolve_copy_c(
         src: *const uint8_t,
         src_stride: ptrdiff_t,
@@ -3659,7 +3658,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -4082,16 +4080,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -7318,6 +7306,24 @@ unsafe extern "C-unwind" fn warped_motion_update_num_proj_ref(
         && has_second_ref(mi) == 0) as core::ffi::c_int;
 }
 pub const INVALID_IDX: core::ffi::c_int = -(1 as core::ffi::c_int);
+#[inline]
+unsafe extern "C-unwind" fn av1_get_skip_txfm_context(
+    mut xd: *const MACROBLOCKD,
+) -> core::ffi::c_int {
+    let above_mi: *const MB_MODE_INFO = (*xd).above_mbmi;
+    let left_mi: *const MB_MODE_INFO = (*xd).left_mbmi;
+    let above_skip_txfm: core::ffi::c_int = if !above_mi.is_null() {
+        (*above_mi).skip_txfm as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    };
+    let left_skip_txfm: core::ffi::c_int = if !left_mi.is_null() {
+        (*left_mi).skip_txfm as core::ffi::c_int
+    } else {
+        0 as core::ffi::c_int
+    };
+    return above_skip_txfm + left_skip_txfm;
+}
 static mut search_method_lookup: [SEARCH_METHODS; 9] = [
     DIAMOND as core::ffi::c_int as SEARCH_METHODS,
     NSTEP as core::ffi::c_int as SEARCH_METHODS,
@@ -7365,6 +7371,31 @@ unsafe extern "C-unwind" fn get_buf_from_fullmv(
                     core::ffi::c_int,
                 ) -> core::ffi::c_int)(mv, (*buf).stride) as isize,
         ) as *mut uint8_t;
+}
+#[inline]
+unsafe extern "C-unwind" fn is_mode_intra(mut mode: PREDICTION_MODE) -> core::ffi::c_int {
+    return ((mode as core::ffi::c_int) < INTRA_MODE_END as core::ffi::c_int)
+        as core::ffi::c_int;
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_copy_usable_ref_mv_stack_and_weight(
+    mut xd: *const MACROBLOCKD,
+    mbmi_ext: *mut MB_MODE_INFO_EXT,
+    mut ref_frame: MV_REFERENCE_FRAME,
+) {
+    memcpy(
+        ((*mbmi_ext).weight[ref_frame as usize]).as_mut_ptr() as *mut core::ffi::c_void,
+        ((*xd).weight[ref_frame as usize]).as_ptr() as *const core::ffi::c_void,
+        (USABLE_REF_MV_STACK_SIZE as size_t)
+            .wrapping_mul(::core::mem::size_of::<uint16_t>() as size_t),
+    );
+    memcpy(
+        ((*mbmi_ext).ref_mv_stack[ref_frame as usize]).as_mut_ptr()
+            as *mut core::ffi::c_void,
+        ((*xd).ref_mv_stack[ref_frame as usize]).as_ptr() as *const core::ffi::c_void,
+        (USABLE_REF_MV_STACK_SIZE as size_t)
+            .wrapping_mul(::core::mem::size_of::<CANDIDATE_MV>() as size_t),
+    );
 }
 pub const CR_SEGMENT_ID_BOOST1: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const CR_SEGMENT_ID_BOOST2: core::ffi::c_int = 2 as core::ffi::c_int;
@@ -7419,49 +7450,6 @@ unsafe extern "C-unwind" fn rd_less_than_thresh(
 ) -> core::ffi::c_int {
     return (best_rd < thresh * thresh_fact as int64_t >> 5 as core::ffi::c_int
         || thresh == INT_MAX as int64_t) as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_get_skip_txfm_context(
-    mut xd: *const MACROBLOCKD,
-) -> core::ffi::c_int {
-    let above_mi: *const MB_MODE_INFO = (*xd).above_mbmi;
-    let left_mi: *const MB_MODE_INFO = (*xd).left_mbmi;
-    let above_skip_txfm: core::ffi::c_int = if !above_mi.is_null() {
-        (*above_mi).skip_txfm as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    };
-    let left_skip_txfm: core::ffi::c_int = if !left_mi.is_null() {
-        (*left_mi).skip_txfm as core::ffi::c_int
-    } else {
-        0 as core::ffi::c_int
-    };
-    return above_skip_txfm + left_skip_txfm;
-}
-#[inline]
-unsafe extern "C-unwind" fn is_mode_intra(mut mode: PREDICTION_MODE) -> core::ffi::c_int {
-    return ((mode as core::ffi::c_int) < INTRA_MODE_END as core::ffi::c_int)
-        as core::ffi::c_int;
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_copy_usable_ref_mv_stack_and_weight(
-    mut xd: *const MACROBLOCKD,
-    mbmi_ext: *mut MB_MODE_INFO_EXT,
-    mut ref_frame: MV_REFERENCE_FRAME,
-) {
-    memcpy(
-        ((*mbmi_ext).weight[ref_frame as usize]).as_mut_ptr() as *mut core::ffi::c_void,
-        ((*xd).weight[ref_frame as usize]).as_ptr() as *const core::ffi::c_void,
-        (USABLE_REF_MV_STACK_SIZE as size_t)
-            .wrapping_mul(::core::mem::size_of::<uint16_t>() as size_t),
-    );
-    memcpy(
-        ((*mbmi_ext).ref_mv_stack[ref_frame as usize]).as_mut_ptr()
-            as *mut core::ffi::c_void,
-        ((*xd).ref_mv_stack[ref_frame as usize]).as_ptr() as *const core::ffi::c_void,
-        (USABLE_REF_MV_STACK_SIZE as size_t)
-            .wrapping_mul(::core::mem::size_of::<CANDIDATE_MV>() as size_t),
-    );
 }
 #[inline]
 unsafe extern "C-unwind" fn model_rd_with_curvfit(

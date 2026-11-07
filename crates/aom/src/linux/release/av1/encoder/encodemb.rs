@@ -18,7 +18,6 @@ extern "C-unwind" {
     pub type _IO_marker;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
@@ -3293,7 +3292,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3716,16 +3714,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6791,6 +6779,67 @@ unsafe extern "C-unwind" fn is_stat_generation_stage(cpi: *const AV1_COMP) -> co
         as core::ffi::c_int;
 }
 #[inline]
+unsafe extern "C-unwind" fn get_visible_dimensions(
+    mut x: *const MACROBLOCK,
+    mut plane: core::ffi::c_int,
+    mut plane_bsize: BLOCK_SIZE,
+    mut blk_col: core::ffi::c_int,
+    mut blk_row: core::ffi::c_int,
+    mut cols: core::ffi::c_int,
+    mut rows: core::ffi::c_int,
+    mut clip_dims: bool,
+    mut visible_cols: *mut core::ffi::c_int,
+    mut visible_rows: *mut core::ffi::c_int,
+) -> core::ffi::c_int {
+    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int
+        && (*x).pix_to_right_edge >= 0 as core::ffi::c_int || !clip_dims
+    {
+        if !visible_cols.is_null() && !visible_rows.is_null() {
+            *visible_rows = rows;
+            *visible_cols = cols;
+        }
+        return 0 as core::ffi::c_int;
+    }
+    let xd: *const MACROBLOCKD = &(*x).e_mbd;
+    let pd: *const macroblockd_plane = &*((*xd).plane).as_ptr().offset(plane as isize)
+        as *const macroblockd_plane;
+    let mut valid_cols: core::ffi::c_int = 0;
+    let mut valid_rows: core::ffi::c_int = 0;
+    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int {
+        valid_rows = rows;
+    } else {
+        let block_height: core::ffi::c_int = block_size_high[plane_bsize as usize]
+            as core::ffi::c_int;
+        let block_rows: core::ffi::c_int = -(-(*x).pix_to_bottom_edge
+            + ((1 as core::ffi::c_int) << (*pd).subsampling_y >> 1 as core::ffi::c_int)
+            >> (*pd).subsampling_y) + block_height;
+        valid_rows = clamp(
+            block_rows - (blk_row << MI_SIZE_LOG2),
+            0 as core::ffi::c_int,
+            rows,
+        );
+    }
+    if (*x).pix_to_right_edge >= 0 as core::ffi::c_int {
+        valid_cols = cols;
+    } else {
+        let block_width: core::ffi::c_int = block_size_wide[plane_bsize as usize]
+            as core::ffi::c_int;
+        let block_cols: core::ffi::c_int = -(-(*x).pix_to_right_edge
+            + ((1 as core::ffi::c_int) << (*pd).subsampling_x >> 1 as core::ffi::c_int)
+            >> (*pd).subsampling_x) + block_width;
+        valid_cols = clamp(
+            block_cols - (blk_col << MI_SIZE_LOG2),
+            0 as core::ffi::c_int,
+            cols,
+        );
+    }
+    if !visible_cols.is_null() && !visible_rows.is_null() {
+        *visible_cols = valid_cols;
+        *visible_rows = valid_rows;
+    }
+    return (valid_cols < cols || valid_rows < rows) as core::ffi::c_int;
+}
+#[inline]
 unsafe extern "C-unwind" fn avg_wxh_block_c(
     mut diff: *mut int16_t,
     mut diff_stride: ptrdiff_t,
@@ -8672,23 +8721,6 @@ static mut dc_coeff_scale: [uint16_t; 19] = [
     0 as core::ffi::c_int as uint16_t,
     0 as core::ffi::c_int as uint16_t,
 ];
-#[inline]
-unsafe extern "C-unwind" fn av1_cost_skip_txb(
-    mut coeff_costs: *const CoeffCosts,
-    txb_ctx: *const TXB_CTX,
-    mut plane: core::ffi::c_int,
-    mut tx_size: TX_SIZE,
-) -> core::ffi::c_int {
-    let txs_ctx: TX_SIZE = get_txsize_entropy_ctx(tx_size) as TX_SIZE;
-    let plane_type: PLANE_TYPE = get_plane_type(plane) as PLANE_TYPE;
-    let coeff_costs_: *const LV_MAP_COEFF_COST = &*(*((*coeff_costs).coeff_costs)
-        .as_ptr()
-        .offset(txs_ctx as isize))
-        .as_ptr()
-        .offset(plane_type as isize) as *const LV_MAP_COEFF_COST;
-    return (*coeff_costs_)
-        .txb_skip_cost[(*txb_ctx).txb_skip_ctx as usize][1 as core::ffi::c_int as usize];
-}
 pub const MAX_TX_SIZE_UNIT: core::ffi::c_int = 16 as core::ffi::c_int;
 static mut kTxbCtxSigns: [int8_t; 3] = [
     0 as core::ffi::c_int as int8_t,
@@ -9241,69 +9273,25 @@ unsafe extern "C-unwind" fn get_txb_ctx(
         }
     };
 }
-#[inline]
-unsafe extern "C-unwind" fn get_visible_dimensions(
-    mut x: *const MACROBLOCK,
-    mut plane: core::ffi::c_int,
-    mut plane_bsize: BLOCK_SIZE,
-    mut blk_col: core::ffi::c_int,
-    mut blk_row: core::ffi::c_int,
-    mut cols: core::ffi::c_int,
-    mut rows: core::ffi::c_int,
-    mut clip_dims: bool,
-    mut visible_cols: *mut core::ffi::c_int,
-    mut visible_rows: *mut core::ffi::c_int,
-) -> core::ffi::c_int {
-    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int
-        && (*x).pix_to_right_edge >= 0 as core::ffi::c_int || !clip_dims
-    {
-        if !visible_cols.is_null() && !visible_rows.is_null() {
-            *visible_rows = rows;
-            *visible_cols = cols;
-        }
-        return 0 as core::ffi::c_int;
-    }
-    let xd: *const MACROBLOCKD = &(*x).e_mbd;
-    let pd: *const macroblockd_plane = &*((*xd).plane).as_ptr().offset(plane as isize)
-        as *const macroblockd_plane;
-    let mut valid_cols: core::ffi::c_int = 0;
-    let mut valid_rows: core::ffi::c_int = 0;
-    if (*x).pix_to_bottom_edge >= 0 as core::ffi::c_int {
-        valid_rows = rows;
-    } else {
-        let block_height: core::ffi::c_int = block_size_high[plane_bsize as usize]
-            as core::ffi::c_int;
-        let block_rows: core::ffi::c_int = -(-(*x).pix_to_bottom_edge
-            + ((1 as core::ffi::c_int) << (*pd).subsampling_y >> 1 as core::ffi::c_int)
-            >> (*pd).subsampling_y) + block_height;
-        valid_rows = clamp(
-            block_rows - (blk_row << MI_SIZE_LOG2),
-            0 as core::ffi::c_int,
-            rows,
-        );
-    }
-    if (*x).pix_to_right_edge >= 0 as core::ffi::c_int {
-        valid_cols = cols;
-    } else {
-        let block_width: core::ffi::c_int = block_size_wide[plane_bsize as usize]
-            as core::ffi::c_int;
-        let block_cols: core::ffi::c_int = -(-(*x).pix_to_right_edge
-            + ((1 as core::ffi::c_int) << (*pd).subsampling_x >> 1 as core::ffi::c_int)
-            >> (*pd).subsampling_x) + block_width;
-        valid_cols = clamp(
-            block_cols - (blk_col << MI_SIZE_LOG2),
-            0 as core::ffi::c_int,
-            cols,
-        );
-    }
-    if !visible_cols.is_null() && !visible_rows.is_null() {
-        *visible_cols = valid_cols;
-        *visible_rows = valid_rows;
-    }
-    return (valid_cols < cols || valid_rows < rows) as core::ffi::c_int;
-}
 pub const true_0: core::ffi::c_int = 1 as core::ffi::c_int;
 pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;
+#[inline]
+unsafe extern "C-unwind" fn av1_cost_skip_txb(
+    mut coeff_costs: *const CoeffCosts,
+    txb_ctx: *const TXB_CTX,
+    mut plane: core::ffi::c_int,
+    mut tx_size: TX_SIZE,
+) -> core::ffi::c_int {
+    let txs_ctx: TX_SIZE = get_txsize_entropy_ctx(tx_size) as TX_SIZE;
+    let plane_type: PLANE_TYPE = get_plane_type(plane) as PLANE_TYPE;
+    let coeff_costs_: *const LV_MAP_COEFF_COST = &*(*((*coeff_costs).coeff_costs)
+        .as_ptr()
+        .offset(txs_ctx as isize))
+        .as_ptr()
+        .offset(plane_type as isize) as *const LV_MAP_COEFF_COST;
+    return (*coeff_costs_)
+        .txb_skip_cost[(*txb_ctx).txb_skip_ctx as usize][1 as core::ffi::c_int as usize];
+}
 
 extern "C" {
     fn abs(__x: core::ffi::c_int) -> core::ffi::c_int;

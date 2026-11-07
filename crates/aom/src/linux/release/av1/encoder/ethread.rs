@@ -17,7 +17,6 @@ extern "C-unwind" {
     pub type _IO_codecvt;
     pub type _IO_marker;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     pub type aom_write_bit_buffer;
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -175,19 +174,6 @@ extern "C-unwind" {
         shared_bufs: *mut PC_TREE_SHARED_BUFFERS,
     ) -> *mut PICK_MODE_CONTEXT;
     fn av1_setup_sms_tree(cpi: *mut AV1_COMP, td: *mut ThreadData) -> core::ffi::c_int;
-    fn av1_calc_mb_wiener_var_row(
-        cpi: *mut AV1_COMP,
-        x: *mut MACROBLOCK,
-        xd: *mut MACROBLOCKD,
-        mi_row: core::ffi::c_int,
-        src_diff: *mut int16_t,
-        coeff: *mut tran_low_t,
-        qcoeff: *mut tran_low_t,
-        dqcoeff: *mut tran_low_t,
-        sum_rec_distortion: *mut core::ffi::c_double,
-        sum_est_rate: *mut core::ffi::c_double,
-        pred_buffer: *mut uint8_t,
-    );
     fn av1_pack_tile_info(
         cpi: *mut AV1_COMP,
         td: *mut ThreadData,
@@ -214,6 +200,28 @@ extern "C-unwind" {
         pack_bs_params: *mut PackBSParams,
         tile_idx: core::ffi::c_int,
     );
+    fn av1_init_obmc_buffer(obmc_buffer: *mut OBMCBuffer);
+    fn av1_cdef_mse_calc_block(
+        cdef_search_ctx: *mut CdefSearchCtx,
+        error_info: *mut aom_internal_error_info,
+        fbr: core::ffi::c_int,
+        fbc: core::ffi::c_int,
+        sb_count: core::ffi::c_int,
+        adaptive_cdef_mode: core::ffi::c_int,
+    );
+    fn av1_calc_mb_wiener_var_row(
+        cpi: *mut AV1_COMP,
+        x: *mut MACROBLOCK,
+        xd: *mut MACROBLOCKD,
+        mi_row: core::ffi::c_int,
+        src_diff: *mut int16_t,
+        coeff: *mut tran_low_t,
+        qcoeff: *mut tran_low_t,
+        dqcoeff: *mut tran_low_t,
+        sum_rec_distortion: *mut core::ffi::c_double,
+        sum_est_rate: *mut core::ffi::c_double,
+        pred_buffer: *mut uint8_t,
+    );
     fn av1_init_rtc_counters(x: *mut macroblock);
     fn av1_accumulate_rtc_counters(cpi: *mut AV1_COMP, x: *const macroblock);
     fn av1_alloc_tile_data(cpi: *mut AV1_COMP);
@@ -230,15 +238,6 @@ extern "C-unwind" {
         tile_row: core::ffi::c_int,
         tile_col: core::ffi::c_int,
         mi_row: core::ffi::c_int,
-    );
-    fn av1_init_obmc_buffer(obmc_buffer: *mut OBMCBuffer);
-    fn av1_cdef_mse_calc_block(
-        cdef_search_ctx: *mut CdefSearchCtx,
-        error_info: *mut aom_internal_error_info,
-        fbr: core::ffi::c_int,
-        fbc: core::ffi::c_int,
-        sb_count: core::ffi::c_int,
-        adaptive_cdef_mode: core::ffi::c_int,
     );
     fn av1_inter_mode_data_init(tile_data: *mut TileDataEnc);
     fn av1_compute_gm_for_valid_ref_frames(
@@ -3301,7 +3300,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3724,16 +3722,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {

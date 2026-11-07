@@ -17,7 +17,6 @@ extern "C-unwind" {
     pub type _IO_codecvt;
     pub type _IO_marker;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
@@ -227,10 +226,32 @@ extern "C-unwind" {
         keep_none: core::ffi::c_int,
         partition_search_type: PARTITION_SEARCH_TYPE,
     );
+    fn av1_compute_q_from_energy_level_deltaq_mode(
+        cpi: *const AV1_COMP,
+        block_var_level: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+    fn av1_block_wavelet_energy_level(
+        cpi: *const AV1_COMP,
+        x: *const MACROBLOCK,
+        bs: BLOCK_SIZE,
+    ) -> core::ffi::c_int;
+    fn av1_log_block_var(
+        cpi: *const AV1_COMP,
+        x: *const MACROBLOCK,
+        bs: BLOCK_SIZE,
+    ) -> core::ffi::c_int;
+    fn av1_compute_global_motion_facade(cpi: *mut AV1_COMP);
     fn av1_init_cyclic_refresh_counters(x: *mut MACROBLOCK);
     fn av1_accumulate_cyclic_refresh_counters(
         cyclic_refresh: *mut CYCLIC_REFRESH,
         x: *const MACROBLOCK,
+    );
+    fn av1_frame_init_quantizer(cpi: *mut AV1_COMP);
+    fn av1_init_plane_quantizers(
+        cpi: *const AV1_COMP,
+        x: *mut MACROBLOCK,
+        segment_id: core::ffi::c_int,
+        do_update: core::ffi::c_int,
     );
     fn av1_get_sbq_perceptual_ai(
         cpi: *const AV1_COMP,
@@ -247,28 +268,6 @@ extern "C-unwind" {
         cpi: *const AV1_COMP,
         x: *const MACROBLOCK,
     ) -> core::ffi::c_int;
-    fn av1_frame_init_quantizer(cpi: *mut AV1_COMP);
-    fn av1_init_plane_quantizers(
-        cpi: *const AV1_COMP,
-        x: *mut MACROBLOCK,
-        segment_id: core::ffi::c_int,
-        do_update: core::ffi::c_int,
-    );
-    fn av1_compute_q_from_energy_level_deltaq_mode(
-        cpi: *const AV1_COMP,
-        block_var_level: core::ffi::c_int,
-    ) -> core::ffi::c_int;
-    fn av1_block_wavelet_energy_level(
-        cpi: *const AV1_COMP,
-        x: *const MACROBLOCK,
-        bs: BLOCK_SIZE,
-    ) -> core::ffi::c_int;
-    fn av1_log_block_var(
-        cpi: *const AV1_COMP,
-        x: *const MACROBLOCK,
-        bs: BLOCK_SIZE,
-    ) -> core::ffi::c_int;
-    fn av1_compute_global_motion_facade(cpi: *mut AV1_COMP);
     fn av1_get_cb_coeff_buffer(
         cpi: *const AV1_COMP,
         mi_row: core::ffi::c_int,
@@ -3620,7 +3619,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -4043,16 +4041,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -7758,10 +7746,6 @@ unsafe extern "C-unwind" fn convert_length_to_bsize(
             return BLOCK_16X16;
         }
     };
-}
-#[inline]
-unsafe extern "C-unwind" fn av1_superres_scaled(mut cm: *const AV1_COMMON) -> core::ffi::c_int {
-    return ((*cm).width != (*cm).superres_upscaled_width) as core::ffi::c_int;
 }
 pub const DELTA_Q_PERCEPTUAL_MODULATION: core::ffi::c_int = 1 as core::ffi::c_int;
 static mut AV1_VAR_OFFS: [uint8_t; 128] = [
@@ -12183,6 +12167,10 @@ pub unsafe extern "C-unwind" fn av1_encode_frame(mut cpi: *mut AV1_COMP) {
         }
         encode_frame_internal(cpi);
     };
+}
+#[inline]
+unsafe extern "C-unwind" fn av1_superres_scaled(mut cm: *const AV1_COMMON) -> core::ffi::c_int {
+    return ((*cm).width != (*cm).superres_upscaled_width) as core::ffi::c_int;
 }
 static mut winner_mode_count_allowed: [core::ffi::c_int; 3] = [
     1 as core::ffi::c_int,
