@@ -379,6 +379,8 @@ unsafe fn buffer_to_rust(c: &WebPDecBuffer) -> Option<(RsDecBuffer<'static>, Buf
         // SAFETY: the caller lends the planes for the call; merged, the
         // regions are disjoint.
         buffer.storage = unsafe { lent.storage() };
+        // C: is_external_memory >= 2 marks slow external memory.
+        buffer.slow_memory = c.is_external_memory >= 2;
         memory = BufferMemory::Lent(lent);
         offsets = plane_offsets;
     }
@@ -1225,10 +1227,12 @@ pub unsafe extern "C" fn webp_decode(
 ///
 /// The translation's decoder borrows the Rust forms of the caller's
 /// configuration or output buffer, which live in leaked boxes until
-/// `WebPIDelete()` drops the decoder and frees them. The memory of its output
-/// buffer is lent per call (`lent`); library samples move into a block after
-/// the call that allocates them: the caller's buffer receives it as
-/// `private_memory`, and the decoder's own block is freed at `WebPIDelete()`.
+/// `WebPIDelete()` drops the decoder and frees them. The memory of both its own
+/// output buffer and the caller's is lent per call (`own_lent`, `user_lent`);
+/// library samples move into a block after the call that allocates them: the
+/// caller's buffer receives it as `private_memory`, and the decoder's own block
+/// is freed at `WebPIDelete()`. With slow memory the decoder works in its own
+/// buffer and copies into the caller's at the end.
 pub struct WebPIDecoder {
     /// The translation's decoder.
     idec: ManuallyDrop<idec::WebPIDecoder<'static, 'static>>,
@@ -1236,23 +1240,109 @@ pub struct WebPIDecoder {
     config: *mut RsDecoderConfig<'static>,
     /// The Rust output buffer of `WebPINewDecoder`, or null.
     user_buffer: *mut RsDecBuffer<'static>,
-    /// The caller's C buffer that C's `params.output` points at, or null.
+    /// The caller's C buffer (C: `params.output` or `final_output`), or null.
     user: *mut WebPDecBuffer,
-    /// The memory of the output buffer, lent for each call.
-    lent: Lent,
-    /// Whether the output buffer's memory is a library block (in `lent`).
-    library_block: bool,
+    /// The memory of the decoder's own output buffer, lent for each call.
+    own_lent: Lent,
+    /// Whether `own_lent` is the decoder's library block.
+    own_library_block: bool,
     /// The library block of the decoder's own output buffer, or null.
     own_block: *mut u8,
+    /// The memory of the caller's output buffer, lent for each call.
+    user_lent: Lent,
     /// The C view of the decoder's own output buffer (C: `idec->output`).
     own: WebPDecBuffer,
 }
 
+/// A zeroed C buffer.
+fn zeroed_buffer() -> WebPDecBuffer {
+    WebPDecBuffer {
+        colorspace: WEBP_CSP_MODE::MODE_RGB,
+        width: 0,
+        height: 0,
+        is_external_memory: 0,
+        u: WebPDecBufferUnion {
+            YUVA: WebPYUVABuffer {
+                y: ptr::null_mut(),
+                u: ptr::null_mut(),
+                v: ptr::null_mut(),
+                a: ptr::null_mut(),
+                y_stride: 0,
+                u_stride: 0,
+                v_stride: 0,
+                a_stride: 0,
+                y_size: 0,
+                u_size: 0,
+                v_size: 0,
+                a_size: 0,
+            },
+        },
+        pad: [0; 4],
+        private_memory: ptr::null_mut(),
+    }
+}
+
+/// Lends `lent` to `buffer` for one call, if it holds caller or block memory.
+///
+/// # Safety
+///
+/// As [`Lent::storage`].
+unsafe fn lend(buffer: &mut RsDecBuffer<'static>, lent: &Lent) {
+    if !lent.0.is_empty() {
+        // SAFETY: the caller's guarantee, passed on.
+        buffer.storage = unsafe { lent.storage() };
+    }
+}
+
+/// Ends the loan of a buffer's memory.
+fn take_back(buffer: &mut RsDecBuffer<'static>) {
+    if matches!(buffer.storage, PlaneStorage::External(_)) {
+        buffer.storage = PlaneStorage::External(Vec::new());
+    }
+}
+
+/// Moves the library samples of `buffer` into a library block, which the
+/// buffer then views as lent memory. `held` is the block that the C buffer
+/// already holds, or null. Returns the block, or null when there were no
+/// samples or no block could be allocated.
+fn move_samples(buffer: &mut RsDecBuffer<'static>, lent: &mut Lent, held: *mut u8) -> *mut u8 {
+    let PlaneStorage::Internal(samples) = &buffer.storage else {
+        return ptr::null_mut();
+    };
+    if samples.is_empty() {
+        return ptr::null_mut();
+    }
+    let block = give_library_block(held, samples);
+    if !block.is_null() {
+        *lent = Lent(vec![(block, samples.len())]);
+        // The block replaces the samples for the rest of the call.
+        // SAFETY: a new block that only this storage views until the decoder
+        // takes it back.
+        buffer.storage = unsafe { lent.storage() };
+    }
+    block
+}
+
+/// The memory from which the C view of a buffer is written: its lent regions,
+/// the translation's own samples when no block could be allocated, or none yet.
+fn view_memory(buffer: &mut RsDecBuffer<'static>, lent: &Lent) -> BufferMemory {
+    match &mut buffer.storage {
+        PlaneStorage::Internal(samples) if !samples.is_empty() => {
+            BufferMemory::Lent(Lent(vec![(samples.as_mut_ptr(), samples.len())]))
+        }
+        // Not allocated yet: C's plane pointers stay as they are.
+        PlaneStorage::Internal(_) => BufferMemory::Library,
+        _ => BufferMemory::Lent(lent.clone()),
+    }
+}
+
 impl WebPIDecoder {
-    /// Wraps a translation decoder whose output memory is `lent`.
+    /// Wraps a translation decoder whose own output memory is `own_lent` and
+    /// whose caller output memory is `user_lent`.
     fn boxed(
         idec: idec::WebPIDecoder<'static, 'static>,
-        lent: Lent,
+        own_lent: Lent,
+        user_lent: Lent,
         config: *mut RsDecoderConfig<'static>,
         user_buffer: *mut RsDecBuffer<'static>,
         user: *mut WebPDecBuffer,
@@ -1262,127 +1352,87 @@ impl WebPIDecoder {
             config,
             user_buffer,
             user,
-            lent,
-            library_block: false,
+            own_lent,
+            own_library_block: false,
             own_block: ptr::null_mut(),
-            own: WebPDecBuffer {
-                colorspace: WEBP_CSP_MODE::MODE_RGB,
-                width: 0,
-                height: 0,
-                is_external_memory: 0,
-                u: WebPDecBufferUnion {
-                    YUVA: WebPYUVABuffer {
-                        y: ptr::null_mut(),
-                        u: ptr::null_mut(),
-                        v: ptr::null_mut(),
-                        a: ptr::null_mut(),
-                        y_stride: 0,
-                        u_stride: 0,
-                        v_stride: 0,
-                        a_stride: 0,
-                        y_size: 0,
-                        u_size: 0,
-                        v_size: 0,
-                        a_size: 0,
-                    },
-                },
-                pad: [0; 4],
-                private_memory: ptr::null_mut(),
-            },
+            user_lent,
+            own: zeroed_buffer(),
         });
-        // The translation's buffer still views the lent memory, as during a
+        // The translation's buffers still view the lent memory, as during a
         // call: write the C views, then end the loan.
-        // SAFETY: the views are written from the translation's buffer, which
-        // was converted from them.
+        // SAFETY: the views are written from the translation's buffers, which
+        // were converted from them.
         unsafe { decoder.sync() };
         decoder.detach();
         Box::into_raw(decoder)
     }
 
-    /// Lends the output memory to the translation's buffer for one call.
+    /// Lends the output memory to the translation's buffers for one call.
     ///
     /// # Safety
     ///
     /// The lent memory is valid and nothing else accesses it until
     /// [`Self::detach`].
     unsafe fn attach(&mut self) {
-        if !self.lent.0.is_empty() {
-            // SAFETY: the caller's guarantee; the regions are disjoint.
-            let storage = unsafe { self.lent.storage() };
-            self.idec.params_output_mut().storage = storage;
+        // SAFETY: the caller's guarantee; each buffer's regions are disjoint.
+        unsafe { lend(self.idec.own_output_mut(), &self.own_lent) };
+        if let Some(caller) = self.idec.caller_output_mut() {
+            // SAFETY: as above.
+            unsafe { lend(caller, &self.user_lent) };
         }
     }
 
     /// Ends the loan of the output memory.
     fn detach(&mut self) {
-        let output = self.idec.params_output_mut();
-        if matches!(output.storage, PlaneStorage::External(_)) {
-            output.storage = PlaneStorage::External(Vec::new());
+        take_back(self.idec.own_output_mut());
+        if let Some(caller) = self.idec.caller_output_mut() {
+            take_back(caller);
         }
     }
 
-    /// After a call: moves library samples into a block and writes the C
-    /// view of the output buffer.
+    /// After a call: moves library samples into blocks and writes the C views
+    /// of both output buffers.
     ///
     /// # Safety
     ///
     /// `self.user` is null or the caller's live buffer.
     unsafe fn sync(&mut self) {
-        let has_user = self.idec.has_user_output();
         let user = self.user;
-        let output = self.idec.params_output_mut();
-        if let PlaneStorage::Internal(samples) = &output.storage
-            && !samples.is_empty()
+        // The decoder's own buffer.
         {
-            let held = if has_user {
-                // SAFETY: the caller's live buffer.
-                unsafe { (*user).private_memory }
-            } else {
-                ptr::null_mut()
-            };
-            let block = give_library_block(held, samples);
+            let own = self.idec.own_output_mut();
+            let block = move_samples(own, &mut self.own_lent, ptr::null_mut());
             if !block.is_null() {
-                let len = samples.len();
-                self.lent = Lent(vec![(block, len)]);
-                self.library_block = true;
-                if has_user {
-                    // SAFETY: the caller's live buffer receives the block.
-                    unsafe { (*user).private_memory = block };
-                } else {
-                    library_blocks().remove(&(block as usize));
-                    self.own_block = block;
-                    self.own.private_memory = block;
-                }
-                // The block replaces the samples for the rest of the call.
-                // SAFETY: a new block of `len` bytes that only this storage
-                // views until the decoder detaches it.
-                output.storage = unsafe { self.lent.storage() };
+                library_blocks().remove(&(block as usize));
+                self.own_block = block;
+                self.own_library_block = true;
+                self.own.private_memory = block;
             }
+            let memory = view_memory(own, &self.own_lent);
+            let own: &RsDecBuffer<'_> = own;
+            self.own.colorspace = own.colorspace;
+            self.own.is_external_memory =
+                c_int::from(!self.own_library_block && !self.own_lent.0.is_empty());
+            // SAFETY: the decoder's own view, written from its own buffer. The
+            // incremental decoder never releases output memory before it is
+            // deleted (C frees the own buffer's memory only at the slow copy,
+            // after which C's view is the caller's structure).
+            let _ = unsafe { buffer_to_c(&mut self.own, own, &memory, false) };
         }
-        // The C view: from the regions of the lent memory, or from the
-        // translation's own samples when no block could be allocated.
-        let output = self.idec.params_output_mut();
-        let memory = match &mut output.storage {
-            // No block could be allocated: the translation's own samples.
-            PlaneStorage::Internal(samples) if !samples.is_empty() => {
-                BufferMemory::Lent(Lent(vec![(samples.as_mut_ptr(), samples.len())]))
+        // The caller's buffer.
+        if let Some(caller) = self.idec.caller_output_mut() {
+            // SAFETY: the caller's live buffer.
+            let view = unsafe { &mut *user };
+            let block = move_samples(caller, &mut self.user_lent, view.private_memory);
+            if !block.is_null() {
+                view.private_memory = block;
             }
-            // Not allocated yet: C's plane pointers stay as they are.
-            PlaneStorage::Internal(_) => BufferMemory::Library,
-            _ => BufferMemory::Lent(self.lent.clone()),
-        };
-        let view = if has_user { user } else { &raw mut self.own };
-        let output: &RsDecBuffer<'_> = output;
-        // SAFETY: `view` is the caller's live buffer or the decoder's own view.
-        let view = unsafe { &mut *view };
-        view.colorspace = output.colorspace;
-        if !has_user {
-            view.is_external_memory = c_int::from(!self.library_block && !self.lent.0.is_empty());
+            let memory = view_memory(caller, &self.user_lent);
+            let caller: &RsDecBuffer<'_> = caller;
+            // SAFETY: the caller's view, written from the buffer that was
+            // converted from it.
+            let _ = unsafe { buffer_to_c(view, caller, &memory, false) };
         }
-        // SAFETY: the view of the buffer that `output` was converted from or
-        // that the decoder created, with its memory. The incremental decoder
-        // never releases its output memory before it is deleted.
-        let _ = unsafe { buffer_to_c(view, output, &memory, false) };
     }
 
     /// Runs `call` with the output memory lent, then writes the C views.
@@ -1402,6 +1452,11 @@ impl WebPIDecoder {
         self.detach();
         result
     }
+
+    /// Whether `[start, start + len)` overlaps the lent memory.
+    fn overlaps(&self, start: *const u8, len: usize) -> bool {
+        self.own_lent.overlaps(start, len) || self.user_lent.overlaps(start, len)
+    }
 }
 
 /// The C view of a caller plane or of a plane in the decoder's memory: the
@@ -1412,9 +1467,10 @@ fn rows_pointer(decoder: &WebPIDecoder, rows: idec::PlaneRows<'_>) -> *mut u8 {
     };
     let base = region.as_ptr();
     let start = decoder
-        .lent
+        .own_lent
         .0
         .iter()
+        .chain(&decoder.user_lent.0)
         .find(|&&(start, _)| ptr::eq(start, base))
         .map_or(base.cast_mut(), |&(start, _)| start);
     start.wrapping_add(offset)
@@ -1439,6 +1495,7 @@ pub unsafe extern "C" fn webp_i_new_decoder(
         return WebPIDecoder::boxed(
             idec,
             Lent::default(),
+            Lent::default(),
             ptr::null_mut(),
             ptr::null_mut(),
             ptr::null_mut(),
@@ -1461,7 +1518,14 @@ pub unsafe extern "C" fn webp_i_new_decoder(
         drop(unsafe { Box::from_raw(user_buffer) });
         return ptr::null_mut();
     };
-    WebPIDecoder::boxed(idec, lent, ptr::null_mut(), user_buffer, output_buffer)
+    WebPIDecoder::boxed(
+        idec,
+        Lent::default(),
+        lent,
+        ptr::null_mut(),
+        user_buffer,
+        output_buffer,
+    )
 }
 
 // upstream: src/dec/idec_dec.c WebPIDecode
@@ -1491,6 +1555,7 @@ pub unsafe extern "C" fn webp_i_decode(
         };
         return WebPIDecoder::boxed(
             idec,
+            Lent::default(),
             Lent::default(),
             ptr::null_mut(),
             ptr::null_mut(),
@@ -1526,7 +1591,7 @@ pub unsafe extern "C" fn webp_i_decode(
         return ptr::null_mut();
     };
     let user = &raw mut c.output;
-    WebPIDecoder::boxed(idec, lent, rust, ptr::null_mut(), user)
+    WebPIDecoder::boxed(idec, Lent::default(), lent, rust, ptr::null_mut(), user)
 }
 
 // upstream: src/dec/idec_dec.c WebPINewRGB
@@ -1563,6 +1628,7 @@ pub unsafe extern "C" fn webp_i_new_rgb(
     WebPIDecoder::boxed(
         idec,
         lent,
+        Lent::default(),
         ptr::null_mut(),
         ptr::null_mut(),
         ptr::null_mut(),
@@ -1599,6 +1665,7 @@ pub unsafe extern "C" fn webp_i_new_yuva(
         };
         return WebPIDecoder::boxed(
             idec,
+            Lent::default(),
             Lent::default(),
             ptr::null_mut(),
             ptr::null_mut(),
@@ -1641,6 +1708,7 @@ pub unsafe extern "C" fn webp_i_new_yuva(
     WebPIDecoder::boxed(
         idec,
         Lent(ranges),
+        Lent::default(),
         ptr::null_mut(),
         ptr::null_mut(),
         ptr::null_mut(),
@@ -1732,7 +1800,7 @@ pub unsafe extern "C" fn webp_i_append(
     let Some(decoder) = (unsafe { idec.as_mut() }) else {
         return VP8StatusCode::VP8_STATUS_INVALID_PARAM;
     };
-    if data.is_null() || decoder.lent.overlaps(data, data_size) {
+    if data.is_null() || decoder.overlaps(data, data_size) {
         return VP8StatusCode::VP8_STATUS_INVALID_PARAM;
     }
     // SAFETY: the caller's input, which does not overlap the output memory.
@@ -1757,7 +1825,7 @@ pub unsafe extern "C" fn webp_i_update(
     let Some(decoder) = (unsafe { idec.as_mut() }) else {
         return VP8StatusCode::VP8_STATUS_INVALID_PARAM;
     };
-    if data.is_null() || decoder.lent.overlaps(data, data_size) {
+    if data.is_null() || decoder.overlaps(data, data_size) {
         return VP8StatusCode::VP8_STATUS_INVALID_PARAM;
     }
     // SAFETY: the caller's input, which does not overlap the output memory.
@@ -1909,6 +1977,12 @@ pub unsafe extern "C" fn webp_i_decoded_area(
     decoder.detach();
     if !area {
         ptr::null()
+    } else if decoder.idec.has_user_output() && decoder.idec.was_slow() {
+        // C: after the slow copy, `*output = *idec->final_output`: the
+        // decoder's own buffer holds a copy of the caller's structure.
+        // SAFETY: the caller's live buffer, read as plain data.
+        decoder.own = unsafe { ptr::read(decoder.user) };
+        &raw const decoder.own
     } else if decoder.idec.has_user_output() {
         decoder.user
     } else {
