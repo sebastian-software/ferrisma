@@ -15,7 +15,7 @@
       "comp_info": "2",
       "marker_list": "2",
       "entropy": "3",
-      "coef_bits": "3",
+      "coef_bits": "2",
       "coef": "4",
       "idct": "4",
       "upsample": "5",
