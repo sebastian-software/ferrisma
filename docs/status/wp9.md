@@ -181,6 +181,12 @@ the Rust side cannot reproduce exactly. Each records the reason.
 15. **`WebPPictureIsView`.** A picture counts as a view when its storage holds no
     memory of its own, which is C's `memory_ == NULL`. A caller's storage (external
     or shared) is always a view.
+16. **Rescaler work block (2026-11-07).** C allocates one `work` block of
+    `2 * width` (YUV) or `2 * width * 4` (ARGB) elements and reuses it for every
+    plane. `webp_rescaler_init` takes its two side rows by value and owns them (WP4
+    deviation 8), so `rescale_into` keeps C's allocation check and `rescale_plane`
+    gives each rescaler a vector of exactly `2 * num_channels * dst_width` elements.
+    The samples are the same; only the number of allocations differs.
 
 ## Library functions that write planes in place
 
