@@ -284,7 +284,7 @@ pub fn run_idct(args: &[&str]) -> Fields {
 }
 
 /// `coefidct.c`'s `MAX_CALLS`.
-const MAX_CALLS: i64 = 1_000_000;
+pub const MAX_CALLS: i64 = 1_000_000;
 
 /// The options of `coefidct.c`.
 #[derive(Default)]
@@ -340,7 +340,7 @@ fn parse_coef(args: &[&str]) -> CoefOptions {
 
 /// `coefidct.c`'s `ParseMethod`.
 #[expect(clippy::cast_sign_loss, reason = "C's (J_DCT_METHOD)atoi")]
-fn parse_method(name: &str) -> J_DCT_METHOD {
+pub fn parse_method(name: &str) -> J_DCT_METHOD {
     match name {
         "ifast" => J_DCT_METHOD::JDCT_IFAST,
         "float" => J_DCT_METHOD::JDCT_FLOAT,
@@ -351,14 +351,14 @@ fn parse_method(name: &str) -> J_DCT_METHOD {
 
 /// `coefidct.c`'s `RunLog`.
 #[derive(Default)]
-struct RunLog {
-    text: String,
+pub struct RunLog {
+    pub text: String,
     last_value: Option<i32>,
     last_count: i64,
 }
 
 impl RunLog {
-    fn flush(&mut self) {
+    pub fn flush(&mut self) {
         if self.last_count == 0 {
             return;
         }
@@ -370,7 +370,7 @@ impl RunLog {
         self.last_count = 0;
     }
 
-    fn log(&mut self, value: i32) {
+    pub fn log(&mut self, value: i32) {
         if self.last_value != Some(value) {
             self.flush();
         }
