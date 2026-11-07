@@ -17,13 +17,11 @@
 //!
 //! Work package: WP9 (encoder picture and config).
 //!
-//! Not translated yet, and left absent on purpose: `WebPPictureCopy` and
-//! `WebPPictureView`. Both read a picture through a shared reference and give the
-//! result the same planes or callbacks, which the owned and mutable plane storage
-//! of ADR 0003 cannot express. The open design question is in the package's status
-//! page. `WebPPictureCopy` also needs a copy of the boxed callbacks, which Rust does
-//! not clone. `WebPPictureRescale` and `WebPPictureCrop` replace their picture, so
-//! they move the callbacks instead.
+//! `WebPPictureView` shares the planes of its source through the `Shared` storage
+//! of ADR 0003, amended 2026-11-07. `WebPPictureCopy` copies the pixels into new
+//! planes and gives the copy no callbacks, `extra_info` or `stats` (a WP9
+//! deviation; see the status page). `WebPPictureRescale` and `WebPPictureCrop`
+//! replace their picture, so they move the callbacks instead.
 
 use crate::dsp::alpha_processing::{webp_mult_argb_rows, webp_mult_rows};
 use crate::enc::picture_enc::{
@@ -506,4 +504,201 @@ pub fn webp_picture_crop(
     webp_picture_free(pic);
     *pic = tmp;
     true
+}
+
+//------------------------------------------------------------------------------
+// Views and copies
+
+/// The position of `plane` moved by `delta` samples, as a C pointer offset.
+fn moved(plane: PlaneOffset, delta: i64) -> PlaneOffset {
+    PlaneOffset {
+        region: plane.region,
+        offset: offset_by(plane.offset, delta),
+    }
+}
+
+/// The regions of a storage, borrowed shared for as long as the storage is borrowed.
+fn shared_regions<'s, T>(storage: &'s PlaneStorage<'_, T>) -> Vec<&'s [T]> {
+    match storage {
+        PlaneStorage::Internal(samples) => vec![samples.as_slice()],
+        PlaneStorage::External(slices) => slices.iter().map(|slice| &**slice).collect(),
+        PlaneStorage::Shared(slices) => slices.clone(),
+    }
+}
+
+/// The specifications of `src` in a picture that owns no planes and holds no
+/// callbacks, `extra_info` or `stats` (C: `PictureGrabSpecs` without the callbacks).
+fn picture_specs<'a>(src: &WebPPicture<'_>) -> WebPPicture<'a> {
+    WebPPicture {
+        use_argb: src.use_argb,
+        colorspace: src.colorspace,
+        width: src.width,
+        height: src.height,
+        pad1: src.pad1,
+        pad2: src.pad2,
+        extra_info_type: src.extra_info_type,
+        error_code: src.error_code,
+        pad3: src.pad3,
+        pad6: src.pad6,
+        ..WebPPicture::default()
+    }
+}
+
+// upstream: src/enc/picture_rescale_enc.c WebPPictureView
+/// Returns a view of the `width` by `height` rectangle at `left` and `top` of `src`
+/// (C: `WebPPictureView`, which fills `dst`). The view shares the planes of `src`:
+/// they are borrowed for `'s` in a `Shared` storage, so the view cannot outlive
+/// `src`, and writing into it panics. The view has no callbacks, `extra_info` or
+/// `stats`; the error code of `src` is copied, as in C. Returns `None` where C
+/// returns 0.
+#[must_use]
+pub fn webp_picture_view<'s>(
+    src: &'s WebPPicture<'_>,
+    left: i32,
+    top: i32,
+    width: i32,
+    height: i32,
+) -> Option<WebPPicture<'s>> {
+    let (mut left, mut top) = (left, top);
+    if !adjust_and_check_rectangle(src, &mut left, &mut top, width, height) {
+        return None;
+    }
+
+    let mut dst: WebPPicture<'s> = picture_specs(src);
+    dst.width = width;
+    dst.height = height;
+    if src.use_argb == 0 {
+        let y_shift = i64::from(top) * i64::from(src.y_stride) + i64::from(left);
+        let uv_shift = i64::from(top >> 1) * i64::from(src.uv_stride) + i64::from(left >> 1);
+        dst.y = src.y.map(|plane| moved(plane, y_shift));
+        dst.u = src.u.map(|plane| moved(plane, uv_shift));
+        dst.v = src.v.map(|plane| moved(plane, uv_shift));
+        dst.y_stride = src.y_stride;
+        dst.uv_stride = src.uv_stride;
+        if let Some(a) = src.a {
+            dst.a = Some(moved(
+                a,
+                i64::from(top) * i64::from(src.a_stride) + i64::from(left),
+            ));
+            dst.a_stride = src.a_stride;
+        }
+        dst.yuva = PlaneStorage::Shared(shared_regions(&src.yuva));
+    } else {
+        let argb_shift = i64::from(top) * i64::from(src.argb_stride) + i64::from(left);
+        dst.argb = src.argb.map(|plane| moved(plane, argb_shift));
+        dst.argb_stride = src.argb_stride;
+        dst.argb_storage = PlaneStorage::Shared(shared_regions(&src.argb_storage));
+    }
+    Some(dst)
+}
+
+/// Copies a plane of `width` by `height` samples from one storage to another (C:
+/// `WebPCopyPlane` on the two planes).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the C signature of WebPCopyPlane has eight parameters"
+)]
+fn copy_yuva_plane(
+    src: &PlaneStorage<'_, u8>,
+    src_plane: PlaneOffset,
+    src_stride: i32,
+    dst: &mut PlaneStorage<'_, u8>,
+    dst_plane: PlaneOffset,
+    dst_stride: i32,
+    width: i32,
+    height: i32,
+) {
+    let source = yuva_samples(src, src_plane);
+    let target = yuva_plane_mut(dst, Some(dst_plane));
+    webp_copy_plane(source, 0, src_stride, target, 0, dst_stride, width, height);
+}
+
+// upstream: src/enc/picture_rescale_enc.c WebPPictureCopy
+/// Copies `src` into `dst`: the specifications, new planes, and the samples of
+/// `src` in them (C: `WebPPictureCopy`). `dst` gets no writer, progress hook,
+/// `extra_info` or `stats`, where C shares the pointers of `src`; the status page
+/// records the deviation. The error code of `src` is copied, and a failed allocation
+/// returns the code that `dst` records.
+///
+/// # Errors
+///
+/// Returns the allocation error that `dst` records.
+///
+/// # Panics
+///
+/// Panics on a plane that C would dereference while it is missing.
+pub fn webp_picture_copy(
+    src: &WebPPicture<'_>,
+    dst: &mut WebPPicture<'_>,
+) -> Result<(), WebPEncodingError> {
+    *dst = picture_specs(src);
+    webp_picture_alloc(dst)?;
+    let width = dst.width;
+    let height = dst.height;
+    if src.use_argb == 0 {
+        let src_y = src.y.expect("the luma plane of the source is allocated");
+        let dst_y = dst.y.expect("the luma plane is allocated");
+        copy_yuva_plane(
+            &src.yuva,
+            src_y,
+            src.y_stride,
+            &mut dst.yuva,
+            dst_y,
+            dst.y_stride,
+            width,
+            height,
+        );
+        let src_u = src.u.expect("the U plane of the source is allocated");
+        let dst_u = dst.u.expect("the U plane is allocated");
+        copy_yuva_plane(
+            &src.yuva,
+            src_u,
+            src.uv_stride,
+            &mut dst.yuva,
+            dst_u,
+            dst.uv_stride,
+            halve(width),
+            halve(height),
+        );
+        let src_v = src.v.expect("the V plane of the source is allocated");
+        let dst_v = dst.v.expect("the V plane is allocated");
+        copy_yuva_plane(
+            &src.yuva,
+            src_v,
+            src.uv_stride,
+            &mut dst.yuva,
+            dst_v,
+            dst.uv_stride,
+            halve(width),
+            halve(height),
+        );
+        if let Some(dst_a) = dst.a {
+            let src_a = src.a.expect("the alpha plane of the source is allocated");
+            copy_yuva_plane(
+                &src.yuva,
+                src_a,
+                src.a_stride,
+                &mut dst.yuva,
+                dst_a,
+                dst.a_stride,
+                width,
+                height,
+            );
+        }
+    } else {
+        // C copies `4 * width` bytes per row, which is `width` ARGB samples.
+        let src_plane = src.argb.expect("the ARGB plane of the source is allocated");
+        let dst_plane = dst.argb.expect("the ARGB plane is allocated");
+        let src_stride = index(src.argb_stride);
+        let dst_stride = index(dst.argb_stride);
+        let row_len = index(width);
+        let source = argb_samples(&src.argb_storage, src_plane);
+        let target = argb_samples_mut(&mut dst.argb_storage, dst_plane);
+        for row in 0..index(height) {
+            let from = row * src_stride;
+            let to = row * dst_stride;
+            target[to..to + row_len].copy_from_slice(&source[from..from + row_len]);
+        }
+    }
+    Ok(())
 }

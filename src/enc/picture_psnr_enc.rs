@@ -18,13 +18,16 @@
 //! Work package: WP9 (encoder picture and config).
 //!
 //! The C file is compiled only without `WEBP_DISABLE_STATS` and `WEBP_REDUCE_SIZE`,
-//! which the reference configuration does not define. `WebPPictureDistortion` is not
-//! translated yet: it reads its inputs through `WebPPictureView`, whose design is
-//! open (see the package's status page).
+//! which the reference configuration does not define. `WebPPictureDistortion` reads
+//! both inputs through shared views (`WebPPictureView`), which leave them unchanged.
 
 use crate::dsp::dsp::VP8_SSIM_KERNEL;
 use crate::dsp::ssim::{vp8_accumulate_sse, vp8ssim_get, vp8ssim_get_clipped};
+use crate::enc::picture_csp_enc::webp_picture_yuva_to_argb;
+use crate::enc::picture_enc::{argb_bytes, argb_samples};
+use crate::enc::picture_rescale_enc::webp_picture_view;
 use crate::utils::utils::webp_safe_malloc;
+use crate::webp::encode::WebPPicture;
 
 // upstream: src/enc/picture_psnr_enc.c RADIUS
 /// The search radius of the local-minimum distortion. It shouldn't be too large.
@@ -286,6 +289,95 @@ pub fn webp_plane_distortion(
         get_log_ssim(f64::from(*distortion), area) as f32
     } else {
         get_psnr(f64::from(*distortion), area) as f32
+    };
+    true
+}
+
+// upstream: src/enc/picture_psnr_enc.c BLUE_OFFSET
+/// The byte of an ARGB word that holds the blue channel, in native byte order (C:
+/// `BLUE_OFFSET`). The results are reported as BGRA.
+const BLUE_OFFSET: usize = if cfg!(target_endian = "big") { 3 } else { 0 };
+
+// upstream: src/enc/picture_psnr_enc.c WebPPictureDistortion
+/// Measures the distortion between `src` and `reference` in ARGB, one channel at a
+/// time, with the metric `kind`, and stores the four channel results and the total
+/// in `results[4]` (C: `WebPPictureDistortion`). Both inputs are read through shared
+/// views, so neither is changed. A failure stops at the channel that fails; the
+/// results already written stay, as in C. Returns `false` where C returns 0.
+///
+/// # Panics
+///
+/// Panics on an ARGB plane that C would dereference while it is missing.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the totals are stored as float, as C stores them"
+)]
+pub fn webp_picture_distortion(
+    src: &WebPPicture<'_>,
+    reference: &WebPPicture<'_>,
+    kind: i32,
+    results: &mut [f32; 5],
+) -> bool {
+    if src.width != reference.width || src.height != reference.height {
+        return false;
+    }
+    // VP8SSIMDspInit() only assigns portable pointers (ADR 0003).
+    let width = src.width;
+    let height = src.height;
+    let Some(mut p0) = webp_picture_view(src, 0, 0, width, height) else {
+        return false;
+    };
+    let Some(mut p1) = webp_picture_view(reference, 0, 0, width, height) else {
+        return false;
+    };
+
+    // We always measure distortion in ARGB space.
+    if p0.use_argb == 0 && webp_picture_yuva_to_argb(&mut p0).is_err() {
+        return false;
+    }
+    if p1.use_argb == 0 && webp_picture_yuva_to_argb(&mut p1).is_err() {
+        return false;
+    }
+
+    let stride0 = 4 * index(p0.argb_stride);
+    let stride1 = 4 * index(p1.argb_stride);
+    let bytes0 = argb_bytes(argb_samples(
+        &p0.argb_storage,
+        p0.argb.expect("the ARGB plane of the view is set"),
+    ));
+    let bytes1 = argb_bytes(argb_samples(
+        &p1.argb_storage,
+        p1.argb.expect("the ARGB plane of the view is set"),
+    ));
+
+    let mut total_distortion = 0.0_f64;
+    let mut total_size = 0.0_f64;
+    for (channel, channel_result) in results.iter_mut().take(4).enumerate() {
+        // results are reported as BGRA
+        let offset = channel ^ BLUE_OFFSET;
+        let mut distortion = 0.0_f32;
+        if !webp_plane_distortion(
+            &bytes0[offset..],
+            stride0,
+            &bytes1[offset..],
+            stride1,
+            width,
+            height,
+            4,
+            kind,
+            &mut distortion,
+            channel_result,
+        ) {
+            return false;
+        }
+        total_distortion += f64::from(distortion);
+        total_size += f64::from(width * height);
+    }
+
+    results[4] = if kind == 1 {
+        get_log_ssim(total_distortion, total_size) as f32
+    } else {
+        get_psnr(total_distortion, total_size) as f32
     };
     true
 }
