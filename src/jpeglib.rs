@@ -31,23 +31,26 @@
 //! one owned buffer with a list of row offsets ([`SampleArray`],
 //! [`BlockArray`]), viewed through [`JSAMPROWS`] and [`JSAMPROWS_MUT`].
 //!
-//! `jpeg_decompress_struct` holds the fields of work packages 1 to 4. A later
-//! package adds a field when it translates the code that fills it: the slots
-//! `main`, `post`, `upsample`, `cconvert` and `cquantize` with their
-//! interfaces, and `colormap` (ADR 0005, "Module interfaces arrive with their
-//! modules"). Work package 4 adds `idct`, the implementation of `coef`,
+//! `jpeg_decompress_struct` holds the fields of work packages 1 to 5. Work
+//! package 4 adds `idct`, the implementation of `coef`,
 //! `jpeg_component_info::dct_table` and `sample_range_limit`, which the IDCT
-//! is the first to read; `jdmaster.c` fills it in work package 6. The
-//! function declarations of this header are translated in the modules that
-//! define them.
+//! is the first to read; `jdmaster.c` fills it in work package 6. Work
+//! package 5 adds `main`, `post`, `upsample` and `cconvert`. The color
+//! quantizer's slot `cquantize` and `colormap` serve color quantization,
+//! which is out of scope (ADR 0001), and are absent (ADR 0005, "Module
+//! interfaces arrive with their modules"). The function declarations of this
+//! header are translated in the modules that define them.
 
 use core::ffi::c_long;
 
 use crate::jdcoefct::my_coef_controller;
+use crate::jdcolor::my_color_deconverter;
 use crate::jddctmgr::{multiplier_table, my_idct_controller};
 use crate::jdinput::my_input_controller;
+use crate::jdmainct::my_main_controller;
 use crate::jdmarker::my_marker_reader;
 use crate::jdmaster::my_decomp_master;
+use crate::jdpostct::my_post_controller;
 use crate::jerror::{ErrorExit, jpeg_error_methods};
 use crate::jmemmgr::my_memory_mgr;
 use crate::jmorecfg::{
@@ -55,7 +58,9 @@ use crate::jmorecfg::{
     UINT16,
 };
 use crate::jpegint::{
-    jpeg_d_coef_controller, jpeg_entropy_decoder, jpeg_entropy_decoder_impl, jpeg_inverse_dct,
+    jpeg_color_deconverter, jpeg_d_coef_controller, jpeg_d_main_controller, jpeg_d_post_controller,
+    jpeg_entropy_decoder, jpeg_entropy_decoder_impl, jpeg_inverse_dct, jpeg_upsampler,
+    jpeg_upsampler_impl,
 };
 
 // upstream: src/jpeglib.h DCTSIZE
@@ -88,6 +93,34 @@ pub const D_MAX_BLOCKS_IN_MCU: usize = 10;
 /// `prepare_range_limit_table` skips "to allow negative subscripts of simple
 /// table". Not an upstream item.
 pub const SAMPLE_RANGE_LIMIT_OFFSET: usize = (crate::jmorecfg::MAXJSAMPLE + 1) as usize;
+
+/// C's `sample_range_limit` pointer as the color converters and merged
+/// upsamplers index it: below zero too, down to `-(MAXJSAMPLE + 1)`. Not an
+/// upstream item.
+#[derive(Clone, Copy, Debug)]
+pub struct SampleRangeLimit<'a> {
+    /// The whole allocation of `prepare_range_limit_table`.
+    pub table: &'a [JSAMPLE],
+}
+
+impl SampleRangeLimit<'_> {
+    /// `range_limit[i]`.
+    ///
+    /// # Panics
+    ///
+    /// When `i` lies outside the table, where C would read out of bounds.
+    #[expect(
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        reason = "C's signed subscript of a pointer into the table"
+    )]
+    #[inline]
+    #[must_use]
+    #[expect(clippy::cast_possible_truncation, reason = "C's conversions")]
+    pub fn at(&self, i: i32) -> JSAMPLE {
+        self.table[(SAMPLE_RANGE_LIMIT_OFFSET as i32 + i) as usize]
+    }
+}
 
 // upstream: src/jpeglib.h JBLOCK
 /// One block of coefficients.
@@ -195,6 +228,65 @@ impl<'a, T> RowList<'a, T> {
     }
 }
 
+/// Read access to rows through a pointer into a longer row list: C's
+/// `JSAMPARRAY` that points into the middle of a list, so that the callee
+/// may also index rows before its first one, as `jdsample.c`'s fancy
+/// upsamplers read the context row above through `jdmainct.c`'s "funny"
+/// pointer lists (ADR 0005, "Storage and row lists"). Row `i` is
+/// `rows[origin + i]`; pointer arithmetic on the array (`input_buf[ci] + n`)
+/// is [`RowListAt::offset`]. Not an upstream item.
+#[derive(Clone, Copy, Debug)]
+pub struct RowListAt<'a, T> {
+    /// The storage the rows lie in.
+    pub storage: &'a [T],
+    /// The whole row list: the offset of each row in `storage`.
+    pub rows: &'a [usize],
+    /// The index in `rows` of row 0.
+    pub origin: usize,
+}
+
+/// Input sample rows that may be read before row 0, C's `JSAMPARRAY` into a
+/// longer pointer list.
+#[expect(non_camel_case_types, reason = "named after the C type")]
+pub type JSAMPROWS_AT<'a> = RowListAt<'a, JSAMPLE>;
+
+impl<'a, T> RowListAt<'a, T> {
+    /// Row `i` relative to the origin, from its start to the end of the
+    /// storage; `i` may be negative down to `-origin`.
+    ///
+    /// # Panics
+    ///
+    /// When the row lies outside the list.
+    #[must_use]
+    pub fn row(&self, i: isize) -> &'a [T] {
+        let index = self
+            .origin
+            .checked_add_signed(i)
+            .expect("row before the start of the pointer list");
+        &self.storage[self.rows[index]..]
+    }
+
+    /// The rows from row `n` on: C's `array + n`.
+    #[must_use]
+    pub fn offset(&self, n: usize) -> RowListAt<'a, T> {
+        RowListAt {
+            storage: self.storage,
+            rows: self.rows,
+            origin: self.origin + n,
+        }
+    }
+
+    /// The rows from row 0 on as a plain row list, which cannot reach the
+    /// rows before it.
+    #[must_use]
+    pub fn rows_from_origin(&self) -> RowList<'a, T> {
+        RowList {
+            storage: self.storage,
+            rows: &self.rows[self.origin..],
+        }
+    }
+}
+
 /// Write access to rows: either rows of one [`RowArray`] (`Shared`), or rows
 /// that an application passes and that may lie anywhere (`Separate`), as
 /// `jpeg_read_scanlines` and `jpeg_read_raw_data` receive them (ADR 0005,
@@ -268,6 +360,25 @@ impl<'r, T: Copy> RowListMut<'_, 'r, T> {
                 rows: &rows[n..],
             },
             RowListMut::Separate(rows) => RowListMut::Separate(&mut rows[n..]),
+        }
+    }
+
+    /// Rows `first` and `first + 1` at once, for a routine that writes two
+    /// rows of one output array, as `jdmerge.c`'s `merged_2v_upsample` does.
+    ///
+    /// # Panics
+    ///
+    /// When `Shared` rows are not in ascending order of storage.
+    pub fn two_rows_mut(&mut self, first: usize) -> (&mut [T], &mut [T]) {
+        match self {
+            RowListMut::Shared { storage, rows } => {
+                let (low, high) = storage.split_at_mut(rows[first + 1]);
+                (&mut low[rows[first]..], high)
+            }
+            RowListMut::Separate(rows) => {
+                let (low, high) = rows.split_at_mut(first + 1);
+                (&mut *low[first], &mut *high[0])
+            }
         }
     }
 
@@ -782,8 +893,12 @@ pub struct jpeg_decompress_struct<'src> {
 
     /// Master control module.
     pub master: Option<Box<my_decomp_master>>,
+    /// Main buffer control (downsampled-data buffer).
+    pub main: Option<Box<my_main_controller>>,
     /// Coefficient buffer control.
     pub coef: Option<Box<my_coef_controller>>,
+    /// Postprocessing buffer control.
+    pub post: Option<Box<my_post_controller>>,
     /// Input control module.
     pub inputctl: Option<Box<my_input_controller>>,
     /// Marker reading and parsing.
@@ -792,6 +907,10 @@ pub struct jpeg_decompress_struct<'src> {
     pub entropy: Option<Box<jpeg_entropy_decoder_impl>>,
     /// Inverse DCT, which also dequantizes.
     pub idct: Option<Box<my_idct_controller>>,
+    /// Upsampling, which also does color conversion when merged.
+    pub upsample: Option<Box<jpeg_upsampler_impl>>,
+    /// Color conversion.
+    pub cconvert: Option<Box<my_color_deconverter>>,
 }
 
 impl<'src> jpeg_decompress_struct<'src> {
@@ -878,11 +997,15 @@ impl<'src> jpeg_decompress_struct<'src> {
             Al: 0,
             unread_marker: 0,
             master: None,
+            main: None,
             coef: None,
+            post: None,
             inputctl: None,
             marker: None,
             entropy: None,
             idct: None,
+            upsample: None,
+            cconvert: None,
         }
     }
 
@@ -1010,6 +1133,53 @@ impl<'src> jpeg_decompress_struct<'src> {
         &mut self.coef.as_deref_mut().expect("cinfo->coef is NULL").pub_
     }
 
+    /// `cinfo->main`: the public part of the main buffer controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn main(&self) -> &jpeg_d_main_controller {
+        &self.main.as_deref().expect("cinfo->main is NULL").pub_
+    }
+
+    /// `cinfo->post`: the public part of the postprocessing controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn post(&self) -> &jpeg_d_post_controller {
+        &self.post.as_deref().expect("cinfo->post is NULL").pub_
+    }
+
+    /// `cinfo->upsample`: the public part of whichever upsampler it holds.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn upsample(&self) -> &jpeg_upsampler {
+        self.upsample
+            .as_deref()
+            .expect("cinfo->upsample is NULL")
+            .pub_()
+    }
+
+    /// `cinfo->cconvert`: the public part of the color deconverter.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn cconvert(&self) -> &jpeg_color_deconverter {
+        &self
+            .cconvert
+            .as_deref()
+            .expect("cinfo->cconvert is NULL")
+            .pub_
+    }
+
     /// `cinfo->idct`: the public part of the IDCT controller.
     ///
     /// # Panics
@@ -1018,6 +1188,21 @@ impl<'src> jpeg_decompress_struct<'src> {
     #[must_use]
     pub fn idct(&self) -> &jpeg_inverse_dct {
         &self.idct.as_deref().expect("cinfo->idct is NULL").pub_
+    }
+
+    /// `cinfo->sample_range_limit` for signed subscripts.
+    ///
+    /// # Panics
+    ///
+    /// When the table is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn sample_range_limit_signed(&self) -> SampleRangeLimit<'_> {
+        SampleRangeLimit {
+            table: self
+                .sample_range_limit
+                .as_deref()
+                .expect("cinfo->sample_range_limit is NULL"),
+        }
     }
 
     /// `cinfo->sample_range_limit`: the table from C's pointer on.

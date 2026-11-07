@@ -32,7 +32,10 @@
 //! `jpeg_d_coef_controller` that `jdinput.c` calls (ADR 0005, decisions of
 //! 2026-11-07); work package 3 completes `jpeg_entropy_decoder`, and work
 //! package 4 completes `jpeg_d_coef_controller` and adds
-//! `jpeg_inverse_dct`. The compression interfaces, the `CSTATE_*` values, `JDIFF` and
+//! `jpeg_inverse_dct`, and work package 5 adds `jpeg_d_main_controller`,
+//! `jpeg_d_post_controller`, `jpeg_upsampler` and `jpeg_color_deconverter`.
+//! `jpeg_color_quantizer` serves color quantization (ADR 0001) and is
+//! absent. The compression interfaces, the `CSTATE_*` values, `JDIFF` and
 //! the `jinit_*` declarations of untranslated modules are out of scope (ADR
 //! 0001). `MALLOC` has no Rust form: storage comes from Rust's allocator
 //! (ADR 0005, "Owned storage"). `SHIFT_TEMPS` declares nothing without
@@ -43,8 +46,8 @@ use core::ffi::{c_long, c_ulong};
 use crate::jerror::ErrorExit;
 use crate::jmorecfg::{JDIMENSION, MAX_COMPONENTS};
 use crate::jpeglib::{
-    J_COLOR_SPACE, JBLOCK, JSAMPROWS_MUT, j_decompress_ptr, jpeg_component_info,
-    jpeg_decompress_struct, jvirt_barray_ptr,
+    J_COLOR_SPACE, JBLOCK, JSAMPROWS, JSAMPROWS_AT, JSAMPROWS_MUT, j_decompress_ptr,
+    jpeg_component_info, jpeg_decompress_struct, jvirt_barray_ptr,
 };
 
 // upstream: src/jpegint.h J_BUF_MODE
@@ -255,6 +258,58 @@ pub struct jpeg_entropy_decoder {
     pub insufficient_data: bool,
 }
 
+// upstream: src/jpegint.h jpeg_d_main_controller
+/// Main buffer control (downsampled-data buffer). `process_data_12` and
+/// `process_data_16` are absent (ADR 0005, "Methods are function pointers").
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_d_main_controller {
+    /// Prepares for a pass in `pass_mode`. Returns a `Result` because an
+    /// unsupported mode is an error exit.
+    pub start_pass: fn(j_decompress_ptr<'_, '_>, J_BUF_MODE) -> Result<(), ErrorExit>,
+    /// Decompresses and postprocesses into `output_buf` from row
+    /// `*out_row_ctr` on, up to `out_rows_avail` rows. `None` until
+    /// `start_pass` selects the routine, where C leaves the pointer unset.
+    #[expect(clippy::type_complexity, reason = "C's method pointer type")]
+    pub process_data: Option<
+        fn(
+            j_decompress_ptr<'_, '_>,
+            JSAMPROWS_MUT<'_, '_>,
+            &mut JDIMENSION,
+            JDIMENSION,
+        ) -> Result<(), ErrorExit>,
+    >,
+}
+
+/// The type of `jpeg_d_post_controller::post_process_data` and
+/// `jpeg_upsampler::upsample`: C's `input_buf` is a row list per component
+/// that may be read before its first row (`JSAMPROWS_AT`), and the two
+/// counters are the caller's. Not an upstream item.
+#[expect(non_camel_case_types, reason = "named after the C methods")]
+pub type upsample_method_ptr = fn(
+    j_decompress_ptr<'_, '_>,
+    &[JSAMPROWS_AT<'_>],
+    &mut JDIMENSION,
+    JDIMENSION,
+    JSAMPROWS_MUT<'_, '_>,
+    &mut JDIMENSION,
+    JDIMENSION,
+);
+
+// upstream: src/jpegint.h jpeg_d_post_controller
+/// Postprocessing buffer control. `post_process_data_12` and
+/// `post_process_data_16` are absent.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_d_post_controller {
+    /// Prepares for a pass in `pass_mode`; an unsupported mode is an error
+    /// exit.
+    pub start_pass: fn(j_decompress_ptr<'_, '_>, J_BUF_MODE) -> Result<(), ErrorExit>,
+    /// Postprocesses row groups of `input_buf` into `output_buf`; `None`
+    /// until `start_pass` selects the routine.
+    pub post_process_data: Option<upsample_method_ptr>,
+}
+
 // upstream: src/jpegint.h jpeg_d_coef_controller
 /// Coefficient buffer control. `decompress_data_12` and `decompress_data_16`
 /// serve other precisions and lossless mode and are absent (ADR 0005,
@@ -354,6 +409,70 @@ impl jpeg_entropy_decoder_impl {
             jpeg_entropy_decoder_impl::huff_entropy_decoder(entropy) => &mut entropy.pub_,
             jpeg_entropy_decoder_impl::phuff_entropy_decoder(entropy) => &mut entropy.pub_,
             jpeg_entropy_decoder_impl::arith_entropy_decoder(entropy) => &mut entropy.pub_,
+        }
+    }
+}
+
+// upstream: src/jpegint.h jpeg_upsampler
+/// Upsampling (which also calls the color converter, or does the color
+/// conversion itself when merged). `upsample_12`, `upsample_16` and the SIMD
+/// slots are absent.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_upsampler {
+    /// Prepares for an output pass.
+    pub start_pass: fn(j_decompress_ptr<'_, '_>),
+    /// Upsamples and color-converts row groups of `input_buf` into
+    /// `output_buf`.
+    pub upsample: upsample_method_ptr,
+    /// `true` if need rows above & below.
+    pub need_context_rows: bool,
+}
+
+/// The type of `jpeg_color_deconverter::color_convert`. The routine only
+/// reads the object, so it takes `cinfo` shared (ADR 0005, "Methods that
+/// only read the object"); `input_buf` is a row list per component. Not an
+/// upstream item.
+#[expect(non_camel_case_types, reason = "named after the C method")]
+pub type color_convert_method_ptr =
+    fn(&jpeg_decompress_struct<'_>, &[JSAMPROWS<'_>], JDIMENSION, JSAMPROWS_MUT<'_, '_>, i32);
+
+// upstream: src/jpegint.h jpeg_color_deconverter
+/// Colorspace conversion. `color_convert_12`, `color_convert_16` and
+/// `color_convert_simd` are absent.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_color_deconverter {
+    /// Prepares for an output pass.
+    pub start_pass: fn(j_decompress_ptr<'_, '_>),
+    /// Converts `num_rows` rows of `input_buf` from row `input_row` on into
+    /// `output_buf`; `None` until `jinit_color_deconverter` selects the
+    /// routine.
+    pub color_convert: Option<color_convert_method_ptr>,
+}
+
+/// The implementations of the `upsample` slot (ADR 0005, "Module objects").
+/// Not an upstream item.
+#[expect(non_camel_case_types, reason = "named after the C struct")]
+#[derive(Debug)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the slot boxes the upsampler, as C allocates it"
+)]
+pub enum jpeg_upsampler_impl {
+    /// `jdsample.c`: separate upsampling and color conversion.
+    my_upsampler(crate::jdsample::my_upsampler),
+    /// `jdmerge.c`: merged upsampling and color conversion.
+    my_merged_upsampler(crate::jdmerge::my_merged_upsampler),
+}
+
+impl jpeg_upsampler_impl {
+    /// The public part of whichever implementation the slot holds.
+    #[must_use]
+    pub fn pub_(&self) -> &jpeg_upsampler {
+        match self {
+            jpeg_upsampler_impl::my_upsampler(upsample) => &upsample.pub_,
+            jpeg_upsampler_impl::my_merged_upsampler(upsample) => &upsample.pub_,
         }
     }
 }
