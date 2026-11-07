@@ -10,30 +10,13 @@
 
 #[path = "support/oracle.rs"]
 mod oracle;
+#[path = "support/wp9_pictures.rs"]
+mod pictures;
+
+use pictures::{Case, Rng, hex, with_picture};
 
 use oracle::{Fields, Oracle};
-use webp::enc::picture_psnr_enc::webp_plane_distortion;
-
-/// SplitMix64, a small deterministic generator for the cases.
-struct Rng(u64);
-
-impl Rng {
-    fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-        z ^ (z >> 31)
-    }
-
-    fn byte(&mut self) -> u8 {
-        self.next_u64() as u8
-    }
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
+use webp::enc::picture_psnr_enc::{webp_picture_distortion, webp_plane_distortion};
 
 #[test]
 fn plane_distortion_matches_the_c_metrics_bit_for_bit() {
@@ -102,6 +85,63 @@ fn plane_distortion_matches_the_c_metrics_bit_for_bit() {
     }
     assert!(succeeded > 0, "no metric succeeded");
     assert!(nonzero > 0, "every metric result was the maximum");
+    let c_output = probe.run::<&str>(&[], stdin.as_bytes()).success().fields();
+    assert_eq!(c_output, expected);
+}
+
+#[test]
+fn picture_distortion_matches_the_c_distortion() {
+    let Some(oracle) = Oracle::locate("picture_distortion_matches_the_c_distortion") else {
+        return;
+    };
+    let probe = oracle.probe("wp9", "picture_distortion");
+
+    let mut rng = Rng(0x5eed_0051);
+    let mut stdin = String::new();
+    let mut expected = Fields::new();
+    let mut succeeded = 0;
+    let mut refused = 0;
+    for index in 0..48_u32 {
+        let kind = (index % 3) as i32;
+        let a_argb = i32::from(index % 2 == 0);
+        let b_argb = i32::from(index % 4 < 2);
+        let a_colorspace = if index % 5 == 0 { 0 } else { 4 };
+        let b_colorspace = if index % 3 == 0 { 0 } else { 4 };
+        let mut a = Case::random(&mut rng, a_argb, a_colorspace);
+        let (width, height) = (a.width, a.height);
+        // Every eighth pair has different widths, and the call refuses it.
+        let b_width = if index % 8 == 7 { width + 1 } else { width };
+        let mut b = Case::with_size(&mut rng, b_argb, b_colorspace, b_width, height);
+        stdin.push_str(&format!(
+            "distortion {kind} {} {} {} {}\n",
+            a.command_fields(),
+            a.plane_arguments(),
+            b.command_fields(),
+            b.plane_arguments()
+        ));
+        let mut results = [-1.0_f32; 5];
+        let ok = with_picture(&mut a, |picture_a| {
+            with_picture(&mut b, |picture_b| {
+                webp_picture_distortion(picture_a, picture_b, kind, &mut results)
+            })
+        });
+        if ok {
+            succeeded += 1;
+        } else {
+            refused += 1;
+        }
+        let mut block = Fields::new().with("ret", i32::from(ok));
+        for (channel, value) in results.iter().enumerate() {
+            block = block.with(
+                &format!("result{channel}"),
+                format!("{:08x}", value.to_bits()),
+            );
+        }
+        expected.0.extend(block.0);
+    }
+    // The cases must include pictures that measure and pairs that the call refuses.
+    assert!(succeeded > 0, "no picture pair was measured");
+    assert!(refused > 0, "no picture pair was refused");
     let c_output = probe.run::<&str>(&[], stdin.as_bytes()).success().fields();
     assert_eq!(c_output, expected);
 }

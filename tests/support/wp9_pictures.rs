@@ -52,6 +52,17 @@ impl Case {
     pub fn random(rng: &mut Rng, use_argb: i32, colorspace: u32) -> Case {
         let width = 1 + rng.below(20) as usize;
         let height = 1 + rng.below(20) as usize;
+        Case::with_size(rng, use_argb, colorspace, width, height)
+    }
+
+    /// A case of the given size, with the samples that `random` draws.
+    pub fn with_size(
+        rng: &mut Rng,
+        use_argb: i32,
+        colorspace: u32,
+        width: usize,
+        height: usize,
+    ) -> Case {
         let y_stride = width + rng.below(3) as usize;
         let uv_width = width.div_ceil(2);
         let uv_stride = uv_width + rng.below(3) as usize;
