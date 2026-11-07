@@ -123,7 +123,15 @@ depends on how that module uses them (`comp_info`, `cur_comp_info`,
 `jpeg_component_info::dct_table`), because only that package can settle their
 signatures and borrow splits. `jpeg_abort`, which clears
 `master->marker_list_end` and `marker_list`, is translated by work package 2
-with `jpeg_CreateDecompress`, which creates both.
+with `jpeg_CreateDecompress`, which creates both. Work package 2 also
+translates the struct of `jdmaster.h` (the data fields of
+`jpeg_decomp_master` and `my_decomp_master`), because `jpeg_CreateDecompress`
+creates it, and the parts of `jpeg_entropy_decoder` and
+`jpeg_d_coef_controller` that `jdinput.c`'s `start_input_pass` calls; their
+slots are enums without variants, always `None`, until work packages 3 and 4
+add the implementations. A function that calls a module of a later package
+and that its own package can leave out, such as `jpeg_finish_decompress`
+calling `master->finish_output_pass`, arrives with that later package.
 
 **Public part.** The public struct from `jpegint.h` is the first field `pub_`
 of each private struct, as `pub` is in C: `entropy->pub.insufficient_data`
@@ -163,8 +171,10 @@ the box back and takes it again afterwards, so that state the callee writes
 through `cinfo` is visible as it is in C. A module found absent where C would
 find it is a translation error and panics; tests find it. A helper that C
 gives only `cinfo` but that works on the module receives the module as a
-second parameter. Each package records in its status entry the calls where it
-puts a module back.
+second parameter. A function that holds no borrow of its module across a
+call may instead reach the module through `cinfo` each time it uses it
+(`cinfo.marker_mut().cur_marker`), which needs no put-back. Each package
+records in its status entry the calls where it puts a module back.
 
 **Public hooks.** The objects an application supplies (`jpeg_error_mgr`,
 `jpeg_source_mgr`, `jpeg_progress_mgr`, the marker processors of
@@ -226,6 +236,15 @@ manager methods, marker processors) also return `Result`, so an application
 can stop decoding from any point where a C application could `longjmp`.
 
 ### Suspending data sources
+
+**Marker processors and the saved-marker list.** A marker processor is
+`jpeg_marker_parser_method`, either a library routine (`fn`) or an
+application's processor (`Box<dyn jpeg_marker_processor>`), which is taken out
+of the marker reader for its call. The saved-marker list is a linked list of
+boxes that drops iteratively; `master.marker_list_end` holds the position of
+its tail, `None` where C's pointer is null. `jpeg_mem_src`'s test whether the
+installed source is its own (`init_source == init_mem_source`) is the source
+methods' `is_mem_source`.
 
 **Source manager.** `jpeg_source_mgr<'src>` keeps `next_input_byte` as an
 offset and `bytes_in_buffer` as a count into its current buffer, which is a
@@ -415,6 +434,15 @@ The maintainer decided two questions that work package 1 raised:
    interfaces arrive with their modules" above).
 2. **`jpeg_abort`** moves to work package 2, which creates `master` and the
    saved-marker list.
+
+## Decisions for work package 2 (2026-11-07)
+
+1. **Master struct.** Work package 2 translates `jdmaster.h`'s struct, and the
+   functions that call later packages' modules arrive with those packages.
+2. **Interfaces that `jdinput.c` calls.** Work package 2 adds the methods of
+   `jpeg_entropy_decoder` and `jpeg_d_coef_controller` that
+   `start_input_pass` uses, with empty slots, so that `jdinput.c` is
+   translated in full.
 
 ## Review triggers
 

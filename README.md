@@ -10,10 +10,11 @@ fourth sister port next to
 JPEG input, including scaled decoding for shrink-on-load, to
 [Ferrixel](https://github.com/sebastian-software/ferrixel).
 
-**Status:** common infrastructure. The C oracle, the probe harness, the
-bit-test inventory and the module skeleton exist, and work package 1 has
-translated the types, error codes and messages, the memory manager and the
-utilities; the decoder itself is not translated yet. See the
+**Status:** header reading. The C oracle, the probe harness, the bit-test
+inventory and the module skeleton exist; work package 1 has translated the
+types, error codes and messages, the memory manager and the utilities, and
+work package 2 the input side up to `jpeg_read_header`. Entropy decoding and
+everything after it are not translated yet. See the
 [port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
 [port status](docs/PORT_STATUS.md) for what is verified.
 

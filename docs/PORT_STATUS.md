@@ -3,11 +3,13 @@
 | WP | State | Evidence |
 | --- | --- | --- |
 | 0 Tooling and representation | done | Oracle, probes, bit-test inventory, unit map, check script and CI below; [ADR 0005](adr/0005-rust-representation.md) accepted |
-| 1 Common infrastructure | in review | 11 modules translated; message, memory and utility probes below |
-| 2–11 | not started | — |
+| 1 Common infrastructure | done | 11 modules translated; message, memory and utility probes below |
+| 2 Input and markers | in review | `jpeg_read_header` and the input side translated; header probe below |
+| 3–11 | not started | — |
 
-Work package 1's 11 modules are translated. The other 26 modules under `src/`
-hold only their provenance headers ([tools/units.json](../tools/units.json)).
+Work packages 1 and 2 are translated: 16 modules, and the struct of
+`jdmaster.h`. The other 21 modules under `src/` hold only their provenance
+headers ([tools/units.json](../tools/units.json)).
 
 ## Work package 0
 
@@ -170,3 +172,82 @@ writing it. `jinit_memory_mgr` leaves `last_rowsperchunk` uninitialized until
 the first `alloc_sarray` or `alloc_barray`, and the tables of
 `jpeg_alloc_quant_table` and `jpeg_alloc_huff_table` come back uninitialized;
 the port starts them at zero.
+
+## Work package 2
+
+**Translated.**
+
+| Module | Upstream | Content |
+| --- | --- | --- |
+| `jdapimin` | `jdapimin.c` | `jpeg_CreateDecompress` and `jpeg_create_decompress`, `jpeg_destroy_decompress`, `jpeg_abort_decompress`, `default_decompress_parms`, `jpeg_read_header`, `jpeg_consume_input`, `jpeg_input_complete`, `jpeg_has_multiple_scans` |
+| `jdatasrc` | `jdatasrc.c` | the memory source: `init_mem_source`, `fill_mem_input_buffer`, `skip_input_data`, `term_source`, `jpeg_mem_src` |
+| `jdinput` | `jdinput.c` | all functions, including `start_input_pass` |
+| `jdmarker` | `jdmarker.c` | all functions and the input macros |
+| `jdicc` | `jdicc.c` | `jpeg_read_icc_profile` |
+| `jcomapi` | `jcomapi.c` | `jpeg_abort`, moved from work package 1 |
+| `jdmaster` | `jdmaster.h` | `my_decomp_master` with the data fields of `jpeg_decomp_master` |
+| `jpegint`, `jpeglib` | `jpegint.h`, `jpeglib.h` | `jpeg_input_controller`, `jpeg_marker_reader`, the methods of `jpeg_entropy_decoder` and `jpeg_d_coef_controller` that `start_input_pass` calls, `jpeg_marker_struct`, `jpeg_marker_parser_method`, the object's `comp_info`, `cur_comp_info`, `coef_bits`, `marker_list` and its `master`, `coef`, `inputctl`, `marker` and `entropy` slots, `SIZEOF_jpeg_decompress_struct` |
+
+Work package 1's `jmorecfg` lacked `MAX_COMPONENTS`; it is added.
+
+**Not translated.** `jpeg_finish_decompress`, which calls
+`master->finish_output_pass`, arrives with `jdmaster.c` in work package 6; the
+methods of `jpeg_decomp_master` with it. The `entropy` and `coef` slots stay
+empty until work packages 3 and 4, so `start_input_pass` is translated but not
+reached: `jpeg_read_header` stops at the first SOS (ADR 0005, decisions of
+2026-11-07). The stdio source is out of scope (`tools/units.json`).
+
+**Representation.** Modules are reached through `cinfo` each time they are
+used; no function holds one across a call, so no module is taken out and put
+back. The source manager's, the error manager's and an application marker
+processor's trait objects are taken out for their calls
+(`jpeglib::call_*_source`, `jerror::call_*`, `jdmarker`'s `call_processor`).
+`cur_comp_info` holds indexes into `comp_info`. The saved-marker list is a
+linked list of boxes whose tail position is `master.marker_list_end`. The
+input macros work on a copy of the source position (`InputVars`) and keep the
+partial state of a suspension: a two-byte value whose second byte is missing
+holds the first byte shifted left by 8, as C's `INPUT_2BYTES` leaves it.
+
+**Verified against the oracle.** The probe `tools/oracle/probes/wp2/header`
+runs an API sequence and prints every message that `emit_message` receives
+(level, code and text), each call's result, a line per suspension, and then
+the object: header fields, decompression defaults, component layout,
+quantization, Huffman and arithmetic tables, saved markers, the master, input
+and marker modules, the source position and the memory pools.
+`tests/wp2_header.rs` runs the same sequences on the port
+(`tests/support/wp2.rs`) and compares the outputs exactly:
+
+| Test | Inputs |
+| --- | --- |
+| `test_images_match_the_oracle` | `testorig.jpg`, `testimgint.jpg`, `testimgari.jpg`, `monkey12.jpg` (12-bit), with tracing, saved markers, ICC extraction, application processors, `jpeg_consume_input`, `jpeg_input_complete`, `jpeg_has_multiple_scans`, a second `jpeg_read_header` and `jpeg_abort_decompress` |
+| `encoder_variants_match_the_oracle` | 20 `cjpeg` variants of `testorig.ppm`: progressive, arithmetic, both, restart intervals in rows and blocks, sampling 1x1, 2x1, 1x2, 4x1, 3x2, grayscale, RGB, optimized tables, two quality levels, swapped quantization slots, baseline at quality 5, 12-bit sequential and progressive, embedded `test1.icc` (nine APP2 markers) and `test3.icc`; read whole and suspending |
+| `restart_markers_match_the_oracle` | `read_restart_marker` and `jpeg_resync_to_restart` on the restart variants, scanning the entropy-coded data, also suspending |
+| `marker_streams_match_the_oracle` | 95 streams built from `testorig.jpg`'s segments, one branch each: JFIF versions and thumbnails, JFXX extensions, Adobe transforms for three and four components, component IDs without markers, two, five and eleven components, every SOF error and unsupported SOF type, SOS errors, DQT, DHT, DAC and DRI variants and errors, COM, every APPn, DNL, reserved markers, garbage, fill bytes, stuffed zeros, duplicate SOI, missing SOI, tables-only streams (with `require_image` off and a second datastream), bogus marker lengths; each with tracing, saved markers, suspension and application processors |
+| `icc_profiles_match_the_oracle` | 11 sets of APP2 markers: chunked, missing, duplicate, out-of-range and inconsistent sequence numbers, empty, foreign and short markers, saved whole, cut to 20 bytes, and not saved |
+| `truncations_match_the_oracle` | every truncation of `testorig.jpg`'s header (627 lengths), and of the arithmetic progressive and both ICC variants at their first 48 and last 700 bytes and 24 points in between |
+| `mutations_match_the_oracle` | 2 422 single-byte mutations of `testorig.jpg`'s 623-byte header: each byte set to 0x00, 0xFF, xor 0x55 and plus 1 |
+| `suspension_matches_the_oracle` | suspending input that releases 1, 2, 3, 13, 64 or 100 000 bytes per round, with and without saved markers and ICC extraction, and input that ends early |
+| `api_sequences_match_the_oracle` | `jpeg_CreateDecompress` with a wrong version or struct size, `jpeg_read_header` in a wrong state, saved-marker and processor requests for non-APPn codes, a length limit above `MAX_ALLOC_CHUNK`, empty input |
+
+The oracle's sizes of the object (632 bytes), `my_marker_reader`,
+`my_input_controller` and `my_decomp_master` are verified: the probe prints
+`sizeof(struct jpeg_decompress_struct)`, and the pool records it prints after
+`jpeg_create_decompress` contain the C size of each module it allocates.
+Locally on macOS ARM64 (Apple Clang 21), all of this passes against the
+`release` and `asan-ubsan` oracles in the dev, release and `checked`
+profiles.
+
+The probe links `tools/oracle/probes/wp2/support/wp2_support.c`, which
+defines the eight functions of `jmemnobs.c` with `calloc` instead of `malloc`,
+so that memory a failing or suspended call leaves unwritten is zero in C as in
+the port and can be printed; the library is unmodified. Upstream's fuzz seed
+corpus is not part of the pinned tree; the generated variants, streams,
+truncations and mutations stand in for it, and the decompression fuzzers run
+in work package 7.
+
+**Differences by design.** With `QUANT_2PASS_SUPPORTED` treated as undefined,
+`default_decompress_parms` sets `two_pass_quantize` to `FALSE` where the
+oracle sets `TRUE`; the test maps that one field. Lossless files are out of
+scope: with `D_LOSSLESS_SUPPORTED` treated as undefined, a 16-bit lossless
+header fails with `JERR_BAD_PRECISION` where the oracle reads it, which
+`lossless_files_are_out_of_scope` asserts instead of comparing.
