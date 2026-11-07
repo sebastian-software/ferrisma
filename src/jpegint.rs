@@ -27,8 +27,8 @@
 //! module, together with its private struct and its slot in
 //! `jpeg_decompress_struct` (ADR 0005, "Module interfaces arrive with their
 //! modules"). Work package 2 adds `jpeg_input_controller` and
-//! `jpeg_marker_reader`, the data fields of `jpeg_decomp_master` (its methods
-//! arrive with `jdmaster.c` in work package 6), and the part of
+//! `jpeg_marker_reader`, the data fields of `jpeg_decomp_master` (work
+//! package 6 adds its methods with `jdmaster.c`), and the part of
 //! `jpeg_d_coef_controller` that `jdinput.c` calls (ADR 0005, decisions of
 //! 2026-11-07); work package 3 completes `jpeg_entropy_decoder`, and work
 //! package 4 completes `jpeg_d_coef_controller` and adds
@@ -161,13 +161,20 @@ pub fn RIGHT_SHIFT(x: JLONG, shft: u32) -> JLONG {
 }
 
 // upstream: src/jpegint.h jpeg_decomp_master
-/// Master control module: its state variables. The methods
-/// `prepare_for_output_pass` and `finish_output_pass` arrive with
-/// `jdmaster.c` (work package 6), and `WITH_PROFILE` is off.
+/// Master control module. `WITH_PROFILE` is off.
 #[expect(non_camel_case_types, reason = "C type name")]
 #[expect(non_snake_case, reason = "C field names")]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct jpeg_decomp_master {
+    /// Sets up the modules for an output pass; `None` until
+    /// `jinit_master_decompress` assigns it, where C's `memset` leaves it
+    /// null.
+    pub prepare_for_output_pass: Option<fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>>,
+    /// Finishes up at the end of an output pass; `None` until
+    /// `jinit_master_decompress`.
+    pub finish_output_pass: Option<fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>>,
+
+    /* State variables made visible to other modules */
     /// True during 1st pass for 2-pass quant.
     pub is_dummy_pass: bool,
     /// True if decompressing a lossless image.

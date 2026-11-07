@@ -147,7 +147,10 @@ fn xindex(main_ptr: &my_main_controller, w: usize, ci: usize, i: i32) -> usize {
 /// state.
 #[expect(non_snake_case, reason = "C names")]
 #[expect(clippy::cast_sign_loss, reason = "C's nonnegative counts")]
-fn set_wraparound_pointers(cinfo: &jpeg_decompress_struct<'_>, main_ptr: &mut my_main_controller) {
+pub fn set_wraparound_pointers(
+    cinfo: &jpeg_decompress_struct<'_>,
+    main_ptr: &mut my_main_controller,
+) {
     let M = cinfo.min_DCT_scaled_size;
 
     for ci in 0..cinfo.num_components as usize {

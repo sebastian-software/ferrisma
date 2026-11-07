@@ -1447,6 +1447,33 @@ pub fn call_term_source(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit
     result
 }
 
+/// `(*cinfo->progress->progress_monitor) ((j_common_ptr)cinfo)`: takes the
+/// methods out of the progress monitor for the call and puts them back
+/// (ADR 0005, "Public hooks"). Not an upstream item.
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no progress monitor or it has no methods, where C would
+/// dereference a null pointer.
+pub fn call_progress_monitor(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    let mut methods = cinfo
+        .progress
+        .as_deref_mut()
+        .expect("cinfo->progress is NULL")
+        .methods
+        .take()
+        .expect("progress_monitor is NULL");
+    let result = methods.progress_monitor(cinfo);
+    if let Some(progress) = cinfo.progress.as_deref_mut() {
+        progress.methods = Some(methods);
+    }
+    result
+}
+
 fn take_source_methods<'src>(
     cinfo: &mut jpeg_decompress_struct<'src>,
 ) -> Box<dyn jpeg_source_methods + 'src> {

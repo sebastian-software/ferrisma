@@ -27,8 +27,8 @@
 //! Work package: 2 (Input and markers).
 //!
 //! `jpeg_finish_decompress` calls the master control module's
-//! `finish_output_pass` and arrives with `jdmaster.c` in work package 6
-//! (ADR 0005, decisions of 2026-11-07). `WITH_SIMD` is undefined, and
+//! `finish_output_pass`, so work package 6 adds it with `jdmaster.c` (ADR
+//! 0005, decisions of 2026-11-07). `WITH_SIMD` is undefined, and
 //! `D_LOSSLESS_SUPPORTED` and `QUANT_2PASS_SUPPORTED` are treated as
 //! undefined (ADR 0005).
 
@@ -45,9 +45,9 @@ use crate::jpegint::{
 };
 use crate::jpeglib::{
     J_COLOR_SPACE, J_DITHER_MODE, JDCT_DEFAULT, JPEG_HEADER_OK, JPEG_HEADER_TABLES_ONLY,
-    JPEG_REACHED_EOI, JPEG_REACHED_SOS, JPOOL_PERMANENT, NUM_HUFF_TBLS, NUM_QUANT_TBLS,
-    SIZEOF_jpeg_decompress_struct, call_init_source, j_decompress_ptr, jpeg_decompress_struct,
-    jpeg_error_mgr,
+    JPEG_REACHED_EOI, JPEG_REACHED_SOS, JPEG_SUSPENDED, JPOOL_PERMANENT, NUM_HUFF_TBLS,
+    NUM_QUANT_TBLS, SIZEOF_jpeg_decompress_struct, call_init_source, call_term_source,
+    j_decompress_ptr, jpeg_decompress_struct, jpeg_error_mgr,
 };
 
 // upstream: src/jdapimin.c jpeg_CreateDecompress
@@ -402,4 +402,62 @@ pub fn jpeg_has_multiple_scans(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, 
         ));
     }
     Ok(cinfo.inputctl().pub_.has_multiple_scans)
+}
+
+// upstream: src/jdapimin.c jpeg_finish_decompress
+/// Finishes JPEG decompression.
+///
+/// This will normally just verify the file trailer and release temp
+/// storage.
+///
+/// Returns `false` if suspended. The return value need be inspected only if
+/// a suspending data source is used.
+///
+/// # Errors
+///
+/// `JERR_TOO_LITTLE_DATA` before the last scanline is read,
+/// `JERR_BAD_STATE` at the wrong time, and what `finish_output_pass`, the
+/// input controller and the source manager report.
+///
+/// # Panics
+///
+/// When `cinfo.master`, `cinfo.inputctl` or the source manager is absent.
+pub fn jpeg_finish_decompress(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit> {
+    if (cinfo.global_state == DSTATE_SCANNING || cinfo.global_state == DSTATE_RAW_OK)
+        && !cinfo.buffered_image
+    {
+        /* Terminate final pass of non-buffered mode */
+        if cinfo.output_scanline < cinfo.output_height {
+            return Err(ERREXIT(cinfo, J_MESSAGE_CODE::JERR_TOO_LITTLE_DATA));
+        }
+        let finish_output_pass = cinfo
+            .master()
+            .pub_
+            .finish_output_pass
+            .expect("finish_output_pass is NULL");
+        finish_output_pass(cinfo)?;
+        cinfo.global_state = DSTATE_STOPPING;
+    } else if cinfo.global_state == DSTATE_BUFIMAGE {
+        /* Finishing after a buffered-image operation */
+        cinfo.global_state = DSTATE_STOPPING;
+    } else if cinfo.global_state != DSTATE_STOPPING {
+        /* STOPPING = repeat call after a suspension, anything else is error */
+        return Err(ERREXIT1(
+            cinfo,
+            J_MESSAGE_CODE::JERR_BAD_STATE,
+            cinfo.global_state,
+        ));
+    }
+    /* Read until EOI */
+    while !cinfo.inputctl().pub_.eoi_reached {
+        let consume_input = cinfo.inputctl().pub_.consume_input;
+        if consume_input(cinfo)? == JPEG_SUSPENDED {
+            return Ok(false); /* Suspend, come back later */
+        }
+    }
+    /* Do final cleanup */
+    call_term_source(cinfo)?;
+    /* We can use jpeg_abort to release memory and reset global_state */
+    jpeg_abort(cinfo)?;
+    Ok(true)
 }

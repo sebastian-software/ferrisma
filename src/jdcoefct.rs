@@ -149,7 +149,7 @@ fn with_coef<R>(
 ///
 /// When the first component of the scan is absent.
 #[expect(non_snake_case, reason = "C names")]
-fn start_iMCU_row(cinfo: &jpeg_decompress_struct<'_>, coef: &mut my_coef_controller) {
+pub fn start_iMCU_row(cinfo: &jpeg_decompress_struct<'_>, coef: &mut my_coef_controller) {
     /* In an interleaved scan, an MCU row is the same as an iMCU row.
      * In a noninterleaved scan, an iMCU row has v_samp_factor MCU rows.
      * But at the bottom of the image, process only what's left.
