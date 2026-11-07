@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-06
+- **Last reviewed:** 2026-11-07
 - **Supersedes:** None
 - **Related:** [0017](0017-minimal-public-facade-and-cli.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0022](0022-parallel-row-pipeline-and-engine.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 2, [Sharp comparison](../benchmarks/M2-sharp-comparison.md), [libavif-rs](https://github.com/sebastian-software/libavif-rs), [libwebp-rs plan](../research/2026-11-05-libwebp-port-plan.md)
 
@@ -76,3 +76,4 @@ libavif-rs gains a stable toolchain, a safe API, SIMD, or an AOM profile without
 
 - 2026-11-06 — Initial decision: public row-level encoder backends; libavif-rs adapter crate outside the workspace; measured matched-quality bytes and time.
 - 2026-11-06 — CI runs the adapter on x86-64 Linux too: the job builds libvmaf 3.2.1 with the options of libavif-rs's `tools/build_aom_vmaf.py` (Meson 1.7.2, static, no assembly) and caches it; lint and the four adapter tests pass there. libvmaf is linked only because libavif-rs's AOM was translated with `CONFIG_TUNE_VMAF=1`; Ferrixel never uses the VMAF tuning modes.
+- 2026-11-07 — Review trigger "SIMD" fired: libavif-rs `c9b583c` adds run-time-dispatched Neon kernels to its AOM, with byte-identical output. Re-measured ([After Neon](../benchmarks/M2-libavif-backend.md#after-neon-libavif-rs-c9b583c)): speed 6 is now smaller and 21–40 % faster than `rav1e` with all cores on all four photographs, 26–37 % faster with one thread, on macOS ARM64 only. The decision stands: `rav1e` stays the default, because the adoption gates of ADR-0018 (stable toolchain, safe API, no libvmaf) are still open and x86-64 has no SIMD yet. The adapter pin moves to `c9b583c`.
