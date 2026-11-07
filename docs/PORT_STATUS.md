@@ -139,10 +139,10 @@ each compared field for field with the port's results for the same input:
 The sizes of the private `my_memory_mgr` (168 bytes), `jvirt_barray_control`
 (152) and pool headers (24) are verified through the accounting:
 `total_space_allocated` starts at the C library's `sizeof(my_memory_mgr)`, and
-each control block takes 152 bytes of a small pool. Locally on macOS ARM64
-(Apple Clang 21), all of this passes against the `release` and `asan-ubsan`
-oracles in the dev, release and `checked` profiles; CI runs the same on Linux
-x86-64.
+each control block takes 152 bytes of a small pool. All of this passes
+against the `release` and `asan-ubsan` oracles in the dev, release and
+`checked` profiles on both CI hosts (macOS ARM64, Linux x86-64), and locally
+on macOS ARM64 with Apple Clang 21.
 
 **Out of scope, listed instead of compared.** A data precision of 12 or 16:
 the oracle allocates the sample array, the port fails with
