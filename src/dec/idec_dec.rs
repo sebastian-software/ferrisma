@@ -33,12 +33,14 @@
 //! The io hooks are the custom ones of `WebPInitCustomIo` over `params` and the
 //! output buffer, or the caller's from `WebPISetIOHooks`; they are made for
 //! each call. C's `params.output` is the decoder's own `output` or the caller's
-//! buffer (`user_output`). Slow external memory is not represented (ADR 0003),
-//! so `final_output` and the slow copy of `FinishDecoding` are absent
-//! (`docs/status/wp12.md`).
+//! buffer (`user_output`). For slow external memory the caller's buffer is
+//! `final_output` until `FinishDecoding` copies the samples into it; C then
+//! copies the caller's buffer structure into its own `output`, which here
+//! becomes `params.output = user_output` (`docs/status/wp12.md`).
 
 use crate::dec::buffer_dec::{
-    is_null_plane, webp_allocate_dec_buffer, webp_flip_buffer, webp_free_dec_buffer,
+    is_null_plane, webp_allocate_dec_buffer, webp_avoid_slow_memory, webp_copy_dec_buffer_pixels,
+    webp_flip_buffer, webp_free_dec_buffer,
 };
 use crate::dec::frame_dec::{
     vp8_enter_critical, vp8_exit_critical, vp8_get_thread_method, vp8_init_dithering,
@@ -180,11 +182,17 @@ pub struct WebPIDecoder<'a, 'b> {
 
     /// Input memory buffer.
     mem: MemBuffer,
-    /// Output buffer (when no external one is supplied).
+    /// Output buffer (when no external one is supplied, or if the external
+    /// one has slow-memory).
     output: WebPDecBuffer<'b>,
     /// The caller's output buffer, which C's `params.output` points at when
-    /// one was supplied.
+    /// one was supplied without slow memory, or after the slow copy.
     user_output: Option<&'a mut WebPDecBuffer<'b>>,
+    /// Slow-memory output to copy to eventually.
+    final_output: Option<&'a mut WebPDecBuffer<'b>>,
+    /// Set when `NewDecoder` chose a `final_output` (no C counterpart: C's
+    /// `params.output` then stays `&idec->output`, which the C ABI reproduces).
+    slow_copy: bool,
     /// Compressed VP8/VP8L size extracted from Header.
     chunk_size: usize,
 
@@ -551,8 +559,9 @@ fn check_mem_buffer_mode(mem: &mut MemBuffer, expected: MemBufferMode) -> bool {
 }
 
 // upstream: src/dec/idec_dec.c FinishDecoding
-/// To be called last. The slow copy into `final_output` is absent (see the
-/// module documentation).
+/// To be called last. After the slow copy, C copies the structure of
+/// `final_output` into its own `output`, which `params.output` points at; here
+/// `params.output` becomes the caller's buffer itself.
 fn finish_decoding(idec: &mut WebPIDecoder<'_, '_>) -> Result<(), VP8StatusCode> {
     let options = idec.params.options;
     let output = params_output(&mut idec.output, &mut idec.user_output);
@@ -560,6 +569,14 @@ fn finish_decoding(idec: &mut WebPIDecoder<'_, '_>) -> Result<(), VP8StatusCode>
     idec.state = DecState::STATE_DONE;
     if options.is_some_and(|options| options.flip != 0) {
         webp_flip_buffer(output)?;
+    }
+    if let Some(final_output) = idec.final_output.as_deref_mut() {
+        // do the slow-copy
+        let status = webp_copy_dec_buffer_pixels(&idec.output, final_output);
+        webp_free_dec_buffer(&mut idec.output);
+        status?;
+        // C: *output = *idec->final_output; idec->final_output = NULL.
+        idec.user_output = idec.final_output.take();
     }
     Ok(())
 }
@@ -1086,11 +1103,12 @@ fn i_decode(idec: &mut WebPIDecoder<'_, '_>, input: &[u8]) -> Result<(), VP8Stat
 
 // upstream: src/dec/idec_dec.c NewDecoder
 /// Creates the decoder over the caller's `output_buffer`, or over its own
-/// output buffer for `None`. C also takes the bitstream features, which only
-/// `WebPAvoidSlowMemory` reads (see the module documentation). C returns `NULL`
-/// when its allocation fails; here a refused host allocation aborts.
+/// output buffer for `None` or for slow memory, which receives the samples at
+/// the end. C returns `NULL` when its allocation fails; here a refused host
+/// allocation aborts.
 fn new_decoder<'a, 'b>(
     output_buffer: Option<&'a mut WebPDecBuffer<'b>>,
+    features: Option<&WebPBitstreamFeatures>,
 ) -> Option<WebPIDecoder<'a, 'b>> {
     let mut idec = WebPIDecoder {
         state: DecState::STATE_WEBP_HEADER,
@@ -1101,6 +1119,8 @@ fn new_decoder<'a, 'b>(
         mem: MemBuffer::default(),
         output: WebPDecBuffer::default(),
         user_output: None,
+        final_output: None,
+        slow_copy: false,
         chunk_size: 0,
         last_mb_y: -1,
         alpha_data: None,
@@ -1114,8 +1134,20 @@ fn new_decoder<'a, 'b>(
     }
 
     webp_reset_dec_params(&mut idec.params);
-    // C: params.output = output_buffer, or &idec->output for NULL.
-    idec.user_output = output_buffer;
+    match output_buffer {
+        Some(output_buffer) if !webp_avoid_slow_memory(output_buffer, features) => {
+            // C: idec->params.output = output_buffer; final_output = NULL.
+            idec.user_output = Some(output_buffer);
+        }
+        output_buffer => {
+            // C: idec->params.output = &idec->output.
+            if let Some(output_buffer) = &output_buffer {
+                idec.output.colorspace = output_buffer.colorspace;
+            }
+            idec.slow_copy = output_buffer.is_some();
+            idec.final_output = output_buffer;
+        }
+    }
     // C: WebPInitCustomIo(&idec->params, &idec->io); the hooks are made for each
     // call (`io_hooks`).
 
@@ -1136,7 +1168,7 @@ fn new_decoder<'a, 'b>(
 pub fn webp_i_new_decoder<'a, 'b>(
     output_buffer: Option<&'a mut WebPDecBuffer<'b>>,
 ) -> Option<WebPIDecoder<'a, 'b>> {
-    new_decoder(output_buffer)
+    new_decoder(output_buffer, None)
 }
 
 // upstream: src/dec/idec_dec.c WebPIDecode
@@ -1172,7 +1204,7 @@ pub fn webp_i_decode<'a, 'b>(
     }
 
     // Create an instance of the incremental decoder
-    let mut idec = new_decoder(output)?;
+    let mut idec = new_decoder(output, Some(features))?;
     // Finish initialization
     if options.is_some() {
         idec.params.options = options;
@@ -1458,7 +1490,9 @@ fn get_output_buffer<'s, 'b>(idec: &'s WebPIDecoder<'_, 'b>) -> Option<&'s WebPD
     if idec.state <= DecState::STATE_VP8_PARTS0 {
         return None;
     }
-    // C: if (idec->final_output != NULL) return NULL; not yet slow-copied.
+    if idec.final_output.is_some() {
+        return None; // not yet slow-copied
+    }
     Some(match &idec.user_output {
         Some(user_output) => user_output,
         None => &idec.output,
@@ -1657,18 +1691,32 @@ pub fn webp_i_set_io_hooks<'a>(
 }
 
 //------------------------------------------------------------------------------
-// Access for the C ABI (no C counterpart)
+// Access for the C ABI (no C counterpart). The C ABI (`src/abi/decode.rs`)
+// lends caller memory to the output buffers for the duration of each call and
+// reads their planes after each call.
 
 impl<'b> WebPIDecoder<'_, 'b> {
-    /// C's `params.output`: the caller's output buffer, or the decoder's own.
-    /// The C ABI (`src/abi/decode.rs`) lends the caller's memory to it for the
-    /// duration of each call and reads its planes after each call.
-    pub(crate) fn params_output_mut(&mut self) -> &mut WebPDecBuffer<'b> {
-        params_output(&mut self.output, &mut self.user_output)
-    }
-
     /// Whether C's `params.output` is the caller's buffer.
     pub(crate) fn has_user_output(&self) -> bool {
         self.user_output.is_some()
+    }
+
+    /// The decoder's own output buffer (C: `idec->output`).
+    pub(crate) fn own_output_mut(&mut self) -> &mut WebPDecBuffer<'b> {
+        &mut self.output
+    }
+
+    /// Whether the decoder copies into the caller's buffer at the end (C: a
+    /// `final_output` was set by `NewDecoder`, slow memory).
+    pub(crate) fn was_slow(&self) -> bool {
+        self.slow_copy
+    }
+
+    /// The caller's output buffer: C's `params.output` or `final_output`.
+    pub(crate) fn caller_output_mut(&mut self) -> Option<&mut WebPDecBuffer<'b>> {
+        match (&mut self.user_output, &mut self.final_output) {
+            (Some(output), _) | (None, Some(output)) => Some(&mut **output),
+            (None, None) => None,
+        }
     }
 }

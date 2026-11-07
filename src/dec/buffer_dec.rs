@@ -28,16 +28,16 @@
 //! a Rust buffer whose `u` holds the other member describes no valid plane, and
 //! `CheckDecBuffer` rejects it (`docs/status/wp12.md`, deviations).
 //!
-//! The value 2 of `is_external_memory`, which marks slow external memory, is
-//! not represented (ADR 0003), so `WebPAvoidSlowMemory` and the slow-copy paths
-//! of its callers are absent (`docs/status/wp12.md`).
+//! C's `is_external_memory >= 2`, slow external memory, is the buffer's
+//! `slow_memory` flag (ADR 0003, amended 2026-11-07).
 
 use crate::dec::webp_dec::webp_check_crop_dimensions;
 use crate::utils::rescaler_utils::webp_rescaler_get_scaled_dimensions;
 use crate::utils::utils::{webp_copy_plane, webp_safe_malloc};
 use crate::webp::decode::{
-    VP8StatusCode, WEBP_CSP_MODE, WEBP_DECODER_ABI_VERSION, WebPDecBuffer, WebPDecBufferPlanes,
-    WebPDecoderOptions, WebPRGBABuffer, WebPYUVABuffer, webp_is_alpha_mode, webp_is_rgb_mode,
+    VP8StatusCode, WEBP_CSP_MODE, WEBP_DECODER_ABI_VERSION, WebPBitstreamFeatures, WebPDecBuffer,
+    WebPDecBufferPlanes, WebPDecoderOptions, WebPRGBABuffer, WebPYUVABuffer, webp_is_alpha_mode,
+    webp_is_premultiplied_mode, webp_is_rgb_mode,
 };
 use crate::webp::types::{PlaneOffset, PlaneStorage, webp_abi_is_incompatible};
 
@@ -400,6 +400,9 @@ pub fn webp_copy_dec_buffer<'s>(src: &'s WebPDecBuffer<'_>, dst: &mut WebPDecBuf
     dst.colorspace = src.colorspace;
     dst.width = src.width;
     dst.height = src.height;
+    // C copies `is_external_memory`; the view is not external storage, so the
+    // flag that only external storage carries is false.
+    dst.slow_memory = false;
     dst.u = src.u;
     dst.pad = src.pad;
     dst.storage = PlaneStorage::Shared(match &src.storage {
@@ -420,6 +423,7 @@ pub fn webp_grab_dec_buffer<'a>(src: &mut WebPDecBuffer<'a>, dst: &mut WebPDecBu
     dst.colorspace = src.colorspace;
     dst.width = src.width;
     dst.height = src.height;
+    dst.slow_memory = src.slow_memory;
     dst.u = src.u;
     dst.pad = src.pad;
     let empty = match &src.storage {
@@ -571,6 +575,16 @@ pub fn webp_copy_dec_buffer_pixels(
 }
 
 // upstream: src/dec/buffer_dec.c WebPAvoidSlowMemory
-// Not translated: it tests `is_external_memory >= 2`, the slow external memory
-// that ADR 0003 does not represent, so it would always return false
-// (`docs/status/wp12.md`).
+/// Returns true if decoding will be slow with the current configuration and
+/// bitstream features: slow external memory, a premultiplied colorspace and an
+/// image with alpha.
+#[must_use]
+pub fn webp_avoid_slow_memory(
+    output: &WebPDecBuffer<'_>,
+    features: Option<&WebPBitstreamFeatures>,
+) -> bool {
+    // C: output->is_external_memory >= 2.
+    output.slow_memory
+        && webp_is_premultiplied_mode(output.colorspace)
+        && features.is_some_and(|features| features.has_alpha != 0)
+}

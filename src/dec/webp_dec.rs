@@ -128,7 +128,10 @@ pub fn webp_io_init_from_options(
 
 // The items below translate the rest of `src/dec/webp_dec.c` (WP12).
 
-use crate::dec::buffer_dec::{webp_allocate_dec_buffer, webp_flip_buffer, webp_free_dec_buffer};
+use crate::dec::buffer_dec::{
+    webp_allocate_dec_buffer, webp_avoid_slow_memory, webp_copy_dec_buffer_pixels,
+    webp_flip_buffer, webp_free_dec_buffer,
+};
 use crate::dec::frame_dec::{vp8_get_thread_method, vp8_init_dithering};
 use crate::dec::io_dec::webp_init_custom_io;
 use crate::dec::vp8_dec::{vp8_decode, vp8_get_headers, vp8_get_info, vp8_init_io, vp8_new};
@@ -1194,11 +1197,10 @@ pub fn webp_get_features_internal(
 
 // upstream: src/dec/webp_dec.c WebPDecode
 /// Non-incremental version: decodes `data` into `config.output` with
-/// `config.options`, after filling `config.input`. C returns
+/// `config.options`, after filling `config.input`. Slow external memory is
+/// decoded into a temporary buffer and copied at the end. C returns
 /// `VP8_STATUS_INVALID_PARAM` for a `NULL` configuration, which exists only at
-/// the C ABI. The slow-memory path of C (`WebPAvoidSlowMemory`) is absent,
-/// because ADR 0003 does not represent slow external memory
-/// (`docs/status/wp12.md`).
+/// the C ABI.
 ///
 /// # Errors
 ///
@@ -1217,5 +1219,24 @@ pub fn webp_decode(data: &[u8], config: &mut WebPDecoderConfig<'_>) -> Result<()
     webp_reset_dec_params(&mut params);
     params.options = Some(&config.options);
     // C: params.output = &config->output.
-    decode_into(data, &mut params, &mut config.output)
+    if webp_avoid_slow_memory(&config.output, Some(&config.input)) {
+        // decoding to slow memory: use a temporary in-mem buffer to decode into.
+        let mut in_mem_buffer = WebPDecBuffer::default();
+        if !webp_init_dec_buffer(&mut in_mem_buffer) {
+            return Err(VP8StatusCode::VP8_STATUS_INVALID_PARAM);
+        }
+        in_mem_buffer.colorspace = config.output.colorspace;
+        in_mem_buffer.width = config.input.width;
+        in_mem_buffer.height = config.input.height;
+        // C: params.output = &in_mem_buffer.
+        let mut decoded = decode_into(data, &mut params, &mut in_mem_buffer);
+        if decoded.is_ok() {
+            // do the slow-copy
+            decoded = webp_copy_dec_buffer_pixels(&in_mem_buffer, &mut config.output);
+        }
+        webp_free_dec_buffer(&mut in_mem_buffer);
+        decoded
+    } else {
+        decode_into(data, &mut params, &mut config.output)
+    }
 }
