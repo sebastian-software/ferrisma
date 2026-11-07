@@ -690,9 +690,10 @@ callers explicitly retain libc++ on macOS and libstdc++ on GNU Linux. This is
 part of the native VMAF boundary, not an additional ported implementation.
 
 `tools/import_aom_linux.py` verifies every artifact Rust hash, the exact
-168-unit closure, required configuration, and generated header hashes before
-importing a profile. It applies the same callback correction, glibc error-target
-mapping, and optional inline wrappers as the current translator. Its `--check`
+166-unit closure, required configuration, and generated header hashes before
+importing a profile. Artifacts of the current translator already carry the
+callback correction, glibc error-target mapping, and optional inline wrappers
+and are imported unchanged; earlier artifacts get them applied. Its `--check`
 mode verifies the complete transformation against
 the original artifact. The original artifact and imported manifest digests,
 changed units, reference configurations, and immutable CI run are recorded in
@@ -789,3 +790,49 @@ with a 1-minute load average below 4 on the shared 20-core machine (see
 All three builds write the same bytes in every configuration. The scalar path
 of this branch (`AOM_SIMD_CAPS_MASK=0`) stays within 2.5% of the portable
 baseline, so the RTCD indirection costs little when SIMD is off.
+
+## Still-image profile without VMAF (ADR 0057)
+
+[ADR 0057](adr/0057-translate-libaom-without-vmaf-tuning.md) builds the C
+reference and every translated profile with upstream's `CONFIG_TUNE_VMAF=0`.
+The closure drops `av1/encoder/tune_vmaf.c` and `aom_dsp/vmaf.c` and has 166
+translation units; libvmaf, its model files, and the C++ standard library link
+are gone from the build, the tools, and the workflows. The decoder stays, so
+the encoder tests that decode their own streams keep running.
+
+The original test inventories do not change: `test_libaom` keeps 18,729
+registrations, `test_aom_rc` 38, and `test_intra_pred_speed` 38, with the same
+name digests as the 168-unit build. No original test is conditional on
+`CONFIG_TUNE_VMAF`.
+
+Evidence on macOS ARM64:
+
+- `tools/transpile_aom.py --check` and `--release --check` reproduce both
+  regenerated profiles, the macro subjects reproduce, and
+  `tools/check_translation.py` passes for all four profiles.
+- Both profiles pass the public API round trips, CLI scenarios, unaligned
+  input, linkage, inline subjects, macro subjects, and every DSP oracle suite.
+- Allocation-failure enumeration shrinks from 306 to 305 paired scenarios,
+  because `av1_create_compressor` no longer allocates `vmaf_info`; all 305
+  and the eight worker-creation scenarios pass in both profiles.
+- Named layout checks cover 17,830 records / 200,831 checks in Debug and
+  17,781 records / 200,537 checks in Release, with zero differences. The
+  records that disappear are the VMAF ones, including `TuneVMAFInfo` in
+  `AV1_COMP`.
+- `tools/check_aom_simd_identity.py` writes the same 76 AVIF outputs as the
+  168-unit build before this change; the
+  [identity record](aom-simd-identity-validation.json) is unchanged.
+- `--tune=vmaf_with_preprocessing` and `--tune=vmaf_neg` fail identically in
+  the original and the Rust `aomenc` with upstream's invalid-parameter error
+  and its `-DCONFIG_TUNE_VMAF=1` hint; `--tune=ssim` encodes.
+
+Evidence on GNU Linux x86-64: run
+[42370060809](https://github.com/sebastian-software/libavif-rs/actions/runs/42370060809)
+of `aom-translate-linux.yml` generated both profiles with the current
+translator, which already applies every correction, so
+`tools/import_aom_linux.py` imports them unchanged and records that in
+[the import record](aom-linux-source-import.json). The same run passes the
+round trips, CLI, linkage, inline, macro, and oracle checks, all 305
+allocation and eight worker-creation scenarios, 62 focused original API/error
+cases in each profile, and named layout checks over 18,216 records / 203,820
+checks in Debug and 18,167 records / 203,526 checks in Release.
