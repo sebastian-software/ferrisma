@@ -289,3 +289,43 @@ pub struct WebPDecoderConfig<'a> {
     /// Decoding options (C: `options`).
     pub options: WebPDecoderOptions,
 }
+
+// The items below are WP12's exception in this module (`tools/units.json`): the
+// header's inline wrappers, each of which calls an entry point that WP12
+// translates.
+
+use crate::dec::buffer_dec::webp_init_dec_buffer_internal;
+use crate::dec::webp_dec::{webp_get_features_internal, webp_init_decoder_config_internal};
+
+// upstream: src/webp/decode.h WebPInitDecBuffer
+/// Initializes the structure as empty. Must be called before any other use.
+/// Returns false in case of version mismatch.
+#[must_use]
+pub fn webp_init_dec_buffer(buffer: &mut WebPDecBuffer<'_>) -> bool {
+    webp_init_dec_buffer_internal(buffer, WEBP_DECODER_ABI_VERSION)
+}
+
+// upstream: src/webp/decode.h WebPGetFeatures
+/// Retrieves features from the bitstream. The `features` structure is filled
+/// with information gathered from the bitstream.
+///
+/// # Errors
+///
+/// `VP8_STATUS_NOT_ENOUGH_DATA` when more data is needed to retrieve the
+/// bitstream features (for instance, the input is truncated), and the other
+/// status codes of the header parsing otherwise.
+pub fn webp_get_features(
+    data: &[u8],
+    features: &mut WebPBitstreamFeatures,
+) -> Result<(), VP8StatusCode> {
+    webp_get_features_internal(data, features, WEBP_DECODER_ABI_VERSION)
+}
+
+// upstream: src/webp/decode.h WebPInitDecoderConfig
+/// Initializes the configuration as empty. This function must always be called
+/// first, unless `WebPGetFeatures()` is to be called. Returns false in case of
+/// mismatched version.
+#[must_use]
+pub fn webp_init_decoder_config(config: &mut WebPDecoderConfig<'_>) -> bool {
+    webp_init_decoder_config_internal(config, WEBP_DECODER_ABI_VERSION)
+}
