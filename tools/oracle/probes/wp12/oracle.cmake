@@ -6,11 +6,13 @@
 #
 # The executables and helper libraries take the sources, include directories
 # and compile definitions of upstream's own targets, so the build compiles
-# exactly what the oracle's dwebp and webpinfo compile. Only the libraries
-# change: libwebp becomes the Rust library, and libwebpdemux the link
-# stand-ins of consumer/link_shim.c for symbols that imageio/webpdec.c
-# references and dwebp never calls. The tools land in probes/wp12/ next to the
-# probes, as dwebp and webpinfo.
+# what the oracle's dwebp and webpinfo compile. Upstream's src directory,
+# which they get from the linked webp target, is added explicitly and searched
+# first, so the pinned headers are used. Only the libraries change: libwebp
+# becomes the Rust library, and libwebpdemux the link stand-ins of
+# consumer/link_shim.c for symbols that imageio/webpdec.c references and dwebp
+# never calls. The tools land in probes/wp12/ next to the probes, as dwebp and
+# webpinfo.
 set(LIBWEBP_RS_STATICLIB "" CACHE FILEPATH
     "Rust static library (libwebp.a) for the WP12 consumer build")
 set(LIBWEBP_RS_NATIVE_LIBS "" CACHE STRING
@@ -50,8 +52,13 @@ if(LIBWEBP_RS_STATICLIB)
         OUTPUT_NAME ${name}
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/probes/wp12")
     endif()
+    # Upstream's targets reach ${UPSTREAM}/src (the public webp/*.h headers)
+    # only through the PUBLIC include directories of the webp and exampleutil
+    # targets they link, which INCLUDE_DIRECTORIES does not list. It comes
+    # first, so the pinned headers also win over a system copy of libwebp in
+    # the dependency include directories (for example /opt/homebrew/include).
     get_target_property(includes ${name} INCLUDE_DIRECTORIES)
-    target_include_directories(rs_${name} PRIVATE ${includes}
+    target_include_directories(rs_${name} PRIVATE "${UPSTREAM}/src" ${includes}
                                ${wp12_directory_includes})
     target_compile_definitions(rs_${name} PRIVATE ${UPSTREAM_DEFINITIONS})
     get_target_property(definitions ${name} COMPILE_DEFINITIONS)
