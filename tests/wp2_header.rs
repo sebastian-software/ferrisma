@@ -130,7 +130,11 @@ fn header_length(jpeg: &[u8]) -> usize {
 
 /// Encoder variants of `testorig.ppm`, made with the oracle's `cjpeg`.
 fn variants(oracle: &Oracle) -> Vec<(String, Vec<u8>)> {
-    let directory = std::env::temp_dir().join(format!("libjpeg-rs-wp2-{}", std::process::id()));
+    // One directory per call: tests run in parallel and each removes its own.
+    static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let directory =
+        std::env::temp_dir().join(format!("libjpeg-rs-wp2-{}-{call}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
     let source = oracle::test_image("testorig.ppm");
     let icc1 = oracle::test_image("test1.icc");
