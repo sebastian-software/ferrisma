@@ -513,6 +513,36 @@ request:
 4. **Float-to-integer conversions** saturate where C is undefined ("Integer
    types").
 
+## Refinements from work package 5 (2026-11-07)
+
+Work package 5 refined these rules, for the maintainer's review in its pull
+request:
+
+1. **Files included once per pixel layout.** `jdcolor.c` includes
+   `jdcolext.c` and `jdmerge.c` includes `jdmrgext.c` once per RGB layout,
+   with `RGB_RED`, `RGB_GREEN`, `RGB_BLUE`, `RGB_ALPHA` and `RGB_PIXELSIZE`
+   defined and the routines renamed. Each routine is one function generic
+   over these values as `const` parameters (`RGB_ALPHA` is -1 where C leaves
+   it undefined), and each C instance is a constant of the method type that
+   names the function with its values (`ycc_extbgrx_convert`), so the
+   instances keep their names and the selection code its shape ("Macros and
+   translation-time headers").
+2. **Row lists read before their first row.** Where C passes a `JSAMPARRAY`
+   that points into the middle of a longer pointer list, as `jdmainct.c`'s
+   "funny" pointer lists do, the callee receives `JSAMPROWS_AT`: the storage,
+   the whole list and the position of row 0, so that the fancy upsamplers can
+   read the context row above it ("Storage and row lists").
+3. **A pointer to the module's storage or to its input.** `jdsample.c`'s
+   `color_buf[ci]` points either at the upsampler's own rows or, after
+   `fullsize_upsample`, at the input rows. It is an enum of the two (and C's
+   null pointer); the input case holds the position in the input's row list
+   and is resolved against the `input_buf` of the call that uses it, which
+   is the one the pointer was taken from ("Pointers into a module's data").
+4. **A field lent for one call.** The merged upsampler's spare row can be
+   the second output row of `upmethod`, which also reads the module's
+   tables; the control routine takes the row out of the module for the call
+   and puts it back, as a module takes its box ("A method's own state").
+
 ## Review triggers
 
 Amend this record when a package meets a construct it does not cover, when a

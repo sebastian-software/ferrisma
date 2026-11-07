@@ -6,12 +6,14 @@
 | 1 Common infrastructure | done | 11 modules translated; message, memory and utility probes below |
 | 2 Input and markers | done | `jpeg_read_header` and the input side translated; header probe below |
 | 3 Entropy decoding | done | Huffman, progressive Huffman and arithmetic decoders translated; entropy probe below |
-| 4 Coefficients and IDCT | in review | Coefficient controller, IDCT manager and all IDCT routines translated; IDCT and pipeline probes below |
-| 5–11 | not started | — |
+| 4 Coefficients and IDCT | done | Coefficient controller, IDCT manager and all IDCT routines translated; IDCT and pipeline probes below |
+| 5 Upsampling, color, buffers | in review | Upsamplers, color conversion, main and postprocessing controllers translated; decode probe below |
+| 6–11 | not started | — |
 
-Work packages 1 to 4 are translated: 28 modules, and the struct of
-`jdmaster.h`. The other 9 modules under `src/` hold only their provenance
-headers ([tools/units.json](../tools/units.json)).
+Work packages 1 to 5 are translated: 35 modules, and the struct of
+`jdmaster.h`. The other 2 modules under `src/` (`jdmaster`'s functions and
+`jdapistd`) hold only their provenance headers
+([tools/units.json](../tools/units.json)).
 
 ## Work package 0
 
@@ -437,3 +439,92 @@ in the dev, release and `checked` profiles.
 **Differences by design.** None in the output. A float IDCT output outside
 the range of `int`, which is undefined in C, saturates in the port (ADR
 0005, refinements from work package 4).
+
+## Work package 5
+
+**Translated.**
+
+| Module | Upstream | Content |
+| --- | --- | --- |
+| `jdcolor` | `jdcolor.c` | `my_color_deconverter`, the conversion tables, `rgb_gray_convert`, `null_convert`, `grayscale_convert`, `ycck_cmyk_convert`, the 21 instances of `jdcolext.c`'s routines, `start_pass_dcolor`, `jinit_color_deconverter` |
+| `jdcolext` | `jdcolext.c` | `ycc_rgb_convert`, `gray_rgb_convert`, `rgb_rgb_convert`, generic over the pixel layout |
+| `jdsample` | `jdsample.h`, `jdsample.c` | `my_upsampler`, `sep_upsample`, the full-size, no-op, integral, h2v1, h2v2 and fancy h2v1, h1v2 and h2v2 upsamplers, `jinit_upsampler` |
+| `jdmerge` | `jdmerge.h`, `jdmerge.c` | `my_merged_upsampler`, its table, the 1:1 and 2:1 vertical control routines, the 14 instances of `jdmrgext.c`'s routines, `jinit_merged_upsampler` |
+| `jdmrgext` | `jdmrgext.c` | `h2v1_merged_upsample`, `h2v2_merged_upsample`, generic over the pixel layout |
+| `jdpostct` | `jdpostct.c` | `my_post_controller`, `start_pass_dpost`, `jinit_d_post_controller` |
+| `jdmainct` | `jdmainct.h`, `jdmainct.c` | `my_main_controller`, the funny pointer lists (`alloc_funny_pointers`, `make_funny_pointers`, `set_wraparound_pointers`, `set_bottom_pointers`), `start_pass_main`, `process_data_simple_main`, `process_data_context_main`, `jinit_d_main_controller` |
+| `jpegint`, `jpeglib` | `jpegint.h`, `jpeglib.h` | `jpeg_d_main_controller`, `jpeg_d_post_controller`, `jpeg_upsampler`, `jpeg_color_deconverter` and the slots `main`, `post`, `upsample` (with its two implementations) and `cconvert` |
+
+`free_pool(JPOOL_IMAGE)` now also resets the four new slots.
+
+**Not translated.** Color quantization is out of scope (ADR 0001): the
+`cquantize` slot, `colormap` and `jdpostct.c`'s `post_process_1pass`,
+`post_process_prepass` and `post_process_2pass` are absent. With quantization
+`start_pass_dpost` fails with `JERR_NOT_COMPILED`, and a full-image buffer
+with `JERR_BAD_BUFFER_MODE` as upstream's `#else` does; `jdmainct.c`'s
+`process_data_crank_post` is not compiled without `QUANT_2PASS_SUPPORTED`.
+RGB565 output (`jdcol565.c`, `jdmrg565.c`) fails with
+`JERR_CONVERSION_NOTIMPL` in `jinit_color_deconverter` and
+`jinit_merged_upsampler` (ADR 0005). The 12-bit and 16-bit methods and the
+SIMD slots of the four interfaces are absent. Nothing initializes the modules
+yet: `master_selection` arrives with `jdmaster.c` in work package 6, and
+`jpeg_read_scanlines`, which calls `process_data`, with `jdapistd.c`.
+
+**Representation.** The main controller keeps one sample array per component
+and, in the context case, one block of both pointer lists per component as
+row offsets with the positions where C's `xbuffer[0][ci]` and
+`xbuffer[1][ci]` point; it hands the lists to the coefficient controller as
+row lists and to the postprocessor as `JSAMPROWS_AT`, which can reach the
+context row group before row 0. `color_buf[ci]` is the upsampler's own array,
+the input rows of a full-size component, or nothing. The routines included
+once per pixel layout (`jdcolext.c`, `jdmrgext.c`) are generic functions,
+and their C instances are named constants. The color converters only read
+the object and take it shared; they index `sample_range_limit` below zero
+through `sample_range_limit_signed`. The merged upsampler lends its spare row
+as the second output row. Method pointers that C leaves unset until a
+selection (`process_data`, `post_process_data`, `color_convert`, `upmethod`)
+are `None` until then. The methods take their module out of its slot; the
+main controller keeps it across the coefficient controller and the
+postprocessor, and the upsamplers across the color converter, none of which
+reach it (ADR 0005, refinements from work package 5).
+
+**Verified against the oracle.** The probe `tools/oracle/probes/wp5/decode`
+reads a header, calls `jpeg_calc_output_dimensions`, sets up the decoder as
+`master_selection` does without color quantization (with copies of
+`prepare_range_limit_table` and `use_merged_upsample`), starts the output
+pass as `jpeg_start_decompress` does and reads every scanline through the
+main controller, a given number of rows per call, as `jpeg_read_scanlines`
+does. It prints the output dimensions, the choice of the merged upsampler and
+of context rows, each component's scaled and downsampled size, a hash of every
+output row, every row count `process_data` returned, the final state, the
+memory pools (so the C sizes of the four modules, their tables and buffers,
+the pointer lists and the spare row are verified) and the error. For the
+upstream test images its rows equal `djpeg`'s output with fancy and plain
+upsampling, the float method, scaling and grayscale. `tests/support/wp5.rs`
+runs the same sequence on the port, with copies of
+`jpeg_calc_output_dimensions` and `use_merged_upsample` until work package 6,
+and `tests/wp5_decode.rs` compares the outputs exactly:
+
+| Test | Inputs |
+| --- | --- |
+| `test_images_match_the_oracle` | `testorig.jpg`, `testimgari.jpg`, `testimgint.jpg` in nine modes: default, plain upsampling (the merged upsampler for 2x2 and 2x1 YCbCr), ifast, float, scales 1/8, 3/8 and 13/8, grayscale output, and 3 and 16 rows per call; `monkey12.jpg` fails with `JERR_BAD_PRECISION` |
+| `encoder_variants_match_the_oracle` | the 27 8-bit `cjpeg` variants of the earlier packages in the same nine modes |
+| `color_spaces_match_the_oracle` | every in-scope output color space (0 to 15) from YCbCr 2x2, 2x1 and 1x1, grayscale, RGB, progressive, CMYK, YCCK and subsampled YCCK input (the last three encoded by the probe `wp5/cmyk`), with fancy and plain upsampling and at half size |
+| `scaling_and_sampling_match_the_oracle` | the default, sampling (1x1, 2x1, 1x2, 4x1, 3x2) and grayscale variants at every scale from 1/8 to 16/8, with fancy and plain upsampling and to RGBA |
+| `rows_per_call_match_the_oracle` | every 8-bit variant read 1, 2, 3, 5, 16 and 200 rows per call, with fancy and plain upsampling |
+| `errors_match_the_oracle` | `CCIR601_sampling` (`JERR_CCIR601_NOTIMPL`), unsupported conversions (`JERR_CONVERSION_NOTIMPL`) and fractional sampling factors (`JERR_FRACT_SAMPLE_NOTIMPL`) |
+| `suspension_matches_the_oracle` | suspending input that releases 1, 7, 64 or 1000 bytes per step, for `testorig.jpg` and the progressive, arithmetic, restart and 1x2 progressive variants, with fancy and plain upsampling |
+| `damaged_streams_match_the_oracle` | the 8-bit variants cut at 6 points and mutated at 4 positions, with fancy and plain upsampling |
+| `rgb565_is_out_of_scope` | the port alone: RGB565 output fails with `JERR_CONVERSION_NOTIMPL` through the color deconverter and through the merged upsampler |
+
+The cases reach every upsampling method (full-size, integral, h2v1, h2v2,
+fancy h2v1, h1v2 and h2v2, both merged routines), every color conversion
+routine and pixel layout (of `null_convert`, the three- and four-component
+loops; its general loop needs a stream with another component count in an
+unknown color space, which no input here has), both main controller modes with their bottom and
+wraparound pointer handling, and the merged upsampler's spare row. Locally on
+macOS ARM64 (Apple Clang 21), all of this passes against the `release` and
+`asan-ubsan` oracles in the dev, release and `checked` profiles.
+
+**Differences by design.** RGB565 output, which the oracle produces, fails
+in the port (ADR 0005).
