@@ -10,6 +10,12 @@ tools/oracle/probes. Each variant lands in build/oracle/<variant>/:
   probes/<wp>/<name>       probe executables
   oracle.json              compiler, flags, configuration defines and paths
 
+--rust-lib also builds the Rust static library (cargo build --release) and
+passes it to the build, so that the consumer builds of the packages
+(tools/oracle/probes/<wp>/oracle.cmake) link the unmodified upstream tools
+against it; WP12 adds dwebp and webpinfo as probes/wp12/dwebp and
+probes/wp12/webpinfo. Without the option the build configures as before.
+
 Point LIBWEBP_ORACLE_DIR at a variant directory to run the differential tests
 against it. Variants: release (the reference), asan-ubsan (the same build
 instrumented with AddressSanitizer and UndefinedBehaviorSanitizer) and debug
@@ -65,7 +71,23 @@ def cache_value(build, name):
     return match[1] if match else None
 
 
-def build(variant, jobs, fresh):
+def rust_staticlib():
+    """Build the Rust static library; return its path and native libraries."""
+    print("+ cargo rustc --release --lib -- --print native-static-libs", flush=True)
+    result = subprocess.run(["cargo", "rustc", "--release", "--lib", "--",
+                             "--print", "native-static-libs"], cwd=ROOT, check=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    print(result.stdout, end="", flush=True)
+    native = re.findall(r"native-static-libs: (.*)$", result.stdout, re.M)
+    if not native:
+        raise SystemExit("cargo did not report the native libraries of the static library")
+    library = ROOT / "target/release/libwebp.a"
+    if not library.exists():
+        raise SystemExit(f"{library} was not built")
+    return {"path": str(library), "native_libs": native[-1].strip()}
+
+
+def build(variant, jobs, fresh, rust_lib=None):
     settings = VARIANTS[variant]
     directory = variant_dir(variant)
     if fresh and directory.exists():
@@ -73,6 +95,9 @@ def build(variant, jobs, fresh):
     configure = ["cmake", "-S", SOURCE, "-B", directory,
                  f"-DCMAKE_BUILD_TYPE={settings['build_type']}", *REFERENCE,
                  f"-DORACLE_SANITIZERS={'ON' if settings['sanitizers'] else 'OFF'}"]
+    if rust_lib:
+        configure += [f"-DLIBWEBP_RS_STATICLIB={rust_lib['path']}",
+                      f"-DLIBWEBP_RS_NATIVE_LIBS={rust_lib['native_libs']}"]
     run(*configure)
     run("cmake", "--build", directory, "--target", "oracle_tools", "oracle_probes",
         "--parallel", jobs)
@@ -102,6 +127,7 @@ def build(variant, jobs, fresh):
         "upstream_definitions": flags.get("definitions", ""),
         "config_h_defines": defines,
         "tools": {name: str(directory / "libwebp" / name) for name in ("dwebp", "cwebp", "webpinfo")},
+        "rust_staticlib": cache_value(directory, "LIBWEBP_RS_STATICLIB") or None,
         "probes": probes,
     }
     (directory / "oracle.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -116,12 +142,15 @@ def main():
                         help="variant to build (repeatable; default: release)")
     parser.add_argument("--jobs", default=str(os.cpu_count() or 4), help="parallel build jobs")
     parser.add_argument("--fresh", action="store_true", help="delete the variant directory first")
+    parser.add_argument("--rust-lib", action="store_true",
+                        help="build the Rust static library and the consumer builds against it")
     args = parser.parse_args()
     variants = args.variant or ["release"]
     if "all" in variants:
         variants = list(VARIANTS)
+    rust_lib = rust_staticlib() if args.rust_lib else None
     for variant in variants:
-        build(variant, args.jobs, args.fresh)
+        build(variant, args.jobs, args.fresh, rust_lib)
 
 
 if __name__ == "__main__":
