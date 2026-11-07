@@ -48,6 +48,51 @@ as the incremental decoder of WP12, without a self-reference. The rule covers
 every reader over a buffer that its owner also holds; the buffer's own type is
 unchanged.
 
+**Decoding context per call (decided 2026-11-07, WP7).** A decoder structure
+holds no pointer to its input, its `VP8Io`, its output buffer, its hook context
+or its owner. The owner passes these to each call, and a pointer into one of
+them becomes a position. In libwebp these pointers refer to siblings or owners
+of the same object: `WebPIDecoder` holds `io`, `params`, `dec`, `mem` and
+`output` side by side, with `io.opaque = &params`, `io.data` inside `mem` and
+`params.output = &output`; `VP8Decoder` owns `ALPHDecoder`, whose `io.opaque`
+points back at it. Safe Rust can neither own nor borrow those targets inside the
+structure, so this rule replaces "owned or borrowed by the structure" from
+**Callbacks** for the decoder. The concrete forms are:
+
+- `VP8Io` keeps only its scalar fields. The input that C reads through
+  `io->data` and `io->data_size` is a `data: &[u8]` argument of every function
+  that reads it. The rows `y`, `u`, `v` and `a` reach the put hook as
+  `VP8IoRows<'r>`, with `y` mutable because `EmitRescaledYUV` premultiplies
+  through the `const` pointer.
+- `opaque` and the three hooks become the trait `VP8IoHooks`, whose methods
+  `setup`, `put` and `teardown` are the three typedefs and whose `has_setup`,
+  `has_put` and `has_teardown` keep C's per-hook `NULL` tests. Entry points that
+  call hooks take `Option<&mut dyn VP8IoHooks>`, where `None` means all three are
+  `NULL`.
+- `WebPDecParams<'a>` holds no `output`. Functions that write samples take
+  `output: &mut WebPDecBuffer<'a>` next to `params`. `emit`, `emit_alpha` and
+  `emit_alpha_row` are `Option` plain `fn` pointers.
+- `VP8LDecoder` stores neither `io` nor `output`, and `ALPHDecoder` stores no
+  `output`. Its `prev_line` is a position in the alpha plane, which the VP8
+  decoder passes per call.
+- `WebPRescaler` owns its two work rows and keeps the position and stride of its
+  destination. The export functions take the destination per call (WP4, decided
+  2026-11-07).
+
+Consequences for later packages. WP6: `VP8GetHeaders` and `VP8Decode` take the
+input and the hooks per call; `FinishRow` builds `VP8IoRows` from the cache and
+the alpha plane; `io_dec.c`'s `CustomSetup`, `CustomPut` and `CustomTeardown`
+implement `VP8IoHooks` for a short-lived pair of `params` and `output`;
+`alpha_dec.c` passes the alpha chunk and the alpha plane to the VP8L alpha calls;
+`VP8DecompressAlphaRows` returns a position. WP12: `DecodeInto` passes the input
+from the frame offset, `params` and `config.output`; `WebPIDecoder` keeps `io`,
+`params`, `dec`, `mem` and its output buffers as plain fields and passes disjoint
+borrows; `DoRemap` updates only the reader lengths (WP2); `WebPISetIOHooks` stores
+the user's hooks as a `Box<dyn VP8IoHooks + 'a>` and passes them instead of the
+params. In C, user hooks combined with a lossless image make `VP8LDecodeImage`
+read the user data as `WebPDecParams`, which is undefined; Rust uses the
+decoder's params, and the case is excluded from the oracle (PORTING rule 8).
+
 **Ownership.** `malloc`/`free` pairs become owned values (`Vec`, `Box`) dropped
 where the source frees them. A buffer that C callers own stays borrowed
 (`&[u8]`, `&mut [u8]`). Memory handed to or received from C belongs to the
