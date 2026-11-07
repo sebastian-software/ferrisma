@@ -94,5 +94,5 @@ Re-run on 2026-11-07, same machine, corpus, references and method, with libavif-
 ## Limits
 
 - One machine, four photographs of at most 12 Mpx, SSIMULACRA2 only (no Butteraugli).
-- The default stays `rav1e`; libavif-rs needs nightly, libvmaf and runs on aarch64 macOS and x86-64 GNU Linux only (ADR-0024).
+- The default stays `rav1e`; libavif-rs needs nightly and runs on aarch64 macOS and x86-64 GNU Linux only (ADR-0024). It needed libvmaf at the measured revisions; since `8be367f` its AOM is built without VMAF tuning, with byte-identical output.
 - libavif's bytes depend on the thread count; these are all-cores numbers.

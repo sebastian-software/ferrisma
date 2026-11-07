@@ -7,8 +7,8 @@ description = "libavif-rs (Rust AOM) as an output encoder backend for Ferrixel (
 publish = false
 
 # Not a member of the Ferrixel workspace: libavif-rs needs a pinned nightly
-# toolchain, libvmaf through pkg-config, and builds only on aarch64 macOS
-# and x86-64 GNU Linux. The core crate stays on stable (ADR-0024).
+# toolchain and builds only on aarch64 macOS and x86-64 GNU Linux. The core
+# crate stays on stable (ADR-0024).
 [workspace]
 
 [features]
@@ -21,7 +21,7 @@ cli = ["ferrixel/jpeg-read", "ferrixel/jpeg-xl-read", "ferrixel/icc"]
 
 [dependencies]
 ferrixel = { path = "../..", default-features = false, features = ["avif-write"] }
-libavif-rs = { git = "https://github.com/sebastian-software/libavif-rs", rev = "c9b583ccd12aabcfe2bb1ad5ad2f8b3165ad9bc0" }
+libavif-rs = { git = "https://github.com/sebastian-software/libavif-rs", rev = "8be367f0dde9e7e04299d7de400a3e0abe843e42" }
 
 [dev-dependencies]
 ferrixel = { path = "../..", default-features = false, features = ["avif-write", "jpeg-read"] }
