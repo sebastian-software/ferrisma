@@ -28,9 +28,9 @@
 //! `jpeg_decompress_struct` (ADR 0005, "Module interfaces arrive with their
 //! modules"). Work package 2 adds `jpeg_input_controller` and
 //! `jpeg_marker_reader`, the data fields of `jpeg_decomp_master` (its methods
-//! arrive with `jdmaster.c` in work package 6), and the parts of
-//! `jpeg_entropy_decoder` and `jpeg_d_coef_controller` that `jdinput.c` calls
-//! (ADR 0005, decisions of 2026-11-07). The compression interfaces, the `CSTATE_*` values, `JDIFF` and
+//! arrive with `jdmaster.c` in work package 6), and the part of
+//! `jpeg_d_coef_controller` that `jdinput.c` calls (ADR 0005, decisions of
+//! 2026-11-07); work package 3 completes `jpeg_entropy_decoder`. The compression interfaces, the `CSTATE_*` values, `JDIFF` and
 //! the `jinit_*` declarations of untranslated modules are out of scope (ADR
 //! 0001). `MALLOC` has no Rust form: storage comes from Rust's allocator
 //! (ADR 0005, "Owned storage"). `SHIFT_TEMPS` declares nothing without
@@ -40,7 +40,7 @@ use core::ffi::{c_long, c_ulong};
 
 use crate::jerror::ErrorExit;
 use crate::jmorecfg::{JDIMENSION, MAX_COMPONENTS};
-use crate::jpeglib::{J_COLOR_SPACE, j_decompress_ptr};
+use crate::jpeglib::{J_COLOR_SPACE, JBLOCK, j_decompress_ptr};
 
 // upstream: src/jpegint.h J_BUF_MODE
 /// Operating modes for buffer controllers.
@@ -231,13 +231,23 @@ pub struct jpeg_marker_reader {
 }
 
 // upstream: src/jpegint.h jpeg_entropy_decoder
-/// Entropy decoding: the method that `jdinput.c` calls. Work package 3 adds
-/// the others and the state variable.
+/// Entropy decoding. `decode_mcus` and `process_restart` serve lossless mode
+/// and are not translated (ADR 0001).
 #[expect(non_camel_case_types, reason = "C type name")]
 #[derive(Clone, Copy, Debug)]
 pub struct jpeg_entropy_decoder {
     /// Prepares for a scan.
     pub start_pass: fn(j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>,
+    /// Decodes one MCU into the blocks of `MCU_data` (or skips it when that is
+    /// `None`, C's `NULL`); `false` suspends. `None` until `start_pass`
+    /// selects the routine, where the progressive and arithmetic decoders
+    /// leave C's pointer unset.
+    #[expect(clippy::type_complexity, reason = "C's method pointer type")]
+    pub decode_mcu:
+        Option<fn(j_decompress_ptr<'_, '_>, Option<&mut [&mut JBLOCK]>) -> Result<bool, ErrorExit>>,
+    /// Set `true` after emitting the warning that data ran out; shared
+    /// between the baseline and progressive decoders.
+    pub insufficient_data: bool,
 }
 
 // upstream: src/jpegint.h jpeg_d_coef_controller
@@ -252,19 +262,41 @@ pub struct jpeg_d_coef_controller {
     pub consume_data: fn(j_decompress_ptr<'_, '_>) -> Result<i32, ErrorExit>,
 }
 
-/// The implementations of the `entropy` slot (ADR 0005, "Module objects"):
-/// none until work package 3 adds `huff_entropy_decoder`,
-/// `phuff_entropy_decoder` and `arith_entropy_decoder`, so the slot stays
-/// `None`. Not an upstream item.
+/// The implementations of the `entropy` slot (ADR 0005, "Module objects").
+/// Not an upstream item.
 #[expect(non_camel_case_types, reason = "named after the C struct")]
 #[derive(Debug)]
-pub enum jpeg_entropy_decoder_impl {}
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the slot boxes the decoder, as C allocates it"
+)]
+pub enum jpeg_entropy_decoder_impl {
+    /// `jdhuff.c`: sequential Huffman decoding.
+    huff_entropy_decoder(crate::jdhuff::huff_entropy_decoder),
+    /// `jdphuff.c`: progressive Huffman decoding.
+    phuff_entropy_decoder(crate::jdphuff::phuff_entropy_decoder),
+    /// `jdarith.c`: arithmetic decoding.
+    arith_entropy_decoder(crate::jdarith::arith_entropy_decoder),
+}
 
 impl jpeg_entropy_decoder_impl {
     /// The public part of whichever implementation the slot holds.
     #[must_use]
     pub fn pub_(&self) -> &jpeg_entropy_decoder {
-        match *self {}
+        match self {
+            jpeg_entropy_decoder_impl::huff_entropy_decoder(entropy) => &entropy.pub_,
+            jpeg_entropy_decoder_impl::phuff_entropy_decoder(entropy) => &entropy.pub_,
+            jpeg_entropy_decoder_impl::arith_entropy_decoder(entropy) => &entropy.pub_,
+        }
+    }
+
+    /// The public part, mutably.
+    pub fn pub_mut(&mut self) -> &mut jpeg_entropy_decoder {
+        match self {
+            jpeg_entropy_decoder_impl::huff_entropy_decoder(entropy) => &mut entropy.pub_,
+            jpeg_entropy_decoder_impl::phuff_entropy_decoder(entropy) => &mut entropy.pub_,
+            jpeg_entropy_decoder_impl::arith_entropy_decoder(entropy) => &mut entropy.pub_,
+        }
     }
 }
 

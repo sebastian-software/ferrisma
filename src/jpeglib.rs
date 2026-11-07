@@ -36,8 +36,8 @@
 //! `main`, `post`, `idct`, `upsample`, `cconvert` and `cquantize` with their
 //! interfaces, `colormap`, `sample_range_limit` and
 //! `jpeg_component_info::dct_table` (ADR 0005, "Module interfaces arrive with
-//! their modules"). The `entropy` and `coef` slots exist, but stay empty until
-//! work packages 3 and 4 add their implementations. The function declarations of this header are translated in the
+//! their modules"). The `coef` slot exists, but stays empty until work package
+//! 4 adds its implementation. The function declarations of this header are translated in the
 //! modules that define them.
 
 use core::ffi::c_long;
@@ -772,7 +772,7 @@ pub struct jpeg_decompress_struct<'src> {
     pub inputctl: Option<Box<my_input_controller>>,
     /// Marker reading and parsing.
     pub marker: Option<Box<my_marker_reader<'src>>>,
-    /// Entropy decoding; empty until work package 3.
+    /// Entropy decoding.
     pub entropy: Option<Box<jpeg_entropy_decoder_impl>>,
 }
 
@@ -956,6 +956,19 @@ impl<'src> jpeg_decompress_struct<'src> {
             .as_deref()
             .expect("cinfo->entropy is NULL")
             .pub_()
+    }
+
+    /// `cinfo->entropy`, mutably: the public part of whichever decoder it
+    /// holds.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn entropy_mut(&mut self) -> &mut jpeg_entropy_decoder {
+        self.entropy
+            .as_deref_mut()
+            .expect("cinfo->entropy is NULL")
+            .pub_mut()
     }
 
     /// `cinfo->coef`: the public part of the coefficient controller.
