@@ -83,3 +83,36 @@ pub struct WebPDecParams<'a> {
     /// Outputs one line of rescaled alpha values.
     pub emit_alpha_row: Option<OutputRowFunc>,
 }
+
+// The items below translate the rest of `src/dec/webpi_dec.h` (WP12). The
+// header declares functions that `src/dec/webp_dec.c` and `src/dec/buffer_dec.c`
+// define; they are in those modules.
+
+//------------------------------------------------------------------------------
+// Header parsing helpers
+
+// upstream: src/dec/webpi_dec.h WebPHeaderStructure
+/// Structure storing a description of the RIFF headers.
+///
+/// `data` is C's `data` and `data_size`. `alpha_data` is the position in `data`
+/// of the ALPH chunk's payload, where C has a pointer into it (`None` for
+/// `NULL`). The `int` flags are `bool` (ADR 0003).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WebPHeaderStructure<'d> {
+    /// Input buffer (C: `data` and `data_size`).
+    pub data: &'d [u8],
+    /// True if all data is known to be available.
+    pub have_all_data: bool,
+    /// Offset to main data chunk (VP8 or VP8L).
+    pub offset: usize,
+    /// Points to alpha chunk (if present), as a position in `data`.
+    pub alpha_data: Option<usize>,
+    /// Alpha chunk size.
+    pub alpha_data_size: usize,
+    /// VP8/VP8L compressed data size.
+    pub compressed_size: usize,
+    /// Size of the riff payload (or 0 if absent).
+    pub riff_size: usize,
+    /// True if a VP8L chunk is present.
+    pub is_lossless: bool,
+}

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-05
+- Updated: 2026-11-07
 
 ## Context
 
@@ -37,11 +37,21 @@ Rust (as `image-webp` shows), so libwebp-rs can be stricter.
   `tests/support/oracle.rs`.
 - No runtime dependencies. Development dependencies need an amendment of this
   record that names them; there are none.
+- The fuzz targets live in `fuzz/`, a separate crate (amended 2026-11-07, WP12;
+  WORKPLAN decision 6). It is not a member of the library's workspace (it
+  declares its own) and never a dependency of the library. Its only dependency
+  besides the library is `libfuzzer-sys` 0.4, which re-exports `arbitrary` for
+  structured inputs. cargo-fuzz builds it with a nightly toolchain
+  (`cargo +nightly fuzz build`); the library's checks and its stable and MSRV
+  builds do not compile it. WP12 created it with `dec_fuzzer`,
+  `simple_api_fuzzer`, `advanced_api_fuzzer` and `huffman_fuzzer`, ported from
+  `upstream/libwebp/tests/fuzzer/`; WP13, WP14 and WP15 add their targets.
 
 ## Consequences
 
 The library builds with a plain `cargo build` on stable Rust and contains no
-`unsafe` outside five ABI files. Some C constructs need an `#[expect]` line;
+`unsafe` outside five ABI files. Fuzzing needs nightly and `libfuzzer-sys`, but
+only in the separate `fuzz/` crate. Some C constructs need an `#[expect]` line;
 the pedantic lints still catch untranslated mistakes elsewhere.
 
 ## Review triggers

@@ -151,6 +151,7 @@ fn run(input: &[u8], case: &Decode, out: &mut String) {
         colorspace: mode,
         width: case.out_w,
         height: case.out_h,
+        slow_memory: false,
         u,
         pad: [0; 4],
         storage: PlaneStorage::External(planes.iter_mut().map(Vec::as_mut_slice).collect()),

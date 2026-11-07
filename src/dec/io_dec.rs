@@ -1262,15 +1262,18 @@ fn custom_teardown(p: &mut WebPDecParams<'_>) {
 
 /// The custom hooks of `WebPInitCustomIo` with their user data: C's
 /// `io->opaque = params`, and the output buffer that `params->output` points at
-/// in C (ADR 0003, "Decoding context per call"). This type has no C counterpart.
-pub struct CustomIo<'p, 'a> {
+/// in C (ADR 0003, "Decoding context per call"). The parameters and the output
+/// carry separate lifetimes, because `WebPDecode` borrows the options of a
+/// configuration for one call while its output buffer borrows the caller's
+/// memory for longer (WP12). This type has no C counterpart.
+pub struct CustomIo<'p, 'o, 'a> {
     /// The decoding parameters (C: `io->opaque`).
-    pub params: &'p mut WebPDecParams<'a>,
+    pub params: &'p mut WebPDecParams<'o>,
     /// The output buffer (C: `params->output`).
     pub output: &'p mut WebPDecBuffer<'a>,
 }
 
-impl VP8IoHooks for CustomIo<'_, '_> {
+impl VP8IoHooks for CustomIo<'_, '_, '_> {
     // upstream: src/dec/io_dec.c CustomSetup
     fn setup(&mut self, io: &mut VP8Io) -> bool {
         custom_setup(io, self.params, self.output)
@@ -1292,10 +1295,10 @@ impl VP8IoHooks for CustomIo<'_, '_> {
 /// `io->setup`, `io->teardown` and `io->opaque = params`. `VP8Io` has no hook
 /// fields (ADR 0003), so the hooks are returned, to be passed to the decoding
 /// calls, and `io` is left as it is.
-pub fn webp_init_custom_io<'p, 'a>(
-    params: &'p mut WebPDecParams<'a>,
+pub fn webp_init_custom_io<'p, 'o, 'a>(
+    params: &'p mut WebPDecParams<'o>,
     output: &'p mut WebPDecBuffer<'a>,
     _io: &mut VP8Io,
-) -> CustomIo<'p, 'a> {
+) -> CustomIo<'p, 'o, 'a> {
     CustomIo { params, output }
 }

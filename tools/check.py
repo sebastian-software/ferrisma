@@ -7,7 +7,8 @@ Stages:
   test    `cargo test` in the dev, release and checked profiles
   all     both (default)
 
---oracle builds the C oracle (tools/build_oracle.py), checks that the declared
+--oracle builds the C oracle (tools/build_oracle.py, with the consumer builds
+against the Rust static library), checks that the declared
 package dependencies cover the oracle's cross-unit references
 (tools/unit_dependencies.py --check), sets LIBWEBP_ORACLE_DIR and enables the
 `oracle` feature, so that differential tests fail instead of skipping when
@@ -76,7 +77,8 @@ def check_tests(oracle_variant, baseline, msrv):
     env = dict(os.environ)
     features = []
     if oracle_variant:
-        directory = build_oracle.build(oracle_variant, str(os.cpu_count() or 4), fresh=False)
+        directory = build_oracle.build(oracle_variant, str(os.cpu_count() or 4), fresh=False,
+                                       rust_lib=build_oracle.rust_staticlib())
         env["LIBWEBP_ORACLE_DIR"] = str(directory)
         features = ["--features", "oracle"]
         run(sys.executable, ROOT / "tools/unit_dependencies.py", "--check", "--variant", oracle_variant)

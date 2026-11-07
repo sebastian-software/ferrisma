@@ -541,19 +541,42 @@ fn parse_filter_header(dec: &mut VP8Decoder, data: &[u8]) -> bool {
 /// # Errors
 ///
 /// Returns the status that `VP8SetError` recorded.
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "C assigns the bit fields of the header to their uint8_t fields"
-)]
-#[expect(clippy::too_many_lines, reason = "the C function")]
 pub fn vp8_get_headers(
     dec: &mut VP8Decoder,
     io: &mut VP8Io,
     data: &[u8],
 ) -> Result<(), VP8StatusCode> {
+    vp8_get_headers_at(dec, io, data, 0)
+}
+
+/// `VP8GetHeaders` for a C `io->data` that points `start` bytes into `data`, the
+/// whole input that the owner passes to every later read. The readers then hold
+/// positions in `data`, as the C readers hold pointers into the owner's buffer.
+/// The incremental decoder (WP12) needs this: its input is its whole memory
+/// buffer, the frame starts at `mem.start`, and `DoRemap` moves the readers by
+/// index deltas of that buffer. This function has no C counterpart of its own.
+///
+/// # Errors
+///
+/// Returns the status that `VP8SetError` recorded.
+///
+/// # Panics
+///
+/// Panics when `start` is past the end of `data`.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "C assigns the bit fields of the header to their uint8_t fields"
+)]
+#[expect(clippy::too_many_lines, reason = "the C function")]
+pub(crate) fn vp8_get_headers_at(
+    dec: &mut VP8Decoder,
+    io: &mut VP8Io,
+    data: &[u8],
+    start: usize,
+) -> Result<(), VP8StatusCode> {
     set_ok(dec);
-    let mut buf = 0usize;
-    let mut buf_size = data.len();
+    let mut buf = start;
+    let mut buf_size = data.len() - start;
     if buf_size < 4 {
         return Err(vp8_set_error(
             dec,
@@ -564,7 +587,9 @@ pub fn vp8_get_headers(
 
     // Paragraph 9.1
     {
-        let bits = u32::from(data[0]) | (u32::from(data[1]) << 8) | (u32::from(data[2]) << 16);
+        let bits = u32::from(data[buf])
+            | (u32::from(data[buf + 1]) << 8)
+            | (u32::from(data[buf + 2]) << 16);
         let frm_hdr = &mut dec.frm_hdr;
         frm_hdr.key_frame = u8::from((bits & 1) == 0);
         frm_hdr.profile = ((bits >> 1) & 7) as u8;

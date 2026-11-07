@@ -1,0 +1,54 @@
+# cargo-fuzz targets for libwebp-rs (ADR 0005). A separate crate: it is not a
+# member of the library's workspace and never a dependency of the library. Its
+# only dependency besides the library is libfuzzer-sys. WP12 created it with
+# the decoder targets ported from upstream/libwebp/tests/fuzzer; WP13, WP14 and
+# WP15 add theirs. Build with `cargo +nightly fuzz build` from the repository
+# root (`fuzz/README.md`).
+[package]
+name = "libwebp-rs-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+# The targets are ports of upstream's Apache-2.0 fuzzers.
+license = "Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.libwebp-rs]
+path = ".."
+
+# Its own workspace, so that the library's commands never pick it up.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "dec_fuzzer"
+path = "fuzz_targets/dec_fuzzer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "simple_api_fuzzer"
+path = "fuzz_targets/simple_api_fuzzer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "advanced_api_fuzzer"
+path = "fuzz_targets/advanced_api_fuzzer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "huffman_fuzzer"
+path = "fuzz_targets/huffman_fuzzer.rs"
+test = false
+doc = false
+bench = false
