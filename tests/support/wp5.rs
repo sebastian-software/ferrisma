@@ -4,11 +4,11 @@
 //! Include it next to `support/oracle.rs`, `support/wp2.rs` and
 //! `support/wp4.rs`.
 //!
-//! `jdmaster.c` arrives in work package 6, so this file carries copies of
-//! `jpeg_calc_output_dimensions` (with `jpeg_core_output_dimensions`) and
-//! `use_merged_upsample`, as the probe calls the first and copies the
-//! second, and of the parts of `master_selection` and
-//! `prepare_for_output_pass` that set up and start the modules.
+//! The probe calls `jpeg_calc_output_dimensions` and copies
+//! `use_merged_upsample`, which is local to `jdmaster.c`, and the parts of
+//! `master_selection` and `prepare_for_output_pass` that set up and start
+//! the modules. This file calls the port's `jpeg_calc_output_dimensions`
+//! and carries the same copies.
 
 #![allow(dead_code, reason = "each test binary uses part of the support")]
 
@@ -23,6 +23,7 @@ use jpeg::jdcolor::jinit_color_deconverter;
 use jpeg::jddctmgr::jinit_inverse_dct;
 use jpeg::jdhuff::jinit_huff_decoder;
 use jpeg::jdmainct::jinit_d_main_controller;
+use jpeg::jdmaster::jpeg_calc_output_dimensions;
 use jpeg::jdmerge::jinit_merged_upsampler;
 use jpeg::jdphuff::jinit_phuff_decoder;
 use jpeg::jdpostct::jinit_d_post_controller;
@@ -31,10 +32,9 @@ use jpeg::jerror::ErrorExit;
 use jpeg::jmorecfg::{JDIMENSION, rgb_pixelsize};
 use jpeg::jpegint::J_BUF_MODE;
 use jpeg::jpeglib::{
-    DCTSIZE, InputBuffer, J_COLOR_SPACE, JPEG_HEADER_OK, JPEG_SUSPENDED, RowListMut,
-    jpeg_decompress_struct, jpeg_source_mgr,
+    InputBuffer, J_COLOR_SPACE, JPEG_HEADER_OK, JPEG_SUSPENDED, RowListMut, jpeg_decompress_struct,
+    jpeg_source_mgr,
 };
-use jpeg::jutils::jdiv_round_up;
 
 use crate::oracle::Fields;
 use crate::wp2::{Log, SuspendState, SuspendingSource, print_memory, push, release};
@@ -42,99 +42,6 @@ use crate::wp4::{
     FNV_OFFSET, FNV_PRIME, MAX_CALLS, RunLog, new_object, parse_method, prepare_range_limit_table,
     print_error,
 };
-
-/// `jdmaster.c`'s `jpeg_core_output_dimensions` for lossy images: the
-/// output size and the DCT scaling for `scale_num / scale_denom`, as its
-/// chain of sixteen cases computes them.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "C's conversions"
-)]
-fn jpeg_core_output_dimensions(cinfo: &mut jpeg_decompress_struct<'_>) {
-    let dctsize = DCTSIZE as u32;
-    let mut k: u32 = 16;
-    for n in 1..=15 {
-        if cinfo.scale_num * dctsize <= cinfo.scale_denom * n {
-            k = n;
-            break;
-        }
-    }
-    cinfo.output_width =
-        jdiv_round_up(i64::from(cinfo.image_width) * i64::from(k), DCTSIZE as i64) as JDIMENSION;
-    cinfo.output_height =
-        jdiv_round_up(i64::from(cinfo.image_height) * i64::from(k), DCTSIZE as i64) as JDIMENSION;
-    cinfo.min_DCT_scaled_size = k as i32;
-    let min = cinfo.min_DCT_scaled_size;
-    for compptr in cinfo.comp_info_mut() {
-        compptr.DCT_scaled_size = min;
-    }
-}
-
-/// `jdmaster.c`'s `jpeg_calc_output_dimensions` for lossy images, without
-/// its state check.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_possible_wrap,
-    reason = "C's conversions"
-)]
-pub fn jpeg_calc_output_dimensions(cinfo: &mut jpeg_decompress_struct<'_>) {
-    jpeg_core_output_dimensions(cinfo);
-    let (max_h, max_v, min) = (
-        cinfo.max_h_samp_factor,
-        cinfo.max_v_samp_factor,
-        cinfo.min_DCT_scaled_size,
-    );
-    let (width, height) = (cinfo.image_width, cinfo.image_height);
-    for compptr in cinfo.comp_info_mut() {
-        let mut ssize = min;
-        while ssize < DCTSIZE as i32
-            && (max_h * min) % (compptr.h_samp_factor * ssize * 2) == 0
-            && (max_v * min) % (compptr.v_samp_factor * ssize * 2) == 0
-        {
-            ssize *= 2;
-        }
-        compptr.DCT_scaled_size = ssize;
-    }
-    for compptr in cinfo.comp_info_mut() {
-        compptr.downsampled_width = jdiv_round_up(
-            i64::from(width) * i64::from(compptr.h_samp_factor * compptr.DCT_scaled_size),
-            i64::from(max_h * DCTSIZE as i32),
-        ) as JDIMENSION;
-        compptr.downsampled_height = jdiv_round_up(
-            i64::from(height) * i64::from(compptr.v_samp_factor * compptr.DCT_scaled_size),
-            i64::from(max_v * DCTSIZE as i32),
-        ) as JDIMENSION;
-    }
-    cinfo.out_color_components = match cinfo.out_color_space {
-        J_COLOR_SPACE::JCS_GRAYSCALE => 1,
-        J_COLOR_SPACE::JCS_RGB
-        | J_COLOR_SPACE::JCS_EXT_RGB
-        | J_COLOR_SPACE::JCS_EXT_RGBX
-        | J_COLOR_SPACE::JCS_EXT_BGR
-        | J_COLOR_SPACE::JCS_EXT_BGRX
-        | J_COLOR_SPACE::JCS_EXT_XBGR
-        | J_COLOR_SPACE::JCS_EXT_XRGB
-        | J_COLOR_SPACE::JCS_EXT_RGBA
-        | J_COLOR_SPACE::JCS_EXT_BGRA
-        | J_COLOR_SPACE::JCS_EXT_ABGR
-        | J_COLOR_SPACE::JCS_EXT_ARGB => rgb_pixelsize[cinfo.out_color_space.0 as usize],
-        J_COLOR_SPACE::JCS_YCbCr | J_COLOR_SPACE::JCS_RGB565 => 3,
-        J_COLOR_SPACE::JCS_CMYK | J_COLOR_SPACE::JCS_YCCK => 4,
-        _ => cinfo.num_components,
-    };
-    cinfo.output_components = if cinfo.quantize_colors {
-        1
-    } else {
-        cinfo.out_color_components
-    };
-    cinfo.rec_outbuf_height = if use_merged_upsample(cinfo) {
-        cinfo.max_v_samp_factor
-    } else {
-        1
-    };
-}
 
 /// `jdmaster.c`'s `use_merged_upsample` without lossless mode.
 pub fn use_merged_upsample(cinfo: &jpeg_decompress_struct<'_>) -> bool {
@@ -371,7 +278,7 @@ pub fn run_rust(args: &[&str], data: &[u8]) -> Fields {
         }
 
         /* jdmaster.c's master_selection, without color quantization */
-        jpeg_calc_output_dimensions(&mut cinfo);
+        jpeg_calc_output_dimensions(&mut cinfo)?;
         prepare_range_limit_table(&mut cinfo)?;
         let merged = use_merged_upsample(&cinfo);
         push(
