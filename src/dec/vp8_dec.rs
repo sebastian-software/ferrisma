@@ -95,10 +95,13 @@ pub struct VP8Io {
 }
 
 /// The rows that C passes to `put()` through `io->y`, `io->u`, `io->v` and
-/// `io->a` (ADR 0003, "Decoding context per call"). Each slice starts where the C
-/// pointer points, and the rows follow at `y_stride`, `uv_stride` and `width`.
-/// `y` is mutable because `EmitRescaledYUV` premultiplies the luma through the
-/// `const` pointer. `a` is `None` where C has `io->a == NULL`. This type has no C
+/// `io->a` (ADR 0003, "Decoding context per call"). The luma and chroma slices
+/// start where the C pointers point, and the rows follow at `y_stride`,
+/// `uv_stride` and `width`. `y` is mutable because `EmitRescaledYUV`
+/// premultiplies the luma through the `const` pointer. The alpha data is
+/// persistent, and `EmitAlphaRGB` steps back one row from `io->a`, so `a` holds
+/// the alpha plane from its first row and `a_offset` is the index of C's `io->a`
+/// in it (WP6). `a` is `None` where C has `io->a == NULL`. This type has no C
 /// counterpart.
 #[derive(Debug)]
 pub struct VP8IoRows<'r> {
@@ -108,8 +111,11 @@ pub struct VP8IoRows<'r> {
     pub u: &'r [u8],
     /// Chroma V rows (C: `io->v`).
     pub v: &'r [u8],
-    /// Alpha rows, pre-offset by `mb_y` and the crop (C: `io->a`).
+    /// The alpha plane, from its first row; `None` where C has `io->a == NULL`.
     pub a: Option<&'r [u8]>,
+    /// Index in `a` of C's `io->a`: the alpha rows, pre-offset by `mb_y` and the
+    /// crop.
+    pub a_offset: usize,
 }
 
 /// The hooks of a `VP8Io` and their user data (C: `put`, `setup`, `teardown` and
