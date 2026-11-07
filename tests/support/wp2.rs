@@ -2,6 +2,14 @@
 //! the same options, the same suspending source and marker processor, and
 //! the same printed fields, so that `tests/wp2_header.rs` can compare both
 //! outputs exactly. Include it next to `support/oracle.rs`.
+//!
+//! `support/wp3.rs` reuses the error recorder, the suspending source and the
+//! pool output.
+
+#![allow(
+    dead_code,
+    reason = "each test crate uses a different subset of the helpers"
+)]
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -16,6 +24,7 @@ use jpeg::jdmarker::{jpeg_resync_to_restart, jpeg_save_markers, jpeg_set_marker_
 use jpeg::jerror::{
     ErrorExit, J_MESSAGE_CODE, WARNMS, emit_message, jpeg_error_methods, jpeg_std_error,
 };
+use jpeg::jmemmgr::my_memory_mgr;
 use jpeg::jmorecfg::MAX_COMPONENTS;
 use jpeg::jpeglib::{
     InputBuffer, JMSG_LENGTH_MAX, JPEG_EOI, JPEG_SUSPENDED, MAX_COMPS_IN_SCAN, NUM_ARITH_TBLS,
@@ -81,13 +90,13 @@ fn parse(args: &[&str]) -> Options {
     options
 }
 
-type Log = Rc<RefCell<Fields>>;
+pub type Log = Rc<RefCell<Fields>>;
 
-fn push(log: &Log, key: &str, value: impl ToString) {
+pub fn push(log: &Log, key: &str, value: impl ToString) {
     log.borrow_mut().0.push((key.to_owned(), value.to_string()));
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub fn hex(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut text = String::with_capacity(bytes.len() * 2);
     for &byte in bytes {
@@ -105,9 +114,9 @@ fn until_nul(buffer: &[u8]) -> &[u8] {
 }
 
 /// The probe's `Wp2ErrorMgr`.
-struct Recorder {
-    log: Log,
-    error: Rc<RefCell<(i32, String)>>,
+pub struct Recorder {
+    pub log: Log,
+    pub error: Rc<RefCell<(i32, String)>>,
 }
 
 impl jpeg_error_methods for Recorder {
@@ -141,16 +150,16 @@ impl jpeg_error_methods for Recorder {
 
 /// The probe's suspending source state.
 #[derive(Default)]
-struct SuspendState {
-    size: usize,
-    released: usize,
-    skip_pending: i64,
-    fake_eoi: bool,
+pub struct SuspendState {
+    pub size: usize,
+    pub released: usize,
+    pub skip_pending: i64,
+    pub fake_eoi: bool,
 }
 
 static FAKE_EOI: [u8; 4] = [0xFF, JPEG_EOI as u8, 0, 0];
 
-struct SuspendingSource(Rc<RefCell<SuspendState>>);
+pub struct SuspendingSource(pub Rc<RefCell<SuspendState>>);
 
 impl jpeg_source_methods for SuspendingSource {
     fn init_source(&mut self, _cinfo: &mut jpeg_decompress_struct<'_>) -> Result<(), ErrorExit> {
@@ -212,7 +221,11 @@ impl jpeg_source_methods for SuspendingSource {
 }
 
 /// The probe's `Wp2Release`.
-fn release(cinfo: &mut jpeg_decompress_struct<'_>, state: &Rc<RefCell<SuspendState>>, step: usize) {
+pub fn release(
+    cinfo: &mut jpeg_decompress_struct<'_>,
+    state: &Rc<RefCell<SuspendState>>,
+    step: usize,
+) {
     let mut state = state.borrow_mut();
     if state.fake_eoi {
         return;
@@ -295,6 +308,39 @@ fn print_pools(log: &Log, key: &str, records: impl Iterator<Item = (usize, usize
     push(log, key, value.join(","));
 }
 
+/// The probe's `Wp2PrintMemory`.
+pub fn print_memory(log: &Log, mem: &my_memory_mgr) {
+    push(log, "total", mem.total_space_allocated);
+    print_pools(
+        log,
+        "small0",
+        mem.small_list[0]
+            .iter()
+            .map(|h| (h.bytes_used, h.bytes_left)),
+    );
+    print_pools(
+        log,
+        "small1",
+        mem.small_list[1]
+            .iter()
+            .map(|h| (h.bytes_used, h.bytes_left)),
+    );
+    print_pools(
+        log,
+        "large0",
+        mem.large_list[0]
+            .iter()
+            .map(|h| (h.bytes_used, h.bytes_left)),
+    );
+    print_pools(
+        log,
+        "large1",
+        mem.large_list[1]
+            .iter()
+            .map(|h| (h.bytes_used, h.bytes_left)),
+    );
+}
+
 /// The probe's `Wp2PrintRound`.
 fn print_round(
     log: &Log,
@@ -343,35 +389,7 @@ fn print_object(
         push(log, "mem", 0);
         return;
     };
-    push(log, "total", mem.total_space_allocated);
-    print_pools(
-        log,
-        "small0",
-        mem.small_list[0]
-            .iter()
-            .map(|h| (h.bytes_used, h.bytes_left)),
-    );
-    print_pools(
-        log,
-        "small1",
-        mem.small_list[1]
-            .iter()
-            .map(|h| (h.bytes_used, h.bytes_left)),
-    );
-    print_pools(
-        log,
-        "large0",
-        mem.large_list[0]
-            .iter()
-            .map(|h| (h.bytes_used, h.bytes_left)),
-    );
-    print_pools(
-        log,
-        "large1",
-        mem.large_list[1]
-            .iter()
-            .map(|h| (h.bytes_used, h.bytes_left)),
-    );
+    print_memory(log, mem);
     push(
         log,
         "source",

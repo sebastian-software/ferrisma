@@ -48,6 +48,9 @@ boolean Wp2CountingProcessor(j_decompress_ptr cinfo);
 /* Prints the round line of a suspension. */
 void Wp2PrintRound(j_decompress_ptr cinfo, int round, int status,
                    const SuspendingSource *src);
+/* Prints the memory manager's total and the used/left sizes of every pool
+ * (`total=`, `small0=`, `small1=`, `large0=`, `large1=`). */
+void Wp2PrintMemory(j_decompress_ptr cinfo);
 /* Prints everything jpeg_read_header leaves in the object. */
 /* After jpeg_abort (aborted), the component layout is left out. */
 void Wp2PrintObject(j_decompress_ptr cinfo, const JOCTET *data, size_t size,

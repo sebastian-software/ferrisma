@@ -246,6 +246,17 @@ static void PrintPools(const char *key, probe_pool_hdr *hdr)
   printf("\n");
 }
 
+void Wp2PrintMemory(j_decompress_ptr cinfo)
+{
+  probe_memory_mgr *mem = (probe_memory_mgr *)cinfo->mem;
+
+  printf("total=%lu\n", (unsigned long)mem->total_space_allocated);
+  PrintPools("small0", mem->small_list[JPOOL_PERMANENT]);
+  PrintPools("small1", mem->small_list[JPOOL_IMAGE]);
+  PrintPools("large0", mem->large_list[JPOOL_PERMANENT]);
+  PrintPools("large1", mem->large_list[JPOOL_IMAGE]);
+}
+
 /* The offset of the source position in the input data; 1000000 plus the
  * offset in the suspending source's fake EOI, or 2000000 when the memory
  * source points at its own fake EOI. */
@@ -287,11 +298,7 @@ void Wp2PrintObject(j_decompress_ptr cinfo, const JOCTET *data, size_t size,
     printf("mem=0\n");
     return;
   }
-  printf("total=%lu\n", (unsigned long)mem->total_space_allocated);
-  PrintPools("small0", mem->small_list[JPOOL_PERMANENT]);
-  PrintPools("small1", mem->small_list[JPOOL_IMAGE]);
-  PrintPools("large0", mem->large_list[JPOOL_PERMANENT]);
-  PrintPools("large1", mem->large_list[JPOOL_IMAGE]);
+  Wp2PrintMemory(cinfo);
   printf("source=%ld,%lu\n", SourceOffset(cinfo, data, size, src),
          cinfo->src ? (unsigned long)cinfo->src->bytes_in_buffer : 0UL);
   printf("image=%u,%u,%d,%d,%d\n", cinfo->image_width, cinfo->image_height,

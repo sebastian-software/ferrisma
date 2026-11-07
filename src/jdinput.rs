@@ -24,8 +24,10 @@
 //! Work package: 2 (Input and markers).
 //!
 //! `start_input_pass` calls the entropy decoder and the coefficient
-//! controller, whose slots stay empty until work packages 3 and 4; it is
-//! reached only after `jpeg_start_decompress`. The `JPEG_LIB_VERSION >= 70`
+//! controller, whose slot stays empty until work package 4; it is reached
+//! only after `jpeg_start_decompress`. `per_scan_setup` and
+//! `latch_quant_tables` are public, so that work package 3's tests can start
+//! a scan with a coefficient controller of their own. The `JPEG_LIB_VERSION >= 70`
 //! and `>= 80` branches and, with `D_LOSSLESS_SUPPORTED` treated as
 //! undefined, the lossless precision check are not compiled (ADR 0005).
 
@@ -183,13 +185,21 @@ fn initial_setup(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
 // upstream: src/jdinput.c per_scan_setup
 /// Does the computations needed before processing a JPEG scan.
 /// `comps_in_scan` and `cur_comp_info` were set from the SOS marker.
+///
+/// # Errors
+///
+/// `JERR_COMPONENT_COUNT` or `JERR_BAD_MCU_SIZE`.
+///
+/// # Panics
+///
+/// When `cinfo.master` or a component of the scan is absent.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
     clippy::cast_sign_loss,
     reason = "the C conversions between long, int and JDIMENSION"
 )]
-fn per_scan_setup(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+pub fn per_scan_setup(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
     let data_unit: i32 = if cinfo.master().pub_.lossless {
         1
     } else {
@@ -287,13 +297,21 @@ fn per_scan_setup(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
 /// the current scan, unless already saved during a prior scan, so that each
 /// component can be dequantized with the table current at the start of its
 /// first scan.
+///
+/// # Errors
+///
+/// `JERR_NO_QUANT_TABLE`, or what the memory manager reports.
+///
+/// # Panics
+///
+/// When a component of the scan is absent.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
     clippy::cast_sign_loss,
     reason = "the table index is checked to be nonnegative"
 )]
-fn latch_quant_tables(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+pub fn latch_quant_tables(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
     for ci in 0..cinfo.comps_in_scan as usize {
         let index = cinfo.cur_comp_info[ci].expect("cur_comp_info[ci] is NULL");
         let compptr = &cinfo.comp_info()[index];
