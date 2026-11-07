@@ -240,3 +240,78 @@ macro_rules! generate_predictor_add {
     };
 }
 pub(crate) use generate_predictor_add;
+
+// -----------------------------------------------------------------------------
+// WP11's exception (decided 2026-11-06): the four functions below read the
+// tables and slow functions that `src/dsp/lossless_enc.rs` defines.
+
+// upstream: src/dsp/lossless_common.h VP8LFastLog2
+/// `log2(v)` in fixed point with `LOG_2_PRECISION_BITS` fractional bits: a
+/// table entry for small values, `VP8LFastLog2Slow` otherwise.
+#[must_use]
+#[inline]
+pub fn vp8l_fast_log2(v: u32) -> u32 {
+    if v < LOG_LOOKUP_IDX_MAX.cast_unsigned() {
+        crate::dsp::lossless_enc::LOG2_TABLE[v as usize]
+    } else {
+        crate::dsp::lossless_enc::vp8l_fast_log2_slow(v)
+    }
+}
+
+// upstream: src/dsp/lossless_common.h VP8LFastSLog2
+/// Fast calculation of `v * log2(v)` for integer input.
+#[must_use]
+#[inline]
+pub fn vp8l_fast_s_log2(v: u32) -> u64 {
+    if v < LOG_LOOKUP_IDX_MAX.cast_unsigned() {
+        crate::dsp::lossless_enc::S_LOG2_TABLE[v as usize]
+    } else {
+        crate::dsp::lossless_enc::vp8l_fast_s_log2_slow(v)
+    }
+}
+
+// upstream: src/dsp/lossless_common.h VP8LPrefixEncodeBits
+/// Returns `(code, extra_bits)`, the two out-parameters of the C function: a
+/// table entry for distances below `PREFIX_LOOKUP_IDX_MAX`,
+/// `VP8LPrefixEncodeBitsNoLUT` otherwise.
+///
+/// # Panics
+///
+/// Panics for a negative distance, which C reads before the table.
+#[must_use]
+#[inline]
+pub fn vp8l_prefix_encode_bits(distance: i32) -> (i32, i32) {
+    if distance < PREFIX_LOOKUP_IDX_MAX {
+        let prefix_code = crate::dsp::lossless_enc::PREFIX_ENCODE_CODE
+            [usize::try_from(distance).expect("a distance is not negative")];
+        (
+            i32::from(prefix_code.code),
+            i32::from(prefix_code.extra_bits),
+        )
+    } else {
+        vp8l_prefix_encode_bits_no_lut(distance)
+    }
+}
+
+// upstream: src/dsp/lossless_common.h VP8LPrefixEncode
+/// Returns `(code, extra_bits, extra_bits_value)`, the three out-parameters of
+/// the C function.
+///
+/// # Panics
+///
+/// Panics for a negative distance, which C reads before the table.
+#[must_use]
+#[inline]
+pub fn vp8l_prefix_encode(distance: i32) -> (i32, i32, i32) {
+    if distance < PREFIX_LOOKUP_IDX_MAX {
+        let index = usize::try_from(distance).expect("a distance is not negative");
+        let prefix_code = crate::dsp::lossless_enc::PREFIX_ENCODE_CODE[index];
+        (
+            i32::from(prefix_code.code),
+            i32::from(prefix_code.extra_bits),
+            i32::from(crate::dsp::lossless_enc::PREFIX_ENCODE_EXTRA_BITS_VALUE[index]),
+        )
+    } else {
+        vp8l_prefix_encode_no_lut(distance)
+    }
+}
