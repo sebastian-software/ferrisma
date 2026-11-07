@@ -10,10 +10,12 @@ fourth sister port next to
 JPEG input, including scaled decoding for shrink-on-load, to
 [Ferrixel](https://github.com/sebastian-software/ferrixel).
 
-**Status:** tooling only. The C oracle, the probe harness, the bit-test
-inventory and the module skeleton exist; no upstream unit has been translated
-yet. See the [port plan](docs/PORT_PLAN.md) for the scope and the work
-packages, and the [port status](docs/PORT_STATUS.md) for what is verified.
+**Status:** common infrastructure. The C oracle, the probe harness, the
+bit-test inventory and the module skeleton exist, and work package 1 has
+translated the types, error codes and messages, the memory manager and the
+utilities; the decoder itself is not translated yet. See the
+[port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
+[port status](docs/PORT_STATUS.md) for what is verified.
 
 ## Why libjpeg-turbo, and why only the decoder
 

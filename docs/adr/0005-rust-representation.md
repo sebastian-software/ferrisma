@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-06
+- Updated: 2026-11-07
 
 ## Context
 
@@ -111,6 +111,20 @@ implementation, named after the C struct: `entropy` holds
 arith_entropy_decoder}`, and `upsample` holds the plain or the merged
 upsampler. `None` stands for C's `NULL` before `jinit_*` runs.
 
+**Module interfaces arrive with their modules.** Work package 1 translates
+the constants, enums, typedefs and macros of `jpegint.h` and the fields of
+`jpeg_decompress_struct` that it can represent on its own: the common fields,
+the source manager, the scalars, and the quantization and Huffman table
+pointers. The package that translates a module adds, together, the module's
+interface struct from `jpegint.h`, its private struct, its slot in
+`jpeg_decompress_struct`, and the fields of the object whose representation
+depends on how that module uses them (`comp_info`, `cur_comp_info`,
+`coef_bits`, `colormap`, `sample_range_limit`, `marker_list`,
+`jpeg_component_info::dct_table`), because only that package can settle their
+signatures and borrow splits. `jpeg_abort`, which clears
+`master->marker_list_end` and `marker_list`, is translated by work package 2
+with `jpeg_CreateDecompress`, which creates both.
+
 **Public part.** The public struct from `jpegint.h` is the first field `pub_`
 of each private struct, as `pub` is in C: `entropy->pub.insufficient_data`
 becomes `entropy.pub_.insufficient_data`. A module type that is an enum has an
@@ -159,8 +173,13 @@ take their methods as a trait object owned by the struct
 (`Box<dyn jpeg_source_methods + 'src>`), whose default methods are upstream's
 functions. The trait object carries the application's context, which replaces
 `client_data`; the C ABI mirror keeps `client_data`. A hook method receives
-`&mut jpeg_decompress_struct` and, like a module, its own struct taken out of
-the object for the duration of the call.
+`&mut jpeg_decompress_struct`. The trait object is taken out of its struct for
+the duration of the call and put back afterwards, while the hook's public
+fields stay in the object, where the method reaches them as C does
+(`cinfo.err.msg_code`); a method reaches the other methods of its hook through
+`self`. Upstream's default functions are also free functions, so that an
+override can call them, as a C application calls the pointer that
+`jpeg_std_error` installed.
 
 ### Error exits and warnings
 
@@ -250,29 +269,39 @@ its `which` parameter (1 to 11), `JERR_BAD_POOL_ID`, `JERR_WIDTH_OVERFLOW`,
 `jinit_memory_mgr` reads `JPEGMEM` from the environment as upstream does.
 
 **Owned storage.** The storage behind each request is a Rust value that the
-requesting code owns: `alloc_small` and `alloc_large` return a `Box` or `Vec`
-built from the caller's value, `alloc_sarray` and `alloc_barray` return the
-buffers described below. Large requests reserve with `Vec::try_reserve_exact`
-and report a refused reservation as the `out_of_memory` code that a failing
-`jpeg_get_large` or `jpeg_get_small` produces; a small fixed-size `Box` is
-allocated infallibly. Rust initializes every allocation; C code that reads
+requesting code owns. The `alloc_small` and `alloc_large` slots account for a
+request with its C size and make the caller's storage reservation where C's
+`jpeg_get_small` or `jpeg_get_large` obtains memory; typed functions
+(`alloc_small_box`, `alloc_small_vec`, `alloc_large_vec`) return the `Box` or
+`Vec` built from the caller's value, and `alloc_sarray` and `alloc_barray`
+return the buffers described below. Large requests and variable-length small
+objects reserve with `Vec::try_reserve_exact` and report a refused reservation
+as the `out_of_memory` code that a failing `jpeg_get_large` (4) or
+`jpeg_get_small` (2) produces; a small fixed-size `Box` is allocated
+infallibly. Rust initializes every allocation; C code that reads
 `malloc`ed memory before writing it is undefined and is recorded where found.
 
 **Pools.** `free_pool(JPOOL_IMAGE)` drops the image pool's records, so
 `total_space_allocated` falls as it does in C, and resets every field of the
 object that upstream fills from `JPOOL_IMAGE` to its empty value, which drops
 the storage. Work package 1 derives that list of fields from upstream's
-allocation calls and checks it with a test; later packages extend it when they
-add a field. `JPOOL_PERMANENT` storage lives until the object is dropped.
+allocation calls (`tools/pools.json`), and `tools/pools.py` checks it against
+upstream and against `release_pool_fields` in `jmemmgr`; later packages extend
+it when they add a field. `JPOOL_PERMANENT` storage lives until the object is dropped.
 `self_destruct` is the drop.
 
 **Virtual arrays.** `request_virt_barray`, `realize_virt_arrays` and
 `access_virt_barray` keep their checks, `maxaccess`, `pre_zero`,
 `first_undef_row` and `dirty` logic; with no backing store, `rows_in_mem`
 always equals `rows_in_array` or the request fails with
-`JERR_NO_BACKING_STORE`, as in `jmemnobs.c`. `access_virt_barray` returns a
-view of the requested rows of the array's storage. Virtual sample arrays are
-used only by two-pass quantization and are not translated.
+`JERR_NO_BACKING_STORE`, as in `jmemnobs.c`. Since `jpeg_open_backing_store`
+never returns normally, no backing store is ever open, and the backing-store
+I/O (`do_barray_io`, `b_s_open`, `b_s_info`) is not translated: every path
+that needs it ends in its error exit. `access_virt_barray` returns the index
+of the first requested row in the array's in-memory buffer, the offset C adds
+to `mem_buffer`; the caller borrows the rows from the array's control block,
+which owns the buffer. Virtual sample arrays are used only by two-pass
+quantization and are not translated.
 
 ### Sample and coefficient buffers
 
@@ -376,6 +405,16 @@ The maintainer accepted the proposed answers to the questions raised in review:
    `jdcoefct.h`, `jdmainct.h`, `jdmaster.h`, `jdsample.h` and `jdmerge.h`
    share the module of the C file with the same name; `jdmrgext.c` and
    `jdcolext.c` are modules of their own.
+
+## Decisions for work package 1 (2026-11-07)
+
+The maintainer decided two questions that work package 1 raised:
+
+1. **Module interfaces and slots** arrive with the package that translates the
+   module, together with the object fields that depend on it ("Module
+   interfaces arrive with their modules" above).
+2. **`jpeg_abort`** moves to work package 2, which creates `master` and the
+   saved-marker list.
 
 ## Review triggers
 

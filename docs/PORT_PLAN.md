@@ -9,8 +9,8 @@ depends on are merged.
 | WP | Content | Upstream units | Depends on | Done when |
 | --- | --- | --- | --- | --- |
 | 0 | Tooling and representation | oracle build script, probe runner, unit map from upstream files to Rust modules and packages, module skeleton, check script, CI oracle job; an ADR for the Rust representation of the libjpeg object model (method tables, the pool allocator, `JSAMPARRAY` row pointers, error exits and warnings, suspending data sources): [ADR 0005](adr/0005-rust-representation.md) | — | The oracle builds on both CI hosts; the 8-bit `djpeg` bit tests pass against the oracle and are inventoried with their scope |
-| 1 | Common infrastructure | `jerror.c`, `jcomapi.c`, `jutils.c`, `jmemmgr.c`, `jmemnobs.c`, types from `jpeglib.h`, `jpegint.h`, `jmorecfg.h`, `jerror.h` | 0 | Error codes, messages and allocation limits match the oracle |
-| 2 | Input and markers | `jdapimin.c`, `jdatasrc.c` (`jpeg_mem_src`), `jdinput.c`, `jdmarker.c`, `jdicc.c` | 1 | `jpeg_read_header` results, ICC extraction, warnings and errors match on the test images and the fuzz corpus |
+| 1 | Common infrastructure | `jerror.c`, `jcomapi.c` (except `jpeg_abort`), `jutils.c`, `jmemmgr.c`, `jmemnobs.c`, types from `jpeglib.h`, `jpegint.h`, `jmorecfg.h`, `jerror.h` | 0 | Error codes, messages and allocation limits match the oracle |
+| 2 | Input and markers | `jdapimin.c`, `jdatasrc.c` (`jpeg_mem_src`), `jdinput.c`, `jdmarker.c`, `jdicc.c`, `jpeg_abort` from `jcomapi.c` | 1 | `jpeg_read_header` results, ICC extraction, warnings and errors match on the test images and the fuzz corpus |
 | 3 | Entropy decoding | `jdhuff.c`, `jdphuff.c`, `jaricom.c`, `jdarith.c` | 2 | Decoded coefficient blocks match for baseline, progressive and arithmetic files, including corrupt-data recovery |
 | 4 | Coefficients and IDCT | `jdcoefct.c`, `jddctmgr.c`, `jidctint.c`, `jidctfst.c`, `jidctflt.c`, `jidctred.c` | 3 | Sample blocks match for every DCT method and every scaled size |
 | 5 | Upsampling, color, buffers | `jdsample.c`, `jdmerge.c`, `jdmrgext.c`, `jdcolor.c`, `jdcolext.c`, `jdpostct.c`, `jdmainct.c` | 4 | Output rows match for every in-scope color space and sampling factor, with and without fancy upsampling |
@@ -23,7 +23,11 @@ depends on are merged.
 
 Packages 1 to 5 can overlap once package 0 has fixed the module skeleton and
 the representation ADR; their tests depend on the earlier stages only through
-probes.
+probes. Each package adds the `jpegint.h` interface, the private struct and the
+`jpeg_decompress_struct` slot of every module it translates, with the object
+fields that depend on that module ([ADR 0005](adr/0005-rust-representation.md)),
+so a package whose code calls another module's methods follows the package that
+adds that module.
 
 ## Not planned
 
