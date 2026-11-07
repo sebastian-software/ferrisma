@@ -72,7 +72,9 @@ pub fn webp_rescaler_frac(x: i32, y: i32) -> u32 {
 /// from the work vector it receives, and the import swaps them as the rows
 /// advance. The output buffer is not held. `dst_pos` is the start of the row
 /// that the next export writes, which the C pointer `dst` denotes, and each
-/// export receives the buffer it writes into.
+/// export receives the buffer it writes into. `webp_rescaler_init` starts it at
+/// 0; an owner whose first output row is elsewhere in the buffer, such as a
+/// flipped plane with a negative `dst_stride`, sets it to that row's start.
 pub struct WebPRescaler {
     /// true if we're expanding in the x direction
     pub x_expand: bool,
@@ -102,7 +104,7 @@ pub struct WebPRescaler {
     pub src_y: i32,
     pub dst_y: i32,
     /// the start of the output row to write next, and the stride between rows
-    pub(crate) dst_pos: usize,
+    pub dst_pos: usize,
     pub dst_stride: i32,
     /// the two side rows, owned by the rescaler
     pub(crate) irow: Vec<rescaler_t>,

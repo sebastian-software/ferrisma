@@ -299,7 +299,8 @@ the Rust side cannot reproduce exactly. Each records the reason.
 ## Notes for the packages that build on WP7
 
 - **WP6.** `VP8Io`, `VP8IoRows` and `VP8IoHooks` are in `src/dec/vp8_dec.rs`;
-  keep them unchanged and append below them. The VP8 entry points take the input
+  WP6 added `VP8IoRows::a_offset` (`a` is the alpha plane from its first row, and
+  `a_offset` the index of C's `io->a`) and appended its items below them. The VP8 entry points take the input
   and `Option<&mut dyn VP8IoHooks>` per call; `FinishRow` builds `VP8IoRows`
   from the cache and the alpha plane; `io_dec.c`'s `CustomSetup`, `CustomPut` and
   `CustomTeardown` implement `VP8IoHooks` for a short-lived pair of `params` and

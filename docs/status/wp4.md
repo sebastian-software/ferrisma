@@ -156,7 +156,9 @@ the Rust side cannot reproduce exactly. Each records the reason.
 8. **`WebPRescaler`.** The C `dst` pointer is the caller's output buffer. The
    struct does not hold it: `webp_rescaler_export_row` and `webp_rescaler_export`
    take the buffer on each call, and the struct keeps `dst_pos`, the start of the
-   next output row, and `dst_stride`. `irow` and `frow` are the two side rows,
+   next output row, and `dst_stride`. The stride may be negative, as for a
+   flipped buffer, and the owner may set `dst_pos` to the start of the first row
+   (fixed for WP6 on 2026-11-07). `irow` and `frow` are the two side rows,
    owned by the struct. `webp_rescaler_init` takes the work vector by value and
    splits it, and the import swaps the two vectors, which is what the C pointer
    swap does. The struct has no lifetime parameter, so a decoder can store it

@@ -274,11 +274,14 @@ pub fn webp_rescaler_import_row(wrk: &mut WebPRescaler, src: &[u8]) {
 
 // upstream: src/dsp/rescaler.c WebPRescalerExportRow
 /// Exports one row into `dst` when one is ready, then advances the destination
-/// row and the vertical accumulator.
+/// row by the signed `dst_stride` and the vertical accumulator. A negative
+/// stride writes the rows upwards, as C does for a flipped buffer whose `dst`
+/// points at its last row. After the last row the position may leave the
+/// buffer, as C's pointer does; it is never written there.
 ///
 /// # Panics
 ///
-/// Panics when `dst` is shorter than the row at `dst_pos` that the export writes.
+/// Panics when the row at `dst_pos` that the export writes lies outside `dst`.
 pub fn webp_rescaler_export_row(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     if wrk.y_accum <= 0 {
         if wrk.y_expand {
@@ -296,8 +299,10 @@ pub fn webp_rescaler_export_row(wrk: &mut WebPRescaler, dst: &mut [u8]) {
             }
         }
         wrk.y_accum += wrk.y_add;
-        let stride = usize::try_from(wrk.dst_stride).expect("the stride is positive");
-        wrk.dst_pos += stride;
+        let stride = isize::try_from(wrk.dst_stride).expect("the stride fits in isize");
+        // Wrapping: past the last row of a flipped buffer the position is never
+        // written, and a row written outside `dst` panics at its index.
+        wrk.dst_pos = wrk.dst_pos.wrapping_add_signed(stride);
         wrk.dst_y += 1;
     }
 }

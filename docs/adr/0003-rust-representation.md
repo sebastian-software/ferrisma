@@ -260,7 +260,14 @@ ends the thread (decided 2026-11-06). The replaceable worker interface
 (`WebPWorkerInterface`, `WebPSetWorkerInterface` and `WebPGetWorkerInterface`) is
 removed (decided 2026-11-06). It is an internal extension point that no public
 header declares, and the ABI export does not need it. Callers use the worker methods
-directly.
+directly. A worker that outlives one call, such as the VP8 decoder's, receives only
+owned data; what the hook would read from the caller's input or write into memory
+borrowed from the caller (the alpha-row decoding, the `put` hook and the emit
+functions) runs on the calling thread at `Sync`, and the split is recorded by the
+package (decided 2026-11-07, WP6). A worker whose whole life lies inside one call and
+whose job borrows the caller's data, such as the VP8L encoder's side thread, is a
+scoped thread (`std::thread::scope`) with the same Launch, Sync and error semantics
+(decided 2026-11-07, WP11).
 
 **Floating point.** Keep `f32` and `f64` operations in source order with the
 same constants and the same libm functions (`f64::powf` for `pow`, `f32::exp`
