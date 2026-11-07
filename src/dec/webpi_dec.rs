@@ -18,3 +18,68 @@
 //! Work package: WP12 (decoder integration).
 //!
 //! Exception: WP7 translates `WebPDecParams`, `OutputFunc`, `OutputAlphaFunc` and `OutputRowFunc` from `src/dec/webpi_dec.h`, because `VP8LDecodeImage` reads `WebPDecParams` through `io->opaque`.
+
+// The items below are WP7's exception in this module (`tools/units.json`):
+// `WebPDecParams` and its three output function types. ADR 0003 ("Decoding
+// context per call") fixes their form.
+
+use crate::dec::vp8_dec::{VP8Io, VP8IoRows};
+use crate::utils::rescaler_utils::WebPRescaler;
+use crate::webp::decode::{WebPDecBuffer, WebPDecoderOptions};
+
+// upstream: src/dec/webpi_dec.h OutputFunc
+/// Outputs RGB or YUV samples from the rows of one `put()` call into `output`.
+/// Returns the number of rows written.
+pub type OutputFunc =
+    fn(&VP8Io, &mut VP8IoRows<'_>, &mut WebPDecParams<'_>, &mut WebPDecBuffer<'_>) -> i32;
+
+// upstream: src/dec/webpi_dec.h OutputAlphaFunc
+/// Outputs the alpha channel of one `put()` call into `output`; the last
+/// argument is `expected_num_out_lines`.
+pub type OutputAlphaFunc =
+    fn(&VP8Io, &mut VP8IoRows<'_>, &mut WebPDecParams<'_>, &mut WebPDecBuffer<'_>, i32) -> i32;
+
+// upstream: src/dec/webpi_dec.h OutputRowFunc
+/// Outputs one line of rescaled alpha values into `output`; the integer
+/// arguments are `y_pos` and `max_out_lines`.
+pub type OutputRowFunc = fn(&mut WebPDecParams<'_>, &mut WebPDecBuffer<'_>, i32, i32) -> i32;
+
+// upstream: src/dec/webpi_dec.h WebPDecParams
+/// Decoding output parameters. Transient internal object.
+///
+/// The C field `output` is not stored: the functions that write samples take the
+/// output buffer next to the parameters (ADR 0003, "Decoding context per call").
+/// `tmp_y`, `tmp_u` and `tmp_v` are positions in `memory`, where C has pointers
+/// into it. Each rescaler owns its work rows, so `memory` holds only what C
+/// carves from it besides them. `Default` is the zeroed structure of
+/// `WebPResetDecParams`.
+#[derive(Default)]
+pub struct WebPDecParams<'a> {
+    /// Cache for the fancy upsampler or used for temporary rescaling: luma,
+    /// as a position in `memory`.
+    pub tmp_y: usize,
+    /// Chroma U cache, as a position in `memory`.
+    pub tmp_u: usize,
+    /// Chroma V cache, as a position in `memory`.
+    pub tmp_v: usize,
+    /// Coordinate of the line that was last output.
+    pub last_y: i32,
+    /// If not `None`, use alternative decoding features.
+    pub options: Option<&'a WebPDecoderOptions>,
+    /// Luma rescaler.
+    pub scaler_y: Option<WebPRescaler>,
+    /// Chroma U rescaler.
+    pub scaler_u: Option<WebPRescaler>,
+    /// Chroma V rescaler.
+    pub scaler_v: Option<WebPRescaler>,
+    /// Alpha rescaler.
+    pub scaler_a: Option<WebPRescaler>,
+    /// Overall scratch memory for the output work; empty where C has `NULL`.
+    pub memory: Vec<u8>,
+    /// Outputs RGB or YUV samples.
+    pub emit: Option<OutputFunc>,
+    /// Outputs the alpha channel.
+    pub emit_alpha: Option<OutputAlphaFunc>,
+    /// Outputs one line of rescaled alpha values.
+    pub emit_alpha_row: Option<OutputRowFunc>,
+}
