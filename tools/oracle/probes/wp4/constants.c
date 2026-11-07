@@ -57,6 +57,7 @@ int main(int argc, char* argv[]) {
   printf("kMSA=%d\n", kMSA);
   printf("sizeof_VP8Histogram=%d\n", (int)sizeof(VP8Histogram));
   printf("sizeof_VP8DistoStats=%d\n", (int)sizeof(VP8DistoStats));
+  printf("sizeof_WebPRescaler=%d\n", (int)sizeof(WebPRescaler));
   printf("offsetof_VP8DistoStats_w=%d\n", (int)offsetof(VP8DistoStats, w));
   printf("offsetof_VP8DistoStats_xm=%d\n", (int)offsetof(VP8DistoStats, xm));
   printf("offsetof_VP8DistoStats_ym=%d\n", (int)offsetof(VP8DistoStats, ym));

@@ -29,7 +29,7 @@ Names follow ADR 0001 (`tools/rust_name.py`).
 | `src/dsp/filters.rs` | `src/dsp/filters.c` | yes: `predict_line_c`, `gradient_predictor_c`, the three forward filters (`do_horizontal_filter_c` and its siblings), the four unfilters, the tables `WEBP_FILTERS` and `WEBP_UNFILTERS` behind `webp_filters` and `webp_unfilters`. |
 | `src/utils/filters_utils.rs` | `src/utils/filters_utils.c`, `src/utils/filters_utils.h` | yes: `sdiff`, `gradient_predictor`, `webp_estimate_best_filter`. |
 | `src/dsp/rescaler.rs` | `src/dsp/rescaler.c` | yes: the four row kernels `webp_rescaler_import_row_expand_c`, `_shrink_c`, `webp_rescaler_export_row_expand_c`, `_shrink_c`, their dispatch functions, and `webp_rescaler_import_row` and `webp_rescaler_export_row`. |
-| `src/utils/rescaler_utils.rs` | `src/utils/rescaler_utils.c`, `src/utils/rescaler_utils.h` | yes: `WEBP_RESCALER_RFIX`, `WEBP_RESCALER_ONE`, `rescaler_t`, `webp_rescaler_frac`, the struct `WebPRescaler<'a>` (deviation 8), `webp_rescaler_init`, `webp_rescaler_get_scaled_dimensions`, `webp_rescale_needed_lines`, `webp_rescaler_import`, `webp_rescaler_export`, `webp_rescaler_input_done`, `webp_rescaler_output_done`, `webp_rescaler_has_pending_output`. |
+| `src/utils/rescaler_utils.rs` | `src/utils/rescaler_utils.c`, `src/utils/rescaler_utils.h` | yes: `WEBP_RESCALER_RFIX`, `WEBP_RESCALER_ONE`, `rescaler_t`, `webp_rescaler_frac`, the struct `WebPRescaler` (deviation 8), `webp_rescaler_init`, `webp_rescaler_get_scaled_dimensions`, `webp_rescale_needed_lines`, `webp_rescaler_import`, `webp_rescaler_export`, `webp_rescaler_input_done`, `webp_rescaler_output_done`, `webp_rescaler_has_pending_output`. |
 | `src/utils/quant_levels_utils.rs` | `src/utils/quant_levels_utils.c`, `src/utils/quant_levels_utils.h` | yes: `NUM_SYMBOLS`, `MAX_ITER`, `ERROR_THRESHOLD`, `quantize_levels`. |
 | `src/utils/quant_levels_dec_utils.rs` | `src/utils/quant_levels_dec_utils.c`, `src/utils/quant_levels_dec_utils.h` | yes, without dithering: the constants `FIX`, `LFIX`, `LUT_SIZE`, `DFIX`, `CLIP_8B_MASK`, `clip_8b`, the struct `SmoothParams` (offsets into its buffers), `v_filter`, `h_filter`, `apply_filter`, `init_correction_lut`, `count_levels`, `init_params`, and `webp_dequantize_levels`. `CleanupParams` is the drop of the vectors (not a function here). |
 | `src/dsp/ssim.rs` | `src/dsp/ssim.c` | yes: `WEIGHT` (kWeight), `WEIGHT_SUM` (kWeightSum), `ssim_calculation`, `vp8ssim_from_stats`, `vp8ssim_from_stats_clipped`, `ssim_get_clipped_c` and `vp8ssim_get_clipped`, `ssim_get_c` and `vp8ssim_get`, `accumulate_sse_c` and `vp8_accumulate_sse`. |
@@ -45,22 +45,24 @@ with the `oracle` feature, so a missing oracle fails instead of skipping.
 
 | Test file | Test | What it compares |
 | --- | --- | --- |
-| `tests/wp4_constants.rs` | `header_constants_match_the_c_headers` | the constants, enumerators, macros and the two `repr(C)` statistics structs of the WP4 headers, with the offsets of their fields, against the C compiler. |
+| `tests/wp4_constants.rs` | `header_constants_match_the_c_headers` | the constants, enumerators, macros and the two `repr(C)` statistics structs of the WP4 headers, with the offsets of their fields, against the C compiler. The C `sizeof(WebPRescaler)` is compared with `WebPRescaler::C_SIZE`; the Rust struct is not `repr(C)`. |
 | `tests/wp4_cpu.rs` | `cpu_query_matches_the_c_query` | `VP8GetCPUInfo` for the ten features on the running host. On this arm64 host the reference configuration has the pointer NULL, and the Rust query must answer `false` for every feature. |
 | `tests/wp4_cpu.rs` | `slow_model_table_matches_the_c_helper` | `CheckSlowModel` over 384 leaf-1 EAX values (six families, four extended models, sixteen low nibbles). x86 only; see not-applicable checks. |
 | `tests/wp4_yuv.rs` | `yuv_conversions_match_the_c_functions` | the row samplers `WebPSamplers[mode]` for all eleven modes over lengths 0 to 65 with random planes; `WebPSamplerProcessPlane` over padded planes of odd sizes with loose and tight strides; the ARGB, RGB, BGR and RGBA converters to Y and UV for widths 0 to 33, both store modes; the inline YUV to RGB conversions over corner values and 1500 seeded triples; and `VP8RGBToY/U/V` for five roundings. |
 | `tests/wp4_upsampling.rs` | `upsamplers_match_the_c_functions` | `WebPUpsamplers[mode]` for all eleven modes over lengths 1 to 40 and 63 to 65, with and without the bottom row; `WebPGetLinePairConverter` for both alpha orders; and `WebPYUV444Converters[mode]` over lengths 0 to 40 and 63 to 65. |
 | `tests/wp4_alpha.rs` | `alpha_processing_matches_the_c_functions` | ARGB and single-value premultiplication and un-premultiplication with edge alpha values, the strided variants, the planes in RGBA, BGRA, ARGB and RGBA4444, the dispatch and extraction of alpha planes including all-opaque planes, the RGB and BGR packing, the alpha tests over lengths 0 to 40, and `WebPAlphaReplace`. |
 | `tests/wp4_filters.rs` | `filters_match_the_c_functions` | the three forward filters over padded planes of odd sizes, smooth and random; the four unfilters with and without a previous row, in the three aliasing forms (distinct, in-place, and previous row equal to the output); and `WebPEstimateBestFilter` over random and smooth planes. |
-| `tests/wp4_rescaler.rs` | `rescaler_matches_the_c_functions` | `WebPRescalerGetScaledDimensions` over zeros, negatives and large values, and the rescaler driven step by step (`WebPRescaleNeededLines`, `WebPRescalerImport`, `WebPRescalerExport`) for seventeen size pairs, identities, shrinks, expansions, extreme scales, the single-column special case, padded strides and one to four channels, with import chunks of 1, 3 and 1000 rows. Each step prints the scaling state and the output buffer is compared byte for byte. |
+| `tests/wp4_rescaler.rs` | `rescaler_matches_the_c_functions` | `WebPRescalerGetScaledDimensions` over zeros, negatives and large values, and the rescaler driven step by step (`WebPRescaleNeededLines`, `WebPRescalerImport`, `WebPRescalerExport`) for seventeen size pairs, identities, shrinks, expansions, extreme scales, the single-column special case, padded strides and one to four channels, with import chunks of 1, 3 and 1000 rows. Each step prints the scaling state and the output buffer is compared byte for byte. The side rows start at a nonzero value, so the comparison checks that `webp_rescaler_init` zeroes them as C does; the C probe starts from zeroed memory. `init_panics_on_a_work_vector_of_the_wrong_length` is a Rust-only test of the length check. |
 | `tests/wp4_quant_levels.rs` | `quantize_levels_matches_the_c_function` | `QuantizeLevels` over seven plane sizes, the level counts 1 to 257, five levels of distinct values, with and without the error output; missing planes and invalid dimensions. |
 | `tests/wp4_quant_levels.rs` | `dequantize_levels_matches_the_c_function` | `WebPDequantizeLevels` over seven plane sizes, the strengths -1 to 101, four level counts, padded strides, and the invalid parameters. |
 | `tests/wp4_ssim.rs` | `ssim_and_squared_error_match_the_c_functions` | `VP8SSIMFromStats` and `VP8SSIMFromStatsClipped` on the statistics of 300 real windows, `VP8SSIMGetClipped` on 300 planes with edge windows, `VP8SSIMGet` on 200 7-row planes, and `VP8AccumulateSSE` for every third length from 0 to 300. Results are compared as their 64-bit patterns. |
 
 Local result on this branch: `python3 tools/check.py --oracle` passed on the
-final tree. It ran format, Clippy with `-D warnings` on all targets and features,
-the oracle build and the unit dependency check, and then the tests of the dev,
-release and `checked` profiles.
+final tree, and again after the rescaler shape change, with `--msrv` and with
+`--oracle-variant asan-ubsan`. Each run covered format, Clippy with `-D warnings`
+on all targets and features, the oracle build and the unit dependency check, and
+the tests of the dev, release and `checked` profiles; the `--msrv` run also built
+and tested with the toolchain named by `rust-version`.
 
 ## Not-applicable checks
 
@@ -151,16 +153,28 @@ the Rust side cannot reproduce exactly. Each records the reason.
    safe reinterpretation, so the function takes `&mut [u32]` and a stride in `u32`
    elements. The probe calls the C function with the stride in bytes, which
    reaches the same pixels.
-8. **`WebPRescaler<'a>`.** The C `dst` pointer is the buffer (`dst`) and the
-   current row (`dst_pos`). `irow` and `frow` are the two halves of the caller's
-   work buffer, borrowed for `'a` and swapped by the import, which is what the C
-   pointer swap does. `fx_scale` is not set when the rescaler expands in x, and
+8. **`WebPRescaler`.** The C `dst` pointer is the caller's output buffer. The
+   struct does not hold it: `webp_rescaler_export_row` and `webp_rescaler_export`
+   take the buffer on each call, and the struct keeps `dst_pos`, the start of the
+   next output row, and `dst_stride`. `irow` and `frow` are the two side rows,
+   owned by the struct. `webp_rescaler_init` takes the work vector by value and
+   splits it, and the import swaps the two vectors, which is what the C pointer
+   swap does. The struct has no lifetime parameter, so a decoder can store it
+   beside its work and output buffers (ADR 0003, readers over input).
+   `fx_scale` is not set when the rescaler expands in x, and
    `fxy_scale` is not set when it expands in y; C leaves them unset and never reads
-   them on those paths, and Rust stores 0. The flags are `bool`.
+   them on those paths, and Rust stores 0. The flags are `bool`. The C size of the
+   struct is `WebPRescaler::C_SIZE`, computed from the pointer size as WP3 computes
+   its sizes: 104 on 64-bit targets, where the probe confirms the value, and 84 on
+   32-bit targets, where it is computed but not run here. The caller that carves
+   a block from one allocation (ADR 0003) will use it for the size check: WP6 and
+   WP7 are the first callers.
 9. **`WebPRescalerInit`** returns `Option` and never returns `None` on a 64-bit
    target, because `CheckSizeOverflow` accepts every size that fits `size_t`. The
-   work slice must hold `2 * dst_width * num_channels` elements, and a non-positive
-   `dst_width` or channel count panics, which the C code leaves undefined.
+   work vector must hold exactly `2 * dst_width * num_channels` elements; the size
+   check runs first, then a vector of another length panics. The side rows are
+   zeroed, as the C `memset` zeroes them. A non-positive `dst_width` or channel
+   count panics, which the C code leaves undefined.
 10. **`WebPRescalerGetScaledDimensions`** writes its two arguments only on
     success, as in C. Its 64-bit products wrap as the `uint64_t` arithmetic does.
 11. **`QuantizeLevels` and `WebPDequantizeLevels`.** A NULL plane is `None`, and a

@@ -92,7 +92,7 @@ fn clip_to_byte(v: i32) -> u8 {
 /// # Panics
 ///
 /// Panics when `src` is shorter than the input row that the rescaler reads.
-pub fn webp_rescaler_import_row_expand_c(wrk: &mut WebPRescaler<'_>, src: &[u8]) {
+pub fn webp_rescaler_import_row_expand_c(wrk: &mut WebPRescaler, src: &[u8]) {
     let x_stride = usize::try_from(wrk.num_channels).expect("the channel count is positive");
     let x_out_max =
         usize::try_from(wrk.dst_width * wrk.num_channels).expect("the row length is positive");
@@ -134,7 +134,7 @@ pub fn webp_rescaler_import_row_expand_c(wrk: &mut WebPRescaler<'_>, src: &[u8])
 /// # Panics
 ///
 /// Panics when `src` is shorter than the input row that the rescaler reads.
-pub fn webp_rescaler_import_row_shrink_c(wrk: &mut WebPRescaler<'_>, src: &[u8]) {
+pub fn webp_rescaler_import_row_shrink_c(wrk: &mut WebPRescaler, src: &[u8]) {
     let x_stride = usize::try_from(wrk.num_channels).expect("the channel count is positive");
     let x_out_max =
         usize::try_from(wrk.dst_width * wrk.num_channels).expect("the row length is positive");
@@ -165,19 +165,21 @@ pub fn webp_rescaler_import_row_shrink_c(wrk: &mut WebPRescaler<'_>, src: &[u8])
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerExportRowExpand_C
-/// Exports one row of a rescaler that expands in y, from the side rows.
+/// Exports one row of a rescaler that expands in y, from the side rows, into
+/// `dst`, from the row `dst_pos` on.
+///
+/// # Panics
+///
+/// Panics when `dst` is shorter than the row at `dst_pos` that the export writes.
 #[expect(
     clippy::many_single_char_names,
     reason = "the C names b, a, i, j and v of the export"
 )]
-/// # Panics
-///
-/// Panics when the destination row is shorter than `dst_width * num_channels` bytes.
-pub fn webp_rescaler_export_row_expand_c(wrk: &mut WebPRescaler<'_>) {
+pub fn webp_rescaler_export_row_expand_c(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     let x_out_max =
         usize::try_from(wrk.dst_width * wrk.num_channels).expect("the row length is positive");
     let pos = wrk.dst_pos;
-    let dst = &mut wrk.dst[pos..];
+    let dst = &mut dst[pos..];
     let irow = &*wrk.irow;
     let frow = &*wrk.frow;
     if wrk.y_accum == 0 {
@@ -201,16 +203,18 @@ pub fn webp_rescaler_export_row_expand_c(wrk: &mut WebPRescaler<'_>) {
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerExportRowShrink_C
-/// Exports one row of a rescaler that shrinks in y, and carries the fraction
-/// of the next output row in the side row.
+/// Exports one row of a rescaler that shrinks in y, into `dst` from the row
+/// `dst_pos` on, and carries the fraction of the next output row in the side
+/// row.
+///
 /// # Panics
 ///
-/// Panics when the destination row is shorter than `dst_width * num_channels` bytes.
-pub fn webp_rescaler_export_row_shrink_c(wrk: &mut WebPRescaler<'_>) {
+/// Panics when `dst` is shorter than the row at `dst_pos` that the export writes.
+pub fn webp_rescaler_export_row_shrink_c(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     let x_out_max =
         usize::try_from(wrk.dst_width * wrk.num_channels).expect("the row length is positive");
     let pos = wrk.dst_pos;
-    let dst = &mut wrk.dst[pos..];
+    let dst = &mut dst[pos..];
     let irow = &mut *wrk.irow;
     let frow = &*wrk.frow;
     let yscale = wrk.fy_scale.wrapping_mul(as_u32(-wrk.y_accum));
@@ -233,34 +237,34 @@ pub fn webp_rescaler_export_row_shrink_c(wrk: &mut WebPRescaler<'_>) {
 // upstream: src/dsp/rescaler.c WebPRescalerImportRowExpand
 /// The import of a row for a rescaler that expands in x. The C dispatch
 /// pointer is `WebPRescalerImportRowExpand_C`.
-pub fn webp_rescaler_import_row_expand(wrk: &mut WebPRescaler<'_>, src: &[u8]) {
+pub fn webp_rescaler_import_row_expand(wrk: &mut WebPRescaler, src: &[u8]) {
     webp_rescaler_import_row_expand_c(wrk, src);
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerImportRowShrink
 /// The import of a row for a rescaler that shrinks in x. The C dispatch
 /// pointer is `WebPRescalerImportRowShrink_C`.
-pub fn webp_rescaler_import_row_shrink(wrk: &mut WebPRescaler<'_>, src: &[u8]) {
+pub fn webp_rescaler_import_row_shrink(wrk: &mut WebPRescaler, src: &[u8]) {
     webp_rescaler_import_row_shrink_c(wrk, src);
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerExportRowExpand
 /// The export of a row for a rescaler that expands in y. The C dispatch
 /// pointer is `WebPRescalerExportRowExpand_C`.
-pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler<'_>) {
-    webp_rescaler_export_row_expand_c(wrk);
+pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
+    webp_rescaler_export_row_expand_c(wrk, dst);
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerExportRowShrink
 /// The export of a row for a rescaler that shrinks in y. The C dispatch
 /// pointer is `WebPRescalerExportRowShrink_C`.
-pub fn webp_rescaler_export_row_shrink(wrk: &mut WebPRescaler<'_>) {
-    webp_rescaler_export_row_shrink_c(wrk);
+pub fn webp_rescaler_export_row_shrink(wrk: &mut WebPRescaler, dst: &mut [u8]) {
+    webp_rescaler_export_row_shrink_c(wrk, dst);
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerImportRow
 /// Imports one row, with the kernel of the rescaler's direction.
-pub fn webp_rescaler_import_row(wrk: &mut WebPRescaler<'_>, src: &[u8]) {
+pub fn webp_rescaler_import_row(wrk: &mut WebPRescaler, src: &[u8]) {
     if wrk.x_expand {
         webp_rescaler_import_row_expand(wrk, src);
     } else {
@@ -269,24 +273,25 @@ pub fn webp_rescaler_import_row(wrk: &mut WebPRescaler<'_>, src: &[u8]) {
 }
 
 // upstream: src/dsp/rescaler.c WebPRescalerExportRow
-/// Exports one row when one is ready, then advances the destination row and
-/// the vertical accumulator.
+/// Exports one row into `dst` when one is ready, then advances the destination
+/// row and the vertical accumulator.
+///
 /// # Panics
 ///
-/// Panics when the destination row is shorter than `dst_width * num_channels` bytes.
-pub fn webp_rescaler_export_row(wrk: &mut WebPRescaler<'_>) {
+/// Panics when `dst` is shorter than the row at `dst_pos` that the export writes.
+pub fn webp_rescaler_export_row(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     if wrk.y_accum <= 0 {
         if wrk.y_expand {
-            webp_rescaler_export_row_expand(wrk);
+            webp_rescaler_export_row_expand(wrk, dst);
         } else if wrk.fxy_scale != 0 {
-            webp_rescaler_export_row_shrink(wrk);
+            webp_rescaler_export_row_shrink(wrk, dst);
         } else {
             // special case
             let count = usize::try_from(wrk.num_channels * wrk.dst_width)
                 .expect("the row length is positive");
             let pos = wrk.dst_pos;
             for i in 0..count {
-                wrk.dst[pos + i] = low_byte(wrk.irow[i]);
+                dst[pos + i] = low_byte(wrk.irow[i]);
                 wrk.irow[i] = 0;
             }
         }

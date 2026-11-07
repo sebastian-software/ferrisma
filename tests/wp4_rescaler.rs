@@ -6,6 +6,12 @@
 //! strides and several channel counts, and every step of the driver is compared
 //! with the state it leaves. The scaled-dimension query runs over zeros,
 //! negatives and large values.
+//!
+//! The rescaler owns its side rows and takes the output buffer on each export,
+//! so the driver keeps the output in its own vector and passes it per call. The
+//! side rows start with `WORK_FILL`, which the rescaler zeroes as the C `memset`
+//! does; the C probe starts from zeroed memory, so the comparison checks the
+//! zeroing.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -19,6 +25,10 @@ use webp::utils::rescaler_utils::{
 
 /// The sentinel that the probe fills destinations with.
 const SENTINEL: u8 = 0xaa;
+
+/// The value that the side rows of the work vector start with. The rescaler
+/// zeroes them, so the output must not depend on it.
+const WORK_FILL: u32 = 0x5a5a_5a5a;
 
 /// SplitMix64, a small deterministic generator for the script.
 struct Rng(u64);
@@ -61,45 +71,42 @@ fn drive(
     src: &[u8],
 ) {
     let mut dst = vec![SENTINEL; dst_stride * dst_h];
-    let mut work = vec![0_u32; 2 * dst_w * channels];
-    {
-        let Some(mut wrk): Option<WebPRescaler<'_>> = webp_rescaler_init(
-            int(src_w),
-            int(src_h),
-            &mut dst,
-            int(dst_w),
-            int(dst_h),
-            int(dst_stride),
-            int(channels),
-            &mut work,
-        ) else {
-            panic!("the rescaler initializes");
-        };
-        out.push_str("init=1\n");
-        let mut src_row = 0_usize;
-        let mut steps = 0_u32;
-        while !webp_rescaler_input_done(&wrk) {
-            let needed = webp_rescale_needed_lines(&wrk, int(chunk));
-            let mut num = chunk;
-            if src_h - src_row < num {
-                num = src_h - src_row;
-            }
-            let imported = webp_rescaler_import(
-                &mut wrk,
-                int(num),
-                &src[src_row * src_stride..],
-                int(src_stride),
-            );
-            let exported = webp_rescaler_export(&mut wrk);
-            out.push_str(&format!(
-                "step needed={needed} imported={imported} exported={exported} src_y={} dst_y={} y_accum={}\n",
-                wrk.src_y, wrk.dst_y, wrk.y_accum
-            ));
-            src_row += usize::try_from(imported).expect("imported rows are not negative");
-            steps += 1;
-            if steps > 100_000 || (imported == 0 && exported == 0) {
-                break;
-            }
+    let work = vec![WORK_FILL; 2 * dst_w * channels];
+    let Some(mut wrk): Option<WebPRescaler> = webp_rescaler_init(
+        int(src_w),
+        int(src_h),
+        int(dst_w),
+        int(dst_h),
+        int(dst_stride),
+        int(channels),
+        work,
+    ) else {
+        panic!("the rescaler initializes");
+    };
+    out.push_str("init=1\n");
+    let mut src_row = 0_usize;
+    let mut steps = 0_u32;
+    while !webp_rescaler_input_done(&wrk) {
+        let needed = webp_rescale_needed_lines(&wrk, int(chunk));
+        let mut num = chunk;
+        if src_h - src_row < num {
+            num = src_h - src_row;
+        }
+        let imported = webp_rescaler_import(
+            &mut wrk,
+            int(num),
+            &src[src_row * src_stride..],
+            int(src_stride),
+        );
+        let exported = webp_rescaler_export(&mut wrk, &mut dst);
+        out.push_str(&format!(
+            "step needed={needed} imported={imported} exported={exported} src_y={} dst_y={} y_accum={}\n",
+            wrk.src_y, wrk.dst_y, wrk.y_accum
+        ));
+        src_row += usize::try_from(imported).expect("imported rows are not negative");
+        steps += 1;
+        if steps > 100_000 || (imported == 0 && exported == 0) {
+            break;
         }
     }
     out.push_str(&format!("dst={}\n", hex(&dst)));
@@ -203,4 +210,11 @@ fn rescaler_matches_the_c_functions() {
         "the rescaler differs from the C functions: {}",
         first_difference(&expected, &actual)
     );
+}
+
+#[test]
+#[should_panic(expected = "the two side rows need 8")]
+fn init_panics_on_a_work_vector_of_the_wrong_length() {
+    // One channel and four output pixels need two side rows of 4 elements each.
+    let _rescaler = webp_rescaler_init(4, 4, 4, 4, 4, 1, vec![0; 7]);
 }
