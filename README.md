@@ -19,7 +19,8 @@ others fail at compile time (see
 The original C/C++ applications and tests consume the Rust implementation
 through the C ABI.
 The default AOM, dav1d, and SharpYUV implementations are workspace Rust crates.
-libvmaf and the separately scoped optional engines remain native dependencies.
+The separately scoped optional engines remain native dependencies. libaom is
+translated without VMAF tuning, so libvmaf is not a dependency ([ADR 0057](docs/adr/0057-translate-libaom-without-vmaf-tuning.md)).
 
 ## Port checklist
 
@@ -40,7 +41,7 @@ linked evidence current when delivering a milestone on `main`.
 | Portable SharpYUV | Complete | Workspace Rust crate; native macOS ARM64 and Linux x86-64 validation. See [SharpYUV evidence](docs/SHARPYUV-VALIDATION.md). |
 | Portable dav1d | Complete | Workspace Rust decoder, including 8/10/12-bit output and film grain; native macOS ARM64 and Linux x86-64 validation. See [dav1d evidence](docs/DAV1D-PORT.md). |
 | Portable AOM | Complete | Workspace Rust encoder/decoder; complete original native Release suites and focused Debug checks on both targets. See [AOM evidence](docs/AOM-PORT.md). |
-| Default Rust integration | Complete | AOM, dav1d, and SharpYUV are mandatory Rust dependencies, with no native implementation fallback. Native VMAF remains enabled. See [the default-switch decision](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md). |
+| Default Rust integration | Complete | AOM, dav1d, and SharpYUV are mandatory Rust dependencies, with no native implementation fallback. See [the default-switch decision](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md). |
 
 ### Validation and platform support
 
@@ -63,7 +64,6 @@ separately.
 
 | Work item | Status | Remaining boundary |
 | --- | --- | --- |
-| libvmaf | Native dependency | Separate port preserving the selected VMAF modes and model inputs. See [the dependency plan](docs/NATIVE-PORTS.md). |
 | libgav1, SVT-AV1, full libyuv, and AVM | Native optional engines | Adapters are ported and tested; engine implementations and their selected transitive dependencies remain separate milestones. See [the dependency plan](docs/NATIVE-PORTS.md). |
 | rav1e packaging | Retained C API integration | The encoder is already Rust. Direct workspace/dependency integration is separate work, rather than another mechanical codec port. See [the dependency plan](docs/NATIVE-PORTS.md). |
 | Linux whole-pipeline support | Production for six configurations | The production package selects the native profile by Cargo features and `debug_assertions`. Its original consumers pass Release and Debug: 9,473 default, 9,526 Mini, 9,474 Extended PIXI, and 9,527 combined Mini/Extended PIXI cases, plus 9,481 and 9,535 with libgav1, rav1e, SVT-AV1, and external libyuv. Each run has ABI, ownership, and strict-byte checks. See [production evidence](docs/root-linux-production-validation.json). Isolated Release ASan parity covers the four container configurations. AVM/AV2, engine and production-package sanitizer checks remain open. See [platform CI and remaining gates](docs/PLATFORMS.md). |
@@ -80,7 +80,7 @@ retain the boundaries documented in [the dependency plan](docs/NATIVE-PORTS.md).
 ## Build and test
 
 Use Rust nightly, CMake, Ninja, Python 3.9+, pkg-config, and development packages
-for libvmaf, PNG, JPEG, and libxml2. The original C baseline and CMake test setup
+for PNG, JPEG, and libxml2. The original C baseline and CMake test setup
 also require native dav1d and SharpYUV development packages; the Rust library
 uses their workspace crates. The pinned portable C AOM archive supplies the
 independent reference in the commands below. The validated dependency

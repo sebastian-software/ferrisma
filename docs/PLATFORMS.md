@@ -82,10 +82,10 @@ is nondeterministic and excluded. The [retained-log recheck](root-complete-log-v
 the existing complete native runs and their actual matching skip lists.
 
 The original AOM video suite retains ADR 0048's complete Release and focused
-Debug policy. Root CI builds all 168 original portable AOM library units as its
+Debug policy. Root CI builds all 166 original portable AOM library units as its
 independent C reference with `--library-only`; it neither builds nor reruns the
 standalone video test matrix and claims no new standalone execution credit.
-Native VMAF remains enabled. SharpYUV keeps scalar DSP selection, verified by
+libaom is built without VMAF tuning (ADR 0057). SharpYUV keeps scalar DSP selection, verified by
 preprocessing its actual compilation flags. x86-64 scalar floating-point code
 retains the required SSE2 calling convention without enabling hand-written DSP.
 

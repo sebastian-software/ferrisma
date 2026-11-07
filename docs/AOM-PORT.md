@@ -3,13 +3,17 @@
 Status: native Linux and macOS Release and focused Debug acceptance passes
 under ADR 0048. Rust AOM is the mandatory root dependency under ADR 0049;
 final root validation is recorded separately below.
-All 168 portable C
+Since ADR 0057 the archive is built without VMAF tuning: 166 portable C
+translation units. Evidence recorded before that change names the earlier
+168-unit closure and native VMAF; it is historical where the
+[still-image profile](#still-image-profile-without-vmaf-adr-0057) section does
+not re-record it. All portable C
 translation units are imported for macOS ARM64 and GNU Linux x86-64 Debug and
 Release, with a raw Rust API and passing focused native comparisons. Before
 the input-alignment correction in ADR 0046, the explicit root candidate passed
 libavif Debug, Release, supported-feature, and AddressSanitizer suites. Those
 root checks are historical. Default Rust builds use the portable workspace AOM
-implementation with native VMAF retained. Complete original Release suites,
+implementation. Complete original Release suites,
 focused Debug checks, and final runtime gates follow ADR 0048. Exhaustive unoptimized
 Debug execution is no longer a default-switch prerequisite.
 
@@ -54,20 +58,12 @@ and preprocessing differences; Rust development builds remain unoptimized.
 SIMD/assembly paths and later optimization are separate work; the macOS Neon
 layer is described under [Neon dispatch](#neon-dispatch-adr-0056).
 
-Keep `CONFIG_TUNE_VMAF=1`, matching the existing Homebrew engine's optional
-VMAF encoding modes. libvmaf is a distinct runtime dependency and remains
-native during this milestone. A libaom translation using it must not be
-described as a pipeline with no native codec/quality implementations. Its
-separate mechanical port and versioned model inputs require their own
-contract. Do not silently disable VMAF modes to make that dependency disappear.
-The installed package reports libvmaf 3.2.0 through pkg-config despite its
-Homebrew package directory being 3.2.1; record both when comparing artifacts.
-For isolated builds, `tools/build_aom_vmaf.py --fetch` builds native VMAF tag
-`v3.2.1`, commit `f85a853692a8c730d0270cd733c8bb30b5b93b7c`, with scalar
-extractors and built-in models. That tag's own Meson project reports 3.2.0.
-This dependency bootstrap is not a VMAF Rust port.
+Build with upstream's `CONFIG_TUNE_VMAF=0`
+([ADR 0057](adr/0057-translate-libaom-without-vmaf-tuning.md)). The VMAF
+tuning modes are rejected as upstream rejects them in that configuration, and
+the archive needs neither libvmaf nor the C++ standard library.
 
-The library archive contains 168 C translation units, including three generated
+The library archive contains 166 C translation units, including three generated
 configuration/no-op units and four bundled fastfeat/vector units. Bundled
 libyuv, WebM I/O, GoogleTest, apps, examples, and the optional C++ rate-control
 wrapper are outside this archive. Retain them as original consumers/test
@@ -632,8 +628,6 @@ python3 tools/check_aom_roundtrip.py --debug
 python3 tools/check_aom_roundtrip.py
 python3 tools/check_aom_faults.py --debug
 python3 tools/check_aom_faults.py
-python3 tools/check_aom_vmaf.py --debug
-python3 tools/check_aom_vmaf.py
 python3 tools/check_aom_faults.py --debug --thread-failures
 python3 tools/check_aom_faults.py --thread-failures
 python3 tools/check_aom_roundtrip.py --asan

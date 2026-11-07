@@ -4,8 +4,9 @@ Status: portable SharpYUV and dav1d are implemented and integrated. See
 [SharpYUV validation](SHARPYUV-VALIDATION.md) and the
 [dav1d port and validation](DAV1D-PORT.md). Portable libaom has passed complete
 native macOS/Linux standalone acceptance and is the mandatory root dependency;
-see the [libaom milestone](AOM-PORT.md). Native VMAF and optional engines retain
-their separate later milestones.
+see the [libaom milestone](AOM-PORT.md). Optional engines retain their separate later
+milestones; libaom is translated without VMAF tuning
+([ADR 0057](adr/0057-translate-libaom-without-vmaf-tuning.md)).
 
 This follow-up ports the external codec and pixel conversion libraries used by
 libavif-rs into separate Rust crates. The first program phase covers SharpYUV,
@@ -29,7 +30,7 @@ recorded baseline, not a selected source revision for a future port.
 
 | Library | Existing use | Porting considerations |
 | --- | --- | --- |
-| libaom | Default AV1 encoding and decoding | Replaced by the portable `libavif-aom` workspace crate; original C remains the independent reference, with native libvmaf retained. |
+| libaom | Default AV1 encoding and decoding | Replaced by the portable `libavif-aom` workspace crate; original C remains the independent reference; translated without VMAF tuning (ADR 0057). |
 | dav1d | Default AV1 decoding | Replaced by the portable `libavif-dav1d` workspace crate; original C remains its reference. |
 | SharpYUV | Default pixel conversion | Replaced by the portable `libavif-sharpyuv` workspace crate; the original libwebp target remains its reference. |
 | libgav1 | Optional AV1 decoding | C++ with platform-specific DSP implementations. |
@@ -308,8 +309,8 @@ Detailed contracts for later optional libraries will be prepared before their
 implementation. SharpYUV, dav1d, and libaom are implemented and integrated.
 The libaom contract pins the complete portable 3.15.2 archive and original test
 closure in [AOM-PORT.md](AOM-PORT.md). Native macOS/Linux standalone acceptance
-and final macOS root validation pass. Its VMAF modes remain enabled with native
-libvmaf, whose separate port follows libaom. The current overview is the
+and final macOS root validation pass. It is translated without VMAF tuning, so
+libvmaf is not a dependency (ADR 0057). The current overview is the
 [port checklist](../README.md#port-checklist).
 
 ## Evidence for each milestone

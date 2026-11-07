@@ -12,7 +12,7 @@ stubs or a C fallback. The original C/C++ tests and applications are deliberatel
 retained as independent consumers of the Rust library.
 
 Normal Rust builds always use the workspace AOM, dav1d, and SharpYUV crates.
-They require native libvmaf and any selected optional engines, with no system
+They require any selected optional engines, with no system
 AOM implementation fallback. Use the complete pinned portable C AOM reference
 for acceptance comparisons:
 
@@ -141,10 +141,10 @@ python3 tools/differential.py --baseline build/baseline-aom-reference \
 ```
 
 Build the ordinary pinned AOM reference first. The sanitizer helper instruments
-all 168 original portable units and the Rust crate with one matching runtime.
+all 166 original portable units and the Rust crate with one matching runtime.
 The explicit CMake overlay relinks the original baseline against that complete
 instrumented archive without changing original test objects or parameters.
-Native VMAF remains outside instrumentation. The differential command uses the
+The differential command uses the
 ordinary Release references and requires exact AVIF and decoded PNG bytes.
 
 The sanitizer runner defaults to the same allocation-failure setting as upstream

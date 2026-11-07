@@ -16,12 +16,6 @@ the mechanical translation:
   adapt the preserved upstream CI matrix to the Rust build.
 - Stabilize translated opaque external types and the nightly toolchain choice
   without changing allocation or callback behavior.
-- Port libvmaf separately after libaom while retaining the optional VMAF modes,
-  original model inputs, and applicable third-party notices.
-- Fix libaom's original `motion_force_zero="1"` float-model integration error
-  only as a separate behavior change, with successful float-model stream and
-  pixel coverage. The mechanical port preserves the original rejection
-  (ADR 0042).
 - Extend dav1d's portable evidence with the optional external Argon corpus,
   continuous fuzzing, and additional sanitizer coverage before broader claims.
 - Evaluate dav1d SIMD, safe wrappers, and existing Rust decoder crates as
