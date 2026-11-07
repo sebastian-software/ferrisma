@@ -55,8 +55,8 @@ timing() {
   echo "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
   for entry in "${images[@]}"; do
     IFS='|' read -r name file w h flag <<< "$entry"
-    q6=$(awk -v n="$name" '$1 == n && $2 == 6 { print $13 }' "$out/encoders/matched.tsv")
-    q7=$(awk -v n="$name" '$1 == n && $2 == 7 { print $13 }' "$out/encoders/matched.tsv")
+    q6=$(awk -v n="$name" '$1 == n && $2 == 6 { print $12 }' "$out/encoders/matched.tsv")
+    q7=$(awk -v n="$name" '$1 == n && $2 == 7 { print $12 }' "$out/encoders/matched.tsv")
     # rav1e at its quality-80 anchor, which defines target A.
     for run in "rav1e s6|$rav1e|80|6|0" "libavif s6|$libavif|$q6|6|0" "libavif s7|$libavif|$q7|7|0" \
                "rav1e s6|$rav1e|80|6|1" "libavif s6|$libavif|$q6|6|1"; do
