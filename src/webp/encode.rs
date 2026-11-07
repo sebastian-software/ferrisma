@@ -328,3 +328,34 @@ pub struct WebPPicture<'a> {
     /// The ARGB plane: C's `memory_argb_` when the picture allocated it.
     pub argb_storage: PlaneStorage<'a, u32>,
 }
+
+// upstream: src/webp/encode.h WebPConfigInit
+/// Initializes `config` with the default preset and quality 75 (C: the inline
+/// `WebPConfigInit`). Its translation is WP9's (see the module header).
+pub fn webp_config_init(config: &mut WebPConfig) -> bool {
+    crate::enc::config_enc::webp_config_init_internal(
+        config,
+        WebPPreset::WEBP_PRESET_DEFAULT,
+        75.0,
+        WEBP_ENCODER_ABI_VERSION,
+    )
+}
+
+// upstream: src/webp/encode.h WebPConfigPreset
+/// Initializes `config` with `preset` and `quality` (C: the inline
+/// `WebPConfigPreset`). Its translation is WP9's (see the module header).
+pub fn webp_config_preset(config: &mut WebPConfig, preset: WebPPreset, quality: f32) -> bool {
+    crate::enc::config_enc::webp_config_init_internal(
+        config,
+        preset,
+        quality,
+        WEBP_ENCODER_ABI_VERSION,
+    )
+}
+
+// upstream: src/webp/encode.h WebPPictureInit
+/// Initializes `picture` for the current ABI version (C: the inline
+/// `WebPPictureInit`). Its translation is WP9's (see the module header).
+pub fn webp_picture_init(picture: &mut WebPPicture<'_>) -> bool {
+    crate::enc::picture_enc::webp_picture_init_internal(picture, WEBP_ENCODER_ABI_VERSION)
+}

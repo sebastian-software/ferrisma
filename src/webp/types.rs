@@ -40,6 +40,11 @@ pub enum PlaneStorage<'a, T> {
     /// The caller's slices. An RGBA or ARGB buffer uses one slice; a YUVA buffer
     /// uses up to four, in the order Y, U, V and A.
     External(Vec<&'a mut [T]>),
+    /// Slices borrowed shared from another picture (ADR 0003, amended 2026-11-07),
+    /// with the regions of that picture. A view of a picture has this storage. It
+    /// can be read; writing into it panics, because C would write through the
+    /// `const` pointer it casts away (C: `WebPPictureView`).
+    Shared(Vec<&'a [T]>),
 }
 
 impl<T> Default for PlaneStorage<'_, T> {
@@ -55,14 +60,20 @@ impl<T> PlaneStorage<'_, T> {
         match self {
             Self::Internal(samples) => (region == 0).then_some(samples.as_slice()),
             Self::External(slices) => slices.get(region).map(|slice| &**slice),
+            Self::Shared(slices) => slices.get(region).copied(),
         }
     }
 
     /// The samples of region `region`, mutably; see [`PlaneStorage::region`].
+    ///
+    /// # Panics
+    ///
+    /// Panics on a `Shared` storage: a view of another picture cannot be written.
     pub fn region_mut(&mut self, region: usize) -> Option<&mut [T]> {
         match self {
             Self::Internal(samples) => (region == 0).then_some(samples.as_mut_slice()),
             Self::External(slices) => slices.get_mut(region).map(|slice| &mut **slice),
+            Self::Shared(_) => panic!("a shared view of a picture cannot be written"),
         }
     }
 }
