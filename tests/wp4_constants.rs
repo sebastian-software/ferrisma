@@ -3,6 +3,8 @@
 //! `src/utils/rescaler_utils.h`. The probe `tools/oracle/probes/wp4/constants.c`
 //! prints each value under its C name; this test compares them with the Rust
 //! constants, and the layouts of the `repr(C)` structs with the C compiler's.
+//! `WebPRescaler` is not `repr(C)`, so only its C size, `WebPRescaler::C_SIZE`,
+//! is compared.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -16,7 +18,9 @@ use webp::dsp::dsp::{
     WEBP_TRANSFORM_AC3_C1, WEBP_TRANSFORM_AC3_C2, webp_transform_ac3_mul1, webp_transform_ac3_mul2,
 };
 use webp::dsp::yuv::{YUV_FIX, YUV_FIX2, YUV_HALF, YUV_MASK2};
-use webp::utils::rescaler_utils::{WEBP_RESCALER_ONE, WEBP_RESCALER_RFIX, webp_rescaler_frac};
+use webp::utils::rescaler_utils::{
+    WEBP_RESCALER_ONE, WEBP_RESCALER_RFIX, WebPRescaler, webp_rescaler_frac,
+};
 
 #[test]
 fn header_constants_match_the_c_headers() {
@@ -100,6 +104,7 @@ fn header_constants_match_the_c_headers() {
         ("kMSA", i64::from(CPUFeature::kMSA.0)),
         ("sizeof_VP8Histogram", size_of::<VP8Histogram>() as i64),
         ("sizeof_VP8DistoStats", size_of::<VP8DistoStats>() as i64),
+        ("sizeof_WebPRescaler", WebPRescaler::C_SIZE as i64),
         (
             "offsetof_VP8DistoStats_w",
             offset_of!(VP8DistoStats, w) as i64,

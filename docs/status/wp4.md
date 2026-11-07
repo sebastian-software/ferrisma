@@ -45,7 +45,7 @@ with the `oracle` feature, so a missing oracle fails instead of skipping.
 
 | Test file | Test | What it compares |
 | --- | --- | --- |
-| `tests/wp4_constants.rs` | `header_constants_match_the_c_headers` | the constants, enumerators, macros and the two `repr(C)` statistics structs of the WP4 headers, with the offsets of their fields, against the C compiler. |
+| `tests/wp4_constants.rs` | `header_constants_match_the_c_headers` | the constants, enumerators, macros and the two `repr(C)` statistics structs of the WP4 headers, with the offsets of their fields, against the C compiler. The C `sizeof(WebPRescaler)` is compared with `WebPRescaler::C_SIZE`; the Rust struct is not `repr(C)`. |
 | `tests/wp4_cpu.rs` | `cpu_query_matches_the_c_query` | `VP8GetCPUInfo` for the ten features on the running host. On this arm64 host the reference configuration has the pointer NULL, and the Rust query must answer `false` for every feature. |
 | `tests/wp4_cpu.rs` | `slow_model_table_matches_the_c_helper` | `CheckSlowModel` over 384 leaf-1 EAX values (six families, four extended models, sixteen low nibbles). x86 only; see not-applicable checks. |
 | `tests/wp4_yuv.rs` | `yuv_conversions_match_the_c_functions` | the row samplers `WebPSamplers[mode]` for all eleven modes over lengths 0 to 65 with random planes; `WebPSamplerProcessPlane` over padded planes of odd sizes with loose and tight strides; the ARGB, RGB, BGR and RGBA converters to Y and UV for widths 0 to 33, both store modes; the inline YUV to RGB conversions over corner values and 1500 seeded triples; and `VP8RGBToY/U/V` for five roundings. |
@@ -163,7 +163,12 @@ the Rust side cannot reproduce exactly. Each records the reason.
    beside its work and output buffers (ADR 0003, readers over input).
    `fx_scale` is not set when the rescaler expands in x, and
    `fxy_scale` is not set when it expands in y; C leaves them unset and never reads
-   them on those paths, and Rust stores 0. The flags are `bool`.
+   them on those paths, and Rust stores 0. The flags are `bool`. The C size of the
+   struct is `WebPRescaler::C_SIZE`, computed from the pointer size as WP3 computes
+   its sizes: 104 on 64-bit targets, where the probe confirms the value, and 84 on
+   32-bit targets, where it is computed but not run here. The caller that carves
+   a block from one allocation (ADR 0003) will use it for the size check: WP6 and
+   WP7 are the first callers.
 9. **`WebPRescalerInit`** returns `Option` and never returns `None` on a 64-bit
    target, because `CheckSizeOverflow` accepts every size that fits `size_t`. The
    work vector must hold exactly `2 * dst_width * num_channels` elements; the size

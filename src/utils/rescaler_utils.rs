@@ -109,6 +109,18 @@ pub struct WebPRescaler {
     pub(crate) frow: Vec<rescaler_t>,
 }
 
+impl WebPRescaler {
+    /// The C `sizeof(WebPRescaler)`: seventeen 32-bit fields, then the pointer
+    /// `dst`, the `int` `dst_stride` and the pointers `irow` and `frow`, each
+    /// aligned as C aligns it, and the whole padded to the pointer alignment.
+    /// This is 104 on 64-bit targets and 84 on 32-bit targets.
+    pub const C_SIZE: usize = {
+        let pointer = size_of::<usize>();
+        let after_dst = (17 * 4_usize).next_multiple_of(pointer) + pointer + 4;
+        (after_dst.next_multiple_of(pointer) + 2 * pointer).next_multiple_of(pointer)
+    };
+}
+
 // upstream: src/utils/rescaler_utils.c WebPRescalerInit
 /// Initializes a rescaler that writes output rows `dst_stride` bytes apart. The
 /// work vector holds the two side rows, `num_channels * dst_width` elements
