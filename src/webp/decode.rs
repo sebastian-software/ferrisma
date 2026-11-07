@@ -329,3 +329,26 @@ pub fn webp_get_features(
 pub fn webp_init_decoder_config(config: &mut WebPDecoderConfig<'_>) -> bool {
     webp_init_decoder_config_internal(config, WEBP_DECODER_ABI_VERSION)
 }
+
+// upstream: src/webp/decode.h WebPIDecGetYUV
+/// Deprecated alpha-less version of `WebPIDecGetYUVA()`: same, ignoring the
+/// alpha information.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the output parameters of the C function"
+)]
+#[must_use]
+pub fn webp_i_dec_get_yuv<'s>(
+    idec: &'s crate::dec::idec_dec::WebPIDecoder<'_, '_>,
+    last_y: Option<&mut i32>,
+    u: Option<&mut crate::dec::idec_dec::PlaneRows<'s>>,
+    v: Option<&mut crate::dec::idec_dec::PlaneRows<'s>>,
+    width: Option<&mut i32>,
+    height: Option<&mut i32>,
+    stride: Option<&mut i32>,
+    uv_stride: Option<&mut i32>,
+) -> crate::dec::idec_dec::PlaneRows<'s> {
+    crate::dec::idec_dec::webp_i_dec_get_yuva(
+        idec, last_y, u, v, None, width, height, stride, uv_stride, None,
+    )
+}
