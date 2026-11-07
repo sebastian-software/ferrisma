@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-06
+- Updated: 2026-11-07
 
 ## Context
 
@@ -119,6 +119,16 @@ operation. The planes of one picture share one storage, so a picture is owned or
 borrowed as a whole. `WebPPicture` holds `stats` and `extra_info` as `&'a mut`
 values, because the caller owns them.
 
+**Shared views (decided 2026-11-07, WP9).** `PlaneStorage` has a third variant,
+`Shared(Vec<&'a [T]>)`, with the regions of the picture that a view borrows
+shared (C: the `const WebPPicture*` of `WebPPictureView`). A view keeps the
+region indices and offsets of its source. Reading a shared plane is allowed;
+writing into one panics, because C would write through the `const` pointer
+that it casts away. A view has no callbacks and no `stats` or `extra_info`. The
+library functions that write a picture's planes in place are listed in
+`docs/status/wp9.md`, so that a consumer knows where a mutable view would be
+needed.
+
 **Untyped sample buffers (decided 2026-11-06, WP5).** A C `void*` buffer whose
 sample type the code selects by a bit depth (`uint8_t` for 8 bits, `uint16_t`
 otherwise) becomes `&[u8]` or `&mut [u8]`, with a byte offset to its first sample
@@ -226,8 +236,9 @@ Amend this record when a package meets a construct it does not cover, when a
 rule forces a change of observable behavior, or before wave 4 adds runtime
 selection.
 
-Open under this record (2026-11-06): `WebPPictureView` reads its source picture,
-so it may need a shared borrow of the planes. `PlaneStorage` would then gain a
-shared variant, which amends this record; WP9 raises it. A callback that needs a
-field of the picture would bring the picture parameter back, which amends this
-record.
+Resolved (2026-11-07): `WebPPictureView` borrows its source shared through the
+`Shared` storage above, which amends this record. `WebPPictureCopy` gives the
+copy no writer, progress hook, `extra_info` or `stats` (WP9 deviation); the
+callbacks stay boxed closures, and no shared-ownership form is introduced. A
+callback that needs a field of the picture would bring the picture parameter
+back, which amends this record.
