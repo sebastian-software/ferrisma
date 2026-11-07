@@ -15,3 +15,12 @@
 //! Translation of `src/jversion.h.in` from libjpeg-turbo 3.2.1.
 //!
 //! Work package: 1 (Common infrastructure).
+//!
+//! `JVERSION` takes the `JPEG_LIB_VERSION` 62 branch, and `JCOPYRIGHT` the
+//! `COPYRIGHT_YEAR` that upstream's `CMakeLists.txt` sets (`1991-2026`).
+
+// upstream: src/jversion.h.in JVERSION
+pub const JVERSION: &str = "6b  27-Mar-1998";
+
+// upstream: src/jversion.h.in JCOPYRIGHT
+pub const JCOPYRIGHT: &str = "Copyright (C) 1991-2026 The libjpeg-turbo Project and many others";
