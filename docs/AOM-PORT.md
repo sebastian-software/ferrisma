@@ -825,6 +825,13 @@ Evidence on macOS ARM64:
 - `--tune=vmaf_with_preprocessing` and `--tune=vmaf_neg` fail identically in
   the original and the Rust `aomenc` with upstream's invalid-parameter error
   and its `-DCONFIG_TUNE_VMAF=1` hint; `--tune=ssim` encodes.
+- Under AddressSanitizer, the Release profile passes the 12 public round
+  trips, all 305 allocation scenarios, and the eight worker-creation scenarios.
+- The default root Release port, now linked without libvmaf or a C++ runtime,
+  passes the same 64 CTest registrations and 9,473 GoogleTest cases as the
+  baseline linked to the C AOM reference, and
+  `tools/differential.py --decoder-codec aom` finds all 10 AVIF bitstreams and
+  10 decoded PNGs byte-identical.
 
 Evidence on GNU Linux x86-64: run
 [42370060809](https://github.com/sebastian-software/libavif-rs/actions/runs/42370060809)
