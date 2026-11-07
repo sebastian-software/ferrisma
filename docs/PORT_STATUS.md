@@ -7,12 +7,11 @@
 | 2 Input and markers | done | `jpeg_read_header` and the input side translated; header probe below |
 | 3 Entropy decoding | done | Huffman, progressive Huffman and arithmetic decoders translated; entropy probe below |
 | 4 Coefficients and IDCT | done | Coefficient controller, IDCT manager and all IDCT routines translated; IDCT and pipeline probes below |
-| 5 Upsampling, color, buffers | in review | Upsamplers, color conversion, main and postprocessing controllers translated; decode probe below |
-| 6–11 | not started | — |
+| 5 Upsampling, color, buffers | done | Upsamplers, color conversion, main and postprocessing controllers translated; decode probe below |
+| 6 Control and API | in review | Master control and the decompression API translated; API probe below |
+| 7–11 | not started | — |
 
-Work packages 1 to 5 are translated: 35 modules, and the struct of
-`jdmaster.h`. The other 2 modules under `src/` (`jdmaster`'s functions and
-`jdapistd`) hold only their provenance headers
+Work packages 1 to 6 are translated: all 37 modules under `src/`
 ([tools/units.json](../tools/units.json)).
 
 ## Work package 0
@@ -466,9 +465,9 @@ with `JERR_BAD_BUFFER_MODE` as upstream's `#else` does; `jdmainct.c`'s
 RGB565 output (`jdcol565.c`, `jdmrg565.c`) fails with
 `JERR_CONVERSION_NOTIMPL` in `jinit_color_deconverter` and
 `jinit_merged_upsampler` (ADR 0005). The 12-bit and 16-bit methods and the
-SIMD slots of the four interfaces are absent. Nothing initializes the modules
-yet: `master_selection` arrives with `jdmaster.c` in work package 6, and
-`jpeg_read_scanlines`, which calls `process_data`, with `jdapistd.c`.
+SIMD slots of the four interfaces are absent. Work package 6 adds
+`master_selection`, which initializes the modules, and `jpeg_read_scanlines`,
+which calls `process_data`.
 
 **Representation.** The main controller keeps one sample array per component
 and, in the context case, one block of both pointer lists per component as
@@ -501,9 +500,10 @@ memory pools (so the C sizes of the four modules, their tables and buffers,
 the pointer lists and the spare row are verified) and the error. For the
 upstream test images its rows equal `djpeg`'s output with fancy and plain
 upsampling, the float method, scaling and grayscale. `tests/support/wp5.rs`
-runs the same sequence on the port, with copies of
-`jpeg_calc_output_dimensions` and `use_merged_upsample` until work package 6,
-and `tests/wp5_decode.rs` compares the outputs exactly:
+runs the same sequence on the port, with the port's
+`jpeg_calc_output_dimensions` (a copy until work package 6) and a copy of
+`use_merged_upsample`, and `tests/wp5_decode.rs` compares the outputs
+exactly:
 
 | Test | Inputs |
 | --- | --- |
@@ -528,3 +528,91 @@ macOS ARM64 (Apple Clang 21), all of this passes against the `release` and
 
 **Differences by design.** RGB565 output, which the oracle produces, fails
 in the port (ADR 0005).
+
+## Work package 6
+
+**Translated.**
+
+| Module | Upstream | Content |
+| --- | --- | --- |
+| `jdmaster` | `jdmaster.c` | `use_merged_upsample`, `jpeg_core_output_dimensions`, `jpeg_calc_output_dimensions`, `prepare_range_limit_table`, `master_selection`, `prepare_for_output_pass`, `finish_output_pass`, `jpeg_new_colormap`, `jinit_master_decompress` |
+| `jdapistd` | `jdapistd.c` | `jpeg_start_decompress`, `output_pass_setup`, `jpeg_crop_scanline`, `jpeg_read_scanlines`, `noop_convert`, `read_and_discard_scanlines`, `increment_simple_rowgroup_ctr`, `jpeg_skip_scanlines`, `jpeg_read_raw_data`, `jpeg_start_output`, `jpeg_finish_output` |
+| `jdapimin` | `jdapimin.c` | `jpeg_finish_decompress` |
+| `jpegint`, `jpeglib` | `jpegint.h`, `jpeglib.h` | the methods `prepare_for_output_pass` and `finish_output_pass` of `jpeg_decomp_master`, and the call of the application's `progress_monitor` |
+
+`jdapistd.c` calls two inline functions of the module headers,
+`jdmainct.h`'s `set_wraparound_pointers` and `jdcoefct.h`'s
+`start_iMCU_row`, which are now `pub`.
+
+**Not translated.** Color quantization is out of scope (ADR 0001):
+`noop_quantize` and the quantizer selection are absent, `master_selection`
+fails with `JERR_NOT_COMPILED` for quantization, and a dummy pass of two-pass
+quantization fails the same way, as upstream's `#else` does. 12-bit images
+and a 12-bit output precision fail with `JERR_BAD_PRECISION` where upstream
+starts its 12-bit modules, and lossless images with `JERR_NOT_COMPILED`
+(ADR 0005). `WITH_PROFILE` is off.
+
+**Representation.** The public functions return `Result`, with C's
+`boolean` and `JDIMENSION` results inside. `jpeg_crop_scanline` takes C's
+pointers as `Option<&mut JDIMENSION>`, so a null pointer still fails with
+`JERR_BAD_CROP_SPEC`. The application's rows are `JSAMPROWS_MUT`, and raw
+data is a row list per component. The progress monitor's methods are taken
+out of `jpeg_progress_mgr` for the call. `prepare_range_limit_table` keeps
+the whole table, as earlier packages read it. To discard lines of the merged
+2:1 upsampler, the port reads them into a row of the spare row's length
+instead of the spare row itself. Where C would call the color quantizer that
+an application enabled after `jpeg_start_decompress`, the port fails with
+`JERR_NOT_COMPILED` (ADR 0005, refinements from work package 6).
+
+**Verified against the oracle.** The probe `tools/oracle/probes/wp6/api`
+decompresses through the public functions as an application does:
+`jpeg_read_header`, the options, `jpeg_start_decompress`, an output pass,
+and `jpeg_finish_decompress`. The output pass follows a plan of
+`jpeg_read_scanlines`, `jpeg_skip_scanlines` and `jpeg_crop_scanline` calls,
+calls at the wrong time and an early end, and then reads the rest a given
+number of rows per call. With options it reads raw data instead, or runs
+every output pass of buffered-image mode. It repeats any call that the
+suspending source makes return early, installs a progress monitor, and can
+decompress a second time with the same object. It prints every message, the
+output dimensions and state, every crop, a hash of every output row, every
+count the calls returned, the progress monitor's calls and a hash of its
+fields, the final state, the memory pools before `jpeg_finish_decompress`
+and the error. For the upstream test images its rows equal `djpeg`'s output
+with fancy and plain upsampling, scaling, grayscale output, the float
+method, and `djpeg -crop`, which crops and skips. `tests/support/wp6.rs`
+runs the same sequence on the port, and `tests/wp6_api.rs` compares the
+outputs exactly:
+
+| Test | Inputs |
+| --- | --- |
+| `test_images_match_the_oracle` | `testorig.jpg`, `testimgari.jpg`, `testimgint.jpg` in ten modes: default, plain upsampling, ifast and float with several rows per call, scales 1/8, 3/8 (after `jpeg_calc_output_dimensions`) and 13/8, grayscale and BGRX output, the progress monitor, one more read and skip after the last row, and a second decompression |
+| `encoder_variants_match_the_oracle` | the 27 8-bit `cjpeg` variants of the earlier packages in the same ten modes |
+| `crops_match_the_oracle` | the test images and six sampling, grayscale and progressive variants, cropped at ten offsets and widths (down to one sample, which reinitializes the upsampler) at four scales, with fancy and plain upsampling |
+| `skips_match_the_oracle` | the test images and seven variants, with 26 plans of skips at every position relative to the iMCU rows, after reads and crops, with context rows, the simple main controller and the merged upsampler, at full and half size |
+| `skips_near_the_end_match_the_oracle` | four inputs: reads of 0 to 33 rows, then skips that end 1 to 24 rows before the last |
+| `scales_match_the_oracle` | six inputs at every scale from 1/8 to 16/8, with crops, skips and raw data |
+| `raw_data_matches_the_oracle` | every 8-bit variant as raw data at three scales and with a longer buffer; a short buffer fails with `JERR_BUFFER_SIZE` |
+| `buffered_image_matches_the_oracle` | every 8-bit variant in buffered-image mode: all passes, one or two passes, scan numbers out of range, skips and crops within a pass, the progress monitor, and a second decompression |
+| `sequential_multiscan_matches_the_oracle` | a sequential file with one scan per component, with skips, buffered-image mode, raw data and suspension |
+| `color_spaces_match_the_oracle` | every in-scope output color space from YCbCr, CMYK, YCCK, RGB and grayscale input, also cropped and skipped |
+| `errors_match_the_oracle` | 36 calls at the wrong time and invalid requests: `JERR_BAD_STATE`, `JERR_BAD_CROP_SPEC`, `JERR_WIDTH_OVERFLOW`, `JERR_TOO_LITTLE_DATA`, `JERR_NOTIMPL`, `JERR_BAD_PRECISION`, `JERR_MODE_CHANGE`, `JERR_CCIR601_NOTIMPL`, `JWRN_TOO_MUCH_DATA`, extreme scale factors |
+| `suspension_matches_the_oracle` | suspending input that releases 1, 7, 64 or 1000 bytes per step, for the test images and three variants, through scanlines, skips, raw data and buffered-image mode, twice per object |
+| `damaged_streams_match_the_oracle` | the 8-bit variants cut at 5 points and mutated at 3 positions, read whole, with skips and in buffered-image mode |
+| `out_of_scope_requests_fail` | the port alone: 12-bit images and a 12-bit output precision fail with `JERR_BAD_PRECISION`, color quantization and a lossless image with `JERR_NOT_COMPILED` |
+
+The cases reach every branch of `jpeg_skip_scanlines`,
+`jpeg_crop_scanline` and the master selection that 8-bit lossy decoding can
+take, with these exceptions. `jpeg_skip_scanlines` calls
+`finish_input_pass` when its iMCU loop reaches the last iMCU row; no test
+reaches it, and neither does a sweep of about 39,000 reads and skips over four
+image heights, because a skip that far is cut at the end of the image
+first. `read_and_discard_scanlines` passes C's null row list only for the
+merged 1:1 upsampler, which never reads there. The branches for other
+precisions, lossless mode and color quantization fail as described above.
+Locally on macOS ARM64 (Apple Clang 21), all of this passes against the
+`release` and `asan-ubsan` oracles in the dev, release and `checked`
+profiles.
+
+**Differences by design.** 12-bit and lossless images, a 12-bit output
+precision and color quantization, which the oracle decodes, fail in the
+port (ADR 0005).

@@ -543,6 +543,28 @@ request:
    tables; the control routine takes the row out of the module for the call
    and puts it back, as a module takes its box ("A method's own state").
 
+## Refinements from work package 6 (2026-11-07)
+
+Work package 6 refined these rules, for the maintainer's review in its pull
+request:
+
+1. **Output into a module's own buffer.** To skip lines of the merged 2:1
+   upsampler, `jdapistd.c`'s `read_and_discard_scanlines` reads them into
+   the upsampler's own spare row, which the upsampler then also writes as
+   its second output row. The port reads them into a row of the same
+   length. The upsampler writes the second row after the first at every
+   position, so the spare row ends as C leaves it, and the read row is
+   discarded in both ("Disjoint borrows").
+2. **Calls into the absent color quantizer.** `master_selection` fails with
+   `JERR_NOT_COMPILED` for color quantization, so only an application that
+   sets `quantize_colors` or an `enable_*_quant` flag after
+   `jpeg_start_decompress` reaches the code that calls `cinfo->cquantize`
+   (`prepare_for_output_pass`, `finish_output_pass`). There C would call
+   through a quantizer that was never created. The port raises
+   `JERR_NOT_COMPILED` at those calls, and the absent `colormap` counts as
+   C's null pointer, so `jpeg_new_colormap` ends with `JERR_MODE_CHANGE`
+   ("Out-of-scope branches inside in-scope files").
+
 ## Review triggers
 
 Amend this record when a package meets a construct it does not cover, when a

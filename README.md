@@ -10,16 +10,17 @@ fourth sister port next to
 JPEG input, including scaled decoding for shrink-on-load, to
 [Ferrixel](https://github.com/sebastian-software/ferrixel).
 
-**Status:** upsampling, color conversion and buffers. The C oracle, the
+**Status:** the decoder is translated. The C oracle, the
 probe harness, the bit-test inventory and the module skeleton exist; work
 package 1 has translated the types, error codes and messages, the memory
 manager and the utilities, work package 2 the input side up to
 `jpeg_read_header`, work package 3 the Huffman, progressive Huffman and
 arithmetic decoders, work package 4 the coefficient buffer controller and
-every inverse DCT, and work package 5 the upsamplers, the color conversion
-and the main and postprocessing controllers. The master control and the
-decompression API (`jpeg_start_decompress`, `jpeg_read_scanlines`) are not
-translated yet. See the
+every inverse DCT, work package 5 the upsamplers, the color conversion
+and the main and postprocessing controllers, and work package 6 the master
+control and the decompression API (`jpeg_start_decompress`,
+`jpeg_read_scanlines`, `jpeg_skip_scanlines`, `jpeg_crop_scanline`, raw data
+and buffered-image mode). The C ABI and the safe Rust API are next. See the
 [port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
 [port status](docs/PORT_STATUS.md) for what is verified.
 
