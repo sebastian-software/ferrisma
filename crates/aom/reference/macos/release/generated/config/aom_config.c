@@ -9,5 +9,5 @@
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
 #include "aom/aom_codec.h"
-static const char* const cfg = "cmake ../aom-native-source -G \"Ninja\" -DAOM_TARGET_CPU=generic -DCONFIG_TUNE_VMAF=1 -DENABLE_DOCS=OFF";
+static const char* const cfg = "cmake ../aom-native-source -G \"Ninja\" -DAOM_TARGET_CPU=generic -DCONFIG_TUNE_VMAF=0 -DENABLE_DOCS=OFF";
 const char *aom_codec_build_config(void) {return cfg;}

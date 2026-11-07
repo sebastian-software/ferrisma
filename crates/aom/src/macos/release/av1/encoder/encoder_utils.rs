@@ -15,7 +15,6 @@ use ::c2rust_bitfields;
 extern "C-unwind" {
     pub type __sFILEX;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     fn aom_realloc_frame_buffer(
         ybf: *mut YV12_BUFFER_CONFIG,
@@ -3114,7 +3113,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3537,16 +3535,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6098,7 +6086,6 @@ unsafe extern "C-unwind" fn release_scaled_references(mut cpi: *mut AV1_COMP) {
         i += 1;
     }
 }
-pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;
 static mut film_grain_test_vectors: [aom_film_grain_t; 16] = [
     {
         let mut init = aom_film_grain_t {
@@ -13029,6 +13016,7 @@ pub unsafe extern "C-unwind" fn av1_save_all_coding_context(mut cpi: *mut AV1_CO
         release_scaled_references(cpi);
     }
 }
+pub const false_0: core::ffi::c_int = 0 as core::ffi::c_int;
 
 extern "C" {
     fn memcpy(

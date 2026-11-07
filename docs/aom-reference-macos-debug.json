@@ -3,13 +3,13 @@
   "profile": "debug",
   "options": [
     "-DAOM_TARGET_CPU=generic",
-    "-DCONFIG_TUNE_VMAF=1",
+    "-DCONFIG_TUNE_VMAF=0",
     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
     "-DENABLE_DOCS=OFF"
   ],
   "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
   "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
-  "library_translation_units": 168,
+  "library_translation_units": 166,
   "generated_units": 3,
   "original_test_inventories": {
     "test_libaom": {
@@ -29,10 +29,8 @@
     }
   },
   "original_test_inputs": 568,
-  "config_sha256": "3843645fb8ff29484aac1a0af0cd25452f6df16112e86cee3e01fe1aad1c6c12",
-  "transitive_runtime_dependencies": {
-    "libvmaf": "3.2.0"
-  },
+  "config_sha256": "1561d4595bbd9f9768e1a91e0b9d2960b67c03f76e012c9f3c74a16b41338ddf",
+  "transitive_runtime_dependencies": {},
   "library_sources": [
     "aom_dsp/aom_dsp_rtcd.c",
     "aom_scale/aom_scale_rtcd.c",
@@ -83,7 +81,6 @@
     "aom_dsp/noise_model.c",
     "aom_dsp/noise_util.c",
     "aom_dsp/flow_estimation/ransac.c",
-    "aom_dsp/vmaf.c",
     "aom_mem/aom_mem.c",
     "aom_util/aom_thread.c",
     "aom_scale/generic/yv12config.c",
@@ -200,8 +197,7 @@
     "third_party/fastfeat/fast_9.c",
     "third_party/fastfeat/nonmax.c",
     "third_party/vector/vector.c",
-    "av1/encoder/dwt.c",
-    "av1/encoder/tune_vmaf.c"
+    "av1/encoder/dwt.c"
   ],
   "original_test_inputs_sha256": "3f25d889cede9041745a1c13fe10ae97a14f321d4771318d0ca4b4403727b9ce"
 }

@@ -8,7 +8,7 @@
   "direct_header_role_review_complete": true,
   "complete_included_template_and_indirect_role_review": false,
   "execution_coverage_claimed_by_this_review": false,
-  "cpp_rate_control_boundary": "av1/ratectrl_rtc.cc builds the separate aom_av1_rc library, which upstream does not install. It is outside the selected 168-C-unit libaom archive and is retained as an original native consumer in test_aom_rc. No Rust wrapper implementation is claimed.",
+  "cpp_rate_control_boundary": "av1/ratectrl_rtc.cc builds the separate aom_av1_rc library, which upstream does not install. It is outside the selected 166-C-unit libaom archive and is retained as an original native consumer in test_aom_rc. No Rust wrapper implementation is claimed.",
   "other_native_test_infrastructure": [
     "GoogleTest",
     "libyuv",

@@ -16,7 +16,6 @@ extern "C-unwind" {
     pub type __sFILEX;
     pub type aom_denoise_and_model_t;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_uleb_decode(
         buffer: *const uint8_t,
@@ -7581,18 +7580,6 @@ extern "C-unwind" {
         size: *mut size_t,
         largest_tile_id: *mut core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn aom_close_vmaf_model(vmaf_model: *mut VmafModel);
-    fn av1_vmaf_blk_preprocessing(cpi: *mut AV1_COMP, source: *const YV12_BUFFER_CONFIG);
-    fn av1_vmaf_frame_preprocessing(
-        cpi: *mut AV1_COMP,
-        source: *const YV12_BUFFER_CONFIG,
-    );
-    fn av1_vmaf_neg_preprocessing(cpi: *mut AV1_COMP, source: *const YV12_BUFFER_CONFIG);
-    fn av1_set_mb_vmaf_rdmult_scaling(cpi: *mut AV1_COMP);
-    fn av1_get_vmaf_base_qindex(
-        cpi: *const AV1_COMP,
-        current_qindex: core::ffi::c_int,
-    ) -> core::ffi::c_int;
     fn av1_dealloc_mb_wiener_var_pred_buf(td: *mut ThreadData);
     fn av1_setup_frame_size(cpi: *mut AV1_COMP);
     fn av1_init_mb_wiener_var_buffer(cpi: *mut AV1_COMP);
@@ -10801,7 +10788,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -11224,16 +11210,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -14584,21 +14560,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad128x128_avg_bits10(
         second_pred,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad128x128_avg_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad128x128_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    ) >> 4 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_sad128x128_avg_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -14613,6 +14574,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad128x128_avg_bits8(
         ref_stride,
         second_pred,
     );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad128x128_avg_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad128x128_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad128x128x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -14737,14 +14713,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad128x64_bits10(
     return aom_highbd_sad128x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad128x64_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad128x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
-}
 unsafe extern "C-unwind" fn aom_highbd_sad128x64_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -14753,6 +14721,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad128x64_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad128x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad128x64_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad128x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad128x64_avg_bits10(
     mut src_ptr: *const uint8_t,
@@ -14877,21 +14853,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad128x64x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad128x64x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad128x64x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad128x64x3d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -14913,13 +14874,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad128x64x3d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x128_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad128x64x3d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad64x128_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad128x64x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x128_bits10(
     mut src_ptr: *const uint8_t,
@@ -14929,6 +14897,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x128_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad64x128_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x128_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad64x128_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x128_bits12(
     mut src_ptr: *const uint8_t,
@@ -14954,21 +14930,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x128_avg_bits10(
         second_pred,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x128_avg_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad64x128_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad64x128_avg_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -14984,19 +14945,19 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x128_avg_bits12(
         second_pred,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x128x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad64x128_avg_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
+    mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad64x128x4d_c(
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad64x128_avg_c(
         src_ptr,
         source_stride,
-        ref_ptr as *const *const uint8_t,
+        ref_ptr,
         ref_stride,
-        sad_array as *mut uint32_t,
+        second_pred,
     );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x128x4d_bits10(
@@ -15041,6 +15002,36 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x128x4d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad64x128x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad64x128x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x128x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad64x128x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad64x128x3d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -15083,30 +15074,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x128x3d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x128x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad64x128x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad32x16_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad32x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_sad32x16_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -15123,6 +15090,30 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x16_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad32x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x16_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad32x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x16_avg_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad32x16_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x16_avg_bits12(
     mut src_ptr: *const uint8_t,
@@ -15154,29 +15145,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x16_avg_bits10(
         second_pred,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x16_avg_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad32x16_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    let mut i: core::ffi::c_int = 0;
     aom_highbd_sad32x16x4d_c(
         src_ptr,
         source_stride,
@@ -15184,11 +15159,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits10(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -15211,14 +15181,35 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad32x16x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
+    let mut i: core::ffi::c_int = 0;
     aom_highbd_sad32x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x16x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad32x16x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -15268,20 +15259,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x16x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x16x3d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad16x32_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
+    mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad32x16x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
+) -> core::ffi::c_uint {
+    return aom_highbd_sad16x32_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x32_bits12(
     mut src_ptr: *const uint8_t,
@@ -15300,29 +15284,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x32_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad16x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x32_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad16x32_c(src_ptr, source_stride, ref_ptr, ref_stride);
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x32_avg_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad16x32_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x32_avg_bits12(
     mut src_ptr: *const uint8_t,
@@ -15354,20 +15315,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x32_avg_bits8(
         second_pred,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x32x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad16x32_avg_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
+    mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad16x32x4d_c(
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad16x32_avg_c(
         src_ptr,
         source_stride,
-        ref_ptr as *const *const uint8_t,
+        ref_ptr,
         ref_stride,
-        sad_array as *mut uint32_t,
-    );
+        second_pred,
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x32x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -15389,6 +15350,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x32x4d_bits12(
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x32x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad16x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x32x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -15468,6 +15444,15 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x32x3d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad64x32_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad64x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_sad64x32_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -15484,15 +15469,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x32_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad64x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_sad64x32_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad64x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x32_avg_bits8(
     mut src_ptr: *const uint8_t,
@@ -15539,14 +15515,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x32_avg_bits12(
         second_pred,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    let mut i: core::ffi::c_int = 0;
     aom_highbd_sad64x32x4d_c(
         src_ptr,
         source_stride,
@@ -15554,11 +15529,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits10(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -15581,14 +15551,35 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad64x32x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
+    let mut i: core::ffi::c_int = 0;
     aom_highbd_sad64x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x32x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad64x32x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -15617,21 +15608,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x32x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x32x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad64x32x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad64x32x3d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -15653,14 +15629,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x32x3d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x64_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad32x64_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad32x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
+    return aom_highbd_sad32x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x64_bits10(
     mut src_ptr: *const uint8_t,
@@ -15671,13 +15646,29 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x64_bits10(
     return aom_highbd_sad32x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x64_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad32x64_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad32x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    return aom_highbd_sad32x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x64_avg_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad32x64_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x64_avg_bits10(
     mut src_ptr: *const uint8_t,
@@ -15709,29 +15700,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x64_avg_bits12(
         second_pred,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x64_avg_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad32x64_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    let mut i: core::ffi::c_int = 0;
     aom_highbd_sad32x64x4d_c(
         src_ptr,
         source_stride,
@@ -15739,11 +15714,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits10(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -15766,14 +15736,35 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad32x64x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
+    let mut i: core::ffi::c_int = 0;
     aom_highbd_sad32x64x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x64x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad32x64x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -15823,29 +15814,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x64x3d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x64x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad32x64x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad32x32_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad32x32_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad32x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
+    return aom_highbd_sad32x32_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x32_bits10(
     mut src_ptr: *const uint8_t,
@@ -15856,13 +15831,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x32_bits10(
     return aom_highbd_sad32x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x32_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad32x32_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad32x32_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    return aom_highbd_sad32x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x32_avg_bits8(
     mut src_ptr: *const uint8_t,
@@ -15879,6 +15855,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x32_avg_bits8(
         second_pred,
     );
 }
+unsafe extern "C-unwind" fn aom_highbd_sad32x32_avg_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad32x32_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 2 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_sad32x32_avg_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -15894,20 +15885,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x32_avg_bits12(
         second_pred,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x32_avg_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad32x32x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad32x32_avg_c(
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad32x32x4d_c(
         src_ptr,
         source_stride,
-        ref_ptr,
+        ref_ptr as *const *const uint8_t,
         ref_stride,
-        second_pred,
-    ) >> 2 as core::ffi::c_int;
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x32x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -15950,21 +15941,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x32x4d_bits12(
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad32x32x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad32x32x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x32x3d_bits10(
     mut src_ptr: *const uint8_t,
@@ -16049,6 +16025,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x64_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad64x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
+unsafe extern "C-unwind" fn aom_highbd_sad64x64_avg_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad64x64_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 4 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_sad64x64_avg_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -16079,20 +16070,26 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x64_avg_bits8(
         second_pred,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x64_avg_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad64x64x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad64x64_avg_c(
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad64x64x4d_c(
         src_ptr,
         source_stride,
-        ref_ptr,
+        ref_ptr as *const *const uint8_t,
         ref_stride,
-        second_pred,
-    ) >> 4 as core::ffi::c_int;
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x64x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -16130,7 +16127,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x64x4d_bits8(
         sad_array as *mut uint32_t,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x64x4d_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad64x64x3d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -16138,7 +16135,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x64x4d_bits12(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad64x64x4d_c(
+    aom_highbd_sad64x64x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -16150,6 +16147,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x64x4d_bits12(
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x64x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad64x64x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x64x3d_bits10(
     mut src_ptr: *const uint8_t,
@@ -16172,41 +16184,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x64x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x64x3d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad16x16_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
+    mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad64x64x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad64x64x3d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad64x64x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
+) -> core::ffi::c_uint {
+    return aom_highbd_sad16x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x16_bits8(
     mut src_ptr: *const uint8_t,
@@ -16225,14 +16210,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x16_bits10(
     return aom_highbd_sad16x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x16_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad16x16_avg_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad16x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
+    return aom_highbd_sad16x16_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x16_avg_bits12(
     mut src_ptr: *const uint8_t,
@@ -16264,20 +16255,26 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x16_avg_bits10(
         second_pred,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x16_avg_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad16x16x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad16x16_avg_c(
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad16x16x4d_c(
         src_ptr,
         source_stride,
-        ref_ptr,
+        ref_ptr as *const *const uint8_t,
         ref_stride,
-        second_pred,
+        sad_array as *mut uint32_t,
     );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x16x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -16300,27 +16297,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x16x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x16x4d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad16x16x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
-}
 unsafe extern "C-unwind" fn aom_highbd_sad16x16x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -16335,27 +16311,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x16x4d_bits8(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x16x3d_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad16x16x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x16x3d_bits12(
     mut src_ptr: *const uint8_t,
@@ -16375,6 +16330,27 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x16x3d_bits12(
     i = 0 as core::ffi::c_int;
     while i < 4 as core::ffi::c_int {
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x16x3d_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad16x16x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
 }
@@ -16434,21 +16410,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x8_avg_bits10(
         second_pred,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x8_avg_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad16x8_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    ) >> 4 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_sad16x8_avg_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -16464,6 +16425,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x8_avg_bits8(
         second_pred,
     );
 }
+unsafe extern "C-unwind" fn aom_highbd_sad16x8_avg_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad16x8_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 4 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_sad16x8x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -16478,27 +16454,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x8x4d_bits8(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x8x4d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad16x8x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x8x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -16521,22 +16476,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x8x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x8x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad16x8x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x8x3d_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad16x8x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -16544,7 +16484,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x8x3d_bits12(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad16x8x3d_c(
+    aom_highbd_sad16x8x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -16578,13 +16518,50 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x8x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad8x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad16x8x3d_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad16x8x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x8x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad16x8x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad8x16_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad8x16_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    return aom_highbd_sad8x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x16_bits12(
     mut src_ptr: *const uint8_t,
@@ -16595,14 +16572,28 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x16_bits12(
     return aom_highbd_sad8x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad8x16_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad8x16_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad8x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_sad8x16_c(src_ptr, source_stride, ref_ptr, ref_stride);
+}
+unsafe extern "C-unwind" fn aom_highbd_sad8x16_avg_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad8x16_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x16_avg_bits12(
     mut src_ptr: *const uint8_t,
@@ -16633,21 +16624,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x16_avg_bits8(
         ref_stride,
         second_pred,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad8x16_avg_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad8x16_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x16x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -16727,21 +16703,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x16x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad8x16x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad8x16x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad8x16x3d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -16763,14 +16724,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x16x3d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad8x8_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad8x16x3d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad8x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 2 as core::ffi::c_int;
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad8x16x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x8_bits8(
     mut src_ptr: *const uint8_t,
@@ -16788,6 +16755,15 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x8_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad8x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad8x8_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad8x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x8_avg_bits10(
     mut src_ptr: *const uint8_t,
@@ -16995,21 +16971,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x4x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad8x4x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad8x4x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad8x4x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17031,6 +16992,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x4x4d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad8x4x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad8x4x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad8x4x3d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17045,27 +17021,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x4x3d_bits8(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad8x4x3d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad8x4x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x4x3d_bits10(
     mut src_ptr: *const uint8_t,
@@ -17085,6 +17040,27 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x4x3d_bits10(
     i = 0 as core::ffi::c_int;
     while i < 4 as core::ffi::c_int {
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad8x4x3d_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad8x4x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
 }
@@ -17113,6 +17089,27 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x8_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad4x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad4x8x4d_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad4x8x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x8x4d_bits8(
     mut src_ptr: *const uint8_t,
@@ -17150,27 +17147,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x8x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad4x8x4d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad4x8x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
-}
 unsafe extern "C-unwind" fn aom_highbd_sad4x8x3d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17191,21 +17167,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x8x3d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad4x8x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad4x8x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x8x3d_bits12(
     mut src_ptr: *const uint8_t,
@@ -17228,6 +17189,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x8x3d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad4x8x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad4x8x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad4x4_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17236,6 +17212,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x4_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad4x4_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad4x4_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad4x4_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x4_bits10(
     mut src_ptr: *const uint8_t,
@@ -17246,13 +17230,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x4_bits10(
     return aom_highbd_sad4x4_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad4x4_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad4x4x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad4x4_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad4x4x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x4x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -17275,21 +17266,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x4x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad4x4x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad4x4x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad4x4x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17308,6 +17284,27 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x4x4d_bits10(
     i = 0 as core::ffi::c_int;
     while i < 4 as core::ffi::c_int {
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad4x4x3d_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad4x4x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
 }
@@ -17347,27 +17344,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x4x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad4x4x3d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad4x4x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
-}
 unsafe extern "C-unwind" fn aom_highbd_sad4x16_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17376,14 +17352,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x16_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad4x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_sad4x16_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad4x16_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x16_bits10(
     mut src_ptr: *const uint8_t,
@@ -17394,41 +17362,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x16_bits10(
     return aom_highbd_sad4x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad4x16x4d_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad4x16_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
+    mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad4x16x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad4x16x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad4x16x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
+) -> core::ffi::c_uint {
+    return aom_highbd_sad4x16_c(src_ptr, source_stride, ref_ptr, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x16x4d_bits10(
     mut src_ptr: *const uint8_t,
@@ -17451,7 +17391,22 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x16x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad4x16x3d_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad4x16x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad4x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad4x16x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -17459,7 +17414,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x16x3d_bits12(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad4x16x3d_c(
+    aom_highbd_sad4x16x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -17486,6 +17441,27 @@ unsafe extern "C-unwind" fn aom_highbd_sad4x16x3d_bits8(
         ref_stride,
         sad_array as *mut uint32_t,
     );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad4x16x3d_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad4x16x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad4x16x3d_bits10(
     mut src_ptr: *const uint8_t,
@@ -17555,6 +17531,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x4x4d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad16x4x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad16x4x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad16x4x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17576,14 +17567,35 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x4x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x4x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad16x4x3d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    aom_highbd_sad16x4x4d_c(
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad16x4x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x4x3d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad16x4x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -17612,51 +17624,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x4x3d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x4x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad16x4x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x4x3d_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad16x4x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad8x32_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad8x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_sad8x32_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17674,20 +17641,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x32_bits10(
     return aom_highbd_sad8x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad8x32_avg_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad8x32_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad8x32_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    ) >> 4 as core::ffi::c_int;
+    return aom_highbd_sad8x32_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x32_avg_bits8(
     mut src_ptr: *const uint8_t,
@@ -17719,6 +17680,36 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x32_avg_bits10(
         second_pred,
     ) >> 2 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_sad8x32_avg_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad8x32_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad8x32x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad8x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad8x32x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17739,21 +17730,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x32x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad8x32x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad8x32x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad8x32x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -17833,13 +17809,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad8x32x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x8_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad32x8_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad32x8_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    return aom_highbd_sad32x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x8_bits12(
     mut src_ptr: *const uint8_t,
@@ -17850,14 +17827,28 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x8_bits12(
     return aom_highbd_sad32x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x8_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad32x8_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad32x8_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_sad32x8_c(src_ptr, source_stride, ref_ptr, ref_stride);
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x8_avg_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred: *const uint8_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad32x8_avg_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred,
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x8_avg_bits8(
     mut src_ptr: *const uint8_t,
@@ -17889,36 +17880,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x8_avg_bits12(
         second_pred,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x8_avg_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred: *const uint8_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad32x8_avg_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred,
-    ) >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_sad32x8x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad32x8x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad32x8x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -17939,6 +17900,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x8x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad32x8x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad32x8x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad32x8x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -17976,27 +17952,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x8x3d_bits8(
         sad_array as *mut uint32_t,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad32x8x3d_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad32x8x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
-        i += 1;
-    }
-}
 unsafe extern "C-unwind" fn aom_highbd_sad32x8x3d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -18018,22 +17973,26 @@ unsafe extern "C-unwind" fn aom_highbd_sad32x8x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x64_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad32x8x3d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad16x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x64_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad16x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad32x8x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x64_bits10(
     mut src_ptr: *const uint8_t,
@@ -18044,7 +18003,24 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64_bits10(
     return aom_highbd_sad16x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad16x64_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad16x64_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x64_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad16x64_c(src_ptr, source_stride, ref_ptr, ref_stride);
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18057,7 +18033,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits12(
         ref_ptr,
         ref_stride,
         second_pred,
-    ) >> 4 as core::ffi::c_int;
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits8(
     mut src_ptr: *const uint8_t,
@@ -18074,7 +18050,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits8(
         second_pred,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18087,7 +18063,28 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64_avg_bits10(
         ref_ptr,
         ref_stride,
         second_pred,
-    ) >> 2 as core::ffi::c_int;
+    ) >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad16x64x4d_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad16x64x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x64x4d_bits8(
     mut src_ptr: *const uint8_t,
@@ -18125,27 +18122,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad16x64x4d_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad16x64x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
-}
 unsafe extern "C-unwind" fn aom_highbd_sad16x64x3d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -18166,21 +18142,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64x3d_bits12(
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad16x64x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad16x64x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad16x64x3d_bits10(
     mut src_ptr: *const uint8_t,
@@ -18203,22 +18164,20 @@ unsafe extern "C-unwind" fn aom_highbd_sad16x64x3d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x16_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad16x64x3d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
+    mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad64x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
-        >> 4 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_sad64x16_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad64x16_c(src_ptr, source_stride, ref_ptr, ref_stride);
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad16x64x3d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x16_bits10(
     mut src_ptr: *const uint8_t,
@@ -18229,7 +18188,24 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16_bits10(
     return aom_highbd_sad64x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad64x16_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad64x16_c(src_ptr, source_stride, ref_ptr, ref_stride);
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x16_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad64x16_c(src_ptr, source_stride, ref_ptr, ref_stride)
+        >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18242,7 +18218,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits12(
         ref_ptr,
         ref_stride,
         second_pred,
-    ) >> 4 as core::ffi::c_int;
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits8(
     mut src_ptr: *const uint8_t,
@@ -18259,7 +18235,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits8(
         second_pred,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18272,7 +18248,43 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16_avg_bits10(
         ref_ptr,
         ref_stride,
         second_pred,
-    ) >> 2 as core::ffi::c_int;
+    ) >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad64x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad64x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -18295,14 +18307,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad64x16x3d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    aom_highbd_sad64x16x4d_c(
+    aom_highbd_sad64x16x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -18310,7 +18322,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits8(
         sad_array as *mut uint32_t,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad64x16x3d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -18318,7 +18330,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16x4d_bits10(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad64x16x4d_c(
+    aom_highbd_sad64x16x3d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -18351,63 +18363,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad64x16x3d_bits12(
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad64x16x3d_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad64x16x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad64x16x3d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad64x16x3d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad128x128_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad128x128_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad128x128_bits10(
     mut src_ptr: *const uint8_t,
@@ -18451,7 +18406,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad128x128_bits8(
         invert_mask,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits12(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad128x128_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18461,7 +18416,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits12(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad128x64_c(
+    return aom_highbd_masked_sad128x128_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -18471,27 +18426,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits12(
         m_stride,
         invert_mask,
     ) >> 4 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad128x64_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits10(
     mut src_ptr: *const uint8_t,
@@ -18514,7 +18448,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad64x128_bits12(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18524,7 +18458,28 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad64x128_bits12(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad64x128_c(
+    return aom_highbd_masked_sad128x64_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad128x64_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad128x64_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -18556,6 +18511,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad64x128_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_masked_sad64x128_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad64x128_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 4 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad64x128_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -18576,27 +18552,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad64x128_bits8(
         m_stride,
         invert_mask,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad64x64_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad64x64_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad64x64_bits10(
     mut src_ptr: *const uint8_t,
@@ -18639,6 +18594,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad64x64_bits8(
         m_stride,
         invert_mask,
     );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad64x64_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad64x64_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad64x32_bits12(
     mut src_ptr: *const uint8_t,
@@ -18703,6 +18679,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad64x32_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_masked_sad32x64_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad32x64_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad32x64_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -18744,48 +18741,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x64_bits10(
         m_stride,
         invert_mask,
     ) >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad32x64_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad32x64_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad32x32_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad32x32_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad32x32_bits12(
     mut src_ptr: *const uint8_t,
@@ -18829,7 +18784,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x32_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad32x16_bits12(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad32x32_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18839,28 +18794,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x16_bits12(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad32x16_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad32x16_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad32x16_c(
+    return aom_highbd_masked_sad32x32_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -18892,7 +18826,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x16_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits10(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad32x16_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18902,7 +18836,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits10(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad16x32_c(
+    return aom_highbd_masked_sad32x16_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -18911,9 +18845,9 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits10(
         m,
         m_stride,
         invert_mask,
-    ) >> 2 as core::ffi::c_int;
+    );
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits12(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad32x16_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -18923,7 +18857,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits12(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad16x32_c(
+    return aom_highbd_masked_sad32x16_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -18955,6 +18889,48 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits8(
         invert_mask,
     );
 }
+unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad16x32_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad16x32_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad16x32_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 2 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad16x16_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -18976,27 +18952,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x16_bits12(
         invert_mask,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad16x16_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad16x16_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad16x16_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19017,6 +18972,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x16_bits8(
         m_stride,
         invert_mask,
     );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad16x16_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad16x16_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad16x8_bits12(
     mut src_ptr: *const uint8_t,
@@ -19081,27 +19057,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x8_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad8x16_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad8x16_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad8x16_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19134,6 +19089,48 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x16_bits8(
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
     return aom_highbd_masked_sad8x16_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad8x16_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad8x16_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad8x8_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad8x8_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -19186,7 +19183,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x8_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad8x8_bits8(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad8x4_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -19196,7 +19193,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x8_bits8(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad8x8_c(
+    return aom_highbd_masked_sad8x4_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -19205,7 +19202,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x8_bits8(
         m,
         m_stride,
         invert_mask,
-    );
+    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad8x4_bits10(
     mut src_ptr: *const uint8_t,
@@ -19228,27 +19225,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x4_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad8x4_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad8x4_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad8x4_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19269,27 +19245,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x4_bits8(
         m_stride,
         invert_mask,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad4x8_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad4x8_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad4x8_bits10(
     mut src_ptr: *const uint8_t,
@@ -19312,6 +19267,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad4x8_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_masked_sad4x8_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad4x8_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 4 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad4x8_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19332,48 +19308,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad4x8_bits8(
         m_stride,
         invert_mask,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad4x4_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad4x4_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad4x4_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad4x4_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad4x4_bits10(
     mut src_ptr: *const uint8_t,
@@ -19396,7 +19330,49 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad4x4_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad4x4_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad4x4_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad4x4_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad4x4_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -19415,7 +19391,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits8(
         m,
         m_stride,
         invert_mask,
-    );
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits12(
     mut src_ptr: *const uint8_t,
@@ -19438,7 +19414,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits12(
         invert_mask,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits10(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -19449,6 +19425,48 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad4x16_bits10(
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
     return aom_highbd_masked_sad4x16_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad16x4_bits12(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad16x4_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad16x4_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad16x4_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -19480,48 +19498,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x4_bits8(
         invert_mask,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad16x4_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad16x4_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad16x4_bits12(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad16x4_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 4 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad8x32_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19542,27 +19518,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x32_bits12(
         m_stride,
         invert_mask,
     ) >> 4 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_masked_sad8x32_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad8x32_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad8x32_bits10(
     mut src_ptr: *const uint8_t,
@@ -19585,7 +19540,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad8x32_bits10(
         invert_mask,
     ) >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad32x8_bits10(
+unsafe extern "C-unwind" fn aom_highbd_masked_sad8x32_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const uint8_t,
@@ -19595,7 +19550,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x8_bits10(
     mut m_stride: core::ffi::c_int,
     mut invert_mask: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad32x8_c(
+    return aom_highbd_masked_sad8x32_c(
         src_ptr,
         source_stride,
         ref_ptr,
@@ -19604,7 +19559,7 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x8_bits10(
         m,
         m_stride,
         invert_mask,
-    ) >> 2 as core::ffi::c_int;
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad32x8_bits12(
     mut src_ptr: *const uint8_t,
@@ -19648,6 +19603,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad32x8_bits8(
         invert_mask,
     );
 }
+unsafe extern "C-unwind" fn aom_highbd_masked_sad32x8_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad32x8_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 2 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad16x64_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19669,27 +19645,6 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x64_bits12(
         invert_mask,
     ) >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_masked_sad16x64_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut second_pred_ptr: *const uint8_t,
-    mut m: *const uint8_t,
-    mut m_stride: core::ffi::c_int,
-    mut invert_mask: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_masked_sad16x64_c(
-        src_ptr,
-        source_stride,
-        ref_ptr,
-        ref_stride,
-        second_pred_ptr,
-        m,
-        m_stride,
-        invert_mask,
-    ) >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_masked_sad16x64_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -19710,6 +19665,27 @@ unsafe extern "C-unwind" fn aom_highbd_masked_sad16x64_bits8(
         m_stride,
         invert_mask,
     );
+}
+unsafe extern "C-unwind" fn aom_highbd_masked_sad16x64_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut second_pred_ptr: *const uint8_t,
+    mut m: *const uint8_t,
+    mut m_stride: core::ffi::c_int,
+    mut invert_mask: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_masked_sad16x64_c(
+        src_ptr,
+        source_stride,
+        ref_ptr,
+        ref_stride,
+        second_pred_ptr,
+        m,
+        m_stride,
+        invert_mask,
+    ) >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_masked_sad64x16_bits12(
     mut src_ptr: *const uint8_t,
@@ -19809,6 +19785,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x64_bits12(
     return aom_highbd_sad_skip_128x64_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x64_bits8(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_128x64_c(src, src_stride, ref_0, ref_stride);
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x64_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
@@ -19817,14 +19801,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x64_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_128x64_c(src, src_stride, ref_0, ref_stride)
         >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x64_bits8(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_128x64_c(src, src_stride, ref_0, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x128_bits8(
     mut src: *const uint8_t,
@@ -19860,15 +19836,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_64x64_c(src, src_stride, ref_0, ref_stride);
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64_bits12(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_64x64_c(src, src_stride, ref_0, ref_stride)
-        >> 4 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
@@ -19878,14 +19845,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64_bits10(
     return aom_highbd_sad_skip_64x64_c(src, src_stride, ref_0, ref_stride)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64_bits12(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_64x32_c(src, src_stride, ref_0, ref_stride)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_sad_skip_64x64_c(src, src_stride, ref_0, ref_stride)
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32_bits12(
     mut src: *const uint8_t,
@@ -19904,6 +19871,15 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_64x32_c(src, src_stride, ref_0, ref_stride);
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32_bits10(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_64x32_c(src, src_stride, ref_0, ref_stride)
+        >> 2 as core::ffi::c_int;
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x64_bits12(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
@@ -19913,15 +19889,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x64_bits12(
     return aom_highbd_sad_skip_32x64_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x64_bits10(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_32x64_c(src, src_stride, ref_0, ref_stride)
-        >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x64_bits8(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
@@ -19930,13 +19897,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x64_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_32x64_c(src, src_stride, ref_0, ref_stride);
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x32_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x64_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_32x32_c(src, src_stride, ref_0, ref_stride)
+    return aom_highbd_sad_skip_32x64_c(src, src_stride, ref_0, ref_stride)
         >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x32_bits12(
@@ -19956,6 +19923,23 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x32_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_32x32_c(src, src_stride, ref_0, ref_stride);
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x32_bits10(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_32x32_c(src, src_stride, ref_0, ref_stride)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16_bits8(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_32x16_c(src, src_stride, ref_0, ref_stride);
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
@@ -19974,22 +19958,13 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16_bits12(
     return aom_highbd_sad_skip_32x16_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32_bits8(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_32x16_c(src, src_stride, ref_0, ref_stride);
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32_bits10(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_16x32_c(src, src_stride, ref_0, ref_stride)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_sad_skip_16x32_c(src, src_stride, ref_0, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32_bits12(
     mut src: *const uint8_t,
@@ -20000,22 +19975,22 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32_bits12(
     return aom_highbd_sad_skip_16x32_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_16x32_c(src, src_stride, ref_0, ref_stride);
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16_bits10(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_16x16_c(src, src_stride, ref_0, ref_stride)
+    return aom_highbd_sad_skip_16x32_c(src, src_stride, ref_0, ref_stride)
         >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16_bits8(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_16x16_c(src, src_stride, ref_0, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16_bits12(
     mut src: *const uint8_t,
@@ -20026,13 +20001,22 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16_bits12(
     return aom_highbd_sad_skip_16x16_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_16x16_c(src, src_stride, ref_0, ref_stride);
+    return aom_highbd_sad_skip_16x16_c(src, src_stride, ref_0, ref_stride)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16_bits8(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_8x16_c(src, src_stride, ref_0, ref_stride);
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16_bits10(
     mut src: *const uint8_t,
@@ -20052,13 +20036,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16_bits12(
     return aom_highbd_sad_skip_8x16_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16_bits12(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_8x16_c(src, src_stride, ref_0, ref_stride);
+    return aom_highbd_sad_skip_64x16_c(src, src_stride, ref_0, ref_stride)
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16_bits10(
     mut src: *const uint8_t,
@@ -20076,15 +20061,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16_bits8(
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_64x16_c(src, src_stride, ref_0, ref_stride);
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16_bits12(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_64x16_c(src, src_stride, ref_0, ref_stride)
-        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64_bits10(
     mut src: *const uint8_t,
@@ -20112,14 +20088,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64_bits12(
     return aom_highbd_sad_skip_16x64_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16_bits12(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_4x16_c(src, src_stride, ref_0, ref_stride)
-        >> 2 as core::ffi::c_int;
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16_bits8(
     mut src: *const uint8_t,
@@ -20129,13 +20105,22 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_4x16_c(src, src_stride, ref_0, ref_stride);
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16_bits12(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16_bits10(
     mut src: *const uint8_t,
     mut src_stride: core::ffi::c_int,
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_4x16_c(src, src_stride, ref_0, ref_stride)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32_bits12(
+    mut src: *const uint8_t,
+    mut src_stride: core::ffi::c_int,
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+) -> core::ffi::c_uint {
+    return aom_highbd_sad_skip_8x32_c(src, src_stride, ref_0, ref_stride)
         >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32_bits10(
@@ -20154,15 +20139,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32_bits8(
     mut ref_stride: core::ffi::c_int,
 ) -> core::ffi::c_uint {
     return aom_highbd_sad_skip_8x32_c(src, src_stride, ref_0, ref_stride);
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32_bits12(
-    mut src: *const uint8_t,
-    mut src_stride: core::ffi::c_int,
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-) -> core::ffi::c_uint {
-    return aom_highbd_sad_skip_8x32_c(src, src_stride, ref_0, ref_stride)
-        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x128x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -20185,6 +20161,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x128x4d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x128x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_128x128x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x128x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20205,21 +20196,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x128x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x128x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_128x128x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_128x64x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -20299,21 +20275,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x128x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x128x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_64x128x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x128x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20335,35 +20296,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x128x4d_bits10(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x128x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_64x64x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_64x64x4d_c(
+    aom_highbd_sad_skip_64x128x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -20392,7 +20332,22 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_64x64x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x64x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -20400,7 +20355,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits10(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_64x32x4d_c(
+    aom_highbd_sad_skip_64x64x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -20412,21 +20367,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_64x32x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -20446,6 +20386,42 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits12(
     i = 0 as core::ffi::c_int;
     while i < 4 as core::ffi::c_int {
         *sad_array.offset(i as isize) >>= 4 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_64x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x32x4d_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad_skip_64x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
 }
@@ -20578,27 +20554,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16x4d_bits8(
         sad_array as *mut uint32_t,
     );
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16x4d_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_32x16x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
-}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20620,22 +20575,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_16x32x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_32x16x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -20643,7 +20583,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32x4d_bits10(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_16x32x4d_c(
+    aom_highbd_sad_skip_32x16x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -20677,22 +20617,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_16x16x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -20700,7 +20625,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits10(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_16x16x4d_c(
+    aom_highbd_sad_skip_16x32x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -20712,6 +20637,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x32x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_16x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -20734,6 +20674,42 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits12(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad_skip_16x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x16x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_16x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20748,27 +20724,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16x4d_bits8(
         ref_stride,
         sad_array as *mut uint32_t,
     );
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16x4d_bits10(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_8x16x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-    i = 0 as core::ffi::c_int;
-    while i < 4 as core::ffi::c_int {
-        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
-        i += 1;
-    }
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -20791,7 +20746,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16x4d_bits10(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x16x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
@@ -20799,7 +20754,7 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16x4d_bits10(
     mut sad_array: *mut core::ffi::c_uint,
 ) {
     let mut i: core::ffi::c_int = 0;
-    aom_highbd_sad_skip_64x16x4d_c(
+    aom_highbd_sad_skip_8x16x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -20848,6 +20803,27 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16x4d_bits8(
         sad_array as *mut uint32_t,
     );
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_64x16x4d_bits10(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    let mut i: core::ffi::c_int = 0;
+    aom_highbd_sad_skip_64x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+    i = 0 as core::ffi::c_int;
+    while i < 4 as core::ffi::c_int {
+        *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
+        i += 1;
+    }
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20868,21 +20844,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
-}
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_16x64x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -20905,14 +20866,14 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16x4d_bits8(
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_16x64x4d_bits8(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
     mut ref_ptr: *const *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut sad_array: *mut core::ffi::c_uint,
 ) {
-    aom_highbd_sad_skip_4x16x4d_c(
+    aom_highbd_sad_skip_16x64x4d_c(
         src_ptr,
         source_stride,
         ref_ptr as *const *const uint8_t,
@@ -20941,6 +20902,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16x4d_bits10(
         i += 1;
     }
 }
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_4x16x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
+}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16x4d_bits12(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20962,21 +20938,6 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_4x16x4d_bits12(
         i += 1;
     }
 }
-unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32x4d_bits8(
-    mut src_ptr: *const uint8_t,
-    mut source_stride: core::ffi::c_int,
-    mut ref_ptr: *const *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut sad_array: *mut core::ffi::c_uint,
-) {
-    aom_highbd_sad_skip_8x32x4d_c(
-        src_ptr,
-        source_stride,
-        ref_ptr as *const *const uint8_t,
-        ref_stride,
-        sad_array as *mut uint32_t,
-    );
-}
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32x4d_bits10(
     mut src_ptr: *const uint8_t,
     mut source_stride: core::ffi::c_int,
@@ -20997,6 +20958,21 @@ unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32x4d_bits10(
         *sad_array.offset(i as isize) >>= 2 as core::ffi::c_int;
         i += 1;
     }
+}
+unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32x4d_bits8(
+    mut src_ptr: *const uint8_t,
+    mut source_stride: core::ffi::c_int,
+    mut ref_ptr: *const *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut sad_array: *mut core::ffi::c_uint,
+) {
+    aom_highbd_sad_skip_8x32x4d_c(
+        src_ptr,
+        source_stride,
+        ref_ptr as *const *const uint8_t,
+        ref_stride,
+        sad_array as *mut uint32_t,
+    );
 }
 unsafe extern "C-unwind" fn aom_highbd_sad_skip_8x32x4d_bits12(
     mut src_ptr: *const uint8_t,
@@ -21045,15 +21021,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad128x128_bits10(
     return aom_highbd_obmc_sad128x128_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad128x64_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad128x64_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad128x64_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21071,21 +21038,13 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad128x64_bits12(
     return aom_highbd_obmc_sad128x64_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x128_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad128x64_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad64x128_c(ref_0, ref_stride, wsrc, msk);
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x128_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad64x128_c(ref_0, ref_stride, wsrc, msk)
+    return aom_highbd_obmc_sad128x64_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x128_bits12(
@@ -21097,14 +21056,22 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x128_bits12(
     return aom_highbd_obmc_sad64x128_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x64_bits10(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x128_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad64x64_c(ref_0, ref_stride, wsrc, msk)
+    return aom_highbd_obmc_sad64x128_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x128_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad64x128_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x64_bits12(
     mut ref_0: *const uint8_t,
@@ -21114,6 +21081,15 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x64_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad64x64_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x64_bits10(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad64x64_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x64_bits8(
     mut ref_0: *const uint8_t,
@@ -21132,14 +21108,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x32_bits10(
     return aom_highbd_obmc_sad64x32_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x32_bits8(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad64x32_c(ref_0, ref_stride, wsrc, msk);
-}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x32_bits12(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21149,13 +21117,13 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x32_bits12(
     return aom_highbd_obmc_sad64x32_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x64_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x32_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad32x64_c(ref_0, ref_stride, wsrc, msk);
+    return aom_highbd_obmc_sad64x32_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x64_bits10(
     mut ref_0: *const uint8_t,
@@ -21175,13 +21143,22 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x64_bits12(
     return aom_highbd_obmc_sad32x64_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x32_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x64_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad32x32_c(ref_0, ref_stride, wsrc, msk);
+    return aom_highbd_obmc_sad32x64_c(ref_0, ref_stride, wsrc, msk);
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x32_bits10(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad32x32_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x32_bits12(
     mut ref_0: *const uint8_t,
@@ -21192,14 +21169,21 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x32_bits12(
     return aom_highbd_obmc_sad32x32_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x32_bits10(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x32_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad32x32_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_obmc_sad32x32_c(ref_0, ref_stride, wsrc, msk);
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x16_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad32x16_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x16_bits12(
     mut ref_0: *const uint8_t,
@@ -21219,13 +21203,22 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x16_bits10(
     return aom_highbd_obmc_sad32x16_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x32_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad32x16_c(ref_0, ref_stride, wsrc, msk);
+    return aom_highbd_obmc_sad16x32_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x32_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad16x32_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x32_bits12(
     mut ref_0: *const uint8_t,
@@ -21236,22 +21229,13 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x32_bits12(
     return aom_highbd_obmc_sad16x32_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x32_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x16_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x32_c(ref_0, ref_stride, wsrc, msk);
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x32_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x32_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_obmc_sad16x16_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x16_bits12(
     mut ref_0: *const uint8_t,
@@ -21262,14 +21246,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x16_bits12(
     return aom_highbd_obmc_sad16x16_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x16_bits8(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x16_c(ref_0, ref_stride, wsrc, msk);
-}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x16_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21277,6 +21253,23 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x16_bits10(
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad16x16_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x8_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad16x8_c(ref_0, ref_stride, wsrc, msk);
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x8_bits10(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad16x8_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x8_bits12(
@@ -21288,23 +21281,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x8_bits12(
     return aom_highbd_obmc_sad16x8_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x8_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x8_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x8_bits8(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x8_c(ref_0, ref_stride, wsrc, msk);
-}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x16_bits12(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21313,6 +21289,14 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x16_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad8x16_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x16_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad8x16_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x16_bits10(
     mut ref_0: *const uint8_t,
@@ -21323,22 +21307,13 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x16_bits10(
     return aom_highbd_obmc_sad8x16_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x8_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad8x16_c(ref_0, ref_stride, wsrc, msk);
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x8_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad8x8_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
+    return aom_highbd_obmc_sad8x8_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x8_bits12(
     mut ref_0: *const uint8_t,
@@ -21349,22 +21324,22 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x8_bits12(
     return aom_highbd_obmc_sad8x8_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x8_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x8_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad8x8_c(ref_0, ref_stride, wsrc, msk);
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x4_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad8x4_c(ref_0, ref_stride, wsrc, msk)
+    return aom_highbd_obmc_sad8x8_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x4_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad8x4_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x4_bits12(
     mut ref_0: *const uint8_t,
@@ -21375,22 +21350,14 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x4_bits12(
     return aom_highbd_obmc_sad8x4_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x4_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x4_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad8x4_c(ref_0, ref_stride, wsrc, msk);
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x8_bits12(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad4x8_c(ref_0, ref_stride, wsrc, msk)
-        >> 4 as core::ffi::c_int;
+    return aom_highbd_obmc_sad8x4_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x8_bits10(
     mut ref_0: *const uint8_t,
@@ -21400,6 +21367,15 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x8_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad4x8_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x8_bits12(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad4x8_c(ref_0, ref_stride, wsrc, msk)
+        >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x8_bits8(
     mut ref_0: *const uint8_t,
@@ -21418,15 +21394,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x4_bits12(
     return aom_highbd_obmc_sad4x4_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x4_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad4x4_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
-}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x4_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21435,13 +21402,14 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x4_bits8(
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad4x4_c(ref_0, ref_stride, wsrc, msk);
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x16_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x4_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad4x16_c(ref_0, ref_stride, wsrc, msk);
+    return aom_highbd_obmc_sad4x4_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x16_bits10(
     mut ref_0: *const uint8_t,
@@ -21461,6 +21429,14 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x16_bits12(
     return aom_highbd_obmc_sad4x16_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad4x16_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad4x16_c(ref_0, ref_stride, wsrc, msk);
+}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x4_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21469,14 +21445,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x4_bits10(
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad16x4_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x4_bits8(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x4_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x4_bits12(
     mut ref_0: *const uint8_t,
@@ -21487,13 +21455,13 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x4_bits12(
     return aom_highbd_obmc_sad16x4_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x32_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x4_bits8(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad8x32_c(ref_0, ref_stride, wsrc, msk);
+    return aom_highbd_obmc_sad16x4_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x32_bits10(
     mut ref_0: *const uint8_t,
@@ -21504,6 +21472,14 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x32_bits10(
     return aom_highbd_obmc_sad8x32_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x32_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad8x32_c(ref_0, ref_stride, wsrc, msk);
+}
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x32_bits12(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
@@ -21511,6 +21487,15 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad8x32_bits12(
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad8x32_c(ref_0, ref_stride, wsrc, msk)
+        >> 4 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x8_bits12(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad32x8_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x8_bits8(
@@ -21530,14 +21515,22 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x8_bits10(
     return aom_highbd_obmc_sad32x8_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad32x8_bits12(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x64_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad32x8_c(ref_0, ref_stride, wsrc, msk)
-        >> 4 as core::ffi::c_int;
+    return aom_highbd_obmc_sad16x64_c(ref_0, ref_stride, wsrc, msk)
+        >> 2 as core::ffi::c_int;
+}
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x64_bits8(
+    mut ref_0: *const uint8_t,
+    mut ref_stride: core::ffi::c_int,
+    mut wsrc: *const int32_t,
+    mut msk: *const int32_t,
+) -> core::ffi::c_uint {
+    return aom_highbd_obmc_sad16x64_c(ref_0, ref_stride, wsrc, msk);
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x64_bits12(
     mut ref_0: *const uint8_t,
@@ -21548,21 +21541,13 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x64_bits12(
     return aom_highbd_obmc_sad16x64_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
 }
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x64_bits8(
+unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x16_bits10(
     mut ref_0: *const uint8_t,
     mut ref_stride: core::ffi::c_int,
     mut wsrc: *const int32_t,
     mut msk: *const int32_t,
 ) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x64_c(ref_0, ref_stride, wsrc, msk);
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad16x64_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad16x64_c(ref_0, ref_stride, wsrc, msk)
+    return aom_highbd_obmc_sad64x16_c(ref_0, ref_stride, wsrc, msk)
         >> 2 as core::ffi::c_int;
 }
 unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x16_bits8(
@@ -21581,15 +21566,6 @@ unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x16_bits12(
 ) -> core::ffi::c_uint {
     return aom_highbd_obmc_sad64x16_c(ref_0, ref_stride, wsrc, msk)
         >> 4 as core::ffi::c_int;
-}
-unsafe extern "C-unwind" fn aom_highbd_obmc_sad64x16_bits10(
-    mut ref_0: *const uint8_t,
-    mut ref_stride: core::ffi::c_int,
-    mut wsrc: *const int32_t,
-    mut msk: *const int32_t,
-) -> core::ffi::c_uint {
-    return aom_highbd_obmc_sad64x16_c(ref_0, ref_stride, wsrc, msk)
-        >> 2 as core::ffi::c_int;
 }
 #[inline]
 unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
@@ -31788,9 +31764,6 @@ unsafe extern "C-unwind" fn dealloc_compressor_data(mut cpi: *mut AV1_COMP) {
     (*cpi).ssim_rdmult_scaling_factors = 0 as *mut core::ffi::c_double;
     aom_free((*cpi).tpl_rdmult_scaling_factors as *mut core::ffi::c_void);
     (*cpi).tpl_rdmult_scaling_factors = 0 as *mut core::ffi::c_double;
-    aom_free((*cpi).vmaf_info.rdmult_scaling_factors as *mut core::ffi::c_void);
-    (*cpi).vmaf_info.rdmult_scaling_factors = 0 as *mut core::ffi::c_double;
-    aom_close_vmaf_model((*cpi).vmaf_info.vmaf_model);
     release_obmc_buffers(&raw mut (*cpi).td.mb.obmc_buffer);
     aom_free((*cpi).td.mv_costs_alloc as *mut core::ffi::c_void);
     (*cpi).td.mv_costs_alloc = 0 as *mut MvCosts;
@@ -37766,34 +37739,6 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 as *const core::ffi::c_char,
         );
     }
-    let bsize_0: BLOCK_SIZE = BLOCK_64X64;
-    let w_0: core::ffi::c_int = mi_size_wide[bsize_0 as usize] as core::ffi::c_int;
-    let h_0: core::ffi::c_int = mi_size_high[bsize_0 as usize] as core::ffi::c_int;
-    let num_cols_0: core::ffi::c_int = ((*mi_params).mi_cols + w_0
-        - 1 as core::ffi::c_int) / w_0;
-    let num_rows_0: core::ffi::c_int = ((*mi_params).mi_rows + h_0
-        - 1 as core::ffi::c_int) / h_0;
-    (*cpi).vmaf_info.rdmult_scaling_factors = aom_calloc(
-        (num_rows_0 * num_cols_0) as size_t,
-        ::core::mem::size_of::<core::ffi::c_double>() as size_t,
-    ) as *mut core::ffi::c_double;
-    if ((*cpi).vmaf_info.rdmult_scaling_factors).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cpi->vmaf_info.rdmult_scaling_factors\0" as *const u8
-                as *const core::ffi::c_char,
-        );
-    }
-    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
-    while i < MAX_ARF_LAYERS {
-        (*cpi).vmaf_info.last_frame_unsharp_amount[i as usize] = -1.0f64;
-        (*cpi).vmaf_info.last_frame_ysse[i as usize] = -1.0f64;
-        (*cpi).vmaf_info.last_frame_vmaf[i as usize] = -1.0f64;
-        i += 1;
-    }
-    (*cpi).vmaf_info.original_qindex = -(1 as core::ffi::c_int);
-    (*cpi).vmaf_info.vmaf_model = 0 as *mut VmafModel;
     let prev_deltaq_params: *mut DeltaQuantParams = &raw mut (*cpi)
         .enc_quant_dequant_params
         .prev_deltaq_params;
@@ -39865,11 +39810,6 @@ unsafe extern "C-unwind" fn encode_with_recode_loop(
     if (*cpi).sf.hl_sf.disable_extra_sc_testing == 0 && (*cpi).use_ducky_encode == 0 {
         av1_determine_sc_tools_with_encoding(cpi, q);
     }
-    if (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-        == AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-    {
-        av1_vmaf_neg_preprocessing(cpi as *mut AV1_COMP, (*cpi).unscaled_source);
-    }
     (*cpi).num_frame_recode = 0 as core::ffi::c_int;
     let mut loop_0: core::ffi::c_int = 0 as core::ffi::c_int;
     let mut loop_count: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -39933,14 +39873,6 @@ unsafe extern "C-unwind" fn encode_with_recode_loop(
                     0 as core::ffi::c_int,
                 );
             }
-        }
-        if (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-            >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-            && (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-                <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-        {
-            (*cpi).vmaf_info.original_qindex = q;
-            q = av1_get_vmaf_base_qindex(cpi, q);
         }
         if (*cpi).use_ducky_encode != 0 {
             let mut frame_info: *const DuckyEncodeFrameInfo = &raw mut (*cpi)
@@ -40098,13 +40030,6 @@ unsafe extern "C-unwind" fn encode_with_recode_loop(
             }
             (*rc).projected_frame_size = (*size as core::ffi::c_int)
                 << 3 as core::ffi::c_int;
-        }
-        if (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-            >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-            && (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-                <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-        {
-            q = (*cpi).vmaf_info.original_qindex;
         }
         if allow_recode != 0 {
             recode_loop_update_q(
@@ -40824,14 +40749,6 @@ unsafe extern "C-unwind" fn encode_frame_to_data_rate(
             == AOM_TUNE_SSIMULACRA2 as core::ffi::c_int as core::ffi::c_uint
     {
         av1_set_mb_ssim_rdmult_scaling(cpi);
-    } else if (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-        == AOM_TUNE_VMAF_WITHOUT_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-        || (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-            == AOM_TUNE_VMAF_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-        || (*oxcf).tune_cfg.tuning as core::ffi::c_uint
-            == AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-    {
-        av1_set_mb_vmaf_rdmult_scaling(cpi as *mut AV1_COMP);
     }
     if (*cpi).oxcf.q_cfg.deltaq_mode as core::ffi::c_int
         == DELTA_Q_PERCEPTUAL_AI as core::ffi::c_int
@@ -41418,18 +41335,6 @@ pub unsafe extern "C-unwind" fn av1_receive_raw_frame(
                 as *const core::ffi::c_char,
         );
         return -(1 as core::ffi::c_int);
-    }
-    if is_stat_generation_stage(cpi) == 0
-        && (*cpi).oxcf.tune_cfg.tuning as core::ffi::c_uint
-            == AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-    {
-        av1_vmaf_frame_preprocessing(cpi as *mut AV1_COMP, sd);
-    }
-    if is_stat_generation_stage(cpi) == 0
-        && (*cpi).oxcf.tune_cfg.tuning as core::ffi::c_uint
-            == AOM_TUNE_VMAF_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-    {
-        av1_vmaf_blk_preprocessing(cpi as *mut AV1_COMP, sd);
     }
     if (*cpi).oxcf.noise_level > 0 as core::ffi::c_int as core::ffi::c_float
         && !((*cpi).oxcf.pass as core::ffi::c_uint

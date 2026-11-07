@@ -48,7 +48,6 @@
 #[path = "macos/release/aom_dsp/noise_model.rs"] pub mod aom_dsp__noise_model;
 #[path = "macos/release/aom_dsp/noise_util.rs"] pub mod aom_dsp__noise_util;
 #[path = "macos/release/aom_dsp/flow_estimation/ransac.rs"] pub mod aom_dsp__flow_estimation__ransac;
-#[path = "macos/release/aom_dsp/vmaf.rs"] pub mod aom_dsp__vmaf;
 #[path = "macos/release/aom_mem/aom_mem.rs"] pub mod aom_mem__aom_mem;
 #[path = "macos/release/aom_util/aom_thread.rs"] pub mod aom_util__aom_thread;
 #[path = "macos/release/aom_scale/generic/yv12config.rs"] pub mod aom_scale__generic__yv12config;
@@ -166,4 +165,3 @@
 #[path = "macos/release/third_party/fastfeat/nonmax.rs"] pub mod third_party__fastfeat__nonmax;
 #[path = "macos/release/third_party/vector/vector.rs"] pub mod third_party__vector__vector;
 #[path = "macos/release/av1/encoder/dwt.rs"] pub mod av1__encoder__dwt;
-#[path = "macos/release/av1/encoder/tune_vmaf.rs"] pub mod av1__encoder__tune_vmaf;

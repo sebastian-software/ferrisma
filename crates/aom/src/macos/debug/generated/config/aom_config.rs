@@ -11,7 +11,7 @@
 
 // Mechanically translated from crates/aom/reference/macos/debug/generated/config/aom_config.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
-static mut cfg: *const core::ffi::c_char = b"cmake ../aom-native-source -G \"Ninja\" -DAOM_TARGET_CPU=generic -DCONFIG_TUNE_VMAF=1 -DENABLE_DOCS=OFF\0"
+static mut cfg: *const core::ffi::c_char = b"cmake ../aom-native-source -G \"Ninja\" -DAOM_TARGET_CPU=generic -DCONFIG_TUNE_VMAF=0 -DENABLE_DOCS=OFF\0"
     as *const u8 as *const core::ffi::c_char;
 #[no_mangle]
 pub unsafe extern "C-unwind" fn aom_codec_build_config() -> *const core::ffi::c_char {

@@ -15,7 +15,6 @@ use ::c2rust_bitfields;
 extern "C-unwind" {
     pub type __sFILEX;
     pub type AVxWorkerImpl;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -3563,7 +3562,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3986,16 +3984,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -7908,6 +7896,9 @@ unsafe extern "C-unwind" fn enforce_max_ref_frames(
         );
     } else {};
 }
+pub const UINT_MAX: core::ffi::c_uint = (__INT_MAX__ as core::ffi::c_uint)
+    .wrapping_mul(2 as core::ffi::c_uint)
+    .wrapping_add(1 as core::ffi::c_uint);
 pub const BINS: core::ffi::c_int = 32 as core::ffi::c_int;
 pub const FIX_PREC_BITS: core::ffi::c_int = 16 as core::ffi::c_int;
 #[inline]
@@ -12803,9 +12794,6 @@ pub unsafe extern "C-unwind" fn av1_encode_frame(mut cpi: *mut AV1_COMP) {
         encode_frame_internal(cpi);
     };
 }
-pub const UINT_MAX: core::ffi::c_uint = (__INT_MAX__ as core::ffi::c_uint)
-    .wrapping_mul(2 as core::ffi::c_uint)
-    .wrapping_add(1 as core::ffi::c_uint);
 
 extern "C" {
     fn sqrt(_: core::ffi::c_double) -> core::ffi::c_double;

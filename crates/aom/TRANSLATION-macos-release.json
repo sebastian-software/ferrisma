@@ -4,7 +4,7 @@
   "preprocessing_profile": "release",
   "generation_target": "aarch64-apple-darwin",
   "generated_reference_headers": {
-    "config/aom_config.h": "ef64f3b87c3cc954cd3f0449fc4eebd035cb0bc911fa9f189451cffa01c10a2c",
+    "config/aom_config.h": "c1acff879c872dcbced66f96d4fb2cbcf9be0ffb2c10415d5185765b70409259",
     "config/aom_version.h": "7ef18decb2e308f27e9238882f817acc746225fd76a7691533795139a64febdb",
     "config/aom_dsp_rtcd.h": "3d2c7b13efc4da03a7790b7e30b5367607f35bc33644bb55653ca836b7bb49d2",
     "config/aom_scale_rtcd.h": "16c294bebc7c8e685323f7c8ad06ab20ad079e003cb0a6b18c34d1bd907e4f64",
@@ -137,9 +137,9 @@
     {
       "source": "crates/aom/reference/macos/release/generated/config/aom_config.c",
       "rust": "crates/aom/src/macos/release/generated/config/aom_config.rs",
-      "raw_sha256": "1b051647e8dcfb00436f9ac3d48a6a4f11f40b98bf6b7c1ac273afe36ce5c7e3",
-      "rust_sha256": "bd920e6deac4fa453ab347d0b0a6131d2a4aaeda7804f9a55d1284df888b2585",
-      "production_rust_sha256": "bd920e6deac4fa453ab347d0b0a6131d2a4aaeda7804f9a55d1284df888b2585",
+      "raw_sha256": "26f7d3b1dd7f8e2c87ce3493d5c3b1c3d8c48e98733ff091d939cb6e9365a9d4",
+      "rust_sha256": "22ba7e09383d45819b53d4307d0610e21c8548c1f2a224519902c84a37747a6c",
+      "production_rust_sha256": "22ba7e09383d45819b53d4307d0610e21c8548c1f2a224519902c84a37747a6c",
       "corrections": {
         "unwinding-codec-and-callback-abi": 1
       }
@@ -668,19 +668,6 @@
       }
     },
     {
-      "source": "upstream/aom/aom_dsp/vmaf.c",
-      "rust": "crates/aom/src/macos/release/aom_dsp/vmaf.rs",
-      "raw_sha256": "ecd968780f95f2e85d52b3a91c7dd6c5f208aa26632133b2cf3a83f38d4b9e99",
-      "rust_sha256": "d27d70a7b2a2176231706b6caf1f070ce8cac7a9d50dde1d02d8fa8bb5e7c7c4",
-      "production_rust_sha256": "d27d70a7b2a2176231706b6caf1f070ce8cac7a9d50dde1d02d8fa8bb5e7c7c4",
-      "corrections": {
-        "target-libc-file-handle": 1,
-        "raw-c-mutable-address": 22,
-        "unwinding-codec-and-callback-abi": 15,
-        "system-and-vmaf-c-abi-declarations": 14
-      }
-    },
-    {
       "source": "upstream/aom/aom_mem/aom_mem.c",
       "rust": "crates/aom/src/macos/release/aom_mem/aom_mem.rs",
       "raw_sha256": "6692b2b992365d9117fa8a221786eb12d769fcd9aa9b3d4ec75e156cbd87445a",
@@ -748,9 +735,9 @@
     {
       "source": "upstream/aom/av1/arg_defs.c",
       "rust": "crates/aom/src/macos/release/av1/arg_defs.rs",
-      "raw_sha256": "3556aa425780d1633f3e9c361aeb2e6f1ab0515d070daf155469ad7bceff2eb6",
-      "rust_sha256": "8a3b8e43470dce27a31a2a830f89ed934895d962f71b09d82b97d934e8fe3a4b",
-      "production_rust_sha256": "8a3b8e43470dce27a31a2a830f89ed934895d962f71b09d82b97d934e8fe3a4b",
+      "raw_sha256": "540059bbc0ac7be281bc244654abb81e7af8ff5ce260776b79d10af3146057bd",
+      "rust_sha256": "36e98b96dab88754d4897cad556ee884df17cccb49aa11c8f91663dfba020407",
+      "production_rust_sha256": "36e98b96dab88754d4897cad556ee884df17cccb49aa11c8f91663dfba020407",
       "corrections": {
         "static-raw-address": 13
       }
@@ -1327,16 +1314,16 @@
     {
       "source": "upstream/aom/av1/av1_cx_iface.c",
       "rust": "crates/aom/src/macos/release/av1/av1_cx_iface.rs",
-      "raw_sha256": "09faf72f3286391262953144ed2978a600c5fedda1117d256e53f915ebc19cf1",
-      "rust_sha256": "dee8f87cb06576847d1b028f0ee23af9f28688802a4022edbda95a80683cebfa",
-      "production_rust_sha256": "dee8f87cb06576847d1b028f0ee23af9f28688802a4022edbda95a80683cebfa",
+      "raw_sha256": "1d1f2f7d2aee083d27511e9466564f7efe0d02f36792fc975a293fb557ea680a",
+      "rust_sha256": "e16cfec4361ad1a6c364be5c1e67ff3e285283180e721fb0f5ffa8a1c79c83ac",
+      "production_rust_sha256": "e16cfec4361ad1a6c364be5c1e67ff3e285283180e721fb0f5ffa8a1c79c83ac",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,
         "target-libc-thread-storage": 3,
         "variadic-abi": 1,
         "target-libc-file-handle": 1,
-        "raw-c-mutable-address": 585,
+        "raw-c-mutable-address": 581,
         "raw-c-static-address": 1,
         "original-c-record-field-alignment": 27,
         "scoped-nonlocal-error-targets": 7,
@@ -1349,9 +1336,9 @@
     {
       "source": "upstream/aom/av1/encoder/aq_complexity.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/aq_complexity.rs",
-      "raw_sha256": "c516b0b67ee3b62eeda9936a4a13d2ac0fd0c074b35baf85e35ae62d800ae630",
-      "rust_sha256": "fa8b3a604844a88d846699e3999bf586f2b8660b6aea3b46128f2dba0565e5be",
-      "production_rust_sha256": "fa8b3a604844a88d846699e3999bf586f2b8660b6aea3b46128f2dba0565e5be",
+      "raw_sha256": "087f1274582c7fa2f3d2e0ebb37ef2ef90b8d79179af2617e02c114f48768fce",
+      "rust_sha256": "30ecf7a429404861bfd57067059218345e60af6f4f170e2ee65acd228b7b75ee",
+      "production_rust_sha256": "30ecf7a429404861bfd57067059218345e60af6f4f170e2ee65acd228b7b75ee",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1364,9 +1351,9 @@
     {
       "source": "upstream/aom/av1/encoder/aq_cyclicrefresh.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/aq_cyclicrefresh.rs",
-      "raw_sha256": "812c7b6df9e27aff552d4dbbfc0e5a0a0da3809dc8842ae3fb6abe7093605621",
-      "rust_sha256": "0a62eb02a0acf84c11af9429c9aaa00fdab77e6635b11b7905e823681b3f1bbd",
-      "production_rust_sha256": "0a62eb02a0acf84c11af9429c9aaa00fdab77e6635b11b7905e823681b3f1bbd",
+      "raw_sha256": "ee6ed019bd4f518b6f17c0b1797591b801e066e9693f7c45ada8b486703f677f",
+      "rust_sha256": "4902f6f381c1929ff1d9fe6276cb990acddc4906093a3d28647db48627ef4d9c",
+      "production_rust_sha256": "4902f6f381c1929ff1d9fe6276cb990acddc4906093a3d28647db48627ef4d9c",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1380,9 +1367,9 @@
     {
       "source": "upstream/aom/av1/encoder/aq_variance.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/aq_variance.rs",
-      "raw_sha256": "88581c106e1d3d380659de2f1c9bfe0c712535291c56674d4881d1fa62be4487",
-      "rust_sha256": "1def4d744c9470eb887ff0ce083a1ec8249a1a29329c480a00a6c748de80f78e",
-      "production_rust_sha256": "1def4d744c9470eb887ff0ce083a1ec8249a1a29329c480a00a6c748de80f78e",
+      "raw_sha256": "fbd8dad6bf775f9a80ab4abff1bda1d1c4c247999e0f94ec8d9b577e7fa53de4",
+      "rust_sha256": "5f245e0ba76e315a64566241dda65ebe2d3b1fe5c19283102201550fad15f8ab",
+      "production_rust_sha256": "5f245e0ba76e315a64566241dda65ebe2d3b1fe5c19283102201550fad15f8ab",
       "corrections": {
         "static-raw-address": 4,
         "target-libc-thread-storage": 2,
@@ -1397,9 +1384,9 @@
     {
       "source": "upstream/aom/av1/encoder/allintra_vis.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/allintra_vis.rs",
-      "raw_sha256": "7247cbed2d71bfa97d0655bbf1d8656ba588e74409ee6b9522215e7055b93299",
-      "rust_sha256": "4bfe53c72650ef763f5dea83f7fda97b26e7e6a8ba51ff2e18791b1751e01427",
-      "production_rust_sha256": "4bfe53c72650ef763f5dea83f7fda97b26e7e6a8ba51ff2e18791b1751e01427",
+      "raw_sha256": "98678eef2186c1dd6c94f4493a5add10a28b154f6e18003716d3eb42a2836072",
+      "rust_sha256": "6b59e7a7a58d61ec8bf447fdc73104f58b122137e9fe59f24fd3fca6ac5680aa",
+      "production_rust_sha256": "6b59e7a7a58d61ec8bf447fdc73104f58b122137e9fe59f24fd3fca6ac5680aa",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1451,9 +1438,9 @@
     {
       "source": "upstream/aom/av1/encoder/av1_quantize.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/av1_quantize.rs",
-      "raw_sha256": "f02e3fe1f097c75fe72e152c11d6f3e45a4c8c032d36295af2202551a3e6fb13",
-      "rust_sha256": "a4a8a43f174cbe715a811918f1f940d7c90a66c27593a88299f3a314b1215443",
-      "production_rust_sha256": "3a94faa993bc579f002bb378b58c37582e354f2018497eb5da6adf289c38b453",
+      "raw_sha256": "5d6939f28fdd5131a82a768d0ad6a9810d70b866c268ded0a05bdd84fc4bfbfb",
+      "rust_sha256": "b8ab89fa66e386b81b9549514f7f6dd0843e9f51e7ee7a858f4ba886ecce22bc",
+      "production_rust_sha256": "cf8f1a64bc7b02b2acd9e887b05df4115c98bcc1fe3c5c10245bca7925d562ac",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1467,9 +1454,9 @@
     {
       "source": "upstream/aom/av1/encoder/bitstream.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/bitstream.rs",
-      "raw_sha256": "c13c373c55474223e481a1a943f3b106720158f54899aae660d66522f4739de6",
-      "rust_sha256": "e34635fe1ad67194305a50c29361de30cb70ffa28d2e86a8b2d537dea5a9fc50",
-      "production_rust_sha256": "e34635fe1ad67194305a50c29361de30cb70ffa28d2e86a8b2d537dea5a9fc50",
+      "raw_sha256": "79081e15061cb7d07ecbf0a4e2c9913b9974fd0f3cd54e728b81bcf722ce2caf",
+      "rust_sha256": "bea908fb73ad1e7a978226a038514590ec675590e2f5f27827092c69a89e3a3e",
+      "production_rust_sha256": "bea908fb73ad1e7a978226a038514590ec675590e2f5f27827092c69a89e3a3e",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -1498,9 +1485,9 @@
     {
       "source": "upstream/aom/av1/encoder/compound_type.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/compound_type.rs",
-      "raw_sha256": "e59ec237981400d89a360f5a6ead0f0168f5b61fc27723d08570a4f421a8b086",
-      "rust_sha256": "3e637a7152bba5fdfea6c1c31d91b7d1e6740080949c53a170fa4413ead54eb8",
-      "production_rust_sha256": "3e637a7152bba5fdfea6c1c31d91b7d1e6740080949c53a170fa4413ead54eb8",
+      "raw_sha256": "c80ad7887db7d3771d570c5464fcba6ebcef56a68ea7f766ea6641f92c6889e7",
+      "rust_sha256": "4707a14616882ea592ae6db0e555398ebaf738a8d4dd722a2a2c92320a3800dc",
+      "production_rust_sha256": "4707a14616882ea592ae6db0e555398ebaf738a8d4dd722a2a2c92320a3800dc",
       "corrections": {
         "canonical-cfg-labels": 4,
         "target-libc-thread-storage": 2,
@@ -1515,9 +1502,9 @@
     {
       "source": "upstream/aom/av1/encoder/context_tree.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/context_tree.rs",
-      "raw_sha256": "3b6709e44f2291324499bde5908d61e151b540de18a2de3cc68eb88383d9256e",
-      "rust_sha256": "9476a395c7f0900872d9a759f6df548999b93f7b864a47dff7581b9b1f604007",
-      "production_rust_sha256": "9476a395c7f0900872d9a759f6df548999b93f7b864a47dff7581b9b1f604007",
+      "raw_sha256": "5947acc4f0483dae7e6b2b2b3d68258c19b5ee545993dbbbac6614b90443fa9b",
+      "rust_sha256": "bc5ce9920341d2edeede7268af0346326ee52b0c295674787684457365ada182",
+      "production_rust_sha256": "bc5ce9920341d2edeede7268af0346326ee52b0c295674787684457365ada182",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1541,9 +1528,9 @@
     {
       "source": "upstream/aom/av1/encoder/encodeframe.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encodeframe.rs",
-      "raw_sha256": "0699c273871a130ce7e7b730c02dd08bcf4f23889a3626fa0762f3a9c96465e6",
-      "rust_sha256": "dfebcb75e5d697dd0646fb00687fa105c1e7ec3412a3c7a24288d99b2c406865",
-      "production_rust_sha256": "dfebcb75e5d697dd0646fb00687fa105c1e7ec3412a3c7a24288d99b2c406865",
+      "raw_sha256": "24ef9a0538849c3b09fe11aac3484cdc1704dd1b69c5fd3e2ae78b845f38101b",
+      "rust_sha256": "83f064c30bc28aa313f5f5412de6aca4a7eb03c09f628e3ed2393b28363abd27",
+      "production_rust_sha256": "83f064c30bc28aa313f5f5412de6aca4a7eb03c09f628e3ed2393b28363abd27",
       "corrections": {
         "static-raw-address": 4,
         "target-libc-thread-storage": 2,
@@ -1559,9 +1546,9 @@
     {
       "source": "upstream/aom/av1/encoder/encodeframe_utils.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encodeframe_utils.rs",
-      "raw_sha256": "e2ae21852fe1cdf8a8ae77aad3c199625657483362a2f311bf3e7e9df3888598",
-      "rust_sha256": "3f87afb9a5eb8e52a24b0916ee80fa810a3530cdf3a6b49c56b89386fd8f4f99",
-      "production_rust_sha256": "3f87afb9a5eb8e52a24b0916ee80fa810a3530cdf3a6b49c56b89386fd8f4f99",
+      "raw_sha256": "ac92fbe28c79ddff56e131ff55edfa81801b83273d58ebf40649e6c17c22c12f",
+      "rust_sha256": "52dad6496f7e3969113653ebd37a656d48a6bb73940cb9befd0c1fc6277d5fd8",
+      "production_rust_sha256": "52dad6496f7e3969113653ebd37a656d48a6bb73940cb9befd0c1fc6277d5fd8",
       "corrections": {
         "canonical-cfg-labels": 12,
         "target-libc-thread-storage": 2,
@@ -1576,9 +1563,9 @@
     {
       "source": "upstream/aom/av1/encoder/encodemb.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encodemb.rs",
-      "raw_sha256": "c860e80b679ed3d6ada41380cb72795e1bffad39eee26d0bcb8ad9b230e85b3d",
-      "rust_sha256": "0e073fe74c54ac3c371a5e81f3f6151258baeb727677216bed640c5e9f507d17",
-      "production_rust_sha256": "0e073fe74c54ac3c371a5e81f3f6151258baeb727677216bed640c5e9f507d17",
+      "raw_sha256": "1228389de56f84afff870c5a598e87f08c57f7c246040c94860c39df92a63aec",
+      "rust_sha256": "20b5d2f60851b8a92441432827b89823685c4b376edae5aec710ce438c055c40",
+      "production_rust_sha256": "20b5d2f60851b8a92441432827b89823685c4b376edae5aec710ce438c055c40",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1591,9 +1578,9 @@
     {
       "source": "upstream/aom/av1/encoder/encodemv.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encodemv.rs",
-      "raw_sha256": "dc3a70d44510e72a1c02d6e163eb8678286b694c4693f2409f474ec04ff402c3",
-      "rust_sha256": "c98505facd18e81ddf415c46e657c2a0aad23cb89a3b35a6ff8fb1fe7c1fdc06",
-      "production_rust_sha256": "c98505facd18e81ddf415c46e657c2a0aad23cb89a3b35a6ff8fb1fe7c1fdc06",
+      "raw_sha256": "f3fb0f9f2d4c690da3eaba8bbaa1be96535188ecd85be34f72e7134425a250ec",
+      "rust_sha256": "68d42701c4d26972382418f428a05d46e25cb563cfdd4b0214fc216e3883abe0",
+      "production_rust_sha256": "68d42701c4d26972382418f428a05d46e25cb563cfdd4b0214fc216e3883abe0",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1607,9 +1594,9 @@
     {
       "source": "upstream/aom/av1/encoder/encode_strategy.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encode_strategy.rs",
-      "raw_sha256": "3d98727dd3ba959b3dc279db7701cf3ae7f17a2cccefda96798e2b3411419e00",
-      "rust_sha256": "dd4e9ea5bfdb18da9a6511bf69153cd2f003c747355e3cbf67a439139f16dc60",
-      "production_rust_sha256": "dd4e9ea5bfdb18da9a6511bf69153cd2f003c747355e3cbf67a439139f16dc60",
+      "raw_sha256": "db4afb399820a38aee4e36a1afc0bf2db6e37dfa6df96e619911ca090ce40b10",
+      "rust_sha256": "139e80296881c210d2ebd68c2a0921a38b2beb36696c287a25288aa44f92aeb0",
+      "production_rust_sha256": "139e80296881c210d2ebd68c2a0921a38b2beb36696c287a25288aa44f92aeb0",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -1624,9 +1611,9 @@
     {
       "source": "upstream/aom/av1/encoder/encoder.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encoder.rs",
-      "raw_sha256": "2437eec2962358625a6e1f084cafc820b26a8f619cdd536bc6c6c6d87f88d567",
-      "rust_sha256": "99dbb3913bac001032d4e49318bdd29f0d0bc69a09eb841fafc3c2e1461cebe2",
-      "production_rust_sha256": "99dbb3913bac001032d4e49318bdd29f0d0bc69a09eb841fafc3c2e1461cebe2",
+      "raw_sha256": "cca1a51d68260780f8e95cfd8df4122dfc66d9564613285e88283d1d5f2031b5",
+      "rust_sha256": "1b349fa83226cc94799fcd45698596f5a9c736261909e17645b57c9481a2240a",
+      "production_rust_sha256": "1b349fa83226cc94799fcd45698596f5a9c736261909e17645b57c9481a2240a",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1642,9 +1629,9 @@
     {
       "source": "upstream/aom/av1/encoder/encoder_utils.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encoder_utils.rs",
-      "raw_sha256": "c6df955dcf41c3a3e0572088fa26419dc9fa61039e0087443794802d75eb9c2b",
-      "rust_sha256": "7ce34a1b1648108d1c8345224b33eb616611f6fb6c05c57d7451facef0a1ee94",
-      "production_rust_sha256": "7ce34a1b1648108d1c8345224b33eb616611f6fb6c05c57d7451facef0a1ee94",
+      "raw_sha256": "257c59f1f42b1ce8e0f74f57add464eb20b9f77e249f3ca52fee3a0a6ec68d57",
+      "rust_sha256": "6387e93a2813ac27678f9a15a6d85ff84214ff7b8b82dd035ddb633e897d4a43",
+      "production_rust_sha256": "6387e93a2813ac27678f9a15a6d85ff84214ff7b8b82dd035ddb633e897d4a43",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -1658,9 +1645,9 @@
     {
       "source": "upstream/aom/av1/encoder/encodetxb.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/encodetxb.rs",
-      "raw_sha256": "2d2556f352179873912d07c6699e5876b8fdef25c3bf89187e969b3c9b86b681",
-      "rust_sha256": "ebe4e599005d111d474c28b2294172fd8a9d43f77af6e219d503cab02e98a4aa",
-      "production_rust_sha256": "ebe4e599005d111d474c28b2294172fd8a9d43f77af6e219d503cab02e98a4aa",
+      "raw_sha256": "907637dec66cda413663de83a198c2f54cab8f8f507a4abd616920a4362e8d0d",
+      "rust_sha256": "49ebb0506c4cd77798ba689dd3f4038d4074cc507b7cada50f91790b547f6bfc",
+      "production_rust_sha256": "49ebb0506c4cd77798ba689dd3f4038d4074cc507b7cada50f91790b547f6bfc",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1675,9 +1662,9 @@
     {
       "source": "upstream/aom/av1/encoder/ethread.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/ethread.rs",
-      "raw_sha256": "d78514cebfccc63f6cb6dc7a10a1b7ad3139b3342bd18924d7216d408ca98c28",
-      "rust_sha256": "8ee9fce5ace8312f923d64cd00d97121ff2ecaaadd932917185568dd942c9f48",
-      "production_rust_sha256": "8ee9fce5ace8312f923d64cd00d97121ff2ecaaadd932917185568dd942c9f48",
+      "raw_sha256": "9b2a05d418d604d03dec2f57e98810771e1a2bdcc41b78d5d3fb40493a2d6278",
+      "rust_sha256": "96369e1fcecfe80bc1a9a251ed7c12fe19d417b488b086707a0c940eadffaf5e",
+      "production_rust_sha256": "96369e1fcecfe80bc1a9a251ed7c12fe19d417b488b086707a0c940eadffaf5e",
       "corrections": {
         "target-libc-thread-storage": 4,
         "target-libc-file-handle": 1,
@@ -1716,9 +1703,9 @@
     {
       "source": "upstream/aom/av1/encoder/firstpass.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/firstpass.rs",
-      "raw_sha256": "91a3dbd806276eed2f2e78cffabbcab9c2279ba6401eb1951c4aae57cef2fe19",
-      "rust_sha256": "33f0358ba1da53ee95ad95654fb9322d380ec29549f33a27f83d1dbe459ac76f",
-      "production_rust_sha256": "33f0358ba1da53ee95ad95654fb9322d380ec29549f33a27f83d1dbe459ac76f",
+      "raw_sha256": "57eef39aad1acc4615f49f4db2a4421de8e3c60d86e32863af8f516be2b5d02a",
+      "rust_sha256": "1762059d48ecbf244eac7c0812e2f197b943713bdecccca92dacd54c85be9104",
+      "production_rust_sha256": "1762059d48ecbf244eac7c0812e2f197b943713bdecccca92dacd54c85be9104",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1748,9 +1735,9 @@
     {
       "source": "upstream/aom/av1/encoder/global_motion_facade.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/global_motion_facade.rs",
-      "raw_sha256": "071d81aea71c510f5c023a90db9958880c5a6445edbb06766a98b4dd736b371f",
-      "rust_sha256": "41a87c4b7bef3874f702d3b80e79bcf010a0b1fed46da13821f33f5f2a11ebfc",
-      "production_rust_sha256": "41a87c4b7bef3874f702d3b80e79bcf010a0b1fed46da13821f33f5f2a11ebfc",
+      "raw_sha256": "5f90744e21a16f21ea0d2128ee1f0b898dd99efe0f4c7783831a2c6fd3234a12",
+      "rust_sha256": "59cc0906bd95df33f33637d4eb434743a3c14e71af5cfc20ecc76e8b3bec8aec",
+      "production_rust_sha256": "59cc0906bd95df33f33637d4eb434743a3c14e71af5cfc20ecc76e8b3bec8aec",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -1766,9 +1753,9 @@
     {
       "source": "upstream/aom/av1/encoder/gop_structure.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/gop_structure.rs",
-      "raw_sha256": "4a8a5231f8d08956f95adcda45aecafc470113e6b63347f1ebe19fd09a0e1b0e",
-      "rust_sha256": "a840519e7ff4721b49ce852d4e3bf9b2b80b1b0272faca51d98aa51d7c754e2f",
-      "production_rust_sha256": "a840519e7ff4721b49ce852d4e3bf9b2b80b1b0272faca51d98aa51d7c754e2f",
+      "raw_sha256": "c4c03e3e2b495ff157704e13007cf8765f4d1babec70e4b65fff3109a46748bd",
+      "rust_sha256": "412ee70e393d3689e3564e4204a62d87560105e58106eb974a4a9dccfd2ad579",
+      "production_rust_sha256": "412ee70e393d3689e3564e4204a62d87560105e58106eb974a4a9dccfd2ad579",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1816,9 +1803,9 @@
     {
       "source": "upstream/aom/av1/encoder/interp_search.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/interp_search.rs",
-      "raw_sha256": "23bfadc224f1a7a860b6f0150d2a55aef59ae70ae7334797878de7a65a62f944",
-      "rust_sha256": "11ddf6b85921917776dbc741392444f8c87d2f836bb7ce679a29cf415a4c8dc0",
-      "production_rust_sha256": "11ddf6b85921917776dbc741392444f8c87d2f836bb7ce679a29cf415a4c8dc0",
+      "raw_sha256": "70ad527e2a070af63308046b4f4b062b2120333ce0195a8230c94f621f655bd5",
+      "rust_sha256": "f9756a5d2cefab845520179c8bc41b3208646ccfded80ad4ead9ac7de78810f3",
+      "production_rust_sha256": "f9756a5d2cefab845520179c8bc41b3208646ccfded80ad4ead9ac7de78810f3",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -1832,9 +1819,9 @@
     {
       "source": "upstream/aom/av1/encoder/level.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/level.rs",
-      "raw_sha256": "56d0e13f49dbad43d06668a568536970845c5fe7021ec4c198d77d4a528bd9ca",
-      "rust_sha256": "954fd773cb03c7fd9c11015a86df4b5460624aca601e46ec1b64e4eac62ec1cd",
-      "production_rust_sha256": "954fd773cb03c7fd9c11015a86df4b5460624aca601e46ec1b64e4eac62ec1cd",
+      "raw_sha256": "9c99b51f772fb5799a01ccbc554161c3e367bdbac4b1f88e6529bc094b39ffcf",
+      "rust_sha256": "dcdb2dc80bc49b76c1c4913f528693e981fdca7b26fd447315eb77bee046847c",
+      "production_rust_sha256": "dcdb2dc80bc49b76c1c4913f528693e981fdca7b26fd447315eb77bee046847c",
       "corrections": {
         "canonical-cfg-labels": 2,
         "static-raw-address": 6,
@@ -1849,7 +1836,7 @@
     {
       "source": "upstream/aom/av1/encoder/lookahead.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/lookahead.rs",
-      "raw_sha256": "20e409fefdd4dbd85caa31998aff7947e1ec66b5902e4ccdc5d373b656cad54d",
+      "raw_sha256": "88fd8c73aa2bd836f83ec63c07eb3ab59f47315f4f23a1bae5713af9d80fd885",
       "rust_sha256": "5963ac9250cc3536f617689142c6961277d1ca2580902284e7a9572fe5abab29",
       "production_rust_sha256": "5963ac9250cc3536f617689142c6961277d1ca2580902284e7a9572fe5abab29",
       "corrections": {
@@ -1863,9 +1850,9 @@
     {
       "source": "upstream/aom/av1/encoder/mcomp.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/mcomp.rs",
-      "raw_sha256": "b255e035aca9747a5b4799b94113b6d94e6a068d5b6413be278f8bdbc658b6be",
-      "rust_sha256": "eaeb1e1ec7ff03d0c283b5223cc32c00b438ab22e131ce0ac22d093e2f1f458d",
-      "production_rust_sha256": "eaeb1e1ec7ff03d0c283b5223cc32c00b438ab22e131ce0ac22d093e2f1f458d",
+      "raw_sha256": "a45f8ebdb6684bb569b71e2900ae879c21037c0ec925d23dafb038b93489ae4b",
+      "rust_sha256": "21a02df7642156afc373c64acbaec662104ee6cb1b65477f18ba28d8e65b3c71",
+      "production_rust_sha256": "21a02df7642156afc373c64acbaec662104ee6cb1b65477f18ba28d8e65b3c71",
       "corrections": {
         "canonical-cfg-labels": 2,
         "static-raw-address": 1,
@@ -1893,9 +1880,9 @@
     {
       "source": "upstream/aom/av1/encoder/motion_search_facade.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/motion_search_facade.rs",
-      "raw_sha256": "ef54b2db32025eb6d8d93827c79f85ddc72d32f5928f7e423fe3fbcff5188cfc",
-      "rust_sha256": "4bfc3ce61886948296d269aee8f30b9ea8e5082d6a24c629eef77dcc9e16ed47",
-      "production_rust_sha256": "4bfc3ce61886948296d269aee8f30b9ea8e5082d6a24c629eef77dcc9e16ed47",
+      "raw_sha256": "bfc1f7562fa879e026e22d3d08c1124e4ada3ce9edddcbe8da1fe2244112ff46",
+      "rust_sha256": "f13bbefe6f643878ce65d0dc2bd9933b5f73cf86da63689a69351161685ddda5",
+      "production_rust_sha256": "f13bbefe6f643878ce65d0dc2bd9933b5f73cf86da63689a69351161685ddda5",
       "corrections": {
         "static-raw-address": 13,
         "target-libc-thread-storage": 2,
@@ -1912,9 +1899,9 @@
     {
       "source": "upstream/aom/av1/encoder/mv_prec.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/mv_prec.rs",
-      "raw_sha256": "a82fe5dd610be34fcee9bc90b9fc0ff13a85345126adab84b737476bd9b3fd60",
-      "rust_sha256": "32c7cef4d6594c252281f520bd1913e702c9f77c944c2a61279caca34690b501",
-      "production_rust_sha256": "32c7cef4d6594c252281f520bd1913e702c9f77c944c2a61279caca34690b501",
+      "raw_sha256": "78d659f28531c3741ab24fd820371eea7ff304e264822cf91e5feee2d28e19bc",
+      "rust_sha256": "761704f13d52105be795272e0363b13ce2cd906eca7640a77162a4052a0bef2e",
+      "production_rust_sha256": "761704f13d52105be795272e0363b13ce2cd906eca7640a77162a4052a0bef2e",
       "corrections": {
         "static-raw-address": 4,
         "target-libc-thread-storage": 2,
@@ -1930,9 +1917,9 @@
     {
       "source": "upstream/aom/av1/encoder/palette.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/palette.rs",
-      "raw_sha256": "bfeacae5d425c9d61f6880377bff3e1d29cfc2c26bea37f56449b215588a5393",
-      "rust_sha256": "0572a6686177b28f575c832aa27c90fc7da8d1f0b697159494e4332c6522ae6c",
-      "production_rust_sha256": "0572a6686177b28f575c832aa27c90fc7da8d1f0b697159494e4332c6522ae6c",
+      "raw_sha256": "4e664049fffc1799d5aac08852d42afb3985dea12a42abe8a7b37e75dd00ab87",
+      "rust_sha256": "8e71659326dc28230b27da2c507c5c212e5a473cfaef8637da76f49ef5cb9c67",
+      "production_rust_sha256": "8e71659326dc28230b27da2c507c5c212e5a473cfaef8637da76f49ef5cb9c67",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -1946,15 +1933,15 @@
     {
       "source": "upstream/aom/av1/encoder/partition_search.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/partition_search.rs",
-      "raw_sha256": "9ec9dae29e6c4e83761974ef91f2e9c34e38b7cae1c09aeadc90f2dfeebddb07",
-      "rust_sha256": "48e7083d424de762a98df2d51c2eace5209ce413d0d3ef04c6e623a37e078a08",
-      "production_rust_sha256": "48e7083d424de762a98df2d51c2eace5209ce413d0d3ef04c6e623a37e078a08",
+      "raw_sha256": "c35cb9df8a768f638cc94fe6bcb4a8131b137cc8204def3bba90a1004cc3a68c",
+      "rust_sha256": "928018a0b298a5224aa3ab2a2c8b1a99a61f269a11e401553e26d9c7d797335c",
+      "production_rust_sha256": "928018a0b298a5224aa3ab2a2c8b1a99a61f269a11e401553e26d9c7d797335c",
       "corrections": {
         "canonical-cfg-labels": 2,
         "static-raw-address": 2,
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
-        "raw-c-mutable-address": 315,
+        "raw-c-mutable-address": 314,
         "raw-c-assignment-temporary": 44,
         "original-c-record-field-alignment": 27,
         "unwinding-codec-and-callback-abi": 255,
@@ -1965,9 +1952,9 @@
     {
       "source": "upstream/aom/av1/encoder/partition_strategy.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/partition_strategy.rs",
-      "raw_sha256": "39464eacab08002fb442cb1968373fcb95ba2acf9984070e0f8db4fa553157b9",
-      "rust_sha256": "0e0f5a449d3a94db594d2e89865c38238fbf3e9dd58f82329994658be808f284",
-      "production_rust_sha256": "0e0f5a449d3a94db594d2e89865c38238fbf3e9dd58f82329994658be808f284",
+      "raw_sha256": "1dc2a98703ab7e7a466c0f75a5d23f19b4c29c0a00e85b902f0ee358c10556f0",
+      "rust_sha256": "a269a5854028f3660b65507a015cf469ca0c9be67e79ca823a19a6631f8bfeb6",
+      "production_rust_sha256": "a269a5854028f3660b65507a015cf469ca0c9be67e79ca823a19a6631f8bfeb6",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 230,
@@ -1984,9 +1971,9 @@
     {
       "source": "upstream/aom/av1/encoder/pass2_strategy.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/pass2_strategy.rs",
-      "raw_sha256": "f45ce48b7ca350deeb5a8f45ee5928ee9dcc4254ebc2fbcd82a1319fbb64d4a7",
-      "rust_sha256": "d02629c1d6ccd987ec1a6d56d2512c4df77123dc2fd027c72ae137ffd38d2d3d",
-      "production_rust_sha256": "d02629c1d6ccd987ec1a6d56d2512c4df77123dc2fd027c72ae137ffd38d2d3d",
+      "raw_sha256": "486946099e478b7a135ca9810a047dbc91c12ad5de2bf9df570aef588fdf2168",
+      "rust_sha256": "c72dad7b3764cd6cd0b334365233500a9bd4fbcefefd1b474b4bd6489fc245f3",
+      "production_rust_sha256": "c72dad7b3764cd6cd0b334365233500a9bd4fbcefefd1b474b4bd6489fc245f3",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -2000,9 +1987,9 @@
     {
       "source": "upstream/aom/av1/encoder/pickcdef.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/pickcdef.rs",
-      "raw_sha256": "76e1a5edc602bc50cbb27426bed5afffc59f49fffd842e62028b904622bc1829",
-      "rust_sha256": "6f89faed7b59abc87ef5c408975fe8d8660691f29c24af8dc634458b0e2bfdc0",
-      "production_rust_sha256": "6f89faed7b59abc87ef5c408975fe8d8660691f29c24af8dc634458b0e2bfdc0",
+      "raw_sha256": "cf245560fd7029ffd79b06f933ae740a3bf5d3f035d900a858566f8ee2d9662b",
+      "rust_sha256": "ac49904b473535f839d6e0442e95915070f94a5a2857556499e7b3214f73517a",
+      "production_rust_sha256": "ac49904b473535f839d6e0442e95915070f94a5a2857556499e7b3214f73517a",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2017,9 +2004,9 @@
     {
       "source": "upstream/aom/av1/encoder/picklpf.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/picklpf.rs",
-      "raw_sha256": "b7a3b743c72d3ec62d392c67128bf5bb4dd2d9d8876847e56a3ca26be7b7cecb",
-      "rust_sha256": "4f292d0b7e3c31e165d96db29a1dcc1c55c14b72c4cdd42df9de729f71a058d1",
-      "production_rust_sha256": "4f292d0b7e3c31e165d96db29a1dcc1c55c14b72c4cdd42df9de729f71a058d1",
+      "raw_sha256": "1e64c58dd7e05590b59c825f1a7ef811ae7e8f06e96f3917c28c55dfe6b75fde",
+      "rust_sha256": "d43b96b5aee3a794e8681193570552b3e2a4e172532ddc6f99a8935c9de20314",
+      "production_rust_sha256": "d43b96b5aee3a794e8681193570552b3e2a4e172532ddc6f99a8935c9de20314",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2033,9 +2020,9 @@
     {
       "source": "upstream/aom/av1/encoder/pickrst.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/pickrst.rs",
-      "raw_sha256": "0f7e6cbb7f9b7fc8178550fbffbe72026d845496f60aa52ec80f2cae6b802e01",
-      "rust_sha256": "4d7cfc62473f62c288c6b5cf42df571a7dbb8fc999b662098927817085777ddd",
-      "production_rust_sha256": "4d7cfc62473f62c288c6b5cf42df571a7dbb8fc999b662098927817085777ddd",
+      "raw_sha256": "5b51a44d95e3aa524115b44e1ff6ac75584b2f60aa5d054fecad527ddecfc659",
+      "rust_sha256": "11877b67557c4af2b445b7efe696a034ba7fa977358645c779986df886482e66",
+      "production_rust_sha256": "11877b67557c4af2b445b7efe696a034ba7fa977358645c779986df886482e66",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-thread-storage": 2,
@@ -2050,9 +2037,9 @@
     {
       "source": "upstream/aom/av1/encoder/ratectrl.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/ratectrl.rs",
-      "raw_sha256": "bff85e5237fbd9213dc043ce182b573de2acbeb19f11c3601c5188078e200f08",
-      "rust_sha256": "679888f204aa41eb94a8b3fc706c52ed54882ca3421177065fc42abc116ce95a",
-      "production_rust_sha256": "679888f204aa41eb94a8b3fc706c52ed54882ca3421177065fc42abc116ce95a",
+      "raw_sha256": "2c0ca77f647bc8f6e798b9e05a9bdd7635e0e4c6f541ca8cb6a394638c88dc51",
+      "rust_sha256": "308168282d7956702f41c99f69f7deffc3aca15a93a28e2b3423874bf38eb098",
+      "production_rust_sha256": "308168282d7956702f41c99f69f7deffc3aca15a93a28e2b3423874bf38eb098",
       "corrections": {
         "static-raw-address": 22,
         "target-libc-thread-storage": 3,
@@ -2067,9 +2054,9 @@
     {
       "source": "upstream/aom/av1/encoder/rd.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/rd.rs",
-      "raw_sha256": "a54653d0271044bb29ce5ca319c14433d303a0ea50b1316cba6d9bbca88005d8",
-      "rust_sha256": "c24b49dd6cf2d76062234eb41ab5ac3086e561022e0724ccedffd4785dd598fb",
-      "production_rust_sha256": "c24b49dd6cf2d76062234eb41ab5ac3086e561022e0724ccedffd4785dd598fb",
+      "raw_sha256": "d35994d7e0c89ba9010a73c8d2e258c40217b9551ff7597555989b8283c473d3",
+      "rust_sha256": "73636206a048ec316545bb5efba71296dd77ac4bccf1c8aebe4912b85afc9878",
+      "production_rust_sha256": "73636206a048ec316545bb5efba71296dd77ac4bccf1c8aebe4912b85afc9878",
       "corrections": {
         "static-raw-address": 5,
         "target-libc-thread-storage": 3,
@@ -2085,9 +2072,9 @@
     {
       "source": "upstream/aom/av1/encoder/rdopt.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/rdopt.rs",
-      "raw_sha256": "de2d327ab6c3637804eba5507169d39230d9c1f761d2bdef74eb73feb5003119",
-      "rust_sha256": "da98834a70e21fd64065062e0ba725f4ea5bda4974270c12aed5def46feb79fa",
-      "production_rust_sha256": "da98834a70e21fd64065062e0ba725f4ea5bda4974270c12aed5def46feb79fa",
+      "raw_sha256": "ff2b0497279d66f72550d148340bc4561ef3bd8ba9a6ff2d4f0377e3313c4bb9",
+      "rust_sha256": "af8de8225d3395120de6b5c95d1c867dfc922ddd606b365355003e0d9db161db",
+      "production_rust_sha256": "af8de8225d3395120de6b5c95d1c867dfc922ddd606b365355003e0d9db161db",
       "corrections": {
         "canonical-cfg-labels": 21,
         "static-raw-address": 12,
@@ -2104,9 +2091,9 @@
     {
       "source": "upstream/aom/av1/encoder/nonrd_pickmode.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/nonrd_pickmode.rs",
-      "raw_sha256": "33324bd8aeddee400de6d941b33adb46e61a749645d434c4c63c613e9c1b9965",
-      "rust_sha256": "4ddfce9886c0f34489123c889acbc1c2dd2c6b8c84001607c3a27685b061f613",
-      "production_rust_sha256": "4ddfce9886c0f34489123c889acbc1c2dd2c6b8c84001607c3a27685b061f613",
+      "raw_sha256": "93758eb29fcc7b1b3976021a372aeda1377f8f65bafdb3ff9f0f0522b01fa966",
+      "rust_sha256": "73d28ce193c030e0dd8178593eba57a439e786e9a609110761d255374b7b0cdc",
+      "production_rust_sha256": "73d28ce193c030e0dd8178593eba57a439e786e9a609110761d255374b7b0cdc",
       "corrections": {
         "canonical-cfg-labels": 5,
         "static-raw-address": 6,
@@ -2125,9 +2112,9 @@
     {
       "source": "upstream/aom/av1/encoder/nonrd_opt.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/nonrd_opt.rs",
-      "raw_sha256": "cfc72f919b7dad7667902ebb829b3749dc0b6f81ad35ac858acb298441b2487b",
-      "rust_sha256": "1f5902e820f8546fd107a8f84d9c6714f05c208919da31f7446dae293931be2e",
-      "production_rust_sha256": "1f5902e820f8546fd107a8f84d9c6714f05c208919da31f7446dae293931be2e",
+      "raw_sha256": "763b85dbc18c500eef67df22f35338601101d9bf373952df57708976a8630945",
+      "rust_sha256": "cf706c53a85af9ea84d8d0d42543e2960874c91d1d966a480238cc8c68a88ea9",
+      "production_rust_sha256": "cf706c53a85af9ea84d8d0d42543e2960874c91d1d966a480238cc8c68a88ea9",
       "corrections": {
         "canonical-cfg-labels": 2,
         "static-raw-address": 14,
@@ -2174,9 +2161,9 @@
     {
       "source": "upstream/aom/av1/encoder/speed_features.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/speed_features.rs",
-      "raw_sha256": "aa739f00d9a3a3ddfcc16b43550996dbf64c720bed8a3fa95d27f4d44ad2f526",
-      "rust_sha256": "8b0aca33e0d4b51b45168d9530db281854eee0d8f55c38251b9e5048ca0a7eac",
-      "production_rust_sha256": "8b0aca33e0d4b51b45168d9530db281854eee0d8f55c38251b9e5048ca0a7eac",
+      "raw_sha256": "4f1fbac1cf978e24ebd41548fb012e4518fb7ce8cd2e8235d423c59dcce483ce",
+      "rust_sha256": "786b1424944ebe16d78e35836b45026d299e3ba199c55c9a96139b6d07bcb644",
+      "production_rust_sha256": "786b1424944ebe16d78e35836b45026d299e3ba199c55c9a96139b6d07bcb644",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,
@@ -2191,9 +2178,9 @@
     {
       "source": "upstream/aom/av1/encoder/superres_scale.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/superres_scale.rs",
-      "raw_sha256": "0fd07ba3563b9f4f45f9450e18396c84fdd9111aef3f8bd4718ed30a64ec0297",
-      "rust_sha256": "7de0d65091d74a80931243c8e6586dbccf4993d8097c1f43f262cbe6ab77d097",
-      "production_rust_sha256": "7de0d65091d74a80931243c8e6586dbccf4993d8097c1f43f262cbe6ab77d097",
+      "raw_sha256": "5286161c502aaa4c764437482431fd0dffc825f3cb77b9f0da25ff4a90bc2ca7",
+      "rust_sha256": "57dd778599f6f4a3c3747304d3a75f5ee0af888f0504e4edd8d6a53ef38ca409",
+      "production_rust_sha256": "57dd778599f6f4a3c3747304d3a75f5ee0af888f0504e4edd8d6a53ef38ca409",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2207,9 +2194,9 @@
     {
       "source": "upstream/aom/av1/encoder/svc_layercontext.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/svc_layercontext.rs",
-      "raw_sha256": "e9feab33adbc08a139d2e35c6c8786256223a9864191f3cf9d60267e8cf722d6",
-      "rust_sha256": "585593bc45716a55993dfff07e0787d1e5ce98350c6fa4c76bf3c262d16585ad",
-      "production_rust_sha256": "585593bc45716a55993dfff07e0787d1e5ce98350c6fa4c76bf3c262d16585ad",
+      "raw_sha256": "ebf9a18986212b5285fed9ac2ab0835310dc6ce3d59879c6764cdef2a36cbcc4",
+      "rust_sha256": "94fc0d0963a293bd98cbdd0ef4cc4452100c58ae80bb1094aa91dc2ed66c81d9",
+      "production_rust_sha256": "94fc0d0963a293bd98cbdd0ef4cc4452100c58ae80bb1094aa91dc2ed66c81d9",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2222,9 +2209,9 @@
     {
       "source": "upstream/aom/av1/encoder/temporal_filter.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/temporal_filter.rs",
-      "raw_sha256": "49a96fc499760d11d30fe021263f6f0df58b5f2a29a81ea7864e7dc92e5957e5",
-      "rust_sha256": "39b2b2d36a4405f9b2894ea06f67f21c7cc8832648a459244698496a2fa334c9",
-      "production_rust_sha256": "39b2b2d36a4405f9b2894ea06f67f21c7cc8832648a459244698496a2fa334c9",
+      "raw_sha256": "a51c07b2d1d0afcd27554f4f84157c33e798a3a8b0aff0742a889a6f536191f7",
+      "rust_sha256": "8fabd7b4d4c189148f1407adc5872aa2de3292f5d2a4aa6feb1b1f525552f2ee",
+      "production_rust_sha256": "8fabd7b4d4c189148f1407adc5872aa2de3292f5d2a4aa6feb1b1f525552f2ee",
       "corrections": {
         "static-raw-address": 12,
         "target-libc-thread-storage": 2,
@@ -2241,9 +2228,9 @@
     {
       "source": "upstream/aom/av1/encoder/tokenize.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/tokenize.rs",
-      "raw_sha256": "681f90b6bf012dd7a193bf89fdcd504c21f70cb4f717c7b73321260bbce906c7",
-      "rust_sha256": "bec26dd6c2a79c3bb8f093ad21fb7f3d3312a012271d8856cfc4c7f5d9186f52",
-      "production_rust_sha256": "bec26dd6c2a79c3bb8f093ad21fb7f3d3312a012271d8856cfc4c7f5d9186f52",
+      "raw_sha256": "eb50fb3d04d859d6854ff0806ad0d3bb9c6cda21ff19ba1c4faf5c6477f154d4",
+      "rust_sha256": "d51b98aa64b47bae2cd77e63c4ba8c8696a4c2e9b0699e91da6c1cabcedfcd6a",
+      "production_rust_sha256": "d51b98aa64b47bae2cd77e63c4ba8c8696a4c2e9b0699e91da6c1cabcedfcd6a",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2257,9 +2244,9 @@
     {
       "source": "upstream/aom/av1/encoder/tpl_model.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/tpl_model.rs",
-      "raw_sha256": "3880b7f31bed257532e157f7a106538e473b293825b794318ccc25a70c793eab",
-      "rust_sha256": "5347cc6b8ba05ad79ff8cf216732db2b4ac34bc7058b6f95bb1a0d744b944c9a",
-      "production_rust_sha256": "5347cc6b8ba05ad79ff8cf216732db2b4ac34bc7058b6f95bb1a0d744b944c9a",
+      "raw_sha256": "28f9f02b3ad1863b16508f156583f0f989621f0f57afb4c5e872d7a6d6381360",
+      "rust_sha256": "1c3d69a8408a7e4bf9f6cfcc8fc9a32891a4e2fb6fbfd7d2a0a50cbbc2b4ad06",
+      "production_rust_sha256": "1c3d69a8408a7e4bf9f6cfcc8fc9a32891a4e2fb6fbfd7d2a0a50cbbc2b4ad06",
       "corrections": {
         "static-raw-address": 12,
         "target-libc-thread-storage": 2,
@@ -2276,9 +2263,9 @@
     {
       "source": "upstream/aom/av1/encoder/tx_search.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/tx_search.rs",
-      "raw_sha256": "76f284f7a2db251118606a3dccf8bee3da8949aa46517322c766d3307a044522",
-      "rust_sha256": "fa620b2be9c7e42e694f07995cb2a8e5b5a8f2d5659d835d27a46f3b17c445e1",
-      "production_rust_sha256": "fa620b2be9c7e42e694f07995cb2a8e5b5a8f2d5659d835d27a46f3b17c445e1",
+      "raw_sha256": "29746516e6e8b60fb3a616de9bf61e6ef77d04f82459bd893a9b298401abfe79",
+      "rust_sha256": "04c4bb1fe898f12756502da8fe7fc4087847be546979aeaad442bad16029a7d5",
+      "production_rust_sha256": "04c4bb1fe898f12756502da8fe7fc4087847be546979aeaad442bad16029a7d5",
       "corrections": {
         "static-raw-address": 127,
         "target-libc-thread-storage": 2,
@@ -2297,9 +2284,9 @@
     {
       "source": "upstream/aom/av1/encoder/txb_rdopt.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/txb_rdopt.rs",
-      "raw_sha256": "6aadd547b68e5c12650a0224008ca75bdcf5e86609f0c5119cb148adf1d406cd",
-      "rust_sha256": "7fc522bc94bbe1014a5cd27de0ab97f1a9eefc865c805e56ec0af2d851f37e33",
-      "production_rust_sha256": "7fc522bc94bbe1014a5cd27de0ab97f1a9eefc865c805e56ec0af2d851f37e33",
+      "raw_sha256": "6431fd17b0074b324f637bb7ebab3c34caecaf5fd4f1fce4e8f31fb0bd840bed",
+      "rust_sha256": "ced4e198327fe3074de252aaa90ecf24a1b2cb2e44028599c94ae2359ec891cf",
+      "production_rust_sha256": "ced4e198327fe3074de252aaa90ecf24a1b2cb2e44028599c94ae2359ec891cf",
       "corrections": {
         "static-raw-address": 2,
         "target-libc-thread-storage": 2,
@@ -2314,9 +2301,9 @@
     {
       "source": "upstream/aom/av1/encoder/intra_mode_search.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/intra_mode_search.rs",
-      "raw_sha256": "b78b59b949691ececab48e743bd1661b71f65aaa14853c63cfdbae7d146025b0",
-      "rust_sha256": "0f4185194cde6127a0828f855c24bf671c8d5609e2b49c48a6c8277e4f25ec6f",
-      "production_rust_sha256": "0f4185194cde6127a0828f855c24bf671c8d5609e2b49c48a6c8277e4f25ec6f",
+      "raw_sha256": "8cb87de0a45b747feafad982c6a3219a236b1838b35e5c5acd3e17bf416b2b03",
+      "rust_sha256": "c5374be2bc615e7cbaf92b34816c8c1915a6936d93672e03ddd7ab4bbe4cba33",
+      "production_rust_sha256": "c5374be2bc615e7cbaf92b34816c8c1915a6936d93672e03ddd7ab4bbe4cba33",
       "corrections": {
         "canonical-cfg-labels": 2,
         "static-raw-address": 4,
@@ -2344,9 +2331,9 @@
     {
       "source": "upstream/aom/av1/encoder/var_based_part.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/var_based_part.rs",
-      "raw_sha256": "75b8f3156fe0a3340c3a3664a7dc0b9e5fd8a7e27104e974f2478f0f5047cdde",
-      "rust_sha256": "c3f248a5b50c35d6f2831972fcb693b9a239c2d7afbd1a955efb83ffb9775427",
-      "production_rust_sha256": "c3f248a5b50c35d6f2831972fcb693b9a239c2d7afbd1a955efb83ffb9775427",
+      "raw_sha256": "ac873d997d4abcce253e7cd286b4c97bd36a3c5fa257f904bbb5452cf6d956bf",
+      "rust_sha256": "056f2f287fc38067ad7ed729ce7782d469d31f5632427b4d07a5b0c7996eb84d",
+      "production_rust_sha256": "056f2f287fc38067ad7ed729ce7782d469d31f5632427b4d07a5b0c7996eb84d",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2361,9 +2348,9 @@
     {
       "source": "upstream/aom/av1/encoder/av1_noise_estimate.c",
       "rust": "crates/aom/src/macos/release/av1/encoder/av1_noise_estimate.rs",
-      "raw_sha256": "5d4b7057bccbeeb775a8ca06db12cbd3ea7f5f92fd1af0acf9d0b1aeb379afe7",
-      "rust_sha256": "38df2687976423322aac883b359ae2cb9c8096254dac2c688c26dc49920a804c",
-      "production_rust_sha256": "38df2687976423322aac883b359ae2cb9c8096254dac2c688c26dc49920a804c",
+      "raw_sha256": "87a586ab10a917585deecdea44d538db540d3ce9a61620e792c6563b5f216250",
+      "rust_sha256": "da8eadc097209a7d218ef95501e5ae78046cde9b0463966be34a6a6deebc45ec",
+      "production_rust_sha256": "da8eadc097209a7d218ef95501e5ae78046cde9b0463966be34a6a6deebc45ec",
       "corrections": {
         "target-libc-thread-storage": 2,
         "target-libc-file-handle": 1,
@@ -2429,23 +2416,6 @@
         "raw-c-mutable-address": 3,
         "unwinding-codec-and-callback-abi": 8,
         "system-and-vmaf-c-abi-declarations": 2
-      }
-    },
-    {
-      "source": "upstream/aom/av1/encoder/tune_vmaf.c",
-      "rust": "crates/aom/src/macos/release/av1/encoder/tune_vmaf.rs",
-      "raw_sha256": "e9dec8c970159cc955f498aa3ef0c41b1576651e6772554636015fb954074a3d",
-      "rust_sha256": "f31de64faab0214f8bb33cc04b6a15200b3ad861778966e62a71666816c1b88a",
-      "production_rust_sha256": "f31de64faab0214f8bb33cc04b6a15200b3ad861778966e62a71666816c1b88a",
-      "corrections": {
-        "static-raw-address": 1,
-        "target-libc-thread-storage": 2,
-        "target-libc-file-handle": 1,
-        "raw-c-mutable-address": 151,
-        "original-c-record-field-alignment": 27,
-        "original-c-object-alignment": 1,
-        "unwinding-codec-and-callback-abi": 82,
-        "system-and-vmaf-c-abi-declarations": 4
       }
     }
   ]

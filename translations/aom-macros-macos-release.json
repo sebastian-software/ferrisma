@@ -1,5 +1,5 @@
 {
-  "kind": "optional original macro test subjects; outside the 168 production translation units",
+  "kind": "optional original macro test subjects; outside the 166 production translation units",
   "translator": "c2rust 0.21.0",
   "llvm": "16.0.6",
   "preprocessing_profile": "release",
@@ -12,7 +12,7 @@
     "aom_ports/bitops.h": "ea293a6c2ed98f8e60d61f82f35e1597ff868ae4facb79219d63d4ff873b2b08",
     "aom/aom_integer.h": "9af5a90e9cfd1290e2b763647efc7abdb1ad3113382986fcfa300f23176bb106"
   },
-  "config_sha256": "ef64f3b87c3cc954cd3f0449fc4eebd035cb0bc911fa9f189451cffa01c10a2c",
+  "config_sha256": "c1acff879c872dcbced66f96d4fb2cbcf9be0ffb2c10415d5185765b70409259",
   "subjects": [
     {
       "macro": "OD_DIVU_SMALL",

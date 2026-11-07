@@ -15,7 +15,6 @@ use ::c2rust_bitfields;
 extern "C-unwind" {
     pub type AVxWorkerImpl;
     pub type __sFILEX;
-    pub type VmafModel;
     pub type aom_denoise_and_model_t;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_img_plane_width(
@@ -142,10 +141,6 @@ extern "C-unwind" {
         dest: *mut uint8_t,
         dest_size: size_t,
     ) -> core::ffi::c_int;
-    fn aom_init_vmaf_model(
-        vmaf_model: *mut *mut VmafModel,
-        model_path: *const core::ffi::c_char,
-    );
     fn av1_initialize_enc(usage: core::ffi::c_uint, end_usage: aom_rc_mode);
     fn av1_create_compressor(
         ppi: *mut AV1_PRIMARY,
@@ -2740,7 +2735,6 @@ pub struct AV1_COMP {
     pub deltaq_used: core::ffi::c_int,
     pub ref_frame_dist_info: RefFrameDistanceInfo,
     pub ssim_rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub vmaf_info: TuneVMAFInfo,
     pub svc: SVC,
     pub compressor_stage: COMPRESSOR_STAGE,
     pub last_frame_type: FRAME_TYPE,
@@ -3705,16 +3699,6 @@ pub type RESIZE_STATE = core::ffi::c_uint;
 pub const ONE_HALF: RESIZE_STATE = 2;
 pub const THREE_QUARTER: RESIZE_STATE = 1;
 pub const ORIG: RESIZE_STATE = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct TuneVMAFInfo {
-    pub rdmult_scaling_factors: *mut core::ffi::c_double,
-    pub last_frame_ysse: [core::ffi::c_double; 6],
-    pub last_frame_vmaf: [core::ffi::c_double; 6],
-    pub last_frame_unsharp_amount: [core::ffi::c_double; 6],
-    pub original_qindex: core::ffi::c_int,
-    pub vmaf_model: *mut VmafModel,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RefFrameDistanceInfo {
@@ -6326,7 +6310,6 @@ pub struct av1_codec_arg_definitions {
     pub num_tg: arg_def_t,
     pub mtu_size: arg_def_t,
     pub timing_info: arg_def_t,
-    pub vmaf_model_path: arg_def_t,
     pub partition_info_path: arg_def_t,
     pub enable_rate_guide_deltaq: arg_def_t,
     pub rate_distribution_info: arg_def_t,
@@ -7592,8 +7575,6 @@ unsafe extern "C-unwind" fn free_thread_data(mut ppi: *mut AV1_PRIMARY) {
         t += 1;
     }
 }
-pub const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
-pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
 #[inline]
 unsafe extern "C-unwind" fn check_reset_rc_flag(mut cpi: *mut AV1_COMP) {
     let mut rc: *mut RATE_CONTROL = &raw mut (*cpi).rc;
@@ -8500,6 +8481,15 @@ unsafe extern "C-unwind" fn validate_config(
         == AOM_TUNE_BUTTERAUGLI as core::ffi::c_int as core::ffi::c_uint
     {
         (*ctx).base.err_detail = b"This error may be related to the wrong configuration options: try to set -DCONFIG_TUNE_BUTTERAUGLI=1 at the time CMake is run.\0"
+            as *const u8 as *const core::ffi::c_char;
+        return AOM_CODEC_INVALID_PARAM;
+    }
+    if (*extra_cfg).tuning as core::ffi::c_uint
+        >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
+        && (*extra_cfg).tuning as core::ffi::c_uint
+            <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
+    {
+        (*ctx).base.err_detail = b"This error may be related to the wrong configuration options: try to set -DCONFIG_TUNE_VMAF=1 at the time CMake is run.\0"
             as *const u8 as *const core::ffi::c_char;
         return AOM_CODEC_INVALID_PARAM;
     }
@@ -11695,10 +11685,6 @@ unsafe extern "C-unwind" fn check_and_free_string(
 }
 unsafe extern "C-unwind" fn destroy_extra_config(mut extra_cfg: *mut av1_extracfg) {
     check_and_free_string(
-        default_extra_cfg.vmaf_model_path,
-        &raw mut (*extra_cfg).vmaf_model_path,
-    );
-    check_and_free_string(
         default_extra_cfg.two_pass_output,
         &raw mut (*extra_cfg).two_pass_output,
     );
@@ -11970,16 +11956,6 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
     av1_apply_encoding_flags((*ppi).cpi as *mut AV1_COMP, flags);
     if !cpi_lap.is_null() {
         av1_apply_encoding_flags(cpi_lap, flags);
-    }
-    if (*ctx).extra_cfg.tuning as core::ffi::c_uint
-        >= AOM_TUNE_VMAF_WITH_PREPROCESSING as core::ffi::c_int as core::ffi::c_uint
-        && (*ctx).extra_cfg.tuning as core::ffi::c_uint
-            <= AOM_TUNE_VMAF_NEG_MAX_GAIN as core::ffi::c_int as core::ffi::c_uint
-    {
-        aom_init_vmaf_model(
-            &raw mut (*(*ppi).cpi).vmaf_info.vmaf_model,
-            (*(*ppi).cpi).oxcf.tune_cfg.vmaf_model_path,
-        );
     }
     if is_stat_generation_stage((*ppi).cpi) != 0
         || is_one_pass_rt_params((*ppi).cpi) != 0
@@ -14037,19 +14013,6 @@ unsafe extern "C-unwind" fn encoder_set_option(
         extra_cfg.tuning = arg_parse_enum_helper(&raw mut arg, err_string)
             as aom_tune_metric;
         err = handle_tuning(&raw mut extra_cfg);
-    } else if arg_match_helper(
-        &raw mut arg,
-        &g_av1_codec_arg_defs.vmaf_model_path,
-        argv.as_mut_ptr(),
-        err_string,
-    ) != 0
-    {
-        err = allocate_and_set_string(
-            value,
-            default_extra_cfg.vmaf_model_path,
-            &raw mut extra_cfg.vmaf_model_path,
-            err_string,
-        );
     } else if arg_match_helper(
         &raw mut arg,
         &g_av1_codec_arg_defs.partition_info_path,
@@ -17669,6 +17632,8 @@ pub static mut aom_codec_av1_cx_algo: aom_codec_iface_t = aom_codec_iface {
 pub unsafe extern "C-unwind" fn aom_codec_av1_cx() -> *const aom_codec_iface_t {
     return &raw const aom_codec_av1_cx_algo;
 }
+pub const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
+pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
 unsafe extern "C-unwind" fn run_static_initializers() {
     aom_codec_av1_cx_algo = {
         let mut init = aom_codec_iface {
