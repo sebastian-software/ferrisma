@@ -1655,3 +1655,20 @@ pub fn webp_i_set_io_hooks<'a>(
 
     true
 }
+
+//------------------------------------------------------------------------------
+// Access for the C ABI (no C counterpart)
+
+impl<'b> WebPIDecoder<'_, 'b> {
+    /// C's `params.output`: the caller's output buffer, or the decoder's own.
+    /// The C ABI (`src/abi/decode.rs`) lends the caller's memory to it for the
+    /// duration of each call and reads its planes after each call.
+    pub(crate) fn params_output_mut(&mut self) -> &mut WebPDecBuffer<'b> {
+        params_output(&mut self.output, &mut self.user_output)
+    }
+
+    /// Whether C's `params.output` is the caller's buffer.
+    pub(crate) fn has_user_output(&self) -> bool {
+        self.user_output.is_some()
+    }
+}
