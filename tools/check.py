@@ -2,8 +2,9 @@
 """Run the repository checks: provenance, skeleton, links, formatting, Clippy, tests.
 
 Stages:
-  static  upstream pin, module skeleton (tools/units.py), documentation links,
-          `cargo fmt --check`, Clippy with -D warnings on all targets
+  static  upstream pin, module skeleton (tools/units.py), pool inventory
+          (tools/pools.py), documentation links, `cargo fmt --check`, Clippy
+          with -D warnings on all targets
   test    `cargo test` in the dev, release and checked profiles
   all     both (default)
 
@@ -28,6 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_oracle  # noqa: E402
+import pools  # noqa: E402
 import units  # noqa: E402
 
 CARGO = ["--locked", "--offline"]
@@ -73,6 +75,13 @@ def check_skeleton():
     print("Module skeleton verified", flush=True)
 
 
+def check_pools():
+    problems, count = pools.verify()
+    if problems:
+        raise SystemExit("\n".join(problems))
+    print(f"Pool inventory verified: {count} allocation calls", flush=True)
+
+
 def check_docs():
     documents = [ROOT / name for name in ("README.md", "AGENTS.md")]
     documents.extend(sorted((ROOT / "docs").rglob("*.md")))
@@ -89,6 +98,7 @@ def check_docs():
 def check_static(msrv):
     check_upstream()
     check_skeleton()
+    check_pools()
     check_docs()
     run("cargo", "fmt", "--all", "--", "--check")
     run("cargo", "clippy", *CARGO, "--all-targets", "--all-features", "--", "-D", "warnings")
