@@ -12,3 +12,44 @@
 //! Translation of `src/dsp/quant.h` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+
+use crate::dsp::dsp::BPS;
+
+// upstream: src/dsp/quant.h IsFlat
+/// Whether the AC levels of `num_blocks` blocks of 16 have at most `thresh`
+/// non-zero entries (C: `IsFlat_C`; the reference configuration compiles no
+/// NEON, so `IsFlat` is the portable form).
+#[must_use]
+pub fn is_flat(levels: &[i16], num_blocks: i32, thresh: i32) -> bool {
+    let mut score = 0;
+    let mut num_blocks = num_blocks;
+    let mut levels = levels;
+    while num_blocks > 0 {
+        num_blocks -= 1;
+        // TODO(skal): refine positional scoring?
+        for &level in &levels[1..16] {
+            // omit DC, we're only interested in AC
+            score += i32::from(level != 0);
+            if score > thresh {
+                return false;
+            }
+        }
+        levels = &levels[16..];
+    }
+    true
+}
+
+// upstream: src/dsp/quant.h IsFlatSource16
+/// Whether the 16x16 block at `src` (stride `BPS`) has one value.
+#[must_use]
+pub fn is_flat_source16(src: &[u8]) -> bool {
+    let v = src[0];
+    for i in 0..16 {
+        let row = &src[i * BPS as usize..i * BPS as usize + 16];
+        // C: memcmp() of each 4-byte group with src[0] * 0x01010101u
+        if row.iter().any(|&sample| sample != v) {
+            return false;
+        }
+    }
+    true
+}
