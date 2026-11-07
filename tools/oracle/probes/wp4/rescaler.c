@@ -10,6 +10,8 @@
 //                                  step at a time, and prints each step, then dst=HEX
 //                                  of DSTSTRIDE*DSTH bytes filled with 0xaa at first.
 //                                  SRCHEX holds SRCSTRIDE*SRCH bytes; "-" when empty.
+//   rescaleflip ...                the same into a flipped destination: dst points
+//                                  at the last row and the stride is -DSTSTRIDE.
 //
 // tests/wp4_rescaler.rs generates the commands and the expected output.
 
@@ -93,7 +95,7 @@ static void Dims(void) {
   printf("ret=%d sw=%d sh=%d\n", ret, sw, sh);
 }
 
-static void Rescale(void) {
+static void Rescale(int flip) {
   const long src_w = ReadLong();
   const long src_h = ReadLong();
   const long dst_w = ReadLong();
@@ -111,9 +113,13 @@ static void Rescale(void) {
   int steps = 0;
   if (dst == NULL || work == NULL) exit(2);
   memset(dst, SENTINEL, (size_t)(dst_stride * dst_h));
+  // A flipped destination starts at its last row and goes upwards.
   printf("init=%d\n",
-         WebPRescalerInit(&wrk, (int)src_w, (int)src_h, dst, (int)dst_w,
-                          (int)dst_h, (int)dst_stride, (int)channels, work));
+         WebPRescalerInit(&wrk, (int)src_w, (int)src_h,
+                          flip ? dst + (dst_h - 1) * dst_stride : dst,
+                          (int)dst_w, (int)dst_h,
+                          flip ? -(int)dst_stride : (int)dst_stride,
+                          (int)channels, work));
   while (!WebPRescalerInputDone(&wrk)) {
     const int needed = WebPRescaleNeededLines(&wrk, (int)chunk);
     long num = chunk;
@@ -141,7 +147,9 @@ int main(int argc, char* argv[]) {
     if (strcmp(command, "dims") == 0) {
       Dims();
     } else if (strcmp(command, "rescale") == 0) {
-      Rescale();
+      Rescale(0);
+    } else if (strcmp(command, "rescaleflip") == 0) {
+      Rescale(1);
     } else {
       fprintf(stderr, "rescaler: unknown command %s\n", command);
       return 2;

@@ -3,7 +3,7 @@
 //! probe `tools/oracle/probes/wp4/rescaler.c` and the Rust translation. The
 //! rescalers run over identities, shrinks and expansions in each direction,
 //! extreme downscales and upscales, the single-column special case, padded
-//! strides and several channel counts, and every step of the driver is compared
+//! strides, flipped destinations (negative strides) and several channel counts, and every step of the driver is compared
 //! with the state it leaves. The scaled-dimension query runs over zeros,
 //! negatives and large values.
 //!
@@ -64,25 +64,36 @@ fn int(value: usize) -> i32 {
 }
 
 /// Drives a rescaler the way the probe does and appends each step to `out`.
+/// A flipped destination starts at its last row with a negative stride, and its
+/// first row is set as the owner sets it.
 fn drive(
     out: &mut String,
     (src_w, src_h, dst_w, dst_h, channels): (usize, usize, usize, usize, usize),
     (dst_stride, src_stride, chunk): (usize, usize, usize),
     src: &[u8],
+    flip: bool,
 ) {
     let mut dst = vec![SENTINEL; dst_stride * dst_h];
     let work = vec![WORK_FILL; 2 * dst_w * channels];
+    let stride = if flip {
+        -int(dst_stride)
+    } else {
+        int(dst_stride)
+    };
     let Some(mut wrk): Option<WebPRescaler> = webp_rescaler_init(
         int(src_w),
         int(src_h),
         int(dst_w),
         int(dst_h),
-        int(dst_stride),
+        stride,
         int(channels),
         work,
     ) else {
         panic!("the rescaler initializes");
     };
+    if flip {
+        wrk.dst_pos = (dst_h - 1) * dst_stride;
+    }
     out.push_str("init=1\n");
     let mut src_row = 0_usize;
     let mut steps = 0_u32;
@@ -155,12 +166,19 @@ fn script() -> (String, String) {
         (17, 13, 11, 19, 3),
     ];
     for &(src_w, src_h, dst_w, dst_h, channels) in &cases {
-        for chunk in [1_usize, 3, 1000] {
+        for (chunk, flip) in [
+            (1_usize, false),
+            (3, false),
+            (1000, false),
+            (1, true),
+            (1000, true),
+        ] {
             let dst_stride = dst_w * channels + 2;
             let src_stride = src_w * channels + 3;
             let src = rng.bytes(src_stride * src_h);
+            let command = if flip { "rescaleflip" } else { "rescale" };
             commands.push_str(&format!(
-                "rescale {src_w} {src_h} {dst_w} {dst_h} {channels} {dst_stride} {src_stride} {chunk} {}\n",
+                "{command} {src_w} {src_h} {dst_w} {dst_h} {channels} {dst_stride} {src_stride} {chunk} {}\n",
                 hex_arg(&src)
             ));
             drive(
@@ -168,6 +186,7 @@ fn script() -> (String, String) {
                 (src_w, src_h, dst_w, dst_h, channels),
                 (dst_stride, src_stride, chunk),
                 &src,
+                flip,
             );
         }
     }
