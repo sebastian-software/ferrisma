@@ -5,9 +5,9 @@
 //! outputs exactly. Include it next to `support/oracle.rs` and
 //! `support/wp2.rs`.
 //!
-//! The port's coefficient-controller slot stays empty until work package 4,
-//! so `jdinput.c`'s `start_input_pass` and `consume_markers`, which call
-//! through it, are mirrored here too: they call the port's `per_scan_setup`,
+//! The probe installs its own controller, so `jdinput.c`'s
+//! `start_input_pass` and `consume_markers`, which call through
+//! `cinfo->coef`, are mirrored here too: they call the port's `per_scan_setup`,
 //! `latch_quant_tables`, `read_markers` and `finish_input_pass` in C's order,
 //! and the controller below where C calls `cinfo->coef`.
 
