@@ -28,6 +28,10 @@
 //     WebPDecode{RGB,RGBA,ARGB,BGR,BGRA}Into or WebPDecodeYUVInto (FUNC) into
 //     caller buffers with guard bytes.
 //
+//   abi PATH
+//
+//     Every decode.h function with NULL and invalid arguments (Abi).
+//
 //   incr PATH LEN CHUNK APPEND KIND MODE OPTIONS GEOMETRY
 //
 //     The incremental decoder: KIND "config" (WebPIDecode with a configuration
@@ -547,6 +551,97 @@ static void Incremental(const uint8_t* data, size_t size, size_t chunk,
   FreeGeometry(&geometry);
 }
 
+// The answers of every decode.h function to NULL and invalid arguments, which
+// the C ABI checks before any conversion (ADR 0004). DATA is a valid file.
+static void Abi(const uint8_t* data, size_t size) {
+  WebPDecBuffer buffer;
+  WebPDecoderConfig config;
+  WebPBitstreamFeatures features;
+  WebPIDecoder* idec;
+  int w = -1, h = -1, l = -1, t = -1, stride = -1, uv_stride = -1;
+  uint8_t* u = (uint8_t*)&w;
+  uint8_t* v = (uint8_t*)&w;
+  uint8_t small[16];
+  printf("version=%x\n", WebPGetDecoderVersion());
+  printf("getinfo_null=%d,%d,%d\n", WebPGetInfo(NULL, size, &w, &h), w, h);
+  printf("getinfo_short=%d,%d,%d\n", WebPGetInfo(data, 11, &w, &h), w, h);
+  printf("getinfo_nullout=%d\n", WebPGetInfo(data, size, NULL, NULL));
+  printf("decodergba_null=%d,%d,%d\n", WebPDecodeRGBA(NULL, size, &w, &h) == NULL,
+         w, h);
+  printf("decodeyuv_nullu=%d,%d\n",
+         WebPDecodeYUV(data, size, &w, &h, NULL, &v, &stride, &uv_stride) ==
+             NULL, w);
+  printf("decodeyuv_nullstride=%d\n",
+         WebPDecodeYUV(data, size, &w, &h, &u, &v, NULL, &uv_stride) == NULL);
+  printf("into_null=%d\n",
+         WebPDecodeRGBAInto(data, size, NULL, 1 << 20, 4096) == NULL);
+  printf("into_nulldata=%d\n",
+         WebPDecodeRGBAInto(NULL, size, small, sizeof(small), 4) == NULL);
+  printf("into_small=%d\n",
+         WebPDecodeRGBAInto(data, size, small, sizeof(small), 4) == NULL);
+  printf("yuvinto_nullluma=%d\n",
+         WebPDecodeYUVInto(data, size, NULL, 16, 4, small, 4, 2, small + 8, 4,
+                           2) == NULL);
+  printf("yuvinto_nullu=%d\n",
+         WebPDecodeYUVInto(data, size, small, 8, 4, NULL, 4, 2, small + 12, 4,
+                           2) == NULL);
+  printf("initbuffer_null=%d\n",
+         WebPInitDecBufferInternal(NULL, WEBP_DECODER_ABI_VERSION));
+  printf("initbuffer_version=%d\n", WebPInitDecBufferInternal(&buffer, 0x0300));
+  printf("initbuffer_minor=%d\n", WebPInitDecBufferInternal(&buffer, 0x0201));
+  WebPFreeDecBuffer(NULL);
+  printf("features_null=%d\n",
+         (int)WebPGetFeaturesInternal(data, size, NULL,
+                                      WEBP_DECODER_ABI_VERSION));
+  printf("features_nulldata=%d\n",
+         (int)WebPGetFeaturesInternal(NULL, size, &features,
+                                      WEBP_DECODER_ABI_VERSION));
+  printf("features_version=%d\n",
+         (int)WebPGetFeaturesInternal(data, size, &features, 0x0100));
+  printf("initconfig_null=%d\n",
+         WebPInitDecoderConfigInternal(NULL, WEBP_DECODER_ABI_VERSION));
+  printf("initconfig_version=%d\n",
+         WebPInitDecoderConfigInternal(&config, 0x0300));
+  printf("validate_null=%d\n", WebPValidateDecoderConfig(NULL));
+  printf("decode_nullconfig=%d\n", (int)WebPDecode(data, size, NULL));
+  if (!WebPInitDecoderConfig(&config)) exit(2);
+  printf("decode_nulldata=%d\n", (int)WebPDecode(NULL, size, &config));
+  printf("decode_short=%d\n", (int)WebPDecode(data, 20, &config));
+  WebPFreeDecBuffer(&config.output);
+  printf("idelete_null=1\n");
+  WebPIDelete(NULL);
+  printf("iappend_null=%d\n", (int)WebPIAppend(NULL, data, size));
+  printf("iupdate_null=%d\n", (int)WebPIUpdate(NULL, data, size));
+  printf("igetrgb_null=%d\n",
+         WebPIDecGetRGB(NULL, &l, &w, &h, &stride) == NULL);
+  printf("igetyuva_null=%d\n",
+         WebPIDecGetYUVA(NULL, &l, &u, &v, NULL, &w, &h, &stride, &uv_stride,
+                         NULL) == NULL);
+  l = t = w = h = -1;
+  printf("iarea_null=%d,%d,%d,%d,%d\n",
+         WebPIDecodedArea(NULL, &l, &t, &w, &h) == NULL, l, t, w, h);
+  printf("inewrgb_yuv=%d\n", WebPINewRGB(MODE_YUV, NULL, 0, 0) == NULL);
+  printf("inewrgb_last=%d\n", WebPINewRGB(MODE_LAST, NULL, 0, 0) == NULL);
+  printf("inewrgb_nostride=%d\n", WebPINewRGB(MODE_RGBA, small, 16, 0) == NULL);
+  printf("inewyuva_nullu=%d\n",
+         WebPINewYUVA(small, 8, 4, NULL, 4, 2, small + 12, 4, 2, NULL, 0, 0) ==
+             NULL);
+  printf("idecode_badfeatures=%d\n", WebPIDecode(data, 7, NULL) == NULL);
+  idec = WebPINewDecoder(NULL);
+  if (idec == NULL) exit(2);
+  printf("iappend_nulldata=%d\n", (int)WebPIAppend(idec, NULL, 4));
+  printf("iappend_first=%d\n", (int)WebPIAppend(idec, data, 10));
+  printf("iupdate_mixed=%d\n", (int)WebPIUpdate(idec, data, size));
+  printf("iappend_rest=%d\n", (int)WebPIAppend(idec, data + 10, size - 10));
+  printf("iappend_done=%d\n", (int)WebPIAppend(idec, data, 1));
+  WebPIDelete(idec);
+  idec = WebPINewDecoder(NULL);
+  if (idec == NULL) exit(2);
+  printf("iupdate_first=%d\n", (int)WebPIUpdate(idec, data, size / 2));
+  printf("iupdate_shorter=%d\n", (int)WebPIUpdate(idec, data, size / 2 - 1));
+  WebPIDelete(idec);
+}
+
 int main(int argc, char* argv[]) {
   static char line[1 << 17];
   (void)argv;
@@ -579,6 +674,9 @@ int main(int argc, char* argv[]) {
     } else if (!strcmp(cmd, "into") && n == 5) {
       data = ReadPrefix(a, atol(b), &size);
       Into(data, size, c, d);
+    } else if (!strcmp(cmd, "abi") && n == 2) {
+      data = ReadPrefix(a, -1, &size);
+      Abi(data, size);
     } else if (!strcmp(cmd, "incr") && n == 9) {
       data = ReadPrefix(a, atol(b), &size);
       Incremental(data, size, (size_t)atol(c), atoi(d), e, atoi(f), g, h);
