@@ -6,10 +6,22 @@
 # dispatch header names only existing functions. Every listed
 # `<name>_<extension>` must be bit-exact with `<name>_c` for the same
 # arguments. Variants implemented only in NASM files are never listed.
+# aom_subtract_block_avx2 calls aom_subtract_block_sse2 for widths 4 and 8,
+# which upstream implements only in NASM; the translation calls the
+# equal-valued aom_subtract_block_c there instead.
 my %ported_x86 = map { $_ => 1 } qw/
+  aom_highbd_quantize_b_32x32_adaptive_avx2
+  aom_highbd_quantize_b_32x32_avx2
+  aom_highbd_quantize_b_64x64_adaptive_sse2
+  aom_highbd_quantize_b_64x64_avx2
+  aom_highbd_quantize_b_adaptive_avx2
+  aom_highbd_quantize_b_avx2
+  aom_highbd_subtract_block_sse2
+  aom_subtract_block_avx2
   av1_block_error_avx2
   av1_block_error_lp_avx2
   av1_highbd_block_error_avx2
+  av1_highbd_quantize_fp_avx2
   cdef_copy_rect8_16bit_to_16bit_avx2
   cdef_copy_rect8_8bit_to_16bit_avx2
   cdef_filter_16_0_avx2
