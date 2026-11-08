@@ -9,7 +9,10 @@ that tools/build_oracle.py configured in build/oracle/<variant>/libjpeg-turbo
 
 tools/bittests.json classifies every case: `in` for a djpeg case on the 8-bit
 decompression path of ADR 0001, `out` with a reason for everything else. The
-in-scope cases are the ones work package 7 runs against the port.
+in-scope cases are the ones work package 7 runs on the port: after a
+successful run, this script writes bittests-port.txt next to oracle.json, and
+tests/wp7_bittests.rs runs each listed case through its Rust djpeg driver and
+compares the outputs with upstream's MD5 sums.
 
   --check   verify that tools/bittests.json lists exactly the cases that the
             configured suite declares, with the same arguments and inputs
@@ -17,7 +20,7 @@ in-scope cases are the ones work package 7 runs against the port.
             check of the same output, such as the ICC profile of rgb-islow)
             plus every test they depend on, which produces their input files
             with the oracle's cjpeg, and those producers' MD5 checks; writes
-            bittests-result.json next to oracle.json
+            bittests-result.json and bittests-port.txt next to oracle.json
   --all     with --run: run upstream's whole CTest suite instead, as a check of
             the oracle itself
 """
@@ -208,7 +211,33 @@ def run(variant, everything, jobs):
     (build.parent / "bittests-result.json").write_text(json.dumps(record, indent=2) + "\n")
     if result.returncode != 0:
         raise SystemExit(f"{variant}: upstream bit tests failed")
+    write_port_manifest(build, in_scope, tests)
     print(f"{variant}: {len(selected)} test(s) passed", flush=True)
+
+
+def write_port_manifest(build, in_scope, tests):
+    """Write bittests-port.txt: each in-scope case with its input, arguments,
+    output file and MD5 checks, for tests/wp7_bittests.rs. One field per line,
+    so that the Rust test needs no parser beyond splitting lines."""
+    lines = ["# In-scope djpeg bit tests for tests/wp7_bittests.rs, written by "
+             "tools/bittests.py --run.",
+             "# Inputs are absolute; output and check files are names of the run's "
+             "files in the oracle build directory."]
+    for case in in_scope:
+        command = [portable(argument, build) for argument in tests[case["test"]]["command"]]
+        source = case["input"]
+        if source.startswith("testimages/"):
+            source = TESTIMAGES / source[len("testimages/"):]
+        else:
+            source = build / source
+        lines += [f"case {case['test']}", f"input {source}"]
+        lines += [f"arg {argument}" for argument in case["args"]]
+        lines.append(f"outfile {command[command.index('-outfile') + 1]}")
+        for check in case["checks"]:
+            md5cmp = [portable(argument, build) for argument in tests[check]["command"]]
+            lines.append(f"check {md5cmp[2]} {md5cmp[1]}")
+        lines.append("end")
+    (build.parent / "bittests-port.txt").write_text("\n".join(lines) + "\n")
 
 
 def main():
