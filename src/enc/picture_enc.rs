@@ -416,3 +416,243 @@ pub(crate) fn argb_bytes(samples: &[u32]) -> Vec<u8> {
         .flat_map(|value| value.to_ne_bytes())
         .collect()
 }
+
+//------------------------------------------------------------------------------
+// WP13: simplest high-level calls (exception in tools/units.json)
+
+use crate::enc::picture_csp_enc::{
+    webp_picture_import_bgr, webp_picture_import_bgra, webp_picture_import_rgb,
+    webp_picture_import_rgba,
+};
+use crate::enc::webp_enc::webp_encode;
+use crate::webp::encode::{WebPConfig, WebPPreset, webp_config_preset, webp_picture_init};
+
+// upstream: src/enc/picture_enc.c Importer
+/// An importer of packed samples into a picture (C: the `Importer` typedef).
+type Importer = fn(&mut WebPPicture<'_>, &[u8], i32) -> bool;
+
+// upstream: src/enc/picture_enc.c Encode
+/// Imports `rgba` with `import` and encodes it with the default preset at
+/// `quality_factor`, lossless when `lossless` is set, into memory (C: `Encode`).
+/// Returns the encoded bytes, or `None` where C returns 0. C's `output` parameter
+/// is the returned vector (its `NULL` check belongs to the C ABI), and the size C
+/// returns is its length. C hands out the writer's buffer; the vector holds its
+/// `size` written bytes.
+fn encode(
+    rgba: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    import: Importer,
+    quality_factor: f32,
+    lossless: bool,
+) -> Option<Vec<u8>> {
+    let mut wrt = WebPMemoryWriter::default();
+    let mut config = WebPConfig::default();
+    let ok;
+
+    {
+        let mut pic = WebPPicture::default();
+        if !webp_config_preset(&mut config, WebPPreset::WEBP_PRESET_DEFAULT, quality_factor)
+            || !webp_picture_init(&mut pic)
+        {
+            return None; // shouldn't happen, except if system installation is broken
+        }
+
+        config.lossless = i32::from(lossless);
+        pic.use_argb = i32::from(lossless);
+        pic.width = width;
+        pic.height = height;
+        // C sets the writer and custom_ptr first; the closure borrows the memory
+        // writer, so it is initialized just before.
+        webp_memory_writer_init(&mut wrt);
+        let writer = &mut wrt;
+        pic.writer = Some(Box::new(move |data: &[u8]| webp_memory_write(writer, data)));
+
+        ok = import(&mut pic, rgba, stride) && webp_encode(&config, &mut pic);
+        webp_picture_free(&mut pic);
+    }
+    if !ok {
+        webp_memory_writer_clear(&mut wrt);
+        return None; // C: *output = NULL; return 0;
+    }
+    let mut output = wrt.mem;
+    output.truncate(wrt.size);
+    Some(output)
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeRGB
+/// Encodes RGB rows of `stride` bytes at `quality_factor` (C: `WebPEncodeRGB`).
+/// Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_rgb(
+    rgb: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    quality_factor: f32,
+) -> Option<Vec<u8>> {
+    encode(
+        rgb,
+        width,
+        height,
+        stride,
+        webp_picture_import_rgb,
+        quality_factor,
+        false,
+    )
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeRGBA
+/// Encodes RGBA rows of `stride` bytes at `quality_factor` (C: `WebPEncodeRGBA`).
+/// Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_rgba(
+    rgba: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    quality_factor: f32,
+) -> Option<Vec<u8>> {
+    encode(
+        rgba,
+        width,
+        height,
+        stride,
+        webp_picture_import_rgba,
+        quality_factor,
+        false,
+    )
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeBGR
+/// Encodes BGR rows of `stride` bytes at `quality_factor` (C: `WebPEncodeBGR`;
+/// `WEBP_REDUCE_CSP` is not defined). Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_bgr(
+    bgr: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    quality_factor: f32,
+) -> Option<Vec<u8>> {
+    encode(
+        bgr,
+        width,
+        height,
+        stride,
+        webp_picture_import_bgr,
+        quality_factor,
+        false,
+    )
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeBGRA
+/// Encodes BGRA rows of `stride` bytes at `quality_factor` (C: `WebPEncodeBGRA`;
+/// `WEBP_REDUCE_CSP` is not defined). Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_bgra(
+    bgra: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    quality_factor: f32,
+) -> Option<Vec<u8>> {
+    encode(
+        bgra,
+        width,
+        height,
+        stride,
+        webp_picture_import_bgra,
+        quality_factor,
+        false,
+    )
+}
+
+// upstream: src/enc/picture_enc.c LOSSLESS_DEFAULT_QUALITY
+/// The quality of the lossless simple API (C: `70.`, passed as a `float`).
+const LOSSLESS_DEFAULT_QUALITY: f32 = 70.;
+
+// upstream: src/enc/picture_enc.c WebPEncodeLosslessRGB
+/// Encodes RGB rows of `stride` bytes losslessly (C: `WebPEncodeLosslessRGB`).
+/// Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_lossless_rgb(
+    rgb: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+) -> Option<Vec<u8>> {
+    encode(
+        rgb,
+        width,
+        height,
+        stride,
+        webp_picture_import_rgb,
+        LOSSLESS_DEFAULT_QUALITY,
+        true,
+    )
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeLosslessRGBA
+/// Encodes RGBA rows of `stride` bytes losslessly (C: `WebPEncodeLosslessRGBA`).
+/// Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_lossless_rgba(
+    rgba: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+) -> Option<Vec<u8>> {
+    encode(
+        rgba,
+        width,
+        height,
+        stride,
+        webp_picture_import_rgba,
+        LOSSLESS_DEFAULT_QUALITY,
+        true,
+    )
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeLosslessBGR
+/// Encodes BGR rows of `stride` bytes losslessly (C: `WebPEncodeLosslessBGR`;
+/// `WEBP_REDUCE_CSP` is not defined). Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_lossless_bgr(
+    bgr: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+) -> Option<Vec<u8>> {
+    encode(
+        bgr,
+        width,
+        height,
+        stride,
+        webp_picture_import_bgr,
+        LOSSLESS_DEFAULT_QUALITY,
+        true,
+    )
+}
+
+// upstream: src/enc/picture_enc.c WebPEncodeLosslessBGRA
+/// Encodes BGRA rows of `stride` bytes losslessly (C: `WebPEncodeLosslessBGRA`;
+/// `WEBP_REDUCE_CSP` is not defined). Returns the WebP data, or `None` on error.
+#[must_use]
+pub fn webp_encode_lossless_bgra(
+    bgra: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+) -> Option<Vec<u8>> {
+    encode(
+        bgra,
+        width,
+        height,
+        stride,
+        webp_picture_import_bgra,
+        LOSSLESS_DEFAULT_QUALITY,
+        true,
+    )
+}
