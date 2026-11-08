@@ -240,6 +240,11 @@ fn kernels_are_dispatched() {
     use jpeg::jpeglib::{jpeg_decompress_struct, jpeg_error_mgr};
     use jpeg::jsimd::JSIMD_NEON;
 
+    // The test image comes from the upstream checkout, which the oracle
+    // builds need, and `JSIMD_FORCENONE` selects the oracle's mode too.
+    if Oracle::locate("kernels_are_dispatched").is_none() {
+        return;
+    }
     let forced_none = std::env::var_os("JSIMD_FORCENONE").is_some_and(|value| value == "1");
     // testorig.jpg is 4:2:0 YCbCr: fancy h2v2 upsampling, YCbCr-to-RGB
     // conversion and the islow IDCT; at 1/2 the 4x4 IDCT too.
