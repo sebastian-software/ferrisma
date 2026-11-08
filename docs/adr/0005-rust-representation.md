@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-07
+- Updated: 2026-11-08
 
 ## Context
 
@@ -56,8 +56,7 @@ range and saturates where C's result is undefined (an IDCT output far out of
 range); the differential tests keep to inputs that C defines.
 
 **`boolean`.** `boolean` is `int` in upstream. A `boolean` field, parameter or
-return value becomes `bool`; `TRUE` and `FALSE` become `true` and `false`. The
-C ABI mirror (work package 7) converts at the boundary.
+return value becomes `bool`; `TRUE` and `FALSE` become `true` and `false`.
 
 **Enums.** A C enum (`J_COLOR_SPACE`, `J_DCT_METHOD`, `J_DITHER_MODE`,
 `J_BUF_MODE`) becomes a `#[repr(transparent)]` newtype over its C underlying
@@ -215,7 +214,7 @@ scans, and every scan derives its tables again in `start_pass`.
 take their methods as a trait object owned by the struct
 (`Box<dyn jpeg_source_methods + 'src>`), whose default methods are upstream's
 functions. The trait object carries the application's context, which replaces
-`client_data`; the C ABI mirror keeps `client_data`. A hook method receives
+`client_data`. A hook method receives
 `&mut jpeg_decompress_struct`. The trait object is taken out of its struct for
 the duration of the call and put back afterwards, while the hook's public
 fields stay in the object, where the method reaches them as C does
@@ -425,13 +424,6 @@ diff of a new upstream version applicable and leaves room for the SIMD
 packages. The decoder never exits, prints only through the replaceable error
 manager, and reports every libjpeg error through `cinfo.err` as C does.
 
-The C ABI (work package 7) still needs its own decision: a C application's
-`error_exit`, `emit_message`, source or progress callback may `longjmp`, and
-the ABI calls those callbacks from inside Rust frames. Before that package
-starts, its unsafe ADR decides how such callbacks are contained, for example
-by calling them only from the outermost exported frame or by converting the
-jump to `C-unwind` unwinding as libavif-rs ADR 0036 did for libaom.
-
 ## Decisions on the review questions (2026-11-06)
 
 The maintainer accepted the proposed answers to the questions raised in review:
@@ -568,5 +560,4 @@ request:
 ## Review triggers
 
 Amend this record when a package meets a construct it does not cover, when a
-rule forces a change of observable behavior, before the C ABI or SIMD packages
-start, or when the encoder or another precision enters the scope.
+rule forces a change of observable behavior, before the SIMD packages start, or when the encoder or another precision enters the scope.

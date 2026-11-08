@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-06
+- Updated: 2026-11-08
 
 ## Context
 
@@ -34,13 +34,20 @@ bytes, exact error and warning codes, and the state a failing call leaves.
 
 **Upstream tests.** Upstream's CMake test suite checks `djpeg` outputs by MD5
 (`add_bittest` in `CMakeLists.txt`: DCT methods, sampling factors,
-progressive and arithmetic files, scaling factors, `-skip` and `-crop`). Once
-the C ABI exists, the unmodified `djpeg` links the Rust library and the 8-bit
-decoder cases of that suite run against the port with their original expected
-hashes. Cases outside the scope of [ADR 0001](0001-mechanical-port.md)
-(12-bit, lossless, quantized and RGB565 output) are listed with their reason,
-not silently skipped. The decompression fuzzers (`fuzz/decompress*.cc`) run
-against both libraries.
+progressive and arithmetic files, scaling factors, `-skip` and `-crop`). The
+port exports no C ABI: it serves Rust programs, and C compatibility is not a
+goal. Instead, a Rust test runs the 8-bit decoder cases of that suite on the
+port: it makes the library calls that `djpeg.c` makes for the options those
+cases use and writes the output as `wrppm.c` does, both translated as test
+code, and compares the result with the case's original expected hash. The
+input is read with `jpeg_mem_src`, because the stdio source is out of scope;
+for a complete file it delivers the same data. Cases outside the scope of
+[ADR 0001](0001-mechanical-port.md) (12-bit, lossless, quantized and RGB565
+output) are listed with their reason, not silently skipped. Upstream's
+fuzzers are C programs that would need a C ABI; the damaged-stream tests of
+each package cover corrupt input against the oracle instead, and
+coverage-guided fuzzing in Rust is a separate decision, since it needs a
+development dependency ([ADR 0003](0003-toolchain-and-unsafe-policy.md)).
 
 **Conformance.** Before Ferrixel adopts the decoder, it is checked with the
 ISO/IEC 10918-2 (ITU-T T.83) compliance test data for the processes in scope:
