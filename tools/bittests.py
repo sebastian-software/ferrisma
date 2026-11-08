@@ -3,9 +3,11 @@
 
 Upstream's CMakeLists.txt declares its MD5 bit tests with add_bittest(PROG
 NAME ARGS OUTFILE INFILE MD5SUM): a run test `<PROG>-static-<NAME>` and a
-check `<PROG>-static-<NAME>-cmp`. This script reads them from the CTest suite
-that tools/build_oracle.py configured in build/oracle/<variant>/libjpeg-turbo
-(`ctest --show-only=json-v1`), so the inventory is upstream's, not a copy.
+check `<PROG>-static-<NAME>-cmp`. This script reads them with
+`ctest --show-only=json-v1` from the CTest suite that tools/build_oracle.py
+configured in build/oracle/<variant>/libjpeg-turbo, or in
+build/oracle/<variant>-<arch>/libjpeg-turbo with --arch, so the inventory is
+upstream's, not a copy.
 
 tools/bittests.json classifies every case: `in` for a djpeg case on the 8-bit
 decompression path of ADR 0001, `out` with a reason for everything else. The
@@ -52,8 +54,9 @@ OUT_OF_SCOPE_OPTIONS = {"-rgb565", "-colors", "-quantize", "-onepass", "-map", "
                         "-precision"}
 
 
-def build_dir(variant):
-    return ROOT / "build/oracle" / variant / "libjpeg-turbo"
+def build_dir(variant, arch=None):
+    name = variant if arch is None else f"{variant}-{arch}"
+    return ROOT / "build/oracle" / name / "libjpeg-turbo"
 
 
 def ctest_tests(build):
@@ -171,8 +174,8 @@ def closure(names, tests):
     return selected
 
 
-def run(variant, everything, jobs):
-    build = build_dir(variant)
+def run(variant, everything, jobs, arch=None):
+    build = build_dir(variant, arch)
     manifest = load()
     cases, tests = inventory(build)
     problems = verify(manifest, cases)
@@ -244,6 +247,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variant", default="release", help="oracle variant (default: release)")
+    parser.add_argument("--arch", help="the variant's --arch of tools/build_oracle.py")
     parser.add_argument("--check", action="store_true", help="verify tools/bittests.json")
     parser.add_argument("--run", action="store_true", help="run the in-scope cases")
     parser.add_argument("--all", action="store_true", help="with --run: run the whole suite")
@@ -252,10 +256,10 @@ def main():
                         help="print the configured suite's cases as JSON")
     args = parser.parse_args()
     if args.print_inventory:
-        print(json.dumps(inventory(build_dir(args.variant))[0], indent=2))
+        print(json.dumps(inventory(build_dir(args.variant, args.arch))[0], indent=2))
         return
     if args.check or not args.run:
-        problems = verify(load(), inventory(build_dir(args.variant))[0])
+        problems = verify(load(), inventory(build_dir(args.variant, args.arch))[0])
         for problem in problems:
             print(problem)
         if problems:
@@ -264,7 +268,7 @@ def main():
         print(f"Bit test inventory verified: {counts['cases']} cases, "
               f"{counts['djpeg_cases']} djpeg, {counts['in_scope']} in scope", flush=True)
     if args.run:
-        run(args.variant, args.all, args.jobs)
+        run(args.variant, args.all, args.jobs, args.arch)
 
 
 if __name__ == "__main__":

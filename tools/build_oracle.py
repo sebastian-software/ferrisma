@@ -20,9 +20,13 @@ against it. Variants:
   asan-ubsan  the same configuration, library, tools and probes instrumented
               with AddressSanitizer and UndefinedBehaviorSanitizer
   simd        WITH_SIMD=1, upstream's default build: the oracle of the port's
-              SIMD configuration (ADR 0007), which tools/check.py tests with
-              Neon and with JSIMD_FORCENONE=1 on ARM64; on x86-64 it needs
-              NASM or Yasm and stays diagnostic until work package 10
+              SIMD configuration (ADR 0007, ADR 0008), which tools/check.py
+              tests with each kernel set the CPU offers and with
+              JSIMD_FORCENONE=1; on x86-64 it needs NASM or Yasm
+
+--arch x86_64 builds a variant for x86-64 on an ARM64 Mac, where Rosetta 2
+runs it, into build/oracle/<variant>-x86_64/ (ADR 0008). oracle.json records
+the architecture the variant runs on.
 
 upstream/libjpeg-turbo is never modified: CMake writes only below build/.
 """
@@ -57,6 +61,12 @@ VARIANTS = {
     "simd": {"simd": True, "sanitizers": False, "reference": False},
 }
 # jconfig.h defines that the 8-bit decoder's configuration depends on.
+# The architectures that --arch builds for on an ARM64 Mac: the CMake and
+# compiler options, and the Rust target whose tests run against the variant.
+CROSS_ARCHES = {
+    "x86_64": {"cmake": ["-DCMAKE_OSX_ARCHITECTURES=x86_64"], "c_flags": ["-arch", "x86_64"],
+               "rust_target": "x86_64-apple-darwin"},
+}
 REQUIRED_DEFINES = {"C_ARITH_CODING_SUPPORTED": "1", "D_ARITH_CODING_SUPPORTED": "1",
                     "MEM_SRCDST_SUPPORTED": "1", "BITS_IN_JSAMPLE": "8"}
 
@@ -72,8 +82,27 @@ def output(*args):
                           universal_newlines=True).stdout
 
 
-def variant_dir(variant):
-    return ROOT / "build/oracle" / variant
+def variant_dir(variant, arch=None):
+    """build/oracle/<variant>, or build/oracle/<variant>-<arch> for --arch."""
+    return ROOT / "build/oracle" / (variant if arch is None else f"{variant}-{arch}")
+
+
+def host_arch():
+    """The host's architecture with Rust's name (std::env::consts::ARCH)."""
+    machine = platform.machine().lower()
+    return {"amd64": "x86_64", "arm64": "aarch64"}.get(machine, machine)
+
+
+def target_arch(arch):
+    """The architecture that a variant built with --arch `arch` runs on."""
+    if arch is None:
+        return host_arch()
+    if arch not in CROSS_ARCHES:
+        raise SystemExit(f"--arch {arch}: unknown; choose from {', '.join(CROSS_ARCHES)}")
+    if platform.system() != "Darwin" or host_arch() != "aarch64":
+        raise SystemExit(f"--arch {arch} builds on an ARM64 Mac for Rosetta 2; "
+                         f"build natively on other hosts")
+    return arch
 
 
 def cache_value(build, name):
@@ -101,11 +130,7 @@ def defines(compiler, c_flags, header):
             if builtin.get(name) != value}
 
 
-def is_x86_64():
-    return platform.machine().lower() in ("x86_64", "amd64")
-
-
-def configuration(variant):
+def configuration(variant, arch=None):
     settings = VARIANTS[variant]
     c_flags = list(REFERENCE_C_FLAGS)
     linker_flags = []
@@ -120,7 +145,7 @@ def configuration(variant):
     # (FLOATTEST8, FLOATTEST12). The oracle is built with -ffp-contract=off, so
     # its C float IDCT matches the no-fp-contract hashes; only the x86-64 SIMD
     # build replaces that IDCT with the SSE code.
-    float_test = "sse" if settings["simd"] and is_x86_64() else "no-fp-contract"
+    float_test = "sse" if settings["simd"] and target_arch(arch) == "x86_64" else "no-fp-contract"
     options += [f"-DFLOATTEST8={float_test}", "-DFLOATTEST12=no-fp-contract"]
     return {
         "options": options,
@@ -130,18 +155,19 @@ def configuration(variant):
     }
 
 
-def build(variant, jobs, fresh):
+def build(variant, jobs, fresh, arch=None):
     if not (UPSTREAM / "src/jpeglib.h").is_file():
         raise SystemExit("Initialize upstream/libjpeg-turbo first: git submodule update --init")
     settings = VARIANTS[variant]
-    config = configuration(variant)
-    directory = variant_dir(variant)
+    config = configuration(variant, arch)
+    directory = variant_dir(variant, arch)
+    cross = CROSS_ARCHES[arch] if arch is not None else {"cmake": [], "c_flags": []}
     if fresh and directory.exists():
         shutil.rmtree(directory)
     upstream_build = directory / "libjpeg-turbo"
     probes_build = directory / "probes-build"
 
-    flags = [f"-DCMAKE_C_FLAGS={config['c_flags']}"]
+    flags = [f"-DCMAKE_C_FLAGS={config['c_flags']}", *cross["cmake"]]
     if config["linker_flags"]:
         flags.append(f"-DCMAKE_EXE_LINKER_FLAGS={config['linker_flags']}")
     run("cmake", "-S", UPSTREAM, "-B", upstream_build, "-DCMAKE_BUILD_TYPE=Release",
@@ -154,8 +180,9 @@ def build(variant, jobs, fresh):
     run("cmake", "--build", probes_build, "--parallel", jobs)
 
     compiler = cache_value(upstream_build, "CMAKE_C_COMPILER")
-    jconfig = defines(compiler, config["c_flags"], upstream_build / "jconfig.h")
-    jconfigint = defines(compiler, config["c_flags"], upstream_build / "jconfigint.h")
+    evaluation_flags = " ".join([config["c_flags"], *cross["c_flags"]])
+    jconfig = defines(compiler, evaluation_flags, upstream_build / "jconfig.h")
+    jconfigint = defines(compiler, evaluation_flags, upstream_build / "jconfigint.h")
     for name, value in REQUIRED_DEFINES.items():
         if jconfig.get(name) != value:
             raise SystemExit(f"{variant}: jconfig.h defines {name}={jconfig.get(name)!r}, "
@@ -172,6 +199,7 @@ def build(variant, jobs, fresh):
         "reference": settings["reference"],
         "upstream_revision": output("git", "-C", UPSTREAM, "rev-parse", "HEAD").strip(),
         "host": f"{platform.system()} {platform.release()} {platform.machine()}",
+        "arch": target_arch(arch),
         "cmake": output("cmake", "--version").splitlines()[0],
         "c_compiler": compiler,
         "c_compiler_version": output(compiler, "--version").splitlines()[0],
@@ -204,6 +232,8 @@ def main():
                              "'reference' builds release and asan-ubsan)")
     parser.add_argument("--jobs", default=str(os.cpu_count() or 4), help="parallel build jobs")
     parser.add_argument("--fresh", action="store_true", help="delete the variant directory first")
+    parser.add_argument("--arch", choices=list(CROSS_ARCHES),
+                        help="build for this architecture on an ARM64 Mac (Rosetta 2)")
     args = parser.parse_args()
     variants = []
     for variant in args.variant or ["release"]:
@@ -211,7 +241,7 @@ def main():
             if variant == "reference" else [variant]
         variants += [name for name in names if name not in variants]
     for variant in variants:
-        build(variant, args.jobs, args.fresh)
+        build(variant, args.jobs, args.fresh, args.arch)
 
 
 if __name__ == "__main__":

@@ -19,10 +19,20 @@ rust-version.
 
 The crate's features follow the oracle (ADR 0007): the reference variants
 test the crate without default features, the reference configuration; the
-simd variant tests it with the default `simd` feature, once with the Neon
-kernels and once with JSIMD_FORCENONE=1 in the port and the oracle. Without an
-oracle, the tests run with the default features, plus once without them in
-the dev profile.
+simd variant tests it with the default `simd` feature in each SIMD mode of
+the architecture (ADR 0008), with the same environment for the port and the
+oracle, and sets LIBJPEG_EXPECT_SIMD to the instruction set that the dispatch
+test must find selected:
+
+  aarch64  neon; none (JSIMD_FORCENONE=1)
+  x86_64   avx2; sse2 (JSIMD_FORCESSE2=1); none (JSIMD_FORCENONE=1)
+
+Without an oracle, the tests run with the default features, plus once without
+them in the dev profile.
+
+--arch x86_64 checks the x86-64 build on an ARM64 Mac through Rosetta 2: Cargo
+builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's
+--arch x86_64 variant, and ROSETTA_ADVERTISE_AVX=1 lets Rosetta report AVX2.
 """
 
 import argparse
@@ -42,6 +52,14 @@ import units  # noqa: E402
 
 CARGO = ["--locked", "--offline"]
 PROFILES = [[], ["--release"], ["--profile", "checked"]]
+# The SIMD modes of each architecture: the value of LIBJPEG_EXPECT_SIMD and
+# the variables that select the mode in the port and the oracle.
+SIMD_MODES = {
+    "aarch64": [("neon", {}), ("none", {"JSIMD_FORCENONE": "1"})],
+    "x86_64": [("avx2", {}), ("sse2", {"JSIMD_FORCESSE2": "1"}),
+               ("none", {"JSIMD_FORCENONE": "1"})],
+}
+SIMD_VARIABLES = ["JSIMD_FORCENONE", "JSIMD_FORCESSE2", "LIBJPEG_EXPECT_SIMD"]
 
 
 def run(*args, env=None):
@@ -103,47 +121,65 @@ def check_docs():
     print("Local documentation links verified", flush=True)
 
 
-def check_static(msrv):
+def cargo_target(arch):
+    """Cargo's --target for tools/build_oracle.py's --arch, if any."""
+    if arch is None:
+        return []
+    return ["--target", build_oracle.CROSS_ARCHES[arch]["rust_target"]]
+
+
+def check_static(msrv, arch):
     check_upstream()
     check_skeleton()
     check_pools()
     check_docs()
+    target = cargo_target(arch)
     run("cargo", "fmt", "--all", "--", "--check")
-    run("cargo", "clippy", *CARGO, "--all-targets", "--all-features", "--", "-D", "warnings")
-    run("cargo", "clippy", *CARGO, "--all-targets", "--no-default-features", "--features",
-        "oracle", "--", "-D", "warnings")
+    run("cargo", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
+        "warnings")
+    run("cargo", "clippy", *CARGO, *target, "--all-targets", "--no-default-features",
+        "--features", "oracle", "--", "-D", "warnings")
     if msrv:
-        run("cargo", f"+{rust_version()}", "check", *CARGO, "--all-targets", "--all-features")
+        run("cargo", f"+{rust_version()}", "check", *CARGO, *target, "--all-targets",
+            "--all-features")
 
 
-def check_tests(oracle_variant, msrv):
+def check_tests(oracle_variant, msrv, arch):
     env = dict(os.environ)
-    env.pop("JSIMD_FORCENONE", None)
+    for name in SIMD_VARIABLES:
+        env.pop(name, None)
+    target = cargo_target(arch)
+    if arch is not None:
+        env["ROSETTA_ADVERTISE_AVX"] = "1"
     features = []
-    modes = [env]
+    modes = [(None, env)]
     if oracle_variant:
-        directory = build_oracle.build(oracle_variant, str(os.cpu_count() or 4), fresh=False)
+        jobs = str(os.cpu_count() or 4)
+        directory = build_oracle.build(oracle_variant, jobs, fresh=False, arch=arch)
         run(sys.executable, ROOT / "tools/bittests.py", "--check", "--run",
-            "--variant", oracle_variant, "--jobs", str(os.cpu_count() or 4))
+            "--variant", oracle_variant, "--jobs", jobs,
+            *(["--arch", arch] if arch is not None else []), env=env)
         env["LIBJPEG_ORACLE_DIR"] = str(directory)
         if build_oracle.VARIANTS[oracle_variant]["simd"]:
             features = ["--features", "oracle"]
-            modes = [env, {**env, "JSIMD_FORCENONE": "1"}]
+            modes = [(expected, {**env, **variables, "LIBJPEG_EXPECT_SIMD": expected})
+                     for expected, variables in SIMD_MODES[build_oracle.target_arch(arch)]]
         else:
             features = ["--no-default-features", "--features", "oracle"]
     else:
         env.pop("LIBJPEG_ORACLE_DIR", None)
-    for mode in modes:
-        if "JSIMD_FORCENONE" in mode:
-            print("+ JSIMD_FORCENONE=1", flush=True)
+    for expected, mode in modes:
+        if expected is not None:
+            settings = [f"{name}={mode[name]}" for name in SIMD_VARIABLES if name in mode]
+            print("+ SIMD mode: " + " ".join(settings), flush=True)
         for profile in PROFILES:
-            run("cargo", "test", *CARGO, *profile, *features, env=mode)
+            run("cargo", "test", *CARGO, *target, *profile, *features, env=mode)
     if not oracle_variant:
-        run("cargo", "test", *CARGO, "--no-default-features", env=env)
+        run("cargo", "test", *CARGO, *target, "--no-default-features", env=env)
     if msrv:
         toolchain = f"+{rust_version()}"
-        run("cargo", toolchain, "build", *CARGO, "--all-targets", *features)
-        run("cargo", toolchain, "test", *CARGO, *features, env=env)
+        run("cargo", toolchain, "build", *CARGO, *target, "--all-targets", *features)
+        run("cargo", toolchain, "test", *CARGO, *target, *features, env=modes[0][1])
 
 
 def main():
@@ -156,17 +192,19 @@ def main():
                         help="oracle variant for --oracle (default: release); implies --oracle")
     parser.add_argument("--msrv", action="store_true",
                         help="also build and test with the toolchain named by rust-version")
+    parser.add_argument("--arch", choices=list(build_oracle.CROSS_ARCHES),
+                        help="check this architecture on an ARM64 Mac (Rosetta 2)")
     args = parser.parse_args()
     oracle_variant = None
     if args.oracle or args.oracle_variant:
         oracle_variant = args.oracle_variant or "release"
     if args.stage in ("all", "static"):
-        check_static(args.msrv)
+        check_static(args.msrv, args.arch)
     else:
         check_upstream()
         check_skeleton()
     if args.stage in ("all", "test"):
-        check_tests(oracle_variant, args.msrv)
+        check_tests(oracle_variant, args.msrv, args.arch)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 
