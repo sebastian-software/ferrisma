@@ -763,6 +763,11 @@ fn metadata_matches_the_oracle() {
 /// start reports.
 #[test]
 fn output_info_matches_the_start() {
+    // The test images come from the upstream submodule, which only the
+    // oracle jobs check out.
+    if Oracle::locate("output_info_matches_the_start").is_none() {
+        return;
+    }
     let data = image("testorig.jpg");
     let mut decoder = Decoder::new(&data).unwrap();
     let header = *decoder.header();
@@ -792,6 +797,11 @@ fn output_info_matches_the_start() {
 /// of the port's scope, which the oracle decodes (ADR 0005).
 #[test]
 fn rejected_requests_fail() {
+    // The test images come from the upstream submodule, which only the
+    // oracle jobs check out.
+    if Oracle::locate("rejected_requests_fail").is_none() {
+        return;
+    }
     let data = image("testorig.jpg");
     let mut scanlines = Decoder::new(&data)
         .unwrap()
