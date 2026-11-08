@@ -1,9 +1,14 @@
 // Supplementary transcription of upstream/aom/test/av1_highbd_iht_test.cc
-// (AV1HighbdInvTxfm2d: `match` and `gt_int16`) for the NEON instantiation
-// av1_highbd_inv_txfm_add_neon. Inputs come from the forward transforms in
+// (AV1HighbdInvTxfm2d: `match` and `gt_int16`) for the NEON, SSE4_1, and AVX2
+// instantiations av1_highbd_inv_txfm_add_neon, av1_highbd_inv_txfm_add_sse4_1,
+// and av1_highbd_inv_txfm_add_avx2. Inputs come from the forward transforms in
 // libaom_test::fwd_txfm_func_ls (test/av1_txfm_test.h), with the original
 // seed, block layout, eob truncation, and exact-match assertions. No original
 // test instantiates the av1_inv_txfm2d_add_<W>x<H>_neon kernels directly.
+// The SSE4_1 instantiation of AV1HighbdInvHTNxN.InvTransResultCheck
+// (kArrayIhtParam: av1_inv_txfm2d_add_4x4_sse4_1 against
+// av1_inv_txfm2d_add_4x4_c) is transcribed as well, with its 20000 blocks
+// per parameter.
 use aom::av1__common__idct::TxfmParam;
 use aom::av1__common__scan::av1_scan_orders;
 
@@ -257,5 +262,143 @@ mod neon {
     fn highbd_inv_txfm2d_gt_int16() {
         let compared = av1_highbd_inv_txfm2d_gt_int16(av1_highbd_inv_txfm_add_neon);
         eprintln!("AV1HighbdInvTxfm2d.gt_int16: {compared} blocks compared");
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+type IHbdHtFunc = unsafe extern "C-unwind" fn(*const i32, *mut u16, i32, u8, i32);
+
+#[cfg(target_arch = "x86_64")]
+extern "C-unwind" {
+    fn av1_inv_txfm2d_add_4x4_c(input: *const i32, output: *mut u16, stride: i32, tx_type: u8,
+                                bd: i32);
+}
+
+/// AV1HighbdInvHTNxN::RunBitexactCheck for one
+/// <txfm_ref, inv_txfm, inv_txfm_ref, num_coeffs, tx_type, bit_depth> tuple.
+#[cfg(target_arch = "x86_64")]
+fn run_highbd_inv_ht_bitexact_check(txfm_ref: FwdTxfm2dFunc, inv_txfm: IHbdHtFunc,
+                                    inv_txfm_ref: IHbdHtFunc, num_coeffs: usize, tx_type: u8,
+                                    bit_depth: i32) {
+    // GetStride()
+    let stride: i32 = match num_coeffs {
+        16 => 4,
+        64 => 8,
+        256 => 16,
+        1024 => 32,
+        4096 => 64,
+        _ => 0,
+    };
+    let mut input = Aligned([0i16; 4096]);
+    // Inverse transform input buffer is 32-byte aligned, as in the original.
+    let mut coeffs = Aligned([0i32; 4096]);
+    let mut output = Aligned([0u16; 4096]);
+    let mut output_ref = Aligned([0u16; 4096]);
+    let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+    let num_tests = 20000;
+    let mask = ((1i32 << bit_depth) - 1) as u16;
+
+    for i in 0..num_tests {
+        for j in 0..num_coeffs {
+            let a = (rnd.rand16() & mask) as i32;
+            let b = (rnd.rand16() & mask) as i32;
+            input.0[j] = (a - b) as i16;
+            output_ref.0[j] = rnd.rand16() & mask;
+            output.0[j] = output_ref.0[j];
+        }
+
+        // SAFETY: all buffers hold num_coeffs elements with the alignment the
+        // original allocates.
+        unsafe {
+            txfm_ref(input.0.as_ptr(), coeffs.0.as_mut_ptr(), stride, tx_type, bit_depth);
+            inv_txfm_ref(coeffs.0.as_ptr(), output_ref.0.as_mut_ptr(), stride, tx_type,
+                         bit_depth);
+            inv_txfm(coeffs.0.as_ptr(), output.0.as_mut_ptr(), stride, tx_type, bit_depth);
+        }
+
+        for j in 0..num_coeffs {
+            assert_eq!(output_ref.0[j], output.0[j],
+                       "Not bit-exact result at index: {j} At test block: {i} (tx_type: {}, \
+                        bit_depth: {bit_depth})",
+                       TX_TYPE_NAME[tx_type as usize]);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod sse4_1 {
+    use super::*;
+    use aom::simd::av1__common__x86__highbd_inv_txfm_sse4::{
+        av1_highbd_inv_txfm_add_sse4_1, av1_inv_txfm2d_add_4x4_sse4_1,
+    };
+
+    const DCT_ADST: u8 = 2;
+    const ADST_ADST: u8 = 3;
+    const DCT_FLIPADST: u8 = 5;
+    const FLIPADST_FLIPADST: u8 = 6;
+    const ADST_FLIPADST: u8 = 7;
+    const FLIPADST_ADST: u8 = 8;
+
+    fn require_sse4_1() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"),
+                "SSE4_1 instantiation needs an SSE4.1 CPU");
+    }
+
+    #[test]
+    fn highbd_inv_txfm2d_match() {
+        require_sse4_1();
+        let compared = av1_highbd_inv_txfm2d_match(av1_highbd_inv_txfm_add_sse4_1);
+        eprintln!("SSE4_1/AV1HighbdInvTxfm2d.match: {compared} blocks compared");
+    }
+
+    #[test]
+    fn highbd_inv_txfm2d_gt_int16() {
+        require_sse4_1();
+        let compared = av1_highbd_inv_txfm2d_gt_int16(av1_highbd_inv_txfm_add_sse4_1);
+        eprintln!("SSE4_1/AV1HighbdInvTxfm2d.gt_int16: {compared} blocks compared");
+    }
+
+    /// INSTANTIATE_TEST_SUITE_P(SSE4_1, AV1HighbdInvHTNxN, kArrayIhtParam)
+    #[test]
+    fn highbd_inv_ht_nxn_inv_trans_result_check() {
+        require_sse4_1();
+        // PARAM_LIST_4X4: av1_fwd_txfm2d_4x4_c, av1_inv_txfm2d_add_4x4_sse4_1,
+        // av1_inv_txfm2d_add_4x4_c, 16
+        let k_array_iht_param: [(u8, i32); 18] = [
+            (DCT_DCT, 10), (DCT_DCT, 12), (ADST_DCT, 10), (ADST_DCT, 12),
+            (DCT_ADST, 10), (DCT_ADST, 12), (ADST_ADST, 10), (ADST_ADST, 12),
+            (FLIPADST_DCT, 10), (FLIPADST_DCT, 12), (DCT_FLIPADST, 10), (DCT_FLIPADST, 12),
+            (FLIPADST_FLIPADST, 10), (FLIPADST_FLIPADST, 12), (ADST_FLIPADST, 10),
+            (ADST_FLIPADST, 12), (FLIPADST_ADST, 10), (FLIPADST_ADST, 12),
+        ];
+        for (tx_type, bit_depth) in k_array_iht_param {
+            run_highbd_inv_ht_bitexact_check(av1_fwd_txfm2d_4x4_c, av1_inv_txfm2d_add_4x4_sse4_1,
+                                             av1_inv_txfm2d_add_4x4_c, 16, tx_type, bit_depth);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod avx2 {
+    use super::*;
+    use aom::simd::av1__common__x86__highbd_inv_txfm_avx2::av1_highbd_inv_txfm_add_avx2;
+
+    fn require_avx2() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"),
+                "AVX2 instantiation needs an AVX2 CPU");
+    }
+
+    #[test]
+    fn highbd_inv_txfm2d_match() {
+        require_avx2();
+        let compared = av1_highbd_inv_txfm2d_match(av1_highbd_inv_txfm_add_avx2);
+        eprintln!("AVX2/AV1HighbdInvTxfm2d.match: {compared} blocks compared");
+    }
+
+    #[test]
+    fn highbd_inv_txfm2d_gt_int16() {
+        require_avx2();
+        let compared = av1_highbd_inv_txfm2d_gt_int16(av1_highbd_inv_txfm_add_avx2);
+        eprintln!("AVX2/AV1HighbdInvTxfm2d.gt_int16: {compared} blocks compared");
     }
 }
