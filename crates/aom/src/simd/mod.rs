@@ -107,6 +107,7 @@ pub mod aom_dsp__simd__v64_intrinsics_x86;
 #[path = "av1/common/x86/cdef_block_avx2.rs"]
 pub mod av1__common__x86__cdef_block_avx2;
 
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/synonyms.rs"]
 pub mod aom_dsp__x86__synonyms;
 
