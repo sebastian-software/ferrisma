@@ -3,10 +3,10 @@
 
 Configures tools/oracle/CMakeLists.txt, which builds upstream/libwebp through
 its own CMake project in the reference configuration of docs/PORTING.md, the
-upstream tools dwebp, cwebp and webpinfo, and every probe under
+upstream tools dwebp, cwebp, webpinfo and img2webp, and every probe under
 tools/oracle/probes. Each variant lands in build/oracle/<variant>/:
 
-  libwebp/                 upstream build tree (libraries, dwebp, cwebp, webpinfo)
+  libwebp/                 upstream build tree (libraries, dwebp, cwebp, webpinfo, img2webp)
   probes/<wp>/<name>       probe executables
   oracle.json              compiler, flags, configuration defines and paths
 
@@ -45,7 +45,9 @@ REFERENCE = [
     "-DWEBP_ENABLE_SIMD=OFF", "-DWEBP_USE_THREAD=ON", "-DWEBP_NEAR_LOSSLESS=ON",
     "-DWEBP_ENABLE_SWAP_16BIT_CSP=OFF", "-DWEBP_BUILD_DWEBP=ON", "-DWEBP_BUILD_CWEBP=ON",
     "-DWEBP_BUILD_WEBPINFO=ON", "-DWEBP_BUILD_LIBWEBPMUX=ON", "-DWEBP_BUILD_ANIM_UTILS=OFF",
-    "-DWEBP_BUILD_GIF2WEBP=OFF", "-DWEBP_BUILD_IMG2WEBP=OFF", "-DWEBP_BUILD_VWEBP=OFF",
+    # IMG2WEBP=ON (WP14): img2webp builds the animated inputs of the animation
+    # decoder tests; it adds a tool, not a library object.
+    "-DWEBP_BUILD_GIF2WEBP=OFF", "-DWEBP_BUILD_IMG2WEBP=ON", "-DWEBP_BUILD_VWEBP=OFF",
     "-DWEBP_BUILD_WEBPMUX=OFF", "-DWEBP_BUILD_EXTRAS=OFF", "-DCMAKE_C_FLAGS=-ffp-contract=off",
 ]
 # config.h defines that would mean SIMD code was compiled into the oracle.
@@ -135,7 +137,8 @@ def build(variant, jobs, fresh, rust_lib=None):
         "upstream_c_flags_build_type": cache_value(directory, f"CMAKE_C_FLAGS_{settings['build_type'].upper()}"),
         "upstream_definitions": flags.get("definitions", ""),
         "config_h_defines": defines,
-        "tools": {name: str(directory / "libwebp" / name) for name in ("dwebp", "cwebp", "webpinfo")},
+        "tools": {name: str(directory / "libwebp" / name)
+                  for name in ("dwebp", "cwebp", "webpinfo", "img2webp")},
         "rust_staticlib": cache_value(directory, "LIBWEBP_RS_STATICLIB") or None,
         "probes": probes,
     }

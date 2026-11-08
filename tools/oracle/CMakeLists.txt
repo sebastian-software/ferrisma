@@ -29,7 +29,11 @@ set(WEBP_BUILD_DWEBP ON CACHE BOOL "" FORCE)
 set(WEBP_BUILD_CWEBP ON CACHE BOOL "" FORCE)
 set(WEBP_BUILD_WEBPINFO ON CACHE BOOL "" FORCE)
 set(WEBP_BUILD_LIBWEBPMUX ON CACHE BOOL "" FORCE)
-foreach(tool ANIM_UTILS GIF2WEBP IMG2WEBP VWEBP WEBPMUX EXTRAS WEBP_JS FUZZTEST)
+# img2webp (WP14) assembles the animated inputs of the animation decoder tests
+# from frame sequences; it needs only libwebpmux and imageio, and changes no
+# library object.
+set(WEBP_BUILD_IMG2WEBP ON CACHE BOOL "" FORCE)
+foreach(tool ANIM_UTILS GIF2WEBP VWEBP WEBPMUX EXTRAS WEBP_JS FUZZTEST)
   set(WEBP_BUILD_${tool} OFF CACHE BOOL "" FORCE)
 endforeach()
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -121,4 +125,4 @@ if(ALL_PROBES)
   add_dependencies(oracle_probes ${ALL_PROBES})
 endif()
 add_custom_target(oracle_tools)
-add_dependencies(oracle_tools dwebp cwebp webpinfo)
+add_dependencies(oracle_tools dwebp cwebp webpinfo img2webp)
