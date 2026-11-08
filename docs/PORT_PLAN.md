@@ -17,7 +17,7 @@ depends on are merged.
 | 6 | Control and API | `jdmaster.c`, `jdapistd.c`, `jpeg_finish_decompress` from `jdapimin.c` | 5 | Full decodes match byte for byte, including `jpeg_crop_scanline`, `jpeg_skip_scanlines` and scaled output |
 | 7 | Upstream bit tests | a Rust test runner: the library calls of `djpeg.c` for the options of the in-scope cases and `wrppm.c`'s PPM output, translated as test code; the port exports no C ABI ([ADR 0002](adr/0002-differential-oracle.md)) | 6 | The 30 in-scope 8-bit `djpeg` bit tests produce upstream's expected MD5 sums on the port |
 | 8 | Safe Rust API for Ferrixel | row-streaming decoder with scale, crop, ICC and EXIF access, `Result` errors | 6 | Ferrixel's `jpeg-read` adapter can replace `zune-jpeg` behind ADR-0025's gates |
-| 9 | NEON SIMD | `simd/arm` intrinsics (needs the SIMD unsafe ADR) | 6 | Bit-identical to the `WITH_SIMD=1` oracle on ARM64; speed measured against libjpeg-turbo |
+| 9 | NEON SIMD | `simd/arm` intrinsics and the decoder's part of `simd/jsimd.c` ([ADR 0007](adr/0007-neon-kernels-and-unsafe.md)) | 6 | Bit-identical to the `WITH_SIMD=1` oracle on ARM64; speed measured against libjpeg-turbo |
 | 10 | x86-64 SIMD | intrinsics rewritten from `simd/x86_64` NASM ([ADR 0004](adr/0004-simd-after-the-portable-port.md)) | 6 | Bit-identical to the `WITH_SIMD=1` oracle on x86-64; speed measured per kernel |
 | 11 | Conformance | ISO/IEC 10918-2 compliance data for baseline, extended 8-bit and progressive processes | 6 | Recorded conformance run for the processes in scope |
 

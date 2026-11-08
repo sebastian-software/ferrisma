@@ -10,12 +10,15 @@
 | 5 Upsampling, color, buffers | done | Upsamplers, color conversion, main and postprocessing controllers translated; decode probe below |
 | 6 Control and API | done | Master control and the decompression API translated; API probe below |
 | 7 Upstream bit tests | done | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
-| 8 Safe Rust API for Ferrixel | in review | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
-| 9–11 | not started | — |
+| 8 Safe Rust API for Ferrixel | done | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
+| 9 NEON SIMD | in review | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) proposed |
+| 10–11 | not started | — |
 
-Work packages 1 to 6 are translated: all 37 translated modules under `src/`
-([tools/units.json](../tools/units.json)). `src/decode.rs`, the safe API of
-work package 8, translates no upstream file.
+Work packages 1 to 6 are translated: 37 modules under `src/`
+([tools/units.json](../tools/units.json)). Work package 9 adds the 10 SIMD
+modules of the AArch64 decoder. `src/decode.rs`, the safe API of work package
+8, and `src/neon.rs`, the Neon loads and stores of work package 9, translate
+no upstream file.
 
 ## Work package 0
 
@@ -31,7 +34,7 @@ because upstream's default for Clang 14 and later on ARM64 is `fp-contract`.
 | --- | --- | --- | --- |
 | `release` | reference oracle | 332 of 332 pass (macOS ARM64, Linux x86-64) | 79 of 79 tests pass on both hosts |
 | `asan-ubsan` | same, with ASan and UBSan | 332 of 332 pass on both hosts | 79 of 79 tests pass on both hosts |
-| `simd` | `WITH_SIMD=1`, diagnostic for [ADR 0004](adr/0004-simd-after-the-portable-port.md) | 332 of 332 pass on macOS ARM64 (local) | not run in CI; on x86-64 it needs NASM |
+| `simd` | `WITH_SIMD=1`, the oracle of the SIMD configuration ([ADR 0007](adr/0007-neon-kernels-and-unsafe.md)) | 332 of 332 pass on macOS ARM64 (local); CI runs it on macOS and Linux ARM64 | 79 of 79 tests pass on macOS ARM64 (local); on x86-64 it needs NASM and stays diagnostic until work package 10 |
 
 The CI hosts are macOS ARM64 with Apple Clang and Linux x86-64 with Clang 21.
 
@@ -717,3 +720,90 @@ row per call wherever an error can occur. Ferrixel's adapter is not changed
 here: replacing `zune-jpeg` waits for the gates of Ferrixel ADR-0025
 (conformance, work package 11, and SIMD on both architectures, work packages
 9 and 10).
+
+## Work package 9
+
+**The configuration.** The default Cargo feature `simd` is upstream's
+`WITH_SIMD` ([ADR 0007](adr/0007-neon-kernels-and-unsafe.md)). `build.rs`
+sets `cfg(with_simd)` with the feature on AArch64; elsewhere, and without the
+feature, the crate is the reference configuration. With it, the translated C
+code follows upstream's SIMD build: `ALIGN_SIZE` is 32, `MULTIPLIER` and
+`DCTELEM` are 16-bit, the master marks the SIMD support as undetected, and
+`jdcolor.c`, `jdsample.c`, `jdmerge.c` and `jddctmgr.c` ask `jsimd_set_*` for
+a kernel first. `jidctfst.rs` evaluates every expression in `int` and
+converts to `DCTELEM` where C assigns or casts, and the multiplier table keeps
+the union's bytes in either width, so the C routines are exact in both
+configurations.
+
+**The kernels.** Eight modules translate the decoder's Neon files of
+`simd/arm`: the YCbCr-to-RGB converter for the seven RGB layouts, the h2v1
+and h2v2 merged upsamplers for the same layouts, the h2v1, h2v2 and h1v2
+fancy and the h2v1 and h2v2 plain upsamplers, and the islow, ifast, 2x2 and
+4x4 IDCTs. `src/jsimd.rs` translates the decoder's entry points of
+`simd/jsimd.c` (AArch64 branches) and `src/jsimdcpu.rs` the CPU query;
+`init_simd` honours `JSIMD_FORCENONE`. RGB565, the encoder's kernels and the
+other architectures are not translated
+([tools/units.json](../tools/units.json) lists each file).
+
+**Unsafe code.** Only `src/neon.rs` (13 blocks, one per whole-vector load or
+store, each over an array that covers what the instruction touches) and
+`src/jsimd.rs` (13 blocks, the calls through the `*_simd` slots) contain
+`unsafe`, each block with a `SAFETY` comment and an item-level allowance. The
+eight kernel modules declare `#![forbid(unsafe_code)]`. Lane stores, including
+those upstream writes through a byte row cast to `uint16_t *` or
+`uint64_t *`, are safe code.
+
+**The tests.** The whole differential suite runs against the `simd` oracle
+twice: with Neon in the port and the oracle, and with `JSIMD_FORCENONE=1` in
+both, which runs the C routines of the SIMD build. `Oracle::locate` requires
+the oracle's `WITH_SIMD` to match the crate's, and `tools/check.py` picks the
+features from the variant. `tests/wp9_simd.rs` adds:
+
+| Test | What it checks |
+| --- | --- |
+| `widths_and_samplings_match_the_oracle` | crops of `testorig.ppm` 1 to 101 pixels wide (22 widths around every multiple of 8 and 16) and 37 high, encoded 4:4:4, 4:2:2, 4:2:0, 4:4:0 and grayscale, each decoded with the default parameters, the fast IDCT, scales 1/2, 1/4 and 1/8, six output layouts, YCbCr output and plain upsampling: 418 decodes compared row by row with the WP6 probe |
+| `kernels_are_dispatched` | with `WITH_SIMD`, a decode of `testorig.jpg` selects the h2v2 upsampler, the color converter and the islow IDCT, and at 1/2 the 4x4 IDCT, or none of them with `JSIMD_FORCENONE=1` |
+
+The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums with Neon, as
+upstream expects the same sums from its Neon and C code on ARM64. Upstream's
+own Neon and C routines give identical output on all 418 decodes of the width
+test and on the test images, so a port kernel that differs from upstream's
+fails against either.
+
+A deliberate change to each kernel (a constant, a lane, a bias or a stored
+vector) makes tests fail, for every kernel: the color converter (3- and 4-byte
+layouts, whole vectors and the lane tails), both merged upsamplers, the five
+upsamplers and the four IDCTs.
+
+Locally on macOS ARM64 (Apple M1 Ultra, Apple Clang 21), `tools/check.py`
+passes against the `simd` oracle (both modes) and against the `release` and
+`asan-ubsan` oracles, in the dev, release and `checked` profiles, and the
+crate builds and tests with Rust 1.95. CI adds the `simd` oracle on macOS and
+Linux ARM64 and an MSRV run on Linux ARM64.
+
+**Speed.** `tools/bench.py` decodes with `examples/bench.rs` (the safe API)
+and the oracle probe `wp9/bench` (the libjpeg API) from memory into one buffer,
+and requires the same output. The photo is `testorig.ppm` tiled to 3632x2384
+pixels and encoded by `cjpeg` at quality 90. Median of 5 runs of 10 decodes,
+single-threaded, on an M1 Ultra that was running other builds at the time:
+the ratios are comparable, the absolute times are not.
+
+| Case | C, SIMD ms | port, Neon ms | ratio | C, no SIMD ms | port, portable ms | ratio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| baseline 4:2:0, RGB | 25.5 | 40.1 | 1.57 | 50.2 | 78.9 | 1.57 |
+| baseline 4:4:4, RGB | 35.9 | 58.0 | 1.62 | 69.9 | 95.4 | 1.37 |
+| progressive 4:2:0, RGB | 63.9 | 94.0 | 1.47 | 90.2 | 134.2 | 1.49 |
+| baseline 4:2:0, RGBX | 25.8 | 40.2 | 1.56 | 50.5 | 81.4 | 1.61 |
+| baseline 4:2:0, fast IDCT | 24.2 | 37.8 | 1.56 | 46.6 | 76.3 | 1.64 |
+| baseline 4:2:0, merged upsampling | 23.9 | 38.2 | 1.60 | 42.8 | 63.0 | 1.47 |
+| baseline 4:2:0, scale 1/2 | 21.4 | 34.4 | 1.61 | 32.3 | 45.8 | 1.42 |
+| baseline 4:2:0, scale 1/8 | 17.6 | 31.0 | 1.76 | 17.9 | 31.7 | 1.77 |
+
+Neon halves the port's baseline decode, as it halves libjpeg-turbo's. The
+port stays about 1.5 times slower in both configurations, and most at 1/8
+scale, where the IDCT and upsampling do almost nothing: the gap lies in the
+code both configurations share, chiefly entropy decoding, not in the kernels.
+
+**Not covered.** The x86-64 kernels are work package 10; on x86-64 the
+`simd` feature has no effect and the `simd` oracle stays diagnostic. The
+speed table is one local run under load; CI does not measure speed.
