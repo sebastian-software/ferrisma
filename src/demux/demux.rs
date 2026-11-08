@@ -521,7 +521,7 @@ fn create_raw_image_demuxer(buf: &[u8], mem: MemBuffer) -> (ParseStatus, Option<
     (ParseStatus::PARSE_OK, Some(dmux))
 }
 
-// upstream: src/demux/demux.c MASTER_CHUNKS
+// upstream: src/demux/demux.c ChunkParser, kMasterChunks
 /// The chunks that open a RIFF file (C: `kMasterChunks`, a table of the parse and
 /// validation functions per tag).
 #[derive(Clone, Copy)]
@@ -533,6 +533,7 @@ enum MasterChunk {
 }
 
 impl MasterChunk {
+    /// Looks up the `kMasterChunks` entry whose `id` is `tag` (C: the `memcmp` loop).
     fn from_tag(tag: &[u8]) -> Option<Self> {
         match tag {
             b"VP8 " | b"VP8L" => Some(Self::SingleImage),
@@ -541,6 +542,7 @@ impl MasterChunk {
         }
     }
 
+    /// Runs the `parse` function pointer of the `ChunkParser` entry (C: `parser->parse`).
     fn parse(self, dmux: &mut WebPDemuxer<'_>) -> ParseStatus {
         match self {
             Self::SingleImage => dmux.parse_single_image(),
@@ -548,6 +550,7 @@ impl MasterChunk {
         }
     }
 
+    /// Runs the `valid` function pointer of the `ChunkParser` entry (C: `parser->valid`).
     fn is_valid(self, dmux: &WebPDemuxer<'_>) -> bool {
         match self {
             Self::SingleImage => dmux.is_valid_simple_format(),
