@@ -9,11 +9,13 @@
 | 4 Coefficients and IDCT | done | Coefficient controller, IDCT manager and all IDCT routines translated; IDCT and pipeline probes below |
 | 5 Upsampling, color, buffers | done | Upsamplers, color conversion, main and postprocessing controllers translated; decode probe below |
 | 6 Control and API | done | Master control and the decompression API translated; API probe below |
-| 7 Upstream bit tests | in review | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
-| 8–11 | not started | — |
+| 7 Upstream bit tests | done | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
+| 8 Safe Rust API for Ferrixel | in review | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
+| 9–11 | not started | — |
 
-Work packages 1 to 6 are translated: all 37 modules under `src/`
-([tools/units.json](../tools/units.json)).
+Work packages 1 to 6 are translated: all 37 translated modules under `src/`
+([tools/units.json](../tools/units.json)). `src/decode.rs`, the safe API of
+work package 8, translates no upstream file.
 
 ## Work package 0
 
@@ -659,3 +661,59 @@ profiles.
 The damaged-stream tests of work packages 2 to 6 cover corrupt input against
 the oracle; coverage-guided fuzzing in Rust needs a development dependency
 and is a separate decision (ADR 0002, ADR 0003).
+
+## Work package 8
+
+**The API.** `src/decode.rs` is a safe row-streaming decoder over the
+translated libjpeg API, re-exported at the crate root
+([ADR 0006](adr/0006-safe-decoding-api.md)). `Decoder` reads the header with
+`jpeg_mem_src` and saved APP1 and APP2 markers, and offers the EXIF data, the
+ICC profile (`jpeg_read_icc_profile`) and the output dimensions
+(`jpeg_calc_output_dimensions`). `Decoder::start` sets the output format,
+scale, DCT method, fancy upsampling and block smoothing and calls
+`jpeg_start_decompress`. `Scanlines` crops (`jpeg_crop_scanline`), skips
+(`jpeg_skip_scanlines`), reads whole rows into a caller buffer
+(`jpeg_read_scanlines`) and finishes (`jpeg_finish_decompress`); dropping
+either type calls `jpeg_destroy_decompress`. Its error manager records errors
+and warnings with upstream's codes and texts instead of printing them, and can
+stop at the first warning. `DecoderOptions::max_memory` sets
+`max_memory_to_use`. [tools/units.json](../tools/units.json) lists the module
+under `own_modules`, which `tools/units.py` checks.
+
+**The tests.** `tests/wp8_decode.rs` runs each case through the safe API and
+the same calls through the oracle: the WP6 probe for decodes, with the output
+parameters as options and the crops, skips and reads as its plan, and the WP2
+probe for metadata. Each comparison covers the output dimensions, the crop,
+an FNV-1a hash of every row read, the warnings with codes and texts, the
+warning count and the error.
+
+| Test | What it checks |
+| --- | --- |
+| `decodes_match_the_oracle` | the three test images and the 8-bit encoder variants (progressive, arithmetic, restart intervals, sampling factors, grayscale, RGB, qualities 5 and 100, scan scripts), each with the default parameters, plain upsampling, the fast and float DCTs, no block smoothing and grayscale output, read whole and with a crop, skips and multi-row reads |
+| `formats_match_the_oracle` | all 14 output formats and the default for YCbCr, RGB, grayscale, CMYK and YCCK input, whole and with a crop and a skip; conversions libjpeg lacks fail with its error, and the reported format is the requested one |
+| `scales_match_the_oracle` | every scale from 1/8 to 16/8 and five factors between and beyond them, with and without fancy upsampling, whole and cropped, on baseline, progressive, 1x1-sampled and grayscale input |
+| `plans_match_the_oracle` | crops at the edges and beyond the image, a crop after a read, skips past the end, reads past the end and an early finish, on baseline and progressive input |
+| `header_errors_match_the_oracle` | data that is no JPEG image, SOI alone, SOI and EOI, headers cut at three points and an SOF of zero width |
+| `damaged_streams_match_the_oracle` | every 8-bit variant cut at four points and altered at three, with the default parameters, with skips and without block smoothing |
+| `fail_on_warning_stops_at_the_first_warning` | the same inputs with `fail_on_warning`: the decode stops with the oracle's first warning, after a prefix of the oracle's rows |
+| `memory_limit_matches_jpegmem` | `max_memory` against the oracle's `JPEGMEM` at five limits, on progressive input, where low limits fail with `JERR_NO_BACKING_STORE`, and on baseline input, where they do not apply |
+| `metadata_matches_the_oracle` | the EXIF data equals the oracle's first saved APP1 marker that starts with `Exif\0\0`, after the identifier, and the ICC profile and warnings equal `jpeg_read_icc_profile`'s, for no metadata, two ICC profiles, a bogus ICC profile, EXIF, XMP, XMP before EXIF and short EXIF segments; with `fail_on_warning` the bogus profile fails with `JWRN_BOGUS_ICC` |
+| `output_info_matches_the_start` | the header fields, and `output_info` before the start equals what the start reports |
+| `rejected_requests_fail` | buffers that hold no whole rows fail with `InvalidArgument` before any call, reads past the end return 0, empty input fails with `JERR_INPUT_EMPTY`, and a 12-bit file, which the oracle decodes, fails at the start with `JERR_BAD_PRECISION` (ADR 0005) |
+
+Mutating the API (block smoothing, fancy upsampling, the DCT method, the
+format mapping, the scale, the memory limit, `fail_on_warning`, the warning
+log and the EXIF identifier) makes at least one of these tests fail.
+
+Locally on macOS ARM64 (Apple Clang 21), all of this passes against the
+`release` and `asan-ubsan` oracles in the dev, release and `checked`
+profiles.
+
+**Not covered.** The probe prints the warnings of a failed
+`jpeg_start_decompress` or `jpeg_finish_decompress`; the safe API drops the
+decoder with the error, so those cases compare the error and the rows only.
+`read_rows` loses the rows of a call that fails partway; the tests read one
+row per call wherever an error can occur. Ferrixel's adapter is not changed
+here: replacing `zune-jpeg` waits for the gates of Ferrixel ADR-0025
+(conformance, work package 11, and SIMD on both architectures, work packages
+9 and 10).

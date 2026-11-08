@@ -23,8 +23,11 @@ control and the decompression API (`jpeg_start_decompress`,
 `jpeg_read_scanlines`, `jpeg_skip_scanlines`, `jpeg_crop_scanline`, raw data
 and buffered-image mode), and work package 7 runs upstream's 30 in-scope
 `djpeg` bit tests on the port through a Rust driver, with upstream's MD5
-sums. The safe Rust API is next. The port serves Rust programs and exports no
-C ABI. See the
+sums. Work package 8 adds the safe Rust API: `jpeg::Decoder` and
+`jpeg::Scanlines` stream rows with scaling, cropping and skipping, and return
+the EXIF data, the ICC profile and libjpeg's errors and warnings as values
+([ADR 0006](docs/adr/0006-safe-decoding-api.md)). The port serves Rust
+programs and exports no C ABI. See the
 [port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
 [port status](docs/PORT_STATUS.md) for what is verified.
 
