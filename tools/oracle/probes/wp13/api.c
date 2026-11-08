@@ -43,6 +43,16 @@
 //   planedist w h stride xstep type seed1 seed2
 //                                   WebPPlaneDistortion: ret=, result=
 //   print i                         pic=
+//   junk i                          points the planes of the storage that
+//                                   use_argb does not select at misaligned
+//                                   addresses with negative strides, which no
+//                                   call may read (pic= prints j for them)
+//   flip i mask                     turns planes upside down: the pointer moves
+//                                   to the last row and the stride changes sign
+//                                   (mask 1: y, 2: u and v, 4: a, 8: argb)
+//   encode i lossless method        WebPEncode into a WebPMemoryWriter with the
+//                                   default configuration: ret=, error=,
+//                                   out=size,digest, then pic=
 //
 // pic= prints use_argb, colorspace, width, height, the four strides,
 // WebPPictureIsView, and the FNV-1a digests of the visible samples of the y,
@@ -117,12 +127,20 @@ static uint64_t Fnv(uint64_t hash, const uint8_t* data, size_t size) {
 // (WebPPictureAlloc): their presence is printed instead of their digest.
 static int g_samples = 1;
 
+// The plane addresses of `junk`, which no call may read.
+#define JUNK8 ((uint8_t*)(uintptr_t)0x11)
+#define JUNK32 ((uint32_t*)(uintptr_t)0x13)
+
 static void PrintPlane(const uint8_t* plane, int stride, int width,
                        int height) {
   uint64_t hash = FNV_START;
   int y;
   if (plane == NULL) {
     printf(",-");
+    return;
+  }
+  if (plane == JUNK8) {
+    printf(",j");
     return;
   }
   if (!g_samples) {
@@ -141,6 +159,10 @@ static void PrintArgb(const uint32_t* plane, int stride, int width,
   int x, y;
   if (plane == NULL) {
     printf(",-");
+    return;
+  }
+  if (plane == JUNK32) {
+    printf(",j");
     return;
   }
   if (!g_samples) {
@@ -390,6 +412,52 @@ static int Import(WebPPicture* pic, int kind, int stride, uint32_t seed,
   return ret;
 }
 
+static uint8_t* Flip8(uint8_t* plane, int* stride, int rows) {
+  if (plane == NULL || rows <= 0) return plane;
+  plane += (ptrdiff_t)(rows - 1) * *stride;
+  *stride = -*stride;
+  return plane;
+}
+
+static void Flip(WebPPicture* pic, int mask) {
+  const int uv_h = (pic->height + 1) >> 1;
+  if (mask & 1) pic->y = Flip8(pic->y, &pic->y_stride, pic->height);
+  if (mask & 2) {
+    int stride = pic->uv_stride;
+    pic->u = Flip8(pic->u, &stride, uv_h);
+    stride = pic->uv_stride;
+    pic->v = Flip8(pic->v, &stride, uv_h);
+    pic->uv_stride = stride;
+  }
+  if (mask & 4) pic->a = Flip8(pic->a, &pic->a_stride, pic->height);
+  if ((mask & 8) && pic->argb != NULL && pic->height > 0) {
+    pic->argb += (ptrdiff_t)(pic->height - 1) * pic->argb_stride;
+    pic->argb_stride = -pic->argb_stride;
+  }
+}
+
+static void Encode(WebPPicture* pic, int lossless, int method) {
+  WebPConfig config;
+  WebPMemoryWriter memory;
+  WebPWriterFunction writer = pic->writer;
+  void* custom = pic->custom_ptr;
+  int ret;
+  if (!WebPConfigInit(&config)) exit(2);
+  config.lossless = lossless;
+  config.method = method;
+  WebPMemoryWriterInit(&memory);
+  pic->writer = WebPMemoryWrite;
+  pic->custom_ptr = &memory;
+  ret = WebPEncode(&config, pic);
+  pic->writer = writer;
+  pic->custom_ptr = custom;
+  printf("ret=%d\nerror=%d\nout=%zu,%016llx\n", ret, (int)pic->error_code,
+         memory.size,
+         (unsigned long long)Fnv(FNV_START, memory.mem, memory.size));
+  WebPMemoryWriterClear(&memory);
+  PrintPicture(pic);
+}
+
 static void Result(int ret, const WebPPicture* pic) {
   printf("ret=%d\nerror=%d\n", ret, (int)pic->error_code);
   PrintPicture(pic);
@@ -516,6 +584,23 @@ int main(int argc, char* argv[]) {
       free(ref);
     } else if (!strcmp(cmd, "print")) {
       PrintPicture(&P[a[0]]);
+    } else if (!strcmp(cmd, "junk")) {
+      WebPPicture* const pic = &P[a[0]];
+      if (pic->use_argb) {
+        pic->y = pic->u = pic->v = pic->a = JUNK8;
+        pic->y_stride = -7;
+        pic->uv_stride = -3;
+        pic->a_stride = -5;
+      } else {
+        pic->argb = JUNK32;
+        pic->argb_stride = -9;
+      }
+      PrintPicture(pic);
+    } else if (!strcmp(cmd, "flip")) {
+      Flip(&P[a[0]], a[1]);
+      PrintPicture(&P[a[0]]);
+    } else if (!strcmp(cmd, "encode")) {
+      Encode(&P[a[0]], a[1], a[2]);
     } else {
       fprintf(stderr, "unknown command %s\n", cmd);
       return 2;
