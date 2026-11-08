@@ -10,6 +10,18 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_block_error_avx2
   av1_block_error_lp_avx2
   av1_highbd_block_error_avx2
+  cdef_copy_rect8_16bit_to_16bit_avx2
+  cdef_copy_rect8_8bit_to_16bit_avx2
+  cdef_filter_16_0_avx2
+  cdef_filter_16_1_avx2
+  cdef_filter_16_2_avx2
+  cdef_filter_16_3_avx2
+  cdef_filter_8_0_avx2
+  cdef_filter_8_1_avx2
+  cdef_filter_8_2_avx2
+  cdef_filter_8_3_avx2
+  cdef_find_dir_avx2
+  cdef_find_dir_dual_avx2
 /;
 foreach my $fn (keys %ALL_FUNCS) {
   foreach my $ext (qw/sse2 sse4_1 avx2/) {
