@@ -559,6 +559,15 @@ impl MasterChunk {
     }
 }
 
+impl<'a> WebPDemuxer<'a> {
+    /// The input that the demuxer parsed (C: `mem.buf`). The C ABI (WP14) needs it
+    /// to locate the tag four bytes before a chunk iterator's payload, which C
+    /// reads through `chunk.bytes - CHUNK_HEADER_SIZE`. No C counterpart.
+    pub(crate) fn input(&self) -> &'a [u8] {
+        self.buf
+    }
+}
+
 impl WebPDemuxer<'_> {
     // upstream: src/demux/demux.c AddChunk
     fn add_chunk(&mut self, chunk: Chunk) {

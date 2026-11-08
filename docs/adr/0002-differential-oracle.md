@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-06
+- Updated: 2026-11-08
 
 ## Context
 
@@ -21,13 +21,16 @@ the reference configuration of the port plan:
 -DCMAKE_BUILD_TYPE=Release -DWEBP_ENABLE_SIMD=OFF -DWEBP_USE_THREAD=ON
 -DWEBP_NEAR_LOSSLESS=ON -DWEBP_ENABLE_SWAP_16BIT_CSP=OFF -DWEBP_BUILD_DWEBP=ON
 -DWEBP_BUILD_CWEBP=ON -DWEBP_BUILD_WEBPINFO=ON -DWEBP_BUILD_LIBWEBPMUX=ON
--DWEBP_BUILD_ANIM_UTILS=OFF -DWEBP_BUILD_GIF2WEBP=OFF -DWEBP_BUILD_IMG2WEBP=OFF
+-DWEBP_BUILD_ANIM_UTILS=OFF -DWEBP_BUILD_GIF2WEBP=OFF -DWEBP_BUILD_IMG2WEBP=ON
 -DWEBP_BUILD_VWEBP=OFF -DWEBP_BUILD_WEBPMUX=OFF -DWEBP_BUILD_EXTRAS=OFF
 -DCMAKE_C_FLAGS=-ffp-contract=off
 ```
 
-The build fails if the generated `config.h` defines any `WEBP_HAVE_<SIMD>`
-macro. One deliberate addition: on x86-64, upstream's `WEBP_ENABLE_SIMD=OFF`
+`WEBP_BUILD_IMG2WEBP` is on since WP14 (2026-11-08): the oracle's `img2webp`
+assembles animated inputs for the animation decoder tests. It adds a tool
+linked against `libwebpmux`, which is built anyway, and changes no library
+object. The build fails if the generated `config.h` defines any
+`WEBP_HAVE_<SIMD>` macro. One deliberate addition: on x86-64, upstream's `WEBP_ENABLE_SIMD=OFF`
 also appends `-mno-sse2`, which removes the SSE2 baseline of the x86-64 psABI,
 and Clang then rejects every function that returns a `double`
 (`SSE2 register return with SSE2 disabled`; `src/dsp/ssim.c` has several). The

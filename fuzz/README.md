@@ -15,6 +15,7 @@ library, and its only dependency besides the library is `libfuzzer-sys`
 | `huffman_fuzzer` | `huffman_fuzzer.cc` | `ReadHuffmanCodesHelper` of the lossless decoder |
 | `enc_fuzzer` | `enc_fuzzer.cc` | `WebPEncode` with a fuzzed configuration on a WebP file (imageio's other readers have no Rust counterpart), cropped or scaled, then decoding and the exactness check |
 | `enc_dec_fuzzer` | `enc_dec_fuzzer.cc` | `WebPEncode` with a fuzzed configuration on the three built-in pictures, cropped or scaled, then `WebPDecode` and the exactness check |
+| `animdecoder_fuzzer` | `animdecoder_fuzzer.cc` | `WebPAnimDecoderNew` with the default options, then `WebPAnimDecoderGetNext` for every frame, after upstream's canvas-size limits |
 
 cargo-fuzz needs a nightly toolchain. From the repository root:
 

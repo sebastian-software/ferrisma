@@ -62,7 +62,7 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
   -DWEBP_ENABLE_SIMD=OFF -DWEBP_USE_THREAD=ON -DWEBP_NEAR_LOSSLESS=ON \
   -DWEBP_ENABLE_SWAP_16BIT_CSP=OFF -DWEBP_BUILD_DWEBP=ON -DWEBP_BUILD_CWEBP=ON \
   -DWEBP_BUILD_WEBPINFO=ON -DWEBP_BUILD_LIBWEBPMUX=ON -DWEBP_BUILD_ANIM_UTILS=OFF \
-  -DWEBP_BUILD_GIF2WEBP=OFF -DWEBP_BUILD_IMG2WEBP=OFF -DWEBP_BUILD_VWEBP=OFF \
+  -DWEBP_BUILD_GIF2WEBP=OFF -DWEBP_BUILD_IMG2WEBP=ON -DWEBP_BUILD_VWEBP=OFF \
   -DWEBP_BUILD_WEBPMUX=OFF -DWEBP_BUILD_EXTRAS=OFF -DCMAKE_C_FLAGS=-ffp-contract=off
 ```
 
@@ -71,8 +71,9 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
 on x86-64 to restore the psABI baseline that upstream's SIMD-off flags remove
 ([ADR 0002](adr/0002-differential-oracle.md)). The resulting `config.h` defines
 `WEBP_USE_THREAD` and `WEBP_NEAR_LOSSLESS` and no `WEBP_HAVE_<SIMD>` macro;
-`WEBP_SWAP_16BIT_CSP`, `WEBP_REDUCE_SIZE` and `WEBP_REDUCE_CSP` are unset. Other
-configurations are not claimed.
+`WEBP_SWAP_16BIT_CSP`, `WEBP_REDUCE_SIZE` and `WEBP_REDUCE_CSP` are unset.
+`img2webp` is built (since WP14) to assemble animated test inputs; it changes no
+library object. Other configurations are not claimed.
 
 - SIMD off and `-ffp-contract=off` give a non-contracting scalar reference,
   as in libavif-rs ADR 0024. Rust does not contract floating-point expressions.
