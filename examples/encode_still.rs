@@ -170,7 +170,24 @@ fn rtcd_selection() -> &'static str {
     if selected == av1_highbd_quantize_fp_neon as usize { "simd(neon)" } else { "c" }
 }
 
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+/// On x86-64 GNU Linux (ADR 0058), `av1_block_error` has an AVX2 kernel and
+/// no ported SSE4.1 one, so it tells AVX2 dispatch apart from SSE4.1 dispatch.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn rtcd_selection() -> &'static str {
+    use aom::simd::av1__encoder__x86__error_intrin_avx2::av1_block_error_avx2;
+    extern "C" {
+        // RTCD pointer defined by the translated av1_rtcd.c (aom_ports/x86.h
+        // dispatch); only its address value is read.
+        static av1_block_error: usize;
+    }
+    // SAFETY: setup_rtcd_internal() assigned the pointer during encoder
+    // initialization, which happened-before this read on this thread.
+    let selected = unsafe { av1_block_error };
+    if selected == av1_block_error_avx2 as usize { "simd(avx2)" } else { "c" }
+}
+
+#[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"),
+              all(target_os = "linux", target_arch = "x86_64"))))]
 fn rtcd_selection() -> &'static str {
     "c(no dispatch on this target)"
 }

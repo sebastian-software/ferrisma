@@ -1,0 +1,67 @@
+name: AOM x86 SIMD validation
+
+# ADR 0058: the hand-translated SSE2, SSE4.1 and AVX2 kernels run only on
+# native x86-64 runners. The kernel comparisons call the kernels directly and
+# hold for any committed Linux profile; the AVIF identity corpus needs Linux
+# profiles generated with dispatching RTCD headers.
+on:
+  pull_request:
+    paths:
+      - 'crates/aom/**'
+      - 'examples/encode_still.rs'
+      - 'tools/check_aom_simd_identity.py'
+      - '.github/workflows/aom-simd-linux.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/aom/**'
+      - 'examples/encode_still.rs'
+      - 'tools/check_aom_simd_identity.py'
+      - '.github/workflows/aom-simd-linux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  x86-64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      RUSTUP_TOOLCHAIN: nightly-2026-09-07
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain and ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          rustup toolchain install nightly-2026-09-07 --profile minimal
+      - name: Record the runner CPU
+        run: |
+          grep -m1 'model name' /proc/cpuinfo
+          grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
+      - name: Compare the SIMD kernels with their C functions
+        run: |
+          cargo test -p libavif-aom --locked --release --test simd
+          cargo test -p libavif-aom --locked --test simd
+      - name: Compare AVIF output with SIMD, SSE4.1 and C dispatch
+        id: identity
+        run: |
+          if ! grep -q '"rtcd_dispatch"' crates/aom/TRANSLATION-linux-release.json; then
+            echo "The committed Linux profiles predate x86 dispatch; skipping the AVIF identity corpus."
+            exit 0
+          fi
+          python3 tools/check_aom_simd_identity.py --output build/aom-simd-identity-validation-linux.json
+      - name: Preserve the identity report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-simd-identity-linux
+          path: build/aom-simd-identity-validation-linux.json
+          if-no-files-found: ignore

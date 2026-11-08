@@ -31,7 +31,34 @@ CRATE = ROOT / 'crates/aom'
 RTCD_DISPATCH = {
     'macos': dict(arch='arm64', overlay='crates/aom/rtcd/arm64.pl',
                   disable=['arm_crc32', 'neon_dotprod', 'neon_i8mm', 'sve', 'sve2']),
+    # ADR 0058: SSE2, SSE4.1 and AVX2 kernels; every other family disabled.
+    'linux': dict(arch='x86_64', overlay='crates/aom/rtcd/x86_64.pl',
+                  disable=['mmx', 'sse', 'sse3', 'ssse3', 'sse4_2', 'avx', 'avx512']),
 }
+SIMD_SUFFIX = {'macos': r'neon', 'linux': r'(?:sse2|sse4_1|avx2)'}
+
+# The generic configuration sets AOM_ARCH_X86_64 to 0, so aom_ports/x86.h
+# lowers cpuid() through its 32-bit form, which moves EBX through EDI and
+# restores only its low half. That clobbers the upper half of LLVM's reserved
+# RBX on x86-64 (ADR 0023). Replace exactly that lowering with the intrinsic
+# for the same leaf and subleaf; every other statement of x86_simd_caps()
+# keeps its translated form (ADR 0058).
+CPUID_ASM = re.compile(
+    r'asm!\(\s*"mov %ebx, %edi   \\n",\s*"\\tcpuid              \\n",\s*'
+    r'"\\txchg %edi, %ebx  \\n",\s*"\\t\\n",\s*'
+    r'inlateout\("ax"\)\s+(\d+)\s+as\s+core::ffi::c_int\s+=>\s+(\w+),\s*'
+    r'lateout\("di"\)\s+(\w+),\s*'
+    r'inlateout\("cx"\)\s+(\d+)\s+as\s+core::ffi::c_int\s+=>\s+(\w+),\s*'
+    r'lateout\("dx"\)\s+(\w+),\s*options\(preserves_flags, att_syntax\)\s*\);')
+
+
+def map_cpuid(text):
+    def replace(match):
+        leaf, eax, ebx, subleaf, ecx, edx = match.groups()
+        return (f'let registers = core::arch::x86_64::__cpuid_count({leaf}, {subleaf}); '
+                f'{eax} = registers.eax; {ebx} = registers.ebx; '
+                f'{ecx} = registers.ecx; {edx} = registers.edx;')
+    return CPUID_ASM.subn(replace, text)
 RTCD_HEADERS = [('aom_dsp_rtcd', 'aom_dsp/aom_dsp_rtcd_defs.pl'),
                 ('aom_scale_rtcd', 'aom_scale/aom_scale_rtcd.pl'),
                 ('av1_rtcd', 'av1/common/av1_rtcd_defs.pl')]
@@ -160,8 +187,10 @@ def main():
         # The hand-translated kernels and CPU detection in crates/aom/src/simd
         # are port functions with the translation's unwinding ABI (ADR 0056).
         for name in dispatch['headers']:
-            ported_functions.update(re.findall(r'\b(\w+_neon)\(', (dispatch_root / name).read_text()))
-        ported_functions.add('aom_arm_cpu_caps')
+            ported_functions.update(re.findall(rf'\b(\w+_{SIMD_SUFFIX[platform]})\(',
+                                               (dispatch_root / name).read_text()))
+        if platform == 'macos':
+            ported_functions.add('aom_arm_cpu_caps')
     if ported_functions & {'malloc', 'free', 'realloc', 'calloc', 'memcpy', 'memmove', 'memset', 'strlen'}:
         raise SystemExit('The codec source closure unexpectedly defines system runtime primitives')
     correction_version = hashlib.sha256(b''.join((ROOT / 'tools' / name).read_bytes() for name in
@@ -198,6 +227,11 @@ def main():
         changes.update(jump_changes)
         text, extra_changes = compatibility(text)
         changes.update(extra_changes)
+        if dispatch is not None and platform == 'linux' and 'fn x86_simd_caps()' in text:
+            text, count = map_cpuid(text)
+            if count != 3 or '\\tcpuid' in text:
+                raise SystemExit(f'Unexpected CPUID assembly lowering in {relative}')
+            changes['cpuid-register-mapping'] = count
         if original.name == 'tx_search.c':
             changes['name-static-float-compound-literals'] = 9
         text = text.replace('__dav1d_align_', '__aom_align_')
