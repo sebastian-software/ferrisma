@@ -576,3 +576,51 @@ fn raw_mut_and_from_build_the_same_configuration() {
     assert_eq!(*typed.as_raw(), raw, "{}", case.describe());
     assert_eq!(case.get(F::Method), raw.method);
 }
+
+/// Straight RGBA8 rows packed as `0xAARRGGBB` words into caller memory
+/// (`Picture::from_argb`) encode exactly as the same rows imported into ARGB
+/// (`Picture::import`), which the groups above compare with C. This is the
+/// packing that `docs/status/wp17.md` recommends to a sink that fills a
+/// budgeted frame row by row (Rust only: both routes end in `webp_encode`).
+#[test]
+fn rgba_rows_packed_as_argb_words_encode_as_the_importer() {
+    let mut rng = wp13_cases::Rng(0x1717_a4b0);
+    let configs = [
+        Config::new(),
+        Config::new().quality(30.0).method(6).sharp_yuv(true),
+        Config::new().lossless(true),
+        Config::new().lossless_level(9).unwrap().exact(true),
+    ];
+    let mut compared = 0;
+    for round in 0..32 {
+        let alpha = wp13_cases::ALPHAS[round % 4];
+        let content = wp13_cases::CONTENTS[(round / 4) % 4];
+        let (width, height) = (1 + rng.below(40) as u32, 1 + rng.below(30) as u32);
+        let words = wp13_cases::picture(&mut rng, content, alpha, width as i32, height as i32);
+        let rgba: Vec<u8> = words.iter().flat_map(|word| word.to_le_bytes()).collect();
+        for config in &configs {
+            let rows = PixelRows {
+                layout: PixelLayout::Rgba,
+                data: &rgba,
+                width,
+                height,
+                stride: 4 * width as usize,
+            };
+            let mut imported = Picture::import(rows, SampleForm::Argb).unwrap();
+            let expected = Encoder::new(config).encode(&mut imported).unwrap();
+            // One row at a time, as a sink receives them, into padded rows.
+            let stride = width as usize + 3;
+            let mut frame = vec![0_u32; stride * height as usize];
+            for (y, row) in rgba.chunks(4 * width as usize).enumerate() {
+                for (x, p) in row.chunks(4).enumerate() {
+                    frame[y * stride + x] = u32::from_be_bytes([p[3], p[0], p[1], p[2]]);
+                }
+            }
+            let mut picture = Picture::from_argb(&mut frame, width, height, stride).unwrap();
+            let bytes = Encoder::new(config).encode(&mut picture).unwrap();
+            assert_eq!(bytes, expected, "round {round}, {config:?}");
+            compared += 1;
+        }
+    }
+    assert_eq!(compared, 128);
+}
