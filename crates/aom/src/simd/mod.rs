@@ -1,13 +1,15 @@
 //! Hand-translated SIMD specializations of libaom's run-time CPU dispatch
 //! (RTCD) functions, ADR 0056.
 //!
-//! Each file mirrors one original `*_neon.c` (or helper `*_neon.h`) under the
-//! same relative path below `upstream/aom`, and keeps its function names,
-//! helper structure, and intrinsic sequence. The translated scalar code calls
-//! these kernels only through the RTCD function pointers that
-//! `aom_dsp_rtcd()` and `av1_rtcd()` assign from `aom_arm_cpu_caps()`, so the
-//! `_c` implementations stay selectable at run time with
-//! `AOM_SIMD_CAPS_MASK=0`. Every exported kernel must produce the same output
+//! Each file mirrors one original `*_neon.c`, `*_sse2.c`, `*_sse4.c` or
+//! `*_avx2.c` (or a helper header) under the same relative path below
+//! `upstream/aom`, and keeps its function names, helper structure, and
+//! intrinsic sequence. The translated scalar code calls these kernels only
+//! through the RTCD function pointers that `aom_dsp_rtcd()` and `av1_rtcd()`
+//! assign from `aom_arm_cpu_caps()` on AArch64 and `x86_simd_caps()` on
+//! x86-64 (ADR 0058), so the `_c` implementations stay selectable at run time
+//! with `AOM_SIMD_CAPS_MASK=0`. x86 functions carry the `target_feature` of the
+//! compiler flag upstream builds their file with. Every exported kernel must produce the same output
 //! as its `_c` counterpart for all inputs the original tests accept.
 #![allow(clippy::all)]
 
@@ -88,3 +90,11 @@ pub mod av1__encoder__arm__shift_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/txfm_neon.rs"]
 pub mod av1__encoder__arm__txfm_neon;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/error_intrin_avx2.rs"]
+pub mod av1__encoder__x86__error_intrin_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/highbd_block_error_intrin_avx2.rs"]
+pub mod av1__encoder__x86__highbd_block_error_intrin_avx2;

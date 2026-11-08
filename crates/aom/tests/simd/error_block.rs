@@ -1,6 +1,6 @@
 // Supplementary transcription of upstream/aom/test/error_block_test.cc
-// (ErrorBlockTest OperationCheck and ExtremeValues) for its Neon
-// instantiation. Inputs, seeds, iteration counts, and exact comparisons follow
+// (ErrorBlockTest OperationCheck and ExtremeValues) for its Neon and AVX2
+// instantiations. Inputs, seeds, iteration counts, and exact comparisons follow
 // the original.
 use super::acm_random::ACMRandom;
 
@@ -150,6 +150,53 @@ mod neon {
 
     #[test]
     fn extreme_values_all() {
+        for (op, reference, bd) in PARAMS {
+            extreme_values(op, reference, bd);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod avx2 {
+    use super::*;
+    use aom::simd::av1__encoder__x86__error_intrin_avx2::*;
+    use aom::simd::av1__encoder__x86__highbd_block_error_intrin_avx2::*;
+
+    unsafe fn highbd_avx2(c: *const i32, d: *const i32, n: isize, ssz: *mut i64, bd: i32) -> i64 {
+        av1_highbd_block_error_avx2(c, d, n, ssz, bd)
+    }
+    unsafe fn block_error_8bit_avx2(c: *const i32, d: *const i32, n: isize, ssz: *mut i64,
+                                    bps: i32) -> i64 {
+        assert_eq!(bps, 8);
+        av1_block_error_avx2(c, d, n, ssz)
+    }
+    unsafe fn block_error_lp_avx2(c: *const i32, d: *const i32, n: isize, ssz: *mut i64,
+                                  bps: i32) -> i64 {
+        assert_eq!(bps, 8);
+        *ssz = -1;
+        av1_block_error_lp_avx2(c as *const i16, d as *const i16, n)
+    }
+
+    // kErrorBlockTestParamsAvx2
+    const PARAMS: [(ErrorBlockFunc, ErrorBlockFunc, i32); 5] = [
+        (highbd_avx2, highbd_c, 10),
+        (highbd_avx2, highbd_c, 12),
+        (highbd_avx2, highbd_c, 8),
+        (block_error_8bit_avx2, block_error_8bit_c, 8),
+        (block_error_lp_avx2, block_error_lp_c, 8),
+    ];
+
+    #[test]
+    fn operation_check_all() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        for (op, reference, bd) in PARAMS {
+            operation_check(op, reference, bd);
+        }
+    }
+
+    #[test]
+    fn extreme_values_all() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
         for (op, reference, bd) in PARAMS {
             extreme_values(op, reference, bd);
         }
