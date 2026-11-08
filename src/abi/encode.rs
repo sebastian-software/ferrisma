@@ -741,7 +741,12 @@ unsafe fn packed_rows(
 ) -> (Vec<u8>, i32) {
     let pixel = if import_alpha { 4 } else { 3 };
     let min_row = i64::from(pixel) * i64::from(width);
-    if width <= 0 || height <= 0 || i64::from(stride).abs() < min_row {
+    if width <= 0 {
+        // Import's stride test passes for every stride, and C reads no
+        // sample; the stride 0 keeps every row position inside the empty rows.
+        return (Vec::new(), 0);
+    }
+    if height <= 0 || i64::from(stride).abs() < min_row {
         return (Vec::new(), stride);
     }
     // The bytes of a row that Import reads: up to the last pixel's last channel.
@@ -1454,7 +1459,7 @@ pub unsafe extern "C" fn webp_picture_init_internal(
 // upstream: src/enc/picture_enc.c WebPPictureAlloc
 /// Releases the picture's planes and allocates new ones of its dimensions, in
 /// the layout that `use_argb` selects. Returns 0 on error, recorded in
-/// `error_code`, and for a `NULL` picture.
+/// `error_code`; a `NULL` picture returns 1, as in C.
 ///
 /// # Safety
 ///
@@ -1463,7 +1468,7 @@ pub unsafe extern "C" fn webp_picture_init_internal(
 #[unsafe(export_name = "WebPPictureAlloc")]
 pub unsafe extern "C" fn webp_picture_alloc(picture: *mut WebPPicture) -> c_int {
     if picture.is_null() {
-        return 0;
+        return 1;
     }
     // SAFETY: a valid picture; nothing is lent.
     let result = unsafe {
