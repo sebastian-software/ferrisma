@@ -160,6 +160,14 @@ pub mod aom_dsp__x86__txfm_common_avx2;
 pub mod aom_dsp__x86__txfm_common_sse2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/av1_inv_txfm_ssse3.rs"]
+pub mod av1__common__x86__av1_inv_txfm_ssse3;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/av1_txfm_sse2.rs"]
+pub mod av1__common__x86__av1_txfm_sse2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/av1_txfm_sse4.rs"]
 pub mod av1__common__x86__av1_txfm_sse4;
 
@@ -172,6 +180,14 @@ pub mod av1__common__x86__cdef_block_avx2;
 pub mod av1__common__x86__filterintra_sse4;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/highbd_inv_txfm_avx2.rs"]
+pub mod av1__common__x86__highbd_inv_txfm_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/highbd_inv_txfm_sse4.rs"]
+pub mod av1__common__x86__highbd_inv_txfm_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/highbd_txfm_utility_sse4.rs"]
 pub mod av1__common__x86__highbd_txfm_utility_sse4;
 
@@ -180,8 +196,20 @@ pub mod av1__common__x86__highbd_txfm_utility_sse4;
 pub mod av1__common__x86__intra_edge_sse4;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_fwd_txfm1d_sse4.rs"]
+pub mod av1__encoder__x86__av1_fwd_txfm1d_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_fwd_txfm2d_sse4.rs"]
+pub mod av1__encoder__x86__av1_fwd_txfm2d_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_highbd_quantize_avx2.rs"]
 pub mod av1__encoder__x86__av1_highbd_quantize_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_txfm1d_sse4.rs"]
+pub mod av1__encoder__x86__av1_txfm1d_sse4;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/error_intrin_avx2.rs"]
@@ -192,17 +220,9 @@ pub mod av1__encoder__x86__error_intrin_avx2;
 pub mod av1__encoder__x86__highbd_block_error_intrin_avx2;
 
 #[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/av1_inv_txfm_ssse3.rs"]
-pub mod av1__common__x86__av1_inv_txfm_ssse3;
+#[path = "av1/encoder/x86/highbd_fwd_txfm_avx2.rs"]
+pub mod av1__encoder__x86__highbd_fwd_txfm_avx2;
 
 #[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/av1_txfm_sse2.rs"]
-pub mod av1__common__x86__av1_txfm_sse2;
-
-#[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/highbd_inv_txfm_sse4.rs"]
-pub mod av1__common__x86__highbd_inv_txfm_sse4;
-
-#[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/highbd_inv_txfm_avx2.rs"]
-pub mod av1__common__x86__highbd_inv_txfm_avx2;
+#[path = "av1/encoder/x86/highbd_fwd_txfm_sse4.rs"]
+pub mod av1__encoder__x86__highbd_fwd_txfm_sse4;

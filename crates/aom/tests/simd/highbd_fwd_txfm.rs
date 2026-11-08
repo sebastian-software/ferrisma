@@ -1,11 +1,14 @@
 // Supplementary transcription of upstream/aom/test/av1_fwd_txfm2d_test.cc
-// (AV1HighbdFwdTxfm2dTest.match, NEON instantiation over
-// Highbd_fwd_txfm_for_neon). The original target is av1_highbd_fwd_txfm()
-// with a zeroed TxfmParam (lossless = 0), which for every listed size calls
-// the RTCD av1_fwd_txfm2d_<W>x<H>(input, output, stride, tx_type, bd); the
-// 16x64, 64x16, and 64x64 wrappers pass DCT_DCT, the only type
-// IsTxSizeTypeValid() admits for them. This transcription therefore calls the
-// Neon kernel directly where the original reached it through RTCD, and the
+// (AV1HighbdFwdTxfm2dTest.match, the NEON instantiation over
+// Highbd_fwd_txfm_for_neon and the SSE4_1 and AVX2 instantiations over
+// Highbd_fwd_txfm_for_sse4_1 and Highbd_fwd_txfm_for_avx2). The original
+// target is av1_highbd_fwd_txfm() with a zeroed TxfmParam (lossless = 0),
+// which for every listed size calls the RTCD
+// av1_fwd_txfm2d_<W>x<H>(input, output, stride, tx_type, bd); the 16x64,
+// 64x16, and 64x64 wrappers pass DCT_DCT, the only type IsTxSizeTypeValid()
+// admits for them. This transcription therefore calls the kernel of the
+// instantiated family directly where the original reached it through RTCD
+// (on x86 after checking that the CPU has the family), and the
 // reference is fwd_txfm_func_ls[tx_size], the translated av1_fwd_txfm2d_*_c.
 // Bit depths, tx types, seeds, iteration counts, input generation, and the
 // compared coefficient region follow the original; the speed test is omitted.
@@ -227,5 +230,84 @@ mod neon {
         highbd_fwd_txfm2d_match_32x8: TX_32X8, av1_fwd_txfm2d_32x8_neon;
         highbd_fwd_txfm2d_match_16x64: TX_16X64, av1_fwd_txfm2d_16x64_neon;
         highbd_fwd_txfm2d_match_64x16: TX_64X16, av1_fwd_txfm2d_64x16_neon;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+fn run_x86(tx_size: usize, target_func: FwdTxfm2dFunc) {
+    let compared = av1_highbd_fwd_txfm2d_match_test(tx_size, target_func);
+    assert!(compared > 0);
+    println!("tx_size {tx_size}: {compared} coefficients compared");
+}
+
+#[cfg(target_arch = "x86_64")]
+mod sse4_1 {
+    use super::*;
+    use aom::simd::av1__encoder__x86__av1_fwd_txfm2d_sse4::*;
+    use aom::simd::av1__encoder__x86__highbd_fwd_txfm_sse4::*;
+
+    macro_rules! match_tests {
+        ($($test:ident: $tx_size:expr, $func:ident;)*) => {
+            $(
+                #[test]
+                fn $test() {
+                    assert!(std::arch::is_x86_feature_detected!("sse4.1"),
+                            "SSE4_1 instantiation needs an SSE4.1 CPU");
+                    run_x86($tx_size, $func);
+                }
+            )*
+        };
+    }
+
+    // Highbd_fwd_txfm_for_sse4_1 (CONFIG_REALTIME_ONLY is 0).
+    match_tests! {
+        highbd_fwd_txfm2d_match_4x4: TX_4X4, av1_fwd_txfm2d_4x4_sse4_1;
+        highbd_fwd_txfm2d_match_8x8: TX_8X8, av1_fwd_txfm2d_8x8_sse4_1;
+        highbd_fwd_txfm2d_match_16x16: TX_16X16, av1_fwd_txfm2d_16x16_sse4_1;
+        highbd_fwd_txfm2d_match_32x32: TX_32X32, av1_fwd_txfm2d_32x32_sse4_1;
+        highbd_fwd_txfm2d_match_64x64: TX_64X64, av1_fwd_txfm2d_64x64_sse4_1;
+        highbd_fwd_txfm2d_match_4x8: TX_4X8, av1_fwd_txfm2d_4x8_sse4_1;
+        highbd_fwd_txfm2d_match_8x4: TX_8X4, av1_fwd_txfm2d_8x4_sse4_1;
+        highbd_fwd_txfm2d_match_8x16: TX_8X16, av1_fwd_txfm2d_8x16_sse4_1;
+        highbd_fwd_txfm2d_match_16x8: TX_16X8, av1_fwd_txfm2d_16x8_sse4_1;
+        highbd_fwd_txfm2d_match_16x32: TX_16X32, av1_fwd_txfm2d_16x32_sse4_1;
+        highbd_fwd_txfm2d_match_32x16: TX_32X16, av1_fwd_txfm2d_32x16_sse4_1;
+        highbd_fwd_txfm2d_match_32x64: TX_32X64, av1_fwd_txfm2d_32x64_sse4_1;
+        highbd_fwd_txfm2d_match_64x32: TX_64X32, av1_fwd_txfm2d_64x32_sse4_1;
+        highbd_fwd_txfm2d_match_4x16: TX_4X16, av1_fwd_txfm2d_4x16_sse4_1;
+        highbd_fwd_txfm2d_match_16x4: TX_16X4, av1_fwd_txfm2d_16x4_sse4_1;
+        highbd_fwd_txfm2d_match_8x32: TX_8X32, av1_fwd_txfm2d_8x32_sse4_1;
+        highbd_fwd_txfm2d_match_32x8: TX_32X8, av1_fwd_txfm2d_32x8_sse4_1;
+        highbd_fwd_txfm2d_match_16x64: TX_16X64, av1_fwd_txfm2d_16x64_sse4_1;
+        highbd_fwd_txfm2d_match_64x16: TX_64X16, av1_fwd_txfm2d_64x16_sse4_1;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod avx2 {
+    use super::*;
+    use aom::simd::av1__encoder__x86__highbd_fwd_txfm_avx2::*;
+
+    macro_rules! match_tests {
+        ($($test:ident: $tx_size:expr, $func:ident;)*) => {
+            $(
+                #[test]
+                fn $test() {
+                    assert!(std::arch::is_x86_feature_detected!("avx2"),
+                            "AVX2 instantiation needs an AVX2 CPU");
+                    run_x86($tx_size, $func);
+                }
+            )*
+        };
+    }
+
+    // Highbd_fwd_txfm_for_avx2.
+    match_tests! {
+        highbd_fwd_txfm2d_match_8x8: TX_8X8, av1_fwd_txfm2d_8x8_avx2;
+        highbd_fwd_txfm2d_match_16x16: TX_16X16, av1_fwd_txfm2d_16x16_avx2;
+        highbd_fwd_txfm2d_match_32x32: TX_32X32, av1_fwd_txfm2d_32x32_avx2;
+        highbd_fwd_txfm2d_match_64x64: TX_64X64, av1_fwd_txfm2d_64x64_avx2;
+        highbd_fwd_txfm2d_match_8x16: TX_8X16, av1_fwd_txfm2d_8x16_avx2;
+        highbd_fwd_txfm2d_match_16x8: TX_16X8, av1_fwd_txfm2d_16x8_avx2;
     }
 }

@@ -78,6 +78,31 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_block_error_lp_avx2
   av1_filter_intra_edge_sse4_1
   av1_filter_intra_predictor_sse4_1
+  av1_fwd_txfm2d_16x16_avx2
+  av1_fwd_txfm2d_16x16_sse4_1
+  av1_fwd_txfm2d_16x32_sse4_1
+  av1_fwd_txfm2d_16x4_sse4_1
+  av1_fwd_txfm2d_16x64_sse4_1
+  av1_fwd_txfm2d_16x8_avx2
+  av1_fwd_txfm2d_16x8_sse4_1
+  av1_fwd_txfm2d_32x16_sse4_1
+  av1_fwd_txfm2d_32x32_avx2
+  av1_fwd_txfm2d_32x32_sse4_1
+  av1_fwd_txfm2d_32x64_sse4_1
+  av1_fwd_txfm2d_32x8_sse4_1
+  av1_fwd_txfm2d_4x16_sse4_1
+  av1_fwd_txfm2d_4x4_sse4_1
+  av1_fwd_txfm2d_4x8_sse4_1
+  av1_fwd_txfm2d_64x16_sse4_1
+  av1_fwd_txfm2d_64x32_sse4_1
+  av1_fwd_txfm2d_64x64_avx2
+  av1_fwd_txfm2d_64x64_sse4_1
+  av1_fwd_txfm2d_8x16_avx2
+  av1_fwd_txfm2d_8x16_sse4_1
+  av1_fwd_txfm2d_8x32_sse4_1
+  av1_fwd_txfm2d_8x4_sse4_1
+  av1_fwd_txfm2d_8x8_avx2
+  av1_fwd_txfm2d_8x8_sse4_1
   av1_highbd_block_error_avx2
   av1_highbd_dr_prediction_z1_avx2
   av1_highbd_dr_prediction_z2_avx2

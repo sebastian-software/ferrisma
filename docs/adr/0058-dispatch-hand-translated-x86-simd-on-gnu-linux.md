@@ -67,14 +67,15 @@ Each original x86 file is translated into
 helpers, comments, constants and intrinsic order, compiled only for
 `target_arch = "x86_64"`.
 
-The two high-bitdepth inverse transform files (about 10,000 lines of C) were
-transliterated statement by statement with a typing-aware C-subset printer
-written for the purpose, not with C2Rust, and then compared with the C
+The high-bitdepth inverse and forward transform files (about 17,000 lines of
+C) were transliterated statement by statement with C-subset printers and
+rewriting scripts written for the purpose, not with C2Rust, and then compared with the C
 function by function: the same sequence of intrinsic and helper calls, and
 the same identifiers, constants and operators in order, with the remaining
 differences reviewed by hand. The printer is not part of the build or of the
 reproduction contract; the committed Rust is reviewed and tested like any
 other hand translation, and its file headers say how it was produced.
+Signatures, tables and macros in those files were written by hand.
 
 Upstream compiles each x86 file with the flag its suffix names (`-msse2`,
 `-msse4.1`, `-mavx2`). The Rust crate is compiled for the x86-64 baseline, so
