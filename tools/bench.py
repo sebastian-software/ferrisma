@@ -6,20 +6,26 @@ bench probe (tools/oracle/probes/wp9/bench.c), which decodes the same way
 through the C library:
 
   simd      the port with its default `simd` feature against the simd oracle
-            (WITH_SIMD=1, upstream's default build)
+            (WITH_SIMD=1, upstream's default build): Neon on ARM64, AVX2
+            where an x86-64 CPU has it
+  sse2      on x86-64, the same with JSIMD_FORCESSE2=1 in both (ADR 0008)
   portable  the port without default features against the release oracle
             (WITH_SIMD=0, the reference configuration)
 
 The inputs are a photo made by tiling upstream's testimages/testorig.ppm to
 3632x2384 pixels (16 x 16 tiles), encoded by the oracle's cjpeg as baseline
-4:2:0, baseline 4:4:4 and progressive 4:2:0 at quality 90, plus upstream's
-testorig.jpg. Each case decodes REPEATS times per run; the table shows the
+4:2:0, 4:2:2 and 4:4:4 and progressive 4:2:0 at quality 90, plus upstream's
+testorig.jpg. The cases select the kernels in turn: the islow, ifast and float
+IDCTs, the 4x4 and 2x2 IDCTs of the scales 1/2 and 1/4, fancy h2v2 and h2v1
+upsampling, merged h2v2 and h2v1 upsampling, and the color conversion to RGB
+and RGBX. Speed is measured on native hosts only, not under Rosetta 2. Each case decodes REPEATS times per run; the table shows the
 median time per decode over RUNS runs and requires both sides to produce the
 same output (FNV-1a checksum). The JSON record goes to build/bench/.
 """
 
 import argparse
 import json
+import os
 from pathlib import Path
 import platform
 import statistics
@@ -40,12 +46,16 @@ JCS = {"rgb": 6, "rgbx": 7, "gray": 1}
 
 CASES = [
     ("baseline 4:2:0, RGB", "photo-420.jpg", []),
+    ("baseline 4:2:2, RGB", "photo-422.jpg", []),
     ("baseline 4:4:4, RGB", "photo-444.jpg", []),
     ("progressive 4:2:0, RGB", "photo-progressive.jpg", []),
     ("baseline 4:2:0, RGBX", "photo-420.jpg", ["-format", "rgbx"]),
     ("baseline 4:2:0, fast IDCT", "photo-420.jpg", ["-dct", "ifast"]),
+    ("baseline 4:2:0, float IDCT", "photo-420.jpg", ["-dct", "float"]),
     ("baseline 4:2:0, merged upsampling", "photo-420.jpg", ["-nofancy"]),
+    ("baseline 4:2:2, merged upsampling", "photo-422.jpg", ["-nofancy"]),
     ("baseline 4:2:0, scale 1/2", "photo-420.jpg", ["-scale", "1", "2"]),
+    ("baseline 4:2:0, scale 1/4", "photo-420.jpg", ["-scale", "1", "4"]),
     ("baseline 4:2:0, scale 1/8", "photo-420.jpg", ["-scale", "1", "8"]),
     ("testorig.jpg (227x149)", "testorig.jpg", []),
 ]
@@ -86,7 +96,8 @@ def make_inputs(oracle):
         body = b"".join(rows) * TILES
         photo.write_bytes(b"P6\n%d %d\n255\n" % (width * TILES, height * TILES) + body)
     cjpeg = oracle / "libjpeg-turbo/cjpeg-static"
-    for name, args in [("photo-420.jpg", []), ("photo-444.jpg", ["-sample", "1x1"]),
+    for name, args in [("photo-420.jpg", []), ("photo-422.jpg", ["-sample", "2x1"]),
+                       ("photo-444.jpg", ["-sample", "1x1"]),
                        ("photo-progressive.jpg", ["-progressive"])]:
         target = OUT / name
         if not target.exists():
@@ -116,12 +127,12 @@ def probe_args(args):
     return result
 
 
-def measure(command, runs):
+def measure(command, runs, env):
     """The median nanoseconds per decode over `runs` runs, and the output's
     dims and checksum."""
     times, record = [], None
     for _ in range(runs):
-        output = subprocess.run(list(map(str, command)), check=True,
+        output = subprocess.run(list(map(str, command)), check=True, env=env,
                                 stdout=subprocess.PIPE, universal_newlines=True).stdout
         fields = dict(line.split("=", 1) for line in output.split())
         times.append(int(fields["nanoseconds"]) / int(fields["decodes"]))
@@ -135,33 +146,46 @@ def measure(command, runs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=["simd", "portable", "both"], default="both")
+    parser.add_argument("--mode", choices=["simd", "sse2", "portable", "all"], default="all",
+                        help="what to measure (default: all that the host has)")
     parser.add_argument("--repeats", type=int, default=10, help="decodes per run")
     parser.add_argument("--runs", type=int, default=5, help="runs per case")
     args = parser.parse_args()
 
-    modes = ["simd", "portable"] if args.mode == "both" else [args.mode]
+    x86_64 = build_oracle.host_arch() == "x86_64"
+    if args.mode == "all":
+        modes = ["simd", "sse2", "portable"] if x86_64 else ["simd", "portable"]
+    elif args.mode == "sse2" and not x86_64:
+        raise SystemExit("--mode sse2 needs an x86-64 host")
+    else:
+        modes = [args.mode]
+    env = dict(os.environ)
+    for name in ("JSIMD_FORCENONE", "JSIMD_FORCESSE2", "JSIMD_FORCENEON"):
+        env.pop(name, None)
     jobs = "8"
     results = {"host": platform.platform(), "machine": platform.machine(),
                "repeats": args.repeats, "runs": args.runs, "modes": {}}
     for mode in modes:
-        variant = "simd" if mode == "simd" else "release"
+        variant = "release" if mode == "portable" else "simd"
+        mode_env = {**env, "JSIMD_FORCESSE2": "1"} if mode == "sse2" else env
         oracle = build_oracle.build(variant, jobs, fresh=False)
         make_inputs(oracle)
-        features = [] if mode == "simd" else ["--no-default-features"]
+        features = ["--no-default-features"] if mode == "portable" else []
         port = build_port(features, f"bench-{mode}")
         probe = oracle / "probes/wp9/bench"
         rows = []
         print(f"\n{mode}: port ({'default features' if features == [] else 'no default features'}) "
-              f"against the {variant} oracle, median of {args.runs} runs x {args.repeats} decodes")
+              f"against the {variant} oracle"
+              f"{', JSIMD_FORCESSE2=1' if mode == 'sse2' else ''}, "
+              f"median of {args.runs} runs x {args.repeats} decodes")
         print("| Case | libjpeg-turbo ms | port ms | port / C |")
         print("| --- | ---: | ---: | ---: |")
         for label, name, case_args in CASES:
             path = OUT / name
             c_ns, c_record = measure([probe, "-repeats", args.repeats,
-                                      *probe_args(case_args), path], args.runs)
+                                      *probe_args(case_args), path], args.runs, mode_env)
             rust_ns, rust_record = measure([port, "-repeats", args.repeats, *case_args, path],
-                                           args.runs)
+                                           args.runs, mode_env)
             if c_record != rust_record:
                 raise SystemExit(f"{label}: outputs differ: C {c_record}, port {rust_record}")
             ratio = rust_ns / c_ns
@@ -169,7 +193,8 @@ def main():
                          "c_ns": c_ns, "port_ns": rust_ns, "ratio": ratio})
             print(f"| {label} | {c_ns / 1e6:.2f} | {rust_ns / 1e6:.2f} | {ratio:.2f} |",
                   flush=True)
-        results["modes"][mode] = {"oracle": variant, "features": features, "cases": rows}
+        results["modes"][mode] = {"oracle": variant, "features": features,
+                                  "forcesse2": mode == "sse2", "cases": rows}
     (OUT / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"\nRecord: {(OUT / 'results.json').relative_to(ROOT)}")
 
