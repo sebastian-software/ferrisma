@@ -390,3 +390,253 @@ pub fn delete_vp8_encoder(enc: Box<VP8Encoder>, picture: &mut WebPPicture<'_>) -
     drop(enc);
     ok
 }
+
+//------------------------------------------------------------------------------
+// WP13: WebPEncode and the statistics (exception in tools/units.json)
+
+use crate::dec::common_dec::NUM_MB_SEGMENTS;
+use crate::enc::alpha_enc::{vp8_enc_finish_alpha, vp8_enc_start_alpha};
+use crate::enc::analysis_enc::vp8_enc_analyze;
+use crate::enc::config_enc::webp_validate_config;
+use crate::enc::frame_enc::{vp8_enc_loop, vp8_enc_token_loop};
+use crate::enc::picture_csp_enc::{
+    webp_picture_argb_to_yuva_dithered, webp_picture_sharp_argb_to_yuva, webp_picture_yuva_to_argb,
+};
+use crate::enc::picture_enc::webp_validate_picture;
+use crate::enc::picture_tools_enc::{
+    webp_cleanup_transparent_area, webp_replace_transparent_pixels,
+};
+use crate::enc::syntax_enc::{vp8_enc_free_bit_writers, vp8_enc_write};
+use crate::enc::vp8l_enc::vp8l_encode_image;
+use crate::webp::encode::{WEBP_MAX_DIMENSION, WebPAuxStats, WebPEncCSP};
+use crate::webp::types::{PlaneOffset, PlaneStorage};
+
+// upstream: src/enc/webp_enc.c GetPSNR
+/// The PSNR of a sum of squared errors `err` over `size` samples, capped at 99
+/// (C: `GetPSNR`). `WEBP_DISABLE_STATS` is not defined.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "C converts the 64-bit counts to double"
+)]
+fn get_psnr(err: u64, size: u64) -> f64 {
+    if err > 0 && size > 0 {
+        10. * (255. * 255. * size as f64 / err as f64).log10()
+    } else {
+        99.
+    }
+}
+
+// upstream: src/enc/webp_enc.c FinalizePSNR
+/// Stores the PSNR of Y, U, V, all three and alpha in `stats` (C: `FinalizePSNR`,
+/// which reads `enc->pic->stats`; `StoreStats` passes that non-null pointer).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "C stores the double results into float"
+)]
+fn finalize_psnr(enc: &VP8Encoder, stats: &mut WebPAuxStats) {
+    let size = enc.sse_count;
+    let sse = &enc.sse;
+    stats.psnr[0] = get_psnr(sse[0], size) as f32;
+    stats.psnr[1] = get_psnr(sse[1], size / 4) as f32;
+    stats.psnr[2] = get_psnr(sse[2], size / 4) as f32;
+    stats.psnr[3] = get_psnr(
+        sse[0].wrapping_add(sse[1]).wrapping_add(sse[2]),
+        size.wrapping_mul(3) / 2,
+    ) as f32;
+    stats.psnr[4] = get_psnr(sse[3], size) as f32;
+}
+
+// upstream: src/enc/webp_enc.c StoreStats
+/// Copies the encoder's statistics into the picture's `stats`, when the picture
+/// has them (C: `StoreStats`). `WEBP_DISABLE_STATS` is not defined, so the branch
+/// that reports 100 percent instead is not translated.
+fn store_stats(enc: &VP8Encoder, pic: &mut WebPPicture<'_>) {
+    if let Some(stats) = pic.stats.as_deref_mut() {
+        for i in 0..NUM_MB_SEGMENTS as usize {
+            stats.segment_level[i] = enc.dqm[i].fstrength;
+            stats.segment_quant[i] = enc.dqm[i].quant;
+            for s in 0..=2 {
+                stats.residual_bytes[s][i] = enc.residual_bytes[s][i];
+            }
+        }
+        finalize_psnr(enc, stats);
+        stats.coded_size = enc.coded_size;
+        for i in 0..3 {
+            stats.block_count[i] = enc.block_count[i];
+        }
+    }
+}
+
+/// Rust-only (no C counterpart): the regions of a shared storage, copied one
+/// after the other into one owned block, and the position of each region in it.
+/// `None` when the host refuses the reservation.
+fn owned_copy<T: Copy>(regions: &[&[T]]) -> Option<(Vec<T>, Vec<usize>)> {
+    let total = regions.iter().map(|region| region.len()).sum();
+    let mut samples = Vec::new();
+    samples.try_reserve_exact(total).ok()?;
+    let mut bases = Vec::with_capacity(regions.len());
+    for region in regions {
+        bases.push(samples.len());
+        samples.extend_from_slice(region);
+    }
+    Some((samples, bases))
+}
+
+/// Rust-only (no C counterpart): a plane of a shared storage at its position in
+/// the owned copy of [`owned_copy`].
+fn rebased(plane: Option<PlaneOffset>, bases: &[usize]) -> Option<PlaneOffset> {
+    plane.map(|plane| PlaneOffset {
+        region: 0,
+        offset: bases
+            .get(plane.region)
+            .expect("the plane lies in a region of its view")
+            + plane.offset,
+    })
+}
+
+/// Rust-only (no C counterpart): gives a view (`PlaneStorage::Shared`) its own
+/// copy of the Y, U, V and A planes before `WebPEncode` writes into them, where C
+/// writes through the view into the source picture. The copy keeps the strides
+/// and the samples, so the encoding is the same; the source stays untouched
+/// (`docs/status/wp13.md`, deviation 1).
+fn own_shared_yuva(pic: &mut WebPPicture<'_>) -> Result<(), WebPEncodingError> {
+    let PlaneStorage::Shared(regions) = &pic.yuva else {
+        return Ok(());
+    };
+    let Some((samples, bases)) = owned_copy(regions) else {
+        return Err(webp_encoding_set_error(
+            pic,
+            WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY,
+        ));
+    };
+    pic.y = rebased(pic.y, &bases);
+    pic.u = rebased(pic.u, &bases);
+    pic.v = rebased(pic.v, &bases);
+    pic.a = rebased(pic.a, &bases);
+    pic.yuva = PlaneStorage::Internal(samples);
+    Ok(())
+}
+
+/// Rust-only (no C counterpart): as [`own_shared_yuva`], for the ARGB plane.
+fn own_shared_argb(pic: &mut WebPPicture<'_>) -> Result<(), WebPEncodingError> {
+    let PlaneStorage::Shared(regions) = &pic.argb_storage else {
+        return Ok(());
+    };
+    let Some((samples, bases)) = owned_copy(regions) else {
+        return Err(webp_encoding_set_error(
+            pic,
+            WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY,
+        ));
+    };
+    pic.argb = rebased(pic.argb, &bases);
+    pic.argb_storage = PlaneStorage::Internal(samples);
+    Ok(())
+}
+
+// upstream: src/enc/webp_enc.c WebPEncode
+/// Main encoding call (C: `WebPEncode`): validates `config` and `pic`, resets the
+/// statistics, converts the samples to the form the encoder needs (YUVA for lossy,
+/// ARGB for lossless) and writes the compressed data through `pic.writer`. Returns
+/// `false` on error, with the error code recorded in `pic.error_code`, as C returns
+/// 0.
+///
+/// C's `NULL` checks of `pic` and `config` belong to the C ABI. The progress hook
+/// and the writer run on the calling thread. A view (`PlaneStorage::Shared`) gets
+/// its own copy of the planes that `WebPEncode` writes into (the transparent-area
+/// cleanup, `show_compressed`); C writes into the source picture there.
+pub fn webp_encode(config: &WebPConfig, pic: &mut WebPPicture<'_>) -> bool {
+    let mut ok;
+    // C: `if (pic == NULL) return 0;` (C ABI).
+
+    pic.error_code = WebPEncodingError::VP8_ENC_OK; // all ok so far
+    // C: `config == NULL` records VP8_ENC_ERROR_NULL_PARAMETER (C ABI).
+    if !webp_validate_config(config) {
+        let _ =
+            webp_encoding_set_error(pic, WebPEncodingError::VP8_ENC_ERROR_INVALID_CONFIGURATION);
+        return false;
+    }
+    if webp_validate_picture(pic).is_err() {
+        return false;
+    }
+    if pic.width > WEBP_MAX_DIMENSION || pic.height > WEBP_MAX_DIMENSION {
+        let _ = webp_encoding_set_error(pic, WebPEncodingError::VP8_ENC_ERROR_BAD_DIMENSION);
+        return false;
+    }
+
+    if let Some(stats) = pic.stats.as_deref_mut() {
+        *stats = WebPAuxStats::default();
+    }
+
+    if config.lossless == 0 {
+        if pic.use_argb != 0 || pic.y.is_none() || pic.u.is_none() || pic.v.is_none() {
+            // Make sure we have YUVA samples.
+            if config.use_sharp_yuv != 0 || (config.preprocessing & 4) != 0 {
+                if webp_picture_sharp_argb_to_yuva(pic).is_err() {
+                    return false;
+                }
+            } else {
+                let mut dithering = 0.0_f32;
+                if (config.preprocessing & 2) != 0 {
+                    let x = config.quality / 100.0;
+                    let x2 = x * x;
+                    // slowly decreasing from max dithering at low quality (q->0)
+                    // to 0.5 dithering amplitude at high quality (q->100)
+                    dithering = 1.0 + (0.5 - 1.0) * x2 * x2;
+                }
+                if webp_picture_argb_to_yuva_dithered(pic, WebPEncCSP::WEBP_YUV420, dithering)
+                    .is_err()
+                {
+                    return false;
+                }
+            }
+        }
+
+        // Rust-only: a view gets its own planes before they are written.
+        if (config.exact == 0 || config.show_compressed != 0) && own_shared_yuva(pic).is_err() {
+            return false;
+        }
+
+        if config.exact == 0 {
+            webp_cleanup_transparent_area(pic);
+        }
+
+        let Ok(mut enc) = init_vp8_encoder(config, pic) else {
+            return false; // pic->error is already set.
+        };
+        // Note: each of the tasks below account for 20% in the progress report.
+        ok = vp8_enc_analyze(&mut enc, config, pic).is_ok();
+
+        // Analysis is done, proceed to actual coding.
+        ok = ok && vp8_enc_start_alpha(&mut enc, config, pic); // possibly done in parallel
+        if enc.use_tokens {
+            ok = ok && vp8_enc_token_loop(&mut enc, config, pic).is_ok();
+        } else {
+            ok = ok && vp8_enc_loop(&mut enc, config, pic).is_ok();
+        }
+        ok = ok && vp8_enc_finish_alpha(&mut enc, pic);
+
+        ok = ok && vp8_enc_write(&mut enc, pic).is_ok();
+        store_stats(&enc, pic);
+        if !ok {
+            vp8_enc_free_bit_writers(&mut enc);
+        }
+        ok &= delete_vp8_encoder(enc, pic); // must always be called, even if !ok
+    } else {
+        // Make sure we have ARGB samples.
+        if pic.argb.is_none() && webp_picture_yuva_to_argb(pic).is_err() {
+            return false;
+        }
+
+        if config.exact == 0 {
+            // Rust-only: a view gets its own plane before it is written.
+            if pic.use_argb != 0 && own_shared_argb(pic).is_err() {
+                return false;
+            }
+            webp_replace_transparent_pixels(pic, 0x0000_0000);
+        }
+
+        ok = vp8l_encode_image(config, pic).is_ok(); // Sets pic->error in case of problem.
+    }
+
+    ok
+}
