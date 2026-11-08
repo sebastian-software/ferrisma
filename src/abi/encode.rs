@@ -40,38 +40,57 @@
 //!   and A planes, `memory_argb_` for the ARGB plane) is a block of the platform
 //!   `malloc` of C's size (`WebPPictureAllocYUVA`, `WebPPictureAllocARGB`, with
 //!   the ARGB plane at the `WEBP_ALIGN`ed address), which `WebPPictureFree`
-//!   releases. This module records the size of each block. During a call the
+//!   releases. This module records the address and size of each block, and
+//!   assumes, as `encode.h` requires, that C releases it only through
+//!   `WebPPictureFree` (or the functions that replace the planes): a block that C
+//!   frees itself stays recorded, and caller memory that later lands at the same
+//!   address in `memory_` would be read at the recorded size. During a call the
 //!   translation works on a copy of the block (`PlaneStorage::Internal`), which
 //!   goes back into the block after the call; new samples go into a new block.
 //! - Caller memory (planes outside the picture's own block, as after
 //!   `WebPPictureView` or when the caller sets the plane pointers) is lent to the
-//!   translation for the duration of the call: shared slices for a function that
-//!   only reads the picture, exclusive slices for one that writes it. A plane's
-//!   slice covers the samples that its dimensions and stride address,
-//!   `(height - 1) * stride + width`. Functions that do not read the planes
-//!   (`WebPPictureAlloc`, `WebPPictureFree`, the importers, a conversion's
-//!   output) lend nothing.
-//! - `WebPEncode` gives the translation a copy of `*stats` and of the
-//!   `extra_info` map, which go back to the caller after the call, and closures
-//!   around the C writer and progress hook that pass the caller's picture
-//!   pointer, as C passes it.
+//!   translation for the duration of the call, only for the planes that C's path
+//!   reads or writes: shared slices for a call that only reads them, exclusive
+//!   slices for one that writes them. A plane's slice covers the samples that its
+//!   dimensions and stride address, `(height - 1) * stride + width`. Calls that
+//!   do not touch the planes (`WebPPictureAlloc`, `WebPPictureFree`, the
+//!   importers, a conversion's output, the storage that `use_argb` does not
+//!   select) lend nothing, and `WebPPictureView`, which only computes addresses,
+//!   lends no sample.
+//! - `WebPEncode` lends the planes of C's path, and none when the configuration
+//!   or the picture fails C's validation. It gives the translation zeroed copies
+//!   of the statistics and of the `extra_info` map and closures around the C
+//!   writer and progress hook that pass the caller's picture pointer, as C passes
+//!   it. The statistics go back to `*stats` once the validation has passed (C
+//!   resets them there), and the map goes back to `extra_info` when the encoding
+//!   succeeds (C has filled it then); the caller's bytes are never read.
+//!
+//! # Callbacks
+//!
+//! While `WebPEncode` runs, the caller's planes are lent exclusively to the
+//! translation. A writer or progress hook must therefore not call a library
+//! function on the picture being encoded (C allows, for example,
+//! `WebPPictureHasTransparency(picture)` there; no upstream callback does it).
+//! A picture in library memory is not affected, since the translation works on
+//! a copy of its block.
 //!
 //! # Cases that this module rejects
 //!
-//! A plane that the call reads or writes with a negative stride over more than
-//! one row lies before its pointer, planes that a writing call would write
-//! overlap, and an ARGB plane is not aligned for `uint32_t`. Rust cannot lend
-//! those slices, so such calls fail: functions that report errors on the
+//! Rust cannot lend these planes, so the calls that read or write them fail: a
+//! plane with a negative stride over more than one row (it lies before its
+//! pointer), planes that a writing call would write and that overlap, and an
+//! ARGB plane not aligned for `uint32_t`. Functions that report errors on the
 //! picture record `VP8_ENC_ERROR_INVALID_CONFIGURATION` and return 0, the other
 //! functions return 0 or do nothing. Packed input rows with a negative stride
 //! (the importers and the simple API) are copied into rows with a positive
-//! stride first, which reads the same bytes. `docs/status/wp13.md` records
-//! these cases.
+//! stride first, which hold the same bytes; rows with a positive stride are lent
+//! as they are. `docs/status/wp13.md` records these cases.
 
 use core::ffi::{c_int, c_void};
 use core::mem::{MaybeUninit, offset_of, size_of};
 use core::ptr;
 use core::slice;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -239,12 +258,30 @@ unsafe fn release_block(block: *mut c_void) {
 /// How a call uses one storage of a picture (the YUVA planes or the ARGB plane).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Mode {
-    /// The call does not read the planes: nothing is lent.
+    /// The call does not touch the planes: nothing is lent.
     Discard,
+    /// The call only computes plane addresses (`WebPPictureView`): each plane is
+    /// an empty region at [`ADDRESS_OFFSET`], so that the translation's offsets
+    /// give C's pointer arithmetic for any stride, and no sample is lent.
+    Address,
     /// The call reads the planes: caller memory is lent shared.
     Read,
     /// The call reads and writes the planes: caller memory is lent exclusively.
     Write,
+}
+
+/// The offset of a plane in its empty region in `Mode::Address`: far enough from
+/// 0 and from `usize::MAX` that a view's offsets, which C computes as pointer
+/// differences, stay in range for either sign.
+const ADDRESS_OFFSET: usize = usize::MAX / 4 + 1;
+
+/// Why a C picture cannot be converted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Refused {
+    /// A plane layout that Rust cannot lend (see the module documentation).
+    Layout,
+    /// The host refused the memory for a copy of the picture's block.
+    Memory,
 }
 
 /// Where the translation's storage of a picture came from.
@@ -305,9 +342,100 @@ type StorageParts<'a, T> = (
     Vec<(*const u8, usize)>,
 );
 
+/// The storage of `Mode::Address`: an empty region per non-null plane, with the
+/// plane at [`ADDRESS_OFFSET`], and the bases that give C's plane addresses back.
+fn address_storage<'a, T>(planes: &[(*mut u8, Option<usize>)]) -> StorageParts<'a, T> {
+    let elem = size_of::<T>();
+    let mut regions: Vec<&'a [T]> = Vec::new();
+    let mut bases = Vec::new();
+    let mut offsets = Vec::with_capacity(planes.len());
+    for &(plane, _) in planes {
+        if plane.is_null() {
+            offsets.push(None);
+            continue;
+        }
+        offsets.push(Some(PlaneOffset {
+            region: regions.len(),
+            offset: ADDRESS_OFFSET,
+        }));
+        regions.push(&[]);
+        bases.push(plane.wrapping_sub(ADDRESS_OFFSET.wrapping_mul(elem)));
+    }
+    if regions.is_empty() {
+        return (
+            PlaneStorage::External(Vec::new()),
+            offsets,
+            Origin::Nothing,
+            Vec::new(),
+        );
+    }
+    (
+        PlaneStorage::Shared(regions),
+        offsets,
+        Origin::Lent(bases),
+        Vec::new(),
+    )
+}
+
+/// The storage of a picture whose planes lie inside its own block (`memory_`
+/// or `memory_argb_`): a copy of the block. `None` when `memory` is not a block
+/// of this module or a plane lies outside it.
+///
+/// # Safety
+///
+/// `memory` is null or the picture's memory field.
+unsafe fn block_storage<'a, T: Copy>(
+    memory: *mut c_void,
+    planes: &[(*mut u8, Option<usize>)],
+) -> Option<Result<StorageParts<'a, T>, Refused>> {
+    let elem = size_of::<T>();
+    let base = memory.cast::<u8>();
+    let size = block_size(memory)?;
+    let inside = planes.iter().all(|&(plane, extent)| {
+        plane.is_null()
+            || extent.is_some_and(|extent| {
+                let offset = (plane as usize).wrapping_sub(base as usize);
+                plane as usize >= base as usize
+                    && offset.is_multiple_of(elem)
+                    && extent
+                        .checked_mul(elem)
+                        .and_then(|bytes| bytes.checked_add(offset))
+                        .is_some_and(|end| end <= size)
+            })
+    });
+    if !inside || size % elem != 0 {
+        return None;
+    }
+    // SAFETY: the block is a live, initialized block of `size` bytes from the
+    // platform `malloc` (this module zeroes it when it allocates it), aligned for
+    // `T`; the copy ends before the translation runs.
+    let block = unsafe { slice::from_raw_parts(base.cast::<T>(), size / elem) };
+    let mut samples = Vec::new();
+    if samples.try_reserve_exact(block.len()).is_err() {
+        return Some(Err(Refused::Memory));
+    }
+    samples.extend_from_slice(block);
+    let offsets = planes
+        .iter()
+        .map(|&(plane, _)| {
+            (!plane.is_null()).then(|| PlaneOffset {
+                region: 0,
+                offset: (plane as usize - base as usize) / elem,
+            })
+        })
+        .collect();
+    Some(Ok((
+        PlaneStorage::Internal(samples),
+        offsets,
+        Origin::Block { base, size },
+        Vec::new(),
+    )))
+}
+
 /// Converts one storage of a C picture. `planes` are the plane pointers with
-/// their extents in samples (`None` when the plane cannot be lent). Returns
-/// `None` for a layout that this module rejects (see the module documentation).
+/// their extents in samples (`None` when the plane cannot be lent). Fails for a
+/// layout that this module rejects (see the module documentation) and when the
+/// host refuses the memory for a copy of the picture's block.
 ///
 /// # Safety
 ///
@@ -318,10 +446,10 @@ unsafe fn storage_to_rust<'a, T: Copy>(
     mode: Mode,
     memory: *mut c_void,
     planes: &[(*mut u8, Option<usize>)],
-) -> Option<StorageParts<'a, T>> {
+) -> Result<StorageParts<'a, T>, Refused> {
     let elem = size_of::<T>();
     let nothing = || {
-        Some((
+        Ok((
             PlaneStorage::External(Vec::new()),
             vec![None; planes.len()],
             Origin::Nothing,
@@ -331,41 +459,12 @@ unsafe fn storage_to_rust<'a, T: Copy>(
     if mode == Mode::Discard {
         return nothing();
     }
-    let base = memory.cast::<u8>();
-    if let Some(size) = block_size(memory) {
-        let inside = planes.iter().all(|&(plane, extent)| {
-            plane.is_null()
-                || extent.is_some_and(|extent| {
-                    let offset = (plane as usize).wrapping_sub(base as usize);
-                    plane as usize >= base as usize
-                        && offset.is_multiple_of(elem)
-                        && extent
-                            .checked_mul(elem)
-                            .and_then(|bytes| bytes.checked_add(offset))
-                            .is_some_and(|end| end <= size)
-                })
-        });
-        if inside && size % elem == 0 {
-            // SAFETY: the block is a live, zero-initialized block of `size` bytes
-            // from the platform `malloc`, aligned for `T`; the copy ends before
-            // the translation runs.
-            let samples = unsafe { slice::from_raw_parts(base.cast::<T>(), size / elem) }.to_vec();
-            let offsets = planes
-                .iter()
-                .map(|&(plane, _)| {
-                    (!plane.is_null()).then(|| PlaneOffset {
-                        region: 0,
-                        offset: (plane as usize - base as usize) / elem,
-                    })
-                })
-                .collect();
-            return Some((
-                PlaneStorage::Internal(samples),
-                offsets,
-                Origin::Block { base, size },
-                Vec::new(),
-            ));
-        }
+    if mode == Mode::Address {
+        return Ok(address_storage(planes));
+    }
+    // SAFETY: the caller's contract, passed on.
+    if let Some(parts) = unsafe { block_storage(memory, planes) } {
+        return parts;
     }
     if planes.iter().all(|&(plane, _)| plane.is_null()) {
         return nothing();
@@ -378,17 +477,17 @@ unsafe fn storage_to_rust<'a, T: Copy>(
             offsets.push(None);
             continue;
         }
-        let extent = extent?;
-        let bytes = extent.checked_mul(elem)?;
+        let extent = extent.ok_or(Refused::Layout)?;
+        let bytes = extent.checked_mul(elem).ok_or(Refused::Layout)?;
         if bytes > isize::MAX as usize || !(plane as usize).is_multiple_of(align_of::<T>()) {
-            return None;
+            return Err(Refused::Layout);
         }
         if mode == Mode::Write
             && ranges
                 .iter()
                 .any(|&(start, len)| ranges_overlap(start, len, plane, bytes))
         {
-            return None;
+            return Err(Refused::Layout);
         }
         offsets.push(Some(PlaneOffset {
             region: bases.len(),
@@ -423,18 +522,22 @@ unsafe fn storage_to_rust<'a, T: Copy>(
                 .collect(),
         )
     };
-    Some((storage, offsets, Origin::Lent(bases), ranges))
+    Ok((storage, offsets, Origin::Lent(bases), ranges))
 }
 
 /// Converts a C picture for one call, with the given use of its two storages.
 /// The translation's picture holds no callbacks, `stats` or `extra_info`.
-/// Returns `None` for a layout that this module rejects.
+/// Fails as [`storage_to_rust`] does.
 ///
 /// # Safety
 ///
 /// The planes that `yuva` and `argb` lend meet the contract of
 /// [`storage_to_rust`].
-unsafe fn picture_to_rust<'a>(c: &WebPPicture, yuva: Mode, argb: Mode) -> Option<Converted<'a>> {
+unsafe fn picture_to_rust<'a>(
+    c: &WebPPicture,
+    yuva: Mode,
+    argb: Mode,
+) -> Result<Converted<'a>, Refused> {
     let (width, height) = (c.width, c.height);
     let (uv_width, uv_height) = (halve(width), halve(height));
     // SAFETY: the caller's contract, passed on.
@@ -465,7 +568,7 @@ unsafe fn picture_to_rust<'a>(c: &WebPPicture, yuva: Mode, argb: Mode) -> Option
                 .any(|&(b, b_len)| ranges_overlap(a, a_len, b, b_len))
         })
     {
-        return None;
+        return Err(Refused::Layout);
     }
     let picture = RsPicture {
         use_argb: c.use_argb,
@@ -494,7 +597,7 @@ unsafe fn picture_to_rust<'a>(c: &WebPPicture, yuva: Mode, argb: Mode) -> Option
         yuva: yuva_storage,
         argb_storage,
     };
-    Some(Converted {
+    Ok(Converted {
         picture,
         yuva: yuva_origin,
         argb: argb_origin,
@@ -502,7 +605,8 @@ unsafe fn picture_to_rust<'a>(c: &WebPPicture, yuva: Mode, argb: Mode) -> Option
 }
 
 /// The C pointers of planes in regions that start at `bases`; null for a
-/// missing plane.
+/// missing plane. The arithmetic wraps, as the bases of `Mode::Address` lie
+/// outside the planes.
 fn plane_pointers<T>(bases: &[*mut u8], planes: &[Option<PlaneOffset>]) -> Vec<*mut u8> {
     planes
         .iter()
@@ -511,7 +615,7 @@ fn plane_pointers<T>(bases: &[*mut u8], planes: &[Option<PlaneOffset>]) -> Vec<*
                 .and_then(|plane| {
                     bases
                         .get(plane.region)
-                        .map(|&base| base.wrapping_add(plane.offset * size_of::<T>()))
+                        .map(|&base| base.wrapping_add(plane.offset.wrapping_mul(size_of::<T>())))
                 })
                 .unwrap_or(ptr::null_mut())
         })
@@ -557,10 +661,10 @@ unsafe fn storage_to_c<T: Copy>(
                 _ => {
                     // C's size: the samples, plus WEBP_ALIGN_CST samples for the
                     // alignment of an ARGB plane (WebPPictureAllocARGB).
-                    let (size, align) = if elem == 1 {
-                        (bytes, 1)
+                    let size = if elem == 1 {
+                        bytes
                     } else {
-                        ((samples.len() + WEBP_ALIGN_CST) * elem, WEBP_ALIGN_CST + 1)
+                        (samples.len() + WEBP_ALIGN_CST) * elem
                     };
                     let block = new_block(size);
                     // SAFETY: the picture gives up its old memory.
@@ -569,8 +673,16 @@ unsafe fn storage_to_c<T: Copy>(
                     if block.is_null() {
                         return Err(());
                     }
-                    // C: WEBP_ALIGN(memory) for the ARGB plane.
-                    block.wrapping_add(block.align_offset(align))
+                    if elem == 1 {
+                        block
+                    } else {
+                        // C: WEBP_ALIGN(memory), ((uintptr_t)memory + 31) & ~31,
+                        // which lies inside the block of WEBP_ALIGN_CST spare
+                        // samples.
+                        let address = block as usize;
+                        let aligned = (address + WEBP_ALIGN_CST) & !WEBP_ALIGN_CST;
+                        block.wrapping_add(aligned - address)
+                    }
                 }
             };
             // SAFETY: `data` starts `bytes` writable bytes of the picture's
@@ -668,9 +780,11 @@ fn selected(c: &WebPPicture, mode: Mode) -> (Mode, Mode) {
 }
 
 /// Runs `call` on the converted C picture and writes the result back. Returns
-/// `None` when the layout is rejected; the picture then records
-/// `VP8_ENC_ERROR_INVALID_CONFIGURATION` when `record` is set. The second value
-/// is false when the result could not be written back.
+/// `None` when the picture cannot be converted; when `record` is set, the
+/// picture then records `VP8_ENC_ERROR_INVALID_CONFIGURATION` for a rejected
+/// layout and `VP8_ENC_ERROR_OUT_OF_MEMORY` when the host refused the copy of
+/// its block. The second value is false when the result could not be written
+/// back.
 ///
 /// # Safety
 ///
@@ -686,11 +800,21 @@ unsafe fn with_picture<'a, R>(
     // call.
     let c = unsafe { &mut *picture };
     // SAFETY: the planes meet the contract for the modes (caller's contract).
-    let Some(mut converted) = (unsafe { picture_to_rust(c, modes.0, modes.1) }) else {
-        if record {
-            set_error(c, WebPEncodingError::VP8_ENC_ERROR_INVALID_CONFIGURATION);
+    let mut converted = match unsafe { picture_to_rust(c, modes.0, modes.1) } {
+        Ok(converted) => converted,
+        Err(refused) => {
+            if record {
+                set_error(
+                    c,
+                    if refused == Refused::Memory {
+                        WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY
+                    } else {
+                        WebPEncodingError::VP8_ENC_ERROR_INVALID_CONFIGURATION
+                    },
+                );
+            }
+            return None;
         }
-        return None;
     };
     let result = call(&mut converted.picture);
     // SAFETY: as above; no Rust borrow of the C picture is live.
@@ -723,31 +847,33 @@ fn without_buffers(mut c: WebPPicture) -> WebPPicture {
 
 /// The packed rows of `height` rows of `width` pixels of `step` bytes at
 /// `input` with `stride` bytes between rows, as `Import` (`src/enc/picture_csp_enc.c`)
-/// reads them, and the stride to read them with. Rows with a negative stride are
-/// copied into rows with a positive stride, which hold the same bytes; when
-/// `Import` fails before it reads (an empty picture, a stride shorter than its
-/// minimum), the rows are empty.
+/// reads them, and the stride to read them with. Rows with a positive stride
+/// are lent as they are; rows with a negative stride are copied into rows with
+/// a positive stride, which hold the same bytes. When `Import` fails before it
+/// reads (an empty picture, a stride shorter than its minimum), the rows are
+/// empty. `None` when the host refuses the memory for the copy.
 ///
 /// # Safety
 ///
-/// `input` is not null and points to the rows of the caller's contract.
-unsafe fn packed_rows(
+/// `input` is not null and points to the rows of the caller's contract, which
+/// nothing writes during the call.
+unsafe fn packed_rows<'a>(
     input: *const u8,
     width: i32,
     height: i32,
     stride: i32,
     step: i32,
     import_alpha: bool,
-) -> (Vec<u8>, i32) {
+) -> Option<(Cow<'a, [u8]>, i32)> {
     let pixel = if import_alpha { 4 } else { 3 };
     let min_row = i64::from(pixel) * i64::from(width);
     if width <= 0 {
         // Import's stride test passes for every stride, and C reads no
         // sample; the stride 0 keeps every row position inside the empty rows.
-        return (Vec::new(), 0);
+        return Some((Cow::Borrowed(&[]), 0));
     }
     if height <= 0 || i64::from(stride).abs() < min_row {
-        return (Vec::new(), stride);
+        return Some((Cow::Borrowed(&[]), stride));
     }
     // The bytes of a row that Import reads: up to the last pixel's last channel.
     let last = i64::from(width - 1) * i64::from(step) + i64::from(pixel);
@@ -758,14 +884,18 @@ unsafe fn packed_rows(
         } else {
             0
         };
-        // SAFETY: the caller's rows span `rows + last` bytes from `input`.
+        // SAFETY: the caller's rows span `rows + last` initialized bytes from
+        // `input`, which nothing writes during the call.
         let bytes = unsafe { slice::from_raw_parts(input, rows + last) };
-        return (bytes.to_vec(), stride);
+        return Some((Cow::Borrowed(bytes), stride));
     }
     let up = stride.unsigned_abs() as usize;
     let copy_stride = up.max(last);
     let rows = usize::try_from(height).unwrap_or(0);
-    let mut copy = vec![0_u8; (rows - 1) * copy_stride + last];
+    let mut copy = Vec::new();
+    copy.try_reserve_exact((rows - 1) * copy_stride + last)
+        .ok()?;
+    copy.resize((rows - 1) * copy_stride + last, 0_u8);
     for row in 0..rows {
         let start = input.wrapping_sub(row * up);
         // SAFETY: row `row` starts `row * |stride|` bytes before `input` and
@@ -773,7 +903,10 @@ unsafe fn packed_rows(
         let bytes = unsafe { slice::from_raw_parts(start, last) };
         copy[row * copy_stride..row * copy_stride + last].copy_from_slice(bytes);
     }
-    (copy, i32::try_from(copy_stride).unwrap_or(i32::MAX))
+    Some((
+        Cow::Owned(copy),
+        i32::try_from(copy_stride).unwrap_or(i32::MAX),
+    ))
 }
 
 //------------------------------------------------------------------------------
@@ -831,7 +964,11 @@ unsafe fn simple(
         return 0; // C: the importer fails.
     }
     // SAFETY: the caller's rows.
-    let (rows, stride) = unsafe { packed_rows(input, width, height, stride, step, import_alpha) };
+    let Some((rows, stride)) =
+        (unsafe { packed_rows(input, width, height, stride, step, import_alpha) })
+    else {
+        return 0; // The host refused the copy of rows with a negative stride.
+    };
     let Some(bytes) = encode(&rows, stride) else {
         return 0;
     };
@@ -1340,7 +1477,11 @@ pub unsafe extern "C" fn webp_memory_write(
     };
     let mut mem = Vec::new();
     if w.max_size > 0 {
-        mem = vec![0_u8; w.max_size];
+        // A refused reservation fails as C's WebPSafeMalloc does.
+        if mem.try_reserve_exact(w.max_size).is_err() {
+            return 0;
+        }
+        mem.resize(w.max_size, 0_u8);
         if w.size > 0 {
             // SAFETY: `mem` holds the `size` written bytes of `max_size`.
             mem[..w.size].copy_from_slice(unsafe { slice::from_raw_parts(w.mem, w.size) });
@@ -1526,7 +1667,7 @@ pub unsafe extern "C" fn webp_picture_copy(
     let c_src = unsafe { *src };
     let (yuva, argb) = selected(&c_src, Mode::Read);
     // SAFETY: the selected planes are readable (caller's contract).
-    let Some(source) = (unsafe { picture_to_rust(&c_src, yuva, argb) }) else {
+    let Ok(source) = (unsafe { picture_to_rust(&c_src, yuva, argb) }) else {
         return 0;
     };
     let mut copy = RsPicture::default();
@@ -1600,9 +1741,10 @@ pub unsafe extern "C" fn webp_picture_view(
     }
     // SAFETY: a valid picture (caller's contract).
     let c_src = unsafe { *src };
-    let (yuva, argb) = selected(&c_src, Mode::Read);
-    // SAFETY: the selected planes are readable (caller's contract).
-    let Some(source) = (unsafe { picture_to_rust(&c_src, yuva, argb) }) else {
+    // C only computes the view's plane addresses: no sample is lent.
+    let (yuva, argb) = selected(&c_src, Mode::Address);
+    // SAFETY: `Mode::Address` lends no memory.
+    let Ok(source) = (unsafe { picture_to_rust(&c_src, yuva, argb) }) else {
         return 0;
     };
     let Some(view) = rescale::webp_picture_view(&source.picture, left, top, width, height) else {
@@ -1799,12 +1941,12 @@ pub unsafe extern "C" fn webp_picture_distortion(
     let c_ref = unsafe { *reference };
     let (yuva, argb) = selected(&c_src, Mode::Read);
     // SAFETY: the selected planes are readable (caller's contract).
-    let Some(source) = (unsafe { picture_to_rust(&c_src, yuva, argb) }) else {
+    let Ok(source) = (unsafe { picture_to_rust(&c_src, yuva, argb) }) else {
         return 0;
     };
     let (yuva, argb) = selected(&c_ref, Mode::Read);
     // SAFETY: as above.
-    let Some(target) = (unsafe { picture_to_rust(&c_ref, yuva, argb) }) else {
+    let Ok(target) = (unsafe { picture_to_rust(&c_ref, yuva, argb) }) else {
         return 0;
     };
     let mut results = [0_f32; 5];
@@ -1843,8 +1985,17 @@ unsafe fn import(
         return 0;
     };
     // SAFETY: the picture's rows (caller's contract).
-    let (rows, stride) =
-        unsafe { packed_rows(input, c.width, c.height, stride, step, import_alpha) };
+    let Some((rows, stride)) =
+        (unsafe { packed_rows(input, c.width, c.height, stride, step, import_alpha) })
+    else {
+        // The host refused the copy of rows with a negative stride.
+        // SAFETY: a valid picture (caller's contract), no other borrow.
+        set_error(
+            unsafe { &mut *picture },
+            WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY,
+        );
+        return 0;
+    };
     // SAFETY: a valid picture; nothing is lent.
     let result = unsafe {
         with_picture(picture, (Mode::Discard, Mode::Discard), false, |rs| {
@@ -1860,7 +2011,9 @@ unsafe fn import(
 ///
 /// # Safety
 ///
-/// As [`import`].
+/// `picture` is null or a valid picture whose memory fields are null or blocks
+/// of the platform `malloc`; the rows are null or point to `height` rows of
+/// the stride, which nothing writes during the call.
 #[unsafe(export_name = "WebPPictureImportRGB")]
 pub unsafe extern "C" fn webp_picture_import_rgb(
     picture: *mut WebPPicture,
@@ -1885,7 +2038,9 @@ pub unsafe extern "C" fn webp_picture_import_rgb(
 ///
 /// # Safety
 ///
-/// As [`import`].
+/// `picture` is null or a valid picture whose memory fields are null or blocks
+/// of the platform `malloc`; the rows are null or point to `height` rows of
+/// the stride, which nothing writes during the call.
 #[unsafe(export_name = "WebPPictureImportRGBA")]
 pub unsafe extern "C" fn webp_picture_import_rgba(
     picture: *mut WebPPicture,
@@ -1910,7 +2065,9 @@ pub unsafe extern "C" fn webp_picture_import_rgba(
 ///
 /// # Safety
 ///
-/// As [`import`].
+/// `picture` is null or a valid picture whose memory fields are null or blocks
+/// of the platform `malloc`; the rows are null or point to `height` rows of
+/// the stride, which nothing writes during the call.
 #[unsafe(export_name = "WebPPictureImportRGBX")]
 pub unsafe extern "C" fn webp_picture_import_rgbx(
     picture: *mut WebPPicture,
@@ -1935,7 +2092,9 @@ pub unsafe extern "C" fn webp_picture_import_rgbx(
 ///
 /// # Safety
 ///
-/// As [`import`].
+/// `picture` is null or a valid picture whose memory fields are null or blocks
+/// of the platform `malloc`; the rows are null or point to `height` rows of
+/// the stride, which nothing writes during the call.
 #[unsafe(export_name = "WebPPictureImportBGR")]
 pub unsafe extern "C" fn webp_picture_import_bgr(
     picture: *mut WebPPicture,
@@ -1960,7 +2119,9 @@ pub unsafe extern "C" fn webp_picture_import_bgr(
 ///
 /// # Safety
 ///
-/// As [`import`].
+/// `picture` is null or a valid picture whose memory fields are null or blocks
+/// of the platform `malloc`; the rows are null or point to `height` rows of
+/// the stride, which nothing writes during the call.
 #[unsafe(export_name = "WebPPictureImportBGRA")]
 pub unsafe extern "C" fn webp_picture_import_bgra(
     picture: *mut WebPPicture,
@@ -1985,7 +2146,9 @@ pub unsafe extern "C" fn webp_picture_import_bgra(
 ///
 /// # Safety
 ///
-/// As [`import`].
+/// `picture` is null or a valid picture whose memory fields are null or blocks
+/// of the platform `malloc`; the rows are null or point to `height` rows of
+/// the stride, which nothing writes during the call.
 #[unsafe(export_name = "WebPPictureImportBGRX")]
 pub unsafe extern "C" fn webp_picture_import_bgrx(
     picture: *mut WebPPicture,
@@ -2035,7 +2198,9 @@ unsafe fn argb_to_yuva(
 ///
 /// # Safety
 ///
-/// As [`argb_to_yuva`].
+/// `picture` is null or a valid picture whose ARGB plane is readable for its
+/// dimensions and whose memory fields are null or blocks of the platform
+/// `malloc`.
 #[unsafe(export_name = "WebPPictureARGBToYUVA")]
 pub unsafe extern "C" fn webp_picture_argb_to_yuva(
     picture: *mut WebPPicture,
@@ -2050,7 +2215,9 @@ pub unsafe extern "C" fn webp_picture_argb_to_yuva(
 ///
 /// # Safety
 ///
-/// As [`argb_to_yuva`].
+/// `picture` is null or a valid picture whose ARGB plane is readable for its
+/// dimensions and whose memory fields are null or blocks of the platform
+/// `malloc`.
 #[unsafe(export_name = "WebPPictureARGBToYUVADithered")]
 pub unsafe extern "C" fn webp_picture_argb_to_yuva_dithered(
     picture: *mut WebPPicture,
@@ -2070,7 +2237,9 @@ pub unsafe extern "C" fn webp_picture_argb_to_yuva_dithered(
 ///
 /// # Safety
 ///
-/// As [`argb_to_yuva`].
+/// `picture` is null or a valid picture whose ARGB plane is readable for its
+/// dimensions and whose memory fields are null or blocks of the platform
+/// `malloc`.
 #[unsafe(export_name = "WebPPictureSharpARGBToYUVA")]
 pub unsafe extern "C" fn webp_picture_sharp_argb_to_yuva(picture: *mut WebPPicture) -> c_int {
     // SAFETY: the caller's contract, passed on.
@@ -2082,7 +2251,9 @@ pub unsafe extern "C" fn webp_picture_sharp_argb_to_yuva(picture: *mut WebPPictu
 ///
 /// # Safety
 ///
-/// As [`argb_to_yuva`].
+/// `picture` is null or a valid picture whose ARGB plane is readable for its
+/// dimensions and whose memory fields are null or blocks of the platform
+/// `malloc`.
 #[unsafe(export_name = "WebPPictureSmartARGBToYUVA")]
 pub unsafe extern "C" fn webp_picture_smart_argb_to_yuva(picture: *mut WebPPicture) -> c_int {
     // SAFETY: the caller's contract, passed on.
@@ -2149,9 +2320,15 @@ pub unsafe extern "C" fn webp_picture_has_transparency(picture: *const WebPPictu
     let Some(c) = (unsafe { picture.as_ref() }) else {
         return 0;
     };
-    let (yuva, argb) = selected(c, Mode::Read);
-    // SAFETY: the selected planes are readable (caller's contract).
-    let Some(converted) = (unsafe { picture_to_rust(c, yuva, argb) }) else {
+    // C reads only the alpha plane of a YUV picture, and the ARGB plane of an
+    // ARGB picture.
+    let mut read = *c;
+    if read.use_argb == 0 {
+        (read.y, read.u, read.v) = (ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
+    }
+    let (yuva, argb) = selected(&read, Mode::Read);
+    // SAFETY: the plane that C reads is readable (caller's contract).
+    let Ok(converted) = (unsafe { picture_to_rust(&read, yuva, argb) }) else {
         return 0;
     };
     c_int::from(csp::webp_picture_has_transparency(&converted.picture))
@@ -2210,9 +2387,12 @@ fn progress_closure<'a>(hook: WebPProgressHook, picture: *const WebPPicture) -> 
 /// data through `picture->writer`. Returns 0 on error, recorded in
 /// `picture->error_code`; `NULL` arguments return 0.
 ///
-/// The translation encodes with copies of `*picture->stats` and of the
-/// `extra_info` map (one byte per macroblock, when the dimensions are valid),
-/// which go back to the caller after the call.
+/// The call lends the planes that C's path reads or writes, and nothing when the
+/// configuration or the picture fails C's validation. The translation encodes
+/// with zeroed copies of the statistics and of the `extra_info` map (one byte
+/// per macroblock): the statistics go back to `*picture->stats` once the
+/// validation has passed, where C resets and fills them, and the map goes back
+/// to `picture->extra_info` when the encoding succeeds, where C has filled it.
 ///
 /// # Safety
 ///
@@ -2236,31 +2416,61 @@ pub unsafe extern "C" fn webp_encode(
         set_error(c, WebPEncodingError::VP8_ENC_ERROR_NULL_PARAMETER);
         return 0;
     };
-    let c_stats = c.stats;
-    // SAFETY: null or a valid `WebPAuxStats` (caller's contract).
-    let mut stats = unsafe { c_stats.as_ref() }.copied();
-    let valid =
-        (1..=WEBP_MAX_DIMENSION).contains(&c.width) && (1..=WEBP_MAX_DIMENSION).contains(&c.height);
-    let c_extra = c.extra_info;
-    let mb_count = if valid && !c_extra.is_null() {
+    let (c_stats, c_extra) = (c.stats, c.extra_info);
+    // C's validation, before WebPEncode touches the statistics or a plane:
+    // WebPValidateConfig, WebPValidatePicture and the dimension limit.
+    let mut dimensions = RsPicture {
+        width: c.width,
+        height: c.height,
+        colorspace: c.colorspace,
+        ..RsPicture::default()
+    };
+    let validated = config_rs::webp_validate_config(&config)
+        && picture_rs::webp_validate_picture(&mut dimensions).is_ok()
+        && c.width <= WEBP_MAX_DIMENSION
+        && c.height <= WEBP_MAX_DIMENSION;
+    // The planes that C's path reads or writes.
+    let has_yuv = !c.y.is_null() && !c.u.is_null() && !c.v.is_null();
+    let modes = if !validated {
+        (Mode::Discard, Mode::Discard)
+    } else if config.lossless == 0 {
+        if c.use_argb == 0 && has_yuv {
+            // The cleanup and show_compressed write the YUVA planes.
+            (Mode::Write, Mode::Discard)
+        } else {
+            // The conversion reads the ARGB plane and replaces the YUVA planes.
+            (Mode::Discard, Mode::Read)
+        }
+    } else if !c.argb.is_null() {
+        // WebPReplaceTransparentPixels writes the ARGB plane of an ARGB picture.
+        let write = c.use_argb != 0 && config.exact == 0;
+        (Mode::Discard, if write { Mode::Write } else { Mode::Read })
+    } else {
+        // WebPPictureYUVAToARGB reads the YUVA planes and makes the ARGB plane.
+        (Mode::Read, Mode::Discard)
+    };
+    let wants_stats = !c_stats.is_null();
+    let mut stats = WebPAuxStats::default();
+    let mb_count = if validated && !c_extra.is_null() {
         usize::try_from(((c.width + 15) >> 4) * ((c.height + 15) >> 4)).unwrap_or(0)
     } else {
         0
     };
-    let mut extra = if mb_count > 0 {
-        // SAFETY: one byte per macroblock (caller's contract).
-        Some(unsafe { slice::from_raw_parts(c_extra, mb_count) }.to_vec())
-    } else {
-        None
-    };
+    let mut extra = Vec::new();
+    if extra.try_reserve_exact(mb_count).is_err() {
+        set_error(c, WebPEncodingError::VP8_ENC_ERROR_OUT_OF_MEMORY);
+        return 0;
+    }
+    extra.resize(mb_count, 0_u8);
     let (writer, hook) = (c.writer, c.progress_hook);
-    // SAFETY: the planes are writable (caller's contract).
+    // SAFETY: the planes of the modes are readable, or writable for `Write`
+    // (caller's contract).
     let result = unsafe {
-        with_picture(picture, (Mode::Write, Mode::Write), true, |rs| {
+        with_picture(picture, modes, true, |rs| {
             rs.writer = writer.map(|writer| writer_closure(writer, picture));
             rs.progress_hook = hook.map(|hook| progress_closure(hook, picture));
-            rs.stats = stats.as_mut();
-            rs.extra_info = extra.as_deref_mut();
+            rs.stats = wants_stats.then_some(&mut stats);
+            rs.extra_info = (mb_count > 0).then_some(extra.as_mut_slice());
             let ok = enc::webp_encode(&config, rs);
             rs.writer = None;
             rs.progress_hook = None;
@@ -2269,13 +2479,14 @@ pub unsafe extern "C" fn webp_encode(
             ok
         })
     };
-    if let Some(stats) = stats {
-        // SAFETY: a valid `WebPAuxStats` (caller's contract).
+    if validated && wants_stats && result.is_some() {
+        // SAFETY: a valid, writable `WebPAuxStats` (caller's contract); C has
+        // reset it at this point.
         unsafe { c_stats.write(stats) };
     }
-    if let Some(extra) = extra {
-        // SAFETY: one byte per macroblock (caller's contract).
-        unsafe { ptr::copy_nonoverlapping(extra.as_ptr(), c_extra, extra.len()) };
+    if mb_count > 0 && result.is_some_and(|(encoded, _)| encoded) {
+        // SAFETY: one writable byte per macroblock (caller's contract).
+        unsafe { ptr::copy_nonoverlapping(extra.as_ptr(), c_extra, mb_count) };
     }
     c_int::from(result.is_some_and(|(ok, written)| ok && written))
 }

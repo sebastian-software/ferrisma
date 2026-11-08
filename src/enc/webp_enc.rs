@@ -467,9 +467,9 @@ fn store_stats(enc: &VP8Encoder, pic: &mut WebPPicture<'_>) {
     }
 }
 
-/// The regions of a shared storage, copied one after the other into one owned
-/// block, and the position of each region in it. `None` when the host refuses
-/// the reservation.
+/// Rust-only (no C counterpart): the regions of a shared storage, copied one
+/// after the other into one owned block, and the position of each region in it.
+/// `None` when the host refuses the reservation.
 fn owned_copy<T: Copy>(regions: &[&[T]]) -> Option<(Vec<T>, Vec<usize>)> {
     let total = regions.iter().map(|region| region.len()).sum();
     let mut samples = Vec::new();
@@ -482,8 +482,8 @@ fn owned_copy<T: Copy>(regions: &[&[T]]) -> Option<(Vec<T>, Vec<usize>)> {
     Some((samples, bases))
 }
 
-/// A plane of a shared storage at its position in the owned copy of
-/// [`owned_copy`].
+/// Rust-only (no C counterpart): a plane of a shared storage at its position in
+/// the owned copy of [`owned_copy`].
 fn rebased(plane: Option<PlaneOffset>, bases: &[usize]) -> Option<PlaneOffset> {
     plane.map(|plane| PlaneOffset {
         region: 0,
