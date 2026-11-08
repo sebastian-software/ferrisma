@@ -571,7 +571,7 @@ pub fn webp_encode_bgra(
 
 // upstream: src/enc/picture_enc.c LOSSLESS_DEFAULT_QUALITY
 /// The quality of the lossless simple API (C: `70.`, passed as a `float`).
-const LOSSLESS_DEFAULT_QUALITY: f32 = 70.;
+pub(crate) const LOSSLESS_DEFAULT_QUALITY: f32 = 70.;
 
 // upstream: src/enc/picture_enc.c WebPEncodeLosslessRGB
 /// Encodes RGB rows of `stride` bytes losslessly (C: `WebPEncodeLosslessRGB`).
