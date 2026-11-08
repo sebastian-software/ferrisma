@@ -4,7 +4,8 @@
 Stages:
   static  upstream pin, module skeleton (tools/units.py), pool inventory
           (tools/pools.py), documentation links, `cargo fmt --check`, Clippy
-          with -D warnings on all targets
+          with -D warnings on all targets, with all features and without the
+          default ones
   test    `cargo test` in the dev, release and checked profiles
   all     both (default)
 
@@ -15,6 +16,13 @@ Cargo feature, so that differential tests fail instead of skipping when they
 cannot run. --oracle-variant picks the variant (default: release) and implies
 --oracle. --msrv adds a build and test run with the toolchain named by
 rust-version.
+
+The crate's features follow the oracle (ADR 0007): the reference variants
+test the crate without default features, the reference configuration; the
+simd variant tests it with the default `simd` feature, once with the Neon
+kernels and once with JSIMD_FORCENONE=1 in the port and the oracle. Without an
+oracle, the tests run with the default features, plus once without them in
+the dev profile.
 """
 
 import argparse
@@ -102,23 +110,36 @@ def check_static(msrv):
     check_docs()
     run("cargo", "fmt", "--all", "--", "--check")
     run("cargo", "clippy", *CARGO, "--all-targets", "--all-features", "--", "-D", "warnings")
+    run("cargo", "clippy", *CARGO, "--all-targets", "--no-default-features", "--features",
+        "oracle", "--", "-D", "warnings")
     if msrv:
         run("cargo", f"+{rust_version()}", "check", *CARGO, "--all-targets", "--all-features")
 
 
 def check_tests(oracle_variant, msrv):
     env = dict(os.environ)
+    env.pop("JSIMD_FORCENONE", None)
     features = []
+    modes = [env]
     if oracle_variant:
         directory = build_oracle.build(oracle_variant, str(os.cpu_count() or 4), fresh=False)
         run(sys.executable, ROOT / "tools/bittests.py", "--check", "--run",
             "--variant", oracle_variant, "--jobs", str(os.cpu_count() or 4))
         env["LIBJPEG_ORACLE_DIR"] = str(directory)
-        features = ["--features", "oracle"]
+        if build_oracle.VARIANTS[oracle_variant]["simd"]:
+            features = ["--features", "oracle"]
+            modes = [env, {**env, "JSIMD_FORCENONE": "1"}]
+        else:
+            features = ["--no-default-features", "--features", "oracle"]
     else:
         env.pop("LIBJPEG_ORACLE_DIR", None)
-    for profile in PROFILES:
-        run("cargo", "test", *CARGO, *profile, *features, env=env)
+    for mode in modes:
+        if "JSIMD_FORCENONE" in mode:
+            print("+ JSIMD_FORCENONE=1", flush=True)
+        for profile in PROFILES:
+            run("cargo", "test", *CARGO, *profile, *features, env=mode)
+    if not oracle_variant:
+        run("cargo", "test", *CARGO, "--no-default-features", env=env)
     if msrv:
         toolchain = f"+{rust_version()}"
         run("cargo", toolchain, "build", *CARGO, "--all-targets", *features)

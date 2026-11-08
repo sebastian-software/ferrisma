@@ -6,7 +6,8 @@
 //! variant directory, for example `build/oracle/release`; a relative path is
 //! resolved against the repository root.
 //!
-//! A test that needs the oracle starts with [`Oracle::locate`]. When the
+//! A test that needs the oracle starts with [`Oracle::locate`], which also
+//! requires the oracle's `WITH_SIMD` to be the crate's (ADR 0007). When the
 //! variable is unset the test prints why it is skipped and returns, unless the
 //! `oracle` Cargo feature is enabled (as `tools/check.py --oracle` does), in
 //! which case it fails. Probes run in separate processes; they print one
@@ -82,6 +83,25 @@ impl Oracle {
             directory.join("oracle.json").is_file(),
             "{ORACLE_DIR}={} holds no oracle build; run python3 tools/build_oracle.py",
             directory.display()
+        );
+        // ADR 0007: the SIMD configuration matches the simd oracle, the
+        // reference configuration the others.
+        let record = std::fs::read_to_string(directory.join("oracle.json"))
+            .expect("oracle.json is readable");
+        let simd = record.contains("\"simd\": true");
+        assert_eq!(
+            simd,
+            jpeg::jconfig::WITH_SIMD,
+            "{test}: {ORACLE_DIR}={} is {} oracle, but the crate is built {} WITH_SIMD; \
+             build the tests with{} default features (tools/check.py chooses them)",
+            directory.display(),
+            if simd { "a SIMD" } else { "a reference" },
+            if jpeg::jconfig::WITH_SIMD {
+                "with"
+            } else {
+                "without"
+            },
+            if simd { "" } else { "out" },
         );
         Some(Oracle { directory })
     }

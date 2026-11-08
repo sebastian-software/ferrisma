@@ -18,8 +18,8 @@ use std::rc::Rc;
 use jpeg::jcomapi::{jpeg_alloc_huff_table, jpeg_alloc_quant_table, jpeg_destroy};
 use jpeg::jerror::{ErrorExit, J_MESSAGE_CODE, emit_message, jpeg_error_methods, jpeg_std_error};
 use jpeg::jmemmgr::{
-    SIZEOF_jvirt_barray_control, SIZEOF_my_memory_mgr, alloc_large_vec, alloc_small_box,
-    alloc_small_vec, jinit_memory_mgr,
+    ALIGN_SIZE, SIZEOF_jvirt_barray_control, SIZEOF_my_memory_mgr, alloc_large_vec,
+    alloc_small_box, alloc_small_vec, jinit_memory_mgr,
 };
 use jpeg::jpeglib::{
     JMSG_LENGTH_MAX, JPOOL_IMAGE, jpeg_decompress_struct, jpeg_error_mgr, jvirt_barray_ptr,
@@ -479,9 +479,15 @@ fn data_precision_above_8_is_out_of_scope() {
             .success()
             .fields();
         assert_eq!(expected.int("error"), 0, "{expected:?}");
-        // 9 samples of 2 bytes rounded up to 2 * ALIGN_SIZE / 2 = 8 samples:
-        // 16 samples, 32 bytes apart.
-        assert_eq!(expected.get("stride"), Some("32"), "{expected:?}");
+        // 9 samples of 2 bytes rounded up to a multiple of 2 * ALIGN_SIZE / 2
+        // samples: 16 samples, 32 bytes apart, with the reference ALIGN_SIZE
+        // of 8; 32 samples, 64 bytes apart, with WITH_SIMD's 32 (ADR 0007).
+        let stride = 9usize.next_multiple_of(ALIGN_SIZE) * 2;
+        assert_eq!(
+            expected.get("stride"),
+            Some(stride.to_string().as_str()),
+            "{expected:?}"
+        );
         let actual = run_rust(&script);
         assert_eq!(
             actual.int("error"),

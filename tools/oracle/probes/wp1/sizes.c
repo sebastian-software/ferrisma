@@ -16,7 +16,12 @@
 
 #include <string.h>
 
+/* As jmemmgr.c defines it; jconfig.h defines WITH_SIMD in a SIMD build. */
+#ifndef WITH_SIMD
 #define ALIGN_SIZE  MAX(sizeof(void *), sizeof(double))
+#else
+#define ALIGN_SIZE  32
+#endif
 
 static const long operands[][2] = {
   { 0, 1 }, { 1, 1 }, { 1, 8 }, { 7, 8 }, { 8, 8 }, { 9, 8 }, { 227, 16 },

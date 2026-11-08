@@ -19,8 +19,10 @@ against it. Variants:
   release     the reference oracle (ADR 0002)
   asan-ubsan  the same configuration, library, tools and probes instrumented
               with AddressSanitizer and UndefinedBehaviorSanitizer
-  simd        WITH_SIMD=1, diagnostic only, for the SIMD packages of ADR 0004;
-              on x86-64 it needs NASM or Yasm
+  simd        WITH_SIMD=1, upstream's default build: the oracle of the port's
+              SIMD configuration (ADR 0007), which tools/check.py tests with
+              Neon and with JSIMD_FORCENONE=1 on ARM64; on x86-64 it needs
+              NASM or Yasm and stays diagnostic until work package 10
 
 upstream/libjpeg-turbo is never modified: CMake writes only below build/.
 """
