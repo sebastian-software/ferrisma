@@ -69,7 +69,21 @@ fn upstream_bit_tests_pass_on_the_port() {
     };
     let cases = manifest(&oracle);
     assert_eq!(cases.len(), 30, "the in-scope cases of tools/bittests.json");
+    // An x86-64 SIMD oracle checks the float cases with upstream's
+    // FLOATTEST8=sse hashes, which the SSE float IDCT produces. With
+    // JSIMD_FORCENONE=1 the C float IDCT runs instead, in upstream's suite as
+    // in the port, so those cases have no hash to check (ADR 0008).
+    let record = std::fs::read_to_string(oracle.directory().join("oracle.json")).unwrap();
+    let sse_hashes_without_sse = record.contains("\"floattest8\": \"sse\"")
+        && std::env::var_os("JSIMD_FORCENONE").is_some_and(|value| value == "1");
     for case in &cases {
+        if sse_hashes_without_sse && case.args.iter().any(|arg| arg == "float") {
+            eprintln!(
+                "{}: skipped, the FLOATTEST8=sse hash needs the SSE float IDCT",
+                case.test
+            );
+            continue;
+        }
         let data = std::fs::read(&case.input).unwrap();
         let args: Vec<&str> = case.args.iter().map(String::as_str).collect();
         let output =
@@ -153,6 +167,7 @@ fn driver_matches_the_oracle_djpeg() {
             &["-pnm", "-grayscale"],
             &["-rgb", "-nosmooth"],
             &["-fast", "-scale", "3/8"],
+            &["-dct", "float"],
             &["-dct", "float", "-scale", "15/8"],
             &["-skip", "3,40"],
             &["-skip", "0,0", "-nosmooth"],
@@ -189,7 +204,7 @@ fn driver_matches_the_oracle_djpeg() {
      * that four-component input does not support, in both. */
     assert_eq!(
         (compared, failed),
-        (80, 18),
+        (87, 18),
         "byte comparisons and shared failures"
     );
 }

@@ -12,9 +12,17 @@
 //! routines of the SIMD build), against the reference oracle the portable
 //! decoder at the same sizes.
 //!
+//! The crops come from two images: `testorig.ppm`, a photograph, and a
+//! pseudo-random image whose YCbCr values reach the saturation of the color
+//! conversions and the extremes of the upsamplers' arithmetic.
+//!
 //! With `WITH_SIMD`, `kernels_are_dispatched` checks that the port selects
-//! the kernels, or none of them with `JSIMD_FORCENONE=1`, so that a decode
-//! that matches the oracle cannot have passed through the C routines alone.
+//! the kernels of the instruction set that `LIBJPEG_EXPECT_SIMD` names
+//! (`neon`, `avx2`, `sse2` or `none`; `tools/check.py` sets it for each
+//! mode, ADR 0008), so that a decode that matches the oracle cannot have
+//! passed through the C routines alone. Without the variable it expects the
+//! best instruction set that the CPU reports, or none with
+//! `JSIMD_FORCENONE=1`.
 
 #[path = "support/inputs.rs"]
 mod inputs;
@@ -76,15 +84,40 @@ fn jcs(format: PixelFormat) -> u32 {
     }
 }
 
-/// The top-left `width` x `height` pixels of `testorig.ppm` as a PPM.
-fn crop(width: u32, height: u32) -> Vec<u8> {
+/// The width of the source images.
+const SOURCE_WIDTH: usize = 227;
+
+/// The source images: name and RGB pixels, `SOURCE_WIDTH` columns wide and
+/// at least `HEIGHT` rows high.
+fn sources() -> [(&'static str, Vec<u8>); 2] {
     let data = inputs::image("testorig.ppm");
     let header = b"P6\n227 149\n255\n";
     assert!(data.starts_with(header), "testorig.ppm has a new header");
-    let pixels = &data[header.len()..];
+    [
+        ("testorig", data[header.len()..].to_vec()),
+        ("noise", noise(SOURCE_WIDTH * HEIGHT as usize * 3)),
+    ]
+}
+
+/// `len` pseudo-random bytes (xorshift64): random RGB pixels, whose YCbCr
+/// values and differences between neighbors cover the whole range.
+fn noise(len: usize) -> Vec<u8> {
+    let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state.to_be_bytes()[0]
+        })
+        .collect()
+}
+
+/// The top-left `width` x `height` pixels of `pixels` as a PPM.
+fn crop(pixels: &[u8], width: u32, height: u32) -> Vec<u8> {
     let mut out = format!("P6\n{width} {height}\n255\n").into_bytes();
     for y in 0..height as usize {
-        let start = y * 227 * 3;
+        let start = y * SOURCE_WIDTH * 3;
         out.extend_from_slice(&pixels[start..start + width as usize * 3]);
     }
     out
@@ -216,18 +249,93 @@ fn widths_and_samplings_match_the_oracle() {
         return;
     };
     let mut cases = 0;
-    for (sampling, switches) in SAMPLINGS {
-        for width in WIDTHS {
-            let data = encode(&oracle, &crop(width, HEIGHT), switches);
-            for output in modes(sampling) {
-                let expected = oracle_rows(&oracle, &output, &data);
-                let actual = port_rows(&output, &data);
-                assert_eq!(actual, expected, "{sampling} width {width} {output:?}");
-                cases += 1;
+    for (source, pixels) in sources() {
+        for (sampling, switches) in SAMPLINGS {
+            for width in WIDTHS {
+                let data = encode(&oracle, &crop(&pixels, width, HEIGHT), switches);
+                for output in modes(sampling) {
+                    let expected = oracle_rows(&oracle, &output, &data);
+                    let actual = port_rows(&output, &data);
+                    assert_eq!(
+                        actual, expected,
+                        "{source} {sampling} width {width} {output:?}"
+                    );
+                    cases += 1;
+                }
             }
         }
     }
-    assert_eq!(cases, 4 * WIDTHS.len() * 14 + WIDTHS.len() * 5);
+    assert_eq!(cases, 2 * (4 * WIDTHS.len() * 14 + WIDTHS.len() * 5));
+}
+
+/// The instruction set whose kernels the port must select (ADR 0008,
+/// decision 6).
+#[cfg(with_simd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Expected {
+    Neon,
+    Avx2,
+    Sse2,
+    None,
+}
+
+#[cfg(with_simd)]
+impl Expected {
+    /// `LIBJPEG_EXPECT_SIMD`, or the best instruction set that the CPU and
+    /// the `JSIMD_FORCE*` variables leave.
+    fn from_environment() -> Expected {
+        let forced = |name| std::env::var_os(name).is_some_and(|value| value == "1");
+        match std::env::var("LIBJPEG_EXPECT_SIMD").as_deref() {
+            Ok("neon") => Expected::Neon,
+            Ok("avx2") => Expected::Avx2,
+            Ok("sse2") => Expected::Sse2,
+            Ok("none") => Expected::None,
+            Ok(other) => panic!("LIBJPEG_EXPECT_SIMD={other}: expected neon, avx2, sse2 or none"),
+            Err(_) if forced("JSIMD_FORCENONE") => Expected::None,
+            Err(_) if cfg!(target_arch = "aarch64") => Expected::Neon,
+            Err(_) if forced("JSIMD_FORCESSE2") => Expected::Sse2,
+            Err(_) if jpeg::jsimdcpu::jpeg_simd_cpu_support() & jpeg::jsimd::JSIMD_AVX2 != 0 => {
+                Expected::Avx2
+            }
+            Err(_) => Expected::Sse2,
+        }
+    }
+
+    /// The `simd_support` mask that `init_simd` stores.
+    fn support(self) -> u32 {
+        use jpeg::jsimd::{JSIMD_AVX2, JSIMD_NEON, JSIMD_SSE, JSIMD_SSE2};
+        match self {
+            Expected::Neon => JSIMD_NEON,
+            Expected::Avx2 => JSIMD_SSE | JSIMD_SSE2 | JSIMD_AVX2,
+            Expected::Sse2 => JSIMD_SSE | JSIMD_SSE2,
+            Expected::None => 0,
+        }
+    }
+
+    /// The instruction set that `jsimd_set_<kernel>` returns: upstream has
+    /// AVX2 kernels only for some entry points, no float IDCT for Neon and
+    /// no h1v2 fancy upsampling for x86-64.
+    fn kernel(self, kernel: &str) -> u32 {
+        use jpeg::jsimd::{JSIMD_AVX2, JSIMD_NEON, JSIMD_NONE, JSIMD_SSE2};
+        const AVX2: &[&str] = &[
+            "ycc_rgb",
+            "h2v1_upsample",
+            "h2v2_upsample",
+            "h2v1_fancy_upsample",
+            "h2v2_fancy_upsample",
+            "h2v1_merged_upsample",
+            "h2v2_merged_upsample",
+            "idct_islow",
+        ];
+        match self {
+            Expected::Neon if kernel == "idct_float" => JSIMD_NONE,
+            Expected::Neon => JSIMD_NEON,
+            Expected::Avx2 | Expected::Sse2 if kernel == "h1v2_fancy_upsample" => JSIMD_NONE,
+            Expected::Avx2 if AVX2.contains(&kernel) => JSIMD_AVX2,
+            Expected::Avx2 | Expected::Sse2 => JSIMD_SSE2,
+            Expected::None => JSIMD_NONE,
+        }
+    }
 }
 
 #[cfg(with_simd)]
@@ -238,18 +346,26 @@ fn kernels_are_dispatched() {
     use jpeg::jdatasrc::jpeg_mem_src;
     use jpeg::jerror::jpeg_std_error;
     use jpeg::jpeglib::{jpeg_decompress_struct, jpeg_error_mgr};
-    use jpeg::jsimd::JSIMD_NEON;
+    use jpeg::jsimd::{
+        jsimd_set_h1v2_fancy_upsample, jsimd_set_h2v1_fancy_upsample,
+        jsimd_set_h2v1_merged_upsample, jsimd_set_h2v1_upsample, jsimd_set_h2v2_fancy_upsample,
+        jsimd_set_h2v2_merged_upsample, jsimd_set_h2v2_upsample, jsimd_set_idct_2x2,
+        jsimd_set_idct_4x4, jsimd_set_idct_float, jsimd_set_idct_ifast, jsimd_set_idct_islow,
+        jsimd_set_ycc_rgb,
+    };
 
     // The test image comes from the upstream checkout, which the oracle
-    // builds need, and `JSIMD_FORCENONE` selects the oracle's mode too.
+    // builds need, and `JSIMD_FORCE*` selects the oracle's mode too.
     if Oracle::locate("kernels_are_dispatched").is_none() {
         return;
     }
-    let forced_none = std::env::var_os("JSIMD_FORCENONE").is_some_and(|value| value == "1");
+    let expected = Expected::from_environment();
     // testorig.jpg is 4:2:0 YCbCr: fancy h2v2 upsampling, YCbCr-to-RGB
-    // conversion and the islow IDCT; at 1/2 the 4x4 IDCT too.
+    // conversion and the islow IDCT; at 1/2 the 4x4 IDCT too, and without
+    // fancy upsampling the merged h2v2 upsampler.
     let data = inputs::image("testorig.jpg");
-    for scale_denom in [1, 2] {
+    for (scale_denom, fancy) in [(1, true), (2, true), (1, false)] {
+        let what = format!("scale 1/{scale_denom}, fancy {fancy}, {expected:?}");
         let mut err = Box::new(jpeg_error_mgr::default());
         jpeg_std_error(&mut err);
         let mut cinfo = jpeg_decompress_struct::new(err);
@@ -257,31 +373,87 @@ fn kernels_are_dispatched() {
         jpeg_mem_src(&mut cinfo, &data).unwrap();
         jpeg_read_header(&mut cinfo, true).unwrap();
         cinfo.scale_denom = scale_denom;
+        cinfo.do_fancy_upsampling = fancy;
         assert!(jpeg_start_decompress(&mut cinfo).unwrap());
 
-        let support = cinfo.master().pub_.simd_support;
-        // At 1/2 the chroma components get the 8x8 IDCT, which leaves
-        // nothing to upsample (jdmaster.c's jpeg_core_output_dimensions),
-        // and the luma component the 4x4 IDCT.
-        let slots = if scale_denom == 1 {
-            [
+        assert_eq!(
+            cinfo.master().pub_.simd_support,
+            expected.support(),
+            "{what}"
+        );
+        // The slots that the decode selected. At 1/2 the chroma components
+        // get the 8x8 IDCT, which leaves nothing to upsample (jdmaster.c's
+        // jpeg_core_output_dimensions), and the luma component the 4x4 IDCT.
+        let (slot, kernel) = match (scale_denom, fancy) {
+            (1, true) => (
                 cinfo.upsample().h2v2_upsample_simd.is_some(),
-                cinfo.cconvert().color_convert_simd.is_some(),
-                cinfo.idct().idct_simd.is_some(),
-            ]
-        } else {
-            [
-                cinfo.idct().idct_4x4_simd.is_some(),
-                cinfo.cconvert().color_convert_simd.is_some(),
-                cinfo.idct().idct_simd.is_some(),
-            ]
+                "h2v2_fancy_upsample",
+            ),
+            (2, _) => (cinfo.idct().idct_4x4_simd.is_some(), "idct_4x4"),
+            _ => (
+                cinfo.upsample().merged_upsample_simd.is_some(),
+                "h2v2_merged_upsample",
+            ),
         };
-        if forced_none {
-            assert_eq!(support, 0);
-            assert_eq!(slots, [false; 3], "scale 1/{scale_denom}");
-        } else {
-            assert_eq!(support, JSIMD_NEON);
-            assert_eq!(slots, [true; 3], "scale 1/{scale_denom}");
+        let some = |kernel| expected.kernel(kernel) != jpeg::jsimd::JSIMD_NONE;
+        assert_eq!(slot, some(kernel), "{kernel} slot, {what}");
+        if fancy {
+            assert_eq!(
+                cinfo.cconvert().color_convert_simd.is_some(),
+                some("ycc_rgb"),
+                "ycc_rgb slot, {what}"
+            );
+        }
+        assert_eq!(
+            cinfo.idct().idct_simd.is_some(),
+            some("idct_islow"),
+            "idct_islow slot, {what}"
+        );
+
+        // The instruction set of each entry point, which a decode that
+        // matches the oracle cannot show: the AVX2 and SSE2 kernels give the
+        // same output.
+        if scale_denom == 1 && fancy {
+            let mut upsampler = *cinfo.upsample();
+            let selected = [
+                ("ycc_rgb", jsimd_set_ycc_rgb(&mut cinfo)),
+                (
+                    "h2v1_upsample",
+                    jsimd_set_h2v1_upsample(&mut cinfo, &mut upsampler),
+                ),
+                (
+                    "h2v2_upsample",
+                    jsimd_set_h2v2_upsample(&mut cinfo, &mut upsampler),
+                ),
+                (
+                    "h2v1_fancy_upsample",
+                    jsimd_set_h2v1_fancy_upsample(&mut cinfo, &mut upsampler),
+                ),
+                (
+                    "h2v2_fancy_upsample",
+                    jsimd_set_h2v2_fancy_upsample(&mut cinfo, &mut upsampler),
+                ),
+                (
+                    "h1v2_fancy_upsample",
+                    jsimd_set_h1v2_fancy_upsample(&mut cinfo, &mut upsampler),
+                ),
+                (
+                    "h2v1_merged_upsample",
+                    jsimd_set_h2v1_merged_upsample(&mut cinfo),
+                ),
+                (
+                    "h2v2_merged_upsample",
+                    jsimd_set_h2v2_merged_upsample(&mut cinfo),
+                ),
+                ("idct_islow", jsimd_set_idct_islow(&mut cinfo)),
+                ("idct_ifast", jsimd_set_idct_ifast(&mut cinfo)),
+                ("idct_float", jsimd_set_idct_float(&mut cinfo)),
+                ("idct_2x2", jsimd_set_idct_2x2(&mut cinfo)),
+                ("idct_4x4", jsimd_set_idct_4x4(&mut cinfo)),
+            ];
+            for (kernel, set) in selected {
+                assert_eq!(set, expected.kernel(kernel), "jsimd_set_{kernel}, {what}");
+            }
         }
         jpeg_destroy_decompress(&mut cinfo).unwrap();
     }
