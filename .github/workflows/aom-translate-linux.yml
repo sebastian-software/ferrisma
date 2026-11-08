@@ -20,7 +20,7 @@ permissions:
 jobs:
   translate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 240
     env:
       CC: clang-16
       CXX: clang++-16
