@@ -24,7 +24,9 @@
 //! hold the demuxer's state (exceptions in `tools/units.json`). They hold the
 //! `WebPData` that WP1 provides in `mux_types.rs`.
 
+use crate::demux::demux::{WebPDemuxer, webp_demux_internal};
 use crate::webp::decode::WEBP_CSP_MODE;
+use crate::webp::mux_types::{WebPData, WebPMuxAnimBlend, WebPMuxAnimDispose};
 
 // upstream: src/webp/demux.h WEBP_DEMUX_ABI_VERSION
 pub const WEBP_DEMUX_ABI_VERSION: i32 = 0x0107;
@@ -92,4 +94,81 @@ pub struct WebPAnimInfo {
     pub frame_count: u32,
     /// Padding for later use.
     pub pad: [u32; 4],
+}
+
+// upstream: src/webp/demux.h WebPIterator
+/// Iterator over the frames of a demuxer (C: `WebPIterator`). `dmux` replaces
+/// C's `private_`: the demuxer is immutable after construction, so the iterator
+/// borrows it, and `fragment` borrows the frame's bytes from the input.
+#[derive(Clone, Debug)]
+pub struct WebPIterator<'d> {
+    /// The frame number of this frame (C: `frame_num`).
+    pub frame_num: i32,
+    /// Equivalent to `WEBP_FF_FRAME_COUNT` (C: `num_frames`).
+    pub num_frames: i32,
+    /// Offset relative to the canvas.
+    pub x_offset: i32,
+    /// Offset relative to the canvas.
+    pub y_offset: i32,
+    /// Dimensions of this frame.
+    pub width: i32,
+    /// Dimensions of this frame.
+    pub height: i32,
+    /// Display duration in milliseconds.
+    pub duration: i32,
+    /// Dispose method for the frame.
+    pub dispose_method: WebPMuxAnimDispose,
+    /// Non-zero if `fragment` contains a full frame. Partial images may still be
+    /// decoded with the WebP incremental decoder.
+    pub complete: i32,
+    /// The frame given by `frame_num`. For historical reasons C calls it a fragment.
+    pub fragment: WebPData<'d>,
+    /// Non-zero if the frame contains transparency.
+    pub has_alpha: i32,
+    /// Blend operation for the frame.
+    pub blend_method: WebPMuxAnimBlend,
+    /// Padding for later use.
+    pub pad: [u32; 2],
+    /// The demuxer that this iterator reads (C: `private_`).
+    pub(crate) dmux: &'d WebPDemuxer<'d>,
+}
+
+// upstream: src/webp/demux.h WebPChunkIterator
+/// Iterator over the chunks with one tag of a demuxer (C: `WebPChunkIterator`).
+/// `dmux` replaces C's `private_`, as for [`WebPIterator`]. C recovers the tag
+/// from the four bytes before the payload; the iterator keeps the tag that
+/// `WebPDemuxGetChunk` was given, which those bytes equal.
+#[derive(Clone, Debug)]
+pub struct WebPChunkIterator<'d> {
+    /// The current number of the chunk with the tag (C: `chunk_num`).
+    pub chunk_num: i32,
+    /// The total number of chunks with the tag (C: `num_chunks`).
+    pub num_chunks: i32,
+    /// The payload of the chunk.
+    pub chunk: WebPData<'d>,
+    /// Padding for later use.
+    pub pad: [u32; 6],
+    /// The demuxer that this iterator reads (C: `private_`).
+    pub(crate) dmux: &'d WebPDemuxer<'d>,
+    /// The tag of the chunks that the iterator walks.
+    pub(crate) fourcc: [u8; 4],
+}
+
+// upstream: src/webp/demux.h WebPDemux
+/// Parses the full WebP file given by `data`. For single images the WebP file
+/// header alone or the file header and the chunk header may be absent. Returns
+/// `None` on a parse error.
+#[must_use]
+pub fn webp_demux<'d>(data: &'d WebPData<'_>) -> Option<WebPDemuxer<'d>> {
+    webp_demux_internal(data, false, WEBP_DEMUX_ABI_VERSION).0
+}
+
+// upstream: src/webp/demux.h WebPDemuxPartial
+/// Parses the possibly incomplete WebP file given by `data`, and returns the
+/// parser state with the demuxer, as C writes `*state`. The demuxer keeps
+/// borrows of `data`, so it must be rebuilt when `data` changes. Returns `None`
+/// on error, or when there is not enough data to start parsing.
+#[must_use]
+pub fn webp_demux_partial<'d>(data: &'d WebPData<'_>) -> (Option<WebPDemuxer<'d>>, WebPDemuxState) {
+    webp_demux_internal(data, true, WEBP_DEMUX_ABI_VERSION)
 }
