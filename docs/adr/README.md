@@ -17,3 +17,4 @@ reports it instead of deciding alone ([WORKPLAN.md](../WORKPLAN.md)).
 - [0003: Map pointers, errors, allocation, dispatch and threads explicitly](0003-rust-representation.md)
 - [0004: Export the C ABI from one audited module](0004-c-abi-boundary.md)
 - [0005: Build on stable Rust 1.95 with unsafe code denied outside the C ABI](0005-toolchain-and-unsafe-policy.md)
+- [0006: Wrap the encoder translation in a safe, validated Rust API](0006-safe-encoder-api.md) (proposed)
