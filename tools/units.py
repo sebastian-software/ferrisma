@@ -4,7 +4,9 @@
 Every Rust module file starts with a fixed provenance header: the leading
 comment block of each upstream file it translates, copied verbatim, followed by
 a module doc comment that names those files and the owning work package. Work
-packages append their translation below that header and never edit it.
+packages append their translation below that header and never edit it. The safe
+API modules under src/api translate no upstream file; their header names the
+part of the translation they wrap and the owning work package.
 
 --create-missing writes the header-only file for a manifest entry whose module
 file does not exist yet. It never overwrites an existing file.
@@ -19,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 UPSTREAM = ROOT / "upstream/libwebp"
 MANIFEST = ROOT / "tools/units.json"
 VERSION = "libwebp v1.6.0"
-TOP_LEVEL = ["webp", "utils", "dsp", "dec", "enc", "demux", "mux", "sharpyuv", "abi"]
+TOP_LEVEL = ["webp", "utils", "dsp", "dec", "enc", "demux", "mux", "sharpyuv", "abi", "api"]
 
 
 def load():
@@ -96,11 +98,23 @@ def abi_header(manifest, entry):
     return "\n".join(lines) + "\n"
 
 
+def api_header(manifest, entry):
+    lines = [f"//! Safe Rust API over the {entry['subject']} of the translation; no upstream unit.",
+             "//!",
+             "//! Wraps the translated types and functions in validated Rust types and adds",
+             "//! no codec behavior of its own; see `docs/adr/`.",
+             "//!"]
+    lines.extend(owner(manifest, entry))
+    return "\n".join(lines) + "\n"
+
+
 def entries(manifest):
     for entry in manifest["modules"]:
         yield entry, module_header(manifest, entry)
     for entry in manifest["abi"]:
         yield entry, abi_header(manifest, entry)
+    for entry in manifest.get("api", []):
+        yield entry, api_header(manifest, entry)
 
 
 def declarations(manifest, directory):
@@ -212,7 +226,7 @@ def main():
         print(problem)
     if problems:
         raise SystemExit(f"{len(problems)} module skeleton problem(s)")
-    count = len(manifest["modules"]) + len(manifest["abi"])
+    count = len(manifest["modules"]) + len(manifest["abi"]) + len(manifest.get("api", []))
     print(f"Module skeleton verified: {count} module files, "
           f"{len(manifest['excluded'])} excluded upstream units", flush=True)
 
