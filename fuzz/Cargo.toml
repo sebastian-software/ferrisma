@@ -66,3 +66,10 @@ path = "fuzz_targets/enc_dec_fuzzer.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "animdecoder_fuzzer"
+path = "fuzz_targets/animdecoder_fuzzer.rs"
+test = false
+doc = false
+bench = false
