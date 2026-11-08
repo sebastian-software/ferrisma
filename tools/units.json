@@ -1,5 +1,5 @@
 {
-  "comment": "Every upstream file under upstream/libjpeg-turbo/src, its Rust module and owning work package (docs/PORT_PLAN.md), or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate.",
+  "comment": "Every upstream file under upstream/libjpeg-turbo/src, its Rust module and owning work package (docs/PORT_PLAN.md), or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate. own_modules lists the modules that translate no upstream file.",
   "upstream_version": "libjpeg-turbo 3.2.1",
   "packages": {
     "1": "Common infrastructure",
@@ -7,8 +7,16 @@
     "3": "Entropy decoding",
     "4": "Coefficients and IDCT",
     "5": "Upsampling, color, buffers",
-    "6": "Control and API"
+    "6": "Control and API",
+    "8": "Safe Rust API for Ferrixel"
   },
+  "own_modules": [
+    {
+      "module": "src/decode.rs",
+      "package": "8",
+      "purpose": "the safe decoding API over the translated libjpeg API (ADR 0006); not a translation"
+    }
+  ],
   "categories": {
     "encoder": "compression is not translated (ADR 0001)",
     "transcoding": "transcoding is not translated (ADR 0001)",

@@ -10,11 +10,18 @@
 //! work packages, `docs/PORT_STATUS.md` for what is translated and verified,
 //! and `docs/adr/` for the decisions that bind them.
 //!
+//! Rust programs decode through the safe API of [`decode`], re-exported here:
+//! [`Decoder`] reads the header, EXIF data and ICC profile, and
+//! [`Scanlines`] streams rows with scaling, cropping and skipping
+//! (ADR 0006). The translated modules stay public for the tests and for
+//! callers that need a part of the libjpeg API that the safe API omits.
+//!
 //! This software is based in part on the work of the Independent JPEG Group.
 
 #![deny(unsafe_code)]
 #![warn(clippy::all, clippy::pedantic)]
 
+pub mod decode;
 pub mod jaricom;
 pub mod jcomapi;
 pub mod jconfig;
@@ -52,3 +59,8 @@ pub mod jpeglib;
 pub mod jstdhuff;
 pub mod jutils;
 pub mod jversion;
+
+pub use decode::{
+    ColorSpace, DctMethod, Decoder, DecoderOptions, Error, Header, MAX_KEPT_WARNINGS, Message,
+    OutputInfo, OutputOptions, PixelFormat, Report, Scale, Scanlines,
+};

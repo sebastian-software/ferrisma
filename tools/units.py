@@ -10,8 +10,10 @@ translated. This script checks that:
   each upstream file it translates, a line naming the file and that file's
   leading comment block, verbatim as `//` lines, followed by a module doc comment that names
   the files, the owning work package and any items left untranslated;
-- src/lib.rs declares exactly the mapped modules, sorted, and denies unsafe
-  code, and src/ holds no other module file.
+- every module of `own_modules`, which translates no upstream file, exists
+  and starts with a module doc comment;
+- src/lib.rs declares exactly the mapped modules and `own_modules`, sorted,
+  and denies unsafe code, and src/ holds no other module file.
 
 Work packages append their translation below the header and never edit it.
 --create-missing writes the header-only file for a manifest entry whose module
@@ -75,8 +77,9 @@ def module_header(manifest, entry):
 
 
 def declarations(manifest):
+    entries = manifest["modules"] + manifest["own_modules"]
     return [f"pub mod {Path(entry['module']).stem};"
-            for entry in sorted(manifest["modules"], key=lambda entry: entry["module"])]
+            for entry in sorted(entries, key=lambda entry: entry["module"])]
 
 
 def upstream_entries():
@@ -108,8 +111,6 @@ def verify(manifest):
 
     expected_files = {ROOT / "src/lib.rs"}
     names = [Path(entry["module"]).stem for entry in manifest["modules"]]
-    for name in sorted({name for name in names if names.count(name) > 1}):
-        problems.append(f"module declared twice: {name}")
     for entry in manifest["modules"]:
         module = ROOT / entry["module"]
         expected_files.add(module)
@@ -130,6 +131,24 @@ def verify(manifest):
             problems.append(f"missing module file: {entry['module']}")
         elif not module.read_text().startswith(module_header(manifest, entry)):
             problems.append(f"{entry['module']}: provenance header differs from tools/units.json")
+
+    upstream_stems = {Path(path).name.split(".")[0] for path in upstream}
+    for entry in manifest["own_modules"]:
+        module = ROOT / entry["module"]
+        expected_files.add(module)
+        names.append(module.stem)
+        if Path(entry["module"]).parent != Path("src"):
+            problems.append(f"{entry['module']}: modules live directly in src/")
+        if entry["package"] not in manifest["packages"]:
+            problems.append(f"{entry['module']}: unknown package {entry['package']}")
+        if module.stem in upstream_stems:
+            problems.append(f"{entry['module']}: named after an upstream file it does not translate")
+        if not module.is_file():
+            problems.append(f"missing module file: {entry['module']}")
+        elif not module.read_text().startswith("//! "):
+            problems.append(f"{entry['module']}: does not start with a module doc comment")
+    for name in sorted({name for name in names if names.count(name) > 1}):
+        problems.append(f"module declared twice: {name}")
 
     for path in sorted((ROOT / "src").rglob("*.rs")):
         if path not in expected_files:
@@ -171,7 +190,8 @@ def main():
         print(problem)
     if problems:
         raise SystemExit(f"{len(problems)} module skeleton problem(s)")
-    print(f"Module skeleton verified: {len(manifest['modules'])} modules, "
+    print(f"Module skeleton verified: {len(manifest['modules'])} translated and "
+          f"{len(manifest['own_modules'])} own modules, "
           f"{len(manifest['excluded'])} excluded upstream entries", flush=True)
 
 
