@@ -10,17 +10,21 @@ fourth sister port next to
 JPEG input, including scaled decoding for shrink-on-load, to
 [Ferrixel](https://github.com/sebastian-software/ferrixel).
 
-**Status:** the decoder is translated. The C oracle, the
+**Status:** the decoder is translated and passes upstream's in-scope bit
+tests. The C oracle, the
 probe harness, the bit-test inventory and the module skeleton exist; work
 package 1 has translated the types, error codes and messages, the memory
 manager and the utilities, work package 2 the input side up to
 `jpeg_read_header`, work package 3 the Huffman, progressive Huffman and
 arithmetic decoders, work package 4 the coefficient buffer controller and
 every inverse DCT, work package 5 the upsamplers, the color conversion
-and the main and postprocessing controllers, and work package 6 the master
+and the main and postprocessing controllers, work package 6 the master
 control and the decompression API (`jpeg_start_decompress`,
 `jpeg_read_scanlines`, `jpeg_skip_scanlines`, `jpeg_crop_scanline`, raw data
-and buffered-image mode). The C ABI and the safe Rust API are next. See the
+and buffered-image mode), and work package 7 runs upstream's 30 in-scope
+`djpeg` bit tests on the port through a Rust driver, with upstream's MD5
+sums. The safe Rust API is next. The port serves Rust programs and exports no
+C ABI. See the
 [port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
 [port status](docs/PORT_STATUS.md) for what is verified.
 
@@ -41,7 +45,7 @@ therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md
   redesign ([ADR 0001](docs/adr/0001-mechanical-port.md)).
 - Every translated unit is compared with the pinned C library in a fixed
   reference configuration, in separate processes, and upstream's own `djpeg`
-  bit tests run against the port
+  bit tests run on the port through a Rust driver
   ([ADR 0002](docs/adr/0002-differential-oracle.md)).
 - Safe Rust by default; `unsafe` only where an ADR names it
   ([ADR 0003](docs/adr/0003-toolchain-and-unsafe-policy.md)).

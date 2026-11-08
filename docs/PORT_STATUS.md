@@ -8,8 +8,9 @@
 | 3 Entropy decoding | done | Huffman, progressive Huffman and arithmetic decoders translated; entropy probe below |
 | 4 Coefficients and IDCT | done | Coefficient controller, IDCT manager and all IDCT routines translated; IDCT and pipeline probes below |
 | 5 Upsampling, color, buffers | done | Upsamplers, color conversion, main and postprocessing controllers translated; decode probe below |
-| 6 Control and API | in review | Master control and the decompression API translated; API probe below |
-| 7–11 | not started | — |
+| 6 Control and API | done | Master control and the decompression API translated; API probe below |
+| 7 Upstream bit tests | in review | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
+| 8–11 | not started | — |
 
 Work packages 1 to 6 are translated: all 37 modules under `src/`
 ([tools/units.json](../tools/units.json)).
@@ -616,3 +617,45 @@ profiles.
 **Differences by design.** 12-bit and lossless images, a 12-bit output
 precision and color quantization, which the oracle decodes, fail in the
 port (ADR 0005).
+
+## Work package 7
+
+**Scope change.** The port plan first had work package 7 export a C ABI, so
+that the unmodified `djpeg` and upstream's fuzzers could link the port. The
+port serves Rust programs, and C compatibility is not a goal, so it exports
+no C ABI and stays free of `unsafe`
+([ADR 0003](adr/0003-toolchain-and-unsafe-policy.md)). Upstream's bit tests
+run on the port through a Rust driver instead
+([ADR 0002](adr/0002-differential-oracle.md)).
+
+**The driver.** `tests/support/djpeg.rs` translates, as test code, the
+library calls of `djpeg.c`'s `main` and `parse_switches` (with `keymatch`
+and the `print_text_marker` processor for COM and APP12) and the 8-bit
+PPM/PGM writer of `wrppm.c` with `cmyk_to_rgb`, as upstream builds them
+(`DJPEG_MULTILINE` undefined). Switches that select another output format,
+color quantization, RGB565, another precision, a progress monitor, a memory
+limit or `-strict` are outside it and fail with a message. The input is
+attached with `jpeg_mem_src`, because the stdio source is out of scope.
+`tests/support/md5.rs` is MD5 after RFC 1321, checked with the RFC's test
+suite.
+
+**The bit tests.** `tools/bittests.py --run` runs the 30 in-scope cases of
+[tools/bittests.json](../tools/bittests.json) against the oracle, produces
+their inputs with the oracle's `cjpeg` and checks those inputs' MD5 sums, and
+writes `bittests-port.txt` next to `oracle.json`: each case's input,
+switches, output file and MD5 checks, taken from upstream's CTest suite.
+`tests/wp7_bittests.rs` reads it and runs every case on the port:
+
+| Test | What it checks |
+| --- | --- |
+| `upstream_bit_tests_pass_on_the_port` | all 30 in-scope cases: their PPM outputs and the ICC profile of `rgb-islow` have upstream's MD5 sums, without warnings. They cover the DCT methods, fancy, plain and merged upsampling, progressive and arithmetic files, every scale of `-scale`, `-skip` and `-crop` |
+| `driver_matches_the_oracle_djpeg` | the driver itself: its output and ICC file equal the oracle's `djpeg`'s byte for byte for the three test images, CMYK, YCCK, progressive and grayscale input with 14 switch sets (PPM, PGM, `-rgb`, `-fast`, scaling, the float method, skips, crops and `-icc`); 80 runs compare bytes, and 18 fail in both, for crops and skips beyond the image and conversions that four-component input does not support |
+
+Locally on macOS ARM64 (Apple Clang 21), all of this passes against the
+`release` and `asan-ubsan` oracles in the dev, release and `checked`
+profiles.
+
+**Not covered.** Upstream's fuzzers are C programs and would need a C ABI.
+The damaged-stream tests of work packages 2 to 6 cover corrupt input against
+the oracle; coverage-guided fuzzing in Rust needs a development dependency
+and is a separate decision (ADR 0002, ADR 0003).
