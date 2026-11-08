@@ -9,7 +9,7 @@
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
 
-// Translated by hand from upstream/aom/av1/common/x86/highbd_inv_txfm_sse4.c
+// Translated from upstream/aom/av1/common/x86/highbd_inv_txfm_sse4.c
 // (ADR 0056, ADR 0058). Upstream compiles this file with -msse4.1. Function
 // names, helper structure, comments, constants, and the intrinsic sequence
 // follow the original statement by statement. The function bodies were

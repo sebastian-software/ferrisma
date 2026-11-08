@@ -8,7 +8,11 @@
 # arguments. Variants implemented only in NASM files are never listed.
 # aom_subtract_block_avx2 calls aom_subtract_block_sse2 for widths 4 and 8,
 # which upstream implements only in NASM; the translation calls the
-# equal-valued aom_subtract_block_c there instead.
+# equal-valued aom_subtract_block_c there instead. As on Arm, only
+# av1_highbd_inv_txfm_add is dispatched among the inverse transforms: no
+# libaom caller uses the per-size av1_inv_txfm2d_add_* names, the 8x8 SSE4.1
+# entry handles only the non-identity types, and the SSE4.1 inverse WHT
+# saturates outside the range that _c's range_check accepts.
 my %ported_x86 = map { $_ => 1 } qw/
   aom_highbd_dc_128_predictor_16x16_sse2
   aom_highbd_dc_128_predictor_16x32_sse2
@@ -79,6 +83,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_dr_prediction_z2_avx2
   av1_highbd_dr_prediction_z3_avx2
   av1_highbd_filter_intra_edge_sse4_1
+  av1_highbd_inv_txfm_add_avx2
+  av1_highbd_inv_txfm_add_sse4_1
   av1_highbd_quantize_fp_avx2
   av1_highbd_upsample_intra_edge_sse4_1
   av1_upsample_intra_edge_sse4_1
