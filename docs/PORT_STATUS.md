@@ -11,14 +11,16 @@
 | 6 Control and API | done | Master control and the decompression API translated; API probe below |
 | 7 Upstream bit tests | done | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
 | 8 Safe Rust API for Ferrixel | done | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
-| 9 NEON SIMD | in review | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) proposed |
-| 10–11 | not started | — |
+| 9 NEON SIMD | done | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) proposed |
+| 10 x86-64 SIMD | in review | The decoder's SSE2 and AVX2 kernels rewritten from upstream's NASM as intrinsics; each kernel compared with its asm through a kernel probe, and the whole suite with the `simd` oracle in the AVX2, SSE2 and `JSIMD_FORCENONE=1` modes, below; [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md) proposed |
+| 11 Conformance | not started | — |
 
 Work packages 1 to 6 are translated: 37 modules under `src/`
 ([tools/units.json](../tools/units.json)). Work package 9 adds the 10 SIMD
-modules of the AArch64 decoder. `src/decode.rs`, the safe API of work package
-8, and `src/neon.rs`, the Neon loads and stores of work package 9, translate
-no upstream file.
+modules of the AArch64 decoder, and work package 10 the 15 modules of the
+x86-64 decoder and the x86-64 file of `src/jsimdcpu.rs`. `src/decode.rs`, the
+safe API of work package 8, and `src/neon.rs` and `src/x86.rs`, the loads and
+stores of work packages 9 and 10, translate no upstream file.
 
 ## Work package 0
 
@@ -34,7 +36,7 @@ because upstream's default for Clang 14 and later on ARM64 is `fp-contract`.
 | --- | --- | --- | --- |
 | `release` | reference oracle | 332 of 332 pass (macOS ARM64, Linux x86-64) | 79 of 79 tests pass on both hosts |
 | `asan-ubsan` | same, with ASan and UBSan | 332 of 332 pass on both hosts | 79 of 79 tests pass on both hosts |
-| `simd` | `WITH_SIMD=1`, the oracle of the SIMD configuration ([ADR 0007](adr/0007-neon-kernels-and-unsafe.md)) | 332 of 332 pass on macOS ARM64 (local); CI runs it on macOS and Linux ARM64 | 79 of 79 tests pass on macOS ARM64 (local); on x86-64 it needs NASM and stays diagnostic until work package 10 |
+| `simd` | `WITH_SIMD=1`, the oracle of the SIMD configuration ([ADR 0007](adr/0007-neon-kernels-and-unsafe.md), [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md)); on x86-64 built with NASM | 332 of 332 pass on macOS ARM64 and, as `--arch x86_64`, under Rosetta 2 with AVX2 (local); CI runs it on macOS ARM64, Linux ARM64 and Linux x86-64 | 79 of 79 tests pass on macOS ARM64 and under Rosetta 2 (local) |
 
 The CI hosts are macOS ARM64 with Apple Clang and Linux x86-64 with Clang 21.
 
@@ -804,6 +806,103 @@ port stays about 1.5 times slower in both configurations, and most at 1/8
 scale, where the IDCT and upsampling do almost nothing: the gap lies in the
 code both configurations share, chiefly entropy decoding, not in the kernels.
 
-**Not covered.** The x86-64 kernels are work package 10; on x86-64 the
-`simd` feature has no effect and the `simd` oracle stays diagnostic. The
-speed table is one local run under load; CI does not measure speed.
+**Not covered.** The x86-64 kernels followed in work package 10, below. The
+speed table is one local run under load; since work package 10, CI's bench
+job keeps a record of each run.
+
+## Work package 10
+
+**The configuration.** [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md)
+extends ADR 0007 to x86-64: `build.rs` sets `cfg(with_simd)` there too, and
+the `WITH_SIMD` branches of the C code apply unchanged. `jpeg_simd_cpu_support`
+reports SSE and SSE2 on every x86-64 CPU and AVX2 when
+`is_x86_feature_detected!` finds AVX and AVX2, which tests the CPUID and
+XGETBV bits that `jsimdcpu.asm` tests. `init_simd` honours `JSIMD_FORCESSE2`
+next to `JSIMD_FORCENONE`, and the entry points of `src/jsimd.rs` have their
+x86-64 branches: AVX2 before SSE2 where upstream has both, with the alignment
+checks of the constant tables.
+
+**The kernels.** Fifteen modules rewrite the decoder's files of
+`simd/x86_64` as `core::arch::x86_64` intrinsics, one function per
+`GLOBAL_FUNCTION`, one intrinsic per vector instruction in the asm's order,
+with the registers as variables of their names:
+
+| Family | SSE2 | AVX2 |
+| --- | --- | --- |
+| YCbCr to RGB, seven RGB layouts | `jdcolor_sse2`, `jdcolext_sse2` | `jdcolor_avx2`, `jdcolext_avx2` |
+| merged h2v1 and h2v2 upsampling, seven layouts | `jdmerge_sse2`, `jdmrgext_sse2` | `jdmerge_avx2`, `jdmrgext_avx2` |
+| fancy and plain h2v1 and h2v2 upsampling | `jdsample_sse2` | `jdsample_avx2` |
+| islow IDCT | `jidctint_sse2` | `jidctint_avx2` |
+| ifast, float, 4x4 and 2x2 IDCTs | `jidctfst_sse2`, `jidctflt_sse2`, `jidctred_sse2` | — (upstream has none) |
+
+Where the translation can't follow the asm one-to-one, the module documents
+it. The recurring cases, which ADR 0008 records:
+
+- aligned and non-temporal moves become unaligned loads and stores;
+- `vzeroupper` and `prefetchnta` are left out;
+- the calling convention and its Windows branches are dropped;
+- the fancy upsamplers' "dummy sample", which the asm writes into the
+  padding of an input row, is applied to a copy of the vector instead.
+
+**Unsafe code.** Only `src/x86.rs` (8 blocks, the whole-vector and `movq`
+loads and stores over arrays of exactly the bytes they touch) and
+`src/jsimd.rs` (13 blocks, the calls through the `*_simd` slots, now for both
+architectures) contain `unsafe`. The 15 kernel modules declare
+`#![forbid(unsafe_code)]`; partial stores are value intrinsics and safe byte
+writes. An AVX2 kernel is called only when detection reported AVX2, and the
+environment variables can only remove instruction sets.
+
+**The tests.** A whole decode can't isolate a kernel, so each family has a
+kernel probe that calls upstream's asm directly, and a test that gives the
+port's kernel the same generated inputs and compares FNV-1a hashes
+(`tools/oracle/probes/wp10/`, `tests/wp10_*.rs`; `tests/wp10_support.rs`
+checks that both sides draw the same inputs):
+
+| Test | Cases per instruction set |
+| --- | --- |
+| `wp10_color` | 7 layouts x 3 seeds x 138 cases: widths 1 to 66, 101, 227 and 1000, `input_row` and `num_rows` drawn, exact-length application rows |
+| `wp10_merge` | 14 kernels x 3 seeds x the same widths, a drawn row group, exact-length application rows (two for h2v2) |
+| `wp10_sample` | the four kernels x 3 seeds: widths 1 to 66, 101, 227, 1000 and 12 drawn ones, `max_v_samp_factor` 1 to 4, context rows that repeat the edge rows |
+| `wp10_islow` | 4 seeds x 2000 blocks: image-like, sparse, dense, full-range and edge-value `JCOEF`s, tables up to 65535, every output column |
+| `wp10_idct` | per kernel 6 runs of 25 tables x 200 blocks, built by each library's own `start_pass`, output columns in steps of 8, 4 and 2 |
+
+On x86-64 the whole suite runs three times against the `simd` oracle, with
+AVX2, with `JSIMD_FORCESSE2=1` and with `JSIMD_FORCENONE=1` in the port and
+the oracle. `LIBJPEG_EXPECT_SIMD` names the instruction set that
+`kernels_are_dispatched` must find each entry point select. The test now
+calls every `jsimd_set_*` and checks its return value (AVX2 where upstream
+has an AVX2 kernel, SSE2 elsewhere, none for h1v2 fancy upsampling, and none
+for the float IDCT on AArch64), as AVX2 and SSE2 kernels give the same
+output. The width test of work package 9 also decodes a pseudo-random image,
+whose values reach the saturations. The float bit tests pass with upstream's
+`FLOATTEST8=sse` hashes. With `JSIMD_FORCENONE=1` those hashes don't apply,
+because the C float IDCT runs, in upstream's suite as in the port, so the bit
+test skips them there.
+
+Each agent that translated a family changed every kernel on purpose (a
+constant, a lane, a shuffle, a dropped instruction, a tail store), once per
+instruction set, and every change made a test fail. The one exception is
+equivalent: `PW_F0402 + 1` in the SSE2 color converter gives the same
+results for every chroma value.
+
+Locally on macOS ARM64 (Apple M1 Ultra, Apple Clang 21, NASM 3.02),
+`tools/check.py` passes:
+
+| Run | Result |
+| --- | --- |
+| `--oracle-variant simd --arch x86_64`, through Rosetta 2 with `ROSETTA_ADVERTISE_AVX=1` | 963 tests, AVX2, SSE2 and none modes, dev, release and `checked` profiles; static checks for `x86_64-apple-darwin` |
+| `--oracle-variant simd` | 534 tests, Neon and none modes |
+| `--oracle-variant release --msrv` | 352 tests, and the Rust 1.95 build and tests |
+
+CI adds the `simd` oracle on Linux x86-64 with AVX2.
+
+**Speed.** `tools/bench.py` now has an `sse2` mode on x86-64 and cases that
+select the kernels one by one: the islow, ifast and float IDCTs, the 4x4 and
+2x2 IDCTs, fancy and merged h2v1 and h2v2 upsampling, and the RGB and RGBX
+color conversion. Rosetta 2 says nothing about native speed, so the
+measurement comes from CI's bench job on Linux x86-64 and ARM64, which keeps
+the record as an artifact.
+
+**Not covered.** No speed figures yet: the first run of the CI bench job
+provides them. AVX-512 and i386 aren't translated, since upstream's decoder
+has no AVX-512 kernels and the port targets x86-64 only (ADR 0004).

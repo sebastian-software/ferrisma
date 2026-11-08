@@ -30,7 +30,10 @@ the EXIF data, the ICC profile and libjpeg's errors and warnings as values
 upstream's Neon kernels for AArch64 behind the default `simd` feature, with
 unsafe code only in the loads, stores and kernel calls
 ([ADR 0007](docs/adr/0007-neon-kernels-and-unsafe.md)); without default
-features the crate is the portable reference configuration. The port serves
+features the crate is the portable reference configuration. Work package 10
+rewrites the x86-64 SSE2 and AVX2 kernels from upstream's NASM assembly as
+intrinsics, with the same unsafe boundaries
+([ADR 0008](docs/adr/0008-x86-64-kernels-from-nasm.md)). The port serves
 Rust programs and exports no C ABI. See the
 [port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
 [port status](docs/PORT_STATUS.md) for what is verified.
