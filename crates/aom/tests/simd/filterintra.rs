@@ -1,10 +1,13 @@
 // Supplementary transcription of upstream/aom/test/filterintra_test.cc
-// (AV1FilterIntraPredTest.BitExactCheck, NEON instantiation). Modes, transform
-// sizes, buffer layout, the per-iteration reseeded Rand8() fill, iteration
-// count, and the exact-match check follow the original. DISABLED_Speed is not
-// transcribed.
-#![cfg(target_arch = "aarch64")]
+// (AV1FilterIntraPredTest.BitExactCheck, NEON and SSE4_1 instantiations).
+// Modes, transform sizes, buffer layout, the per-iteration reseeded Rand8()
+// fill, iteration count, and the exact-match check follow the original.
+// DISABLED_Speed is not transcribed.
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__common__arm__reconintra_neon::av1_filter_intra_predictor_neon;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__filterintra_sse4::av1_filter_intra_predictor_sse4_1;
 
 use super::acm_random::ACMRandom;
 
@@ -37,6 +40,7 @@ const TX_16X4: u8 = 14;
 const TX_8X32: u8 = 15;
 const TX_32X8: u8 = 16;
 
+#[cfg(target_arch = "aarch64")]
 const K_TX_SIZE_NEON: [u8; 14] = [
     TX_4X4, TX_8X8, TX_16X16, TX_32X32, TX_4X8, TX_8X4, TX_8X16, TX_16X8, TX_16X32, TX_32X16, TX_4X16, TX_16X4,
     TX_8X32, TX_32X8,
@@ -79,12 +83,33 @@ fn run_test(pred_func_ref: Predictor, pred_func: Predictor, mode: i32, tx_size: 
     MAX_TEST_NUM
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn filter_intra_pred_neon_bitexact() {
     let mut blocks = 0;
     for mode in FILTER_MODES {
         for tx_size in K_TX_SIZE_NEON {
             blocks += run_test(av1_filter_intra_predictor_c, av1_filter_intra_predictor_neon, mode, tx_size);
+        }
+    }
+    eprintln!("70 parameter sets, {} blocks compared", blocks);
+}
+
+// kTxSize (SSE4_1 instantiation)
+#[cfg(target_arch = "x86_64")]
+const K_TX_SIZE: [u8; 14] = [
+    TX_4X4, TX_8X8, TX_16X16, TX_32X32, TX_4X8, TX_8X4, TX_8X16, TX_16X8, TX_16X32, TX_32X16, TX_4X16, TX_16X4,
+    TX_8X32, TX_32X8,
+];
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn filter_intra_pred_sse4_1_bitexact() {
+    assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+    let mut blocks = 0;
+    for mode in FILTER_MODES {
+        for tx_size in K_TX_SIZE {
+            blocks += run_test(av1_filter_intra_predictor_c, av1_filter_intra_predictor_sse4_1, mode, tx_size);
         }
     }
     eprintln!("70 parameter sets, {} blocks compared", blocks);

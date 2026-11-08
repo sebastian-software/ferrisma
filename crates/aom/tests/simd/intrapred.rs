@@ -1,11 +1,17 @@
 // Supplementary transcription of upstream/aom/test/intrapred_test.cc
 // (HighbdIntraPredTest.Bitexact, NEON instantiation
-// HighbdIntraPredTestVectorNeon). Seed, iteration count, buffer layout, edge
+// HighbdIntraPredTestVectorNeon and SSE2 instantiation
+// HighbdIntraPredTestVectorSse2). Seed, iteration count, buffer layout, edge
 // fill (saturated first, then Rand16() & mask), stride, bit depth (12), and
 // the exact-match check follow the original. DISABLED_Speed is not
-// transcribed.
-#![cfg(target_arch = "aarch64")]
+// transcribed. The SSE2 vector's square DC and V entries (4x4, 8x8, 16x16,
+// 32x32) test functions implemented only in highbd_intrapred_asm_sse2.asm,
+// which are not translated (ADR 0058), and are left out.
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__highbd_intrapred_neon::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__highbd_intrapred_sse2::*;
 
 use super::acm_random::ACMRandom;
 
@@ -89,6 +95,8 @@ fn run_all(funcs: &[IntraPredFunc]) {
     eprintln!("{} parameter sets, {} blocks compared", funcs.len(), blocks);
 }
 
+// The SSE2 vector references only a subset of these C predictors.
+#[cfg_attr(target_arch = "x86_64", allow(dead_code))]
 extern "C-unwind" {
     fn aom_highbd_dc_predictor_4x4_c(dst: *mut u16, stride: isize, above: *const u16, left: *const u16, bd: i32);
     fn aom_highbd_dc_predictor_4x8_c(dst: *mut u16, stride: isize, above: *const u16, left: *const u16, bd: i32);
@@ -282,6 +290,7 @@ extern "C-unwind" {
     fn aom_highbd_smooth_h_predictor_64x64_c(dst: *mut u16, stride: isize, above: *const u16, left: *const u16, bd: i32);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_dc_neon_bitexact() {
     let funcs = [
@@ -308,6 +317,7 @@ fn highbd_intra_pred_dc_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_dc_top_neon_bitexact() {
     let funcs = [
@@ -334,6 +344,7 @@ fn highbd_intra_pred_dc_top_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_dc_left_neon_bitexact() {
     let funcs = [
@@ -360,6 +371,7 @@ fn highbd_intra_pred_dc_left_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_dc_128_neon_bitexact() {
     let funcs = [
@@ -386,6 +398,7 @@ fn highbd_intra_pred_dc_128_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_v_neon_bitexact() {
     let funcs = [
@@ -412,6 +425,7 @@ fn highbd_intra_pred_v_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_h_neon_bitexact() {
     let funcs = [
@@ -438,6 +452,7 @@ fn highbd_intra_pred_h_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_paeth_neon_bitexact() {
     let funcs = [
@@ -464,6 +479,7 @@ fn highbd_intra_pred_paeth_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_smooth_neon_bitexact() {
     let funcs = [
@@ -490,6 +506,7 @@ fn highbd_intra_pred_smooth_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_smooth_v_neon_bitexact() {
     let funcs = [
@@ -516,6 +533,7 @@ fn highbd_intra_pred_smooth_v_neon_bitexact() {
     run_all(&funcs);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_intra_pred_smooth_h_neon_bitexact() {
     let funcs = [
@@ -538,6 +556,81 @@ fn highbd_intra_pred_smooth_h_neon_bitexact() {
         highbd_entry!(aom_highbd_smooth_h_predictor_64x16_neon, aom_highbd_smooth_h_predictor_64x16_c, 64, 16, 12),
         highbd_entry!(aom_highbd_smooth_h_predictor_64x32_neon, aom_highbd_smooth_h_predictor_64x32_c, 64, 32, 12),
         highbd_entry!(aom_highbd_smooth_h_predictor_64x64_neon, aom_highbd_smooth_h_predictor_64x64_c, 64, 64, 12),
+    ];
+    run_all(&funcs);
+}
+
+// HighbdIntraPredTestVectorSse2
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_intra_pred_sse2_bitexact() {
+    assert!(std::arch::is_x86_feature_detected!("sse2"), "SSE2 instantiation needs an SSE2 CPU");
+    let funcs = [
+        // highbd_entry(dc, 4, 4, sse2, 12): highbd_intrapred_asm_sse2.asm
+        highbd_entry!(aom_highbd_dc_predictor_4x8_sse2, aom_highbd_dc_predictor_4x8_c, 4, 8, 12),
+        highbd_entry!(aom_highbd_dc_predictor_8x4_sse2, aom_highbd_dc_predictor_8x4_c, 8, 4, 12),
+        // highbd_entry(dc, 8, 8, sse2, 12): highbd_intrapred_asm_sse2.asm
+        highbd_entry!(aom_highbd_dc_predictor_8x16_sse2, aom_highbd_dc_predictor_8x16_c, 8, 16, 12),
+        highbd_entry!(aom_highbd_dc_predictor_16x8_sse2, aom_highbd_dc_predictor_16x8_c, 16, 8, 12),
+        // highbd_entry(dc, 16, 16, sse2, 12): highbd_intrapred_asm_sse2.asm
+        highbd_entry!(aom_highbd_dc_predictor_16x32_sse2, aom_highbd_dc_predictor_16x32_c, 16, 32, 12),
+        highbd_entry!(aom_highbd_dc_predictor_32x16_sse2, aom_highbd_dc_predictor_32x16_c, 32, 16, 12),
+        // highbd_entry(dc, 32, 32, sse2, 12): highbd_intrapred_asm_sse2.asm
+
+        highbd_entry!(aom_highbd_dc_top_predictor_4x4_sse2, aom_highbd_dc_top_predictor_4x4_c, 4, 4, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_4x8_sse2, aom_highbd_dc_top_predictor_4x8_c, 4, 8, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_8x4_sse2, aom_highbd_dc_top_predictor_8x4_c, 8, 4, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_8x8_sse2, aom_highbd_dc_top_predictor_8x8_c, 8, 8, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_8x16_sse2, aom_highbd_dc_top_predictor_8x16_c, 8, 16, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_16x8_sse2, aom_highbd_dc_top_predictor_16x8_c, 16, 8, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_16x16_sse2, aom_highbd_dc_top_predictor_16x16_c, 16, 16, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_16x32_sse2, aom_highbd_dc_top_predictor_16x32_c, 16, 32, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_32x16_sse2, aom_highbd_dc_top_predictor_32x16_c, 32, 16, 12),
+        highbd_entry!(aom_highbd_dc_top_predictor_32x32_sse2, aom_highbd_dc_top_predictor_32x32_c, 32, 32, 12),
+
+        highbd_entry!(aom_highbd_dc_left_predictor_4x4_sse2, aom_highbd_dc_left_predictor_4x4_c, 4, 4, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_4x8_sse2, aom_highbd_dc_left_predictor_4x8_c, 4, 8, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_8x4_sse2, aom_highbd_dc_left_predictor_8x4_c, 8, 4, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_8x8_sse2, aom_highbd_dc_left_predictor_8x8_c, 8, 8, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_8x16_sse2, aom_highbd_dc_left_predictor_8x16_c, 8, 16, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_16x8_sse2, aom_highbd_dc_left_predictor_16x8_c, 16, 8, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_16x16_sse2, aom_highbd_dc_left_predictor_16x16_c, 16, 16, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_16x32_sse2, aom_highbd_dc_left_predictor_16x32_c, 16, 32, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_32x16_sse2, aom_highbd_dc_left_predictor_32x16_c, 32, 16, 12),
+        highbd_entry!(aom_highbd_dc_left_predictor_32x32_sse2, aom_highbd_dc_left_predictor_32x32_c, 32, 32, 12),
+
+        highbd_entry!(aom_highbd_dc_128_predictor_4x4_sse2, aom_highbd_dc_128_predictor_4x4_c, 4, 4, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_4x8_sse2, aom_highbd_dc_128_predictor_4x8_c, 4, 8, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_8x4_sse2, aom_highbd_dc_128_predictor_8x4_c, 8, 4, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_8x8_sse2, aom_highbd_dc_128_predictor_8x8_c, 8, 8, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_8x16_sse2, aom_highbd_dc_128_predictor_8x16_c, 8, 16, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_16x8_sse2, aom_highbd_dc_128_predictor_16x8_c, 16, 8, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_16x16_sse2, aom_highbd_dc_128_predictor_16x16_c, 16, 16, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_16x32_sse2, aom_highbd_dc_128_predictor_16x32_c, 16, 32, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_32x16_sse2, aom_highbd_dc_128_predictor_32x16_c, 32, 16, 12),
+        highbd_entry!(aom_highbd_dc_128_predictor_32x32_sse2, aom_highbd_dc_128_predictor_32x32_c, 32, 32, 12),
+
+        // highbd_entry(v, 4, 4, sse2, 12): highbd_intrapred_asm_sse2.asm
+        highbd_entry!(aom_highbd_v_predictor_4x8_sse2, aom_highbd_v_predictor_4x8_c, 4, 8, 12),
+        highbd_entry!(aom_highbd_v_predictor_8x4_sse2, aom_highbd_v_predictor_8x4_c, 8, 4, 12),
+        // highbd_entry(v, 8, 8, sse2, 12): highbd_intrapred_asm_sse2.asm
+        highbd_entry!(aom_highbd_v_predictor_8x16_sse2, aom_highbd_v_predictor_8x16_c, 8, 16, 12),
+        highbd_entry!(aom_highbd_v_predictor_16x8_sse2, aom_highbd_v_predictor_16x8_c, 16, 8, 12),
+        // highbd_entry(v, 16, 16, sse2, 12): highbd_intrapred_asm_sse2.asm
+        highbd_entry!(aom_highbd_v_predictor_16x32_sse2, aom_highbd_v_predictor_16x32_c, 16, 32, 12),
+        highbd_entry!(aom_highbd_v_predictor_32x16_sse2, aom_highbd_v_predictor_32x16_c, 32, 16, 12),
+        // highbd_entry(v, 32, 32, sse2, 12): highbd_intrapred_asm_sse2.asm
+
+        highbd_entry!(aom_highbd_h_predictor_4x4_sse2, aom_highbd_h_predictor_4x4_c, 4, 4, 12),
+        highbd_entry!(aom_highbd_h_predictor_4x8_sse2, aom_highbd_h_predictor_4x8_c, 4, 8, 12),
+        highbd_entry!(aom_highbd_h_predictor_8x4_sse2, aom_highbd_h_predictor_8x4_c, 8, 4, 12),
+        highbd_entry!(aom_highbd_h_predictor_8x8_sse2, aom_highbd_h_predictor_8x8_c, 8, 8, 12),
+        highbd_entry!(aom_highbd_h_predictor_8x16_sse2, aom_highbd_h_predictor_8x16_c, 8, 16, 12),
+        highbd_entry!(aom_highbd_h_predictor_16x8_sse2, aom_highbd_h_predictor_16x8_c, 16, 8, 12),
+        highbd_entry!(aom_highbd_h_predictor_16x16_sse2, aom_highbd_h_predictor_16x16_c, 16, 16, 12),
+        highbd_entry!(aom_highbd_h_predictor_16x32_sse2, aom_highbd_h_predictor_16x32_c, 16, 32, 12),
+        highbd_entry!(aom_highbd_h_predictor_32x16_sse2, aom_highbd_h_predictor_32x16_c, 32, 16, 12),
+        highbd_entry!(aom_highbd_h_predictor_32x32_sse2, aom_highbd_h_predictor_32x32_c, 32, 32, 12),
     ];
     run_all(&funcs);
 }

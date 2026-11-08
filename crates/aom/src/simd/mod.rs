@@ -170,3 +170,15 @@ pub mod av1__encoder__x86__error_intrin_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/highbd_block_error_intrin_avx2.rs"]
 pub mod av1__encoder__x86__highbd_block_error_intrin_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_intrapred_sse2.rs"]
+pub mod aom_dsp__x86__highbd_intrapred_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/filterintra_sse4.rs"]
+pub mod av1__common__x86__filterintra_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/intra_edge_sse4.rs"]
+pub mod av1__common__x86__intra_edge_sse4;
