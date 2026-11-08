@@ -172,3 +172,32 @@ pub fn webp_demux<'d>(data: &'d WebPData<'_>) -> Option<WebPDemuxer<'d>> {
 pub fn webp_demux_partial<'d>(data: &'d WebPData<'_>) -> (Option<WebPDemuxer<'d>>, WebPDemuxState) {
     webp_demux_internal(data, true, WEBP_DEMUX_ABI_VERSION)
 }
+
+// The items below are WP14's exception in this module (`tools/units.json`): the
+// header's inline wrappers of the animation decoder's `Internal` entry points,
+// which WP14 translates from `src/demux/anim_decode.c`.
+
+use crate::demux::anim_decode::{
+    WebPAnimDecoder, webp_anim_decoder_new_internal, webp_anim_decoder_options_init_internal,
+};
+
+// upstream: src/webp/demux.h WebPAnimDecoderOptionsInit
+/// Initializes a fresh `WebPAnimDecoderOptions` structure before modification:
+/// `MODE_RGBA` without threads. Returns false in case of version mismatch.
+#[must_use]
+pub fn webp_anim_decoder_options_init(dec_options: &mut WebPAnimDecoderOptions) -> bool {
+    webp_anim_decoder_options_init_internal(dec_options, WEBP_DEMUX_ABI_VERSION)
+}
+
+// upstream: src/webp/demux.h WebPAnimDecoderNew
+/// Creates and initializes a `WebPAnimDecoder` for the WebP bitstream
+/// `webp_data`, which the decoder borrows for its lifetime. `dec_options` `None`
+/// picks reasonable defaults (in particular, color mode `MODE_RGBA`). Returns
+/// `None` in case of parsing error, invalid option or memory error.
+#[must_use]
+pub fn webp_anim_decoder_new<'a>(
+    webp_data: &'a WebPData<'_>,
+    dec_options: Option<&WebPAnimDecoderOptions>,
+) -> Option<WebPAnimDecoder<'a>> {
+    webp_anim_decoder_new_internal(webp_data, dec_options, WEBP_DEMUX_ABI_VERSION)
+}
