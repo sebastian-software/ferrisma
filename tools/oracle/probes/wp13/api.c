@@ -69,11 +69,19 @@ static uint32_t Next(uint32_t* s) {
 }
 
 // Fills `size` bytes; with 4-byte pixels, amode 1 makes the fourth byte 0xff
-// and amode 2 makes it 0 or 0xff.
+// and amode 2 makes it 0 or 0xff. amode 3 writes a repetitive pattern of
+// opaque pixels, whose lossless encoding depends on the search effort.
 static void Fill(uint8_t* data, size_t size, uint32_t seed, int amode) {
   uint32_t s = seed | 1;
   size_t i;
   for (i = 0; i < size; ++i) {
+    if (amode == 3) {
+      const size_t p = i / 4, row = p / 61;
+      data[i] = (i & 3) == 3 ? 0xff
+                             : (uint8_t)(((p % 23) * 11 + (row % 7) * 5 +
+                                          (seed & 7) * (i & 3)) & 0xf8);
+      continue;
+    }
     data[i] = (uint8_t)Next(&s);
     if ((i & 3) == 3) {
       if (amode == 1) data[i] = 0xff;

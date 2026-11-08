@@ -21,11 +21,19 @@ use webp::enc::picture_enc::{
 use webp::webp::encode::{WebPConfig, WebPPreset, webp_config_preset};
 
 /// The probe's `Fill`: xorshift32 bytes, with the fourth byte of each pixel
-/// forced by `amode`.
+/// forced by `amode`, or the repetitive opaque pattern of `amode` 3.
 fn fill(size: usize, seed: u32, amode: i32) -> Vec<u8> {
     let mut s = seed | 1;
     (0..size)
         .map(|i| {
+            if amode == 3 {
+                let (p, row) = (i / 4, i / 4 / 61);
+                return if i & 3 == 3 {
+                    0xff
+                } else {
+                    (((p % 23) * 11 + (row % 7) * 5 + (seed as usize & 7) * (i & 3)) & 0xf8) as u8
+                };
+            }
             s ^= s << 13;
             s ^= s >> 17;
             s ^= s << 5;
@@ -134,6 +142,22 @@ fn simple_api_matches_the_c_functions() {
                         expected.0.push((key, value));
                     }
                 }
+            }
+        }
+    }
+    // Repetitive pictures, whose lossless encodings depend on the quality.
+    for f in 0..8_usize {
+        let step = if f % 4 < 2 { 3 } else { 4 };
+        for (w, h) in [(61, 40), (128, 33), (200, 9)] {
+            seed = seed.wrapping_mul(2_654_435_761).wrapping_add(17);
+            let seed = seed >> 2;
+            let stride = step * w;
+            let quality = 75.0_f32.to_bits() as i32;
+            commands.push_str(&format!(
+                "simple {f} {w} {h} {stride} {quality} {seed} 3 0\n"
+            ));
+            for (key, value) in rust_simple(f, w, h, stride, 75.0, seed, 3).0 {
+                expected.0.push((key, value));
             }
         }
     }
