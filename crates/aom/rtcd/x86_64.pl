@@ -75,6 +75,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_filter_intra_edge_sse4_1
   av1_filter_intra_predictor_sse4_1
   av1_highbd_block_error_avx2
+  av1_highbd_dr_prediction_z1_avx2
+  av1_highbd_dr_prediction_z2_avx2
+  av1_highbd_dr_prediction_z3_avx2
   av1_highbd_filter_intra_edge_sse4_1
   av1_highbd_quantize_fp_avx2
   av1_highbd_upsample_intra_edge_sse4_1
