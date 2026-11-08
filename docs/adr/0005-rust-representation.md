@@ -411,7 +411,8 @@ out of scope with this reason instead of comparing them.
 
 Every module is `pub`, so that tests and later packages can reach units
 before the API exists, and so that unused translated items are not dead code.
-Work package 8 decides what the safe API re-exports.
+They stay public beside the safe API of work package 8, which the crate root
+re-exports ([ADR 0006](0006-safe-decoding-api.md)).
 
 ## Consequences
 
@@ -437,7 +438,8 @@ The maintainer accepted the proposed answers to the questions raised in review:
 3. **Small allocations.** An infallible `Box` is fine for fixed-size module
    structs; large buffers stay fallible.
 4. **Default `error_exit`** prints to standard error and returns. The work
-   package 8 API installs its own error manager.
+   package 8 API installs its own error manager, which records instead of
+   printing ([ADR 0006](0006-safe-decoding-api.md)).
 5. **`long`** maps to `core::ffi::c_long`. Windows is not a target and stays
    unverified.
 6. **Common object.** `j_common_ptr` collapses into the decompression struct
