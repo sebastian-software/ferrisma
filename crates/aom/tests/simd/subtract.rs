@@ -1,7 +1,7 @@
 // Supplementary transcription of upstream/aom/test/subtract_test.cc
-// (AV1SubtractBlockTest and AV1HBDSubtractBlockTest CheckResult) for the Neon
-// instantiations. The original compares against src - pred; this also
-// compares against the translated `_c` function.
+// (AV1SubtractBlockTest and AV1HBDSubtractBlockTest CheckResult) for the Neon,
+// SSE2 and AVX2 instantiations. The original compares against src - pred;
+// this also compares against the translated `_c` function.
 use super::acm_random::ACMRandom;
 
 type SubtractFunc = unsafe extern "C-unwind" fn(i32, i32, *mut i16, isize, *const u8, isize,
@@ -22,15 +22,22 @@ const K_VALID_BLOCK_SIZE: [(i32, i32); 16] = [
 
 const MAX_BLOCK_SIZE: usize = 128 * 128;
 
+// SetUp() allocates src and pred with aom_memalign(16, ...) and diff with
+// aom_memalign(32, ...); the AVX2 kernel stores diff rows with aligned stores.
+#[repr(C, align(32))]
+struct Aligned<T>(T);
+
 fn check_result(width: i32, height: i32, bit_depth: Option<i32>, func: SubtractFunc,
                 ref_func: SubtractFunc) {
     let mut rnd = ACMRandom::new();
-    let mut src8 = vec![0u8; MAX_BLOCK_SIZE];
-    let mut pred8 = vec![0u8; MAX_BLOCK_SIZE];
-    let mut src16 = vec![0u16; MAX_BLOCK_SIZE];
-    let mut pred16 = vec![0u16; MAX_BLOCK_SIZE];
-    let mut diff = vec![0i16; MAX_BLOCK_SIZE];
-    let mut diff_ref = vec![0i16; MAX_BLOCK_SIZE];
+    let mut src8 = Box::new(Aligned([0u8; MAX_BLOCK_SIZE]));
+    let mut pred8 = Box::new(Aligned([0u8; MAX_BLOCK_SIZE]));
+    let mut src16 = Box::new(Aligned([0u16; MAX_BLOCK_SIZE]));
+    let mut pred16 = Box::new(Aligned([0u16; MAX_BLOCK_SIZE]));
+    let mut diff = Box::new(Aligned([0i16; MAX_BLOCK_SIZE]));
+    let mut diff_ref = Box::new(Aligned([0i16; MAX_BLOCK_SIZE]));
+    let (src8, pred8, src16, pred16) = (&mut src8.0, &mut pred8.0, &mut src16.0, &mut pred16.0);
+    let (diff, diff_ref) = (&mut diff.0, &mut diff_ref.0);
     let (w, h) = (width as usize, height as usize);
     for i in 0..100 {
         // FillInputs
@@ -90,6 +97,37 @@ mod neon {
     fn highbd_subtract_block() {
         for (w, h) in K_VALID_BLOCK_SIZE {
             check_result(w, h, Some(12), aom_highbd_subtract_block_neon,
+                         aom_highbd_subtract_block_c);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod avx2 {
+    use super::*;
+    use aom::simd::aom_dsp__x86__subtract_avx2::*;
+
+    // INSTANTIATE_TEST_SUITE_P(AVX2, AV1SubtractBlockTest, ...)
+    #[test]
+    fn subtract_block() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        for (w, h) in K_VALID_BLOCK_SIZE {
+            check_result(w, h, None, aom_subtract_block_avx2, aom_subtract_block_c);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod sse2 {
+    use super::*;
+    use aom::simd::aom_dsp__x86__highbd_subtract_sse2::*;
+
+    // INSTANTIATE_TEST_SUITE_P(SSE2, AV1HBDSubtractBlockTest, ...)
+    #[test]
+    fn highbd_subtract_block() {
+        assert!(std::arch::is_x86_feature_detected!("sse2"), "SSE2 instantiation needs an SSE2 CPU");
+        for (w, h) in K_VALID_BLOCK_SIZE {
+            check_result(w, h, Some(12), aom_highbd_subtract_block_sse2,
                          aom_highbd_subtract_block_c);
         }
     }

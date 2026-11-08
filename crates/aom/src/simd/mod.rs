@@ -104,8 +104,28 @@ pub mod aom_dsp__simd__v256_intrinsics_x86;
 pub mod aom_dsp__simd__v64_intrinsics_x86;
 
 #[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/cdef_block_avx2.rs"]
-pub mod av1__common__x86__cdef_block_avx2;
+#[path = "aom_dsp/x86/highbd_adaptive_quantize_avx2.rs"]
+pub mod aom_dsp__x86__highbd_adaptive_quantize_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_adaptive_quantize_sse2.rs"]
+pub mod aom_dsp__x86__highbd_adaptive_quantize_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_quantize_intrin_avx2.rs"]
+pub mod aom_dsp__x86__highbd_quantize_intrin_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_subtract_sse2.rs"]
+pub mod aom_dsp__x86__highbd_subtract_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/quantize_x86.rs"]
+pub mod aom_dsp__x86__quantize_x86;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/subtract_avx2.rs"]
+pub mod aom_dsp__x86__subtract_avx2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/synonyms.rs"]
@@ -132,8 +152,16 @@ pub mod aom_dsp__x86__txfm_common_sse2;
 pub mod av1__common__x86__av1_txfm_sse4;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cdef_block_avx2.rs"]
+pub mod av1__common__x86__cdef_block_avx2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/highbd_txfm_utility_sse4.rs"]
 pub mod av1__common__x86__highbd_txfm_utility_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_highbd_quantize_avx2.rs"]
+pub mod av1__encoder__x86__av1_highbd_quantize_avx2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/error_intrin_avx2.rs"]
