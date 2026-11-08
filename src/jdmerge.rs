@@ -57,7 +57,7 @@
 //! `UPSAMPLE_MERGING_SUPPORTED` is defined and `WITH_PROFILE` is not.
 //! `WITH_SIMD` is `cfg(with_simd)` (ADR 0007): `jinit_merged_upsampler` then
 //! asks `jsimd_set_h2v1_merged_upsample` or `jsimd_set_h2v2_merged_upsample`
-//! for a Neon kernel first, in a labeled block that yields the `jsimd`
+//! for a SIMD kernel first, in a labeled block that yields the `jsimd`
 //! wrapper as `upmethod` when it gets one, as C's `if ... else` across the
 //! `#ifdef` skips the C routines. The RGB565 routines of `jdmrg565.c` are out of
 //! scope: `JCS_RGB565` output fails with `JERR_CONVERSION_NOTIMPL` where

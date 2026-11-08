@@ -16,7 +16,7 @@ name = "jpeg"
 [features]
 default = ["simd"]
 # WITH_SIMD: upstream's SIMD extensions, on by default as upstream builds them
-# (ADR 0007). build.rs turns it into cfg(with_simd) on the architectures whose
+# (ADR 0007, ADR 0008). build.rs turns it into cfg(with_simd) on the architectures whose
 # kernels are translated; elsewhere it has no effect. Without it the crate is
 # the reference configuration of the C oracle (ADR 0002) and has no unsafe code.
 simd = []

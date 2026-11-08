@@ -5,7 +5,8 @@ tools/units.json maps every file under upstream/libjpeg-turbo/src and under
 the SIMD directories it lists in `expanded_directories` to a Rust module and
 its owning work package, or names the category of reason it is not
 translated. A module is named after an upstream file it translates, with `-`
-as `_` (`jidctint-neon.c` is `jidctint_neon.rs`). This script checks that:
+as `_` (`jidctint-neon.c` is `jidctint_neon.rs`, `jidctint-sse2.asm`
+`jidctint_sse2.rs`). This script checks that:
 
 - every upstream file (and every subdirectory) is mapped or excluded, once;
 - every mapped module file exists and starts with its provenance header: for
@@ -38,16 +39,27 @@ def load():
 
 
 def leading_comment(path):
-    """Return the upstream file's leading /* ... */ block as `//` lines.
+    """Return the upstream file's leading comment block as `//` lines: the
+    /* ... */ block of a C file, the `;` lines of a NASM file.
 
     Each line of the block, delimiters included, follows `// ` unchanged.
     Rust line comments keep the text byte for byte; rustfmt would re-indent a
     block comment whose lines do not all start with ` *`.
     """
     text = (UPSTREAM / path).read_text()
-    if not text.startswith("/*") or "*/" not in text:
+    if path.endswith(".asm"):
+        lines = []
+        for line in text.splitlines():
+            if not line.startswith(";"):
+                break
+            lines.append(line)
+        if not lines:
+            raise SystemExit(f"{path}: expected a leading ; comment block")
+        block = "\n".join(lines)
+    elif not text.startswith("/*") or "*/" not in text:
         raise SystemExit(f"{path}: expected a leading /* ... */ comment block")
-    block = text[:text.index("*/") + 2]
+    else:
+        block = text[:text.index("*/") + 2]
     return "\n".join(f"// {line}".rstrip() if line.strip() else "//"
                      for line in block.splitlines())
 

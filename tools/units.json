@@ -9,7 +9,8 @@
     "5": "Upsampling, color, buffers",
     "6": "Control and API",
     "8": "Safe Rust API for Ferrixel",
-    "9": "NEON SIMD"
+    "9": "NEON SIMD",
+    "10": "x86-64 SIMD"
   },
   "own_modules": [
     {
@@ -21,6 +22,11 @@
       "module": "src/neon.rs",
       "package": "9",
       "purpose": "the Neon loads and stores over arrays that the kernels call (ADR 0007); not a translation"
+    },
+    {
+      "module": "src/x86.rs",
+      "package": "10",
+      "purpose": "the SSE2 and AVX loads and stores over arrays that the x86-64 kernels call (ADR 0008); not a translation"
     }
   ],
   "categories": {
@@ -31,7 +37,6 @@
     "rgb565": "RGB565 output is not translated (ADR 0001)",
     "turbojpeg": "the TurboJPEG API is not translated (ADR 0001)",
     "program": "an upstream program or its helpers: a consumer and test input, not a translation unit (ADR 0001, ADR 0002)",
-    "simd": "x86-64 SIMD is ported in work package 10 (ADR 0004)",
     "build": "build or packaging input with no decoder behavior",
     "macro": "a translation-time header whose macros resolve in place; see ADR 0005",
     "profiling": "WITH_PROFILE instrumentation, off in the reference configuration",
@@ -344,13 +349,14 @@
           "jsimd_set_encode_mcu_AC_refine_prepare",
           "jsimd_set_ycc_rgb565"
         ],
-        "reason": "they serve the encoder or RGB565 output, which are not translated (ADR 0001), and so do their declarations in the headers; only the AArch64 branches of the decoder's entry points are translated (ADR 0007)"
+        "reason": "they serve the encoder or RGB565 output, which are not translated (ADR 0001), and so do their declarations in the headers; only the AArch64 and x86-64 branches of the decoder's entry points are translated (ADR 0007, ADR 0008)"
       }
     },
     {
       "module": "src/jsimdcpu.rs",
       "upstream": [
-        "simd/arm/aarch64/jsimdcpu.c"
+        "simd/arm/aarch64/jsimdcpu.c",
+        "simd/x86_64/jsimdcpu.asm"
       ],
       "package": "9"
     },
@@ -421,6 +427,111 @@
         "simd/arm/jidctred-neon.c"
       ],
       "package": "9"
+    },
+    {
+      "module": "src/jdcolext_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolext-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdcolext_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolext-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdcolor_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolor-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdcolor_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolor-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmerge_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdmerge-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmerge_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdmerge-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmrgext_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdmrgext-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmrgext_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdmrgext-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdsample_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdsample-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdsample_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdsample-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctflt_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctflt-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctfst_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctfst-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctint_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jidctint-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctint_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctint-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctred_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctred-sse2.asm"
+      ],
+      "package": "10"
     }
   ],
   "excluded": [
@@ -794,7 +905,7 @@
     },
     {
       "upstream": "simd/nasm/",
-      "category": "simd"
+      "category": "macro"
     },
     {
       "upstream": "simd/powerpc/",
@@ -807,10 +918,6 @@
     {
       "upstream": "simd/simdcoverage.c",
       "category": "program"
-    },
-    {
-      "upstream": "simd/x86_64/",
-      "category": "simd"
     },
     {
       "upstream": "simd/arm/aarch32/",
@@ -867,11 +974,88 @@
     {
       "upstream": "simd/arm/aarch64/jchuff-neon.c",
       "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolext-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolext-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolor-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolor-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgray-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgray-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgryext-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgryext-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jchuff-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcphuff-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcsample-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcsample-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctflt-sse.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctfst-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctint-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctint-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jquantf-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jquanti-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jquanti-sse2.asm",
+      "category": "encoder"
     }
   ],
   "expanded_directories": [
     "simd/",
     "simd/arm/",
-    "simd/arm/aarch64/"
+    "simd/arm/aarch64/",
+    "simd/x86_64/"
   ]
 }

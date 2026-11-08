@@ -16,11 +16,13 @@
 //! (ADR 0006). The translated modules stay public for the tests and for
 //! callers that need a part of the libjpeg API that the safe API omits.
 //!
-//! The default `simd` feature is upstream's `WITH_SIMD`: on AArch64 the
-//! decoder runs the Neon kernels of work package 9, which `jsimd` dispatches
-//! (ADR 0007). Their memory accesses go through `neon`, the only module with
-//! unsafe code besides `jsimd`'s calls of the kernels. Without the feature
-//! the crate is the reference configuration and has no unsafe code.
+//! The default `simd` feature is upstream's `WITH_SIMD`: the decoder runs
+//! the Neon kernels of work package 9 on AArch64 and the AVX2 and SSE2
+//! kernels of work package 10 on x86-64, which `jsimd` dispatches (ADR 0007,
+//! ADR 0008). Their memory accesses go through `neon` and `x86`, the only
+//! modules with unsafe code besides `jsimd`'s calls of the kernels. Without
+//! the feature the crate is the reference configuration and has no unsafe
+//! code.
 //!
 //! This software is based in part on the work of the Independent JPEG Group.
 
@@ -37,11 +39,19 @@ pub mod jdarith;
 pub mod jdatasrc;
 pub mod jdcoefct;
 pub mod jdcolext;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdcolext_avx2;
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jdcolext_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdcolext_sse2;
 pub mod jdcolor;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdcolor_avx2;
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jdcolor_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdcolor_sse2;
 pub mod jdct;
 pub mod jddctmgr;
 pub mod jdhuff;
@@ -51,27 +61,49 @@ pub mod jdmainct;
 pub mod jdmarker;
 pub mod jdmaster;
 pub mod jdmerge;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdmerge_avx2;
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jdmerge_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdmerge_sse2;
 pub mod jdmrgext;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdmrgext_avx2;
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jdmrgext_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdmrgext_sse2;
 pub mod jdphuff;
 pub mod jdpostct;
 pub mod jdsample;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdsample_avx2;
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jdsample_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jdsample_sse2;
 pub mod jerror;
 pub mod jidctflt;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jidctflt_sse2;
 pub mod jidctfst;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jidctfst_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jidctfst_sse2;
 pub mod jidctint;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jidctint_avx2;
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jidctint_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jidctint_sse2;
 pub mod jidctred;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod jidctred_neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod jidctred_sse2;
 pub mod jmemmgr;
 pub mod jmemnobs;
 pub mod jmemsys;
@@ -85,8 +117,10 @@ pub mod jsimdcpu;
 pub mod jstdhuff;
 pub mod jutils;
 pub mod jversion;
-#[cfg(with_simd)]
+#[cfg(all(with_simd, target_arch = "aarch64"))]
 pub mod neon;
+#[cfg(all(with_simd, target_arch = "x86_64"))]
+pub mod x86;
 
 pub use decode::{
     ColorSpace, DctMethod, Decoder, DecoderOptions, Error, Header, MAX_KEPT_WARNINGS, Message,

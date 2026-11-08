@@ -136,33 +136,64 @@
 //!
 //! Work package: 9 (NEON SIMD).
 //!
-//! Not translated: `jsimd_set_rgb_ycc`, `jsimd_set_rgb_gray`, `jsimd_color_convert`, `jsimd_set_h2v1_downsample`, `jsimd_h2v1_downsample`, `jsimd_set_h2v2_downsample`, `jsimd_h2v2_downsample`, `jsimd_set_convsamp`, `jsimd_set_convsamp_float`, `jsimd_set_fdct_islow`, `jsimd_set_fdct_ifast`, `jsimd_set_fdct_float`, `jsimd_set_quantize`, `jsimd_set_quantize_float`, `jsimd_set_huff_encode_one_block`, `jsimd_set_encode_mcu_AC_first_prepare`, `jsimd_set_encode_mcu_AC_refine_prepare` and `jsimd_set_ycc_rgb565`, because they serve the encoder or RGB565 output, which are not translated (ADR 0001), and so do their declarations in the headers; only the AArch64 branches of the decoder's entry points are translated (ADR 0007).
+//! Not translated: `jsimd_set_rgb_ycc`, `jsimd_set_rgb_gray`, `jsimd_color_convert`, `jsimd_set_h2v1_downsample`, `jsimd_h2v1_downsample`, `jsimd_set_h2v2_downsample`, `jsimd_h2v2_downsample`, `jsimd_set_convsamp`, `jsimd_set_convsamp_float`, `jsimd_set_fdct_islow`, `jsimd_set_fdct_ifast`, `jsimd_set_fdct_float`, `jsimd_set_quantize`, `jsimd_set_quantize_float`, `jsimd_set_huff_encode_one_block`, `jsimd_set_encode_mcu_AC_first_prepare`, `jsimd_set_encode_mcu_AC_refine_prepare` and `jsimd_set_ycc_rgb565`, because they serve the encoder or RGB565 output, which are not translated (ADR 0001), and so do their declarations in the headers; only the AArch64 and x86-64 branches of the decoder's entry points are translated (ADR 0007, ADR 0008).
 //!
-//! The port builds this module only with `WITH_SIMD`, on AArch64, so
-//! `SIMD_ARCHITECTURE` is `ARM64` and only that branch of each entry point
-//! is translated (ADR 0007). `init_simd` serves decompressors only, and
+//! The port builds this module only with `WITH_SIMD`, on AArch64 or
+//! x86-64, so `SIMD_ARCHITECTURE` is `ARM64` or `X86_64`, and those branches
+//! of each entry point are translated, each under its `target_arch`
+//! (ADR 0007, ADR 0008). `init_simd` serves decompressors only, and
 //! `NO_GETENV` and `WITH_SIMDE` are undefined. `BITS_IN_JSAMPLE` is 8,
 //! `JDIMENSION` and `JCOEF` have the sizes the entry points require, and
 //! `IFAST_SCALE_BITS` is 2, so those checks always pass and are kept as
 //! upstream has them.
 //!
-//! An entry point `jsimd_set_*` stores a Neon kernel in a `*_simd` slot of
-//! the module object, and the wrapper with the kernel's name calls it
-//! through the slot. A `#[target_feature]` kernel coerces only to an `unsafe
-//! fn` pointer, so each wrapper calls its slot in one `unsafe` block, sound
-//! because the slots hold only Neon kernels and every AArch64 target enables
-//! Neon. Where `jinit_upsampler` holds the upsampler outside `cinfo` while it
+//! An entry point `jsimd_set_*` stores a kernel in a `*_simd` slot of the
+//! module object, and the wrapper with the kernel's name calls it through
+//! the slot. A `#[target_feature]` kernel coerces only to an `unsafe fn`
+//! pointer, so each wrapper calls its slot in one `unsafe` block. That is
+//! sound because an entry point stores only a kernel of an instruction set
+//! that `jpeg_simd_cpu_support` reported, and the environment variables can
+//! only remove instruction sets: every AArch64 target enables Neon, every
+//! x86-64 target SSE2, and AVX2 is detected at run time (ADR 0008,
+//! decision 5). Where `jinit_upsampler` holds the upsampler outside `cinfo` while it
 //! selects the methods, the entry points take it as a parameter instead of
 //! reaching it through `cinfo->upsample` (ADR 0005, "Disjoint borrows").
 
 use crate::jconfig::BITS_IN_JSAMPLE;
+#[cfg(target_arch = "x86_64")]
+use crate::jdcolor_avx2::{
+    jconst_ycc_rgb_convert_avx2, jsimd_ycc_extbgr_convert_avx2, jsimd_ycc_extbgrx_convert_avx2,
+    jsimd_ycc_extrgb_convert_avx2, jsimd_ycc_extrgbx_convert_avx2, jsimd_ycc_extxbgr_convert_avx2,
+    jsimd_ycc_extxrgb_convert_avx2, jsimd_ycc_rgb_convert_avx2,
+};
+#[cfg(target_arch = "aarch64")]
 use crate::jdcolor_neon::{
     jsimd_ycc_extbgr_convert_neon, jsimd_ycc_extbgrx_convert_neon, jsimd_ycc_extrgb_convert_neon,
     jsimd_ycc_extrgbx_convert_neon, jsimd_ycc_extxbgr_convert_neon, jsimd_ycc_extxrgb_convert_neon,
     jsimd_ycc_rgb_convert_neon,
 };
+#[cfg(target_arch = "x86_64")]
+use crate::jdcolor_sse2::{
+    jconst_ycc_rgb_convert_sse2, jsimd_ycc_extbgr_convert_sse2, jsimd_ycc_extbgrx_convert_sse2,
+    jsimd_ycc_extrgb_convert_sse2, jsimd_ycc_extrgbx_convert_sse2, jsimd_ycc_extxbgr_convert_sse2,
+    jsimd_ycc_extxrgb_convert_sse2, jsimd_ycc_rgb_convert_sse2,
+};
+#[cfg(target_arch = "x86_64")]
+use crate::jdct::FLOAT_MULT_TYPE;
 use crate::jdct::{IFAST_MULT_TYPE, IFAST_SCALE_BITS, ISLOW_MULT_TYPE};
 use crate::jdmerge::my_merged_upsampler;
+#[cfg(target_arch = "x86_64")]
+use crate::jdmerge_avx2::{
+    jconst_merged_upsample_avx2, jsimd_h2v1_extbgr_merged_upsample_avx2,
+    jsimd_h2v1_extbgrx_merged_upsample_avx2, jsimd_h2v1_extrgb_merged_upsample_avx2,
+    jsimd_h2v1_extrgbx_merged_upsample_avx2, jsimd_h2v1_extxbgr_merged_upsample_avx2,
+    jsimd_h2v1_extxrgb_merged_upsample_avx2, jsimd_h2v1_merged_upsample_avx2,
+    jsimd_h2v2_extbgr_merged_upsample_avx2, jsimd_h2v2_extbgrx_merged_upsample_avx2,
+    jsimd_h2v2_extrgb_merged_upsample_avx2, jsimd_h2v2_extrgbx_merged_upsample_avx2,
+    jsimd_h2v2_extxbgr_merged_upsample_avx2, jsimd_h2v2_extxrgb_merged_upsample_avx2,
+    jsimd_h2v2_merged_upsample_avx2,
+};
+#[cfg(target_arch = "aarch64")]
 use crate::jdmerge_neon::{
     jsimd_h2v1_extbgr_merged_upsample_neon, jsimd_h2v1_extbgrx_merged_upsample_neon,
     jsimd_h2v1_extrgb_merged_upsample_neon, jsimd_h2v1_extrgbx_merged_upsample_neon,
@@ -172,20 +203,58 @@ use crate::jdmerge_neon::{
     jsimd_h2v2_extrgbx_merged_upsample_neon, jsimd_h2v2_extxbgr_merged_upsample_neon,
     jsimd_h2v2_extxrgb_merged_upsample_neon, jsimd_h2v2_merged_upsample_neon,
 };
+#[cfg(target_arch = "x86_64")]
+use crate::jdmerge_sse2::{
+    jconst_merged_upsample_sse2, jsimd_h2v1_extbgr_merged_upsample_sse2,
+    jsimd_h2v1_extbgrx_merged_upsample_sse2, jsimd_h2v1_extrgb_merged_upsample_sse2,
+    jsimd_h2v1_extrgbx_merged_upsample_sse2, jsimd_h2v1_extxbgr_merged_upsample_sse2,
+    jsimd_h2v1_extxrgb_merged_upsample_sse2, jsimd_h2v1_merged_upsample_sse2,
+    jsimd_h2v2_extbgr_merged_upsample_sse2, jsimd_h2v2_extbgrx_merged_upsample_sse2,
+    jsimd_h2v2_extrgb_merged_upsample_sse2, jsimd_h2v2_extrgbx_merged_upsample_sse2,
+    jsimd_h2v2_extxbgr_merged_upsample_sse2, jsimd_h2v2_extxrgb_merged_upsample_sse2,
+    jsimd_h2v2_merged_upsample_sse2,
+};
 use crate::jdsample::{ColorBuf, my_upsampler, own_rows};
+#[cfg(target_arch = "x86_64")]
+use crate::jdsample_avx2::{
+    jconst_fancy_upsample_avx2, jsimd_h2v1_fancy_upsample_avx2, jsimd_h2v1_upsample_avx2,
+    jsimd_h2v2_fancy_upsample_avx2, jsimd_h2v2_upsample_avx2,
+};
+#[cfg(target_arch = "aarch64")]
 use crate::jdsample_neon::{
     jsimd_h1v2_fancy_upsample_neon, jsimd_h2v1_fancy_upsample_neon, jsimd_h2v1_upsample_neon,
     jsimd_h2v2_fancy_upsample_neon, jsimd_h2v2_upsample_neon,
 };
+#[cfg(target_arch = "x86_64")]
+use crate::jdsample_sse2::{
+    jconst_fancy_upsample_sse2, jsimd_h2v1_fancy_upsample_sse2, jsimd_h2v1_upsample_sse2,
+    jsimd_h2v2_fancy_upsample_sse2, jsimd_h2v2_upsample_sse2,
+};
+#[cfg(target_arch = "x86_64")]
+use crate::jidctflt_sse2::{jconst_idct_float_sse2, jsimd_idct_float_sse2};
+#[cfg(target_arch = "aarch64")]
 use crate::jidctfst_neon::jsimd_idct_ifast_neon;
+#[cfg(target_arch = "x86_64")]
+use crate::jidctfst_sse2::{jconst_idct_ifast_sse2, jsimd_idct_ifast_sse2};
+#[cfg(target_arch = "x86_64")]
+use crate::jidctint_avx2::{jconst_idct_islow_avx2, jsimd_idct_islow_avx2};
+#[cfg(target_arch = "aarch64")]
 use crate::jidctint_neon::jsimd_idct_islow_neon;
+#[cfg(target_arch = "x86_64")]
+use crate::jidctint_sse2::{jconst_idct_islow_sse2, jsimd_idct_islow_sse2};
+#[cfg(target_arch = "aarch64")]
 use crate::jidctred_neon::{jsimd_idct_2x2_neon, jsimd_idct_4x4_neon};
+#[cfg(target_arch = "x86_64")]
+use crate::jidctred_sse2::{jconst_idct_red_sse2, jsimd_idct_2x2_sse2, jsimd_idct_4x4_sse2};
 use crate::jmemmgr::GETENV_S;
+#[cfg(target_arch = "x86_64")]
+use crate::jmorecfg::FAST_FLOAT;
 use crate::jmorecfg::{JCOEF, JDIMENSION, JSAMPLE, RGB_PIXELSIZE};
 use crate::jpegint::jpeg_upsampler;
+use crate::jpeglib::J_COLOR_SPACE;
 use crate::jpeglib::{
-    J_COLOR_SPACE, JBLOCK, JSAMPROWS, JSAMPROWS_AT, JSAMPROWS_MUT, j_decompress_ptr,
-    jpeg_component_info, jpeg_decompress_struct,
+    JBLOCK, JSAMPROWS, JSAMPROWS_AT, JSAMPROWS_MUT, j_decompress_ptr, jpeg_component_info,
+    jpeg_decompress_struct,
 };
 use crate::jsimdcpu::jpeg_simd_cpu_support;
 
@@ -238,6 +307,10 @@ fn init_simd(cinfo: j_decompress_ptr<'_, '_>) {
     simd_support = jpeg_simd_cpu_support();
 
     /* Force different settings through environment variables */
+    #[cfg(target_arch = "x86_64")]
+    if GETENV_S(&mut env, "JSIMD_FORCESSE2") == 0 && is_one(env) {
+        simd_support &= JSIMD_SSE2 | JSIMD_SSE;
+    }
     if GETENV_S(&mut env, "JSIMD_FORCENONE") == 0 && is_one(env) {
         simd_support = 0;
     }
@@ -249,10 +322,23 @@ fn init_simd(cinfo: j_decompress_ptr<'_, '_>) {
     cinfo.master_mut().pub_.simd_huffman = simd_huffman;
 }
 
+/// `IS_ALIGNED_SSE`: whether `ptr` is aligned to 16 bytes.
+#[cfg(target_arch = "x86_64")]
+fn is_aligned_sse<T>(ptr: &T) -> bool {
+    core::ptr::from_ref(ptr).addr().is_multiple_of(16)
+}
+
+/// `IS_ALIGNED_AVX`: whether `ptr` is aligned to 32 bytes.
+#[cfg(target_arch = "x86_64")]
+fn is_aligned_avx<T>(ptr: &T) -> bool {
+    core::ptr::from_ref(ptr).addr().is_multiple_of(32)
+}
+
 // upstream: simd/jsimd.c jsimd_set_ycc_rgb
-/// Stores the Neon YCbCr-to-RGB kernel for `cinfo.out_color_space` in
-/// `cinfo.cconvert`, as `SET_SIMD_EXTRGB_COLOR_DECONVERTER(neon)` of
-/// `jsimdint.h` does, and returns `JSIMD_NEON`, or returns `JSIMD_NONE`.
+/// Stores the YCbCr-to-RGB kernel for `cinfo.out_color_space` of the best
+/// instruction set in `simd_support` in `cinfo.cconvert`, as
+/// `SET_SIMD_EXTRGB_COLOR_DECONVERTER` of `jsimdint.h` does, and returns
+/// that instruction set, or returns `JSIMD_NONE`.
 ///
 /// # Panics
 ///
@@ -273,6 +359,68 @@ pub fn jsimd_set_ycc_rgb(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    {
+        if (cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0)
+            && is_aligned_avx(&jconst_ycc_rgb_convert_avx2)
+        {
+            /* SET_SIMD_EXTRGB_COLOR_DECONVERTER(avx2) */
+            let color_convert_simd = match cinfo.out_color_space {
+                J_COLOR_SPACE::JCS_EXT_RGB => jsimd_ycc_extrgb_convert_avx2,
+                J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                    jsimd_ycc_extrgbx_convert_avx2
+                }
+                J_COLOR_SPACE::JCS_EXT_BGR => jsimd_ycc_extbgr_convert_avx2,
+                J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                    jsimd_ycc_extbgrx_convert_avx2
+                }
+                J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                    jsimd_ycc_extxbgr_convert_avx2
+                }
+                J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                    jsimd_ycc_extxrgb_convert_avx2
+                }
+                _ => jsimd_ycc_rgb_convert_avx2,
+            };
+            cinfo
+                .cconvert
+                .as_deref_mut()
+                .expect("cinfo->cconvert is NULL")
+                .pub_
+                .color_convert_simd = Some(color_convert_simd);
+            return JSIMD_AVX2;
+        }
+        if (cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0)
+            && is_aligned_sse(&jconst_ycc_rgb_convert_sse2)
+        {
+            /* SET_SIMD_EXTRGB_COLOR_DECONVERTER(sse2) */
+            let color_convert_simd = match cinfo.out_color_space {
+                J_COLOR_SPACE::JCS_EXT_RGB => jsimd_ycc_extrgb_convert_sse2,
+                J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                    jsimd_ycc_extrgbx_convert_sse2
+                }
+                J_COLOR_SPACE::JCS_EXT_BGR => jsimd_ycc_extbgr_convert_sse2,
+                J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                    jsimd_ycc_extbgrx_convert_sse2
+                }
+                J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                    jsimd_ycc_extxbgr_convert_sse2
+                }
+                J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                    jsimd_ycc_extxrgb_convert_sse2
+                }
+                _ => jsimd_ycc_rgb_convert_sse2,
+            };
+            cinfo
+                .cconvert
+                .as_deref_mut()
+                .expect("cinfo->cconvert is NULL")
+                .pub_
+                .color_convert_simd = Some(color_convert_simd);
+            return JSIMD_SSE2;
+        }
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         /* SET_SIMD_EXTRGB_COLOR_DECONVERTER(neon) */
         let color_convert_simd = match cinfo.out_color_space {
@@ -312,7 +460,7 @@ pub fn jsimd_set_ycc_rgb(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 ///
 /// When the color deconverter or its kernel is absent, or a row is shorter
 /// than the kernel reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call of a Neon kernel")]
+#[allow(unsafe_code, reason = "ADR 0007, ADR 0008: a call of a SIMD kernel")]
 pub fn jsimd_color_deconvert(
     cinfo: &jpeg_decompress_struct<'_>,
     input_buf: &[JSAMPROWS<'_>],
@@ -327,9 +475,8 @@ pub fn jsimd_color_deconvert(
         .pub_
         .color_convert_simd
         .expect("color_convert_simd is NULL");
-    // SAFETY: `jsimd_set_ycc_rgb` stores only Neon kernels in the slot, and
-    // this module exists only with `WITH_SIMD` on AArch64, where every target
-    // enables Neon.
+    // SAFETY: `jsimd_set_ycc_rgb` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe {
         color_convert_simd(
             cinfo.output_width,
@@ -342,10 +489,10 @@ pub fn jsimd_color_deconvert(
 }
 
 // upstream: simd/jsimd.c jsimd_set_h2v1_upsample
-/// Selects the plain h2v1 upsampling kernel. Returns `JSIMD_NEON` when it
-/// stores the Neon kernel in `upsample`, the public part of the upsampler
-/// that `jinit_upsampler` holds outside `cinfo.upsample`, and `JSIMD_NONE`
-/// otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
+/// Selects the plain h2v1 upsampling kernel. Returns its instruction set
+/// when it stores the kernel in `upsample`, the public part of the
+/// upsampler that `jinit_upsampler` holds outside `cinfo.upsample`, and
+/// `JSIMD_NONE` otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
 /// is a reference.
 ///
 /// # Panics
@@ -364,6 +511,17 @@ pub fn jsimd_set_h2v1_upsample(
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0 {
+        upsample.h2v1_upsample_simd = Some(jsimd_h2v1_upsample_avx2);
+        return JSIMD_AVX2;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0 {
+        upsample.h2v1_upsample_simd = Some(jsimd_h2v1_upsample_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         upsample.h2v1_upsample_simd = Some(jsimd_h2v1_upsample_neon);
         return JSIMD_NEON;
@@ -382,7 +540,10 @@ pub fn jsimd_set_h2v1_upsample(
 ///
 /// When `h2v1_upsample_simd` is `None`, `color_buf` is not the upsampler's
 /// storage, or a row is shorter than the kernel reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call through a SIMD kernel slot")]
+#[allow(
+    unsafe_code,
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
+)]
 pub fn jsimd_h2v1_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_upsampler,
@@ -395,9 +556,8 @@ pub fn jsimd_h2v1_upsample(
         .h2v1_upsample_simd
         .expect("h2v1_upsample_simd is NULL");
     let output_data = own_rows(output_data_ptr);
-    // SAFETY: `jsimd_set_*upsample` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_*upsample` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe {
         kernel(
             cinfo.max_v_samp_factor,
@@ -409,10 +569,10 @@ pub fn jsimd_h2v1_upsample(
 }
 
 // upstream: simd/jsimd.c jsimd_set_h2v2_upsample
-/// Selects the plain h2v2 upsampling kernel. Returns `JSIMD_NEON` when it
-/// stores the Neon kernel in `upsample`, the public part of the upsampler
-/// that `jinit_upsampler` holds outside `cinfo.upsample`, and `JSIMD_NONE`
-/// otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
+/// Selects the plain h2v2 upsampling kernel. Returns its instruction set
+/// when it stores the kernel in `upsample`, the public part of the
+/// upsampler that `jinit_upsampler` holds outside `cinfo.upsample`, and
+/// `JSIMD_NONE` otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
 /// is a reference.
 ///
 /// # Panics
@@ -431,6 +591,17 @@ pub fn jsimd_set_h2v2_upsample(
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0 {
+        upsample.h2v2_upsample_simd = Some(jsimd_h2v2_upsample_avx2);
+        return JSIMD_AVX2;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0 {
+        upsample.h2v2_upsample_simd = Some(jsimd_h2v2_upsample_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         upsample.h2v2_upsample_simd = Some(jsimd_h2v2_upsample_neon);
         return JSIMD_NEON;
@@ -449,7 +620,10 @@ pub fn jsimd_set_h2v2_upsample(
 ///
 /// When `h2v2_upsample_simd` is `None`, `color_buf` is not the upsampler's
 /// storage, or a row is shorter than the kernel reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call through a SIMD kernel slot")]
+#[allow(
+    unsafe_code,
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
+)]
 pub fn jsimd_h2v2_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_upsampler,
@@ -462,9 +636,8 @@ pub fn jsimd_h2v2_upsample(
         .h2v2_upsample_simd
         .expect("h2v2_upsample_simd is NULL");
     let output_data = own_rows(output_data_ptr);
-    // SAFETY: `jsimd_set_*upsample` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_*upsample` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe {
         kernel(
             cinfo.max_v_samp_factor,
@@ -476,10 +649,10 @@ pub fn jsimd_h2v2_upsample(
 }
 
 // upstream: simd/jsimd.c jsimd_set_h2v1_fancy_upsample
-/// Selects the fancy h2v1 upsampling kernel. Returns `JSIMD_NEON` when it
-/// stores the Neon kernel in `upsample`, the public part of the upsampler
-/// that `jinit_upsampler` holds outside `cinfo.upsample`, and `JSIMD_NONE`
-/// otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
+/// Selects the fancy h2v1 upsampling kernel. Returns its instruction set
+/// when it stores the kernel in `upsample`, the public part of the
+/// upsampler that `jinit_upsampler` holds outside `cinfo.upsample`, and
+/// `JSIMD_NONE` otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
 /// is a reference.
 ///
 /// # Panics
@@ -498,6 +671,21 @@ pub fn jsimd_set_h2v1_fancy_upsample(
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if (cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0)
+        && is_aligned_avx(&jconst_fancy_upsample_avx2)
+    {
+        upsample.h2v1_upsample_simd = Some(jsimd_h2v1_fancy_upsample_avx2);
+        return JSIMD_AVX2;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if (cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0)
+        && is_aligned_sse(&jconst_fancy_upsample_sse2)
+    {
+        upsample.h2v1_upsample_simd = Some(jsimd_h2v1_fancy_upsample_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         upsample.h2v1_upsample_simd = Some(jsimd_h2v1_fancy_upsample_neon);
         return JSIMD_NEON;
@@ -516,7 +704,10 @@ pub fn jsimd_set_h2v1_fancy_upsample(
 ///
 /// When `h2v1_upsample_simd` is `None`, `color_buf` is not the upsampler's
 /// storage, or a row is shorter than the kernel reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call through a SIMD kernel slot")]
+#[allow(
+    unsafe_code,
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
+)]
 pub fn jsimd_h2v1_fancy_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_upsampler,
@@ -529,9 +720,8 @@ pub fn jsimd_h2v1_fancy_upsample(
         .h2v1_upsample_simd
         .expect("h2v1_upsample_simd is NULL");
     let output_data = own_rows(output_data_ptr);
-    // SAFETY: `jsimd_set_*upsample` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_*upsample` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe {
         kernel(
             cinfo.max_v_samp_factor,
@@ -543,10 +733,10 @@ pub fn jsimd_h2v1_fancy_upsample(
 }
 
 // upstream: simd/jsimd.c jsimd_set_h2v2_fancy_upsample
-/// Selects the fancy h2v2 upsampling kernel. Returns `JSIMD_NEON` when it
-/// stores the Neon kernel in `upsample`, the public part of the upsampler
-/// that `jinit_upsampler` holds outside `cinfo.upsample`, and `JSIMD_NONE`
-/// otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
+/// Selects the fancy h2v2 upsampling kernel. Returns its instruction set
+/// when it stores the kernel in `upsample`, the public part of the
+/// upsampler that `jinit_upsampler` holds outside `cinfo.upsample`, and
+/// `JSIMD_NONE` otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
 /// is a reference.
 ///
 /// # Panics
@@ -565,6 +755,21 @@ pub fn jsimd_set_h2v2_fancy_upsample(
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if (cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0)
+        && is_aligned_avx(&jconst_fancy_upsample_avx2)
+    {
+        upsample.h2v2_upsample_simd = Some(jsimd_h2v2_fancy_upsample_avx2);
+        return JSIMD_AVX2;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if (cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0)
+        && is_aligned_sse(&jconst_fancy_upsample_sse2)
+    {
+        upsample.h2v2_upsample_simd = Some(jsimd_h2v2_fancy_upsample_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         upsample.h2v2_upsample_simd = Some(jsimd_h2v2_fancy_upsample_neon);
         return JSIMD_NEON;
@@ -583,7 +788,10 @@ pub fn jsimd_set_h2v2_fancy_upsample(
 ///
 /// When `h2v2_upsample_simd` is `None`, `color_buf` is not the upsampler's
 /// storage, or a row is shorter than the kernel reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call through a SIMD kernel slot")]
+#[allow(
+    unsafe_code,
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
+)]
 pub fn jsimd_h2v2_fancy_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_upsampler,
@@ -596,9 +804,8 @@ pub fn jsimd_h2v2_fancy_upsample(
         .h2v2_upsample_simd
         .expect("h2v2_upsample_simd is NULL");
     let output_data = own_rows(output_data_ptr);
-    // SAFETY: `jsimd_set_*upsample` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_*upsample` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe {
         kernel(
             cinfo.max_v_samp_factor,
@@ -610,10 +817,10 @@ pub fn jsimd_h2v2_fancy_upsample(
 }
 
 // upstream: simd/jsimd.c jsimd_set_h1v2_fancy_upsample
-/// Selects the fancy h1v2 upsampling kernel. Returns `JSIMD_NEON` when it
-/// stores the Neon kernel in `upsample`, the public part of the upsampler
-/// that `jinit_upsampler` holds outside `cinfo.upsample`, and `JSIMD_NONE`
-/// otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
+/// Selects the fancy h1v2 upsampling kernel. Returns its instruction set
+/// when it stores the kernel in `upsample`, the public part of the
+/// upsampler that `jinit_upsampler` holds outside `cinfo.upsample`, and
+/// `JSIMD_NONE` otherwise. C's `!cinfo->upsample` check always passes, since `upsample`
 /// is a reference.
 ///
 /// # Panics
@@ -621,6 +828,10 @@ pub fn jsimd_h2v2_fancy_upsample(
 /// When `cinfo.master` is absent.
 pub fn jsimd_set_h1v2_fancy_upsample(
     cinfo: j_decompress_ptr<'_, '_>,
+    #[cfg_attr(
+        target_arch = "x86_64",
+        expect(unused_variables, reason = "upstream has no x86-64 h1v2 kernel")
+    )]
     upsample: &mut jpeg_upsampler,
 ) -> u32 {
     init_simd(cinfo);
@@ -632,6 +843,7 @@ pub fn jsimd_set_h1v2_fancy_upsample(
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         upsample.h1v2_upsample_simd = Some(jsimd_h1v2_fancy_upsample_neon);
         return JSIMD_NEON;
@@ -650,7 +862,10 @@ pub fn jsimd_set_h1v2_fancy_upsample(
 ///
 /// When `h1v2_upsample_simd` is `None`, `color_buf` is not the upsampler's
 /// storage, or a row is shorter than the kernel reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call through a SIMD kernel slot")]
+#[allow(
+    unsafe_code,
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
+)]
 pub fn jsimd_h1v2_fancy_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_upsampler,
@@ -663,9 +878,8 @@ pub fn jsimd_h1v2_fancy_upsample(
         .h1v2_upsample_simd
         .expect("h1v2_upsample_simd is NULL");
     let output_data = own_rows(output_data_ptr);
-    // SAFETY: `jsimd_set_*upsample` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_*upsample` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe {
         kernel(
             cinfo.max_v_samp_factor,
@@ -677,9 +891,10 @@ pub fn jsimd_h1v2_fancy_upsample(
 }
 
 // upstream: simd/jsimd.c jsimd_set_h2v1_merged_upsample
-/// Stores the Neon h2v1 merged kernel for `cinfo.out_color_space` in
-/// `cinfo.upsample`, as `SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, neon)` of
-/// `jsimdint.h` does, and returns `JSIMD_NEON`, or returns `JSIMD_NONE`.
+/// Stores the h2v1 merged kernel for `cinfo.out_color_space` of the best
+/// instruction set in `simd_support` in `cinfo.upsample`, as
+/// `SET_SIMD_EXTRGB_MERGED_UPSAMPLER` of `jsimdint.h` does, and returns that
+/// instruction set, or returns `JSIMD_NONE`.
 ///
 /// # Panics
 ///
@@ -697,6 +912,67 @@ pub fn jsimd_set_h2v1_merged_upsample(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0
+        && is_aligned_avx(&jconst_merged_upsample_avx2)
+    {
+        /* SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, avx2) */
+        let merged_upsample_simd = match cinfo.out_color_space {
+            J_COLOR_SPACE::JCS_EXT_RGB => jsimd_h2v1_extrgb_merged_upsample_avx2,
+            J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                jsimd_h2v1_extrgbx_merged_upsample_avx2
+            }
+            J_COLOR_SPACE::JCS_EXT_BGR => jsimd_h2v1_extbgr_merged_upsample_avx2,
+            J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                jsimd_h2v1_extbgrx_merged_upsample_avx2
+            }
+            J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                jsimd_h2v1_extxbgr_merged_upsample_avx2
+            }
+            J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                jsimd_h2v1_extxrgb_merged_upsample_avx2
+            }
+            _ => jsimd_h2v1_merged_upsample_avx2,
+        };
+        cinfo
+            .upsample
+            .as_deref_mut()
+            .expect("cinfo->upsample is NULL")
+            .pub_mut()
+            .merged_upsample_simd = Some(merged_upsample_simd);
+        return JSIMD_AVX2;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0
+        && is_aligned_sse(&jconst_merged_upsample_sse2)
+    {
+        /* SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, sse2) */
+        let merged_upsample_simd = match cinfo.out_color_space {
+            J_COLOR_SPACE::JCS_EXT_RGB => jsimd_h2v1_extrgb_merged_upsample_sse2,
+            J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                jsimd_h2v1_extrgbx_merged_upsample_sse2
+            }
+            J_COLOR_SPACE::JCS_EXT_BGR => jsimd_h2v1_extbgr_merged_upsample_sse2,
+            J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                jsimd_h2v1_extbgrx_merged_upsample_sse2
+            }
+            J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                jsimd_h2v1_extxbgr_merged_upsample_sse2
+            }
+            J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                jsimd_h2v1_extxrgb_merged_upsample_sse2
+            }
+            _ => jsimd_h2v1_merged_upsample_sse2,
+        };
+        cinfo
+            .upsample
+            .as_deref_mut()
+            .expect("cinfo->upsample is NULL")
+            .pub_mut()
+            .merged_upsample_simd = Some(merged_upsample_simd);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         /* SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, neon) */
         let merged_upsample_simd = match cinfo.out_color_space {
@@ -737,7 +1013,7 @@ pub fn jsimd_set_h2v1_merged_upsample(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// # Panics
 ///
 /// When the kernel is absent or a row is shorter than it reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call of a Neon kernel")]
+#[allow(unsafe_code, reason = "ADR 0007, ADR 0008: a call of a SIMD kernel")]
 pub fn jsimd_h2v1_merged_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_merged_upsampler,
@@ -749,18 +1025,18 @@ pub fn jsimd_h2v1_merged_upsample(
         .pub_
         .merged_upsample_simd
         .expect("merged_upsample_simd is NULL");
-    // SAFETY: `jsimd_set_h2v1_merged_upsample` stores only Neon kernels in
-    // the slot, and this module exists only with `WITH_SIMD` on AArch64,
-    // where every target enables Neon.
+    // SAFETY: `jsimd_set_h2v1_merged_upsample` stores only kernels of an
+    // instruction set that the CPU runs (see the module documentation).
     unsafe {
         merged_upsample_simd(cinfo.output_width, input_buf, in_row_group_ctr, output_buf);
     }
 }
 
 // upstream: simd/jsimd.c jsimd_set_h2v2_merged_upsample
-/// Stores the Neon h2v2 merged kernel for `cinfo.out_color_space` in
-/// `cinfo.upsample`, as `SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, neon)` of
-/// `jsimdint.h` does, and returns `JSIMD_NEON`, or returns `JSIMD_NONE`.
+/// Stores the h2v2 merged kernel for `cinfo.out_color_space` of the best
+/// instruction set in `simd_support` in `cinfo.upsample`, as
+/// `SET_SIMD_EXTRGB_MERGED_UPSAMPLER` of `jsimdint.h` does, and returns that
+/// instruction set, or returns `JSIMD_NONE`.
 ///
 /// # Panics
 ///
@@ -778,6 +1054,67 @@ pub fn jsimd_set_h2v2_merged_upsample(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0
+        && is_aligned_avx(&jconst_merged_upsample_avx2)
+    {
+        /* SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, avx2) */
+        let merged_upsample_simd = match cinfo.out_color_space {
+            J_COLOR_SPACE::JCS_EXT_RGB => jsimd_h2v2_extrgb_merged_upsample_avx2,
+            J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                jsimd_h2v2_extrgbx_merged_upsample_avx2
+            }
+            J_COLOR_SPACE::JCS_EXT_BGR => jsimd_h2v2_extbgr_merged_upsample_avx2,
+            J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                jsimd_h2v2_extbgrx_merged_upsample_avx2
+            }
+            J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                jsimd_h2v2_extxbgr_merged_upsample_avx2
+            }
+            J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                jsimd_h2v2_extxrgb_merged_upsample_avx2
+            }
+            _ => jsimd_h2v2_merged_upsample_avx2,
+        };
+        cinfo
+            .upsample
+            .as_deref_mut()
+            .expect("cinfo->upsample is NULL")
+            .pub_mut()
+            .merged_upsample_simd = Some(merged_upsample_simd);
+        return JSIMD_AVX2;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0
+        && is_aligned_sse(&jconst_merged_upsample_sse2)
+    {
+        /* SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, sse2) */
+        let merged_upsample_simd = match cinfo.out_color_space {
+            J_COLOR_SPACE::JCS_EXT_RGB => jsimd_h2v2_extrgb_merged_upsample_sse2,
+            J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                jsimd_h2v2_extrgbx_merged_upsample_sse2
+            }
+            J_COLOR_SPACE::JCS_EXT_BGR => jsimd_h2v2_extbgr_merged_upsample_sse2,
+            J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                jsimd_h2v2_extbgrx_merged_upsample_sse2
+            }
+            J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                jsimd_h2v2_extxbgr_merged_upsample_sse2
+            }
+            J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                jsimd_h2v2_extxrgb_merged_upsample_sse2
+            }
+            _ => jsimd_h2v2_merged_upsample_sse2,
+        };
+        cinfo
+            .upsample
+            .as_deref_mut()
+            .expect("cinfo->upsample is NULL")
+            .pub_mut()
+            .merged_upsample_simd = Some(merged_upsample_simd);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         /* SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, neon) */
         let merged_upsample_simd = match cinfo.out_color_space {
@@ -817,7 +1154,7 @@ pub fn jsimd_set_h2v2_merged_upsample(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// # Panics
 ///
 /// When the kernel is absent or a row is shorter than it reads or writes.
-#[allow(unsafe_code, reason = "ADR 0007: a call of a Neon kernel")]
+#[allow(unsafe_code, reason = "ADR 0007, ADR 0008: a call of a SIMD kernel")]
 pub fn jsimd_h2v2_merged_upsample(
     cinfo: &jpeg_decompress_struct<'_>,
     upsample: &my_merged_upsampler,
@@ -829,9 +1166,8 @@ pub fn jsimd_h2v2_merged_upsample(
         .pub_
         .merged_upsample_simd
         .expect("merged_upsample_simd is NULL");
-    // SAFETY: `jsimd_set_h2v2_merged_upsample` stores only Neon kernels in
-    // the slot, and this module exists only with `WITH_SIMD` on AArch64,
-    // where every target enables Neon.
+    // SAFETY: `jsimd_set_h2v2_merged_upsample` stores only kernels of an
+    // instruction set that the CPU runs (see the module documentation).
     unsafe {
         merged_upsample_simd(cinfo.output_width, input_buf, in_row_group_ctr, output_buf);
     }
@@ -863,6 +1199,32 @@ pub fn jsimd_set_idct_islow(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    {
+        if cinfo.master().pub_.simd_support & JSIMD_AVX2 != 0
+            && is_aligned_avx(&jconst_idct_islow_avx2)
+        {
+            cinfo
+                .idct
+                .as_deref_mut()
+                .expect("checked above")
+                .pub_
+                .idct_simd = Some(jsimd_idct_islow_avx2);
+            return JSIMD_AVX2;
+        }
+        if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0
+            && is_aligned_sse(&jconst_idct_islow_sse2)
+        {
+            cinfo
+                .idct
+                .as_deref_mut()
+                .expect("checked above")
+                .pub_
+                .idct_simd = Some(jsimd_idct_islow_sse2);
+            return JSIMD_SSE2;
+        }
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         cinfo
             .idct
@@ -885,7 +1247,7 @@ pub fn jsimd_set_idct_islow(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// is absent, or as the kernel panics.
 #[allow(
     unsafe_code,
-    reason = "ADR 0007: a call through a *_simd slot of a Neon kernel"
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
 )]
 pub fn jsimd_idct_islow(
     cinfo: &jpeg_decompress_struct<'_>,
@@ -899,9 +1261,8 @@ pub fn jsimd_idct_islow(
         .dct_table
         .as_deref()
         .expect("compptr->dct_table is NULL");
-    // SAFETY: `jsimd_set_idct_islow` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_idct_islow` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe { idct_simd(dct_table, coef_block, output_buf, output_col) }
 }
 
@@ -934,6 +1295,18 @@ pub fn jsimd_set_idct_ifast(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0 && is_aligned_sse(&jconst_idct_ifast_sse2)
+    {
+        cinfo
+            .idct
+            .as_deref_mut()
+            .expect("checked above")
+            .pub_
+            .idct_simd = Some(jsimd_idct_ifast_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         cinfo
             .idct
@@ -956,7 +1329,7 @@ pub fn jsimd_set_idct_ifast(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// is absent, or as the kernel panics.
 #[allow(
     unsafe_code,
-    reason = "ADR 0007: a call through a *_simd slot of a Neon kernel"
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
 )]
 pub fn jsimd_idct_ifast(
     cinfo: &jpeg_decompress_struct<'_>,
@@ -970,9 +1343,8 @@ pub fn jsimd_idct_ifast(
         .dct_table
         .as_deref()
         .expect("compptr->dct_table is NULL");
-    // SAFETY: `jsimd_set_idct_ifast` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_idct_ifast` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe { idct_simd(dct_table, coef_block, output_buf, output_col) }
 }
 
@@ -980,8 +1352,54 @@ pub fn jsimd_idct_ifast(
 /// Returns `JSIMD_NONE`: AArch64 has no float IDCT kernel, so the C
 /// routine applies. The x86 branch, which checks the sizes and calls
 /// `init_simd`, is not compiled for AArch64.
+#[cfg(target_arch = "aarch64")]
 #[must_use]
 pub fn jsimd_set_idct_float(_cinfo: j_decompress_ptr<'_, '_>) -> u32 {
+    JSIMD_NONE
+}
+
+// upstream: simd/jsimd.c jsimd_set_idct_float
+/// Stores the float IDCT kernel in `idct_simd` and returns its instruction
+/// set, or returns `JSIMD_NONE`.
+///
+/// # Panics
+///
+/// When `cinfo.master` is absent.
+#[cfg(target_arch = "x86_64")]
+pub fn jsimd_set_idct_float(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
+    init_simd(cinfo);
+
+    if size_of::<JCOEF>() != 2 {
+        return JSIMD_NONE;
+    }
+    if BITS_IN_JSAMPLE != 8 {
+        return JSIMD_NONE;
+    }
+    if size_of::<JDIMENSION>() != 4 {
+        return JSIMD_NONE;
+    }
+    if size_of::<FAST_FLOAT>() != 4 {
+        return JSIMD_NONE;
+    }
+    if size_of::<FLOAT_MULT_TYPE>() != 4 {
+        return JSIMD_NONE;
+    }
+    if cinfo.idct.is_none() {
+        return JSIMD_NONE;
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0 && is_aligned_sse(&jconst_idct_float_sse2)
+    {
+        cinfo
+            .idct
+            .as_deref_mut()
+            .expect("checked above")
+            .pub_
+            .idct_simd = Some(jsimd_idct_float_sse2);
+        return JSIMD_SSE2;
+    }
+
     JSIMD_NONE
 }
 
@@ -995,7 +1413,7 @@ pub fn jsimd_set_idct_float(_cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// is absent, or as the kernel panics.
 #[allow(
     unsafe_code,
-    reason = "ADR 0007: a call through a *_simd slot of a Neon kernel"
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
 )]
 pub fn jsimd_idct_float(
     cinfo: &jpeg_decompress_struct<'_>,
@@ -1009,9 +1427,8 @@ pub fn jsimd_idct_float(
         .dct_table
         .as_deref()
         .expect("compptr->dct_table is NULL");
-    // SAFETY: the `jsimd_set_idct_*` entry points store only Neon kernels
-    // in the slot, and this module exists only with `WITH_SIMD` on AArch64,
-    // where every target enables Neon.
+    // SAFETY: the `jsimd_set_idct_*` entry points stores only kernels of an
+    // instruction set that the CPU runs (see the module documentation).
     unsafe { idct_simd(dct_table, coef_block, output_buf, output_col) }
 }
 
@@ -1041,6 +1458,17 @@ pub fn jsimd_set_idct_2x2(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0 && is_aligned_sse(&jconst_idct_red_sse2) {
+        cinfo
+            .idct
+            .as_deref_mut()
+            .expect("checked above")
+            .pub_
+            .idct_2x2_simd = Some(jsimd_idct_2x2_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         cinfo
             .idct
@@ -1063,7 +1491,7 @@ pub fn jsimd_set_idct_2x2(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// table is absent, or as the kernel panics.
 #[allow(
     unsafe_code,
-    reason = "ADR 0007: a call through a *_simd slot of a Neon kernel"
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
 )]
 pub fn jsimd_idct_2x2(
     cinfo: &jpeg_decompress_struct<'_>,
@@ -1077,9 +1505,8 @@ pub fn jsimd_idct_2x2(
         .dct_table
         .as_deref()
         .expect("compptr->dct_table is NULL");
-    // SAFETY: `jsimd_set_idct_2x2` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_idct_2x2` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe { idct_2x2_simd(dct_table, coef_block, output_buf, output_col) }
 }
 
@@ -1109,6 +1536,17 @@ pub fn jsimd_set_idct_4x4(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
         return JSIMD_NONE;
     }
 
+    #[cfg(target_arch = "x86_64")]
+    if cinfo.master().pub_.simd_support & JSIMD_SSE2 != 0 && is_aligned_sse(&jconst_idct_red_sse2) {
+        cinfo
+            .idct
+            .as_deref_mut()
+            .expect("checked above")
+            .pub_
+            .idct_4x4_simd = Some(jsimd_idct_4x4_sse2);
+        return JSIMD_SSE2;
+    }
+    #[cfg(target_arch = "aarch64")]
     if cinfo.master().pub_.simd_support & JSIMD_NEON != 0 {
         cinfo
             .idct
@@ -1131,7 +1569,7 @@ pub fn jsimd_set_idct_4x4(cinfo: j_decompress_ptr<'_, '_>) -> u32 {
 /// table is absent, or as the kernel panics.
 #[allow(
     unsafe_code,
-    reason = "ADR 0007: a call through a *_simd slot of a Neon kernel"
+    reason = "ADR 0007, ADR 0008: a call through a *_simd slot"
 )]
 pub fn jsimd_idct_4x4(
     cinfo: &jpeg_decompress_struct<'_>,
@@ -1145,8 +1583,7 @@ pub fn jsimd_idct_4x4(
         .dct_table
         .as_deref()
         .expect("compptr->dct_table is NULL");
-    // SAFETY: `jsimd_set_idct_4x4` stores only Neon kernels in the slot,
-    // and this module exists only with `WITH_SIMD` on AArch64, where every
-    // target enables Neon.
+    // SAFETY: `jsimd_set_idct_4x4` stores only kernels of an instruction set
+    // that the CPU runs (see the module documentation).
     unsafe { idct_4x4_simd(dct_table, coef_block, output_buf, output_col) }
 }

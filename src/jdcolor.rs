@@ -22,7 +22,7 @@
 //! `BITS_IN_JSAMPLE` is 8, so the 16-bit error branches are not compiled,
 //! and with `D_LOSSLESS_SUPPORTED` treated as undefined neither are the
 //! lossless checks (ADR 0005). `WITH_SIMD` is `cfg(with_simd)` (ADR 0007):
-//! the YCbCr-to-RGB branch then asks `jsimd_set_ycc_rgb` for a Neon kernel
+//! the YCbCr-to-RGB branch then asks `jsimd_set_ycc_rgb` for a SIMD kernel
 //! first, in a labeled block that it leaves when it gets one, as C's
 //! `if ... else` across the `#ifdef` skips the C routines and their tables.
 //! The RGB565 routines of `jdcol565.c` and their SIMD selection are out of

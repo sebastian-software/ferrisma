@@ -1,10 +1,11 @@
 //! Sets `cfg(with_simd)`, the port's `WITH_SIMD`, when the `simd` feature is
-//! on and the port has kernels for the target architecture (ADR 0007). On
-//! other architectures `WITH_SIMD` stays undefined, as upstream's CMake falls
-//! back to a build without SIMD extensions there.
+//! on and the port has kernels for the target architecture: AArch64
+//! (ADR 0007) and x86-64 (ADR 0008). On other architectures `WITH_SIMD`
+//! stays undefined, as upstream's CMake falls back to a build without SIMD
+//! extensions there.
 
 /// The architectures whose kernels are translated.
-const SIMD_ARCHITECTURES: &[&str] = &["aarch64"];
+const SIMD_ARCHITECTURES: &[&str] = &["aarch64", "x86_64"];
 
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(with_simd)");
