@@ -79,6 +79,9 @@ target_compile_definitions(probe_support PUBLIC ${UPSTREAM_DEFINITIONS})
 target_link_libraries(probe_support PUBLIC ${ORACLE_LIBRARIES})
 
 file(GLOB PACKAGE_DIRS LIST_DIRECTORIES true CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/probes/*")
+# Sorted, so that probes/wp12/oracle.cmake defines libwebp_rs and wp12_consumer()
+# before probes/wp13/oracle.cmake uses them.
+list(SORT PACKAGE_DIRS)
 set(ALL_PROBES)
 foreach(package_dir ${PACKAGE_DIRS})
   if(NOT IS_DIRECTORY "${package_dir}")
