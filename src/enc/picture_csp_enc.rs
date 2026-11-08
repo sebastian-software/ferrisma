@@ -88,10 +88,13 @@ fn check_non_opaque(
     // WebPInitAlphaProcessing() only assigns portable pointers (ADR 0003).
     for row in 0..height {
         let row_pos = offset_by(alpha, i64::from(row) * i64::from(y_step));
+        // C only advances the pointer; with a width of 0 or less no sample is
+        // read, so a row past the end of `src` is empty.
+        let samples = src.get(row_pos..).unwrap_or_default();
         let found = if x_step == 1 {
-            webp_has_alpha8b(&src[row_pos..], width)
+            webp_has_alpha8b(samples, width)
         } else {
-            webp_has_alpha32b(&src[row_pos..], width)
+            webp_has_alpha32b(samples, width)
         };
         if found {
             return true;
