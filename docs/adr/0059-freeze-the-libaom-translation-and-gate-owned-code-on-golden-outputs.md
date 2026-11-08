@@ -1,7 +1,5 @@
 # Freeze the libaom translation and gate owned code on golden outputs
 
-Status: proposed.
-
 This ends the mechanical phase that [ADR 0001](0001-mechanical-port.md),
 [ADR 0003](0003-automated-translation.md) and
 [ADR 0013](0013-separate-optimization-from-the-mechanical-port.md) set up for
@@ -173,7 +171,7 @@ reproduced in the Rust, and accepted on the new golden outputs.
 - The same approach can later apply to the other ports, each in its own
   decision.
 
-## Open before acceptance
+## Open questions
 
 - Whether hosted runners measure stably enough for the 2 % threshold, or the
   benchmark needs repeated paired runs (`main` and the pull request on the
