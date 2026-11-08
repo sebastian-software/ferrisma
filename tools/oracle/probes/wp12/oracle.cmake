@@ -9,10 +9,10 @@
 # what the oracle's dwebp and webpinfo compile. Upstream's src directory,
 # which they get from the linked webp target, is added explicitly and searched
 # first, so the pinned headers are used. Only the libraries change: libwebp
-# becomes the Rust library, and libwebpdemux the link stand-ins of
-# consumer/link_shim.c for symbols that imageio/webpdec.c references and dwebp
-# never calls. The tools land in probes/wp12/ next to the probes, as dwebp and
-# webpinfo.
+# and libwebpdemux become the Rust library, which exports decode.h (WP12) and
+# demux.h (WP14, which removed the link stand-ins that WP12 used for the demux
+# functions that imageio/webpdec.c references). The tools land in probes/wp12/
+# next to the probes, as dwebp and webpinfo.
 set(LIBWEBP_RS_STATICLIB "" CACHE FILEPATH
     "Rust static library (libwebp.a) for the WP12 consumer build")
 set(LIBWEBP_RS_NATIVE_LIBS "" CACHE STRING
@@ -24,10 +24,6 @@ if(LIBWEBP_RS_STATICLIB)
   set_target_properties(libwebp_rs PROPERTIES
     IMPORTED_LOCATION "${LIBWEBP_RS_STATICLIB}"
     INTERFACE_LINK_LIBRARIES "${wp12_native_libs}")
-
-  add_library(wp12_link_shim STATIC "${package_dir}/consumer/link_shim.c")
-  target_include_directories(wp12_link_shim PRIVATE "${UPSTREAM}")
-  target_link_libraries(wp12_link_shim PRIVATE libwebp_rs)
 
   get_directory_property(wp12_directory_includes DIRECTORY "${UPSTREAM}"
                          INCLUDE_DIRECTORIES)
@@ -68,10 +64,8 @@ if(LIBWEBP_RS_STATICLIB)
     get_target_property(libraries ${name} LINK_LIBRARIES)
     set(replaced)
     foreach(library ${libraries})
-      if(library STREQUAL "webp")
+      if(library STREQUAL "webp" OR library STREQUAL "webpdemux")
         list(APPEND replaced libwebp_rs)
-      elseif(library STREQUAL "webpdemux")
-        list(APPEND replaced wp12_link_shim)
       elseif(library MATCHES "^(exampleutil|imageioutil|imagedec|imageenc)$")
         list(APPEND replaced rs_${library})
       elseif(library MATCHES "^(webpdecoder|libwebpmux|sharpyuv)$")
