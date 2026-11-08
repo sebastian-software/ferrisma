@@ -1,6 +1,6 @@
 # Wrap the encoder translation in a safe, validated Rust API
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-08
 - Updated: 2026-11-08
 
@@ -151,8 +151,10 @@ hook and statistics are borrowed for the call only, so they need not outlive
 `'a`. Planes that the call allocates (the ARGB-to-YUVA conversion of a lossy
 encoding, the YUVA-to-ARGB conversion of a lossless one) stay with the picture
 and are counted by `owned_sample_bytes`. A second encoding of the same picture
-sees what the first left, as in C. If a callback panics, the picture is left
-without planes.
+sees what the first left, as in C. If a callback panics, the panic propagates
+and the picture is left without planes; a later encoding of it returns
+`NullParameter`. Strides count elements of the slice's type: bytes for
+`PixelRows` and `YuvaPlanes`, pixels for the `&mut [u32]` of `from_argb`.
 
 **Validation.** The API checks before it calls the translation, so caller
 input never reaches a panic:
@@ -184,8 +186,13 @@ input never reaches a panic:
 chunks, possibly empty ones; `false` stops the encoding with `BadWrite`, and
 the bytes accepted so far stay with the writer. `Encoder::encode` uses C's
 memory writer, so a refused allocation is `BadWrite` with C's growth and
-`WEBP_MAX_ALLOCABLE_MEMORY` limit. The hook receives C's percentages; `false`
-stops with `UserAbort`, and the writer may already hold bytes. Writer and hook
+`WEBP_MAX_ALLOCABLE_MEMORY` limit, and returns no bytes on failure. The hook
+receives C's percentages; `false` stops with `UserAbort`, and the writer may
+already hold bytes. libwebp ignores the answer at two places, the end of a
+lossy analysis without segments (`ResetAllMBInfo`) and the statistics pass of
+lossy methods 0 to 2 (`VP8EncLoop` drops `StatLoop`'s result): the encoding
+goes on and can succeed with `USER_ABORT` recorded, which the API reports as
+`Ok`, as C returns 1; a cancelling hook keeps returning `false`. Writer and hook
 run on the calling thread, also with `multithreaded`, so they need not be
 `Send`. Statistics are reset once the configuration and picture pass C's
 validation and filled as C fills them, also on failure. Allocation failures

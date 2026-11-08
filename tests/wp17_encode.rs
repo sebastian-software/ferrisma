@@ -357,8 +357,8 @@ fn replay(case: &Case) -> Fields {
 /// The probe's output for one record, without what the API cannot show. A
 /// successful encoding has no error in the API; C can record
 /// `VP8_ENC_ERROR_USER_ABORT` and still succeed, when the hook's abort falls on
-/// the report whose result `ResetAllMBInfo` ignores. The second value counts
-/// that case.
+/// a report whose result libwebp ignores (`ResetAllMBInfo`, and `StatLoop` in
+/// `VP8EncLoop` for lossy methods 0 to 2). The second value counts that case.
 fn comparable(case: &Case, mut c: Fields) -> (Fields, bool) {
     let failed = c.get("ret") == Some("0");
     let mut ignored_abort = false;
@@ -579,9 +579,11 @@ fn raw_mut_and_from_build_the_same_configuration() {
 
 /// Straight RGBA8 rows packed as `0xAARRGGBB` words into caller memory
 /// (`Picture::from_argb`) encode exactly as the same rows imported into ARGB
-/// (`Picture::import`), which the groups above compare with C. This is the
-/// packing that `docs/status/wp17.md` recommends to a sink that fills a
-/// budgeted frame row by row (Rust only: both routes end in `webp_encode`).
+/// (`Picture::import`), which the groups above compare with C, and, for a
+/// lossy encoding without sharp YUV, as the rows imported into YUVA, which is
+/// `cwebp`'s route. This is the packing that `docs/status/wp17.md` recommends
+/// to a sink that fills a budgeted frame row by row (Rust only: every route
+/// ends in `webp_encode`).
 #[test]
 fn rgba_rows_packed_as_argb_words_encode_as_the_importer() {
     let mut rng = wp13_cases::Rng(0x1717_a4b0);
@@ -620,7 +622,16 @@ fn rgba_rows_packed_as_argb_words_encode_as_the_importer() {
             let bytes = Encoder::new(config).encode(&mut picture).unwrap();
             assert_eq!(bytes, expected, "round {round}, {config:?}");
             compared += 1;
+            // cwebp imports straight into YUVA for a lossy encoding without
+            // sharp YUV or preprocessing; the bytes are the same.
+            let raw = config.as_raw();
+            if raw.lossless == 0 && raw.use_sharp_yuv == 0 && raw.preprocessing == 0 {
+                let mut yuva = Picture::import(rows, SampleForm::Yuva).unwrap();
+                let direct = Encoder::new(config).encode(&mut yuva).unwrap();
+                assert_eq!(direct, expected, "round {round}, YUVA import, {config:?}");
+                compared += 1;
+            }
         }
     }
-    assert_eq!(compared, 128);
+    assert_eq!(compared, 160);
 }

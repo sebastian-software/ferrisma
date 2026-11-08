@@ -1550,10 +1550,11 @@ impl<'e> Encoder<'e> {
     /// on the calling thread. Returning `false` stops the encoding with
     /// [`EncodeError::UserAbort`]; the writer keeps what it received.
     ///
-    /// libwebp ignores the answer at one report, the end of a lossy analysis
-    /// without segment analysis (C: `ResetAllMBInfo`): the encoding then goes
-    /// on and can succeed. A hook that cancels should therefore keep returning
-    /// `false`.
+    /// libwebp ignores the answer at two places, the end of a lossy analysis
+    /// without segments (C: `ResetAllMBInfo`) and the statistics pass of lossy
+    /// methods 0 to 2 (C: `VP8EncLoop` drops the result of `StatLoop`): the
+    /// encoding then goes on and can succeed. A hook that cancels should
+    /// therefore keep returning `false`.
     ///
     /// # Examples
     ///
