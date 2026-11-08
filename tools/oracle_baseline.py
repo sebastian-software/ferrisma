@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Run upstream's dwebp conformance scripts against an oracle build.
+"""Run upstream's conformance scripts against an oracle build.
 
 Runs test_dwebp.sh and test_lossless.sh from the pinned libwebp-test-data,
-unmodified, with the oracle's own dwebp and checks the exact number of passing
-comparisons. The scripts write decoded files next to the vectors, so every run
+unmodified, with the oracle's own dwebp, and test_cwebp.sh with its own cwebp,
+and checks the exact number of passing comparisons. The scripts write decoded files next to the vectors, so every run
 uses a fresh copy under build/oracle/<variant>/baseline/ and upstream/ stays
 untouched. The record is written to build/oracle/<variant>/baseline/baseline.json.
 
@@ -12,6 +12,13 @@ ppm and tiff and verifies each output's MD5 twice, by default and with -noasm.
 test_lossless.sh decodes the 32 lossless_vec_* vectors and
 lossless_color_transform.webp to the same five formats, with and without
 -noasm, and compares each output byte for byte with a reference image.
+
+test_cwebp.sh encodes each input file with cwebp and with cwebp -noasm and
+compares the two outputs; it ships no reference checksums. The inputs are the
+test-data files that the oracle's cwebp reads (the WebP vectors, PAM, PGM and
+PPM, and PNG or TIFF when the build found libpng or libtiff), in three option
+sets (CWEBP_OPTION_SETS), the same that tests/wp13_tools.rs runs with the
+Rust-linked cwebp.
 
 --diagnose-post-v1.6.0 also compares the oracle with test-data 06ddd96, whose
 last two commits regenerated seven PGM checksums and the grid, peak and
@@ -65,6 +72,41 @@ def run_script(script, args, cwd, log):
 
 def checksum_list(text):
     return [tuple(line.split()) for line in text.splitlines() if line.strip()]
+
+
+# test_cwebp.sh option sets: the script's own flags.
+CWEBP_OPTION_SETS = {
+    "default": [],
+    "lossless": ["--lossless"],
+    "mt_noalpha_q30_m6": ["--mt", "--noalpha", "--extra_args=-q 30 -m 6 -sharp_yuv -af"],
+}
+
+
+def cwebp_inputs(cwebp, directory):
+    """The test-data files that `cwebp` reads, sorted by name."""
+    inputs = []
+    for path in sorted(directory.iterdir()):
+        if path.suffix in (".sh", ".md5", ".txt") or not path.is_file():
+            continue
+        result = subprocess.run([str(cwebp), "-quiet", "-o", os.devnull, str(path)],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            inputs.append(path.name)
+    return inputs
+
+
+def cwebp_baseline(work, cwebp, md5):
+    """test_cwebp.sh with the oracle's cwebp, per option set."""
+    copy = fresh_copy(work / "cwebp")
+    inputs = cwebp_inputs(cwebp, copy)
+    results = {"inputs": inputs}
+    for name, options in CWEBP_OPTION_SETS.items():
+        code, log = run_script("test_cwebp.sh", [f"--exec={cwebp}", f"--md5exec={md5}", *options,
+                                                  *inputs], copy, work / f"test_cwebp-{name}.log")
+        results[name] = {"exit_status": code, "done": log.rstrip().endswith("DONE (1 of 1)"),
+                         "files_ok": len(re.findall(r"^\S+:\tOK$", log, re.M)),
+                         "failures": log.count("FAILED")}
+    return results
 
 
 def lossless_vectors():
@@ -157,8 +199,10 @@ def main():
     oracle = ROOT / "build/oracle" / args.variant
     manifest = json.loads((oracle / "oracle.json").read_text())
     dwebp = Path(manifest["tools"]["dwebp"])
-    if not dwebp.is_file():
-        raise SystemExit(f"{dwebp} is missing; run python3 tools/build_oracle.py --variant {args.variant}")
+    cwebp = Path(manifest["tools"]["cwebp"])
+    for tool in (dwebp, cwebp):
+        if not tool.is_file():
+            raise SystemExit(f"{tool} is missing; run python3 tools/build_oracle.py --variant {args.variant}")
     md5 = md5_tool()
 
     work = oracle / "baseline"
@@ -175,6 +219,8 @@ def main():
         "lossless_comparisons": 2 * len(FORMATS) * len(vectors),
     }
     pinned = pinned_baseline(work, dwebp, md5)
+    pinned["test_cwebp"] = cwebp_baseline(work, cwebp, md5)
+    expected["cwebp_inputs"] = len(pinned["test_cwebp"]["inputs"])
     record = {
         "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "host": f"{platform.system()} {platform.release()} {platform.machine()}",
@@ -182,6 +228,8 @@ def main():
         "c_compiler_version": manifest["c_compiler_version"],
         "dwebp": str(dwebp),
         "dwebp_sha256": hashlib.sha256(dwebp.read_bytes()).hexdigest(),
+        "cwebp": str(cwebp),
+        "cwebp_sha256": hashlib.sha256(cwebp.read_bytes()).hexdigest(),
         "md5_tool": md5,
         "md5_tool_resolved": os.path.realpath(md5),
         "test_data_revision": git("rev-parse", "HEAD").decode().strip(),
@@ -205,11 +253,19 @@ def main():
     if (lossless_result["comparisons_ok"], lossless_result["distinct_vectors_ok"]) != (
             expected["lossless_comparisons"], expected["lossless_vectors"]):
         problems.append("test_lossless.sh ran an unexpected number of comparisons")
+    cwebp_result = pinned["test_cwebp"]
+    for name in CWEBP_OPTION_SETS:
+        result = cwebp_result[name]
+        if result["exit_status"] != 0 or not result["done"] or result["failures"]:
+            problems.append(f"test_cwebp.sh ({name}) failed; see test_cwebp-{name}.log")
+        if result["files_ok"] != expected["cwebp_inputs"]:
+            problems.append(f"test_cwebp.sh ({name}) checked an unexpected number of files")
     if problems:
         raise SystemExit("\n".join(problems))
     print(f"Baseline passed: {dwebp_result['distinct_checksums_ok']} checksums verified "
           f"{dwebp_result['verifications_ok']} times, {lossless_result['distinct_vectors_ok']} "
-          f"lossless vectors in {lossless_result['comparisons_ok']} comparisons", flush=True)
+          f"lossless vectors in {lossless_result['comparisons_ok']} comparisons, test_cwebp.sh "
+          f"{expected['cwebp_inputs']} inputs in {len(CWEBP_OPTION_SETS)} option sets", flush=True)
 
 
 if __name__ == "__main__":
