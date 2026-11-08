@@ -274,8 +274,13 @@ pub static rgb_pixelsize: [i32; JPEG_NUMCS] = [
 ];
 
 // upstream: src/jmorecfg.h MULTIPLIER
-/// `int` without `WITH_SIMD`, as the reference configuration builds it.
+/// Type for fastest integer multiply: `int` without `WITH_SIMD`.
+#[cfg(not(with_simd))]
 pub type MULTIPLIER = i32;
+// upstream: src/jmorecfg.h MULTIPLIER
+/// `short` with `WITH_SIMD`: prefer 16-bit with SIMD for parallelism.
+#[cfg(with_simd)]
+pub type MULTIPLIER = i16;
 
 // upstream: src/jmorecfg.h FAST_FLOAT
 #[expect(non_camel_case_types, reason = "C type name")]

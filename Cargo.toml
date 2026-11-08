@@ -14,6 +14,12 @@ publish = false
 name = "jpeg"
 
 [features]
+default = ["simd"]
+# WITH_SIMD: upstream's SIMD extensions, on by default as upstream builds them
+# (ADR 0007). build.rs turns it into cfg(with_simd) on the architectures whose
+# kernels are translated; elsewhere it has no effect. Without it the crate is
+# the reference configuration of the C oracle (ADR 0002) and has no unsafe code.
+simd = []
 # The C oracle is a set of probe executables used by differential tests, never
 # a dependency of the library (ADR 0002). Without this feature a test that needs
 # the oracle skips with a message when LIBJPEG_ORACLE_DIR is unset; with it, the

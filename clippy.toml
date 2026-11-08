@@ -1,0 +1,2 @@
+# The SIMD modules name the architecture in their documentation (ADR 0007).
+doc-valid-idents = ["AArch64", ".."]

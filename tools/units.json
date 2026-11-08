@@ -1,5 +1,5 @@
 {
-  "comment": "Every upstream file under upstream/libjpeg-turbo/src, its Rust module and owning work package (docs/PORT_PLAN.md), or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate. own_modules lists the modules that translate no upstream file.",
+  "comment": "Every upstream file under upstream/libjpeg-turbo/src and the decoder's SIMD directories (expanded_directories), its Rust module and owning work package (docs/PORT_PLAN.md), or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module, and the headers of simd/ share simd/jsimd.c's; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate. own_modules lists the modules that translate no upstream file.",
   "upstream_version": "libjpeg-turbo 3.2.1",
   "packages": {
     "1": "Common infrastructure",
@@ -8,13 +8,19 @@
     "4": "Coefficients and IDCT",
     "5": "Upsampling, color, buffers",
     "6": "Control and API",
-    "8": "Safe Rust API for Ferrixel"
+    "8": "Safe Rust API for Ferrixel",
+    "9": "NEON SIMD"
   },
   "own_modules": [
     {
       "module": "src/decode.rs",
       "package": "8",
       "purpose": "the safe decoding API over the translated libjpeg API (ADR 0006); not a translation"
+    },
+    {
+      "module": "src/neon.rs",
+      "package": "9",
+      "purpose": "the Neon loads and stores over arrays that the kernels call (ADR 0007); not a translation"
     }
   ],
   "categories": {
@@ -25,11 +31,12 @@
     "rgb565": "RGB565 output is not translated (ADR 0001)",
     "turbojpeg": "the TurboJPEG API is not translated (ADR 0001)",
     "program": "an upstream program or its helpers: a consumer and test input, not a translation unit (ADR 0001, ADR 0002)",
-    "simd": "SIMD is ported after the portable decoder (ADR 0004)",
+    "simd": "x86-64 SIMD is ported in work package 10 (ADR 0004)",
     "build": "build or packaging input with no decoder behavior",
     "macro": "a translation-time header whose macros resolve in place; see ADR 0005",
     "profiling": "WITH_PROFILE instrumentation, off in the reference configuration",
-    "precision": "12- and 16-bit instantiations are not translated; the modules are the 8-bit instantiation (ADR 0001)"
+    "precision": "12- and 16-bit instantiations are not translated; the modules are the 8-bit instantiation (ADR 0001)",
+    "other-simd": "SIMD extensions for an architecture that the port does not target (ADR 0004)"
   },
   "modules": [
     {
@@ -305,6 +312,115 @@
         "src/jdapistd.c"
       ],
       "package": "6"
+    },
+    {
+      "module": "src/jsimd.rs",
+      "upstream": [
+        "simd/jsimd.c",
+        "simd/jsimd.h",
+        "simd/jsimdconst.h",
+        "simd/jsimddct.h",
+        "simd/jsimdint.h"
+      ],
+      "package": "9",
+      "not_translated": {
+        "items": [
+          "jsimd_set_rgb_ycc",
+          "jsimd_set_rgb_gray",
+          "jsimd_color_convert",
+          "jsimd_set_h2v1_downsample",
+          "jsimd_h2v1_downsample",
+          "jsimd_set_h2v2_downsample",
+          "jsimd_h2v2_downsample",
+          "jsimd_set_convsamp",
+          "jsimd_set_convsamp_float",
+          "jsimd_set_fdct_islow",
+          "jsimd_set_fdct_ifast",
+          "jsimd_set_fdct_float",
+          "jsimd_set_quantize",
+          "jsimd_set_quantize_float",
+          "jsimd_set_huff_encode_one_block",
+          "jsimd_set_encode_mcu_AC_first_prepare",
+          "jsimd_set_encode_mcu_AC_refine_prepare",
+          "jsimd_set_ycc_rgb565"
+        ],
+        "reason": "they serve the encoder or RGB565 output, which are not translated (ADR 0001), and so do their declarations in the headers; only the AArch64 branches of the decoder's entry points are translated (ADR 0007)"
+      }
+    },
+    {
+      "module": "src/jsimdcpu.rs",
+      "upstream": [
+        "simd/arm/aarch64/jsimdcpu.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdcolor_neon.rs",
+      "upstream": [
+        "simd/arm/jdcolor-neon.c"
+      ],
+      "package": "9",
+      "not_translated": {
+        "items": [
+          "jsimd_ycc_rgb565_convert_neon"
+        ],
+        "reason": "RGB565 output is not translated (ADR 0001)"
+      }
+    },
+    {
+      "module": "src/jdcolext_neon.rs",
+      "upstream": [
+        "simd/arm/jdcolext-neon.c"
+      ],
+      "package": "9",
+      "not_translated": {
+        "items": [
+          "rgb565"
+        ],
+        "reason": "its RGB565 branch serves RGB565 output, which is not translated (ADR 0001)"
+      }
+    },
+    {
+      "module": "src/jdmerge_neon.rs",
+      "upstream": [
+        "simd/arm/jdmerge-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdmrgext_neon.rs",
+      "upstream": [
+        "simd/arm/jdmrgext-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdsample_neon.rs",
+      "upstream": [
+        "simd/arm/jdsample-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jidctint_neon.rs",
+      "upstream": [
+        "simd/arm/jidctint-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jidctfst_neon.rs",
+      "upstream": [
+        "simd/arm/jidctfst-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jidctred_neon.rs",
+      "upstream": [
+        "simd/arm/jidctred-neon.c"
+      ],
+      "package": "9"
     }
   ],
   "excluded": [
@@ -657,8 +773,105 @@
       "category": "program"
     },
     {
-      "upstream": "simd/",
+      "upstream": "simd/CMakeLists.txt",
+      "category": "build"
+    },
+    {
+      "upstream": "simd/README.md",
+      "category": "build"
+    },
+    {
+      "upstream": "simd/common/",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/i386/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/mips64/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/nasm/",
       "category": "simd"
+    },
+    {
+      "upstream": "simd/powerpc/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/riscv64/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/simdcoverage.c",
+      "category": "program"
+    },
+    {
+      "upstream": "simd/x86_64/",
+      "category": "simd"
+    },
+    {
+      "upstream": "simd/arm/aarch32/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/arm/align.h",
+      "category": "macro"
+    },
+    {
+      "upstream": "simd/arm/jccolor-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcgray-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcgryext-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jchuff.h",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcphuff-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcsample-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jfdctfst-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jfdctint-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jquanti-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/neon-compat.h.in",
+      "category": "macro"
+    },
+    {
+      "upstream": "simd/arm/aarch64/jccolext-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/aarch64/jchuff-neon.c",
+      "category": "encoder"
     }
+  ],
+  "expanded_directories": [
+    "simd/",
+    "simd/arm/",
+    "simd/arm/aarch64/"
   ]
 }

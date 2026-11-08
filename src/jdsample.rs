@@ -41,7 +41,12 @@
 //!
 //! Work package: 5 (Upsampling, color, buffers).
 //!
-//! `BITS_IN_JSAMPLE` is 8 and `WITH_SIMD` and `WITH_PROFILE` are undefined.
+//! `BITS_IN_JSAMPLE` is 8 and `WITH_PROFILE` is undefined. With `WITH_SIMD`,
+//! `jinit_upsampler` asks `jsimd.rs` for a kernel before it selects a C
+//! routine (ADR 0007), and `SIMD_ARCHITECTURE` is `ARM64`, so the h1v2 branch
+//! asks too. It passes the entry points the upsampler's public part, which it
+//! holds outside `cinfo.upsample` while it selects the methods (ADR 0005,
+//! "Disjoint borrows").
 //! A component's `color_buf` entry is its own sample array, the input rows
 //! that `fullsize_upsample` points it at, or nothing ([`ColorBuf`]); the
 //! input rows are resolved against the `input_buf` of the call that uses
@@ -63,6 +68,13 @@ use crate::jpegint::{jpeg_upsampler, jpeg_upsampler_impl};
 use crate::jpeglib::{
     JPOOL_IMAGE, JSAMPROWS, JSAMPROWS_AT, JSAMPROWS_MUT, RowList, SampleArray, j_decompress_ptr,
     jpeg_component_info, jpeg_decompress_struct,
+};
+#[cfg(with_simd)]
+use crate::jsimd::{
+    jsimd_h1v2_fancy_upsample, jsimd_h2v1_fancy_upsample, jsimd_h2v1_upsample,
+    jsimd_h2v2_fancy_upsample, jsimd_h2v2_upsample, jsimd_set_h1v2_fancy_upsample,
+    jsimd_set_h2v1_fancy_upsample, jsimd_set_h2v1_upsample, jsimd_set_h2v2_fancy_upsample,
+    jsimd_set_h2v2_upsample,
 };
 use crate::jutils::jround_up;
 
@@ -302,7 +314,7 @@ pub fn sep_upsample(
 /// # Panics
 ///
 /// When the entry is not the upsampler's own storage.
-fn own_rows(output_data_ptr: &mut ColorBuf) -> &mut SampleArray {
+pub fn own_rows(output_data_ptr: &mut ColorBuf) -> &mut SampleArray {
     match output_data_ptr {
         ColorBuf::Own(array) => array,
         _ => panic!("color_buf is not the upsampler's storage"),
@@ -701,6 +713,14 @@ pub fn jinit_upsampler(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit>
                     start_pass: start_pass_upsample,
                     upsample: sep_upsample,
                     need_context_rows: false, /* until we find out differently */
+                    #[cfg(with_simd)]
+                    h2v1_upsample_simd: None,
+                    #[cfg(with_simd)]
+                    h2v2_upsample_simd: None,
+                    #[cfg(with_simd)]
+                    h1v2_upsample_simd: None,
+                    #[cfg(with_simd)]
+                    merged_upsample_simd: None,
                 },
                 color_buf: Default::default(),
                 methods: [None; MAX_COMPONENTS],
@@ -773,21 +793,66 @@ fn select_methods(
         } else if h_in_group * 2 == h_out_group && v_in_group == v_out_group {
             /* Special cases for 2h1v upsampling */
             if do_fancy && compptr.downsampled_width > 2 {
-                upsample.methods[ci] = Some(h2v1_fancy_upsample);
+                #[cfg(with_simd)]
+                if jsimd_set_h2v1_fancy_upsample(cinfo, &mut upsample.pub_) != 0 {
+                    upsample.methods[ci] = Some(jsimd_h2v1_fancy_upsample);
+                } else {
+                    upsample.methods[ci] = Some(h2v1_fancy_upsample);
+                }
+                #[cfg(not(with_simd))]
+                {
+                    upsample.methods[ci] = Some(h2v1_fancy_upsample);
+                }
             } else {
-                upsample.methods[ci] = Some(h2v1_upsample);
+                #[cfg(with_simd)]
+                if jsimd_set_h2v1_upsample(cinfo, &mut upsample.pub_) != 0 {
+                    upsample.methods[ci] = Some(jsimd_h2v1_upsample);
+                } else {
+                    upsample.methods[ci] = Some(h2v1_upsample);
+                }
+                #[cfg(not(with_simd))]
+                {
+                    upsample.methods[ci] = Some(h2v1_upsample);
+                }
             }
         } else if h_in_group == h_out_group && v_in_group * 2 == v_out_group && do_fancy {
             /* Non-fancy upsampling is handled by the generic method */
-            upsample.methods[ci] = Some(h1v2_fancy_upsample);
+            #[cfg(with_simd)]
+            if jsimd_set_h1v2_fancy_upsample(cinfo, &mut upsample.pub_) != 0 {
+                upsample.methods[ci] = Some(jsimd_h1v2_fancy_upsample);
+            } else {
+                upsample.methods[ci] = Some(h1v2_fancy_upsample);
+            }
+            #[cfg(not(with_simd))]
+            {
+                upsample.methods[ci] = Some(h1v2_fancy_upsample);
+            }
             upsample.pub_.need_context_rows = true;
         } else if h_in_group * 2 == h_out_group && v_in_group * 2 == v_out_group {
             /* Special cases for 2h2v upsampling */
             if do_fancy && compptr.downsampled_width > 2 {
-                upsample.methods[ci] = Some(h2v2_fancy_upsample);
+                #[cfg(with_simd)]
+                if jsimd_set_h2v2_fancy_upsample(cinfo, &mut upsample.pub_) != 0 {
+                    upsample.methods[ci] = Some(jsimd_h2v2_fancy_upsample);
+                } else {
+                    upsample.methods[ci] = Some(h2v2_fancy_upsample);
+                }
+                #[cfg(not(with_simd))]
+                {
+                    upsample.methods[ci] = Some(h2v2_fancy_upsample);
+                }
                 upsample.pub_.need_context_rows = true;
             } else {
-                upsample.methods[ci] = Some(h2v2_upsample);
+                #[cfg(with_simd)]
+                if jsimd_set_h2v2_upsample(cinfo, &mut upsample.pub_) != 0 {
+                    upsample.methods[ci] = Some(jsimd_h2v2_upsample);
+                } else {
+                    upsample.methods[ci] = Some(h2v2_upsample);
+                }
+                #[cfg(not(with_simd))]
+                {
+                    upsample.methods[ci] = Some(h2v2_upsample);
+                }
             }
         } else if (h_out_group % h_in_group) == 0 && (v_out_group % v_in_group) == 0 {
             /* Generic integral-factors upsampling method */

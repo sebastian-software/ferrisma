@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Verify the module skeleton against tools/units.json and the pinned upstream.
 
-tools/units.json maps every file under upstream/libjpeg-turbo/src to a Rust
-module and its owning work package, or names the category of reason it is not
-translated. This script checks that:
+tools/units.json maps every file under upstream/libjpeg-turbo/src and under
+the SIMD directories it lists in `expanded_directories` to a Rust module and
+its owning work package, or names the category of reason it is not
+translated. A module is named after an upstream file it translates, with `-`
+as `_` (`jidctint-neon.c` is `jidctint_neon.rs`). This script checks that:
 
 - every upstream file (and every subdirectory) is mapped or excluded, once;
 - every mapped module file exists and starts with its provenance header: for
@@ -82,14 +84,22 @@ def declarations(manifest):
             for entry in sorted(entries, key=lambda entry: entry["module"])]
 
 
-def upstream_entries():
-    """Every file and subdirectory directly under src/, plus simd/."""
+def stem(path):
+    """The module name that an upstream file gives: its name up to the first
+    dot, with `-` as `_`."""
+    return Path(path).name.split(".")[0].replace("-", "_")
+
+
+def upstream_entries(manifest):
+    """Every file and subdirectory directly under src/ and under each expanded
+    directory, except the expanded directories themselves."""
+    expanded = manifest["expanded_directories"]
     entries = set()
-    for path in (UPSTREAM / "src").iterdir():
-        relative = str(path.relative_to(UPSTREAM))
-        entries.add(relative + "/" if path.is_dir() else relative)
-    entries.add("simd/")
-    return entries
+    for directory in ["src/", *expanded]:
+        for path in (UPSTREAM / directory).iterdir():
+            relative = str(path.relative_to(UPSTREAM))
+            entries.add(relative + "/" if path.is_dir() else relative)
+    return entries - set(expanded)
 
 
 def verify(manifest):
@@ -98,7 +108,7 @@ def verify(manifest):
         return ["upstream/libjpeg-turbo is missing; run git submodule update --init"]
     covered = [path for entry in manifest["modules"] for path in entry["upstream"]]
     covered += [entry["upstream"] for entry in manifest["excluded"]]
-    upstream = upstream_entries()
+    upstream = upstream_entries(manifest)
     for path in sorted(upstream - set(covered)):
         problems.append(f"upstream file without module or exclusion: {path}")
     for path in sorted(set(covered) - upstream):
@@ -118,7 +128,7 @@ def verify(manifest):
             problems.append(f"{entry['module']}: modules live directly in src/")
         if entry["package"] not in manifest["packages"]:
             problems.append(f"{entry['module']}: unknown package {entry['package']}")
-        stems = {Path(path).name.split(".")[0] for path in entry["upstream"]}
+        stems = {stem(path) for path in entry["upstream"]}
         if Path(entry["module"]).stem not in stems:
             problems.append(f"{entry['module']}: not named after an upstream file it translates")
         skipped = entry.get("not_translated")
@@ -132,7 +142,7 @@ def verify(manifest):
         elif not module.read_text().startswith(module_header(manifest, entry)):
             problems.append(f"{entry['module']}: provenance header differs from tools/units.json")
 
-    upstream_stems = {Path(path).name.split(".")[0] for path in upstream}
+    upstream_stems = {stem(path) for path in upstream}
     for entry in manifest["own_modules"]:
         module = ROOT / entry["module"]
         expected_files.add(module)

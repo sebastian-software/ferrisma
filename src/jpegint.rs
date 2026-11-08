@@ -368,9 +368,24 @@ pub type inverse_DCT_method_ptr = fn(
     JDIMENSION,
 );
 
+/// The type of `jpeg_inverse_dct`'s SIMD slots: a kernel that dequantizes
+/// and inverse-transforms one block. C's `void *dct_table` is the
+/// component's multiplier table. An `unsafe fn` pointer, the only pointer
+/// type a `#[target_feature]` function coerces to (ADR 0007). Not an
+/// upstream item.
+#[cfg(with_simd)]
+#[expect(non_camel_case_types, reason = "named after the C fields")]
+pub type idct_simd_ptr = unsafe fn(
+    &crate::jddctmgr::multiplier_table,
+    &crate::jpeglib::JBLOCK,
+    JSAMPROWS_MUT<'_, '_>,
+    JDIMENSION,
+);
+
 // upstream: src/jpegint.h jpeg_inverse_dct
-/// Inverse DCT (also performs dequantization). `inverse_DCT_12` and the
-/// SIMD slots are absent (ADR 0005, "Methods are function pointers").
+/// Inverse DCT (also performs dequantization). `inverse_DCT_12` is absent
+/// (ADR 0005, "Methods are function pointers"); the SIMD slots exist with
+/// `WITH_SIMD` (ADR 0007).
 #[expect(non_camel_case_types, reason = "C type name")]
 #[expect(non_snake_case, reason = "C field names")]
 #[derive(Clone, Copy, Debug)]
@@ -380,6 +395,16 @@ pub struct jpeg_inverse_dct {
     /// The IDCT routine of each component; `None` until `start_pass` selects
     /// it, where C leaves the pointer unset.
     pub inverse_DCT: [Option<inverse_DCT_method_ptr>; MAX_COMPONENTS],
+    /// The 8x8 SIMD kernel; `None` until `jsimd_set_idct_islow` or
+    /// `jsimd_set_idct_ifast` sets it.
+    #[cfg(with_simd)]
+    pub idct_simd: Option<idct_simd_ptr>,
+    /// The 2x2 SIMD kernel; `None` until `jsimd_set_idct_2x2` sets it.
+    #[cfg(with_simd)]
+    pub idct_2x2_simd: Option<idct_simd_ptr>,
+    /// The 4x4 SIMD kernel; `None` until `jsimd_set_idct_4x4` sets it.
+    #[cfg(with_simd)]
+    pub idct_4x4_simd: Option<idct_simd_ptr>,
 }
 
 /// The implementations of the `entropy` slot (ADR 0005, "Module objects").
@@ -420,10 +445,27 @@ impl jpeg_entropy_decoder_impl {
     }
 }
 
+/// The type of `jpeg_upsampler`'s SIMD slots for one component: a kernel
+/// that upsamples `max_v_samp_factor` rows of a component of
+/// `output_width` (or `downsampled_width`) samples into the upsampler's own
+/// rows. An `unsafe fn` pointer (ADR 0007). Not an upstream item.
+#[cfg(with_simd)]
+#[expect(non_camel_case_types, reason = "named after the C fields")]
+pub type upsample_simd_ptr = unsafe fn(i32, JDIMENSION, JSAMPROWS_AT<'_>, JSAMPROWS_MUT<'_, '_>);
+
+/// The type of `jpeg_upsampler::merged_upsample_simd`: a kernel that
+/// upsamples and color-converts the row group `in_row_group_ctr` of
+/// `input_buf` into one or two output rows of `output_width` pixels. An
+/// `unsafe fn` pointer (ADR 0007). Not an upstream item.
+#[cfg(with_simd)]
+#[expect(non_camel_case_types, reason = "named after the C field")]
+pub type merged_upsample_simd_ptr =
+    unsafe fn(JDIMENSION, &[JSAMPROWS_AT<'_>], JDIMENSION, &mut [&mut [crate::jmorecfg::JSAMPLE]]);
+
 // upstream: src/jpegint.h jpeg_upsampler
 /// Upsampling (which also calls the color converter, or does the color
-/// conversion itself when merged). `upsample_12`, `upsample_16` and the SIMD
-/// slots are absent.
+/// conversion itself when merged). `upsample_12` and `upsample_16` are
+/// absent; the SIMD slots exist with `WITH_SIMD` (ADR 0007).
 #[expect(non_camel_case_types, reason = "C type name")]
 #[derive(Clone, Copy, Debug)]
 pub struct jpeg_upsampler {
@@ -434,6 +476,22 @@ pub struct jpeg_upsampler {
     pub upsample: upsample_method_ptr,
     /// `true` if need rows above & below.
     pub need_context_rows: bool,
+    /// The h2v1 SIMD kernel, plain or fancy; `None` until a
+    /// `jsimd_set_h2v1_*upsample` sets it.
+    #[cfg(with_simd)]
+    pub h2v1_upsample_simd: Option<upsample_simd_ptr>,
+    /// The h2v2 SIMD kernel, plain or fancy; `None` until a
+    /// `jsimd_set_h2v2_*upsample` sets it.
+    #[cfg(with_simd)]
+    pub h2v2_upsample_simd: Option<upsample_simd_ptr>,
+    /// The h1v2 fancy SIMD kernel; `None` until
+    /// `jsimd_set_h1v2_fancy_upsample` sets it.
+    #[cfg(with_simd)]
+    pub h1v2_upsample_simd: Option<upsample_simd_ptr>,
+    /// The merged SIMD kernel; `None` until a `jsimd_set_*_merged_upsample`
+    /// sets it.
+    #[cfg(with_simd)]
+    pub merged_upsample_simd: Option<merged_upsample_simd_ptr>,
 }
 
 /// The type of `jpeg_color_deconverter::color_convert`. The routine only
@@ -444,9 +502,18 @@ pub struct jpeg_upsampler {
 pub type color_convert_method_ptr =
     fn(&jpeg_decompress_struct<'_>, &[JSAMPROWS<'_>], JDIMENSION, JSAMPROWS_MUT<'_, '_>, i32);
 
+/// The type of `jpeg_color_deconverter::color_convert_simd`: a kernel that
+/// converts `num_rows` rows of `out_width` pixels of `input_buf` from row
+/// `input_row` on into `output_buf`. An `unsafe fn` pointer (ADR 0007). Not
+/// an upstream item.
+#[cfg(with_simd)]
+#[expect(non_camel_case_types, reason = "named after the C field")]
+pub type color_convert_simd_ptr =
+    unsafe fn(JDIMENSION, &[JSAMPROWS<'_>], JDIMENSION, JSAMPROWS_MUT<'_, '_>, i32);
+
 // upstream: src/jpegint.h jpeg_color_deconverter
-/// Colorspace conversion. `color_convert_12`, `color_convert_16` and
-/// `color_convert_simd` are absent.
+/// Colorspace conversion. `color_convert_12` and `color_convert_16` are
+/// absent; `color_convert_simd` exists with `WITH_SIMD` (ADR 0007).
 #[expect(non_camel_case_types, reason = "C type name")]
 #[derive(Clone, Copy, Debug)]
 pub struct jpeg_color_deconverter {
@@ -456,6 +523,9 @@ pub struct jpeg_color_deconverter {
     /// `output_buf`; `None` until `jinit_color_deconverter` selects the
     /// routine.
     pub color_convert: Option<color_convert_method_ptr>,
+    /// The SIMD kernel; `None` until `jsimd_set_ycc_rgb` sets it.
+    #[cfg(with_simd)]
+    pub color_convert_simd: Option<color_convert_simd_ptr>,
 }
 
 /// The implementations of the `upsample` slot (ADR 0005, "Module objects").
@@ -480,6 +550,14 @@ impl jpeg_upsampler_impl {
         match self {
             jpeg_upsampler_impl::my_upsampler(upsample) => &upsample.pub_,
             jpeg_upsampler_impl::my_merged_upsampler(upsample) => &upsample.pub_,
+        }
+    }
+
+    /// The public part of whichever implementation the slot holds, mutably.
+    pub fn pub_mut(&mut self) -> &mut jpeg_upsampler {
+        match self {
+            jpeg_upsampler_impl::my_upsampler(upsample) => &mut upsample.pub_,
+            jpeg_upsampler_impl::my_merged_upsampler(upsample) => &mut upsample.pub_,
         }
     }
 }

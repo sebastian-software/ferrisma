@@ -21,8 +21,8 @@
 //! Work package: 4 (Coefficients and IDCT).
 //!
 //! Only the inverse-DCT declarations are translated: the forward DCT and its
-//! method types serve the encoder (ADR 0001). `WITH_SIMD` is undefined, so
-//! `DCTELEM` is `int`. `FIX` and `CONST_SCALE` use the `CONST_BITS` of the
+//! method types serve the encoder (ADR 0001). `DCTELEM` is `int`, or
+//! `short` with `WITH_SIMD` (ADR 0007). `FIX` and `CONST_SCALE` use the `CONST_BITS` of the
 //! file that expands them, so they take it as a parameter, and each IDCT
 //! module wraps them with its own value. `SHORTxSHORT_32` and
 //! `SHORTxLCONST_32` are undefined, so `MULTIPLY16C16` and `MULTIPLY16V16`
@@ -33,14 +33,29 @@ use crate::jpegint::{JLONG, RIGHT_SHIFT};
 use crate::jpeglib::jpeg_decompress_struct;
 
 // upstream: src/jdct.h DCTELEM
-/// A DCT work element: 16 or 32 bits is fine.
+/// A DCT work element: 16 or 32 bits is fine; `int` without `WITH_SIMD`.
+#[cfg(not(with_simd))]
 pub type DCTELEM = i32;
 // upstream: src/jdct.h UDCTELEM
 /// The unsigned type of the same width as `DCTELEM`.
+#[cfg(not(with_simd))]
 pub type UDCTELEM = u32;
 // upstream: src/jdct.h UDCTELEM2
 /// An unsigned type twice as wide as `UDCTELEM`.
+#[cfg(not(with_simd))]
 pub type UDCTELEM2 = u64;
+// upstream: src/jdct.h DCTELEM
+/// `short` with `WITH_SIMD`: prefer 16 bit with SIMD for parallelism.
+#[cfg(with_simd)]
+pub type DCTELEM = i16;
+// upstream: src/jdct.h UDCTELEM
+/// The unsigned type of the same width as `DCTELEM`.
+#[cfg(with_simd)]
+pub type UDCTELEM = u16;
+// upstream: src/jdct.h UDCTELEM2
+/// An unsigned type twice as wide as `UDCTELEM`.
+#[cfg(with_simd)]
+pub type UDCTELEM2 = u32;
 
 // upstream: src/jdct.h ISLOW_MULT_TYPE
 /// Multiplier type of the accurate integer IDCT.
@@ -50,6 +65,23 @@ pub type ISLOW_MULT_TYPE = MULTIPLIER;
 /// Multiplier type of the fast integer IDCT.
 #[expect(non_camel_case_types, reason = "C type name")]
 pub type IFAST_MULT_TYPE = MULTIPLIER;
+/// C's integer promotion of a `MULTIPLIER` to `int`, which happens before
+/// every product of multiplier-table entries: the identity without
+/// `WITH_SIMD`, a widening with its 16-bit `MULTIPLIER`. Not an upstream
+/// item.
+#[cfg_attr(
+    not(with_simd),
+    expect(
+        clippy::useless_conversion,
+        reason = "MULTIPLIER is int without WITH_SIMD"
+    )
+)]
+#[must_use]
+#[inline]
+pub fn promote_multiplier(x: MULTIPLIER) -> i32 {
+    i32::from(x)
+}
+
 // upstream: src/jdct.h IFAST_SCALE_BITS
 /// Fractional bits in the fast IDCT's scale factors.
 pub const IFAST_SCALE_BITS: u32 = 2;

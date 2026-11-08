@@ -28,7 +28,8 @@
 //!
 //! `jpeg_finish_decompress` calls the master control module's
 //! `finish_output_pass`, so work package 6 adds it with `jdmaster.c` (ADR
-//! 0005, decisions of 2026-11-07). `WITH_SIMD` is undefined, and
+//! 0005, decisions of 2026-11-07). With `WITH_SIMD` the master marks the
+//! SIMD support as undetected (ADR 0007); `WITH_SIMDE` is undefined.
 //! `D_LOSSLESS_SUPPORTED` and `QUANT_2PASS_SUPPORTED` are treated as
 //! undefined (ADR 0005).
 
@@ -138,6 +139,12 @@ pub fn jpeg_CreateDecompress(
         SIZEOF_my_decomp_master,
         my_decomp_master::default(),
     )?);
+    #[cfg(with_simd)]
+    {
+        cinfo.master_mut().pub_.simd_support = crate::jsimd::JSIMD_UNDEFINED;
+        /* WITH_SIMDE is undefined */
+        cinfo.master_mut().pub_.simd_huffman = 1;
+    }
     Ok(())
 }
 

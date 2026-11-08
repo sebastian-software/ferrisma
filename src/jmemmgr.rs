@@ -78,13 +78,19 @@ fn round_up_pow2(a: usize, b: usize) -> usize {
 }
 
 // upstream: src/jmemmgr.c ALIGN_SIZE
-/// `MAX(sizeof(void *), sizeof(double))`, since `WITH_SIMD` is undefined in
-/// the reference configuration (ADR 0005).
+/// `MAX(sizeof(void *), sizeof(double))` without `WITH_SIMD`, as the
+/// reference configuration builds it (ADR 0005).
+#[cfg(not(with_simd))]
 pub const ALIGN_SIZE: usize = if C_POINTER.size > core::mem::size_of::<f64>() {
     C_POINTER.size
 } else {
     core::mem::size_of::<f64>()
 };
+// upstream: src/jmemmgr.c ALIGN_SIZE
+/// 32 with `WITH_SIMD`: most of the SIMD instructions upstream supports
+/// require 16-byte (128-bit) alignment, but AVX2 requires 32-byte alignment.
+#[cfg(with_simd)]
+pub const ALIGN_SIZE: usize = 32;
 
 // upstream: src/jmemmgr.c small_pool_hdr
 /// The record of one small pool. `next` is the pool's position in its list.
@@ -980,7 +986,7 @@ const ERANGE: i32 = 34;
 /// string, like C11's `getenv_s`. `buffer` and `name` are never null here,
 /// and `errno` is not set.
 #[expect(non_snake_case, reason = "C function name")]
-fn GETENV_S(buffer: &mut [u8], name: &str) -> i32 {
+pub(crate) fn GETENV_S(buffer: &mut [u8], name: &str) -> i32 {
     if buffer.is_empty() {
         return EINVAL;
     }

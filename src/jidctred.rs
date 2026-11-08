@@ -38,7 +38,9 @@
 //! `DCTSIZE - col`, so the column skips apply to `col` 4, or 2, 4 and 6.
 //! Pointer walks become indexes.
 
-use crate::jdct::{DESCALE, IDCT_range_limit, ISLOW_MULT_TYPE, MULTIPLY16C16, RANGE_MASK};
+use crate::jdct::{
+    DESCALE, IDCT_range_limit, ISLOW_MULT_TYPE, MULTIPLY16C16, RANGE_MASK, promote_multiplier,
+};
 use crate::jidctint::islow_table;
 use crate::jmorecfg::{JCOEF, JDIMENSION, JSAMPLE};
 use crate::jpegint::{JLONG, LEFT_SHIFT};
@@ -104,11 +106,12 @@ fn MULTIPLY(var: JLONG, const_: JLONG) -> JLONG {
 // upstream: src/jidctred.c DEQUANTIZE
 /// Dequantizes a coefficient by multiplying it by the multiplier-table
 /// entry; produces an `int` result, widened to `JLONG` as every use assigns
-/// it.
+/// it. `(ISLOW_MULT_TYPE)coef` is `coef` in both widths of
+/// `ISLOW_MULT_TYPE`, and C multiplies in `int`.
 #[expect(non_snake_case, reason = "C macro name")]
 #[inline]
 fn DEQUANTIZE(coef: JCOEF, quantval: ISLOW_MULT_TYPE) -> JLONG {
-    JLONG::from(ISLOW_MULT_TYPE::from(coef) * quantval)
+    JLONG::from(i32::from(coef) * promote_multiplier(quantval))
 }
 
 /// `range_limit[(int)x & RANGE_MASK]`: the sample for a descaled IDCT

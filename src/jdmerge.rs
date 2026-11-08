@@ -54,8 +54,12 @@
 //!
 //! Work package: 5 (Upsampling, color, buffers).
 //!
-//! `UPSAMPLE_MERGING_SUPPORTED` is defined and `WITH_SIMD` and
-//! `WITH_PROFILE` are not. The RGB565 routines of `jdmrg565.c` are out of
+//! `UPSAMPLE_MERGING_SUPPORTED` is defined and `WITH_PROFILE` is not.
+//! `WITH_SIMD` is `cfg(with_simd)` (ADR 0007): `jinit_merged_upsampler` then
+//! asks `jsimd_set_h2v1_merged_upsample` or `jsimd_set_h2v2_merged_upsample`
+//! for a Neon kernel first, in a labeled block that yields the `jsimd`
+//! wrapper as `upmethod` when it gets one, as C's `if ... else` across the
+//! `#ifdef` skips the C routines. The RGB565 routines of `jdmrg565.c` are out of
 //! scope: `JCS_RGB565` output fails with `JERR_CONVERSION_NOTIMPL` where
 //! `jinit_merged_upsampler` would select them (ADR 0005, "Out-of-scope
 //! branches"). The instances of `jdmrgext.c`'s routines are constants that
@@ -80,6 +84,11 @@ use crate::jpegint::{JLONG, RIGHT_SHIFT, jpeg_upsampler, jpeg_upsampler_impl};
 use crate::jpeglib::{
     J_COLOR_SPACE, JPOOL_IMAGE, JSAMPROWS, JSAMPROWS_AT, JSAMPROWS_MUT, j_decompress_ptr,
     jpeg_decompress_struct,
+};
+#[cfg(with_simd)]
+use crate::jsimd::{
+    jsimd_h2v1_merged_upsample, jsimd_h2v2_merged_upsample, jsimd_set_h2v1_merged_upsample,
+    jsimd_set_h2v2_merged_upsample,
 };
 use crate::jutils::jcopy_sample_rows;
 
@@ -510,6 +519,7 @@ pub fn merged_1v_upsample(
 /// `JERR_BAD_PRECISION`, `JERR_CONVERSION_NOTIMPL` for RGB565 output, and
 /// what the allocations report.
 #[expect(clippy::cast_sign_loss, reason = "C's nonnegative counts")]
+#[expect(clippy::too_many_lines, reason = "translated as one function")]
 pub fn jinit_merged_upsampler(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
     if cinfo.data_precision != BITS_IN_JSAMPLE {
         let data_precision = cinfo.data_precision;
@@ -530,6 +540,14 @@ pub fn jinit_merged_upsampler(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), Err
                 start_pass: start_pass_merged_upsample,
                 upsample: merged_1v_upsample,
                 need_context_rows: false,
+                #[cfg(with_simd)]
+                h2v1_upsample_simd: None,
+                #[cfg(with_simd)]
+                h2v2_upsample_simd: None,
+                #[cfg(with_simd)]
+                h1v2_upsample_simd: None,
+                #[cfg(with_simd)]
+                merged_upsample_simd: None,
             },
             upmethod: None,
             Cr_r_tab: None,
@@ -554,22 +572,32 @@ pub fn jinit_merged_upsampler(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), Err
     };
 
     if cinfo.max_v_samp_factor == 2 {
-        let upmethod = match cinfo.out_color_space {
-            J_COLOR_SPACE::JCS_EXT_RGB => extrgb_h2v2_merged_upsample,
-            J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
-                extrgbx_h2v2_merged_upsample
+        #[cfg_attr(
+            not(with_simd),
+            expect(unused_labels, reason = "the label serves the WITH_SIMD branch")
+        )]
+        let upmethod: merged_upmethod_ptr = 'simd: {
+            #[cfg(with_simd)]
+            if jsimd_set_h2v2_merged_upsample(cinfo) != 0 {
+                break 'simd jsimd_h2v2_merged_upsample;
             }
-            J_COLOR_SPACE::JCS_EXT_BGR => extbgr_h2v2_merged_upsample,
-            J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
-                extbgrx_h2v2_merged_upsample
+            match cinfo.out_color_space {
+                J_COLOR_SPACE::JCS_EXT_RGB => extrgb_h2v2_merged_upsample,
+                J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                    extrgbx_h2v2_merged_upsample
+                }
+                J_COLOR_SPACE::JCS_EXT_BGR => extbgr_h2v2_merged_upsample,
+                J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                    extbgrx_h2v2_merged_upsample
+                }
+                J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                    extxbgr_h2v2_merged_upsample
+                }
+                J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                    extxrgb_h2v2_merged_upsample
+                }
+                _ => h2v2_merged_upsample,
             }
-            J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
-                extxbgr_h2v2_merged_upsample
-            }
-            J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
-                extxrgb_h2v2_merged_upsample
-            }
-            _ => h2v2_merged_upsample,
         };
         set(cinfo, merged_2v_upsample, upmethod);
         if cinfo.out_color_space == J_COLOR_SPACE::JCS_RGB565 {
@@ -583,22 +611,32 @@ pub fn jinit_merged_upsampler(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), Err
             upsample.spare_row = Some(spare_row);
         });
     } else {
-        let upmethod = match cinfo.out_color_space {
-            J_COLOR_SPACE::JCS_EXT_RGB => extrgb_h2v1_merged_upsample,
-            J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
-                extrgbx_h2v1_merged_upsample
+        #[cfg_attr(
+            not(with_simd),
+            expect(unused_labels, reason = "the label serves the WITH_SIMD branch")
+        )]
+        let upmethod: merged_upmethod_ptr = 'simd: {
+            #[cfg(with_simd)]
+            if jsimd_set_h2v1_merged_upsample(cinfo) != 0 {
+                break 'simd jsimd_h2v1_merged_upsample;
             }
-            J_COLOR_SPACE::JCS_EXT_BGR => extbgr_h2v1_merged_upsample,
-            J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
-                extbgrx_h2v1_merged_upsample
+            match cinfo.out_color_space {
+                J_COLOR_SPACE::JCS_EXT_RGB => extrgb_h2v1_merged_upsample,
+                J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                    extrgbx_h2v1_merged_upsample
+                }
+                J_COLOR_SPACE::JCS_EXT_BGR => extbgr_h2v1_merged_upsample,
+                J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                    extbgrx_h2v1_merged_upsample
+                }
+                J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                    extxbgr_h2v1_merged_upsample
+                }
+                J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                    extxrgb_h2v1_merged_upsample
+                }
+                _ => h2v1_merged_upsample,
             }
-            J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
-                extxbgr_h2v1_merged_upsample
-            }
-            J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
-                extxrgb_h2v1_merged_upsample
-            }
-            _ => h2v1_merged_upsample,
         };
         set(cinfo, merged_1v_upsample, upmethod);
         if cinfo.out_color_space == J_COLOR_SPACE::JCS_RGB565 {

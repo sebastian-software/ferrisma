@@ -44,12 +44,14 @@
 //! `USE_ACCURATE_ROUNDING` is undefined, so this file's `DESCALE` is
 //! `RIGHT_SHIFT`, which truncates, and `MULTIPLY` descales with it.
 //! `RIGHT_SHIFT_IS_UNSIGNED` is undefined, so `IRIGHT_SHIFT` is `x >> shft`,
-//! and `ISHIFT_TEMPS` and `SCALING_FACTOR` declare nothing. The `(int)` casts
-//! of `DCTELEM` values are identities and are dropped. `NO_ZERO_ROW_TEST` is
+//! and `ISHIFT_TEMPS` and `SCALING_FACTOR` declare nothing. `DCTELEM` is
+//! `int`, or `short` with `WITH_SIMD` (ADR 0007), so the function evaluates
+//! every expression in `int`, as C does, and converts it to `DCTELEM` where
+//! C assigns or casts it (`dctelem`). `NO_ZERO_ROW_TEST` is
 //! undefined, so the zero-row tests are kept. The range limit comes from
 //! `IDCT_range_limit`. Pointer walks become indexes.
 
-use crate::jdct::{DCTELEM, IDCT_range_limit, IFAST_MULT_TYPE, RANGE_MASK};
+use crate::jdct::{DCTELEM, IDCT_range_limit, IFAST_MULT_TYPE, RANGE_MASK, promote_multiplier};
 use crate::jmorecfg::{JCOEF, JDIMENSION, JSAMPLE};
 use crate::jpegint::{JLONG, RIGHT_SHIFT};
 use crate::jpeglib::{
@@ -83,43 +85,64 @@ fn DESCALE(x: JLONG, n: u32) -> JLONG {
     RIGHT_SHIFT(x, n)
 }
 
-// upstream: src/jidctfst.c MULTIPLY
-/// Multiplies a `DCTELEM` variable by a `JLONG` constant, descales the
-/// product by `CONST_BITS`, and yields a `DCTELEM` result.
-#[expect(non_snake_case, reason = "C macro name")]
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "C's conversion of the descaled product to DCTELEM"
+/// C's conversion of an `int` expression to `DCTELEM` when it is assigned
+/// or cast: the identity without `WITH_SIMD`, a truncation to 16 bits with
+/// it. Not an upstream item.
+#[inline]
+fn dctelem(x: i32) -> DCTELEM {
+    x as DCTELEM
+}
+
+/// C's integer promotion of a `DCTELEM` operand to `int`. Not an upstream
+/// item.
+#[cfg_attr(
+    not(with_simd),
+    expect(
+        clippy::useless_conversion,
+        reason = "DCTELEM is int without WITH_SIMD"
+    )
 )]
 #[inline]
-fn MULTIPLY(var: DCTELEM, const_: JLONG) -> DCTELEM {
+fn int(x: DCTELEM) -> i32 {
+    i32::from(x)
+}
+
+// upstream: src/jidctfst.c MULTIPLY
+/// Multiplies a `DCTELEM` variable by a `JLONG` constant, descales the
+/// product by `CONST_BITS`, and yields a `DCTELEM` result. `var` is the
+/// operand expression, which C evaluates in `int`.
+#[expect(non_snake_case, reason = "C macro name")]
+#[inline]
+fn MULTIPLY(var: i32, const_: JLONG) -> DCTELEM {
     DESCALE(JLONG::from(var) * const_, CONST_BITS) as DCTELEM
 }
 
 // upstream: src/jidctfst.c DEQUANTIZE
 /// Dequantizes a coefficient by multiplying it by the multiplier-table
-/// entry; produces a `DCTELEM` result.
+/// entry: the `int` product, which the caller converts to `DCTELEM`.
+/// `(IFAST_MULT_TYPE)coef` is `coef` in both widths of `IFAST_MULT_TYPE`.
 #[expect(non_snake_case, reason = "C macro name")]
 #[inline]
-fn DEQUANTIZE(coef: JCOEF, quantval: IFAST_MULT_TYPE) -> DCTELEM {
-    IFAST_MULT_TYPE::from(coef) * quantval
+fn DEQUANTIZE(coef: JCOEF, quantval: IFAST_MULT_TYPE) -> i32 {
+    i32::from(coef) * promote_multiplier(quantval)
 }
 
 // upstream: src/jidctfst.c IRIGHT_SHIFT
-/// `((x) >> (shft))`: the arithmetic shift of a `DCTELEM`, because
-/// `RIGHT_SHIFT_IS_UNSIGNED` is undefined in this file.
+/// `((x) >> (shft))`: the arithmetic shift, because
+/// `RIGHT_SHIFT_IS_UNSIGNED` is undefined in this file. Its operands are
+/// `int` expressions.
 #[expect(non_snake_case, reason = "C macro name")]
 #[inline]
-fn IRIGHT_SHIFT(x: DCTELEM, shft: u32) -> DCTELEM {
+fn IRIGHT_SHIFT(x: i32, shft: u32) -> i32 {
     x >> shft
 }
 
 // upstream: src/jidctfst.c IDESCALE
-/// `((int)IRIGHT_SHIFT(x, n))`, which truncates because `USE_ACCURATE_ROUNDING`
-/// is undefined. The `int` cast is the identity on a `DCTELEM`.
+/// `((int)IRIGHT_SHIFT(x, n))`, which truncates because
+/// `USE_ACCURATE_ROUNDING` is undefined.
 #[expect(non_snake_case, reason = "C macro name")]
 #[inline]
-fn IDESCALE(x: DCTELEM, n: u32) -> DCTELEM {
+fn IDESCALE(x: i32, n: u32) -> i32 {
     IRIGHT_SHIFT(x, n)
 }
 
@@ -127,7 +150,7 @@ fn IDESCALE(x: DCTELEM, n: u32) -> DCTELEM {
 /// output. Not an upstream item.
 #[expect(clippy::cast_sign_loss, reason = "the masked index is nonnegative")]
 #[inline]
-fn range_limit_sample(range_limit: &[JSAMPLE], x: DCTELEM) -> JSAMPLE {
+fn range_limit_sample(range_limit: &[JSAMPLE], x: i32) -> JSAMPLE {
     range_limit[(x & RANGE_MASK) as usize]
 }
 
@@ -213,53 +236,77 @@ pub fn jpeg_idct_ifast(
 
         /* Even part */
 
-        tmp0 = DEQUANTIZE(inptr[DCTSIZE * 0 + col], quantptr[DCTSIZE * 0 + col]);
-        tmp1 = DEQUANTIZE(inptr[DCTSIZE * 2 + col], quantptr[DCTSIZE * 2 + col]);
-        tmp2 = DEQUANTIZE(inptr[DCTSIZE * 4 + col], quantptr[DCTSIZE * 4 + col]);
-        tmp3 = DEQUANTIZE(inptr[DCTSIZE * 6 + col], quantptr[DCTSIZE * 6 + col]);
+        tmp0 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 0 + col],
+            quantptr[DCTSIZE * 0 + col],
+        ));
+        tmp1 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 2 + col],
+            quantptr[DCTSIZE * 2 + col],
+        ));
+        tmp2 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 4 + col],
+            quantptr[DCTSIZE * 4 + col],
+        ));
+        tmp3 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 6 + col],
+            quantptr[DCTSIZE * 6 + col],
+        ));
 
-        tmp10 = tmp0 + tmp2; /* phase 3 */
-        tmp11 = tmp0 - tmp2;
+        tmp10 = dctelem(int(tmp0) + int(tmp2)); /* phase 3 */
+        tmp11 = dctelem(int(tmp0) - int(tmp2));
 
-        tmp13 = tmp1 + tmp3; /* phases 5-3 */
-        tmp12 = MULTIPLY(tmp1 - tmp3, FIX_1_414213562) - tmp13; /* 2*c4 */
+        tmp13 = dctelem(int(tmp1) + int(tmp3)); /* phases 5-3 */
+        tmp12 = dctelem(int(MULTIPLY(int(tmp1) - int(tmp3), FIX_1_414213562)) - int(tmp13)); /* 2*c4 */
 
-        tmp0 = tmp10 + tmp13; /* phase 2 */
-        tmp3 = tmp10 - tmp13;
-        tmp1 = tmp11 + tmp12;
-        tmp2 = tmp11 - tmp12;
+        tmp0 = dctelem(int(tmp10) + int(tmp13)); /* phase 2 */
+        tmp3 = dctelem(int(tmp10) - int(tmp13));
+        tmp1 = dctelem(int(tmp11) + int(tmp12));
+        tmp2 = dctelem(int(tmp11) - int(tmp12));
 
         /* Odd part */
 
-        tmp4 = DEQUANTIZE(inptr[DCTSIZE * 1 + col], quantptr[DCTSIZE * 1 + col]);
-        tmp5 = DEQUANTIZE(inptr[DCTSIZE * 3 + col], quantptr[DCTSIZE * 3 + col]);
-        tmp6 = DEQUANTIZE(inptr[DCTSIZE * 5 + col], quantptr[DCTSIZE * 5 + col]);
-        tmp7 = DEQUANTIZE(inptr[DCTSIZE * 7 + col], quantptr[DCTSIZE * 7 + col]);
+        tmp4 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 1 + col],
+            quantptr[DCTSIZE * 1 + col],
+        ));
+        tmp5 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 3 + col],
+            quantptr[DCTSIZE * 3 + col],
+        ));
+        tmp6 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 5 + col],
+            quantptr[DCTSIZE * 5 + col],
+        ));
+        tmp7 = dctelem(DEQUANTIZE(
+            inptr[DCTSIZE * 7 + col],
+            quantptr[DCTSIZE * 7 + col],
+        ));
 
-        z13 = tmp6 + tmp5; /* phase 6 */
-        z10 = tmp6 - tmp5;
-        z11 = tmp4 + tmp7;
-        z12 = tmp4 - tmp7;
+        z13 = dctelem(int(tmp6) + int(tmp5)); /* phase 6 */
+        z10 = dctelem(int(tmp6) - int(tmp5));
+        z11 = dctelem(int(tmp4) + int(tmp7));
+        z12 = dctelem(int(tmp4) - int(tmp7));
 
-        tmp7 = z11 + z13; /* phase 5 */
-        tmp11 = MULTIPLY(z11 - z13, FIX_1_414213562); /* 2*c4 */
+        tmp7 = dctelem(int(z11) + int(z13)); /* phase 5 */
+        tmp11 = MULTIPLY(int(z11) - int(z13), FIX_1_414213562); /* 2*c4 */
 
-        z5 = MULTIPLY(z10 + z12, FIX_1_847759065); /* 2*c2 */
-        tmp10 = MULTIPLY(z12, FIX_1_082392200) - z5; /* 2*(c2-c6) */
-        tmp12 = MULTIPLY(z10, -FIX_2_613125930) + z5; /* -2*(c2+c6) */
+        z5 = MULTIPLY(int(z10) + int(z12), FIX_1_847759065); /* 2*c2 */
+        tmp10 = dctelem(int(MULTIPLY(int(z12), FIX_1_082392200)) - int(z5)); /* 2*(c2-c6) */
+        tmp12 = dctelem(int(MULTIPLY(int(z10), -FIX_2_613125930)) + int(z5)); /* -2*(c2+c6) */
 
-        tmp6 = tmp12 - tmp7; /* phase 2 */
-        tmp5 = tmp11 - tmp6;
-        tmp4 = tmp10 + tmp5;
+        tmp6 = dctelem(int(tmp12) - int(tmp7)); /* phase 2 */
+        tmp5 = dctelem(int(tmp11) - int(tmp6));
+        tmp4 = dctelem(int(tmp10) + int(tmp5));
 
-        wsptr[DCTSIZE * 0 + col] = tmp0 + tmp7;
-        wsptr[DCTSIZE * 7 + col] = tmp0 - tmp7;
-        wsptr[DCTSIZE * 1 + col] = tmp1 + tmp6;
-        wsptr[DCTSIZE * 6 + col] = tmp1 - tmp6;
-        wsptr[DCTSIZE * 2 + col] = tmp2 + tmp5;
-        wsptr[DCTSIZE * 5 + col] = tmp2 - tmp5;
-        wsptr[DCTSIZE * 4 + col] = tmp3 + tmp4;
-        wsptr[DCTSIZE * 3 + col] = tmp3 - tmp4;
+        wsptr[DCTSIZE * 0 + col] = int(tmp0) + int(tmp7);
+        wsptr[DCTSIZE * 7 + col] = int(tmp0) - int(tmp7);
+        wsptr[DCTSIZE * 1 + col] = int(tmp1) + int(tmp6);
+        wsptr[DCTSIZE * 6 + col] = int(tmp1) - int(tmp6);
+        wsptr[DCTSIZE * 2 + col] = int(tmp2) + int(tmp5);
+        wsptr[DCTSIZE * 5 + col] = int(tmp2) - int(tmp5);
+        wsptr[DCTSIZE * 4 + col] = int(tmp3) + int(tmp4);
+        wsptr[DCTSIZE * 3 + col] = int(tmp3) - int(tmp4);
     }
 
     /* Pass 2: process rows from work array, store into output array. */
@@ -303,45 +350,58 @@ pub fn jpeg_idct_ifast(
 
         /* Even part */
 
-        tmp10 = wsptr[0] + wsptr[4];
-        tmp11 = wsptr[0] - wsptr[4];
+        tmp10 = dctelem(int(dctelem(wsptr[0])) + int(dctelem(wsptr[4])));
+        tmp11 = dctelem(int(dctelem(wsptr[0])) - int(dctelem(wsptr[4])));
 
-        tmp13 = wsptr[2] + wsptr[6];
-        tmp12 = MULTIPLY(wsptr[2] - wsptr[6], FIX_1_414213562) - tmp13;
+        tmp13 = dctelem(int(dctelem(wsptr[2])) + int(dctelem(wsptr[6])));
+        tmp12 = dctelem(
+            int(MULTIPLY(
+                int(dctelem(wsptr[2])) - int(dctelem(wsptr[6])),
+                FIX_1_414213562,
+            )) - int(tmp13),
+        );
 
-        tmp0 = tmp10 + tmp13;
-        tmp3 = tmp10 - tmp13;
-        tmp1 = tmp11 + tmp12;
-        tmp2 = tmp11 - tmp12;
+        tmp0 = dctelem(int(tmp10) + int(tmp13));
+        tmp3 = dctelem(int(tmp10) - int(tmp13));
+        tmp1 = dctelem(int(tmp11) + int(tmp12));
+        tmp2 = dctelem(int(tmp11) - int(tmp12));
 
         /* Odd part */
 
-        z13 = wsptr[5] + wsptr[3];
-        z10 = wsptr[5] - wsptr[3];
-        z11 = wsptr[1] + wsptr[7];
-        z12 = wsptr[1] - wsptr[7];
+        z13 = dctelem(int(dctelem(wsptr[5])) + int(dctelem(wsptr[3])));
+        z10 = dctelem(int(dctelem(wsptr[5])) - int(dctelem(wsptr[3])));
+        z11 = dctelem(int(dctelem(wsptr[1])) + int(dctelem(wsptr[7])));
+        z12 = dctelem(int(dctelem(wsptr[1])) - int(dctelem(wsptr[7])));
 
-        tmp7 = z11 + z13; /* phase 5 */
-        tmp11 = MULTIPLY(z11 - z13, FIX_1_414213562); /* 2*c4 */
+        tmp7 = dctelem(int(z11) + int(z13)); /* phase 5 */
+        tmp11 = MULTIPLY(int(z11) - int(z13), FIX_1_414213562); /* 2*c4 */
 
-        z5 = MULTIPLY(z10 + z12, FIX_1_847759065); /* 2*c2 */
-        tmp10 = MULTIPLY(z12, FIX_1_082392200) - z5; /* 2*(c2-c6) */
-        tmp12 = MULTIPLY(z10, -FIX_2_613125930) + z5; /* -2*(c2+c6) */
+        z5 = MULTIPLY(int(z10) + int(z12), FIX_1_847759065); /* 2*c2 */
+        tmp10 = dctelem(int(MULTIPLY(int(z12), FIX_1_082392200)) - int(z5)); /* 2*(c2-c6) */
+        tmp12 = dctelem(int(MULTIPLY(int(z10), -FIX_2_613125930)) + int(z5)); /* -2*(c2+c6) */
 
-        tmp6 = tmp12 - tmp7; /* phase 2 */
-        tmp5 = tmp11 - tmp6;
-        tmp4 = tmp10 + tmp5;
+        tmp6 = dctelem(int(tmp12) - int(tmp7)); /* phase 2 */
+        tmp5 = dctelem(int(tmp11) - int(tmp6));
+        tmp4 = dctelem(int(tmp10) + int(tmp5));
 
         /* Final output stage: scale down by a factor of 8 and range-limit */
 
-        outptr[0] = range_limit_sample(range_limit, IDESCALE(tmp0 + tmp7, PASS1_BITS + 3));
-        outptr[7] = range_limit_sample(range_limit, IDESCALE(tmp0 - tmp7, PASS1_BITS + 3));
-        outptr[1] = range_limit_sample(range_limit, IDESCALE(tmp1 + tmp6, PASS1_BITS + 3));
-        outptr[6] = range_limit_sample(range_limit, IDESCALE(tmp1 - tmp6, PASS1_BITS + 3));
-        outptr[2] = range_limit_sample(range_limit, IDESCALE(tmp2 + tmp5, PASS1_BITS + 3));
-        outptr[5] = range_limit_sample(range_limit, IDESCALE(tmp2 - tmp5, PASS1_BITS + 3));
-        outptr[4] = range_limit_sample(range_limit, IDESCALE(tmp3 + tmp4, PASS1_BITS + 3));
-        outptr[3] = range_limit_sample(range_limit, IDESCALE(tmp3 - tmp4, PASS1_BITS + 3));
+        outptr[0] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp0) + int(tmp7), PASS1_BITS + 3));
+        outptr[7] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp0) - int(tmp7), PASS1_BITS + 3));
+        outptr[1] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp1) + int(tmp6), PASS1_BITS + 3));
+        outptr[6] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp1) - int(tmp6), PASS1_BITS + 3));
+        outptr[2] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp2) + int(tmp5), PASS1_BITS + 3));
+        outptr[5] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp2) - int(tmp5), PASS1_BITS + 3));
+        outptr[4] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp3) + int(tmp4), PASS1_BITS + 3));
+        outptr[3] =
+            range_limit_sample(range_limit, IDESCALE(int(tmp3) - int(tmp4), PASS1_BITS + 3));
 
         /* advance pointer to next row */
     }

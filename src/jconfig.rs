@@ -8,9 +8,11 @@
 //! Work package: 1 (Common infrastructure).
 //!
 //! The values are those that the reference oracle's generated `jconfig.h`
-//! defines (`oracle.json`, `jconfig_h`); `WITH_SIMD` and
-//! `RIGHT_SHIFT_IS_UNSIGNED` are undefined there and have no constant (ADR
-//! 0005). The `_WIN32` branch does not apply to the CI hosts.
+//! defines (`oracle.json`, `jconfig_h`). `RIGHT_SHIFT_IS_UNSIGNED` is
+//! undefined there and has no constant (ADR 0005). `WITH_SIMD` is
+//! `cfg(with_simd)`, which `build.rs` sets for the `simd` feature on an
+//! architecture with translated kernels (ADR 0007); [`WITH_SIMD`] states it
+//! as a value. The `_WIN32` branch does not apply to the CI hosts.
 
 // upstream: src/jconfig.h.in JPEG_LIB_VERSION
 pub const JPEG_LIB_VERSION: i32 = 62;
@@ -30,6 +32,10 @@ pub const D_ARITH_CODING_SUPPORTED: i32 = 1;
 
 // upstream: src/jconfig.h.in MEM_SRCDST_SUPPORTED
 pub const MEM_SRCDST_SUPPORTED: i32 = 1;
+
+// upstream: src/jconfig.h.in WITH_SIMD
+/// Whether the SIMD extensions are built in: `cfg(with_simd)`.
+pub const WITH_SIMD: bool = cfg!(with_simd);
 
 // upstream: src/jconfig.h.in BITS_IN_JSAMPLE
 pub const BITS_IN_JSAMPLE: i32 = 8;

@@ -16,6 +16,12 @@
 //! (ADR 0006). The translated modules stay public for the tests and for
 //! callers that need a part of the libjpeg API that the safe API omits.
 //!
+//! The default `simd` feature is upstream's `WITH_SIMD`: on AArch64 the
+//! decoder runs the Neon kernels of work package 9, which `jsimd` dispatches
+//! (ADR 0007). Their memory accesses go through `neon`, the only module with
+//! unsafe code besides `jsimd`'s calls of the kernels. Without the feature
+//! the crate is the reference configuration and has no unsafe code.
+//!
 //! This software is based in part on the work of the Independent JPEG Group.
 
 #![deny(unsafe_code)]
@@ -31,7 +37,11 @@ pub mod jdarith;
 pub mod jdatasrc;
 pub mod jdcoefct;
 pub mod jdcolext;
+#[cfg(with_simd)]
+pub mod jdcolext_neon;
 pub mod jdcolor;
+#[cfg(with_simd)]
+pub mod jdcolor_neon;
 pub mod jdct;
 pub mod jddctmgr;
 pub mod jdhuff;
@@ -41,24 +51,42 @@ pub mod jdmainct;
 pub mod jdmarker;
 pub mod jdmaster;
 pub mod jdmerge;
+#[cfg(with_simd)]
+pub mod jdmerge_neon;
 pub mod jdmrgext;
+#[cfg(with_simd)]
+pub mod jdmrgext_neon;
 pub mod jdphuff;
 pub mod jdpostct;
 pub mod jdsample;
+#[cfg(with_simd)]
+pub mod jdsample_neon;
 pub mod jerror;
 pub mod jidctflt;
 pub mod jidctfst;
+#[cfg(with_simd)]
+pub mod jidctfst_neon;
 pub mod jidctint;
+#[cfg(with_simd)]
+pub mod jidctint_neon;
 pub mod jidctred;
+#[cfg(with_simd)]
+pub mod jidctred_neon;
 pub mod jmemmgr;
 pub mod jmemnobs;
 pub mod jmemsys;
 pub mod jmorecfg;
 pub mod jpegint;
 pub mod jpeglib;
+#[cfg(with_simd)]
+pub mod jsimd;
+#[cfg(with_simd)]
+pub mod jsimdcpu;
 pub mod jstdhuff;
 pub mod jutils;
 pub mod jversion;
+#[cfg(with_simd)]
+pub mod neon;
 
 pub use decode::{
     ColorSpace, DctMethod, Decoder, DecoderOptions, Error, Header, MAX_KEPT_WARNINGS, Message,

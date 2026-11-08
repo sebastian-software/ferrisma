@@ -19,11 +19,14 @@
 //!
 //! Work package: 5 (Upsampling, color, buffers).
 //!
-//! `BITS_IN_JSAMPLE` is 8 and `WITH_SIMD` is undefined, so the 16-bit error
-//! branches and the SIMD selections are not compiled, and with
-//! `D_LOSSLESS_SUPPORTED` treated as undefined neither are the lossless
-//! checks (ADR 0005). The RGB565 routines of `jdcol565.c` are out of scope:
-//! `JCS_RGB565` output fails with `JERR_CONVERSION_NOTIMPL` (ADR 0005,
+//! `BITS_IN_JSAMPLE` is 8, so the 16-bit error branches are not compiled,
+//! and with `D_LOSSLESS_SUPPORTED` treated as undefined neither are the
+//! lossless checks (ADR 0005). `WITH_SIMD` is `cfg(with_simd)` (ADR 0007):
+//! the YCbCr-to-RGB branch then asks `jsimd_set_ycc_rgb` for a Neon kernel
+//! first, in a labeled block that it leaves when it gets one, as C's
+//! `if ... else` across the `#ifdef` skips the C routines and their tables.
+//! The RGB565 routines of `jdcol565.c` and their SIMD selection are out of
+//! scope: `JCS_RGB565` output fails with `JERR_CONVERSION_NOTIMPL` (ADR 0005,
 //! "Out-of-scope branches"). The instances of `jdcolext.c`'s routines are
 //! constants that name a generic function of `jdcolext` with the layout of
 //! the C instance. The conversion tables are `None` until built, where C's
@@ -45,6 +48,8 @@ use crate::jpegint::{JLONG, RIGHT_SHIFT, color_convert_method_ptr, jpeg_color_de
 use crate::jpeglib::{
     J_COLOR_SPACE, JPOOL_IMAGE, JSAMPROWS, JSAMPROWS_MUT, j_decompress_ptr, jpeg_decompress_struct,
 };
+#[cfg(with_simd)]
+use crate::jsimd::{jsimd_color_deconvert, jsimd_set_ycc_rgb};
 use crate::jutils::jcopy_sample_rows;
 
 // upstream: src/jdcolor.c my_color_deconverter
@@ -572,6 +577,8 @@ pub fn jinit_color_deconverter(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), Er
             pub_: jpeg_color_deconverter {
                 start_pass: start_pass_dcolor,
                 color_convert: None,
+                #[cfg(with_simd)]
+                color_convert_simd: None,
             },
             Cr_r_tab: None,
             Cb_b_tab: None,
@@ -650,25 +657,36 @@ pub fn jinit_color_deconverter(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), Er
             let out = cs_index(cinfo.out_color_space);
             cinfo.out_color_components = rgb_pixelsize[out];
             if cinfo.jpeg_color_space == J_COLOR_SPACE::JCS_YCbCr {
-                let color_convert = match cinfo.out_color_space {
-                    J_COLOR_SPACE::JCS_EXT_RGB => ycc_extrgb_convert,
-                    J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
-                        ycc_extrgbx_convert
+                #[cfg_attr(
+                    not(with_simd),
+                    expect(unused_labels, reason = "the label serves the WITH_SIMD branch")
+                )]
+                'simd: {
+                    #[cfg(with_simd)]
+                    if jsimd_set_ycc_rgb(cinfo) != 0 {
+                        set(cinfo, jsimd_color_deconvert);
+                        break 'simd;
                     }
-                    J_COLOR_SPACE::JCS_EXT_BGR => ycc_extbgr_convert,
-                    J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
-                        ycc_extbgrx_convert
-                    }
-                    J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
-                        ycc_extxbgr_convert
-                    }
-                    J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
-                        ycc_extxrgb_convert
-                    }
-                    _ => ycc_rgb_convert,
-                };
-                set(cinfo, color_convert);
-                build_ycc_rgb_table(cinfo)?;
+                    let color_convert = match cinfo.out_color_space {
+                        J_COLOR_SPACE::JCS_EXT_RGB => ycc_extrgb_convert,
+                        J_COLOR_SPACE::JCS_EXT_RGBX | J_COLOR_SPACE::JCS_EXT_RGBA => {
+                            ycc_extrgbx_convert
+                        }
+                        J_COLOR_SPACE::JCS_EXT_BGR => ycc_extbgr_convert,
+                        J_COLOR_SPACE::JCS_EXT_BGRX | J_COLOR_SPACE::JCS_EXT_BGRA => {
+                            ycc_extbgrx_convert
+                        }
+                        J_COLOR_SPACE::JCS_EXT_XBGR | J_COLOR_SPACE::JCS_EXT_ABGR => {
+                            ycc_extxbgr_convert
+                        }
+                        J_COLOR_SPACE::JCS_EXT_XRGB | J_COLOR_SPACE::JCS_EXT_ARGB => {
+                            ycc_extxrgb_convert
+                        }
+                        _ => ycc_rgb_convert,
+                    };
+                    set(cinfo, color_convert);
+                    build_ycc_rgb_table(cinfo)?;
+                }
             } else if cinfo.jpeg_color_space == J_COLOR_SPACE::JCS_GRAYSCALE {
                 let color_convert = match cinfo.out_color_space {
                     J_COLOR_SPACE::JCS_EXT_RGB => gray_extrgb_convert,

@@ -25,10 +25,11 @@
 //!
 //! Work package: 4 (Coefficients and IDCT).
 //!
-//! `WITH_SIMD` is undefined, so `start_pass` selects the C routines. The
-//! multiplier table, a union of three arrays in C, keeps the bits of all
-//! three in one array of `int`s: the integer methods' arrays share its
-//! elements, and the float array reads and writes their bits (ADR 0005,
+//! With `WITH_SIMD`, `start_pass` asks `jsimd.rs` for a kernel before it
+//! selects a C routine (ADR 0007). The multiplier table, a union of three
+//! arrays in C, keeps the bits of all three in one array of `MULTIPLIER`s:
+//! the integer methods' arrays share its elements, and the float array reads
+//! and writes their native-endian bytes (ADR 0005,
 //! "Messages" keeps `msg_parm`'s union the same way). A table set up for one
 //! method and read by another is therefore read as C reads it.
 
@@ -46,9 +47,15 @@ use crate::jidctint::{
 };
 use crate::jidctred::{jpeg_idct_1x1, jpeg_idct_2x2, jpeg_idct_4x4};
 use crate::jmemmgr::alloc_small_box;
-use crate::jmorecfg::{C_INT, C_POINTER, CLayout, INT16, MAX_COMPONENTS};
+use crate::jmorecfg::{C_INT, C_POINTER, CLayout, INT16, MAX_COMPONENTS, MULTIPLIER};
 use crate::jpegint::{JLONG, inverse_DCT_method_ptr, jpeg_inverse_dct};
 use crate::jpeglib::{DCTSIZE, DCTSIZE2, J_DCT_METHOD, JPOOL_IMAGE, j_decompress_ptr};
+#[cfg(with_simd)]
+use crate::jsimd::{
+    jsimd_idct_2x2, jsimd_idct_4x4, jsimd_idct_float, jsimd_idct_ifast, jsimd_idct_islow,
+    jsimd_set_idct_2x2, jsimd_set_idct_4x4, jsimd_set_idct_float, jsimd_set_idct_ifast,
+    jsimd_set_idct_islow,
+};
 
 // upstream: src/jddctmgr.c my_idct_controller
 /// Private subobject for this module.
@@ -85,19 +92,29 @@ pub const SIZEOF_my_idct_controller: usize = CLayout::structure(&[
 #[expect(non_camel_case_types, reason = "C type name")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct multiplier_table {
-    /// The elements of `islow_array` and `ifast_array`, and the bits of
-    /// `float_array`.
-    array: [i32; DCTSIZE2],
+    /// The first `DCTSIZE2` `MULTIPLIER`s of the union's storage: the
+    /// elements of `islow_array` and `ifast_array`.
+    ints: [MULTIPLIER; DCTSIZE2],
+    /// The rest of the storage, empty with a 32-bit `MULTIPLIER`. Element
+    /// `i` of `float_array` is the native-endian bytes of the `FLOAT_PARTS`
+    /// `MULTIPLIER`s from storage index `i * FLOAT_PARTS` on.
+    rest: [MULTIPLIER; DCTSIZE2 * (FLOAT_PARTS - 1)],
 }
 
-/// `sizeof(multiplier_table)` on the target.
+/// How many `MULTIPLIER`s one `FLOAT_MULT_TYPE` spans: 1 with a 32-bit
+/// `MULTIPLIER`, 2 with `WITH_SIMD`'s 16-bit one. Not an upstream item.
+const FLOAT_PARTS: usize = size_of::<FLOAT_MULT_TYPE>() / size_of::<MULTIPLIER>();
+
+/// `sizeof(multiplier_table)` on the target: the size of `float_array`, the
+/// widest member in either configuration.
 #[expect(non_upper_case_globals, reason = "C type name")]
-pub const SIZEOF_multiplier_table: usize = CLayout::of::<i32>().array(DCTSIZE2).size;
+pub const SIZEOF_multiplier_table: usize = CLayout::of::<FLOAT_MULT_TYPE>().array(DCTSIZE2).size;
 
 const _: () = assert!(
-    size_of::<ISLOW_MULT_TYPE>() == size_of::<i32>()
-        && size_of::<IFAST_MULT_TYPE>() == size_of::<i32>()
-        && size_of::<FLOAT_MULT_TYPE>() == size_of::<i32>()
+    size_of::<ISLOW_MULT_TYPE>() == size_of::<MULTIPLIER>()
+        && size_of::<IFAST_MULT_TYPE>() == size_of::<MULTIPLIER>()
+        && size_of::<FLOAT_MULT_TYPE>() == FLOAT_PARTS * size_of::<MULTIPLIER>()
+        && size_of::<multiplier_table>() == SIZEOF_multiplier_table
 );
 
 impl multiplier_table {
@@ -105,45 +122,72 @@ impl multiplier_table {
     #[must_use]
     pub fn zeroed() -> Self {
         multiplier_table {
-            array: [0; DCTSIZE2],
+            ints: [0; DCTSIZE2],
+            rest: [0; DCTSIZE2 * (FLOAT_PARTS - 1)],
         }
     }
 
     /// `islow_array`.
     #[must_use]
     pub fn islow_array(&self) -> &[ISLOW_MULT_TYPE; DCTSIZE2] {
-        &self.array
+        &self.ints
     }
 
     /// `islow_array`, mutably.
     pub fn islow_array_mut(&mut self) -> &mut [ISLOW_MULT_TYPE; DCTSIZE2] {
-        &mut self.array
+        &mut self.ints
     }
 
     /// `ifast_array`.
     #[must_use]
     pub fn ifast_array(&self) -> &[IFAST_MULT_TYPE; DCTSIZE2] {
-        &self.array
+        &self.ints
     }
 
     /// `ifast_array`, mutably.
     pub fn ifast_array_mut(&mut self) -> &mut [IFAST_MULT_TYPE; DCTSIZE2] {
-        &mut self.array
+        &mut self.ints
+    }
+
+    /// The storage's `MULTIPLIER` at index `k`.
+    fn part(&self, k: usize) -> MULTIPLIER {
+        if k < DCTSIZE2 {
+            self.ints[k]
+        } else {
+            self.rest[k - DCTSIZE2]
+        }
+    }
+
+    /// The storage's `MULTIPLIER` at index `k`, mutably.
+    fn part_mut(&mut self, k: usize) -> &mut MULTIPLIER {
+        if k < DCTSIZE2 {
+            &mut self.ints[k]
+        } else {
+            &mut self.rest[k - DCTSIZE2]
+        }
     }
 
     /// `float_array[i]`.
-    #[expect(clippy::cast_sign_loss, reason = "the union's reinterpretation")]
     #[must_use]
     #[inline]
     pub fn float_array(&self, i: usize) -> FLOAT_MULT_TYPE {
-        FLOAT_MULT_TYPE::from_bits(self.array[i] as u32)
+        let mut bytes = [0u8; size_of::<FLOAT_MULT_TYPE>()];
+        for (j, byte) in bytes.iter_mut().enumerate() {
+            let part = self.part(i * FLOAT_PARTS + j / size_of::<MULTIPLIER>());
+            *byte = part.to_ne_bytes()[j % size_of::<MULTIPLIER>()];
+        }
+        FLOAT_MULT_TYPE::from_ne_bytes(bytes)
     }
 
     /// Stores `float_array[i]`.
-    #[expect(clippy::cast_possible_wrap, reason = "the union's reinterpretation")]
     #[inline]
     pub fn set_float_array(&mut self, i: usize, value: FLOAT_MULT_TYPE) {
-        self.array[i] = value.to_bits() as i32;
+        for (j, byte) in value.to_ne_bytes().into_iter().enumerate() {
+            let part = self.part_mut(i * FLOAT_PARTS + j / size_of::<MULTIPLIER>());
+            let mut bytes = part.to_ne_bytes();
+            bytes[j % size_of::<MULTIPLIER>()] = byte;
+            *part = MULTIPLIER::from_ne_bytes(bytes);
+        }
     }
 }
 
@@ -213,22 +257,73 @@ const aanscalefactor: [f64; DCTSIZE] = [
 /// component has no multiplier table.
 #[expect(clippy::cast_sign_loss, reason = "C's nonnegative counts")]
 #[expect(non_snake_case, reason = "C names")]
+#[expect(clippy::too_many_lines, reason = "translated as one function")]
 pub fn start_pass(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
     for ci in 0..cinfo.num_components as usize {
-        let compptr = &cinfo.comp_info()[ci];
+        let DCT_scaled_size = cinfo.comp_info()[ci].DCT_scaled_size;
         /* Select the proper IDCT routine for this component's scaling */
-        let (method_ptr, method): (inverse_DCT_method_ptr, i32) = match compptr.DCT_scaled_size {
+        let (method_ptr, method): (inverse_DCT_method_ptr, i32) = match DCT_scaled_size {
             1 => (jpeg_idct_1x1, JDCT_ISLOW), /* jidctred uses islow-style table */
-            2 => (jpeg_idct_2x2, JDCT_ISLOW), /* jidctred uses islow-style table */
+            2 => {
+                #[cfg(with_simd)]
+                let method_ptr: inverse_DCT_method_ptr = if jsimd_set_idct_2x2(cinfo) != 0 {
+                    jsimd_idct_2x2
+                } else {
+                    jpeg_idct_2x2
+                };
+                #[cfg(not(with_simd))]
+                let method_ptr: inverse_DCT_method_ptr = jpeg_idct_2x2;
+                (method_ptr, JDCT_ISLOW) /* jidctred uses islow-style table */
+            }
             3 => (jpeg_idct_3x3, JDCT_ISLOW), /* jidctint uses islow-style table */
-            4 => (jpeg_idct_4x4, JDCT_ISLOW), /* jidctred uses islow-style table */
+            4 => {
+                #[cfg(with_simd)]
+                let method_ptr: inverse_DCT_method_ptr = if jsimd_set_idct_4x4(cinfo) != 0 {
+                    jsimd_idct_4x4
+                } else {
+                    jpeg_idct_4x4
+                };
+                #[cfg(not(with_simd))]
+                let method_ptr: inverse_DCT_method_ptr = jpeg_idct_4x4;
+                (method_ptr, JDCT_ISLOW) /* jidctred uses islow-style table */
+            }
             5 => (jpeg_idct_5x5, JDCT_ISLOW), /* jidctint uses islow-style table */
             6 => (jpeg_idct_6x6, JDCT_ISLOW), /* jidctint uses islow-style table */
             7 => (jpeg_idct_7x7, JDCT_ISLOW), /* jidctint uses islow-style table */
             DCTSIZE_INT => match cinfo.dct_method {
-                J_DCT_METHOD::JDCT_ISLOW => (jpeg_idct_islow, JDCT_ISLOW),
-                J_DCT_METHOD::JDCT_IFAST => (jpeg_idct_ifast, JDCT_IFAST),
-                J_DCT_METHOD::JDCT_FLOAT => (jpeg_idct_float, JDCT_FLOAT),
+                J_DCT_METHOD::JDCT_ISLOW => {
+                    #[cfg(with_simd)]
+                    let method_ptr: inverse_DCT_method_ptr = if jsimd_set_idct_islow(cinfo) != 0 {
+                        jsimd_idct_islow
+                    } else {
+                        jpeg_idct_islow
+                    };
+                    #[cfg(not(with_simd))]
+                    let method_ptr: inverse_DCT_method_ptr = jpeg_idct_islow;
+                    (method_ptr, JDCT_ISLOW)
+                }
+                J_DCT_METHOD::JDCT_IFAST => {
+                    #[cfg(with_simd)]
+                    let method_ptr: inverse_DCT_method_ptr = if jsimd_set_idct_ifast(cinfo) != 0 {
+                        jsimd_idct_ifast
+                    } else {
+                        jpeg_idct_ifast
+                    };
+                    #[cfg(not(with_simd))]
+                    let method_ptr: inverse_DCT_method_ptr = jpeg_idct_ifast;
+                    (method_ptr, JDCT_IFAST)
+                }
+                J_DCT_METHOD::JDCT_FLOAT => {
+                    #[cfg(with_simd)]
+                    let method_ptr: inverse_DCT_method_ptr = if jsimd_set_idct_float(cinfo) != 0 {
+                        jsimd_idct_float
+                    } else {
+                        jpeg_idct_float
+                    };
+                    #[cfg(not(with_simd))]
+                    let method_ptr: inverse_DCT_method_ptr = jpeg_idct_float;
+                    (method_ptr, JDCT_FLOAT)
+                }
                 _ => return Err(ERREXIT(cinfo, J_MESSAGE_CODE::JERR_NOT_COMPILED)),
             },
             9 => (jpeg_idct_9x9, JDCT_ISLOW), /* jidctint uses islow-style table */
@@ -279,7 +374,7 @@ pub fn start_pass(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
                  */
                 let ismtbl = dct_table.islow_array_mut();
                 for (i, entry) in ismtbl.iter_mut().enumerate() {
-                    *entry = ISLOW_MULT_TYPE::from(qtbl.quantval[i]);
+                    *entry = islow_multiplier(qtbl.quantval[i]);
                 }
             }
             JDCT_IFAST => {
@@ -336,6 +431,25 @@ fn ifast_multiplier(quantval: u16, aanscale: INT16, CONST_BITS: u32) -> IFAST_MU
     ) as IFAST_MULT_TYPE
 }
 
+/// One element of the LL&M multiplier table of `start_pass`:
+/// `(ISLOW_MULT_TYPE)qtbl->quantval[i]`, which wraps a quantizer above 32767
+/// in the 16-bit `ISLOW_MULT_TYPE` of `WITH_SIMD`. Not an upstream item.
+#[cfg_attr(
+    not(with_simd),
+    expect(clippy::cast_lossless, reason = "C's conversion to ISLOW_MULT_TYPE")
+)]
+#[cfg_attr(
+    with_simd,
+    expect(
+        clippy::cast_possible_wrap,
+        reason = "C's conversion to a 16-bit ISLOW_MULT_TYPE"
+    )
+)]
+#[inline]
+fn islow_multiplier(quantval: u16) -> ISLOW_MULT_TYPE {
+    quantval as ISLOW_MULT_TYPE
+}
+
 /// One element of the float AA&N multiplier table of `start_pass`, in C's
 /// `double` arithmetic. Not an upstream item.
 #[expect(
@@ -378,6 +492,12 @@ pub fn jinit_inverse_dct(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExi
             pub_: jpeg_inverse_dct {
                 start_pass,
                 inverse_DCT: [None; MAX_COMPONENTS],
+                #[cfg(with_simd)]
+                idct_simd: None,
+                #[cfg(with_simd)]
+                idct_2x2_simd: None,
+                #[cfg(with_simd)]
+                idct_4x4_simd: None,
             },
             cur_method: [0; MAX_COMPONENTS],
         },
