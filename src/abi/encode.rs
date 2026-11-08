@@ -62,20 +62,22 @@
 //!   of the statistics and of the `extra_info` map and closures around the C
 //!   writer and progress hook that pass the caller's picture pointer, as C passes
 //!   it. The statistics go back to `*stats` once the validation has passed (C
-//!   resets them there). The map goes back to `extra_info` when the lossy encoder
-//!   ran, also after a failure, since C fills it one macroblock at a time (its
-//!   entries are C's, and those C did not reach are zero where C leaves them
-//!   untouched), and when a lossless encoding succeeds (C zeroes it then); the
-//!   caller's bytes are never read.
+//!   resets them there), also when this module then refuses the picture. The
+//!   map goes back to `extra_info` when the lossy encoder ran, also after a
+//!   failure, since C fills it one macroblock at a time (its entries are C's,
+//!   and those C did not reach are zero where C leaves them untouched), and when
+//!   a lossless encoding succeeds (C zeroes it then); the caller's bytes are
+//!   never read.
 //!
 //! # Callbacks
 //!
 //! While `WebPEncode` runs, the caller's planes are lent exclusively to the
-//! translation. A writer or progress hook must therefore not call a library
+//! translation. A writer or progress hook must therefore neither call a library
 //! function on the picture being encoded (C allows, for example,
-//! `WebPPictureHasTransparency(picture)` there; no upstream callback does it).
-//! A picture in library memory is not affected, since the translation works on
-//! a copy of its block.
+//! `WebPPictureHasTransparency(picture)` there) nor read or write those planes
+//! through `picture` itself: both alias the lent slices. No upstream callback
+//! does either. A picture in library memory is not affected, since the
+//! translation works on a copy of its block.
 //!
 //! # Cases that this module rejects
 //!
@@ -274,9 +276,16 @@ enum Mode {
 }
 
 /// The offset of a plane in its empty region in `Mode::Address`: far enough from
-/// 0 and from `usize::MAX` that a view's offsets, which C computes as pointer
-/// differences, stay in range for either sign.
-const ADDRESS_OFFSET: usize = usize::MAX / 4 + 1;
+/// 0 and from the limits of the translation's offset arithmetic (`offset_by`,
+/// which converts a position to `i64`) that a view's offsets, which C computes
+/// as pointer differences, stay in range for either sign: 2^62 with 64-bit
+/// pointers, and 2^31 with 32-bit pointers, where a difference lies in
+/// (-2^31, 2^31).
+const ADDRESS_OFFSET: usize = if usize::BITS > 32 {
+    usize::MAX / 4 + 1
+} else {
+    usize::MAX / 2 + 1
+};
 
 /// Why a C picture cannot be converted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -382,7 +391,9 @@ fn address_storage<'a, T>(planes: &[(*mut u8, Option<usize>)]) -> StorageParts<'
 
 /// The storage of a picture whose planes lie inside its own block (`memory_`
 /// or `memory_argb_`): a copy of the block. `None` when `memory` is not a block
-/// of this module or a plane lies outside it.
+/// of this module or a plane lies outside it. The size comes from the `BLOCKS`
+/// registry, which relies on C releasing the block only through this module
+/// (`docs/status/wp13.md`, deviation 16).
 ///
 /// # Safety
 ///
@@ -2485,9 +2496,10 @@ pub unsafe extern "C" fn webp_encode(
             ok
         })
     };
-    if validated && wants_stats && result.is_some() {
-        // SAFETY: a valid, writable `WebPAuxStats` (caller's contract); C has
-        // reset it at this point.
+    // C resets the statistics once the validation has passed, also when this
+    // module then refuses the picture (the zeroed copy is written back then).
+    if validated && wants_stats {
+        // SAFETY: the caller's writable `WebPAuxStats` (caller's contract).
         unsafe { c_stats.write(stats) };
     }
     // The map, which is only lent once the validation has passed: whatever the
