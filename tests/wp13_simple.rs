@@ -6,7 +6,9 @@
 //! generator, which `fill` reproduces. Compared: the returned size, whether the
 //! output was written (C writes `NULL` on failure and leaves it untouched when
 //! the configuration fails), and the bytes. Negative strides and `NULL`
-//! arguments exist only at the C ABI (`tests/wp13_abi.rs`).
+//! arguments exist only at the C ABI (`tests/wp13_abi.rs`). Excluded
+//! (undefined behavior in C, `docs/status/wp9.md`): `WebPEncodeLosslessRGBA`
+//! on rows whose starts are not aligned for `uint32_t`.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -119,6 +121,11 @@ fn simple_api_matches_the_c_functions() {
                     seed = seed.wrapping_mul(2_654_435_761).wrapping_add(17);
                     let amode = (seed >> 7) as i32 % 3;
                     let seed = seed >> 2;
+                    // WebPEncodeLosslessRGBA loads rows whose starts are not
+                    // aligned for uint32_t, which is undefined (excluded).
+                    if f == 6 && h > 1 && stride % 4 != 0 {
+                        continue;
+                    }
                     commands.push_str(&format!(
                         "simple {f} {w} {h} {stride} {} {seed} {amode} 0\n",
                         quality.to_bits() as i32

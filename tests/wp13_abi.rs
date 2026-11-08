@@ -4,6 +4,11 @@
 //! `tools/oracle/probes/wp13/oracle.cmake`) read the same input, and the outputs
 //! must be identical, byte for byte.
 //!
+//! Excluded (undefined behavior in C): RGBA rows imported into an ARGB picture
+//! whose starts are not aligned for `uint32_t` (`docs/status/wp9.md`). Excluded
+//! (a failed C assertion): `WebPPlaneDistortion` with `x_step` other than 1 on
+//! an empty plane, which calls `WebPSafeMalloc` with a size of 0.
+//!
 //! - `encode`: the whole encoder matrix of `tests/wp13_encode.rs`
 //!   (`support/wp13_matrix.rs`) through `WebPEncode`, with library memory,
 //!   caller memory and views (whose source the C ABI writes through, as C
@@ -140,6 +145,15 @@ impl Seq {
     }
 }
 
+/// Whether C imports RGBA rows into an ARGB picture (`WebPPictureImportRGBA`
+/// with `use_argb`, or `WebPEncodeLosslessRGBA`) whose starts are not aligned
+/// for `uint32_t`: `VP8LConvertBGRAToRGBA` loads them as `uint32_t`, which is
+/// undefined (WP9 records it; the asan-ubsan oracle reports it). Such rows
+/// are not generated.
+fn misaligned_rgba_rows(rgba_into_argb: bool, height: i64, stride: i64) -> bool {
+    rgba_into_argb && height > 1 && stride % 4 != 0
+}
+
 /// Runs `commands` through both builds of the api probe.
 fn run_api(test: &str, commands: &[String]) {
     let Some(oracle) = Oracle::locate(test) else {
@@ -227,6 +241,9 @@ fn abi_simple_api_matches_c() {
                     }
                     let seed = seq.below(1 << 30);
                     let amode = seq.below(3);
+                    if misaligned_rgba_rows(f == 6, i64::from(h), i64::from(stride)) {
+                        continue;
+                    }
                     commands.push(format!(
                         "simple {f} {w} {h} {stride} {} {seed} {amode} 0\n",
                         quality.to_bits() as i32
@@ -255,12 +272,17 @@ fn start_picture(seq: &mut Seq, commands: &mut Vec<String>) -> (i64, i64, i64) {
     let use_argb = seq.below(2);
     let kind = seq.below(6);
     let step = if kind == 0 || kind == 3 { 3 } else { 4 };
-    let stride = match seq.below(4) {
+    let mut stride = match seq.below(4) {
         0 => step * w,
         1 => step * w + 1 + seq.below(9),
         2 => -(step * w + seq.below(5)),
         _ => step * w + 4 * seq.below(3),
     };
+    if misaligned_rgba_rows(kind == 1 && use_argb == 1, h, stride) {
+        // Rows that C loads as misaligned uint32_t (excluded, see the module
+        // documentation): round the stride up to a multiple of 4.
+        stride = stride.signum() * ((stride.abs() + 3) / 4 * 4);
+    }
     commands.push("init 0\n".to_owned());
     commands.push(format!("set 0 {use_argb} 0 {w} {h}\n"));
     let seed = seq.below(1 << 30);
@@ -370,6 +392,11 @@ fn abi_picture_functions_match_c() {
         let (w, h) = (seq.below(20), seq.below(12));
         let x_step = [1, 1, 2, 4][seq.below(4) as usize];
         let stride = x_step * w + seq.below(4) - 1;
+        if x_step != 1 && (w == 0 || h == 0) {
+            // C allocates its packed planes with WebPSafeMalloc(0), which fails
+            // upstream's assertion (excluded, see the module documentation).
+            continue;
+        }
         commands.push(format!(
             "planedist {w} {h} {stride} {x_step} {} {} {}\n",
             seq.below(3),

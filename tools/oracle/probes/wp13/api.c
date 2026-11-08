@@ -26,7 +26,9 @@
 //                                   null or set), out=
 //   init i                          WebPPictureInit: ret=
 //   set i use_argb colorspace w h   sets the fields
-//   alloc i | free i                WebPPictureAlloc (ret=, error=) | WebPPictureFree
+//   alloc i | free i                WebPPictureAlloc (ret=, error=, pic= with + for
+//                                   the planes, whose samples are uninitialized)
+//                                   | WebPPictureFree
 //   import i kind stride seed amode WebPPictureImport{RGB,RGBA,RGBX,BGR,BGRA,BGRX}
 //                                   (kind 0-5) on generated rows: ret=, error=
 //   caller i pad                    moves P[i]'s planes into caller memory with
@@ -103,12 +105,20 @@ static uint64_t Fnv(uint64_t hash, const uint8_t* data, size_t size) {
 
 #define FNV_START 0xcbf29ce484222325ull
 
+// 0 while the planes hold samples that the library allocated and nobody wrote
+// (WebPPictureAlloc): their presence is printed instead of their digest.
+static int g_samples = 1;
+
 static void PrintPlane(const uint8_t* plane, int stride, int width,
                        int height) {
   uint64_t hash = FNV_START;
   int y;
   if (plane == NULL) {
     printf(",-");
+    return;
+  }
+  if (!g_samples) {
+    printf(",+");
     return;
   }
   for (y = 0; y < height; ++y) {
@@ -123,6 +133,10 @@ static void PrintArgb(const uint32_t* plane, int stride, int width,
   int x, y;
   if (plane == NULL) {
     printf(",-");
+    return;
+  }
+  if (!g_samples) {
+    printf(",+");
     return;
   }
   for (y = 0; y < height; ++y) {
@@ -424,7 +438,10 @@ int main(int argc, char* argv[]) {
       P[a[0]].width = a[3];
       P[a[0]].height = a[4];
     } else if (!strcmp(cmd, "alloc")) {
-      Result(WebPPictureAlloc(&P[a[0]]), &P[a[0]]);
+      const int ret = WebPPictureAlloc(&P[a[0]]);
+      g_samples = 0;
+      Result(ret, &P[a[0]]);
+      g_samples = 1;
     } else if (!strcmp(cmd, "free")) {
       WebPPictureFree(&P[a[0]]);
       PrintPicture(&P[a[0]]);
