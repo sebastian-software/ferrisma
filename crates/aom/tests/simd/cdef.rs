@@ -1,6 +1,7 @@
 // Supplementary transcription of upstream/aom/test/cdef_test.cc for the Neon
-// instantiations: CDEFBlockTest, CDEFBlockHighbdTest, CDEFFindDirTest,
-// CDEFFindDirDualTest, CDEFCopyRect8to16Test, and CDEFCopyRect16to16Test.
+// and AVX2 instantiations: CDEFBlockTest, CDEFBlockHighbdTest,
+// CDEFFindDirTest, CDEFFindDirDualTest, CDEFCopyRect8to16Test, and
+// CDEFCopyRect16to16Test.
 // Seeds, loop bounds, block sizes, boundaries, strengths, damping, bit depths,
 // and the reference function tables follow the original (the high-bitdepth C
 // table is cdef_filter_16_0_c for every strength index, as upstream). The
@@ -249,7 +250,8 @@ fn test_finddir_dual(finddir: FindDirDualFunc, ref_finddir: FindDirDualFunc) -> 
 
 /// CDEFCopyRect8to16Test::test_copy_rect_8_to_16(); returns the number of
 /// compared rectangles. `test_func` / `ref_func` are GET_PARAM(0) / (1), which
-/// the Neon instantiation binds to the C and Neon functions respectively.
+/// the Neon and AVX2 instantiations bind to the C and SIMD functions
+/// respectively.
 fn test_copy_rect_8_to_16(test_func: CopyRect8To16, ref_func: CopyRect8To16) -> u64 {
     let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
     let mut src = vec![0u8; MAX_CDEF_BLOCK * MAX_CDEF_BLOCK];
@@ -353,6 +355,19 @@ const K_CDEF_FILTER_FUNC_C: CdefFilterBlockFunctions =
 const K_CDEF_FILTER_HIGHBD_FUNC_C: CdefFilterBlockFunctions =
     [cdef_filter_16_0_c, cdef_filter_16_0_c, cdef_filter_16_0_c, cdef_filter_16_0_c];
 
+/// One TEST_P(CDEFBlockTest / CDEFBlockHighbdTest, ...) per boundary
+/// (::testing::Range(0, 16)) and depth for a given block size.
+fn block_test(cdef: CdefFilterBlockFunctions, ref_cdef: CdefFilterBlockFunctions, bsize: i32,
+              depths: &[i32]) {
+    let mut compared = 0;
+    for &depth in depths {
+        for boundary in 0..16 {
+            compared += test_cdef(bsize, 1, cdef, ref_cdef, boundary, depth);
+        }
+    }
+    eprintln!("bsize {bsize} depths {depths:?}: {compared} block comparisons");
+}
+
 #[cfg(target_arch = "aarch64")]
 mod neon {
     use super::*;
@@ -365,19 +380,6 @@ mod neon {
         cdef_filter_16_0_neon, cdef_filter_16_1_neon, cdef_filter_16_2_neon,
         cdef_filter_16_3_neon,
     ];
-
-    /// One TEST_P(CDEFBlockTest / CDEFBlockHighbdTest, ...) per boundary
-    /// (::testing::Range(0, 16)) and depth for a given block size.
-    fn block_test(cdef: CdefFilterBlockFunctions, ref_cdef: CdefFilterBlockFunctions,
-                  bsize: i32, depths: &[i32]) {
-        let mut compared = 0;
-        for &depth in depths {
-            for boundary in 0..16 {
-                compared += test_cdef(bsize, 1, cdef, ref_cdef, boundary, depth);
-            }
-        }
-        eprintln!("bsize {bsize} depths {depths:?}: {compared} block comparisons");
-    }
 
     #[test]
     fn cdef_block_4x4() {
@@ -445,5 +447,101 @@ mod neon {
     fn cdef_copy_rect8_16bit_to_16bit() {
         test_copy_rect_16_to_16(cdef_copy_rect8_16bit_to_16bit_c,
                                 cdef_copy_rect8_16bit_to_16bit_neon);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod avx2 {
+    use super::*;
+    use aom::simd::av1__common__x86__cdef_block_avx2::*;
+
+    // kCdefFilterFuncAvx2
+    const K_CDEF_FILTER_FUNC_AVX2: CdefFilterBlockFunctions =
+        [cdef_filter_8_0_avx2, cdef_filter_8_1_avx2, cdef_filter_8_2_avx2, cdef_filter_8_3_avx2];
+
+    // kCdefFilterHighbdFuncAvx2
+    const K_CDEF_FILTER_HIGHBD_FUNC_AVX2: CdefFilterBlockFunctions = [
+        cdef_filter_16_0_avx2, cdef_filter_16_1_avx2, cdef_filter_16_2_avx2,
+        cdef_filter_16_3_avx2,
+    ];
+
+    #[test]
+    fn cdef_block_4x4() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_FUNC_AVX2, K_CDEF_FILTER_FUNC_C, BLOCK_4X4, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_4x8() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_FUNC_AVX2, K_CDEF_FILTER_FUNC_C, BLOCK_4X8, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_8x4() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_FUNC_AVX2, K_CDEF_FILTER_FUNC_C, BLOCK_8X4, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_8x8() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_FUNC_AVX2, K_CDEF_FILTER_FUNC_C, BLOCK_8X8, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_4x4() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_AVX2, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_4X4,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_4x8() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_AVX2, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_4X8,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_8x4() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_AVX2, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_8X4,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_8x8() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_AVX2, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_8X8,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_find_dir() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        let n = test_finddir(cdef_find_dir_avx2, cdef_find_dir_c);
+        eprintln!("cdef_find_dir: {n} comparisons");
+    }
+
+    #[test]
+    fn cdef_find_dir_dual() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        let n = test_finddir_dual(cdef_find_dir_dual_avx2, cdef_find_dir_dual_c);
+        eprintln!("cdef_find_dir_dual: {n} comparisons");
+    }
+
+    #[test]
+    fn cdef_copy_rect8_8bit_to_16bit() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        test_copy_rect_8_to_16(cdef_copy_rect8_8bit_to_16bit_c,
+                               cdef_copy_rect8_8bit_to_16bit_avx2);
+    }
+
+    #[test]
+    fn cdef_copy_rect8_16bit_to_16bit() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        test_copy_rect_16_to_16(cdef_copy_rect8_16bit_to_16bit_c,
+                                cdef_copy_rect8_16bit_to_16bit_avx2);
     }
 }

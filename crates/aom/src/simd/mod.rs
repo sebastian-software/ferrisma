@@ -92,6 +92,22 @@ pub mod av1__encoder__arm__shift_neon;
 pub mod av1__encoder__arm__txfm_neon;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/simd/v128_intrinsics_x86.rs"]
+pub mod aom_dsp__simd__v128_intrinsics_x86;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/simd/v256_intrinsics_x86.rs"]
+pub mod aom_dsp__simd__v256_intrinsics_x86;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/simd/v64_intrinsics_x86.rs"]
+pub mod aom_dsp__simd__v64_intrinsics_x86;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cdef_block_avx2.rs"]
+pub mod av1__common__x86__cdef_block_avx2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/error_intrin_avx2.rs"]
 pub mod av1__encoder__x86__error_intrin_avx2;
 
