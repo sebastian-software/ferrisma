@@ -1,15 +1,12 @@
 // Supplementary transcription of upstream/aom/test/dr_prediction_test.cc
 // (HighbdDrPredTest.SaturatedValues and HighbdDrPredTest.OperationCheck, NEON
-// instantiation). Angles, dx/dy derivation, edge-upsample selection, buffer
-// layout and padding, the Rand8() fill order, bit depths, and the exact-match
-// check follow the original. DISABLED_Speed is not transcribed. The lowbd
-// NEON instantiation (av1_dr_prediction_z{1,2,3}_neon) belongs to
-// aom_dsp/arm/intrapred_neon.c and is not part of this port.
-#![cfg(target_arch = "aarch64")]
-use aom::simd::aom_dsp__arm__highbd_intrapred_neon::{
-    av1_highbd_dr_prediction_z1_neon, av1_highbd_dr_prediction_z2_neon, av1_highbd_dr_prediction_z3_neon,
-};
-
+// and AVX2 instantiations). Angles, dx/dy derivation, edge-upsample selection,
+// buffer layout and padding, the Rand8() fill order, bit depths, and the
+// exact-match check follow the original. DISABLED_Speed is not transcribed.
+// The lowbd NEON and AVX2 instantiations (av1_dr_prediction_z{1,2,3}_neon,
+// _avx2) belong to aom_dsp/arm/intrapred_neon.c and the low-bitdepth half of
+// aom_dsp/x86/intrapred_avx2.c and are not part of this port.
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 use super::acm_random::ACMRandom;
 
 extern "C-unwind" {
@@ -233,26 +230,25 @@ impl DrPredTest {
     }
 }
 
-fn neon_params() -> Vec<(DrPredHbd, DrPredHbd, i32, i32)> {
+/// The nine DrPredFunc<DrPred_Hbd> values of an instantiation: Z1, Z2, Z3,
+/// each at AOM_BITS_8, AOM_BITS_10 and AOM_BITS_12.
+fn params(z1: Z1Hbd, z2: Z2Hbd, z3: Z3Hbd) -> Vec<(DrPredHbd, DrPredHbd, i32, i32)> {
     let mut v = Vec::new();
     for bd in [8, 10, 12] {
-        v.push((DrPredHbd::Z1(av1_highbd_dr_prediction_z1_c), DrPredHbd::Z1(av1_highbd_dr_prediction_z1_neon), bd,
-                K_Z1_START));
+        v.push((DrPredHbd::Z1(av1_highbd_dr_prediction_z1_c), DrPredHbd::Z1(z1), bd, K_Z1_START));
     }
     for bd in [8, 10, 12] {
-        v.push((DrPredHbd::Z2(av1_highbd_dr_prediction_z2_c), DrPredHbd::Z2(av1_highbd_dr_prediction_z2_neon), bd,
-                K_Z2_START));
+        v.push((DrPredHbd::Z2(av1_highbd_dr_prediction_z2_c), DrPredHbd::Z2(z2), bd, K_Z2_START));
     }
     for bd in [8, 10, 12] {
-        v.push((DrPredHbd::Z3(av1_highbd_dr_prediction_z3_c), DrPredHbd::Z3(av1_highbd_dr_prediction_z3_neon), bd,
-                K_Z3_START));
+        v.push((DrPredHbd::Z3(av1_highbd_dr_prediction_z3_c), DrPredHbd::Z3(z3), bd, K_Z3_START));
     }
     v
 }
 
-fn run_all(needsaturation: bool) {
+fn run_all(params: Vec<(DrPredHbd, DrPredHbd, i32, i32)>, needsaturation: bool) {
     let mut blocks = 0;
-    for (r, t, bd, start) in neon_params() {
+    for (r, t, bd, start) in params {
         let mut test = DrPredTest::new(r, t, bd, start);
         test.run(needsaturation);
         blocks += test.blocks;
@@ -260,12 +256,52 @@ fn run_all(needsaturation: bool) {
     eprintln!("9 parameter sets, {} blocks compared", blocks);
 }
 
-#[test]
-fn highbd_dr_pred_neon_saturated_values() {
-    run_all(true);
+#[cfg(target_arch = "aarch64")]
+mod neon {
+    use super::*;
+    use aom::simd::aom_dsp__arm__highbd_intrapred_neon::{
+        av1_highbd_dr_prediction_z1_neon, av1_highbd_dr_prediction_z2_neon,
+        av1_highbd_dr_prediction_z3_neon,
+    };
+
+    fn neon_params() -> Vec<(DrPredHbd, DrPredHbd, i32, i32)> {
+        params(av1_highbd_dr_prediction_z1_neon, av1_highbd_dr_prediction_z2_neon,
+               av1_highbd_dr_prediction_z3_neon)
+    }
+
+    #[test]
+    fn highbd_dr_pred_neon_saturated_values() {
+        run_all(neon_params(), true);
+    }
+
+    #[test]
+    fn highbd_dr_pred_neon_operation_check() {
+        run_all(neon_params(), false);
+    }
 }
 
-#[test]
-fn highbd_dr_pred_neon_operation_check() {
-    run_all(false);
+#[cfg(target_arch = "x86_64")]
+mod avx2 {
+    use super::*;
+    use aom::simd::aom_dsp__x86__intrapred_avx2::{
+        av1_highbd_dr_prediction_z1_avx2, av1_highbd_dr_prediction_z2_avx2,
+        av1_highbd_dr_prediction_z3_avx2,
+    };
+
+    fn avx2_params() -> Vec<(DrPredHbd, DrPredHbd, i32, i32)> {
+        params(av1_highbd_dr_prediction_z1_avx2, av1_highbd_dr_prediction_z2_avx2,
+               av1_highbd_dr_prediction_z3_avx2)
+    }
+
+    #[test]
+    fn highbd_dr_pred_avx2_saturated_values() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        run_all(avx2_params(), true);
+    }
+
+    #[test]
+    fn highbd_dr_pred_avx2_operation_check() {
+        assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
+        run_all(avx2_params(), false);
+    }
 }

@@ -112,12 +112,24 @@ pub mod aom_dsp__x86__highbd_adaptive_quantize_avx2;
 pub mod aom_dsp__x86__highbd_adaptive_quantize_sse2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_intrapred_sse2.rs"]
+pub mod aom_dsp__x86__highbd_intrapred_sse2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/highbd_quantize_intrin_avx2.rs"]
 pub mod aom_dsp__x86__highbd_quantize_intrin_avx2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/highbd_subtract_sse2.rs"]
 pub mod aom_dsp__x86__highbd_subtract_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/intrapred_avx2.rs"]
+pub mod aom_dsp__x86__intrapred_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/lpf_common_sse2.rs"]
+pub mod aom_dsp__x86__lpf_common_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/quantize_x86.rs"]
@@ -156,8 +168,16 @@ pub mod av1__common__x86__av1_txfm_sse4;
 pub mod av1__common__x86__cdef_block_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/filterintra_sse4.rs"]
+pub mod av1__common__x86__filterintra_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/highbd_txfm_utility_sse4.rs"]
 pub mod av1__common__x86__highbd_txfm_utility_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/intra_edge_sse4.rs"]
+pub mod av1__common__x86__intra_edge_sse4;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_highbd_quantize_avx2.rs"]
@@ -170,15 +190,3 @@ pub mod av1__encoder__x86__error_intrin_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/highbd_block_error_intrin_avx2.rs"]
 pub mod av1__encoder__x86__highbd_block_error_intrin_avx2;
-
-#[cfg(target_arch = "x86_64")]
-#[path = "aom_dsp/x86/highbd_intrapred_sse2.rs"]
-pub mod aom_dsp__x86__highbd_intrapred_sse2;
-
-#[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/filterintra_sse4.rs"]
-pub mod av1__common__x86__filterintra_sse4;
-
-#[cfg(target_arch = "x86_64")]
-#[path = "av1/common/x86/intra_edge_sse4.rs"]
-pub mod av1__common__x86__intra_edge_sse4;
