@@ -6,7 +6,9 @@ name: Checks
 # toolchain; the oracle job builds the C oracle (ADR 0002) in its release and
 # asan-ubsan variants on both systems, runs upstream's whole test suite against
 # each as a check of the oracle itself, and runs the in-scope djpeg bit tests
-# and the differential tests against both.
+# and the differential tests against both; the SIMD job does the same with the
+# simd oracle (WITH_SIMD=1) on the two ARM64 hosts, where the port has its Neon
+# kernels (ADR 0007).
 on:
   pull_request:
   push:
@@ -46,8 +48,13 @@ jobs:
         run: python3 tools/check.py
 
   msrv:
-    name: MSRV (Rust 1.95)
-    runs-on: ubuntu-latest
+    name: MSRV (Rust 1.95, ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # x86-64 builds the reference configuration, ARM64 the Neon kernels.
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,11 +97,40 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  simd:
+    name: SIMD oracle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Build the simd oracle
+        run: python3 tools/build_oracle.py --variant simd
+      - name: Upstream's whole test suite against the simd oracle
+        run: python3 tools/bittests.py --run --all --variant simd --jobs 4
+      - name: In-scope bit tests and differential tests, with Neon and with JSIMD_FORCENONE=1
+        run: python3 tools/check.py --stage test --oracle-variant simd
+      - name: Keep the oracle records
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: oracle-simd-${{ matrix.os }}
+          path: |
+            build/oracle/*/oracle.json
+            build/oracle/*/bittests-result.json
+          if-no-files-found: error
+          retention-days: 30
+
   # The single required status check: any failed or cancelled job fails it.
   checks-passed:
     name: Checks passed
     if: always()
-    needs: [checks, msrv, oracle]
+    needs: [checks, msrv, oracle, simd]
     runs-on: ubuntu-latest
     steps:
       - name: Require every job to pass
