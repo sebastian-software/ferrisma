@@ -262,6 +262,10 @@ pub fn rate_control_cases() -> Vec<Case> {
     cases
 }
 
+/// The progress calls at which `progress_aborts_and_writers_cases` aborts:
+/// every call of its encodings, and at least one more.
+pub const ABORT_STEPS: i32 = 48;
+
 /// A picture, its source kind and configuration fields.
 type Setting<'a> = (&'a Case, i32, &'a [(F, i32)]);
 
@@ -287,11 +291,12 @@ pub fn progress_aborts_and_writers_cases() -> Vec<Case> {
             }
             c
         };
-        // No hook, then an abort at each of the first 16 progress calls.
+        // No hook, then an abort at each of the first ABORT_STEPS progress
+        // calls, more than any of these encodings reports.
         let mut c = configure(base.clone());
         c.abort_at = -2;
         cases.push(exclude_undefined(c));
-        for abort_at in 0..16 {
+        for abort_at in 0..ABORT_STEPS {
             let mut c = configure(base.clone());
             c.abort_at = abort_at;
             cases.push(exclude_undefined(c));

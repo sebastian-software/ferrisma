@@ -25,18 +25,19 @@ mod wp13_cases;
 #[path = "support/wp13_matrix.rs"]
 mod wp13_matrix;
 
-use oracle::Oracle;
+use oracle::{Fields, Oracle};
 use wp13_cases::{Alpha, Case, Content, Rng, records, replay, split_records};
 use wp13_matrix as matrix;
 
 /// Runs `cases` through the probe and the Rust translation and compares them.
-fn compare(test: &str, oracle: &Oracle, cases: &[Case]) {
+fn compare(test: &str, oracle: &Oracle, cases: &[Case]) -> Vec<Fields> {
     let output = oracle
         .probe("wp13", "encode")
         .run::<&str>(&[], &records(cases));
     output.success();
     let expected = split_records(output.fields());
     assert_eq!(expected.len(), cases.len(), "{test}: one output per record");
+    let outputs = expected.clone();
     let mut encoded = 0;
     let mut source_changed = 0;
     for (case, mut c) in cases.iter().zip(expected) {
@@ -84,15 +85,15 @@ fn compare(test: &str, oracle: &Oracle, cases: &[Case]) {
         "{test}: {} cases, {encoded} encoded, {source_changed} view sources changed by C",
         cases.len()
     );
+    outputs
 }
 
-/// Runs one group of the matrix.
-fn run(test: &str, cases: impl FnOnce(&Oracle) -> Vec<Case>) {
-    let Some(oracle) = Oracle::locate(test) else {
-        return;
-    };
+/// Runs one group of the matrix; returns the cases and the probe's outputs.
+fn run(test: &str, cases: impl FnOnce(&Oracle) -> Vec<Case>) -> Option<(Vec<Case>, Vec<Fields>)> {
+    let oracle = Oracle::locate(test)?;
     let cases = cases(&oracle);
-    compare(test, &oracle, &cases);
+    let outputs = compare(test, &oracle, &cases);
+    Some((cases, outputs))
 }
 
 #[test]
@@ -133,9 +134,42 @@ fn rate_control_matches_the_c_encoder() {
 
 #[test]
 fn progress_aborts_and_writers_match_the_c_encoder() {
-    run("progress_aborts_and_writers_match_the_c_encoder", |_| {
-        matrix::progress_aborts_and_writers_cases()
-    });
+    let test = "progress_aborts_and_writers_match_the_c_encoder";
+    let Some((cases, outputs)) = run(test, |_| matrix::progress_aborts_and_writers_cases()) else {
+        return;
+    };
+    // Every abort stops at its call with VP8_ENC_ERROR_USER_ABORT, and in each
+    // configuration an abort after the last call finishes the encoding, so the
+    // aborts cover every reported step.
+    let mut steps = Vec::new();
+    for (case, c) in cases.iter().zip(&outputs) {
+        if case.abort_at < 0 {
+            continue;
+        }
+        let reports = c.get("progress").unwrap().split(',').count();
+        if c.get("ret") == Some("0") && c.get("error") == Some("10") {
+            assert_eq!(
+                reports,
+                case.abort_at as usize + 1,
+                "{test}: {}",
+                case.describe()
+            );
+        } else if case.abort_at == matrix::ABORT_STEPS - 1 {
+            assert_eq!(c.get("ret"), Some("1"), "{test}: {}", case.describe());
+            assert!(
+                reports < matrix::ABORT_STEPS as usize,
+                "{test}: {}",
+                case.describe()
+            );
+            steps.push(reports);
+        }
+    }
+    assert_eq!(
+        steps.len(),
+        6,
+        "{test}: each configuration finished after its last report"
+    );
+    eprintln!("{test}: progress reports per configuration: {steps:?}");
 }
 
 #[test]
