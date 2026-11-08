@@ -50,90 +50,33 @@ fn compare_probe(test: &str, oracle: &Oracle, name: &str, input: &[u8]) -> Field
     c_fields
 }
 
-/// Runs one group of the encoder matrix through both builds of `encode`. The
-/// outputs must be identical, except that after a failed encoding the C ABI
-/// writes no `extra_info` map, where C has filled the macroblocks before the
-/// failure (`docs/status/wp13.md`, deviation 3): there the Rust-linked probe's
-/// map must be untouched.
+/// Runs one group of the encoder matrix through both builds of `encode`; the
+/// outputs must be identical, line by line.
 fn run_encode(test: &str, cases: impl FnOnce(&Oracle) -> Vec<Case>) {
     let Some(oracle) = Oracle::locate(test) else {
         return;
     };
     let cases = cases(&oracle);
-    let input = records(&cases);
-    let c = oracle.probe("wp13", "encode").run::<&str>(&[], &input);
-    c.success();
-    let rust = oracle.probe("wp13", "encode_rs").run::<&str>(&[], &input);
-    rust.success();
-    assert_eq!(
-        c.stderr, rust.stderr,
-        "{test}: the probes wrote different diagnostics"
-    );
-    let c_records = split_records(c.fields());
-    let rust_records = split_records(rust.fields());
-    assert_eq!(
-        c_records.len(),
-        cases.len(),
-        "{test}: one output per record"
-    );
-    assert_eq!(
-        rust_records.len(),
-        cases.len(),
-        "{test}: one output per record"
-    );
-    let (mut kept, mut c_wrote) = (0, 0);
-    for ((case, c), rust) in cases.iter().zip(&c_records).zip(&rust_records) {
-        let failed = c.get("ret") == Some("0");
-        let mut c = c.clone();
-        if failed && c.get("extra").is_some() {
-            let untouched =
-                "aa".repeat(wp13_cases::mb_count(case_width(case), case_height(case)) + 1);
-            assert_eq!(
-                rust.get("extra"),
-                Some(untouched.as_str()),
-                "{test}: the C ABI wrote extra_info after a failure: {}",
-                case.describe()
-            );
-            if c.get("extra") != Some(untouched.as_str()) {
-                c_wrote += 1;
-            }
-            for (key, value) in &mut c.0 {
-                if key == "extra" {
-                    value.clone_from(&untouched);
-                }
-            }
-            kept += 1;
-        }
-        for (a, b) in c.0.iter().zip(&rust.0) {
-            assert_eq!(a, b, "{test}: {}", case.describe());
-        }
-        assert_eq!(c.0.len(), rust.0.len(), "{test}: {}", case.describe());
-    }
-    let encoded = c_records
+    let fields = compare_probe(test, &oracle, "encode", &records(&cases));
+    let outputs = split_records(fields);
+    assert_eq!(outputs.len(), cases.len(), "{test}: one output per record");
+    let encoded = outputs.iter().filter(|f| f.get("ret") == Some("1")).count();
+    // Failed encodings with an extra_info map whose prefix C filled (the map
+    // starts as zeros, deviation 3).
+    let partial = cases
         .iter()
-        .filter(|f| f.get("ret") == Some("1"))
+        .zip(&outputs)
+        .filter(|(case, f)| {
+            f.get("ret") == Some("0")
+                && f.get("extra")
+                    .is_some_and(|map| map[..map.len() - 2].bytes().any(|digit| digit != b'0'))
+                && case.extra_info_type > 0
+        })
         .count();
     eprintln!(
-        "{test}: {} cases, {encoded} encoded, {kept} failed encodings with an untouched \
-         extra_info map ({c_wrote} where C wrote part of it)",
+        "{test}: {} cases, {encoded} encoded, {partial} failed with a partly filled extra_info map",
         cases.len()
     );
-}
-
-/// The width of the picture that a case encodes (a view's, for a view).
-fn case_width(case: &Case) -> i32 {
-    match case.layout {
-        wp13_cases::Layout::View { width, .. } => width,
-        _ => case.width,
-    }
-}
-
-/// The height of the picture that a case encodes.
-fn case_height(case: &Case) -> i32 {
-    match case.layout {
-        wp13_cases::Layout::View { height, .. } => height,
-        _ => case.height,
-    }
 }
 
 #[test]

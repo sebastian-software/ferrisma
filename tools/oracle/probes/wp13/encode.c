@@ -42,7 +42,8 @@
 //   mem=       (writer 1) the memory writer's size and max_size
 //   out=       the bytes the writer accepted, in hex
 //   stats=     (with_stats) the WebPAuxStats fields, floats as bit patterns
-//   extra=     (extra_info_type > 0) the extra_info bytes and one guard byte
+//   extra=     (extra_info_type > 0) the extra_info bytes, zeroed before the
+//              call, and one guard byte (0xaa)
 //   pic=       the encoded picture afterwards: use_argb, colorspace, width,
 //              height, and the FNV-1a digest of the visible samples of the
 //              y, u, v, a and argb planes (- for NULL)
@@ -439,7 +440,10 @@ int main(int argc, char* argv[]) {
                             ((picture->height + 15) >> 4));
       extra = (uint8_t*)malloc(extra_size + 1);
       if (extra == NULL) return 2;
-      memset(extra, 0xaa, extra_size + 1);
+      // Zeros, so that the macroblocks a failed encoding did not reach read
+      // the same through the C ABI, which writes zeros there; one guard byte.
+      memset(extra, 0, extra_size);
+      extra[extra_size] = 0xaa;
       picture->extra_info = extra;
       picture->extra_info_type = extra_info_type;
     }

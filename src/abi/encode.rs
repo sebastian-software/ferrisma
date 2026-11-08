@@ -62,8 +62,11 @@
 //!   of the statistics and of the `extra_info` map and closures around the C
 //!   writer and progress hook that pass the caller's picture pointer, as C passes
 //!   it. The statistics go back to `*stats` once the validation has passed (C
-//!   resets them there), and the map goes back to `extra_info` when the encoding
-//!   succeeds (C has filled it then); the caller's bytes are never read.
+//!   resets them there). The map goes back to `extra_info` when the lossy encoder
+//!   ran, also after a failure, since C fills it one macroblock at a time (its
+//!   entries are C's, and those C did not reach are zero where C leaves them
+//!   untouched), and when a lossless encoding succeeds (C zeroes it then); the
+//!   caller's bytes are never read.
 //!
 //! # Callbacks
 //!
@@ -2391,8 +2394,11 @@ fn progress_closure<'a>(hook: WebPProgressHook, picture: *const WebPPicture) -> 
 /// configuration or the picture fails C's validation. The translation encodes
 /// with zeroed copies of the statistics and of the `extra_info` map (one byte
 /// per macroblock): the statistics go back to `*picture->stats` once the
-/// validation has passed, where C resets and fills them, and the map goes back
-/// to `picture->extra_info` when the encoding succeeds, where C has filled it.
+/// validation has passed, where C resets and fills them. The map goes back to
+/// `picture->extra_info` when the lossy encoder ran, also after a failure (C
+/// fills it one macroblock at a time; the entries it did not reach are zero
+/// here and untouched in C), and when a lossless encoding succeeds, where C
+/// zeroes it.
 ///
 /// # Safety
 ///
@@ -2484,7 +2490,10 @@ pub unsafe extern "C" fn webp_encode(
         // reset it at this point.
         unsafe { c_stats.write(stats) };
     }
-    if mb_count > 0 && result.is_some_and(|(encoded, _)| encoded) {
+    // The map, which is only lent once the validation has passed: whatever the
+    // lossy encoder filled, or a successful lossless encoding's zeros.
+    let lossy = config.lossless == 0;
+    if mb_count > 0 && result.is_some_and(|(encoded, _)| lossy || encoded) {
         // SAFETY: one writable byte per macroblock (caller's contract).
         unsafe { ptr::copy_nonoverlapping(extra.as_ptr(), c_extra, mb_count) };
     }

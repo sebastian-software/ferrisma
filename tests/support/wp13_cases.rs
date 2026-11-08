@@ -842,7 +842,7 @@ pub fn replay(case: &Case) -> (Fields, Option<(String, String)>) {
         Layout::Library => {
             let mut pic = source;
             if case.extra_info_type > 0 {
-                extra = Some(vec![0xaa; mb_count(pic.width, pic.height) + 1]);
+                extra = Some(zeroed_map(mb_count(pic.width, pic.height)));
             }
             let extra_slice = extra
                 .as_mut()
@@ -861,7 +861,7 @@ pub fn replay(case: &Case) -> (Fields, Option<(String, String)>) {
             pic.height = source.height;
             drop(source);
             if case.extra_info_type > 0 {
-                extra = Some(vec![0xaa; mb_count(pic.width, pic.height) + 1]);
+                extra = Some(zeroed_map(mb_count(pic.width, pic.height)));
             }
             let (ret, error, line) = {
                 let mut pic = pic;
@@ -908,7 +908,7 @@ pub fn replay(case: &Case) -> (Fields, Option<(String, String)>) {
                 return (fields, None);
             };
             if case.extra_info_type > 0 {
-                extra = Some(vec![0xaa; mb_count(pic.width, pic.height) + 1]);
+                extra = Some(zeroed_map(mb_count(pic.width, pic.height)));
             }
             let extra_slice = extra
                 .as_mut()
@@ -947,6 +947,13 @@ pub fn replay(case: &Case) -> (Fields, Option<(String, String)>) {
         fields = fields.with("caller", caller);
     }
     (fields, source_lines)
+}
+
+/// The probe's `extra_info` map: zeros and one guard byte (0xaa).
+fn zeroed_map(mb_count: usize) -> Vec<u8> {
+    let mut map = vec![0_u8; mb_count + 1];
+    map[mb_count] = 0xaa;
+    map
 }
 
 pub fn mb_count(width: i32, height: i32) -> usize {

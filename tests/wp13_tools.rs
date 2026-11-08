@@ -37,9 +37,13 @@ fn rust_cwebp(oracle: &Oracle) -> PathBuf {
     path
 }
 
-/// A fresh scratch directory inside the oracle's variant directory.
+/// A fresh scratch directory inside the oracle's variant directory, per process,
+/// so that test runs at the same time do not share one.
 fn scratch(oracle: &Oracle, name: &str) -> PathBuf {
-    let directory = oracle.directory().join("wp13-tools").join(name);
+    let directory = oracle
+        .directory()
+        .join("wp13-tools")
+        .join(format!("{name}-{}", std::process::id()));
     if directory.exists() {
         std::fs::remove_dir_all(&directory).unwrap();
     }
