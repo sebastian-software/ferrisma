@@ -19,3 +19,4 @@ reports it instead of deciding alone ([WORKPLAN.md](../WORKPLAN.md)).
 - [0005: Build on stable Rust 1.95 with unsafe code denied outside the C ABI](0005-toolchain-and-unsafe-policy.md)
 - [0006: Wrap the encoder translation in a safe, validated Rust API](0006-safe-encoder-api.md)
 - [0007: Wrap the decoder translation in a safe, validated Rust API](0007-safe-decoder-api.md)
+- [0008: Translate the SIMD variants in unsafe-allowed modules behind runtime selection](0008-simd-modules.md)

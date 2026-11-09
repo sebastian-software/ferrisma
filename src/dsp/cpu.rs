@@ -46,6 +46,7 @@
 use core::arch::x86::__cpuid_count;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::__cpuid_count;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 // upstream: src/dsp/cpu.h CPUFeature
 /// A CPU feature that the query reports on. The C enumeration has no negative
@@ -191,4 +192,126 @@ pub fn vp8_get_cpu_info(feature: CPUFeature) -> bool {
 #[must_use]
 pub fn vp8_get_cpu_info(_feature: CPUFeature) -> bool {
     false
+}
+
+//------------------------------------------------------------------------------
+// Runtime selection of the SIMD variants (ADR 0008). No C counterpart as a
+// function: C's `WEBP_DSP_INIT` re-runs an `Init` function when `VP8GetCPUInfo`
+// changed since its last run, and the `Init` function assigns the dispatch
+// pointers from the query's answers.
+
+/// The CPU features that the dispatch functions select the SIMD variants by
+/// (ADR 0008). Each x86 flag answers as the `Init` functions' queries do,
+/// through the query behind the C ABI's `VP8GetCPUInfo` pointer: `false` for a
+/// `NULL` pointer (`-noasm`), `cpuid` for the translation's own query, and the
+/// caller's function for a query it installed. `neon` is true on 64-bit ARM
+/// whatever the pointer says, where upstream compiles the NEON code in and
+/// omits the C code it replaces (`WEBP_NEON_OMIT_C_CODE`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per CPU feature, as the C query answers them"
+)]
+pub struct Features {
+    /// `VP8GetCPUInfo(kSSE2)`.
+    pub sse2: bool,
+    /// `VP8GetCPUInfo(kSSE3)`.
+    pub sse3: bool,
+    /// `VP8GetCPUInfo(kSlowSSSE3)`.
+    pub slow_ssse3: bool,
+    /// `VP8GetCPUInfo(kSSE4_1)`.
+    pub sse4_1: bool,
+    /// `VP8GetCPUInfo(kAVX)`.
+    pub avx: bool,
+    /// `VP8GetCPUInfo(kAVX2)`.
+    pub avx2: bool,
+    /// NEON, always on 64-bit ARM.
+    pub neon: bool,
+}
+
+impl Features {
+    const SSE2: u32 = 1 << 0;
+    const SSE3: u32 = 1 << 1;
+    const SLOW_SSSE3: u32 = 1 << 2;
+    const SSE4_1: u32 = 1 << 3;
+    const AVX: u32 = 1 << 4;
+    const AVX2: u32 = 1 << 5;
+    const NEON: u32 = 1 << 6;
+    /// Marks a computed record in the cache word.
+    const VALID: u32 = 1 << 31;
+
+    fn bits(self) -> u32 {
+        let mut bits = 0;
+        for (flag, bit) in [
+            (self.sse2, Self::SSE2),
+            (self.sse3, Self::SSE3),
+            (self.slow_ssse3, Self::SLOW_SSSE3),
+            (self.sse4_1, Self::SSE4_1),
+            (self.avx, Self::AVX),
+            (self.avx2, Self::AVX2),
+            (self.neon, Self::NEON),
+        ] {
+            if flag {
+                bits |= bit;
+            }
+        }
+        bits
+    }
+
+    fn from_bits(bits: u32) -> Self {
+        Self {
+            sse2: bits & Self::SSE2 != 0,
+            sse3: bits & Self::SSE3 != 0,
+            slow_ssse3: bits & Self::SLOW_SSSE3 != 0,
+            sse4_1: bits & Self::SSE4_1 != 0,
+            avx: bits & Self::AVX != 0,
+            avx2: bits & Self::AVX2 != 0,
+            neon: bits & Self::NEON != 0,
+        }
+    }
+}
+
+/// The cached record: the token of the `VP8GetCPUInfo` pointer it was computed
+/// for in the high word, the feature bits with [`Features::VALID`] in the low
+/// word. One atomic word, so a reader never pairs a token with another
+/// pointer's bits.
+static FEATURES_CACHE: AtomicU64 = AtomicU64::new(0);
+
+/// The features the dispatch functions select by (ADR 0008), computed on the
+/// first call and again whenever the C ABI's `VP8GetCPUInfo` pointer has
+/// changed since, as `WEBP_DSP_INIT` re-runs the `Init` functions then.
+#[must_use]
+pub fn features() -> Features {
+    let token = crate::abi::decode::cpu_query_token();
+    let cached = FEATURES_CACHE.load(Ordering::Relaxed);
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the low word of the cache holds the feature bits"
+    )]
+    let bits = cached as u32;
+    let cached_token = (cached >> 32) as u32;
+    if cached_token == token && bits & Features::VALID != 0 {
+        return Features::from_bits(bits);
+    }
+    let computed = compute_features();
+    FEATURES_CACHE.store(
+        (u64::from(token) << 32) | u64::from(computed.bits() | Features::VALID),
+        Ordering::Relaxed,
+    );
+    computed
+}
+
+/// The record for the current `VP8GetCPUInfo` pointer.
+fn compute_features() -> Features {
+    let query =
+        |feature: CPUFeature| crate::abi::decode::cpu_feature_query(feature).unwrap_or(false);
+    Features {
+        sse2: query(CPUFeature::kSSE2),
+        sse3: query(CPUFeature::kSSE3),
+        slow_ssse3: query(CPUFeature::kSlowSSSE3),
+        sse4_1: query(CPUFeature::kSSE4_1),
+        avx: query(CPUFeature::kAVX),
+        avx2: query(CPUFeature::kAVX2),
+        neon: cfg!(target_arch = "aarch64"),
+    }
 }

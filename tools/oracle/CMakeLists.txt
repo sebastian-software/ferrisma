@@ -21,7 +21,14 @@ endif()
 
 # The reference configuration. tools/build_oracle.py passes the same values on
 # the command line; forcing them here keeps a manual configure from drifting.
-set(WEBP_ENABLE_SIMD OFF CACHE BOOL "" FORCE)
+# ORACLE_SIMD builds upstream with its SIMD code: the diagnostic variant
+# release-simd of ADR 0008, never the reference configuration.
+option(ORACLE_SIMD "Build upstream with its SIMD code (diagnostic, ADR 0008)" OFF)
+if(ORACLE_SIMD)
+  set(WEBP_ENABLE_SIMD ON CACHE BOOL "" FORCE)
+else()
+  set(WEBP_ENABLE_SIMD OFF CACHE BOOL "" FORCE)
+endif()
 set(WEBP_USE_THREAD ON CACHE BOOL "" FORCE)
 set(WEBP_NEAR_LOSSLESS ON CACHE BOOL "" FORCE)
 set(WEBP_ENABLE_SWAP_16BIT_CSP OFF CACHE BOOL "" FORCE)
@@ -56,7 +63,7 @@ endif()
 # trailing -msse2 restores only the ABI's SSE2 baseline, which the Rust port
 # uses too; -mno-sse4.1 and -mno-avx2 stay, and config.h still defines no
 # WEBP_HAVE_SSE2, so no intrinsics file is compiled (ADR 0002).
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" OR CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+if(NOT ORACLE_SIMD AND (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" OR CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
   add_compile_options(-msse2)
 endif()
 

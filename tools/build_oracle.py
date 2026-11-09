@@ -39,6 +39,10 @@ VARIANTS = {
     "release": {"build_type": "Release", "sanitizers": False},
     "asan-ubsan": {"build_type": "Release", "sanitizers": True},
     "debug": {"build_type": "Debug", "sanitizers": False},
+    # The diagnostic variant of ADR 0008: upstream with its SIMD code, for the
+    # SIMD packages' probes and the attribution of a difference to upstream's
+    # SIMD or to the port. Not a reference variant: --variant all skips it.
+    "release-simd": {"build_type": "Release", "sanitizers": False, "simd": True},
 }
 # The reference configuration from the port plan, in the order it lists them.
 REFERENCE = [
@@ -103,8 +107,12 @@ def build(variant, jobs, fresh, rust_lib=None):
     directory = variant_dir(variant)
     if fresh and directory.exists():
         shutil.rmtree(directory)
+    reference = list(REFERENCE)
+    if settings.get("simd"):
+        reference[reference.index("-DWEBP_ENABLE_SIMD=OFF")] = "-DWEBP_ENABLE_SIMD=ON"
+        reference.append("-DORACLE_SIMD=ON")
     configure = ["cmake", "-S", SOURCE, "-B", directory,
-                 f"-DCMAKE_BUILD_TYPE={settings['build_type']}", *REFERENCE,
+                 f"-DCMAKE_BUILD_TYPE={settings['build_type']}", *reference,
                  f"-DORACLE_SANITIZERS={'ON' if settings['sanitizers'] else 'OFF'}"]
     if rust_lib:
         configure += [f"-DLIBWEBP_RS_STATICLIB={rust_lib['path']}",
@@ -116,7 +124,10 @@ def build(variant, jobs, fresh, rust_lib=None):
     config = (directory / "libwebp/src/webp/config.h").read_text()
     defines = sorted(set(re.findall(r"^#define (\w+)", config, re.M)))
     simd = SIMD_DEFINES.findall(config)
-    if simd:
+    if settings.get("simd"):
+        if not simd:
+            raise SystemExit(f"{variant}: the oracle was built without SIMD")
+    elif simd:
         raise SystemExit(f"{variant}: the oracle was built with SIMD enabled: {simd}")
     flags = dict(line.split("=", 1) for line in
                  (directory / "upstream-flags.txt").read_text().splitlines() if "=" in line)
@@ -127,12 +138,13 @@ def build(variant, jobs, fresh, rust_lib=None):
         "variant": variant,
         "build_type": settings["build_type"],
         "sanitizers": "address,undefined" if settings["sanitizers"] else None,
+        "simd": bool(settings.get("simd")),
         "upstream_revision": output("git", "-C", "upstream/libwebp", "rev-parse", "HEAD").strip(),
         "host": f"{platform.system()} {platform.release()} {platform.machine()}",
         "cmake": output("cmake", "--version").splitlines()[0],
         "c_compiler": compiler,
         "c_compiler_version": output(compiler, "--version").splitlines()[0],
-        "reference_options": REFERENCE,
+        "reference_options": reference,
         "upstream_c_flags": flags.get("c_flags", "").strip(),
         "upstream_c_flags_build_type": cache_value(directory, f"CMAKE_C_FLAGS_{settings['build_type'].upper()}"),
         "upstream_definitions": flags.get("definitions", ""),
@@ -151,7 +163,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variant", choices=[*VARIANTS, "all"], action="append",
-                        help="variant to build (repeatable; default: release)")
+                        help="variant to build (repeatable; default: release; all = the "
+                             "reference variants, without release-simd)")
     parser.add_argument("--jobs", default=str(os.cpu_count() or 4), help="parallel build jobs")
     parser.add_argument("--fresh", action="store_true", help="delete the variant directory first")
     parser.add_argument("--rust-lib", action="store_true",
@@ -159,7 +172,7 @@ def main():
     args = parser.parse_args()
     variants = args.variant or ["release"]
     if "all" in variants:
-        variants = list(VARIANTS)
+        variants = [name for name, settings in VARIANTS.items() if not settings.get("simd")]
     rust_lib = rust_staticlib() if args.rust_lib else None
     for variant in variants:
         build(variant, args.jobs, args.fresh, rust_lib)

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-07
+- Updated: 2026-11-09
 
 ## Context
 
@@ -25,6 +25,10 @@ Rust (as `image-webp` shows), so libwebp-rs can be stricter.
   modules, the operations and the local safety arguments. The wave 4 SIMD
   packages (WP18 to WP20) need such an ADR before they start: `std::arch`
   intrinsics and `#[target_feature]` functions are `unsafe`.
+  [ADR 0008](0008-simd-modules.md) is that record (amended 2026-11-09): it
+  names the SIMD modules, which `tools/units.py` marks from `tools/units.json`,
+  the two operations they may make `unsafe` and the safety arguments, and the
+  `simd` feature that compiles them.
 - `src/lib.rs` also declares `#![warn(clippy::all, clippy::pedantic)]`, and
   `tools/check.py` runs Clippy with `-D warnings` on all targets. In translated
   code, keep the source's form and add a function- or item-scoped
@@ -50,9 +54,10 @@ Rust (as `image-webp` shows), so libwebp-rs can be stricter.
 ## Consequences
 
 The library builds with a plain `cargo build` on stable Rust and contains no
-`unsafe` outside five ABI files. Fuzzing needs nightly and `libfuzzer-sys`, but
-only in the separate `fuzz/` crate. Some C constructs need an `#[expect]` line;
-the pedantic lints still catch untranslated mistakes elsewhere.
+`unsafe` outside the ABI module and the SIMD modules of ADR 0008. Fuzzing needs
+nightly and `libfuzzer-sys`, but only in the separate `fuzz/` crate. Some C
+constructs need an `#[expect]` line; the pedantic lints still catch untranslated
+mistakes elsewhere.
 
 ## Review triggers
 
