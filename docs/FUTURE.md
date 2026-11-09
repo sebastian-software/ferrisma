@@ -22,11 +22,13 @@ the mechanical translation:
   separate work; retain the mechanical scalar implementation as the reference.
 - Evaluate SharpYUV SIMD, safe wrappers, source-declaration consolidation, and
   existing Rust conversion crates only as separately measured follow-up work.
-- Extend the libaom SIMD layer of ADR 0056: remaining Neon hotspots (the
-  8-bit transforms, quantizer, and intra predictors; `encodetxb_neon.c`),
-  AVX2 kernels with the x86 dispatcher on GNU Linux, and an original-test
-  build with an Arm configuration that runs libaom's own SIMD-versus-C tests
-  against the Rust kernels. The floating-point CNN and neural-network kernels
+- Extend the libaom SIMD layers of ADR 0056 and ADR 0058: remaining Neon
+  hotspots (the 8-bit transforms, quantizer, and intra predictors;
+  `encodetxb_neon.c`), the x86 counterparts of the same functions, the
+  NASM-only high-bitdepth DC and V predictors, an AVX-512 measurement, the
+  speed 7 case where SSE4.1 beats AVX2 on AMD EPYC 7763, and an original-test
+  build with an Arm or x86 configuration that runs libaom's own SIMD-versus-C
+  tests against the Rust kernels. The floating-point CNN and neural-network kernels
   and the reordering Hadamard kernels need a separate exactness decision.
 - Reduce translation overheads that profiling shows in the Rust AOM encoder:
   zero-initialized C locals (memset, about 5% of an all-intra encode) and

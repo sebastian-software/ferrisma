@@ -56,7 +56,8 @@ non-realtime-only encoder, and the original default experiments. Compile with
 `-ffp-contract=off`. Debug and Release retain their actual original assertion
 and preprocessing differences; Rust development builds remain unoptimized.
 SIMD/assembly paths and later optimization are separate work; the macOS Neon
-layer is described under [Neon dispatch](#neon-dispatch-adr-0056).
+layer is described under [Neon dispatch](#neon-dispatch-adr-0056) and the GNU
+Linux x86-64 layer under [x86 dispatch](#x86-dispatch-adr-0058).
 
 Build with upstream's `CONFIG_TUNE_VMAF=0`
 ([ADR 0057](adr/0057-translate-libaom-without-vmaf-tuning.md)). The VMAF
@@ -723,7 +724,8 @@ consumer and isolated-oracle ownership audits also pass in both profiles.
 ## Neon dispatch (ADR 0056)
 
 The macOS ARM64 profiles dispatch 242 RTCD functions to hand-translated Neon
-kernels; GNU Linux keeps the generic headers. The kernels live under
+kernels; GNU Linux x86-64 dispatches to SSE2, SSE4.1, and AVX2 kernels since
+[ADR 0058](#x86-dispatch-adr-0058). The kernels live under
 `crates/aom/src/simd` at their original paths:
 
 | Original file | Dispatched functions |
@@ -843,3 +845,76 @@ round trips, CLI, linkage, inline, macro, and oracle checks, all 305
 allocation and eight worker-creation scenarios, 62 focused original API/error
 cases in each profile, and named layout checks over 18,216 records / 203,820
 checks in Debug and 18,167 records / 203,526 checks in Release.
+
+## x86 dispatch (ADR 0058)
+
+[ADR 0058](adr/0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md) gives
+the GNU Linux x86-64 profiles the x86 counterpart of the Neon set. The
+dispatch headers come from the original `cmake/rtcd.pl --arch=x86_64
+--require-c` with every family other than SSE2, SSE4.1, and AVX2 disabled and
+the overlay `crates/aom/rtcd/x86_64.pl`. They dispatch 104 RTCD functions
+through 111 kernel assignments, since some functions have both an SSE4.1 and an
+AVX2 variant:
+
+| Original file | Assignments |
+| --- | --- |
+| `aom_dsp/x86/highbd_intrapred_sse2.c` | 52 high-bitdepth predictors |
+| `av1/encoder/x86/highbd_fwd_txfm_sse4.c`, `highbd_fwd_txfm_avx2.c` | 17 SSE4.1 and 6 AVX2 forward transforms |
+| `av1/encoder/x86/av1_fwd_txfm2d_sse4.c` | 2 forward transforms |
+| `av1/common/x86/highbd_inv_txfm_sse4.c`, `highbd_inv_txfm_avx2.c` | `av1_highbd_inv_txfm_add`, once per family |
+| `av1/common/x86/cdef_block_avx2.c` | 12 CDEF filter, direction, and copy functions |
+| `aom_dsp/x86/intrapred_avx2.c` | 3 high-bitdepth directional predictors |
+| `av1/common/x86/intra_edge_sse4.c`, `filterintra_sse4.c` | 4 edge filter and upsampling functions, filter intra |
+| `aom_dsp/x86/highbd_quantize_intrin_avx2.c`, `highbd_adaptive_quantize_sse2.c`, `highbd_adaptive_quantize_avx2.c`, `av1/encoder/x86/av1_highbd_quantize_avx2.c` | 7 high-bitdepth quantizers |
+| `av1/encoder/x86/error_intrin_avx2.c`, `highbd_block_error_intrin_avx2.c` | 3 block-error functions |
+| `aom_dsp/x86/subtract_avx2.c`, `highbd_subtract_sse2.c` | 2 subtract functions |
+
+The high-bitdepth DC and V predictors for 4x4 to 32x32 exist upstream only as
+NASM and stay on `_c`, as do the high-bitdepth smooth and Paeth predictors,
+which have no x86 specialization. AVX-512 is not dispatched. `x86_simd_caps()`
+is translated with the RTCD units; only its CPUID lowering is replaced by
+`core::arch::x86_64::__cpuid_count` (correction `cpuid-register-mapping`, three
+sites per profile), and XGETBV keeps its translated inline assembly.
+
+Evidence on GNU Linux x86-64 (GitHub-hosted AMD EPYC 7763, AVX2 without
+AVX-512):
+
+- Run
+  [42534864431](https://github.com/sebastian-software/libavif-rs/actions/runs/42534864431)
+  of `aom-translate-linux.yml` generated both profiles with dispatch, and
+  `tools/import_aom_linux.py` imported them unchanged with their
+  `rtcd_dispatch` record ([import record](aom-linux-source-import.json)). The
+  same run passes the round trips, CLI, linkage, inline, and oracle checks,
+  the 269 encoder and 34 decoder allocation-failure scenarios and the
+  worker-creation scenarios, 62 focused original API/error cases in each
+  profile, and named layout checks over 18,217 records / 203,829 checks in
+  Debug and 18,168 records / 203,535 checks in Release, with zero differences.
+- `cargo test -p libavif-aom --test simd` runs 79 supplementary transcriptions
+  of the original SSE2, SSE4.1, and AVX2 test instantiations against the
+  translated `_c` functions in Release and Debug; all pass.
+- `tools/check_aom_simd_identity.py` encodes the 76 configurations of the
+  identity corpus with run-time detection (AVX2), with `AOM_SIMD_CAPS` limited
+  to SSE4.1, and with `AOM_SIMD_CAPS_MASK=0`. All 76 AVIF outputs are
+  byte-identical across the three selections.
+
+Encoder time for the 1600x2133 photo of the identity corpus, quality 56,
+4:2:0, through `examples/encode_still.rs`, median of five rounds on the
+four-core runner, one binary with three RTCD selections (see
+[the performance record](aom-x86-performance.json)):
+
+| Depth | Speed | Threads | C (ms) | SSE4.1 (ms) | AVX2 (ms) | AVX2 change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 10 | 6 | 1 | 4892 | 3371 | 2754 | -44% |
+| 10 | 6 | 4 | 2152 | 1500 | 1255 | -42% |
+| 10 | 7 | 1 | 2444 | 1596 | 1604 | -34% |
+| 10 | 7 | 4 | 1104 | 753 | 761 | -31% |
+| 8 | 6 | 1 | 4357 | 2943 | 2385 | -45% |
+| 8 | 6 | 4 | 1902 | 1273 | 1045 | -45% |
+| 8 | 7 | 1 | 2149 | 1435 | 1486 | -31% |
+| 8 | 7 | 4 | 975 | 673 | 695 | -29% |
+
+All three selections write the same bytes in every configuration. At speed 6
+AVX2 saves another 11 to 13 points over SSE4.1, consistent with CDEF, whose
+kernels exist only as AVX2 in this set. At speed 7, where the all-intra
+encoder skips CDEF, SSE4.1 is 0.5 to 3% faster than AVX2 on this CPU; which
+AVX2 kernels cause that is not yet measured.

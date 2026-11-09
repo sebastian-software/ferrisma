@@ -57,6 +57,13 @@ macOS root pilot, both native SharpYUV bounded gates, and the complete corrected
 macOS dav1d corpus and DSP checks. Earlier capacity failures and the original
 formatter failure remain preserved; bounded runs receive no full-suite credit.
 
+The x86 libaom SIMD layer of ADR 0058 has its own workflow,
+`aom-simd-linux.yml`, which runs on PRs and pushes that touch `crates/aom`. It
+compares the 79 SSE2, SSE4.1, and AVX2 kernel transcriptions with their `_c`
+functions in Release and Debug and requires byte-identical AVIF output for the
+identity corpus with AVX2, SSE4.1, and C dispatch. A manual run with `measure`
+also records encoder time per selection.
+
 Only PR runs cancel an earlier run of the same PR. Pushes, manual runs, and
 nightlies have separate event concurrency groups. Up to two nightly container
 configurations per native OS run concurrently; each job limits compiler/test processes to
