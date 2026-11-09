@@ -23,7 +23,9 @@
   block with a `// SAFETY:` argument.
 - No new dependencies. Ordinary builds compile and link no C.
 - Prove each unit against the C oracle ([ADR 0002](docs/adr/0002-differential-oracle.md)).
-  A Rust round trip is not evidence.
+  A Rust round trip is not evidence. Show that the tests catch a deliberate
+  fault in the code a change covers, and name the faults tried in the pull
+  request (ADR 0002, "Mutations").
 - Keep `upstream/` unmodified and never advance the submodule.
 - Run `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and
   `cargo test` before committing.

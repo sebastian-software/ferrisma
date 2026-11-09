@@ -84,6 +84,17 @@ coverage-guided fuzzing in Rust is a separate decision, since it needs a
 development dependency ([ADR 0003](0003-toolchain-and-unsafe-policy.md),
 [#18](https://github.com/sebastian-software/libjpeg-turbo-rs/issues/18)).
 
+**Mutations.** A passing test shows nothing unless it can fail. Each change
+that adds or changes translated code or a check shows, before it merges, that
+the tests catch a deliberate fault in what it covers. Such faults include a
+changed constant, lane, sign, shift or bias, a dropped or reordered
+operation, or an off-by-one at a row tail. Do this for each instruction set
+where kernels differ. The change is reverted afterwards. The pull request
+names the faults tried and the test that failed for each. A fault that no
+test catches either gets a test or is shown to be equivalent, that is, to
+give the same output for every input the code can receive, and the pull
+request says why.
+
 **Conformance.** Before Ferrixel adopts the decoder, it is checked with the
 ISO/IEC 10918-2 (ITU-T T.83) compliance test data for the processes in scope:
 baseline, extended (8-bit Huffman and arithmetic) and progressive. ITU
