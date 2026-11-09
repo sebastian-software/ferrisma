@@ -13,7 +13,7 @@
 | 8 Safe Rust API for Ferrixel | done | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
 | 9 NEON SIMD | done | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) accepted |
 | 10 x86-64 SIMD | done | The decoder's SSE2 and AVX2 kernels rewritten from upstream's NASM as intrinsics; each kernel compared with its asm through a kernel probe, and the whole suite with the `simd` oracle in the AVX2, SSE2 and `JSIMD_FORCENONE=1` modes, and speed figures from CI, below; [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md) accepted |
-| 11 Conformance | in review | The ISO/IEC 10918-2 (ITU-T T.83) data for the 8-bit DCT processes, fetched and verified by `tools/fetch_t83.py`: every image stream decodes to the coded coefficients (`EREF`) bit for bit, T.83's decoder test against `DREF` and the accuracy against a true IDCT are recorded per stream, component and IDCT method, and every stream matches the oracle, below |
+| 11 Conformance | done | The ISO/IEC 10918-2 (ITU-T T.83) data for the 8-bit DCT processes, fetched and verified by `tools/fetch_t83.py`: every image stream decodes to the coded coefficients (`EREF`) bit for bit, T.83's decoder test against `DREF` and the accuracy against a true IDCT are recorded per stream, component and IDCT method, and every stream matches the oracle, below |
 
 Work packages 1 to 6 are translated: 37 modules under `src/`
 ([tools/units.json](../tools/units.json)). Work package 9 adds the 10 SIMD
@@ -1103,5 +1103,7 @@ mode and profile:
 | `--oracle-variant simd --arch x86_64`, through Rosetta 2 with `ROSETTA_ADVERTISE_AVX=1` | 1,017 tests, AVX2, SSE2 and none modes; static checks for `x86_64-apple-darwin` |
 
 `cargo +stable clippy --all-targets -- -D warnings` and `cargo fmt --check`
-pass. The Linux hosts of CI, whose `libm` computes the reference DCTs'
-cosines, have not run the suite yet.
+pass. CI ran the suite on this work package's pull request on Linux x86-64
+(the `release` and `simd` oracles) and Linux ARM64 (the `simd` oracle) as
+well. Their `libm` computes the reference DCTs' cosines, and the recorded
+values hold there unchanged.
