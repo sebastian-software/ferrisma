@@ -11,8 +11,8 @@
 | 6 Control and API | done | Master control and the decompression API translated; API probe below |
 | 7 Upstream bit tests | done | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
 | 8 Safe Rust API for Ferrixel | done | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
-| 9 NEON SIMD | done | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) proposed |
-| 10 x86-64 SIMD | done | The decoder's SSE2 and AVX2 kernels rewritten from upstream's NASM as intrinsics; each kernel compared with its asm through a kernel probe, and the whole suite with the `simd` oracle in the AVX2, SSE2 and `JSIMD_FORCENONE=1` modes, and speed figures from CI, below; [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md) proposed |
+| 9 NEON SIMD | done | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) accepted |
+| 10 x86-64 SIMD | done | The decoder's SSE2 and AVX2 kernels rewritten from upstream's NASM as intrinsics; each kernel compared with its asm through a kernel probe, and the whole suite with the `simd` oracle in the AVX2, SSE2 and `JSIMD_FORCENONE=1` modes, and speed figures from CI, below; [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md) accepted |
 | 11 Conformance | not started | — |
 
 Work packages 1 to 6 are translated: 37 modules under `src/`

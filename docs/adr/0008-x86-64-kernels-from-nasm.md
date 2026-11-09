@@ -1,8 +1,8 @@
 # Rewrite the x86-64 kernels from NASM as SSE2 and AVX2 intrinsics
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-08
+- Updated: 2026-11-09
 
 ## Context
 

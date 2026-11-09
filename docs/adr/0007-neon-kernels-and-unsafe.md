@@ -1,8 +1,8 @@
 # Translate the NEON kernels with unsafe code only for memory access and entry
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-08
+- Updated: 2026-11-09
 
 ## Context
 

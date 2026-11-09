@@ -1,8 +1,8 @@
 # Offer a safe row-streaming decoder over the translated API
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-08
+- Updated: 2026-11-09
 
 ## Context
 
