@@ -81,6 +81,9 @@ needs libjpeg's scaled IDCT
   `Rc`. A decode runs on the thread that started it.
 - Warnings of a failed `start` or `finish` are lost with the decoder; the
   error itself is kept.
+- A `read_rows` call that fails partway returns the error, not the number of
+  rows it wrote before it. A caller that needs every good row of a damaged
+  file reads one row per call.
 
 ## Alternatives considered
 
@@ -109,6 +112,8 @@ adapter needs a libjpeg call that the safe API does not offer.
 
 ## Review when
 
-- Ferrixel's adapter adopts the decoder and needs a call the API lacks.
+- Ferrixel's adapter adopts the decoder
+  ([ferrixel#14](https://github.com/sebastian-software/ferrixel/issues/14))
+  and needs a call the API lacks.
 - A caller needs `Send` decoders or a suspending source.
 - The SIMD packages add options, for example a choice of kernels.

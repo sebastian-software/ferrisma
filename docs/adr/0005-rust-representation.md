@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-08
+- Updated: 2026-11-09
 
 ## Context
 
@@ -25,10 +25,10 @@ and are passed to common code as `j_common_ptr`.
 
 Safe Rust cannot copy these constructs, and `#![deny(unsafe_code)]` applies to
 every translated module ([ADR 0003](0003-toolchain-and-unsafe-policy.md)).
-Work packages 1 to 6 translate in parallel once this record is accepted
-([PORT_PLAN.md](../PORT_PLAN.md)), so they need the same answers without
-coordinating. libwebp-rs settled the same class of questions in its ADR 0003;
-this record follows it where the constructs match. A package that meets a
+Work packages 1 to 6 translate in parallel once this record is accepted, so
+they need the same answers without coordinating. libwebp-rs settled the same
+class of questions in its ADR 0003; this record follows it where the
+constructs match. A package that meets a
 construct these rules do not cover stops and asks for an amendment.
 
 ## Decision
@@ -181,8 +181,8 @@ find it is a translation error and panics; tests find it. A helper that C
 gives only `cinfo` but that works on the module receives the module as a
 second parameter. A function that holds no borrow of its module across a
 call may instead reach the module through `cinfo` each time it uses it
-(`cinfo.marker_mut().cur_marker`), which needs no put-back. Each package
-records in its status entry the calls where it puts a module back. A call
+(`cinfo.marker_mut().cur_marker`), which needs no put-back. The module's
+documentation names the calls where it puts its module back. A call
 that reaches only other modules and the application's hooks need not put the
 box back when none of them reaches this module in upstream: the entropy
 decoders keep theirs across the source's `fill_input_buffer`, the error
@@ -330,7 +330,12 @@ objects reserve with `Vec::try_reserve_exact` and report a refused reservation
 as the `out_of_memory` code that a failing `jpeg_get_large` (4) or
 `jpeg_get_small` (2) produces; a small fixed-size `Box` is allocated
 infallibly. Rust initializes every allocation; C code that reads
-`malloc`ed memory before writing it is undefined and is recorded where found.
+`malloc`ed memory before writing it is undefined and would be recorded here.
+No translated function does. Where C leaves memory uninitialized until it
+first writes it (`last_rowsperchunk` until the first `alloc_sarray` or
+`alloc_barray`, the tables of `jpeg_alloc_quant_table` and
+`jpeg_alloc_huff_table`, the second half of `coef_bits` until `start_pass`),
+the port starts it at zero.
 
 **Pools.** `free_pool(JPOOL_IMAGE)` drops the image pool's records, so
 `total_space_allocated` falls as it does in C, and resets every field of the
@@ -387,8 +392,8 @@ module's storage and turned into borrows per call.
 
 **Disjoint borrows.** When C passes two pointers into one structure that the
 callee mutates, the Rust code splits the structure into separate borrows, and
-the package records the split. A pointer that may be `NULL` becomes an
-`Option`.
+the module's documentation records the split. A pointer that may be `NULL`
+becomes an `Option`.
 
 ### Out-of-scope branches inside in-scope files
 
@@ -405,7 +410,9 @@ condition elsewhere: `JERR_BAD_PRECISION` for a data precision other than 8,
 `JERR_CONVERSION_NOTIMPL` for RGB565 output. The stdio source functions are
 absent ([tools/units.json](../../tools/units.json), `not_translated`). The
 oracle supports all of these, so the differential tests list such inputs as
-out of scope with this reason instead of comparing them.
+out of scope with this reason instead of comparing them. One default differs
+as well: with `QUANT_2PASS_SUPPORTED` undefined, `default_decompress_parms`
+sets `two_pass_quantize` to `false` where the oracle sets it to `TRUE`.
 
 ### Visibility
 

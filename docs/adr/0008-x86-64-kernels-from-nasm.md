@@ -69,7 +69,8 @@ ARM64 Mac, but reports AVX2 through CPUID only when the environment sets
      file, each under its `target_arch`.
    - The include files of `simd/nasm` are not modules: the kernels expand
      their macros where they use them.
-   - The encoder's files are not translated (ADR 0001).
+   - The encoder's files are not translated (ADR 0001), and neither are the
+     i386 files: the port's SIMD targets are AArch64 and x86-64 (ADR 0004).
 3. **The rewrite keeps the asm's order and names.**
    - Each `GLOBAL_FUNCTION` becomes one Rust function of the same name with
      the signature of its `*_simd` slot, marked
@@ -90,7 +91,8 @@ ARM64 Mac, but reports AVX2 through CPUID only when the environment sets
    - The calling convention (`COLLECT_ARGS`, pushes and pops, `ENDBR64`), the
      pointer arithmetic and the loop counters become Rust control flow over
      indices. A label becomes a loop or block, with the label's name in a
-     comment.
+     comment. The `%ifdef WIN64` branches are dropped, as Windows is not a
+     target (ADR 0005).
    - A constant table becomes a `static` with the asm's layout, its labels as
      fields and `#[repr(C, align(32))]`, as `ALIGNZ 32` aligns it. The
      `IS_ALIGNED_*` checks of `jsimd.c` test its address as upstream does.
@@ -105,6 +107,7 @@ ARM64 Mac, but reports AVX2 through CPUID only when the environment sets
    unaligned stores, so the asm's test of the output address that chooses
    between them falls away; the `sfence` after them stays. `vzeroupper` is
    left to the compiler, which emits it where AVX code returns to SSE code.
+   The `prefetchnta` hints are left out, as they change no values.
    A partial store, such as `movq`, `movd` or the byte stores at a row's
    tail, writes the bytes in safe code.
 

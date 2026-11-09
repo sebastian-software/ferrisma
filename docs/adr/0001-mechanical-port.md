@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-06
+- Updated: 2026-11-09
 
 ## Context
 
@@ -28,6 +28,9 @@ state on error. Do not redesign, tune or add optimizations while translating.
 One Rust module per upstream C file, with the C file's name (`src/jdhuff.c`
 becomes `src/jdhuff.rs`). Every translated item names its origin
 (`// upstream: src/jdhuff.c decode_mcu`).
+[tools/units.json](../../tools/units.json) maps every upstream file to its
+module or to the reason it is not translated, and `tools/units.py` checks the
+map against upstream and `src/`.
 
 **Scope: the 8-bit decompression path of the libjpeg API.**
 
@@ -65,7 +68,7 @@ upstream version against the old one directly applicable. The libjpeg API's
 object-oriented C (method tables of function pointers, a pool allocator,
 `setjmp`/`longjmp`-style error exits) needs an explicit Rust representation,
 decided before translation starts
-([PORT_PLAN.md](../PORT_PLAN.md), work package 0). Leaving out 12-bit and
+([ADR 0005](0005-rust-representation.md)). Leaving out 12-bit and
 lossless decoding means some valid JPEG files are rejected; the decoder reports
 them as unsupported instead of misdecoding them.
 

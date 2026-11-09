@@ -118,7 +118,10 @@ call through an `unsafe fn` pointer, the only pointer type that a
   match the `simd` oracle, not the reference oracle.
 - `tools/check.py` builds the crate without default features for the
   `release` and `asan-ubsan` oracles and with them for the `simd` oracle,
-  which it runs twice, with and without `JSIMD_FORCENONE=1`.
+  which it runs twice, with and without `JSIMD_FORCENONE=1`. It sets
+  `LIBJPEG_EXPECT_SIMD` to `neon` or `none`, the kernels that the dispatch
+  test must find selected, and the tests accept only an oracle whose
+  `WITH_SIMD` is the crate's.
 - The unsafe code is a set of small wrappers with one argument each, which
   review can check against the instruction's memory footprint, and one call
   per kernel entry.
