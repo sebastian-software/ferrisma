@@ -40,7 +40,7 @@ pub enum Format { Lossy, Lossless }
 pub struct Features {                                          // Copy, Eq
     pub width: u32, pub height: u32,
     pub has_alpha: bool, pub has_animation: bool,
-    pub format: Option<Format>,                                // None: an animation
+    pub format: Option<Format>,                                // None: no bitstream header reached
 }
 impl Features { pub fn parse(data: &[u8]) -> Result<Features, DecodeError>; }
 
@@ -183,7 +183,7 @@ pub enum Plane { Rows, Y, U, V, A }
 
 | API | Translation |
 | --- | --- |
-| `Features::parse`, `Format` | `webp_get_features` (`src/webp/decode.rs`); `format` 1 and 2 are `Some(Lossy)` and `Some(Lossless)`; 0 is `None`, which a successful parse reports only for an animation (`ParseHeadersInternal` returns at the animation flag, and a prefix that ends before the image chunk is `NOT_ENOUGH_DATA`), whose frames carry their own format |
+| `Features::parse`, `Format` | `webp_get_features` (`src/webp/decode.rs`); `format` 1 and 2 are `Some(Lossy)` and `Some(Lossless)`; 0 is `None`: the parse did not reach a bitstream header. A successful parse reports 0 for an animation (`ParseHeadersInternal` returns at the animation flag; the frames carry their own format) and for an extended still image probed with a prefix that ends after the `VP8X` chunk but before the `VP8 `/`VP8L` chunk header (`ParseHeadersInternal` turns that `NOT_ENOUGH_DATA` into `VP8_STATUS_OK` when it found a `VP8X` chunk and fills no headers). `has_animation` tells the two apart. `parse` reports `NOT_ENOUGH_DATA` and `BITSTREAM_ERROR`; `UNSUPPORTED_FEATURE` comes only from `WebPParseHeaders`, which `WebPDecode` uses |
 | `ColorMode` | `WEBP_CSP_MODE::MODE_RGB` to `MODE_YUVA` in C's order; `bytes_per_pixel` is `kModeBpp` |
 | `Config::new`, setters | `webp_init_decoder_config`, then the `WebPDecoderOptions` fields `use_cropping`, `crop_*`, `use_scaling`, `scaled_*`, `flip`, `bypass_filtering`, `no_fancy_upsampling` (negated), `use_threads`, `dithering_strength`, `alpha_dithering_strength`, and `output.colorspace` |
 | `Config::validate` | the API's checks below, then `webp_validate_decoder_config` without features |

@@ -399,23 +399,29 @@ pub struct Features {
     pub has_alpha: bool,
     /// Whether the file is an animation; decode it with [`AnimationDecoder`].
     pub has_animation: bool,
-    /// The compression of the image, or `None` for an animation, whose
-    /// frames each carry their own format (libwebp reports 0, "undefined",
-    /// and stops parsing at the animation flag; every successful parse of a
-    /// still image reaches its bitstream).
+    /// The compression of the image, or `None` when the parse did not reach
+    /// a bitstream header (libwebp reports 0, "undefined"): for an animation,
+    /// whose frames each carry their own format, and for an extended still
+    /// image probed with a prefix that ends before its image chunk. Use
+    /// [`has_animation`](Self::has_animation) to tell the two apart.
     pub format: Option<Format>,
 }
 
 impl Features {
     /// Reads the features from the start of a WebP file (C:
     /// `WebPGetFeatures`); a prefix is enough once it reaches the bitstream's
-    /// header, or the `VP8X` chunk of an animation.
+    /// header, or the `VP8X` chunk of an extended file.
+    ///
+    /// After the `VP8X` chunk of an extended still image the result can carry
+    /// `format: None`, with the canvas as the size, until the prefix reaches
+    /// the image chunk's header; a caller who needs the format reads more
+    /// until it is `Some`.
     ///
     /// # Errors
     ///
     /// [`DecodeError::NotEnoughData`] when the prefix ends too early, and
-    /// [`DecodeError::BitstreamError`] or [`DecodeError::UnsupportedFeature`]
-    /// for a file that is not a WebP file libwebp decodes.
+    /// [`DecodeError::BitstreamError`] for a file that is not a WebP file
+    /// libwebp decodes.
     ///
     /// # Examples
     ///
@@ -424,6 +430,38 @@ impl Features {
     ///
     /// assert_eq!(Features::parse(b"RIFF"), Err(DecodeError::NotEnoughData));
     /// assert_eq!(Features::parse(b"GIF89a, not a WebP file"), Err(DecodeError::BitstreamError));
+    /// ```
+    ///
+    /// A prefix of an extended still image that ends after the `VP8X` chunk
+    /// gives the canvas but no format yet:
+    ///
+    /// ```
+    /// use webp::api::decode::{Features, Format};
+    /// # use webp::api::encode::{encode_lossless, PixelLayout, PixelRows};
+    /// # fn chunk(tag: &[u8], payload: &[u8]) -> Vec<u8> {
+    /// #     let mut bytes = tag.to_vec();
+    /// #     bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+    /// #     bytes.extend_from_slice(payload);
+    /// #     if payload.len() % 2 == 1 { bytes.push(0); }
+    /// #     bytes
+    /// # }
+    /// # let rgba = [0_u8, 0, 0, 255].repeat(4);
+    /// # let image = encode_lossless(PixelRows { layout: PixelLayout::Rgba, data: &rgba, width: 2, height: 2, stride: 8 })?;
+    /// # let vp8x = chunk(b"VP8X", &[0x20 | 0x08, 0, 0, 0, 1, 0, 0, 1, 0, 0]);
+    /// # let body = [vp8x, chunk(b"ICCP", b"profile"), image[12..].to_vec(), chunk(b"EXIF", b"Exif\0\0MM")].concat();
+    /// # let mut file = b"RIFF".to_vec();
+    /// # file.extend_from_slice(&(body.len() as u32 + 4).to_le_bytes());
+    /// # file.extend_from_slice(b"WEBP");
+    /// # file.extend_from_slice(&body);
+    ///
+    /// // `file` is an extended 2 by 2 still image: a 12-byte RIFF header, an
+    /// // 18-byte `VP8X` chunk, then `ICCP`, `VP8L` and `EXIF` chunks.
+    /// let prefix = Features::parse(&file[..30])?;
+    /// assert_eq!((prefix.width, prefix.height), (2, 2));
+    /// assert_eq!((prefix.format, prefix.has_animation), (None, false));
+    ///
+    /// assert_eq!(Features::parse(&file)?.format, Some(Format::Lossless));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn parse(data: &[u8]) -> Result<Self, DecodeError> {
         let mut raw = WebPBitstreamFeatures::default();
