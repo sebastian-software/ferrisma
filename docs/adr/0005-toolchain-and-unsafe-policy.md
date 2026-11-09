@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-09
+- Updated: 2026-11-10
 
 ## Context
 
@@ -41,8 +41,8 @@ Rust (as `image-webp` shows), so libwebp-rs can be stricter.
   `tests/support/oracle.rs`.
 - No runtime dependencies. Development dependencies need an amendment of this
   record that names them; there are none.
-- The fuzz targets live in `fuzz/`, a separate crate (amended 2026-11-07, WP12;
-  WORKPLAN decision 6). It is not a member of the library's workspace (it
+- The fuzz targets live in `fuzz/`, a separate crate (amended 2026-11-07,
+  WP12). It is not a member of the library's workspace (it
   declares its own) and never a dependency of the library. Its only dependency
   besides the library is `libfuzzer-sys` 0.4, which re-exports `arbitrary` for
   structured inputs. cargo-fuzz builds it with a nightly toolchain

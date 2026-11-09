@@ -2,13 +2,14 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-06
+- Updated: 2026-11-10
 
 ## Context
 
 libwebp-rs translates libwebp v1.6.0 so that Ferrixel can read and write WebP
 without a C dependency. The translation runs as parallel work packages
-([WORKPLAN.md](../WORKPLAN.md)), each verified against the original C code.
+([ADR 0009](0009-work-packages-and-integration.md)), each verified against
+the original C code.
 Combining the port with algorithm, API or performance changes would make
 discrepancies hard to locate, and parallel sessions need rules that let them
 name and place code identically without coordinating.
@@ -91,8 +92,8 @@ defining it ([PORTING.md](../PORTING.md)).
 Source and target stay easy to compare, function by function, at the cost of
 a less idiomatic internal API; the safe public API is a later, separate layer
 (WP16, WP17). The fixed module tree removes shared-file conflicts between
-packages, but it cannot remove call dependencies between them; WORKPLAN.md
-records those.
+packages, but it cannot remove call dependencies between them;
+`tools/units.json` records those (ADR 0009).
 
 ## Review triggers
 

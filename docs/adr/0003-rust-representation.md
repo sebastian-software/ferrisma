@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-07
+- Updated: 2026-11-10
 
 ## Context
 
@@ -180,9 +180,9 @@ shared (C: the `const WebPPicture*` of `WebPPictureView`). A view keeps the
 region indices and offsets of its source. Reading a shared plane is allowed;
 writing into one panics, because C would write through the `const` pointer
 that it casts away. A view has no callbacks and no `stats` or `extra_info`. The
-library functions that write a picture's planes in place are listed in
-`docs/status/wp9.md`, so that a consumer knows where a mutable view would be
-needed.
+library functions that write a picture's planes in place are listed in the
+module documentation of `src/enc/picture_enc.rs`, so that a consumer knows
+where a mutable view would be needed.
 
 **Untyped sample buffers (decided 2026-11-06, WP5).** A C `void*` buffer whose
 sample type the code selects by a bit depth (`uint8_t` for 8 bits, `uint16_t`

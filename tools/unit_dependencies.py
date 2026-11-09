@@ -148,7 +148,7 @@ def main():
         print(f"{len(findings)} undeclared package reference(s)", flush=True)
     if args.check and findings:
         raise SystemExit("Declared package dependencies do not cover the references above; "
-                         "see docs/WORKPLAN.md")
+                         "see tools/units.json and docs/adr/0009-work-packages-and-integration.md")
 
 
 if __name__ == "__main__":

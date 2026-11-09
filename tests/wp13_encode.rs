@@ -1,5 +1,5 @@
 //! WP13 differential test: `WebPEncode` (`src/enc/webp_enc.c`) over the
-//! encoder matrix of `docs/PORT_PLAN.md` (Phase 3). The C probe
+//! encoder matrix of `docs/PORTING.md` (end-to-end gates). The C probe
 //! `tools/oracle/probes/wp13/encode.c` imports each seeded picture with the
 //! oracle, optionally moves it into caller memory or takes a view of it, and
 //! encodes it with `WebPEncode`; the Rust test does the same with the

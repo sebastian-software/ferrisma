@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-08
+- Updated: 2026-11-10
 
 ## Context
 
@@ -76,8 +76,8 @@ package's status file. Tests pass in the dev, release and `checked` profiles.
 
 **Baseline.** `tools/oracle_baseline.py` runs upstream's `test_dwebp.sh` and
 `test_lossless.sh` against the oracle's own `dwebp` and checks exact counts.
-[PORT_STATUS.md](../PORT_STATUS.md) records them. The test data is pinned at the
-last revision whose references match v1.6.0.
+The `Checks` workflow on `main` runs them for every variant on both systems.
+The test data is pinned at the last revision whose references match v1.6.0.
 
 ## Consequences
 

@@ -53,7 +53,7 @@ fn webp_get_features_over_every_vector() {
     };
     let probe = oracle.probe("wp0", "webp_get_features");
     let vectors = oracle::test_vectors();
-    // 131 vectors at the pinned test-data revision (docs/PORT_STATUS.md).
+    // 131 vectors at the pinned test-data revision (pin: docs/PROVENANCE.md).
     assert_eq!(vectors.len(), 131, "test vector count changed");
     assert!(vectors[0].ends_with("alpha_color_cache.webp"));
 

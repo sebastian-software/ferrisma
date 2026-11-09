@@ -22,7 +22,7 @@ v1.6.0. The next two commits, `05cd58b` and `06ddd96` (26 August 2025), add no
 vectors; they regenerate seven PGM checksums in `libwebp_tests.md5` and the
 `grid.pgm`, `peak.pgm` and `lossless_color_transform.pgm` references for libwebp
 `0d14d84b`, a change made after v1.6.0. WP0 first pinned `06ddd96` and moved the
-pin back for that reason ([WORKPLAN.md](WORKPLAN.md#findings-from-wp0)).
+pin back for that reason.
 
 RFC 6386 (VP8) and RFC 9649 (WebP container and VP8L) are reading aids only;
 the pinned source is the authority.
@@ -52,6 +52,11 @@ the documentation under `docs/`, the tools under `tools/` including
 `tests/`, the CI workflows, and `src/lib.rs` and the `mod.rs` files. Probes call
 the pinned upstream library; they do not copy its algorithms.
 
-The plan documents [WORKPLAN.md](WORKPLAN.md) and [PORT_PLAN.md](PORT_PLAN.md)
-come from the Ferrixel repository (`docs/research/`, commit
-`2aa4f3d1bb226d9541a4e9270168b03d17cac2ec`), by the same maintainer.
+The port was planned in the Ferrixel repository
+(`docs/research/2026-11-05-libwebp-port-plan.md` and
+`2026-11-05-libwebp-port-workplan.md` at commit
+`2aa4f3d1bb226d9541a4e9270168b03d17cac2ec`), by the same maintainer. Copies
+lived here as `docs/PORT_PLAN.md` and `docs/WORKPLAN.md` until 9 November
+2026, when [ADR 0009](adr/0009-work-packages-and-integration.md) and
+[ADR 0010](adr/0010-ferrixel-adoption.md) replaced them; Git history keeps
+them.

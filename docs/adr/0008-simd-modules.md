@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Created: 2026-11-09
-- Updated: 2026-11-09
+- Updated: 2026-11-10
 
 ## Context
 
@@ -143,7 +143,7 @@ tables (`VP8PredLuma4` and the like) select per entry the same way.
 inputs, a fixed number of calls per measurement and the median of repeated
 measurements, printing nanoseconds per call for the C translation and each
 SIMD level the host has. Each package registers its module's cases there and
-records the table (host, CPU, `rustc` version) on its status page. A variant
+records the table (host, CPU, `rustc` version) in its pull request. A variant
 slower than the C translation is recorded, not removed or tuned: this is the
 mechanical port; optimization is Ferrixel's later phase.
 

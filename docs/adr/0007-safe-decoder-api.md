@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-09
-- Updated: 2026-11-09
+- Updated: 2026-11-10
 
 ## Context
 
@@ -318,8 +318,7 @@ is never returned (the API sets no I/O hooks) and is kept for `code()`.
   one frame with timestamp 0, loop count 1 and background `0xFFFFFFFF`.
 
 **Cropping.** The crop is libwebp's (`use_cropping` and the four values) and
-saves what WP12 measured (`docs/status/wp12.md`, "Cropping measurement for
-Ferrixel"): for `VP8 ` and `VP8L` images, `decode` and `decode_into` decode
+saves what WP12 measured (`tests/wp12_crop_rows.rs` holds the table): for `VP8 ` and `VP8L` images, `decode` and `decode_into` decode
 only the rows down to the crop's bottom (plus 2 or 8 rows of filter margin for
 lossy), never fewer rows above it, and nothing is saved by a horizontal crop;
 the incremental decoder parses every macroblock row of a lossy image whatever
