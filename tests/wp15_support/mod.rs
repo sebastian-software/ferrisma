@@ -14,8 +14,9 @@
 
 use std::borrow::Cow;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use webp::enc::picture_enc::{webp_encode_lossless_rgba, webp_encode_rgba};
 use webp::mux::anim_encode::{
     WebPAnimEncoder, webp_anim_encoder_add, webp_anim_encoder_assemble,
     webp_anim_encoder_delete_chunk, webp_anim_encoder_get_chunk, webp_anim_encoder_get_error,
@@ -39,7 +40,11 @@ use webp::webp::mux::{
 };
 use webp::webp::mux_types::{WebPData, WebPMuxAnimBlend, WebPMuxAnimDispose};
 
-use crate::wp8_support::{digest, hex};
+use crate::oracle::Oracle;
+use crate::wp8_support::{
+    Rng, chunk, digest, hex, riff, top_level_chunks, truncation_points, vp8x_payload,
+};
+use crate::wp14_support::{Alpha, AnimSpec, Codec, FrameSpec, build, pattern};
 
 /// The value of the probe's marked fields as C prints them: `memset` with
 /// 0x5a, read as `int` or `uint32_t`.
@@ -722,4 +727,852 @@ pub fn anim_report(script: &str) -> String {
         }
     }
     out
+}
+
+//------------------------------------------------------------------------------
+// Mux scripts
+
+/// The script for one WebP file: created with and without copying, queried,
+/// assembled (a round trip) and edited.
+pub fn file_script(token: &str, with_hex: bool) -> String {
+    let hex = i32::from(with_hex);
+    format!(
+        "create 0 {token}\nstate\nassemble {hex}\nstate\ncreate 1 {token}\ngetframe 1 {hex}\n\
+         getframe 0 0\nsetcanvas 0 0\nassemble 0\nstate\ndelframe 1\nstate\nassemble 0\n"
+    )
+}
+
+/// The scripts of the pinned test vectors, one per vector.
+pub fn vector_scripts() -> Vec<String> {
+    crate::oracle::test_vectors()
+        .iter()
+        .map(|path| {
+            let size = std::fs::metadata(path).unwrap().len();
+            file_script(&format!("file:{}", path.display()), size <= 2048)
+        })
+        .collect()
+}
+
+/// The scripts of the animated files: WP14's synthetic animations and the
+/// oracle's `img2webp` animations, parsed and edited.
+pub fn animation_scripts(oracle: &Oracle, directory: &Path) -> Vec<String> {
+    let mut files: Vec<(String, std::path::PathBuf)> =
+        crate::wp14_support::write_all(directory, &crate::wp14_support::synthetic_animations());
+    files.extend(crate::wp14_support::img2webp_animations(oracle, directory));
+    let mut scripts = Vec::new();
+    for (index, (_, path)) in files.iter().enumerate() {
+        let token = format!("file:{}", path.display());
+        let mut script = file_script(&token, index % 16 == 0);
+        // Frame and chunk edits on the parsed animation.
+        write!(
+            script,
+            "create 0 {token}\ngetframe 2 0\ndelframe 0\nsetanim 4278190080 7\n\
+             setchunk ICCP 1 hex:0102\nsetchunk abcd 0 hex:\nsetcanvas 5000 5000\nassemble 0\n\
+             state\ndelchunk abcd\ndelchunk EXIF\nsetcanvas 0 0\nassemble {}\nstate\n",
+            i32::from(index % 32 == 0)
+        )
+        .unwrap();
+        scripts.push(script);
+    }
+    scripts
+}
+
+/// The scripts of truncated and bit-flipped files and of extreme size fields.
+pub fn truncated_scripts(directory: &Path) -> Vec<String> {
+    let mut sources: Vec<Vec<u8>> = Vec::new();
+    for path in crate::oracle::test_vectors() {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        if [
+            "lossy_alpha1.webp",
+            "lossless1.webp",
+            "test.webp",
+            "lossy_extreme_probabilities.webp",
+        ]
+        .contains(&name.as_str())
+        {
+            sources.push(std::fs::read(&path).unwrap());
+        }
+    }
+    for (_, bytes) in crate::wp14_support::synthetic_animations()
+        .into_iter()
+        .step_by(23)
+    {
+        sources.push(bytes);
+    }
+    let mut scripts = Vec::new();
+    let mut count = 0;
+    for (index, bytes) in sources.iter().enumerate() {
+        for point in truncation_points(bytes) {
+            let token = file_token(directory, &format!("cut{count}.webp"), &bytes[..point]);
+            count += 1;
+            scripts.push(format!(
+                "create 0 {token}\nstate\nassemble 0\ncreate 1 {token}\nassemble 0\n"
+            ));
+        }
+        let mut rng = Rng(0x15 + index as u64);
+        for _ in 0..24 {
+            let mut flipped = bytes.clone();
+            let position = rng.below(flipped.len() as u64) as usize;
+            flipped[position] ^= 1 << rng.below(8);
+            let token = file_token(directory, &format!("flip{count}.webp"), &flipped);
+            count += 1;
+            scripts.push(format!("create 1 {token}\nstate\nassemble 0\n"));
+        }
+    }
+    // Extended size fields: a RIFF size past the end, chunk sizes over the
+    // remaining bytes, over the RIFF size and over MAX_CHUNK_PAYLOAD.
+    let small = std::fs::read(crate::oracle::test_data().join("lossless1.webp")).unwrap();
+    for riff_size in [0u32, 4, 11, 12, 13, 0xffff_fff6, 0xffff_fff7, u32::MAX] {
+        let mut file = small.clone();
+        file[4..8].copy_from_slice(&riff_size.to_le_bytes());
+        let token = file_token(directory, &format!("riff{riff_size}.webp"), &file);
+        scripts.push(format!("create 0 {token}\nstate\nassemble 0\n"));
+    }
+    for chunk_size in [0u32, 1, 7, 8, 0xffff_fff6, 0xffff_fff7, u32::MAX] {
+        let mut file = small.clone();
+        file[16..20].copy_from_slice(&chunk_size.to_le_bytes());
+        let token = file_token(directory, &format!("chunk{chunk_size}.webp"), &file);
+        scripts.push(format!("create 0 {token}\nstate\nassemble 0\n"));
+    }
+    scripts
+}
+
+/// The data that the edit sequences use, as DATA tokens.
+pub struct Pool {
+    /// Raw VP8 and VP8L bitstreams and single-image WebP files.
+    pub images: Vec<String>,
+    /// Animated WebP files (an image of `WebPMuxSetImage` takes the first frame).
+    pub animations: Vec<String>,
+    /// Data that is no image.
+    pub garbage: Vec<String>,
+    /// Chunk payloads.
+    pub payloads: Vec<String>,
+}
+
+/// The payload of the first chunk with `tag` of a WebP file.
+pub fn payload(file: &[u8], tag: &[u8; 4]) -> Vec<u8> {
+    top_level_chunks(file)
+        .into_iter()
+        .find(|(name, _)| name == tag)
+        .map(|(_, bytes)| bytes)
+        .unwrap_or_else(|| panic!("no {} chunk", String::from_utf8_lossy(tag)))
+}
+
+pub fn hex_token(bytes: &[u8]) -> String {
+    format!("hex:{}", hex(bytes))
+}
+
+pub fn pool(directory: &Path) -> Pool {
+    let mut images = Vec::new();
+    let mut animations = Vec::new();
+    let mut n = 0;
+    let mut save = |bytes: &[u8]| {
+        n += 1;
+        file_token(directory, &format!("data{n}.bin"), bytes)
+    };
+    for (index, (width, height)) in [(1, 1), (5, 3), (16, 16), (33, 17), (64, 40)]
+        .into_iter()
+        .enumerate()
+    {
+        let seed = 7 + index as u64;
+        let opaque = pattern(width, height, seed, Alpha::Opaque);
+        let alpha = pattern(width, height, seed, Alpha::Gradient);
+        let (w, h) = (width as i32, height as i32);
+        let lossy = webp_encode_rgba(&opaque, w, h, w * 4, 70.0).unwrap();
+        let lossy_alpha = webp_encode_rgba(&alpha, w, h, w * 4, 50.0).unwrap();
+        let lossless = webp_encode_lossless_rgba(&alpha, w, h, w * 4).unwrap();
+        let lossless_opaque = webp_encode_lossless_rgba(&opaque, w, h, w * 4).unwrap();
+        images.push(save(&lossy));
+        images.push(save(&lossy_alpha));
+        images.push(save(&lossless));
+        images.push(save(&lossless_opaque));
+        images.push(save(&payload(&lossy, b"VP8 ")));
+        images.push(save(&payload(&lossless, b"VP8L")));
+        // ALPH next to VP8L (dropped by MuxImageFinalize) and a lone ALPH.
+        let alph = payload(&lossy_alpha, b"ALPH");
+        let mut with_alph = chunk(b"VP8X", &vp8x_payload(0x10, width, height));
+        with_alph.extend_from_slice(&chunk(b"ALPH", &alph));
+        with_alph.extend_from_slice(&chunk(b"VP8L", &payload(&lossless, b"VP8L")));
+        images.push(save(&riff(&with_alph)));
+    }
+    for (index, frames) in [1usize, 2, 4].into_iter().enumerate() {
+        let specs: Vec<FrameSpec> = (0..frames)
+            .map(|i| {
+                let mut frame = FrameSpec::new(2 * i as u32, 2 * index as u32, 9 + i as u32, 7);
+                frame.codec = if i % 2 == 0 {
+                    Codec::Lossless
+                } else {
+                    Codec::Lossy(60.0)
+                };
+                frame
+            })
+            .collect();
+        let mut spec = AnimSpec::new(20, 16, specs);
+        spec.metadata = index == 1;
+        animations.push(save(&build(&spec)));
+    }
+    let mut garbage = vec![
+        "hex:".to_owned(),
+        hex_token(b"RIFF"),
+        hex_token(b"RIFF\x04\0\0\0WEBP"),
+        hex_token(b"\x2f\0\0\0\0"),
+        hex_token(b"\x9d\x01\x2a\x01\x00"),
+    ];
+    let lossy = std::fs::read(crate::oracle::test_data().join("test.webp")).unwrap();
+    garbage.push(save(&lossy[..lossy.len() / 2]));
+    garbage.push(save(&lossy[..40]));
+    let mut rng = Rng(99);
+    garbage.push(save(&(0..300).map(|_| rng.byte()).collect::<Vec<u8>>()));
+    let payloads = [0usize, 1, 2, 3, 7, 8, 33, 100]
+        .iter()
+        .map(|&size| {
+            hex_token(
+                &(0..size)
+                    .map(|i| (i * 37 + size) as u8)
+                    .collect::<Vec<u8>>(),
+            )
+        })
+        .collect();
+    Pool {
+        images,
+        animations,
+        garbage,
+        payloads,
+    }
+}
+
+pub const FOURCCS: [&str; 14] = [
+    "ICCP", "EXIF", "XMP_", "VP8X", "ANIM", "ANMF", "ALPH", "VP8_", "VP8L", "abcd", "zzzz", "UNKN",
+    "XMP ", "iccp",
+];
+
+pub fn pick<'p>(rng: &mut Rng, items: &'p [String]) -> &'p str {
+    &items[rng.below(items.len() as u64) as usize]
+}
+
+pub fn pick_value(rng: &mut Rng, values: &[i64]) -> i64 {
+    values[rng.below(values.len() as u64) as usize]
+}
+
+/// One seeded edit sequence.
+pub fn edit_sequence(rng: &mut Rng, pool: &Pool) -> String {
+    let mut script = String::from("new\n");
+    let steps = 6 + rng.below(30);
+    for _ in 0..steps {
+        let copy = rng.below(2);
+        let line = match rng.below(17) {
+            0 | 1 => {
+                let fourcc = FOURCCS[rng.below(FOURCCS.len() as u64) as usize].replace(' ', "_");
+                format!("setchunk {fourcc} {copy} {}", pick(rng, &pool.payloads))
+            }
+            2 => {
+                let fourcc = FOURCCS[rng.below(FOURCCS.len() as u64) as usize].replace(' ', "_");
+                format!("getchunk {fourcc}")
+            }
+            3 => {
+                let fourcc = FOURCCS[rng.below(FOURCCS.len() as u64) as usize].replace(' ', "_");
+                format!("delchunk {fourcc}")
+            }
+            4 => {
+                let data = match rng.below(6) {
+                    0 => pick(rng, &pool.animations),
+                    1 => pick(rng, &pool.garbage),
+                    _ => pick(rng, &pool.images),
+                };
+                format!("setimage {copy} {data}")
+            }
+            5..=8 => {
+                let data = match rng.below(8) {
+                    0 => pick(rng, &pool.animations),
+                    1 => pick(rng, &pool.garbage),
+                    _ => pick(rng, &pool.images),
+                };
+                let x = pick_value(rng, &[0, 1, 2, 3, 10, 31, -1, -2, 16_777_214, 16_777_216]);
+                let y = pick_value(rng, &[0, 1, 4, 7, 12, -3, 16_777_215]);
+                let duration = pick_value(rng, &[0, 1, 40, 1000, 16_777_215, 16_777_216, -1]);
+                let id = if rng.below(10) == 0 {
+                    pick_value(rng, &[0, 6, 9, 99])
+                } else {
+                    3
+                };
+                let dispose = pick_value(rng, &[0, 0, 1, 1, 2]);
+                let blend = pick_value(rng, &[0, 0, 1, 1, 2]);
+                format!("pushframe {copy} {x} {y} {duration} {id} {dispose} {blend} {data}")
+            }
+            9 => format!("getframe {} {}", rng.below(5), rng.below(2)),
+            10 => format!("delframe {}", rng.below(5)),
+            11 => {
+                let bgcolor = pick_value(rng, &[0, 0xffff_ffff, 0x1234_5678]);
+                let loops = pick_value(rng, &[0, 1, 65535, 65536, -1]);
+                format!("setanim {bgcolor} {loops}")
+            }
+            12 => {
+                // Areas from 2^31 to 2^32 overflow C's int product (excluded,
+                // docs/status/wp15.md).
+                let (width, height) = [
+                    (0, 0),
+                    (0, 5),
+                    (5, 0),
+                    (20, 16),
+                    (64, 64),
+                    (1, 1),
+                    (-1, 4),
+                    (16_777_216, 1),
+                    (16_777_217, 1),
+                    (65_536, 65_536),
+                    (65_536, 65_537),
+                    (100_000, 100_000),
+                ][rng.below(12) as usize];
+                format!("setcanvas {width} {height}")
+            }
+            13 => "getcanvas\nfeatures\ngetanim".to_owned(),
+            14 => format!(
+                "numchunks {}",
+                pick_value(rng, &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 99])
+            ),
+            15 => format!("assemble {}", rng.below(2)),
+            _ => "state".to_owned(),
+        };
+        script.push_str(&line);
+        script.push('\n');
+    }
+    script.push_str("state\nassemble 1\nstate\n");
+    script
+}
+
+/// The seeded edit sequences and the directed cases.
+pub fn edit_scripts(directory: &Path) -> Vec<String> {
+    let pool = pool(directory);
+    let mut scripts = Vec::new();
+    for seed in 0..400 {
+        let mut rng = Rng(0x1500 + seed);
+        scripts.push(edit_sequence(&mut rng, &pool));
+    }
+    // Directed cases: chunk order and copying, empty chunks with and without
+    // copying (C's NULL bytes of an empty copy clear the VP8X flags), a second
+    // unknown chunk (C's ChunkSetHead refuses it), canvas sizes that the frames
+    // exceed, the single-frame cleanup, and images replaced by frames.
+    let image = &pool.images[2];
+    let raw = &pool.images[5];
+    let animation = &pool.animations[2];
+    for directed in [
+        format!("new\nsetimage 0 {image}\nsetchunk ICCP 1 hex:\nassemble 0\nstate\n"),
+        format!("new\nsetimage 0 {image}\nsetchunk ICCP 0 hex:\nassemble 1\nstate\n"),
+        format!(
+            "new\nsetimage 1 {image}\nsetchunk EXIF 1 hex:\nsetchunk XMP_ 0 hex:00\nassemble 1\n"
+        ),
+        format!(
+            "new\nsetimage 1 {raw}\nsetchunk abcd 1 hex:01\nsetchunk efgh 1 hex:02\nsetchunk abcd 0 hex:03\nassemble 1\nstate\n"
+        ),
+        format!(
+            "new\nsetchunk XMP_ 1 hex:3c3e\nsetchunk ICCP 1 hex:0102\nsetchunk EXIF 0 hex:4500\nsetimage 0 {image}\nassemble 1\n"
+        ),
+        format!("new\npushframe 1 0 0 100 3 0 0 {raw}\nassemble 1\nstate\n"),
+        format!(
+            "new\npushframe 1 4 4 100 3 1 1 {raw}\nassemble 1\nstate\nsetcanvas 4 4\nassemble 0\n"
+        ),
+        format!(
+            "new\npushframe 1 0 0 100 3 0 0 {raw}\npushframe 1 6 2 50 3 1 0 {image}\nsetanim 0 3\nassemble 1\nstate\nsetcanvas 70 50\nassemble 1\nsetcanvas 8 8\nassemble 0\n"
+        ),
+        format!("new\nsetimage 1 {image}\npushframe 1 0 0 100 3 0 0 {raw}\nstate\n"),
+        format!("new\npushframe 1 0 0 100 3 0 0 {raw}\nsetimage 1 {image}\nstate\nassemble 1\n"),
+        format!("new\nsetimage 0 {animation}\nstate\nassemble 1\n"),
+        format!(
+            "new\nsetchunk VP8X 0 hex:00000000000000000000\nsetimage 1 {image}\nassemble 1\nstate\n"
+        ),
+        format!("new\nsetchunk ANIM 0 hex:00000000\nsetimage 1 {image}\nassemble 1\nstate\n"),
+        "new\nassemble 0\nstate\nsetcanvas 3 3\nassemble 0\n".to_owned(),
+        format!(
+            "newversion 512\nnewversion 265\nsetimage 1 {image}\nassemble 0\ncreateversion 512 0 {image}\ncreateversion 264 1 {image}\nstate\n"
+        ),
+    ] {
+        scripts.push(directed);
+    }
+    scripts
+}
+
+//------------------------------------------------------------------------------
+// Animation encoder cases
+
+/// The background of a generated frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Background {
+    /// An opaque gradient.
+    Opaque,
+    /// Transparent pixels that keep a color gradient.
+    Clear,
+    /// Translucent (alpha 128) pixels.
+    Half,
+    /// Opaque noise: many colors.
+    Noise,
+    /// Two flat colors: few colors.
+    Flat,
+    /// Opaque noise on the left half, transparent pixels that keep a color
+    /// gradient on the right: lossy candidates win, and the lossless
+    /// candidate's cleanup of the transparent pixels changes what they encode.
+    Patchy,
+}
+
+/// The RGBA samples of frame `index`: a disc and a square that move with the
+/// index over the background.
+pub fn frame(width: u32, height: u32, index: u32, background: Background) -> Vec<u8> {
+    let mut rng = Rng(u64::from(width * 1000 + height));
+    let mut out = Vec::with_capacity((width * height * 4) as usize);
+    let cx = i64::from(index * 5 % width.max(1));
+    let cy = i64::from(index * 3 % height.max(1));
+    let sx = i64::from(width.max(1) - 1 - index * 4 % width.max(1));
+    let radius = i64::from(width.min(height) / 4 + 1);
+    for y in 0..i64::from(height) {
+        for x in 0..i64::from(width) {
+            let noise = [rng.byte(), rng.byte(), rng.byte()];
+            let disc = (x - cx).pow(2) + (y - cy).pow(2) <= radius * radius;
+            let square = (x - sx).abs() <= 3 && (y - i64::from(height) / 2).abs() <= 3;
+            let pixel = if disc {
+                [240, 50, 20, 255]
+            } else if square {
+                [20, 190, 70, 170]
+            } else {
+                match background {
+                    Background::Opaque => [(x * 5) as u8, (y * 7) as u8, 100, 255],
+                    Background::Clear => [(x * 9) as u8, (y * 4) as u8, 200, 0],
+                    Background::Half => [(x * 3) as u8, 90, (y * 6) as u8, 128],
+                    Background::Noise => [noise[0], noise[1], noise[2], 255],
+                    Background::Patchy => {
+                        if x < i64::from(width) / 2 {
+                            [noise[0], noise[1], noise[2], 255]
+                        } else {
+                            [(x * 9) as u8, (y * 4) as u8, 200, 0]
+                        }
+                    }
+                    Background::Flat => {
+                        if (x / 8 + y / 8) % 2 == 0 {
+                            [10, 20, 30, 255]
+                        } else {
+                            [200, 210, 220, 255]
+                        }
+                    }
+                }
+            };
+            out.extend_from_slice(&pixel);
+        }
+    }
+    out
+}
+
+/// Writes the frame files that a test uses, once per (size, background,
+/// index).
+pub struct Frames {
+    pub directory: PathBuf,
+}
+
+impl Frames {
+    pub fn path(&self, width: u32, height: u32, index: u32, background: Background) -> PathBuf {
+        let path = self
+            .directory
+            .join(format!("{background:?}_{width}x{height}_{index}.rgba"));
+        if !path.exists() {
+            std::fs::write(&path, frame(width, height, index, background)).unwrap();
+        }
+        path
+    }
+}
+
+/// One encoder script.
+#[derive(Clone, Debug)]
+pub struct Case {
+    pub name: String,
+    pub options: String,
+    pub width: u32,
+    pub height: u32,
+    pub background: Background,
+    /// Frame index and timestamp of each `add`.
+    pub frames: Vec<(u32, i32)>,
+    /// The `config` line before each frame (the last one repeats).
+    pub configs: Vec<String>,
+    /// `use_argb` of each frame (the last one repeats).
+    pub argb: Vec<i32>,
+    pub hook: i32,
+    /// The timestamp of a final `addnull`.
+    pub null_frame: Option<i32>,
+    /// Lines inserted before `assemble`.
+    pub extra: String,
+}
+
+impl Case {
+    pub fn new(name: &str, width: u32, height: u32, background: Background, count: u32) -> Self {
+        Case {
+            name: name.to_owned(),
+            options: "options null".to_owned(),
+            width,
+            height,
+            background,
+            frames: (0..count).map(|i| (i, 100 * i as i32)).collect(),
+            configs: vec!["config null".to_owned()],
+            argb: vec![1],
+            hook: -1,
+            null_frame: Some(100 * count as i32),
+            extra: String::new(),
+        }
+    }
+
+    pub fn script(&self, frames: &Frames, output: &Path) -> String {
+        let mut script = String::new();
+        writeln!(script, "{}", self.options).unwrap();
+        writeln!(script, "new {} {}", self.width, self.height).unwrap();
+        writeln!(script, "hook {}", self.hook).unwrap();
+        for (position, &(index, timestamp)) in self.frames.iter().enumerate() {
+            let config = &self.configs[position.min(self.configs.len() - 1)];
+            let argb = self.argb[position.min(self.argb.len() - 1)];
+            let path = frames.path(self.width, self.height, index, self.background);
+            writeln!(script, "{config}").unwrap();
+            writeln!(
+                script,
+                "add {timestamp} {} {} {argb} {}",
+                self.width,
+                self.height,
+                path.display()
+            )
+            .unwrap();
+        }
+        if let Some(timestamp) = self.null_frame {
+            writeln!(script, "addnull {timestamp}").unwrap();
+        }
+        script.push_str(&self.extra);
+        writeln!(script, "assemble {}", output.display()).unwrap();
+        script
+    }
+}
+
+pub const CONFIGS: [&str; 9] = [
+    "config null",
+    "config lossless=1 quality=75 method=4",
+    "config lossless=0 quality=60 method=4",
+    "config lossless=0 quality=90 method=2 alpha_quality=60",
+    "config lossless=1 quality=20 method=0 exact=1",
+    "config lossless=0 quality=50 method=6 exact=1 thread_level=1",
+    "config lossless=1 quality=90 method=5 near_lossless=60 thread_level=1",
+    "config lossless=0 quality=75 method=3 use_sharp_yuv=1 sns_strength=0",
+    "config lossless=0 quality=30 method=4 autofilter=1 filter_strength=40 segments=2",
+];
+
+/// The option and configuration matrix.
+pub fn matrix_cases() -> Vec<Case> {
+    let options = [
+        "options null",
+        "options 0 0 0 0 0 4294967295 0",
+        "options 0 2 4 0 0 0 3",
+        "options 1 0 0 0 0 16711935 1",
+        "options 0 0 0 1 0 4294967295 0",
+        "options 1 0 0 1 0 0 0",
+        "options 0 1 3 1 0 12345 65535",
+    ];
+    let backgrounds = [
+        Background::Opaque,
+        Background::Clear,
+        Background::Half,
+        Background::Noise,
+        Background::Flat,
+    ];
+    let mut cases = Vec::new();
+    for (o, option) in options.iter().enumerate() {
+        for (c, config) in CONFIGS.iter().enumerate() {
+            let background = backgrounds[(o + c) % backgrounds.len()];
+            let (width, height) = [(48, 32), (37, 23), (24, 24)][(o * 3 + c) % 3];
+            let mut case = Case::new(
+                &format!("matrix {option} {config}"),
+                width,
+                height,
+                background,
+                6,
+            );
+            case.options = (*option).to_owned();
+            case.configs = vec![(*config).to_owned()];
+            // A repeated frame, merged into the previous one.
+            case.frames[3].0 = case.frames[2].0;
+            // YUV input for some frames.
+            if c % 3 == 2 {
+                case.argb = vec![1, 0];
+            }
+            cases.push(case);
+        }
+    }
+    // Both candidates of a frame, where the lossy one wins after the lossless
+    // one cleaned the transparent pixels of the canvas (C writes through its
+    // view of the canvas; docs/status/wp15.md).
+    for option in [
+        "options 1 0 0 1 0 0 0",
+        "options 0 0 0 1 0 0 0",
+        "options 1 2 5 1 0 0 0",
+    ] {
+        for config in [
+            CONFIGS[1],
+            CONFIGS[2],
+            CONFIGS[6],
+            "config lossless=0 quality=70 exact=0",
+        ] {
+            for (width, height) in [(48, 32), (37, 29)] {
+                let mut case = Case::new(
+                    &format!("patchy {option} {config} {width}x{height}"),
+                    width,
+                    height,
+                    Background::Patchy,
+                    5,
+                );
+                case.options = option.to_owned();
+                case.configs = vec![config.to_owned()];
+                cases.push(case);
+            }
+        }
+    }
+    // Mixed configurations per frame.
+    let mut mixed = Case::new("mixed configs", 40, 30, Background::Clear, 8);
+    mixed.options = "options 0 0 0 1 0 0 0".to_owned();
+    mixed.configs = CONFIGS[1..].iter().map(|c| (*c).to_owned()).collect();
+    cases.push(mixed);
+    cases
+}
+
+/// Every validity case of `SanitizeEncoderOptions` and long sequences.
+pub fn keyframe_cases() -> Vec<Case> {
+    let mut cases = Vec::new();
+    let max = i32::MAX;
+    for kmax in [-5, -1, 0, 1, 2, 3, 5, 10, 31, 40, 100, max] {
+        let mut kmins = vec![
+            -3,
+            0,
+            1,
+            2,
+            kmax.saturating_sub(1),
+            kmax,
+            kmax.saturating_add(1),
+            kmax / 2,
+            kmax / 2 + 1,
+            kmax.saturating_sub(31),
+            kmax.saturating_sub(30),
+        ];
+        kmins.sort_unstable();
+        kmins.dedup();
+        for kmin in kmins {
+            for minimize in [0, 1] {
+                let mut case = Case::new(
+                    &format!("kmin {kmin} kmax {kmax} minimize {minimize}"),
+                    32,
+                    24,
+                    if kmin % 2 == 0 {
+                        Background::Opaque
+                    } else {
+                        Background::Clear
+                    },
+                    14,
+                );
+                case.options = format!("options {minimize} {kmin} {kmax} 0 0 0 0");
+                case.configs = vec![CONFIGS[(kmax.unsigned_abs() as usize + 1) % 3].to_owned()];
+                cases.push(case);
+            }
+        }
+    }
+    // Long sequences past kmax.
+    for (kmin, kmax, mixed) in [(3, 5, 0), (6, 10, 1), (2, 3, 0), (0, 1, 1)] {
+        let mut case = Case::new(
+            &format!("long kmin {kmin} kmax {kmax}"),
+            28,
+            20,
+            Background::Half,
+            40,
+        );
+        case.options = format!("options 0 {kmin} {kmax} {mixed} 0 4294967295 0");
+        case.configs = vec![CONFIGS[2].to_owned(), CONFIGS[1].to_owned()];
+        cases.push(case);
+    }
+    cases
+}
+
+/// Timestamps, errors and progress hooks; the wrong-size frame is written to
+/// `directory`.
+pub fn error_cases(directory: &Path) -> Vec<Case> {
+    let mut cases = Vec::new();
+    let base = Case::new("base", 30, 20, Background::Clear, 5);
+    let mut with = |name: &str, change: &dyn Fn(&mut Case)| {
+        let mut case = base.clone();
+        case.name = name.to_owned();
+        change(&mut case);
+        cases.push(case);
+    };
+    with("decreasing timestamp", &|c| c.frames[3].1 = 150);
+    with("repeated timestamps", &|c| {
+        c.frames[2].1 = 100;
+        c.frames[3].1 = 100;
+    });
+    with("gap of MAX_DURATION", &|c| c.frames[2].1 = 100 + (1 << 24));
+    with("gap just below MAX_DURATION", &|c| {
+        c.frames = vec![(0, 0), (1, (1 << 24) - 1), (2, (1 << 24) + 5)];
+    });
+    with("merged durations past MAX_DURATION", &|c| {
+        c.frames = vec![
+            (0, 0),
+            (1, 10),
+            (1, 10_000_010),
+            (1, 20_000_010),
+            (2, 20_000_020),
+        ];
+    });
+    with("merged durations past MAX_DURATION, lossy", &|c| {
+        c.frames = vec![
+            (0, 0),
+            (1, 10),
+            (1, 10_000_010),
+            (1, 20_000_010),
+            (1, 30_000_010),
+        ];
+        c.configs = vec![CONFIGS[2].to_owned()];
+    });
+    with("merged durations past MAX_DURATION at the end", &|c| {
+        c.frames = vec![(0, 0), (0, 16_000_000)];
+        c.null_frame = Some(33_000_000);
+    });
+    with("int wrap-around", &|c| {
+        c.frames = vec![(0, i32::MAX - 150), (1, i32::MAX - 50), (2, i32::MIN + 50)];
+        c.null_frame = Some(i32::MIN + 150);
+    });
+    with("negative timestamps", &|c| {
+        c.frames = vec![(0, -300), (1, -200), (2, -100)]
+    });
+    with("no null frame", &|c| c.null_frame = None);
+    with("no null frame, one frame", &|c| {
+        c.frames.truncate(1);
+        c.null_frame = None;
+    });
+    with("no null frame, repeated", &|c| {
+        c.frames = vec![(0, 0), (1, 70), (1, 140), (2, 230)];
+        c.null_frame = None;
+    });
+    with("null frame first", &|c| {
+        c.extra = "addnull 600\naddnull 700\n".to_owned()
+    });
+    with("null frame before frames", &|c| {
+        c.frames.insert(0, (0, 0));
+        c.null_frame = Some(1000);
+        c.extra = "addnull 1001\n".to_owned();
+    });
+    with("no frames", &|c| {
+        c.frames.clear();
+        c.null_frame = None;
+    });
+    with("only a null frame", &|c| c.frames.clear());
+    with("invalid config", &|c| {
+        c.configs = vec![
+            CONFIGS[1].to_owned(),
+            "config quality=101".to_owned(),
+            CONFIGS[2].to_owned(),
+        ];
+    });
+    with("invalid config first", &|c| {
+        c.configs = vec!["config method=7".to_owned()]
+    });
+    for (fail_at, label) in [
+        (0, "counting hook"),
+        (1, "hook fails at 1"),
+        (5, "hook fails at 5"),
+    ] {
+        with(label, &|c| c.hook = fail_at);
+        with(&format!("{label}, lossy"), &|c| {
+            c.hook = fail_at;
+            c.configs = vec![CONFIGS[2].to_owned()];
+        });
+        with(&format!("{label}, mixed"), &|c| {
+            c.hook = fail_at;
+            c.options = "options 0 0 0 1 0 0 0".to_owned();
+        });
+    }
+    with("hook, single sub-rectangle frame", &|c| {
+        c.hook = 0;
+        c.frames.truncate(1);
+    });
+    with("frame of the wrong size", &|c| {
+        c.extra = format!("add 900 31 20 1 {}\n", "MISSING");
+    });
+    with("canvas 0 x 0", &|c| {
+        c.width = 0;
+        c.height = 0;
+        c.frames.clear();
+    });
+    with("canvas 0 x 4", &|c| {
+        c.width = 0;
+        c.height = 4;
+        c.frames.clear();
+    });
+    with("canvas 65536 x 65536", &|c| {
+        c.width = 65_536;
+        c.height = 65_536;
+        c.frames.clear();
+    });
+    let extra_cases = cases.clone();
+    // The wrong-size frame needs a file of its size: point the line at one.
+    let wrong = directory.join("wrong.rgba");
+    std::fs::write(&wrong, frame(31, 20, 0, Background::Opaque)).unwrap();
+    let mut cases = extra_cases;
+    for case in &mut cases {
+        case.extra = case.extra.replace("MISSING", &wrong.display().to_string());
+    }
+    cases
+}
+
+/// Version checks, the options defaults and an encoder that was never created.
+pub fn version_script() -> String {
+    "optionsinit 265\noptionsinit 512\noptionsinit 264\nnewversion 512 4 4\n\
+                  newversion 265 4 4\nnew -4 4\nnew 4 -4\nnewversion 512 4 4\naddnull 0\nassemble -\n\
+                  getchunk ICCP\nsetchunk ICCP 1 hex:01\ndelchunk ICCP\n".to_owned()
+}
+
+/// Single frames, a 1 x 1 canvas and metadata chunks.
+pub fn single_cases() -> Vec<Case> {
+    let mut cases = Vec::new();
+    // A single frame that covers the canvas, and one that is a sub-rectangle
+    // (C's OptimizeSingleFrame decodes it onto the canvas and re-encodes it),
+    // for every configuration, with and without mixed compression.
+    for (c, config) in CONFIGS.iter().enumerate() {
+        for mixed in [0, 1] {
+            for background in [Background::Opaque, Background::Clear, Background::Noise] {
+                let mut case = Case::new(
+                    &format!("single {config} mixed {mixed} {background:?}"),
+                    [33, 40, 17][c % 3],
+                    [21, 24, 9][c % 3],
+                    background,
+                    1,
+                );
+                case.options = format!("options 0 0 0 {mixed} 0 0 0");
+                case.configs = vec![(*config).to_owned()];
+                cases.push(case);
+            }
+        }
+    }
+    // A 1 x 1 canvas and frames whose difference is a single pixel.
+    let mut tiny = Case::new("1x1", 1, 1, Background::Opaque, 3);
+    tiny.configs = vec![CONFIGS[1].to_owned(), CONFIGS[2].to_owned()];
+    cases.push(tiny);
+    // Metadata chunks set, replaced, read and deleted around the frames.
+    for (copy, extra) in [
+        (
+            0,
+            "setchunk ICCP 0 hex:0102030405\nsetchunk EXIF 1 hex:45786966\nsetchunk XMP_ 0 hex:3c78\n\
+             getchunk ICCP\ngetchunk EXIF\ngetchunk XMP_\ngetchunk abcd\n",
+        ),
+        (
+            1,
+            "setchunk abcd 1 hex:\nsetchunk ICCP 1 hex:\ngetchunk ICCP\ngetchunk abcd\n\
+             setchunk efgh 1 hex:01\ndelchunk abcd\ndelchunk ICCP\ndelchunk VP8_\nsetchunk ANMF 1 hex:00\n",
+        ),
+        (
+            1,
+            "setchunk EXIF 0 hex:\nsetchunk XMP_ 1 hex:3c3e\nsetchunk ICCP 1 hex:ff\nsetchunk ICCP 0 hex:fe\n",
+        ),
+    ] {
+        let mut case = Case::new(&format!("chunks {copy}"), 26, 18, Background::Half, 3);
+        case.extra = extra.to_owned();
+        cases.push(case.clone());
+        case.frames.truncate(1);
+        case.name.push_str(" single");
+        cases.push(case);
+    }
+    cases
 }
