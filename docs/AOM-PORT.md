@@ -894,8 +894,12 @@ AVX-512):
   translated `_c` functions in Release and Debug; all pass.
 - `tools/check_aom_simd_identity.py` encodes the 76 configurations of the
   identity corpus with run-time detection (AVX2), with `AOM_SIMD_CAPS` limited
-  to SSE4.1, and with `AOM_SIMD_CAPS_MASK=0`. All 76 AVIF outputs are
-  byte-identical across the three selections.
+  to SSE4.1, and with `AOM_SIMD_CAPS_MASK=0`. Each run must report the
+  selection it asked for (`simd(avx2)`, `simd(sse4.1)`, `c`), read from an
+  AVX2-only and an SSE4.1-only RTCD pointer. All 76 AVIF outputs are
+  byte-identical across the three selections; see
+  [the identity record](aom-simd-identity-validation-linux.json) from run
+  [42577601143](https://github.com/sebastian-software/libavif-rs/actions/runs/42577601143).
 
 Encoder time for the 1600x2133 photo of the identity corpus, quality 56,
 4:2:0, through `examples/encode_still.rs`, median of five rounds on the
