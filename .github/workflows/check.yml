@@ -5,9 +5,11 @@ name: Checks
 # x86-64 and macOS ARM64; the MSRV job builds and tests on the rust-version
 # toolchain; the oracle job builds the C oracle (ADR 0002) in its release and
 # asan-ubsan variants on both systems, runs upstream's whole test suite against
-# each as a check of the oracle itself, and runs the in-scope djpeg bit tests
-# and the differential tests against both; the SIMD job does the same with the
-# simd oracle (WITH_SIMD=1) on the ARM64 hosts, with the Neon kernels
+# each as a check of the oracle itself, and runs the in-scope djpeg bit tests,
+# the differential tests and the ISO/IEC 10918-2 conformance run against both
+# (ITU's data is downloaded and verified by tools/fetch_t83.py and cached by
+# its SHA-256, as it may not be redistributed); the SIMD job does the same
+# with the simd oracle (WITH_SIMD=1) on the ARM64 hosts, with the Neon kernels
 # (ADR 0007), and on Linux x86-64, with the AVX2 and SSE2 kernels (ADR 0008),
 # in each SIMD mode of the architecture; the bench job measures the decode
 # speed against libjpeg-turbo on native x86-64 and ARM64 and keeps the record.
@@ -80,6 +82,13 @@ jobs:
           submodules: true
       - name: Build the release and asan-ubsan oracles
         run: python3 tools/build_oracle.py --variant reference
+      - name: Restore the ISO/IEC 10918-2 compliance data
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/t83/T83_data_files.zip
+          key: t83-9f5ed0a74a3087c6c93f4cbb0bd5128c2a87b128e4f59f5b6649e32941da7069
+      - name: Fetch and verify the compliance data
+        run: python3 tools/fetch_t83.py
       - name: Upstream's whole test suite against both oracles
         run: |
           python3 tools/bittests.py --run --all --variant release --jobs 4
@@ -96,6 +105,7 @@ jobs:
           path: |
             build/oracle/*/oracle.json
             build/oracle/*/bittests-result.json
+            build/t83/t83.json
           if-no-files-found: error
           retention-days: 30
 
@@ -118,6 +128,13 @@ jobs:
           sudo apt-get install --yes --no-install-recommends nasm
       - name: Build the simd oracle
         run: python3 tools/build_oracle.py --variant simd
+      - name: Restore the ISO/IEC 10918-2 compliance data
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/t83/T83_data_files.zip
+          key: t83-9f5ed0a74a3087c6c93f4cbb0bd5128c2a87b128e4f59f5b6649e32941da7069
+      - name: Fetch and verify the compliance data
+        run: python3 tools/fetch_t83.py
       - name: Upstream's whole test suite against the simd oracle
         run: python3 tools/bittests.py --run --all --variant simd --jobs 4
       - name: In-scope bit tests and differential tests in each SIMD mode
@@ -130,6 +147,7 @@ jobs:
           path: |
             build/oracle/*/oracle.json
             build/oracle/*/bittests-result.json
+            build/t83/t83.json
           if-no-files-found: error
           retention-days: 30
 

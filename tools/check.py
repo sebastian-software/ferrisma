@@ -11,10 +11,12 @@ Stages:
 
 --oracle builds the C oracle (tools/build_oracle.py), verifies the bit-test
 inventory and runs the in-scope djpeg bit tests against it
-(tools/bittests.py), then sets LIBJPEG_ORACLE_DIR and enables the `oracle`
-Cargo feature, so that differential tests fail instead of skipping when they
-cannot run. --oracle-variant picks the variant (default: release) and implies
---oracle. --msrv adds a build and test run with the toolchain named by
+(tools/bittests.py), fetches the ISO/IEC 10918-2 compliance data
+(tools/fetch_t83.py, which reuses a verified zip in build/t83), then sets
+LIBJPEG_ORACLE_DIR and LIBJPEG_T83_DIR and enables the `oracle` Cargo
+feature, so that differential and conformance tests fail instead of skipping
+when they cannot run. --oracle-variant picks the variant (default: release)
+and implies --oracle. --msrv adds a build and test run with the toolchain named by
 rust-version.
 
 The crate's features follow the oracle (ADR 0007): the reference variants
@@ -28,7 +30,8 @@ test must find selected:
   x86_64   avx2; sse2 (JSIMD_FORCESSE2=1); none (JSIMD_FORCENONE=1)
 
 Without an oracle, the tests run with the default features, plus once without
-them in the dev profile.
+them in the dev profile; the conformance tests run if build/t83 holds the data
+and skip otherwise.
 
 --arch x86_64 checks the x86-64 build on an ARM64 Mac through Rosetta 2: Cargo
 builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's
@@ -47,6 +50,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_oracle  # noqa: E402
+import fetch_t83  # noqa: E402
 import pools  # noqa: E402
 import units  # noqa: E402
 
@@ -160,6 +164,7 @@ def check_tests(oracle_variant, msrv, arch):
             "--variant", oracle_variant, "--jobs", jobs,
             *(["--arch", arch] if arch is not None else []), env=env)
         env["LIBJPEG_ORACLE_DIR"] = str(directory)
+        env["LIBJPEG_T83_DIR"] = str(fetch_t83.fetch(fetch_t83.DEFAULT_DIR))
         if build_oracle.VARIANTS[oracle_variant]["simd"]:
             features = ["--features", "oracle"]
             modes = [(expected, {**env, **variables, "LIBJPEG_EXPECT_SIMD": expected})
@@ -168,6 +173,7 @@ def check_tests(oracle_variant, msrv, arch):
             features = ["--no-default-features", "--features", "oracle"]
     else:
         env.pop("LIBJPEG_ORACLE_DIR", None)
+        env.pop("LIBJPEG_T83_DIR", None)
     for expected, mode in modes:
         if expected is not None:
             settings = [f"{name}={mode[name]}" for name in SIMD_VARIABLES if name in mode]
