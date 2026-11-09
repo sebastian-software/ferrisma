@@ -921,6 +921,8 @@ impl Config {
                 name: "alpha_dithering",
             });
         }
+        // A backstop: the checks above already refuse every configuration
+        // that `WebPValidateDecoderConfig` refuses without features.
         if webp_validate_decoder_config(&self.raw_config()) {
             Ok(())
         } else {
@@ -1549,6 +1551,8 @@ impl Image {
             return Err(DecodeError::OutputMismatch { mode });
         };
         if samples.is_empty() {
+            // A backstop: both callers pass a buffer only after a complete
+            // decoding, which allocated the memory.
             return Err(DecodeError::Suspended);
         }
         let plane = |offset: PlaneOffset, stride: i32| PlaneLayout {
@@ -2094,7 +2098,9 @@ impl<'a> IncrementalDecoder<'a> {
     }
 
     /// The width and height of the output, once libwebp has set the output up
-    /// after the header (C: the dimensions that `WebPIDecodedArea` reports);
+    /// after the header (C: the width and height of the output buffer that
+    /// `WebPIDecodedArea` returns, not its height out-parameter `last_y`,
+    /// which [`decoded_rows`](Self::decoded_rows) reports);
     /// `None` before, including the moment after a lossless header when the
     /// decoded area exists with a width of 0.
     ///
@@ -2276,7 +2282,8 @@ impl<'a> IncrementalDecoder<'a> {
 // Container
 
 /// The payload of a chunk iterator: the demuxer always borrows it from the
-/// input, which is what the API lends.
+/// input, which is what the API lends, so `None` is a backstop the API does
+/// not reach.
 fn payload<'s>(bytes: &Cow<'s, [u8]>) -> Option<&'s [u8]> {
     match bytes {
         Cow::Borrowed(bytes) => Some(bytes),
