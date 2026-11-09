@@ -1031,10 +1031,21 @@ pub fn webp_demux_internal<'a>(
     allow_partial: bool,
     version: i32,
 ) -> (Option<WebPDemuxer<'a>>, WebPDemuxState) {
+    demux_bytes(&data.bytes, allow_partial, version)
+}
+
+/// The body of [`webp_demux_internal`] over the bytes of `data` (no C
+/// counterpart): the demuxer borrows `buf` rather than the `WebPData` value
+/// that holds it, so that the safe API (`src/api/decode.rs`, WP16) can build
+/// one from a caller's `&[u8]` that outlives the call.
+pub(crate) fn demux_bytes(
+    buf: &[u8],
+    allow_partial: bool,
+    version: i32,
+) -> (Option<WebPDemuxer<'_>>, WebPDemuxState) {
     if webp_abi_is_incompatible(version, WEBP_DEMUX_ABI_VERSION) {
         return (None, WebPDemuxState::WEBP_DEMUX_PARSE_ERROR);
     }
-    let buf: &'a [u8] = &data.bytes;
     if buf.is_empty() {
         return (None, WebPDemuxState::WEBP_DEMUX_PARSE_ERROR);
     }
