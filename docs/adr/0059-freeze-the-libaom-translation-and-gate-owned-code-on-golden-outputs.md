@@ -201,8 +201,10 @@ Only the optimization level differs, and for Rust code without undefined
 behavior that changes no result, because Rust never contracts or relaxes
 floating-point operations. Pull requests therefore run `checked`. The
 unoptimized run moves to the nightly schedule and to manual dispatch
-(`debug: true`). A defect whose symptom
-depends on the optimization level is found there a night later.
+(`debug: true`). As its own job it took 20 min 48 s in run 42604319762
+(1,197 s of tests on an EPYC 9V45; the 2,085 s above ran on an EPYC 7763). A
+defect whose symptom depends on the optimization level is found there a night
+later.
 
 **Golden outputs.** `tools/check_aom_golden.py` derives its corpus from
 upstream libavif test PNGs with the Python standard library alone (decode,
