@@ -16,3 +16,8 @@
 //! Translation of `src/mux/animi.h` from libwebp v1.6.0.
 //!
 //! Work package: WP15 (mux and animation encode).
+//!
+//! The header declares only `WebPAnimEncoderRefineRect`, which C defines in
+//! `src/mux/anim_encode.c`; its translation is
+//! [`crate::mux::anim_encode::webp_anim_encoder_refine_rect`], and no item is
+//! declared here.

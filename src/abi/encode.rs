@@ -262,7 +262,7 @@ unsafe fn release_block(block: *mut c_void) {
 
 /// How a call uses one storage of a picture (the YUVA planes or the ARGB plane).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Mode {
+pub(crate) enum Mode {
     /// The call does not touch the planes: nothing is lent.
     Discard,
     /// The call only computes plane addresses (`WebPPictureView`): each plane is
@@ -804,7 +804,7 @@ fn selected(c: &WebPPicture, mode: Mode) -> (Mode, Mode) {
 ///
 /// `picture` points to a valid picture whose planes meet the contract of
 /// [`storage_to_rust`] for the given modes.
-unsafe fn with_picture<'a, R>(
+pub(crate) unsafe fn with_picture<'a, R>(
     picture: *mut WebPPicture,
     modes: (Mode, Mode),
     record: bool,
@@ -2388,7 +2388,10 @@ fn writer_closure<'a>(
 
 /// The C progress hook as the translation's hook: it passes the caller's
 /// picture pointer, as C does.
-fn progress_closure<'a>(hook: WebPProgressHook, picture: *const WebPPicture) -> RsProgressHook<'a> {
+pub(crate) fn progress_closure<'a>(
+    hook: WebPProgressHook,
+    picture: *const WebPPicture,
+) -> RsProgressHook<'a> {
     Box::new(move |percent: i32| {
         // SAFETY: the caller's hook, called with the percent and the caller's
         // picture, which no Rust reference borrows during the call.

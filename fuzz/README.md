@@ -16,6 +16,9 @@ library, and its only dependency besides the library is `libfuzzer-sys`
 | `enc_fuzzer` | `enc_fuzzer.cc` | `WebPEncode` with a fuzzed configuration on a WebP file (imageio's other readers have no Rust counterpart), cropped or scaled, then decoding and the exactness check |
 | `enc_dec_fuzzer` | `enc_dec_fuzzer.cc` | `WebPEncode` with a fuzzed configuration on the three built-in pictures, cropped or scaled, then `WebPDecode` and the exactness check |
 | `animdecoder_fuzzer` | `animdecoder_fuzzer.cc` | `WebPAnimDecoderNew` with the default options, then `WebPAnimDecoderGetNext` for every frame, after upstream's canvas-size limits |
+| `mux_demux_api_fuzzer` | `mux_demux_api_fuzzer.cc` | `WebPMuxCreate` (copying or not) and the mux getters, or `WebPDemux`/`WebPDemuxPartial` and the chunk and frame iterators, on arbitrary bytes |
+| `animation_api_fuzzer` | `animation_api_fuzzer.cc` | `WebPAnimDecoderNew` with fuzzed threading and color mode, then up to three frames, after upstream's canvas- and frame-size limits |
+| `animencoder_fuzzer` | `animencoder_fuzzer.cc` | `WebPAnimEncoderNew` with fuzzed key-frame options and up to 15 built-in pictures, cropped, scaled and rescaled, each added with a fuzzed configuration and timestamp step, then `WebPAnimEncoderAssemble` |
 
 cargo-fuzz needs a nightly toolchain. From the repository root:
 
@@ -26,4 +29,4 @@ cargo +nightly fuzz run dec_fuzzer -- -dict=upstream/libwebp/tests/fuzzer/fuzz.d
 
 Seed the corpus with the test vectors, for example
 `mkdir -p fuzz/corpus/dec_fuzzer && cp upstream/libwebp-test-data/*.webp fuzz/corpus/dec_fuzzer/`.
-WP13, WP14 and WP15 add their targets here.
+WP13, WP14 and WP15 added their targets here.
