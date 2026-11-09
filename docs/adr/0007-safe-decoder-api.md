@@ -1,6 +1,6 @@
 # Wrap the decoder translation in a safe, validated Rust API
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-09
 - Updated: 2026-11-09
 
@@ -36,10 +36,11 @@ API guidelines, not `tools/rust_name.py`.
 **Public items.**
 
 ```rust
-pub enum Format { Mixed, Lossy, Lossless }
+pub enum Format { Lossy, Lossless }
 pub struct Features {                                          // Copy, Eq
     pub width: u32, pub height: u32,
-    pub has_alpha: bool, pub has_animation: bool, pub format: Format,
+    pub has_alpha: bool, pub has_animation: bool,
+    pub format: Option<Format>,                                // None: an animation
 }
 impl Features { pub fn parse(data: &[u8]) -> Result<Features, DecodeError>; }
 
@@ -130,21 +131,24 @@ impl<'d> Container<'d> {
     pub fn is_complete(&self) -> bool;
     pub fn canvas_width(&self) -> u32;
     pub fn canvas_height(&self) -> u32;
-    pub fn format_flags(&self) -> u32;
+    pub fn has_alpha(&self) -> bool;
+    pub fn has_animation(&self) -> bool;
     pub fn loop_count(&self) -> u32;
-    pub fn background_color(&self) -> u32;
+    pub fn background_color(&self) -> u32;                     // 0xAARRGGBB
     pub fn frame_count(&self) -> u32;
     pub fn icc_profile(&self) -> Option<&[u8]>;
     pub fn exif(&self) -> Option<&[u8]>;
     pub fn xmp(&self) -> Option<&[u8]>;
-    pub fn chunks(&self, fourcc: [u8; 4]) -> Chunks<'_>;     // Iterator<Item = &[u8]>
+    pub fn chunks(&self, fourcc: [u8; 4]) -> Chunks<'_>;
 }
+pub struct Chunks<'s> { /* WebPChunkIterator<'s> */ }       // Iterator<Item = &'s [u8]>
 
 pub enum AnimationMode { Rgba, Bgra, PremultipliedRgba, PremultipliedBgra }
 pub struct AnimationOptions { pub mode: AnimationMode, pub multithreaded: bool } // Default
 pub struct AnimationInfo {
     pub canvas_width: u32, pub canvas_height: u32,
-    pub loop_count: u32, pub background_color: u32, pub frame_count: u32,
+    pub loop_count: u32, pub background_color: u32,           // 0xAARRGGBB
+    pub frame_count: u32,
 }
 pub struct Frame<'s> { pub canvas: &'s [u8], pub stride: usize, pub timestamp_ms: i32 }
 pub struct AnimationDecoder<'d> { /* WebPAnimDecoder<'d> */ }
@@ -179,7 +183,7 @@ pub enum Plane { Rows, Y, U, V, A }
 
 | API | Translation |
 | --- | --- |
-| `Features::parse`, `Format` | `webp_get_features` (`src/webp/decode.rs`); `format` 0, 1, 2 |
+| `Features::parse`, `Format` | `webp_get_features` (`src/webp/decode.rs`); `format` 1 and 2 are `Some(Lossy)` and `Some(Lossless)`; 0 is `None`, which a successful parse reports only for an animation (`ParseHeadersInternal` returns at the animation flag, and a prefix that ends before the image chunk is `NOT_ENOUGH_DATA`), whose frames carry their own format |
 | `ColorMode` | `WEBP_CSP_MODE::MODE_RGB` to `MODE_YUVA` in C's order; `bytes_per_pixel` is `kModeBpp` |
 | `Config::new`, setters | `webp_init_decoder_config`, then the `WebPDecoderOptions` fields `use_cropping`, `crop_*`, `use_scaling`, `scaled_*`, `flip`, `bypass_filtering`, `no_fancy_upsampling` (negated), `use_threads`, `dithering_strength`, `alpha_dithering_strength`, and `output.colorspace` |
 | `Config::validate` | the API's checks below, then `webp_validate_decoder_config` without features |
@@ -187,11 +191,11 @@ pub enum Plane { Rows, Y, U, V, A }
 | `decode` | `webp_decode` with `PlaneStorage::Internal` output; the `Image` takes the buffer's memory and plane layout |
 | `decode_into`, `Output`, `YuvaPlanes` | `webp_decode` with `PlaneStorage::External` (one region for `Rows`, Y, U, V and A regions for `Planes`), each `size` field equal to its slice's length, `slow_memory` false |
 | `IncrementalDecoder::new`, `with_output` | `webp_i_new_rgb` (RGB modes) or `webp_i_new_yuva` (`Planes`) or `webp_i_new_decoder(None)` with the colorspace set on its own buffer (YUV in library memory), then `set_options`, a crate-visible accessor of `src/dec/idec_dec.rs` that does what `WebPIDecode` does (`idec->params.options = &config->options`) |
-| `append`, `update`, `Status` | `webp_i_append`, `webp_i_update`; `Ok` is `Complete`, `VP8_STATUS_SUSPENDED` is `NeedsMoreData` |
-| `output_size`, `decoded_rows`, `rows`, `planes` | `webp_i_dec_get_rgb`, `webp_i_dec_get_yuva` (`last_y`, the planes, strides) |
+| `append`, `update`, `Status` | `webp_i_append`, `webp_i_update`; `Ok` is `Complete`, `VP8_STATUS_SUSPENDED` is `NeedsMoreData`; an empty `append` before any data is answered as `NeedsMoreData` without the call (libwebp asserts against it) |
+| `output_size`, `decoded_rows`, `rows`, `planes` | `webp_i_decoded_area` (the size, `None` while it is 0, and `last_y`), `webp_i_dec_get_rgb`, `webp_i_dec_get_yuva` (the planes and strides) |
 | `into_image` | the decoder's own buffer after `STATE_DONE` |
 | `Container::new`, `partial` | `webp_demux_internal` with `allow_partial` false or true (`webp_demux`, `webp_demux_partial`), through `demux_bytes`, a crate-visible form of it in `src/demux/demux.rs` that takes the bytes instead of a `WebPData` |
-| `Container` accessors | `webp_demux_get_i` with `WEBP_FF_*`; `webp_demux_get_chunk(…, 1)` for `ICCP`, `EXIF`, `XMP `; `chunks` walks `webp_demux_get_chunk` and `webp_demux_next_chunk` |
+| `Container` accessors | `webp_demux_get_i` with `WEBP_FF_CANVAS_WIDTH`, `_HEIGHT`, `_LOOP_COUNT`, `_BACKGROUND_COLOR`, `_FRAME_COUNT`; `has_alpha` and `has_animation` are the `ALPHA_FLAG` and `ANIMATION_FLAG` bits of `WEBP_FF_FORMAT_FLAGS` (the API does not expose C's bit set; `ICCP`, `EXIF` and `XMP ` presence is their accessors'); `webp_demux_get_chunk(…, 1)` for `ICCP`, `EXIF`, `XMP `; `chunks` walks `webp_demux_get_chunk` and `webp_demux_next_chunk` |
 | `AnimationDecoder::new`, `AnimationMode`, `AnimationOptions` | `webp_anim_decoder_new` through `anim_decoder_new_bytes`, a crate-visible form of `webp_anim_decoder_new_internal` in `src/demux/anim_decode.rs` that takes the bytes, with `color_mode` `MODE_RGBA`, `MODE_BGRA`, `MODE_rgbA`, `MODE_bgrA` and `use_threads` |
 | `info`, `has_more_frames`, `next_frame`, `reset` | `webp_anim_decoder_get_info`, `webp_anim_decoder_has_more_frames`, `webp_anim_decoder_get_next`, `webp_anim_decoder_reset` |
 | `DecodeError` | `VP8StatusCode` 1 to 7 (`code()` maps back), `FrameFailed` for a failed `get_next`, and the API's validation |
@@ -224,14 +228,20 @@ because the translation's decoder holds a `dyn VP8IoHooks` box.
 input never reaches a panic:
 
 - `Config::validate`: a crop with `width` and `height` at least 1, `left` and
-  `top` even, each value at most `i32::MAX`, else `InvalidCrop`; a scale with
-  both sides in 1 to 16383, else `InvalidScale`; dithering strengths at most
-  100, else `InvalidParameter`. Every decoder entry point calls it first.
+  `top` even, each value at most `i32::MAX`, else `InvalidCrop` (libwebp moves
+  an odd crop of a lossy image to the even position, as `WebPIoInitFromOptions`
+  snaps when the source is YUV, and crops a lossless image exactly; the API
+  has one rule for both, and a caller crops one column or row earlier and
+  skips it); a scale with both sides in 1 to 16383, else `InvalidScale`
+  (libwebp derives a side given as 0 and accepts larger outputs);
+  dithering strengths at most 100, else `InvalidParameter` (`WebPDecode`
+  clamps them; `WebPValidateDecoderConfig` refuses them). Every decoder
+  entry point calls it first.
 - `Config::output_size`: the crop inside the picture
   (`left + width <= picture width`, the same for the height), else
   `InvalidCrop`; the output is the crop's size, then the scale's.
-- `decode`, `decode_into`: `Features::parse` first; its error is the one
-  `webp_decode` returns (`NotEnoughData` becomes `BitstreamError`, as in C); an
+- `decode`, `decode_into`: after `Config::validate`, `Features::parse`; its
+  error is the one `webp_decode` returns (`NotEnoughData` becomes `BitstreamError`, as in C); an
   animation is `UnsupportedFeature`, as libwebp reports it, before the
   configuration is checked against the picture; then `output_size`; then the
   output: `Rows` only for the RGB modes and `Planes` only for `Yuv` and
@@ -239,14 +249,18 @@ input never reaches a panic:
   least a row (`width * bytes_per_pixel`, `width`, `(width + 1) / 2`) and at
   most `i32::MAX`, else `InvalidStride`; each slice at least
   `(rows - 1) * stride + row length` bytes, else `BufferTooShort`.
+- `IncrementalDecoder::append`: an empty piece before any data returns
+  `NeedsMoreData` without calling the decoder, because libwebp asserts that
+  data was stored before (`WebPIAppend` of zero bytes first); release builds
+  of C and of the translation return `SUSPENDED` there.
 - `IncrementalDecoder::with_output`: the picture is unknown until its header
   arrives, so the API checks what does not depend on it (the plane matching
   above, strides at least 1 and at most `i32::MAX`, slices not empty) and
   libwebp checks the rest at the header, returning `InvalidParam`, as C does.
   A caller that knows the features checks first with `output_size` and the
   formulas above.
-- Negative strides and offsets cannot be expressed (`u32`, `usize`); a
-  flipped output is `flip(true)`, not a negative stride.
+- Every stride counts bytes. Negative strides and offsets cannot be expressed
+  (`u32`, `usize`); a flipped output is `flip(true)`, not a negative stride.
 
 **Errors and status.** `DecodeError` has one variant per `VP8StatusCode` from
 1 to 7, so `code()` returns C's code for those and `None` for the API's own.
@@ -255,10 +269,15 @@ The incremental decoder reports `VP8_STATUS_SUSPENDED` as
 the decoding has completed. `Features::parse` returns `NotEnoughData` for a
 prefix that is too short, which is the signal to read more. A failed
 `next_frame` is `FrameFailed`, because libwebp's `WebPAnimDecoderGetNext`
-returns no status; `AnimationDecoder::new` reports the features error, a
-container that does not parse (`BitstreamError`, or `NotEnoughData` when
-`webp_demux_partial` says the data ends early) and otherwise `OutOfMemory`,
-the only other way `WebPAnimDecoderNew` fails with a valid mode. `UserAbort`
+returns no status; `AnimationDecoder::new` and `Container::new` report the
+error of `Features::parse` first (libwebp's demuxer reports a file that is not
+WebP as a header in progress), then a container that does not parse
+(`NotEnoughData` when `webp_demux_partial` says the data ends early,
+`BitstreamError` otherwise), and `AnimationDecoder::new` otherwise
+`OutOfMemory`, the only other way `WebPAnimDecoderNew` fails with a valid
+mode. A whole-image decoding of a truncated file returns libwebp's status:
+`BitstreamError` before the dimensions (`WebPDecode` maps the features'
+`NOT_ENOUGH_DATA`), `NotEnoughData` or `BitstreamError` later. `UserAbort`
 is never returned (the API sets no I/O hooks) and is kept for `code()`.
 
 **Semantics (Ferrixel ADR-0018, gate e).**
@@ -272,8 +291,8 @@ is never returned (the API sets no I/O hooks) and is kept for `code()`.
   directions. `Yuv` and `Yuva` return the decoded planes as stored, so a caller
   of those modes converts with the same limited-range matrix itself.
   `dithering` adds libwebp's dither to lossy output.
-- **Lossless color.** `VP8L` stores ARGB exactly; the RGB modes are byte
-  reorderings of it, and `Yuv`/`Yuva` convert it with `WebPConvertARGBToY`
+- **Lossless color.** `VP8L` stores ARGB exactly; the RGB modes reorder its
+  bytes (the 16-bit modes keep the high bits), and `Yuv`/`Yuva` convert it with `WebPConvertARGBToY`
   and `WebPConvertARGBToUV` (the same limited-range matrix, chroma from 2 by 2
   averages).
 - **Alpha.** Straight in `Rgba`, `Bgra`, `Argb`, `Rgba4444` and the `a` plane
@@ -291,8 +310,10 @@ is never returned (the API sets no I/O hooks) and is kept for `code()`.
 - **Animation.** Each `next_frame` returns the whole canvas after blending and
   disposal, in the chosen mode (premultiplied modes blend premultiplied
   pixels); the canvas starts transparent black and `background_color` is
-  reported, not applied, as in libwebp; timestamps are the end times of the
-  frames in milliseconds.
+  reported, not applied, as in libwebp, as `0xAARRGGBB` (the `ANIM` chunk's
+  bytes read as a little-endian `u32`, the `u32` pixel convention of ADR 0006);
+  timestamps are the end times of the frames in milliseconds. A still image is
+  one frame with timestamp 0, loop count 1 and background `0xFFFFFFFF`.
 
 **Cropping.** The crop is libwebp's (`use_cropping` and the four values) and
 saves what WP12 measured (`docs/status/wp12.md`, "Cropping measurement for
