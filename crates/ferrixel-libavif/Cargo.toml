@@ -21,7 +21,7 @@ cli = ["ferrixel/jpeg-read", "ferrixel/jpeg-xl-read", "ferrixel/icc"]
 
 [dependencies]
 ferrixel = { path = "../..", default-features = false, features = ["avif-write"] }
-libavif-rs = { git = "https://github.com/sebastian-software/libavif-rs", rev = "8be367f0dde9e7e04299d7de400a3e0abe843e42" }
+libavif-rs = { git = "https://github.com/sebastian-software/libavif-rs", rev = "3df161d9715ac743a1c7305f9a37ffaa3ae51c05" }
 
 [dev-dependencies]
 ferrixel = { path = "../..", default-features = false, features = ["avif-write", "jpeg-read"] }

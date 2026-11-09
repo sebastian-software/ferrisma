@@ -510,7 +510,7 @@ dependencies = [
 [[package]]
 name = "libavif-aom"
 version = "0.1.0"
-source = "git+https://github.com/sebastian-software/libavif-rs?rev=8be367f0dde9e7e04299d7de400a3e0abe843e42#8be367f0dde9e7e04299d7de400a3e0abe843e42"
+source = "git+https://github.com/sebastian-software/libavif-rs?rev=3df161d9715ac743a1c7305f9a37ffaa3ae51c05#3df161d9715ac743a1c7305f9a37ffaa3ae51c05"
 dependencies = [
  "c2rust-bitfields",
  "libc",
@@ -519,7 +519,7 @@ dependencies = [
 [[package]]
 name = "libavif-dav1d"
 version = "0.1.0"
-source = "git+https://github.com/sebastian-software/libavif-rs?rev=8be367f0dde9e7e04299d7de400a3e0abe843e42#8be367f0dde9e7e04299d7de400a3e0abe843e42"
+source = "git+https://github.com/sebastian-software/libavif-rs?rev=3df161d9715ac743a1c7305f9a37ffaa3ae51c05#3df161d9715ac743a1c7305f9a37ffaa3ae51c05"
 dependencies = [
  "c2rust-bitfields",
  "libc",
@@ -528,7 +528,7 @@ dependencies = [
 [[package]]
 name = "libavif-rs"
 version = "0.1.0"
-source = "git+https://github.com/sebastian-software/libavif-rs?rev=8be367f0dde9e7e04299d7de400a3e0abe843e42#8be367f0dde9e7e04299d7de400a3e0abe843e42"
+source = "git+https://github.com/sebastian-software/libavif-rs?rev=3df161d9715ac743a1c7305f9a37ffaa3ae51c05#3df161d9715ac743a1c7305f9a37ffaa3ae51c05"
 dependencies = [
  "libavif-aom",
  "libavif-dav1d",
@@ -539,7 +539,7 @@ dependencies = [
 [[package]]
 name = "libavif-sharpyuv"
 version = "0.1.0"
-source = "git+https://github.com/sebastian-software/libavif-rs?rev=8be367f0dde9e7e04299d7de400a3e0abe843e42#8be367f0dde9e7e04299d7de400a3e0abe843e42"
+source = "git+https://github.com/sebastian-software/libavif-rs?rev=3df161d9715ac743a1c7305f9a37ffaa3ae51c05#3df161d9715ac743a1c7305f9a37ffaa3ae51c05"
 dependencies = [
  "libc",
 ]
