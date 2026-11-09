@@ -24,23 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use oracle::{Fields, Oracle};
-
-/// The one field where the port differs by design: with
-/// `QUANT_2PASS_SUPPORTED` treated as undefined (ADR 0005), upstream's
-/// `default_decompress_parms` sets `two_pass_quantize` to `FALSE`, where the
-/// oracle, which compiles color quantization, sets `TRUE`. The oracle's value
-/// is mapped to the port's; nothing else is changed.
-fn without_two_pass_quantize(mut fields: Fields) -> Fields {
-    for (key, value) in &mut fields.0 {
-        if key == "params" {
-            let mut items: Vec<&str> = value.split(',').collect();
-            assert!(items[11] == "0" || items[11] == "1", "{value}");
-            items[11] = "0";
-            *value = items.join(",");
-        }
-    }
-    fields
-}
+use wp2::without_two_pass_quantize;
 
 /// Runs `args` on `data` with the probe and the port and compares the output.
 fn compare(oracle: &Oracle, args: &[&str], data: &[u8], label: &str) -> Fields {

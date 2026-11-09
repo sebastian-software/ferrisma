@@ -623,6 +623,23 @@ fn print_object(
     push(log, "coef_bits", u8::from(cinfo.coef_bits.is_some()));
 }
 
+/// The one field where the port differs by design: with
+/// `QUANT_2PASS_SUPPORTED` treated as undefined (ADR 0005), upstream's
+/// `default_decompress_parms` sets `two_pass_quantize` to `FALSE`, where the
+/// oracle, which compiles color quantization, sets `TRUE`. The oracle's value
+/// is mapped to the port's; nothing else is changed.
+pub fn without_two_pass_quantize(mut fields: Fields) -> Fields {
+    for (key, value) in &mut fields.0 {
+        if key == "params" {
+            let mut items: Vec<&str> = value.split(',').collect();
+            assert!(items[11] == "0" || items[11] == "1", "{value}");
+            items[11] = "0";
+            *value = items.join(",");
+        }
+    }
+    fields
+}
+
 /// Runs `header.c`'s sequence on the port for `args` and the input `data`.
 #[expect(clippy::too_many_lines, reason = "the probe's main")]
 pub fn run_rust(args: &[&str], data: &[u8]) -> Fields {
