@@ -167,23 +167,34 @@ fn rtcd_selection() -> &'static str {
     // SAFETY: setup_rtcd_internal() assigned the pointer during encoder
     // initialization, which happened-before this read on this thread.
     let selected = unsafe { av1_highbd_quantize_fp };
-    if selected == av1_highbd_quantize_fp_neon as usize { "simd(neon)" } else { "c" }
+    if selected == av1_highbd_quantize_fp_neon as *const () as usize { "simd(neon)" } else { "c" }
 }
 
-/// On x86-64 GNU Linux (ADR 0058), `av1_block_error` has an AVX2 kernel and
-/// no ported SSE4.1 one, so it tells AVX2 dispatch apart from SSE4.1 dispatch.
+/// On x86-64 GNU Linux (ADR 0058), `av1_block_error` has only an AVX2 kernel
+/// and `av1_filter_intra_predictor` only an SSE4.1 one, so together they tell
+/// AVX2, SSE4.1, and `_c` dispatch apart.
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 fn rtcd_selection() -> &'static str {
+    use aom::simd::av1__common__x86__filterintra_sse4::av1_filter_intra_predictor_sse4_1;
     use aom::simd::av1__encoder__x86__error_intrin_avx2::av1_block_error_avx2;
     extern "C" {
-        // RTCD pointer defined by the translated av1_rtcd.c (aom_ports/x86.h
-        // dispatch); only its address value is read.
+        // RTCD pointers defined by the translated av1_rtcd.c (aom_ports/x86.h
+        // dispatch); only their address values are read.
         static av1_block_error: usize;
+        static av1_filter_intra_predictor: usize;
     }
-    // SAFETY: setup_rtcd_internal() assigned the pointer during encoder
-    // initialization, which happened-before this read on this thread.
-    let selected = unsafe { av1_block_error };
-    if selected == av1_block_error_avx2 as usize { "simd(avx2)" } else { "c" }
+    // SAFETY: setup_rtcd_internal() assigned the pointers during encoder
+    // initialization, which happened-before these reads on this thread.
+    let (avx2, sse4) = unsafe {
+        (av1_block_error == av1_block_error_avx2 as *const () as usize,
+         av1_filter_intra_predictor == av1_filter_intra_predictor_sse4_1 as *const () as usize)
+    };
+    match (avx2, sse4) {
+        (true, true) => "simd(avx2)",
+        (false, true) => "simd(sse4.1)",
+        (false, false) => "c",
+        (true, false) => "mixed(avx2 without sse4.1)",
+    }
 }
 
 #[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"),

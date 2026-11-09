@@ -6,7 +6,8 @@ Each case encodes one still image twice through `examples/encode_still.rs`
 run time and once with AOM_SIMD_CAPS_MASK=0, which selects every `_c`
 implementation (ADR 0056). The AVIF bytes must match exactly. The SIMD run
 must report that the RTCD pointers select the hand-translated kernels, and the
-scalar run that they select `_c`, so an inactive dispatcher cannot pass.
+scalar run that they select `_c`, so an inactive dispatcher cannot pass. The
+SSE4.1 run on x86-64 must report SSE4.1 kernels without AVX2 ones.
 
 The corpus is derived from images in the upstream libavif test data with
 macOS `sips` on macOS ARM64 (Neon) and with ImageMagick on x86-64 GNU Linux
@@ -139,7 +140,7 @@ def main():
             if LINUX:
                 sse4 = encode(binary, images[name], work / 'sse4.avif', case, scalar=False, caps=SSE4_CAPS)
                 record.update(sse4_caps=SSE4_CAPS, sse4_avif_sha256=sse4[0], sse4_rtcd=sse4[2])
-                ok = ok and sse4[0] == scalar[0] and not sse4[2].startswith('simd(avx2)')
+                ok = ok and sse4[0] == scalar[0] and sse4[2] == 'simd(sse4.1)'
             cases.append(record)
             print(f'{"ok  " if ok else "FAIL"} {label} bytes={simd[1]}', flush=True)
             if not ok:
