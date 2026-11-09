@@ -63,7 +63,8 @@ use crate::utils::bit_reader_utils::{
 use crate::utils::utils::webp_safe_malloc;
 use crate::webp::decode::{
     VP8StatusCode, WEBP_CSP_MODE, WebPBitstreamFeatures, WebPDecBuffer, WebPDecBufferPlanes,
-    WebPDecoderConfig, WebPRGBABuffer, WebPYUVABuffer, webp_get_features, webp_init_dec_buffer,
+    WebPDecoderConfig, WebPDecoderOptions, WebPRGBABuffer, WebPYUVABuffer, webp_get_features,
+    webp_init_dec_buffer,
 };
 use crate::webp::format_constants::{
     ALPHA_HEADER_LEN, ALPHA_LOSSLESS_COMPRESSION, MAX_CHUNK_PAYLOAD, VP8_FRAME_HEADER_SIZE,
@@ -1718,5 +1719,22 @@ impl<'b> WebPIDecoder<'_, 'b> {
             (Some(output), _) | (None, Some(output)) => Some(&mut **output),
             (None, None) => None,
         }
+    }
+}
+
+//------------------------------------------------------------------------------
+// Access for the safe API (no C counterpart). `src/api/decode.rs` (WP16)
+// creates a decoder over its own output buffer and sets the options as
+// `WebPIDecode` does, so that it borrows the options without the output buffer
+// of a `WebPDecoderConfig`.
+
+impl<'a> WebPIDecoder<'a, '_> {
+    /// Sets the decoding options, as `WebPIDecode` does with
+    /// `idec->params.options = &config->options`, for a decoder that
+    /// `webp_i_new_decoder`, `webp_i_new_rgb` or `webp_i_new_yuva` created. Call
+    /// it before the first `webp_i_append` or `webp_i_update`, as C sets the
+    /// options before the decoder sees any data.
+    pub(crate) fn set_options(&mut self, options: &'a WebPDecoderOptions) {
+        self.params.options = Some(options);
     }
 }
