@@ -223,11 +223,19 @@ output in all 62 cases, so both share `crates/aom/golden/release.json`, which
 lists each profile with its translation record digest and compiler. A profile
 whose results differ would get its own `crates/aom/golden/<profile>.json`.
 
-This slice records the golden outputs from the Rust port at the frozen
-translation, not yet from the C reference. The port's agreement with the C
-reference still rests on the original suites and oracles of ADR 0048; no
-AVIF-level comparison with the C reference is recorded yet. Re-recording from
-the C reference belongs to the nightly slice.
+The golden outputs were first recorded from the Rust port at the frozen
+translation.
+
+**C confirmation (2026-11-09).** The record now holds the C reference output
+of each case next to the Rust one. `tools/encode_still.c` makes the same
+libavif calls and links the original libavif baseline, the portable libaom
+reference (`_c` functions only, `-ffp-contract=off`) and the SharpYUV and
+dav1d references that root parity validation builds. All 62 C outputs equal
+the Rust golden outputs on GNU Linux x86-64 (clang 16.0.6, run 42611941653)
+and on macOS ARM64 (Apple clang 21.0.0, local, libavif without the dav1d
+decoder). Because the pull-request tier builds no C library, the C side runs
+in `aom-golden-c.yml` nightly, on dispatch and on pull requests that change
+the record; on Linux it takes 3 min 22 s.
 
 ## Open questions
 
@@ -241,5 +249,5 @@ the C reference belongs to the nightly slice.
   modes or larger images, once Ferrixel's settings settle. The first corpus is
   described in the amendment above.
 - Whether the macOS and Linux C references produce identical golden outputs
-  under the non-contracting floating-point profile. The Rust port does for the
-  first corpus.
+  under the non-contracting floating-point profile. Resolved for the first
+  corpus: both C references and the Rust port produce the same 62 outputs.

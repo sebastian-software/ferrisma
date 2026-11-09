@@ -71,6 +71,46 @@
         "machine": "arm64"
       },
       "evidence": "local"
+    },
+    "linux-x86_64-release": {
+      "harness": "tools/encode_still.c",
+      "harness_sha256": "6eadf62773c20767e91f991da085346129a374b14ce21650822dd502ff3b6369",
+      "archives": {
+        "build/root-c-linux-release-default/libavif.a": "53afa2ddb2a3acebec143b9847b539485f57f164371ca77c4990405fc61c2263",
+        "build/aom-native-release/libaom.a": "86e4567333fba4f53b0c8d7c730e02c777e3a3f92d7a900f602cb883b77d66ed",
+        "build/root-references-x86_64-unknown-linux-gnu-release/dav1d/src/libdav1d.a": "5ef2caac15426b3552069af9ea7bbf6ca1686cd082c1a5bab7e211370704bc2f",
+        "build/root-references-x86_64-unknown-linux-gnu-release/sharpyuv/libsharpyuv.a": "a9c1142525018dc186c5b3fcf74313c7e326ec3d5aca895b564a05d685fceba2"
+      },
+      "libavif_options": {
+        "AVIF_CODEC_AOM": "SYSTEM",
+        "AVIF_CODEC_AOM_DECODE": "ON",
+        "AVIF_CODEC_AOM_ENCODE": "ON",
+        "AVIF_CODEC_AVM": "OFF",
+        "AVIF_CODEC_DAV1D": "SYSTEM",
+        "AVIF_CODEC_LIBGAV1": "OFF",
+        "AVIF_CODEC_RAV1E": "OFF",
+        "AVIF_CODEC_SVT": "OFF",
+        "AVIF_LIBSHARPYUV": "SYSTEM",
+        "AVIF_LIBXML2": "SYSTEM",
+        "AVIF_LIBYUV": "OFF"
+      },
+      "libaom": {
+        "options": [
+          "-DAOM_TARGET_CPU=generic",
+          "-DCONFIG_TUNE_VMAF=0",
+          "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+          "-DENABLE_DOCS=OFF"
+        ],
+        "c_flags": "-ffp-contract=off -fmacro-prefix-map=<source>=upstream/aom",
+        "compiler": "Ubuntu clang version 16.0.6 (23ubuntu4)",
+        "config_sha256": "989d9a5908bd5f1a708100a26fae554703f05316c252df7602c579df49b0b905"
+      },
+      "compiler": "Ubuntu clang version 16.0.6 (23ubuntu4)",
+      "host": {
+        "system": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "machine": "x86_64"
+      },
+      "evidence": "https://github.com/sebastian-software/libavif-rs/actions/runs/42611941653"
     }
   },
   "encoder": "examples/encode_still.rs: BT.709 primaries, sRGB transfer, BT.601 matrix, full range; avifImageRGBToYUV then avifEncoderWrite; autoTiling when threads != 1",

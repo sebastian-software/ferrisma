@@ -953,6 +953,33 @@ python3 tools/check_aom_golden.py
 A change that alters an output on purpose updates the record with
 `--record --replace` in the same pull request, so the diff is reviewed. A
 profile whose floating-point results differ gets its own
-`crates/aom/golden/<os>-<arch>-release.json`. The current
-record comes from the Rust port at the frozen translation; re-recording it
-from the C reference is part of the nightly tier.
+`crates/aom/golden/<os>-<arch>-release.json`.
+
+### C confirmation
+
+Each case in the record also holds `c_reference_sha256`, the output of the C
+reference. `tools/encode_still.c` makes the calls of `examples/encode_still.rs`
+and links the builds of root parity validation: the original libavif
+baseline, the portable libaom reference (`AOM_TARGET_CPU=generic`, `_c`
+functions only, `-ffp-contract=off`) and the dav1d and SharpYUV references.
+`aom-golden-c.yml` builds them with `tools/root_pipeline.py --phase references`
+and runs the 62 cases:
+
+```sh
+python3 tools/check_aom_golden.py --implementation c
+```
+
+All 62 C reference outputs equal the Rust golden outputs:
+
+| Profile | C reference | Evidence |
+| --- | --- | --- |
+| GNU Linux x86-64 | clang 16.0.6, full parity baseline | run [42611941653](https://github.com/sebastian-software/libavif-rs/actions/runs/42611941653), 3 min 22 s |
+| macOS ARM64 | Apple clang 21.0.0; libavif built without dav1d, which encoding does not use | local |
+
+The C side runs nightly (with macOS ARM64), on manual dispatch, and on pull
+requests that change the record, its tool or the C harness. The pull-request
+check in `aom-simd-linux.yml` stays free of C builds: it compares the Rust
+output with `avif_sha256` and reports how many cases are C-confirmed, that is,
+whose `avif_sha256` equals `c_reference_sha256`. An intended change that
+leaves the libaom reference (`--record --replace`) keeps the C hashes, so the
+affected cases show as no longer C-confirmed in review.
