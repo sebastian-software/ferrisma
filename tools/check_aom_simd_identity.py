@@ -113,8 +113,8 @@ def encode(binary, image, output, case, scalar, caps=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, help='Use an already built encode_still example')
-    parser.add_argument('--output', type=Path, default=ROOT / ('docs/aom-simd-identity-validation-linux.json'
-                        if LINUX else 'docs/aom-simd-identity-validation.json'))
+    parser.add_argument('--output', type=Path, default=ROOT / ('build/aom-simd-identity-validation-linux.json'
+                        if LINUX else 'build/aom-simd-identity-validation.json'))
     args = parser.parse_args()
     if (platform.system(), platform.machine()) not in {('Darwin', 'arm64'), ('Linux', 'x86_64')}:
         raise SystemExit('The identity corpus runs on macOS ARM64 or x86-64 GNU Linux')

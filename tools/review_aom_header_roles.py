@@ -43,7 +43,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
-    inventory_path = ROOT / 'docs/aom-test-bindings-macos-release.json'
+    inventory_path = ROOT / 'tests/ports/fixtures/aom-test-bindings-macos-release.json'
     inventory = json.loads(inventory_path.read_text())
     originals = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files']
     subject_names = {name for _, names in SUBJECTS.values() for name in names}
@@ -96,7 +96,7 @@ def main():
         cpp_rate_control_boundary='av1/ratectrl_rtc.cc builds the separate aom_av1_rc library, which upstream does not install. It is outside the selected 166-C-unit libaom archive and is retained as an original native consumer in test_aom_rc. No Rust wrapper implementation is claimed.',
         other_native_test_infrastructure=['GoogleTest', 'libyuv', 'WebM I/O', 'original C++ reference/fixture code'],
         bindings=records)
-    path = ROOT / 'docs/aom-header-role-review.json'
+    path = ROOT / 'tests/ports/fixtures/aom-header-role-review.json'
     text = json.dumps(record, indent=2) + '\n'
     if args.check:
         if path.read_text() != text:

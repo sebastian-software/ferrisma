@@ -53,7 +53,7 @@ if dav1d.exists():
     print(f'All {len(expected)} portable dav1d source instantiations are represented in {len(names)} platform/build profiles')
 aom = ROOT / 'crates/aom'
 if (aom / 'TRANSLATION-macos-debug.json').exists():
-    reference = json.loads((ROOT / 'docs/aom-reference-macos-debug.json').read_text())
+    reference = json.loads((ROOT / 'crates/aom/reference/macos-debug.json').read_text())
     expected = {name.replace('<generated>/', 'generated/') for name in reference['library_sources']}
     for path in sorted(aom.glob('TRANSLATION-*.json')):
         record = json.loads(path.read_text())

@@ -1,5 +1,5 @@
 {
-  "status": "fixture provisioning defect diagnosed; corrected native Linux execution still required",
+  "status": "failed run preserved as the expected failure set; the fixture provisioning defect is corrected and verified by tools/check_aom_rc_fixture_recovery.py",
   "source_run": 41548531529,
   "continuation_run": 41609941416,
   "job_id": 125829585716,

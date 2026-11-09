@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Record compact verified parity evidence from the completed local test runs."""
+"""Record compact verified parity evidence from the completed local test runs.
+
+The record is written to build/validation-results.json. It is not committed;
+attach it to a release or an evidence tag if it has to stay retrievable.
+"""
 import hashlib
 import json
 from pathlib import Path
@@ -55,5 +59,5 @@ report["differential"] = {
     "confirmed_noncontracting_c_matches": sum(item["matches_noncontracting_c"] is True for item in scenarios),
     "strict_png_byte_parity": all(item["png_byte_equal"] for item in scenarios),
 }
-(ROOT / "docs/validation-results.json").write_text(json.dumps(report, indent=2) + "\n")
+(ROOT / "build/validation-results.json").write_text(json.dumps(report, indent=2) + "\n")
 print(f"Recorded {len(profiles)} passing C/Rust profile comparisons and explicit ABI/differential limits")

@@ -60,7 +60,7 @@ def main():
         additional_function_role='Selects input upsampling in DrPredTest::SetParams; retain its original native fixture behavior.',
         complete_runtime_or_indirect_call_coverage_proven=False,
         source_and_static_candidates_receive_no_execution_credit=True, functions=functions)
-    (ROOT / 'docs/aom-included-header-role-review.json').write_text(json.dumps(report, indent=2) + '\n')
+    (ROOT / 'tests/ports/fixtures/aom-included-header-role-review.json').write_text(json.dumps(report, indent=2) + '\n')
     print(f'Reviewed {len(functions)} static header functions across all 149 original C++ compilation inputs')
 
 

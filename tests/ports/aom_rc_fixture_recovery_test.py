@@ -18,7 +18,7 @@ class MissingVideoRecovery(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
-        failed = json.loads((ROOT / 'docs/aom-rate-control-fixture-failure.json').read_text())['failed_case_names']
+        failed = json.loads((ROOT / 'tests/ports/fixtures/aom-rate-control-fixture-failure.json').read_text())['failed_case_names']
         self.names = failed + [f'Original.Other/{i}' for i in range(22)]
         self.identity = dict(program='test_aom_rc', profile='release', shards=1, filter='*',
                              c_executable_sha256='frozen-c', rust_executable_sha256='frozen-rust')

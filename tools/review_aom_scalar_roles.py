@@ -56,7 +56,7 @@ def main():
     names = test_names((reference / 'test_libaom-inventory.txt').read_text())
     if len(names) != 18729:
         raise SystemExit('The original generic registration boundary changed')
-    inventory = json.loads((ROOT / 'docs/aom-test-bindings-macos-release.json').read_text())
+    inventory = json.loads((ROOT / 'tests/ports/fixtures/aom-test-bindings-macos-release.json').read_text())
     originals = json.loads((ROOT / 'provenance/aom-source.json').read_text())['files']
     reviewed, records = set(), []
     for source in inventory['sources']:
@@ -94,7 +94,7 @@ def main():
         complete_runtime_or_indirect_coverage_claimed=False,
         registration_counts_exclude_helper_cases_registered_by_other_inputs=True,
         native_cpp_reference_fixture_and_timing_helpers_retained=True, sources=records)
-    path = ROOT / 'docs/aom-scalar-role-review.json'
+    path = ROOT / 'tests/ports/fixtures/aom-scalar-role-review.json'
     text = json.dumps(report, indent=2) + '\n'
     if args.check:
         if path.read_text() != text:

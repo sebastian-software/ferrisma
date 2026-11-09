@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Record verified local integration and completed native CI evidence."""
+"""Record verified local integration and completed native CI evidence.
+
+The record is written to build/sharpyuv-validation-results.json by default. It
+is not committed; attach it to a release or an evidence tag if it has to stay
+retrievable.
+"""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -30,6 +35,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ci-run', type=Path, required=True, help='Completed successful gh run view JSON')
     parser.add_argument('--ci-artifacts', type=Path, required=True, help='Downloaded artifacts from that run')
+    parser.add_argument('--output', type=Path, default=ROOT / 'build/sharpyuv-validation-results.json')
     args = parser.parse_args()
     ci = json.loads(args.ci_run.read_text())
     if ci['conclusion'] != 'success' or len(ci['jobs']) != 2 or any(job['conclusion'] != 'success' for job in ci['jobs']):
@@ -111,7 +117,7 @@ def main():
         'exact_png_scenarios': sum(value['png_byte_equal'] for value in diagnostic),
         'confirmed_noncontracting_matches': sum(value['matches_noncontracting_c'] is True for value in diagnostic),
         'results_sha256': digest(diagnostic_path)}
-    (ROOT / 'docs/sharpyuv-validation-results.json').write_text(json.dumps(record, indent=2) + '\n')
+    args.output.write_text(json.dumps(record, indent=2) + '\n')
     print('Recorded four native profiles, original consumer inventories, and local integration evidence')
 
 

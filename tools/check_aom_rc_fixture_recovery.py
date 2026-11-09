@@ -31,7 +31,7 @@ def validate_failure(directory, names, identity):
             or identity['profile'] != 'release' or identity['shards'] != 1
             or identity['filter'] != '*' or record['index'] != 0 or record['valid']):
         raise ValueError('Not the failed original Release rate-control pair')
-    expected_failures = json.loads((ROOT / 'docs/aom-rate-control-fixture-failure.json').read_text())['failed_case_names']
+    expected_failures = json.loads((ROOT / 'tests/ports/fixtures/aom-rate-control-fixture-failure.json').read_text())['failed_case_names']
     for side in ('c', 'rust'):
         result = record['results'][side]
         path = directory / f'shard-0-{side}.xml'

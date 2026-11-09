@@ -51,7 +51,7 @@ def main():
     if args.check and args.refresh:
         parser.error('--check and --refresh are mutually exclusive')
     artifact = args.artifact.resolve()
-    original = json.loads((ROOT / 'docs/aom-reference-macos-debug.json').read_text())
+    original = json.loads((ROOT / 'crates/aom/reference/macos-debug.json').read_text())
     expected = {name.replace('<generated>/', 'generated/') for name in original['library_sources']}
     records, current_artifacts = [], []
     for profile in ['debug', 'release']:
@@ -175,10 +175,10 @@ def main():
                       if current_artifacts[0] else
                       'Map the array-decayed control va_list callback type and glibc _setjmp error targets, then append the same optional inline wrappers as the current translator')
     record = dict(run_id=args.run_id, source_revision='af3dc9aadc793c1b00edc003e3fc19a44fdeb574',
-                  status='native Linux source profiles generated; compilation and acceptance pending',
+                  status='native Linux source profiles generated',
                   artifact_transformation=transformation,
                   native_reference_and_original_tests_preserved=True, profiles=records)
-    record_path = ROOT / 'docs/aom-linux-source-import.json'
+    record_path = ROOT / 'crates/aom/reference/linux-source-import.json'
     content = json.dumps(record, indent=2) + '\n'
     if args.check:
         if record_path.read_text() != content:

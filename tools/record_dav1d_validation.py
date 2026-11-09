@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Record completed native dav1d comparisons and local libavif integration."""
+"""Record completed native dav1d comparisons and local libavif integration.
+
+The record is written to build/dav1d-validation-results.json by default. It is
+not committed; attach it to a release or an evidence tag if it has to stay
+retrievable.
+"""
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
@@ -123,6 +128,7 @@ def main():
                         help='Completed Linux generation workflow in verify mode')
     parser.add_argument('--translation-artifacts', type=Path, required=True,
                         help='Downloaded native Linux generation artifact, including static fault-fuzzer reports')
+    parser.add_argument('--output', type=Path, default=ROOT / 'build/dav1d-validation-results.json')
     args = parser.parse_args()
     native_ci = successful_run(args.ci_run, 2)
     translation_ci = successful_run(args.translation_run, 1)
@@ -207,10 +213,7 @@ def main():
         raise SystemExit('Strict downstream image parity not established')
     record['local_integration']['differential'] = {'exact_avif_scenarios': 10, 'exact_png_scenarios': 10,
                                                   'summary_sha256': digest(differential)}
-    record['remaining_scope'] = ['libaom and optional native engine ports', 'root libavif on Linux',
-        'additional targets and SIMD', 'safe Rust API and optimization', 'continuous fuzzing and external Argon corpus',
-        'complete leak, race, and undefined-behavior sanitizer coverage', 'crate registry publication']
-    (ROOT / 'docs/dav1d-validation-results.json').write_text(json.dumps(record, indent=2) + '\n')
+    args.output.write_text(json.dumps(record, indent=2) + '\n')
     print('Recorded four native decoder profiles, original test inventories, and downstream integration')
 
 
