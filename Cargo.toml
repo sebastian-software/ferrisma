@@ -37,3 +37,10 @@ panic = "unwind"
 [profile.release]
 overflow-checks = false
 panic = "unwind"
+
+# The Debug translation profile (selected by `debug_assertions`) built with
+# Release optimization. Pull requests run the SIMD kernel tests in this
+# profile; the unoptimized `dev` run moves to nightly (ADR 0059).
+[profile.checked]
+inherits = "release"
+debug-assertions = true

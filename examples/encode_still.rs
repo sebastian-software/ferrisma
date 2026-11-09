@@ -9,7 +9,9 @@
 //!
 //! The input is a 24- or 32-bit BMP as macOS `sips -s format bmp` writes it
 //! (uncompressed, or 32-bit with byte-aligned channel masks); alpha is
-//! ignored. Each repetition prints `encode_us=<microseconds>` for
+//! ignored unless `--alpha` is given, which requires a 32-bit BMP with an
+//! alpha mask (BITMAPV4HEADER) and encodes RGBA with an alpha plane, as
+//! Ferrixel does for images with alpha. Each repetition prints `encode_us=<microseconds>` for
 //! `avifEncoderWrite` alone and the output size. `--threads=0` uses all
 //! available cores and enables automatic tiling. `--report-rtcd` prints
 //! whether libaom's RTCD tables selected the SIMD kernels (ADR 0056).
@@ -21,6 +23,7 @@ const AVIF_RESULT_OK: u32 = 0;
 const AVIF_PIXEL_FORMAT_YUV444: u32 = 1;
 const AVIF_PIXEL_FORMAT_YUV420: u32 = 3;
 const AVIF_RGB_FORMAT_RGB: u32 = 0;
+const AVIF_RGB_FORMAT_RGBA: u32 = 1;
 const AVIF_RANGE_FULL: u32 = 1;
 
 struct Options {
@@ -33,6 +36,7 @@ struct Options {
     yuv444: bool,
     repeat: usize,
     report_rtcd: bool,
+    alpha: bool,
 }
 
 fn parse() -> Options {
@@ -47,6 +51,7 @@ fn parse() -> Options {
         yuv444: false,
         repeat: 1,
         report_rtcd: false,
+        alpha: false,
     };
     for argument in std::env::args().skip(1) {
         let (key, value) = argument.split_once('=').unwrap_or((&argument, ""));
@@ -58,6 +63,7 @@ fn parse() -> Options {
             "--yuv444" => options.yuv444 = true,
             "--repeat" => options.repeat = value.parse().expect("repeat"),
             "--report-rtcd" => options.report_rtcd = true,
+            "--alpha" => options.alpha = true,
             _ if key.starts_with("--") => panic!("unknown option {key}"),
             _ => positional.push(argument),
         }
@@ -71,8 +77,9 @@ fn parse() -> Options {
     options
 }
 
-/// Returns width, height and tightly packed RGB rows, top row first.
-fn read_bmp(path: &str) -> (u32, u32, Vec<u8>) {
+/// Returns width, height and tightly packed RGB (or, with `alpha`, RGBA)
+/// rows, top row first.
+fn read_bmp(path: &str, alpha: bool) -> (u32, u32, Vec<u8>) {
     let data = std::fs::read(path).expect("read input");
     assert_eq!(&data[..2], b"BM", "not a BMP file");
     let word = |offset: usize| u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap());
@@ -84,21 +91,27 @@ fn read_bmp(path: &str) -> (u32, u32, Vec<u8>) {
     // Uncompressed (BI_RGB, B G R [X]) or 32-bit BI_BITFIELDS with byte masks.
     let channel = |mask: u32| mask.trailing_zeros() as usize / 8;
     let order = match word(30) {
-        0 => [2, 1, 0],
-        3 if bits == 32 => [channel(word(54)), channel(word(58)), channel(word(62))],
+        0 => [2, 1, 0, 3],
+        3 if bits == 32 => {
+            let alpha = if word(14) >= 56 { word(66) } else { 0 };
+            [channel(word(54)), channel(word(58)), channel(word(62)), channel(alpha)]
+        }
         _ => panic!("compressed BMP input is not supported"),
     };
+    assert!(!alpha || (bits == 32 && word(30) == 3 && word(14) >= 56 && word(66) != 0),
+            "--alpha requires a 32-bit BMP with an alpha mask");
+    let channels = if alpha { 4 } else { 3 };
     let (width, top_down) = (width as u32, height < 0);
     let height = height.unsigned_abs();
     let bytes = (bits / 8) as usize;
     let stride = (width as usize * bytes).div_ceil(4) * 4;
-    let mut rgb = Vec::with_capacity(width as usize * height as usize * 3);
+    let mut rgb = Vec::with_capacity(width as usize * height as usize * channels);
     for y in 0..height as usize {
         let row = if top_down { y } else { height as usize - 1 - y };
         let start = offset + row * stride;
         for x in 0..width as usize {
             let pixel = &data[start + x * bytes..];
-            rgb.extend_from_slice(&[pixel[order[0]], pixel[order[1]], pixel[order[2]]]);
+            rgb.extend(order[..channels].iter().map(|&channel| pixel[channel]));
         }
     }
     (width, height, rgb)
@@ -106,7 +119,7 @@ fn read_bmp(path: &str) -> (u32, u32, Vec<u8>) {
 
 fn main() {
     let options = parse();
-    let (width, height, mut rgb) = read_bmp(&options.input);
+    let (width, height, mut rgb) = read_bmp(&options.input, options.alpha);
     let format = if options.yuv444 { AVIF_PIXEL_FORMAT_YUV444 } else { AVIF_PIXEL_FORMAT_YUV420 };
     let mut last = Vec::new();
     for _ in 0..options.repeat {
@@ -122,10 +135,11 @@ fn main() {
             (*image).yuvRange = AVIF_RANGE_FULL;
             let mut rgb_image: reformat::avifRGBImage = std::mem::zeroed();
             image_api::avifRGBImageSetDefaults((&raw mut rgb_image).cast(), image.cast());
-            rgb_image.format = AVIF_RGB_FORMAT_RGB;
+            rgb_image.format = if options.alpha { AVIF_RGB_FORMAT_RGBA } else { AVIF_RGB_FORMAT_RGB };
             rgb_image.depth = 8;
+            rgb_image.alphaPremultiplied = 0;
             rgb_image.pixels = rgb.as_mut_ptr();
-            rgb_image.rowBytes = width * 3;
+            rgb_image.rowBytes = width * if options.alpha { 4 } else { 3 };
             let result = reformat::avifImageRGBToYUV(image.cast(), &raw const rgb_image);
             assert_eq!(result, AVIF_RESULT_OK, "avifImageRGBToYUV");
 

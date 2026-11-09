@@ -4,24 +4,43 @@ name: AOM x86 SIMD validation
 # native x86-64 runners. The kernel comparisons call the kernels directly and
 # hold for any committed Linux profile; the AVIF identity corpus needs Linux
 # profiles generated with dispatching RTCD headers.
+#
+# ADR 0059 pull-request tier: independent jobs run in parallel and no C
+# library is built. The kernel tests run in the Release translation profile
+# and in the Debug translation profile with Release optimization (the
+# `checked` Cargo profile); the unoptimized Debug run is nightly.
 on:
   pull_request:
     paths:
       - 'crates/aom/**'
+      - 'src/**'
       - 'examples/encode_still.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'tools/check_aom_simd_identity.py'
+      - 'tools/check_aom_golden.py'
       - '.github/workflows/aom-simd-linux.yml'
   push:
     branches: [main]
     paths:
       - 'crates/aom/**'
+      - 'src/**'
       - 'examples/encode_still.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'tools/check_aom_simd_identity.py'
+      - 'tools/check_aom_golden.py'
       - '.github/workflows/aom-simd-linux.yml'
+  schedule:
+    - cron: '23 2 * * *'
   workflow_dispatch:
     inputs:
       measure:
         description: Also measure encoder time with each RTCD selection
+        type: boolean
+        default: false
+      debug:
+        description: Also run the kernel tests unoptimized in the Debug profile (about 40 minutes)
         type: boolean
         default: false
 
@@ -32,12 +51,51 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  RUSTUP_TOOLCHAIN: nightly-2026-09-07
+  CARGO_TERM_COLOR: never
+
 jobs:
-  x86-64:
+  kernels:
+    name: kernels (${{ matrix.profile }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, checked]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-09-07 --profile minimal
+      - name: Record the runner CPU
+        run: |
+          grep -m1 'model name' /proc/cpuinfo
+          grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
+      - name: Compare the SIMD kernels with their C functions
+        run: cargo test -p libavif-aom --locked --profile ${{ matrix.profile }} --test simd
+
+  kernels-debug:
+    name: kernels (dev, unoptimized)
+    if: github.event_name == 'schedule' || inputs.debug
     runs-on: ubuntu-24.04
     timeout-minutes: 120
-    env:
-      RUSTUP_TOOLCHAIN: nightly-2026-09-07
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-09-07 --profile minimal
+      - name: Record the runner CPU
+        run: grep -m1 'model name' /proc/cpuinfo
+      - name: Compare the SIMD kernels with their C functions
+        run: cargo test -p libavif-aom --locked --test simd
+
+  identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -51,12 +109,7 @@ jobs:
         run: |
           grep -m1 'model name' /proc/cpuinfo
           grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
-      - name: Compare the SIMD kernels with their C functions
-        run: |
-          cargo test -p libavif-aom --locked --release --test simd
-          cargo test -p libavif-aom --locked --test simd
       - name: Compare AVIF output with SIMD, SSE4.1 and C dispatch
-        id: identity
         run: |
           if ! grep -q '"rtcd_dispatch"' crates/aom/TRANSLATION-linux-release.json; then
             echo "The committed Linux profiles predate x86 dispatch; skipping the AVIF identity corpus."
@@ -76,4 +129,25 @@ jobs:
           path: |
             build/aom-simd-identity-validation-linux.json
             build/aom-x86-performance.json
+          if-no-files-found: ignore
+
+  golden:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-09-07 --profile minimal
+      - name: Record the runner CPU
+        run: grep -m1 'model name' /proc/cpuinfo
+      - name: Compare AVIF output with the golden record
+        run: python3 tools/check_aom_golden.py --output build/aom-golden-linux-x86_64-release.json
+      - name: Preserve the observed outputs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-golden-linux
+          path: build/aom-golden-linux-x86_64-release.json
           if-no-files-found: ignore
