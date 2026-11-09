@@ -9,7 +9,7 @@ source. Idiomatic Rust APIs and optimizations are deferred.
 
 The complete upstream snapshot, including its tests and fixtures, lives in
 `upstream/libavif`. See `UPSTREAM.json` for the exact source revision and
-`docs/PORTING.md` for the migration contract and validation status.
+`docs/PORTING.md` for the migration contract.
 
 The supported and tested targets are **macOS on AArch64** and **GNU Linux on
 x86-64**. On Linux the package compiles the generated native profile of the
@@ -22,60 +22,26 @@ The default AOM, dav1d, and SharpYUV implementations are workspace Rust crates.
 The separately scoped optional engines remain native dependencies. libaom is
 translated without VMAF tuning, so libvmaf is not a dependency ([ADR 0057](docs/adr/0057-translate-libaom-without-vmaf-tuning.md)).
 
-## Port checklist
+## Status
 
-The selected portable library implementations and their default integration
-are complete. The tables distinguish delivered code, verified configurations,
-and remaining work. Complete applies to the stated scope; milestones vary in
-size and are not a percentage of the entire port. Keep affected rows and their
-linked evidence current when delivering a milestone on `main`.
+Complete applies to the stated scope. The selected portable library
+implementations and their default integration are delivered; open work is
+tracked in [GitHub issues](https://github.com/sebastian-software/libavif-rs/issues)
+and decisions in [`docs/adr/`](docs/adr).
 
-### Implementation and default dependencies
-
-| Work item | Status | Delivered scope and evidence |
-| --- | --- | --- |
-| Source provenance and licenses | Complete | Pinned original sources, unchanged tests and fixtures, translation manifests, and generated notices. See [the porting contract](docs/PORTING.md) and [notice generator](tools/generate_licenses.py). |
-| libavif library | Complete | All 27 original C library files, including allocation, I/O, metadata, encoding, decoding, and the C ABI. See [the contract](docs/PORTING.md) and [feature manifests](translations). |
-| Container features and codec adapters | Complete | Mini, Extended PIXI, AV2 container branches, and all six codec adapters. Optional engine implementations retain their separate scope below. |
-| Bundled scalar libyuv | Complete | The five bundled conversion/scaling files; full external libyuv remains a separate dependency. See [dependency boundaries](docs/NATIVE-PORTS.md). |
-| Portable SharpYUV | Complete | Workspace Rust crate; native macOS ARM64 and Linux x86-64 validation. See [SharpYUV evidence](docs/SHARPYUV-VALIDATION.md). |
-| Portable dav1d | Complete | Workspace Rust decoder, including 8/10/12-bit output and film grain; native macOS ARM64 and Linux x86-64 validation. See [dav1d evidence](docs/DAV1D-PORT.md). |
-| Portable AOM | Complete | Workspace Rust encoder/decoder; complete original native Release suites and focused Debug checks on both targets. See [AOM evidence](docs/AOM-PORT.md). |
-| Default Rust integration | Complete | AOM, dav1d, and SharpYUV are mandatory Rust dependencies, with no native implementation fallback. See [the default-switch decision](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md). |
-
-### Validation and platform support
-
-The root integration rows below describe the final mandatory Rust-AOM build on
-macOS ARM64. The Linux production package has its own consumer evidence in the
-platform rows; standalone validation of the three dependency crates is recorded
-separately.
-
-| Gate | Status | Verified scope and evidence |
-| --- | --- | --- |
-| Original default Release suite | Passing | C and Rust: 64 CTest registrations and 9,473 ordered GoogleTest cases. See [final root validation](docs/aom-default-validation.json). |
-| All supported Cargo features | Passing | C and Rust: 70 registrations and 9,555 cases, including the optional codec adapters. See [final root validation](docs/aom-default-validation.json). |
-| Focused root Debug regressions | Passing | Eight unchanged original executables and 64 cases. Complete unoptimized Debug execution is outside the [ADR 0048 acceptance gate](docs/adr/0048-require-complete-release-and-focused-debug-aom-acceptance.md). |
-| Root AddressSanitizer | Passing | Complete default C/Rust suites: 64 registrations and 9,473 cases. The original AOM reference includes all 168 instrumented units; native VMAF remains uninstrumented. See [final root validation](docs/aom-default-validation.json). |
-| ABI and implementation ownership | Passing | Named-layout probes, shared C ABI smoke test, every original AOM global, and all 55 default / 59 feature-enabled consumers and runtime closures. Probe exclusions are explicit in [the evidence](docs/aom-default-validation.json). |
-| Exact AVIF and decoded PNG output | Passing | Ten default-decoder and ten explicit-AOM-decoder comparisons match the C reference byte-for-byte with `-ffp-contract=off`. See [final root validation](docs/aom-default-validation.json). |
-| Whole-pipeline platform support | macOS ARM64, GNU Linux x86-64 | The production package is validated for `aarch64-apple-darwin` and, for six Cargo feature sets, `x86_64-unknown-linux-gnu`. Windows and other targets remain open. See [current limits](#current-limits). |
-
-### Remaining work
-
-| Work item | Status | Remaining boundary |
-| --- | --- | --- |
-| libgav1, SVT-AV1, full libyuv, and AVM | Native optional engines | Adapters are ported and tested; engine implementations and their selected transitive dependencies remain separate milestones. See [the dependency plan](docs/NATIVE-PORTS.md). |
-| rav1e packaging | Retained C API integration | The encoder is already Rust. Direct workspace/dependency integration is separate work, rather than another mechanical codec port. See [the dependency plan](docs/NATIVE-PORTS.md). |
-| Linux whole-pipeline support | Production for six configurations | The production package selects the native profile by Cargo features and `debug_assertions`. Its original consumers pass Release and Debug: 9,473 default, 9,526 Mini, 9,474 Extended PIXI, and 9,527 combined Mini/Extended PIXI cases, plus 9,481 and 9,535 with libgav1, rav1e, SVT-AV1, and external libyuv. Each run has ABI, ownership, and strict-byte checks. See [production evidence](docs/root-linux-production-validation.json). Isolated Release ASan parity covers the four container configurations. AVM/AV2, engine and production-package sanitizer checks remain open. See [platform CI and remaining gates](docs/PLATFORMS.md). |
-| Windows and additional targets | Open | Platform-specific translations, runtime mappings, ABI checks, and native execution evidence. |
-| Broader upstream validation | Open | Optional MP4Box golden tests, libavif FuzzTest, ComplianceWarden, continuous fuzzing, additional sanitizer coverage, and the wider upstream platform matrix. See [validation limits](docs/VALIDATION.md). |
-| SIMD and performance work | Partial | The AOM encoder dispatches hand-translated Neon kernels on macOS ARM64 and SSE2, SSE4.1, and AVX2 kernels on GNU Linux x86-64, with byte-identical output to its `_c` paths; all-intra encodes take 29 to 45% less time on x86-64. See [Neon dispatch](docs/AOM-PORT.md#neon-dispatch-adr-0056) and [x86 dispatch](docs/AOM-PORT.md#x86-dispatch-adr-0058). dav1d and SharpYUV SIMD and further measured optimization remain [deferred work](docs/FUTURE.md). |
-| Safe Rust API and stable toolchain | Deferred | The current interface retains unsafe C ownership/callback contracts and requires nightly Rust. See [deferred work](docs/FUTURE.md). |
-| Registry publication and release validation | Open | Workspace crates currently set `publish = false`; packaging and release acceptance are separate from source-port completion. See [the milestone boundary](docs/NATIVE-PORTS.md). |
+| Capability | Delivered scope |
+| --- | --- |
+| Source provenance and licenses | Pinned original sources, unchanged tests and fixtures, translation manifests, and generated notices ([notice generator](tools/generate_licenses.py), [`docs/NATIVE-LICENSES.md`](docs/NATIVE-LICENSES.md)). |
+| libavif library | All 27 original C library files, including allocation, I/O, metadata, encoding, decoding, and the C ABI, with the Mini, Extended PIXI, and AV2 container branches, all six codec adapters, and the five bundled scalar libyuv files. See [the contract](docs/PORTING.md) and the [feature manifests](translations). |
+| Default codecs and conversion | Portable libaom (encoder and decoder), dav1d (8/10/12-bit output and film grain), and SharpYUV are mandatory workspace Rust crates with no native implementation fallback ([ADR 0049](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md)). |
+| Optional engines | libgav1, rav1e, SVT-AV1, full external libyuv, and AVM stay native dependencies behind their ported adapters. |
+| Verified parity | The original suite passes unchanged in C and Rust: 64 CTest registrations and 9,473 GoogleTest cases by default, 70 and 9,555 with every Cargo feature, plus AddressSanitizer parity for the default configuration. ABI probes, ownership audits, and ten AVIF and ten decoded PNG scenarios match the C reference byte for byte. |
+| Platforms | macOS ARM64, and GNU Linux x86-64 for six Cargo feature sets selected by the production package ([ADR 0054](docs/adr/0054-select-native-linux-root-profiles-in-the-production-package.md)). Windows and other targets are open. |
+| SIMD | The AOM encoder dispatches hand-translated Neon kernels on macOS ARM64 and SSE2, SSE4.1, and AVX2 kernels on GNU Linux x86-64, byte-identical to its `_c` paths; all-intra encodes take 29 to 45% less time on x86-64 ([ADR 0056](docs/adr/0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md), [ADR 0058](docs/adr/0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md)). |
 
 Original C/C++ applications, tests, and reference implementations remain
-validation infrastructure. PNG, JPEG, libxml2, and normal system facilities
-retain the boundaries documented in [the dependency plan](docs/NATIVE-PORTS.md).
+validation infrastructure. PNG, JPEG, libxml2, and normal system facilities stay
+native ([ADR 0010](docs/adr/0010-port-native-libraries-from-their-original-sources.md)).
 
 ## Build and test
 
@@ -83,8 +49,9 @@ Use Rust nightly, CMake, Ninja, Python 3.9+, pkg-config, and development package
 for PNG, JPEG, and libxml2. The original C baseline and CMake test setup
 also require native dav1d and SharpYUV development packages; the Rust library
 uses their workspace crates. The pinned portable C AOM archive supplies the
-independent reference in the commands below. The validated dependency
-versions and exact results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
+independent reference in the commands below. The toolchain baseline of the
+recorded runs (compilers, CMake, GoogleTest, libargparse) is in the docstring of
+`tools/check_abi.py`.
 
 ```sh
 cargo build --release --locked
@@ -125,6 +92,20 @@ retain the original unsafe pointer and callback contracts.
 libaom, dav1d, and SharpYUV are enabled in the base generated configuration.
 For optional native dependencies, translation, sanitizer commands, and the full
 feature test procedure, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+The AVM/AV2 configurations use AVM v1.0.0
+(`966a7d7cd6fcf60360caf5dc413b2aeeb65e144d`) with the dependency-only export-list
+repair of [ADR 0008](docs/adr/0008-av2-adapter-and-dependency.md). On macOS ARM64
+each passes with matching case and skip inventories in C and Rust:
+
+| Configuration | CTest registrations | GoogleTest cases |
+| --- | ---: | ---: |
+| AVM/AV2 | 67 | 9,485 |
+| AVM/AV2 + Mini | 69 | 9,546 |
+| AVM/AV2 + Extended PIXI | 67 | 9,486 |
+| AVM/AV2 + Mini + Extended PIXI | 69 | 9,547 |
+
+These configurations are not admitted on Linux.
 
 ## Current limits
 

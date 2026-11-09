@@ -14,7 +14,7 @@ macOS build or its translations lands after the applicable local macOS checks
 pass, and the pull request records the commands and results. Nightly runs and
 manual full runs keep both targets unchanged.
 
-A local run remains local evidence, recorded as such (see PLATFORMS.md). A
+A local run remains local evidence, recorded as such (see CONTRIBUTING.md). A
 release, a new production target admission, or any claim of hosted macOS
 validation needs the corresponding hosted macOS runs on the exact revision.
 Revisit this when hosted macOS capacity stops delaying pull requests or before

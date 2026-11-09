@@ -2,8 +2,9 @@
 
 Use US English and Conventional Commits. Commit coherent verified steps
 separately. Keep algorithms, names, data layout, numeric behavior, and ownership
-close to the pinned C source. Record lasting decisions in `docs/adr/` and later
-redesign or optimization candidates in `docs/FUTURE.md`.
+close to the pinned C source. Record lasting decisions in `docs/adr/`. Open work,
+including later redesign and optimization candidates, belongs in a GitHub issue;
+do not add planning or status documents to the repository.
 
 Treat `upstream/libavif`, `upstream/libwebp`, `upstream/dav1d`, and `upstream/aom` as immutable.
 `tools/verify_upstream.py` checks every file, including tests and fixtures.
