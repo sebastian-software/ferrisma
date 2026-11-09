@@ -73,3 +73,24 @@ path = "fuzz_targets/animdecoder_fuzzer.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "mux_demux_api_fuzzer"
+path = "fuzz_targets/mux_demux_api_fuzzer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "animencoder_fuzzer"
+path = "fuzz_targets/animencoder_fuzzer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "animation_api_fuzzer"
+path = "fuzz_targets/animation_api_fuzzer.rs"
+test = false
+doc = false
+bench = false

@@ -28,6 +28,10 @@
 /// limit, which only bounds their run time).
 pub const FUZZ_PX_LIMIT: usize = 1024 * 1024;
 
+// upstream: tests/fuzzer/fuzz_utils.h kFuzzFrameLimit
+/// Limit on the frames that the animation targets read (WP15).
+pub const FUZZ_FRAME_LIMIT: u32 = 3;
+
 // upstream: tests/fuzzer/fuzz_utils.h FuzzHash
 /// Reads and sums (up to) 128 spread-out bytes.
 pub fn fuzz_hash(data: &[u8]) -> u8 {
