@@ -33,7 +33,7 @@
 //!   `WEBP_MUX_*` enums of `mux_types.h` are used.
 
 use crate::dec::webp_dec::webp_decode;
-use crate::demux::demux::{WebPDemuxer, webp_demux_get_frame, webp_demux_get_i};
+use crate::demux::demux::{WebPDemuxer, demux_bytes, webp_demux_get_frame, webp_demux_get_i};
 use crate::utils::utils::{check_size_overflow, webp_safe_calloc};
 use crate::webp::decode::{
     WEBP_CSP_MODE, WebPBitstreamFeatures, WebPDecBuffer, WebPDecBufferPlanes, WebPDecoderConfig,
@@ -41,7 +41,6 @@ use crate::webp::decode::{
 };
 use crate::webp::demux::{
     WEBP_DEMUX_ABI_VERSION, WebPAnimDecoderOptions, WebPAnimInfo, WebPFormatFeature, WebPIterator,
-    webp_demux,
 };
 use crate::webp::mux_types::{WebPData, WebPMuxAnimBlend, WebPMuxAnimDispose};
 use crate::webp::types::{PlaneOffset, PlaneStorage, webp_abi_is_incompatible};
@@ -199,6 +198,20 @@ pub fn webp_anim_decoder_new_internal<'a>(
     dec_options: Option<&WebPAnimDecoderOptions>,
     abi_version: i32,
 ) -> Option<WebPAnimDecoder<'a>> {
+    anim_decoder_new_bytes(&webp_data.bytes, dec_options, abi_version)
+}
+
+/// The body of [`webp_anim_decoder_new_internal`] over the bytes of
+/// `webp_data` (no C counterpart): the decoder and its demuxer borrow `bytes`
+/// rather than the `WebPData` value that holds them, so that the safe API
+/// (`src/api/decode.rs`, WP16) can build one from a caller's `&[u8]` that
+/// outlives the call. `webp_demux(webp_data)` is
+/// `demux_bytes(bytes, false, WEBP_DEMUX_ABI_VERSION)`.
+pub(crate) fn anim_decoder_new_bytes<'a>(
+    bytes: &'a [u8],
+    dec_options: Option<&WebPAnimDecoderOptions>,
+    abi_version: i32,
+) -> Option<WebPAnimDecoder<'a>> {
     if webp_abi_is_incompatible(abi_version, WEBP_DEMUX_ABI_VERSION) {
         return None;
     }
@@ -206,7 +219,7 @@ pub fn webp_anim_decoder_new_internal<'a>(
     // Validate the bitstream before doing expensive allocations. The demuxer may
     // be more tolerant than the decoder.
     let mut features = WebPBitstreamFeatures::default();
-    if webp_get_features(&webp_data.bytes, &mut features).is_err() {
+    if webp_get_features(bytes, &mut features).is_err() {
         return None;
     }
 
@@ -219,7 +232,7 @@ pub fn webp_anim_decoder_new_internal<'a>(
     }
     let (blend_func, decoder_options, colorspace) = apply_decoder_options(&options)?;
 
-    let demux = webp_demux(webp_data)?;
+    let demux = demux_bytes(bytes, false, WEBP_DEMUX_ABI_VERSION).0?;
 
     let info = WebPAnimInfo {
         canvas_width: webp_demux_get_i(&demux, WebPFormatFeature::WEBP_FF_CANVAS_WIDTH),
