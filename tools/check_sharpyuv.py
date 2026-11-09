@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Compare independent C/Rust processes over the portable SharpYUV API."""
+"""Compare independent C/Rust processes over the portable SharpYUV API.
+
+Each profile compares exact return values, matrices, and output bytes over
+1,271 comparison groups: all 960 combinations of RGB depth (8, 10, 12, 16),
+YUV depth (8, 10, 12), the sixteen defined transfer functions, and the five
+predefined matrices; interleaved, RGBA-step, and planar input with padded
+rows and aligned 16-bit storage; nine rotating shapes; 256 seeded
+conversions up to 64 by 32; computed matrices, version and options behavior,
+defined null and invalid-argument rejection, repeated callback
+initialization, and cold conversions on concurrent threads. Input
+immutability and output guard bytes are checked.
+
+Inputs that trigger undefined behavior in the C source are not a defined
+equivalence oracle and are excluded. The inventory is not the complete
+Cartesian product of shapes and layouts and proves no equivalence. The
+original truncation of 16-bit RGB input is preserved, not redesigned.
+
+The primary C reference uses `-ffp-contract=off` and Rust uses its normal
+arithmetic (ADR 0024). The compiler-default Clang diagnostic of
+`tools/diagnose_sharpyuv_numerics.py` differed in 47 of the 1,271 groups on
+the local macOS host; its reports are excluded from acceptance and the
+primary comparison keeps requiring exact results.
+"""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import ctypes as C

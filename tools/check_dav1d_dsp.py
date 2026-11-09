@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run original checkasm bodies across original C and Rust scalar pointers."""
+"""Run original checkasm bodies across original C and Rust scalar pointers.
+
+The original checkasm framework also needs NASM on GNU Linux x86-64. That
+assembler builds test infrastructure only; codec assembly stays disabled.
+ADR 0029 records the test-only binding bridge and native helpers.
+"""
 import argparse
 import json
 import os

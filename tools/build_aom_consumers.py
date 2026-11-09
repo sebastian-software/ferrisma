@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
-"""Relink original libaom tests/apps/examples with the Rust codec archive."""
+"""Relink original libaom tests/apps/examples with the Rust codec archive.
+
+Upstream compiles `common/args_helper.c` and `av1/arg_defs.c` into both the
+library and the app object targets. The bridge removes only those
+source-identical app copies so their functions and data resolve to Rust in both
+profiles, rejects every other overlap with production sources, and records the
+exact link command and map of each consumer.
+
+Upstream builds `av1/ratectrl_rtc.cc` into the separate `aom_av1_rc` library,
+which it does not install. That optional wrapper is outside the 166-unit
+archive and is not a root libavif dependency. The original `test_aom_rc`
+executable keeps it as a native consumer of the Rust codec: its passing cases
+do not establish a Rust wrapper implementation. Native C++ rate-control,
+libyuv, WebM, and GoogleTest code must not be counted as Rust coverage.
+
+`--reference-build` lets a task worktree reuse the native reference sources,
+objects, and executables of another checkout without rebuilding or modifying
+them; the generated reference headers are checked against the translation
+manifest first. Rust libraries, consumers, and reports stay in this worktree.
+"""
 import argparse
 import hashlib
 import json

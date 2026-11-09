@@ -1,4 +1,13 @@
-"""Validate finer original GoogleTest shards without weakening full-suite gates."""
+"""Validate finer original GoogleTest shards without weakening full-suite gates.
+
+Hosted runner jobs end at six hours. When original Debug shards reached that
+limit, ADR 0047 kept the immutable binaries and the passing partitions and
+recovered the confirmed time-limit cancellations with finer original
+GoogleTest shards. ADR 0048 later replaced the full Debug gate with complete
+Release plus focused Debug acceptance. Complete Release acceptance still
+requires every original active case and matching dynamic skip exactly once;
+a passing subset is not enough.
+"""
 import hashlib
 import itertools
 import json

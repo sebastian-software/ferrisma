@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Build the pinned complete portable dav1d reference without editing upstream."""
+"""Build the pinned complete portable dav1d reference without editing upstream.
+
+The reference configuration has both bit-depth instantiations, logging,
+threading, all scalar DSP functions, no assembly, and `-ffp-contract=off`. The
+original CLI muxers, demuxers, test code, and system facilities stay native test
+infrastructure. The optional xxHash output muxer is outside the decoder and is
+disabled (`-Dxxhash_muxer=disabled`); the original built-in MD5 verifier stays
+enabled. The separate checkasm framework and the decoder corpus are fetched
+into `build/deps` (`tools/import_dav1d.py --fetch`) and hashed in
+`provenance/dav1d-test-inputs.json`.
+"""
 import argparse
 import hashlib
 import json

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Emit the production root selector for the admitted native Linux profiles (ADR 0054)."""
+"""Emit the production root selector for the admitted native Linux profiles (ADR 0054).
+
+On GNU Linux x86-64, `src/linux_profiles.rs` includes
+`src/profiles/linux/<profile>/<variant>/modules.rs`. The variant is the
+canonical Cargo feature set (`root_variants.LINUX_PRODUCTION`) and
+`debug_assertions` selects the original Debug preprocessing, otherwise
+Release. `--check` rejects a stale selector. Add a configuration only after
+`tools/root_pipeline.py --package production --profile both --tier full`
+passes. `tools/build.py port` on Linux requires `--production-profile` and
+matching original Debug preprocessing for Debug.
+"""
 import argparse
 import json
 from pathlib import Path

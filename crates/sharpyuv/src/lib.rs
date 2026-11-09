@@ -1,5 +1,9 @@
 //! Mechanical portable SharpYUV 0.4.2 port from libwebp 1.6.0.
 //!
+//! # Preserved behavior
+//! Sixteen-bit RGB input is truncated exactly as the original does. The port
+//! preserves that behavior; it does not redesign it.
+//!
 //! # Safety
 //! Exported functions retain the original unsafe C caller contracts: channel
 //! pointers must be live, correctly aligned, and large enough for their declared

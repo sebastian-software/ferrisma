@@ -20,6 +20,22 @@ Platform mutexes and assertions use the target libc; algorithms and numeric
 expressions retain their source forms. See ADRs 0020 and 0023 for the mappings
 and ADR 0024 for the noncontracting C reference and normal Rust arithmetic.
 
+## Validation scope
+
+`tools/check_sharpyuv.py` compares C and Rust in separate processes; its
+docstring lists the comparison groups. Inputs that trigger undefined behavior
+in the C source are not a defined equivalence oracle and are excluded. The
+compiler-default Clang diagnostic differs from the primary
+`-ffp-contract=off` reference in 47 of the 1,271 groups on the local macOS host;
+it is a separate diagnostic and never an acceptance gate. The allocation-failure
+hooks of `tools/check_sharpyuv_alloc.py` are test-only: production builds use
+normal libc allocation and contain no test allocator. SharpYUV keeps scalar DSP
+selection, verified by preprocessing its actual compilation flags, and x86-64
+scalar floating-point code retains the required SSE2 calling convention without
+enabling hand-written DSP. There is no dedicated upstream SharpYUV test suite;
+the original WebP integration tests run against the Rust crate, and the
+differential tests are new.
+
 Supported validation targets are macOS ARM64 and Linux x86-64. Other targets,
 SIMD implementations, safe API design, and optimization remain separate work.
 Build with `cargo build -p libavif-sharpyuv --locked --release`; the root package

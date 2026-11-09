@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Run the unchanged original static allocation/thread-failure fuzzer with C/Rust."""
+"""Run the unchanged original static allocation/thread-failure fuzzer with C/Rust.
+
+Four original 8, 10, and 12-bit and film-grain payloads receive 512
+reserved-header variants each, which controls the original input-derived fault
+seed. Each profile runs 2,048 paired scenarios and requires observed calls and
+failures for malloc, aligned allocation, thread creation, condition
+initialization, and mutex initialization in both implementations. Sampling does
+not enumerate every failure position or thread schedule.
+
+The static fault-fuzzer bridge needs GNU objcopy on Linux, or LLVM objcopy
+under LIBAVIF_RS_LLVM_PREFIX on macOS (the task-local LLVM 16 prefix by
+default). `--asan` currently targets macOS ARM64 only. ADR 0034 documents the
+object rewriting, runtime isolation, and recovery of compiler-folded
+malloc and zeroing operations. These test adapters are absent from production
+builds.
+"""
 import argparse
 import hashlib
 import json

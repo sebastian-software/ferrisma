@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Download every matching artifact through explicit GitHub API pagination."""
+"""Download every matching artifact through explicit GitHub API pagination.
+
+Bulk downloads must traverse every API page. A composition once rejected eight
+missing but passing main partitions because the download had enumerated only
+the first 100 of 110 published artifacts. The listing therefore uses
+`gh api --paginate`, requires distinct unexpired matches, checks every ZIP
+against the digest GitHub publishes, preserves existing evidence, and records
+per-file hashes. Hosted runner jobs end at six hours, which is why long
+original shards are split finer (see `tools/aom_subshards.py`).
+"""
 import argparse
 import fnmatch
 import hashlib

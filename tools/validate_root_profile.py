@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
-"""Validate native root consumers against the identical original C configuration."""
+"""Validate native root consumers against the identical original C configuration.
+
+Facts that shape the checks:
+- Inventory queries use copies of the generated CTest registrations, because
+  even CTest's metadata-only mode rewrites `LastTest.log`. Existing actual
+  execution logs stay intact.
+- Each ordered GoogleTest case's terminal result and dynamic skip are
+  compared from the complete logs. Truncated passing JUnit output alone cannot
+  establish that inventory. Skip comparisons use case names only; GoogleTest's
+  elapsed time is nondeterministic and excluded.
+- Each validation attempt preserves its actual XML, complete logs,
+  configurations, paired report, and byte products separately; later tests do
+  not replace that retained proof. Native target and container configuration
+  also have separate Cargo output directories, so building another feature
+  profile cannot replace an earlier archive or shared library.
+- The sanitizer reference keeps the ordinary original C build as the source of
+  the generated profile. Its AddressSanitizer C baseline must equal the 28
+  libavif compile commands exactly, apart from the two appended
+  instrumentation flags, and links the complete instrumented original AOM
+  closure. The Rust profile uses separate work and Cargo target directories,
+  and both consumer sets link the selected nightly's static ASan runtime once
+  per executable. Exact bytes, ABI probes, and the shared-library smoke are not
+  repeated under instrumentation.
+"""
 import argparse
 import json
 from pathlib import Path

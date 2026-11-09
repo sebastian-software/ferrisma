@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Execute every unmodified Meson test command after explicit decoder replacement."""
+"""Execute every unmodified Meson test command after explicit decoder replacement.
+
+Suite labels containing `asan`, `ubsan`, or `msan` identify the original
+regression corpus (archived OSS-Fuzz inputs and seek stress). They do not mean
+those runs were sanitizer-instrumented or continuously fuzzed. The Rust Debug
+build needs `--timeout-multiplier 4`; the original commands, input data, and
+expected hashes stay unchanged, and the budget makes no performance parity
+claim.
+"""
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json

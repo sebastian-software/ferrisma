@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Preserve original assertions with separate C oracles and Rust subjects."""
+"""Preserve original assertions with separate C oracles and Rust subjects.
+
+Explicit boundaries of this check:
+- Native timers, setup, fixture computations, and expected-output helpers
+  receive no Rust implementation coverage.
+- Included template bodies and dependent lookup candidates form a static
+  superset and get no runtime coverage merely by appearing in an inventory.
+- The original directional-prediction matrix leaves its comparison subject
+  null: `OperationCheck` returns early and `SaturatedValues` copies the
+  reference result before comparing it. Those original passes are preserved
+  and get no independent comparison credit; the separate `PortScalar/`
+  matrix (twelve combinations of zone, bit depth, and start angle; 24
+  enabled cases) compares isolated C references with six Rust subjects.
+- The original optical-flow helper reuses one image buffer, so both pointers
+  of that test refer to the second frame. No distinct-frame coverage is
+  claimed; the speed case stays disabled.
+- SIMD-only inputs (k-means, neural-network prediction, array rounding, cubic
+  interpolation, optical flow) have zero generic registrations. Their supplementary `PortScalar/` cases are counted
+  separately and never added to the 18,729 original registrations.
+- The native C++ `aom_av1_rc` wrapper is outside the 166-unit archive (see
+  `tools/build_aom_consumers.py`).
+- No universal indirect-call or runtime-path coverage is claimed.
+"""
 import argparse
 import hashlib
 import json

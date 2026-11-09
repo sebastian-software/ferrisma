@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Run an upstream CTest suite with a per-build temporary directory and JUnit output."""
+"""Run an upstream CTest suite with a per-build temporary directory and JUnit output.
+
+Concurrent CTest runs collide on fixed temporary file names: upstream's
+metadata tests write files with fixed names into the process-wide temporary
+directory, so two suites that share it fail. Each build gets its own
+`test-tmp` directory and TMPDIR, TMP, and TEMP point to it. Run separate
+suites through this tool instead of calling ctest directly. The isolation
+changes no test source, case, parameter, or assertion; the collisions were
+first seen in concurrent reference runs and disappeared in isolated reruns.
+"""
 import argparse
 import os
 from pathlib import Path

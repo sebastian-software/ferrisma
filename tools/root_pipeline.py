@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Run observable native root build and validation phases with shared commands."""
+"""Run observable native root build and validation phases with shared commands.
+
+An isolated profile is preparation for admission, not a fallback
+implementation and not a supported production target. For AddressSanitizer
+parity run `--phase all --profile release --tier full --sanitizer address`.
+For an optional engine configuration pass its name, such as
+`--variant libgav1-rav1e-svt-libyuv`; the references phase first builds the
+pinned engines with `tools/prepare_optional_deps.py`. Engine configurations do
+not accept `--sanitizer` yet. `--package production` runs the same checks
+against the real package archives instead of the isolated profile; the
+decisions are in ADRs 0050 to 0054. Native Linux and macOS runs never share
+headers or CMake caches.
+"""
 import argparse
 from pathlib import Path
 import platform

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Inject each allocation failure into C/Rust copies using test-only symbols."""
+"""Inject each allocation failure into C/Rust copies using test-only symbols.
+
+The allocator symbols are test-only. They fail each of the seven conversion
+allocations in turn; both implementations must return failure and free every
+successful allocation, and the successful control call must leave none live.
+Production builds use normal libc allocation and contain no test allocator.
+"""
 import argparse
 import json
 import os

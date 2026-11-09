@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Import checked native Linux CI profiles with inventoried compatibility rules."""
+"""Import checked native Linux CI profiles with inventoried compatibility rules.
+
+Before importing a profile the tool verifies every artifact Rust hash, the exact
+166-unit closure, the required configuration, and the generated header hashes.
+Artifacts of the current translator already carry the callback correction
+(ADR 0040), the glibc error-target mapping, and the optional inline wrappers
+and are imported unchanged; earlier artifacts get them applied. `--check`
+verifies the complete transformation against the original artifact.
+`--refresh` reapplies reviewed rules only after matching every existing source
+hash, raw artifact digest, and reference configuration; it updates recorded
+Rust units and manifests, and different reference headers or API and module
+files remain errors. The import record is
+`crates/aom/reference/linux-source-import.json`.
+"""
 import argparse
 import hashlib
 import json

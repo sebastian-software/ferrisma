@@ -1,5 +1,26 @@
 #!/usr/bin/env python3
-"""Build the complete scalar libaom reference and inventory its original tests."""
+"""Build the complete scalar libaom reference and inventory its original tests.
+
+The reference is upstream's `AOM_TARGET_CPU=generic` build with encoder and
+decoder, 8, 10, and 12-bit support, threads, denoising, quantization
+matrices, the complete non-realtime-only encoder, and the original default
+experiments, compiled with `-ffp-contract=off` and `CONFIG_TUNE_VMAF=0`
+(ADR 0057). Debug and Release keep their actual original assertion and
+preprocessing differences. The library archive has 166 C translation units,
+including three generated configuration or no-op units and four bundled
+fastfeat and vector units. Bundled libyuv, WebM I/O, GoogleTest, the apps and
+examples, and the optional C++ rate-control wrapper are outside it; they stay
+original consumers and test infrastructure.
+
+The original test inventories are 18,729 main-suite registrations (1,501
+upstream-disabled), 38 rate-control registrations, and 38 intra-prediction
+speed registrations, all of the latter disabled upstream. Registrations
+include disabled tests, so they are not executed-pass counts. Upstream selects
+568 test fixtures; their checksums are in the immutable `test/test-data.sha1`
+and `tools/fetch_aom_test_data.py` also records SHA-256 and sizes. Never
+regenerate goldens. Linking a test executable alone does not prove that every
+original assertion exercises Rust.
+"""
 import argparse
 import hashlib
 import json

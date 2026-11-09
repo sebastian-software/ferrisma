@@ -1,4 +1,13 @@
-"""Map libaom's scoped nonlocal errors to typed Rust unwinding boundaries."""
+"""Map libaom's scoped nonlocal errors to typed Rust unwinding boundaries.
+
+glibc's `setjmp` macro expands to `_setjmp`. The mapping normalizes that
+declaration and its direct call sites before mapping the 32 scoped error
+targets of each profile; a surviving libc nonlocal-jump call or a wrong target
+or transfer count fails the structural validation. Direct C2Rust `setjmp` and
+`longjmp` calls are not an accepted Rust implementation: error targets,
+diagnostics, return values, cleanup, and worker synchronization keep an
+explicit supported control-flow mapping (ADR 0036).
+"""
 import re
 
 from dav1d_storage import tokens
