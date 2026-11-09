@@ -12,139 +12,177 @@
 // Mechanically translated from upstream/aom/av1/encoder/hybrid_fwd_txfm.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    fn av1_fwd_txfm2d_16x16_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_16x32_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_16x4_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_16x64_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_16x8_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_32x16_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_32x32_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_32x64_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_32x8_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_4x16_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_4x4_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_4x8_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_64x16_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_64x32_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_64x64_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_8x16_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_8x32_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_8x4_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
-    fn av1_fwd_txfm2d_8x8_c(
-        input: *const int16_t,
-        output: *mut int32_t,
-        stride: core::ffi::c_int,
-        tx_type: TX_TYPE,
-        bd: core::ffi::c_int,
-    );
+    static mut av1_fwd_txfm2d_16x16: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_16x32: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_16x4: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_16x64: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_16x8: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_32x16: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_32x32: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_32x64: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_32x8: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_4x16: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_4x4: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_4x8: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_64x16: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_64x32: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_64x64: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_8x16: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_8x32: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_8x4: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
+    static mut av1_fwd_txfm2d_8x8: Option<
+        unsafe extern "C-unwind" fn(
+            *const int16_t,
+            *mut int32_t,
+            core::ffi::c_int,
+            TX_TYPE,
+            core::ffi::c_int,
+        ) -> (),
+    >;
     fn aom_hadamard_16x16_c(
         src_diff: *const int16_t,
         src_stride: ptrdiff_t,
@@ -350,7 +388,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_4x4(
         av1_fwht4x4_c(src_diff, coeff, diff_stride);
         return;
     }
-    av1_fwd_txfm2d_4x4_c(src_diff, dst_coeff, diff_stride, tx_type, bd);
+    av1_fwd_txfm2d_4x4
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_4x8(
     mut src_diff: *const int16_t,
@@ -359,13 +400,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_4x8(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_4x8_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_4x8
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_8x4(
     mut src_diff: *const int16_t,
@@ -374,13 +412,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_8x4(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_8x4_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_8x4
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_8x16(
     mut src_diff: *const int16_t,
@@ -391,7 +426,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_8x16(
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let tx_type: TX_TYPE = (*txfm_param).tx_type;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_8x16_c(src_diff, dst_coeff, diff_stride, tx_type, bd);
+    av1_fwd_txfm2d_8x16
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_16x8(
     mut src_diff: *const int16_t,
@@ -402,7 +440,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_16x8(
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let tx_type: TX_TYPE = (*txfm_param).tx_type;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_16x8_c(src_diff, dst_coeff, diff_stride, tx_type, bd);
+    av1_fwd_txfm2d_16x8
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_16x32(
     mut src_diff: *const int16_t,
@@ -411,13 +452,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_16x32(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_16x32_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_16x32
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_32x16(
     mut src_diff: *const int16_t,
@@ -426,13 +464,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_32x16(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_32x16_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_32x16
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_16x4(
     mut src_diff: *const int16_t,
@@ -441,13 +476,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_16x4(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_16x4_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_16x4
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_4x16(
     mut src_diff: *const int16_t,
@@ -456,13 +488,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_4x16(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_4x16_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_4x16
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_32x8(
     mut src_diff: *const int16_t,
@@ -471,13 +500,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_32x8(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_32x8_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_32x8
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_8x32(
     mut src_diff: *const int16_t,
@@ -486,13 +512,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_8x32(
     mut txfm_param: *mut TxfmParam,
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
-    av1_fwd_txfm2d_8x32_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        (*txfm_param).tx_type,
-        (*txfm_param).bd,
-    );
+    av1_fwd_txfm2d_8x32
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, (*txfm_param).bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_8x8(
     mut src_diff: *const int16_t,
@@ -503,7 +526,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_8x8(
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let tx_type: TX_TYPE = (*txfm_param).tx_type;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_8x8_c(src_diff, dst_coeff, diff_stride, tx_type, bd);
+    av1_fwd_txfm2d_8x8
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_16x16(
     mut src_diff: *const int16_t,
@@ -514,7 +540,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_16x16(
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let tx_type: TX_TYPE = (*txfm_param).tx_type;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_16x16_c(src_diff, dst_coeff, diff_stride, tx_type, bd);
+    av1_fwd_txfm2d_16x16
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_32x32(
     mut src_diff: *const int16_t,
@@ -525,7 +554,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_32x32(
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let tx_type: TX_TYPE = (*txfm_param).tx_type;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_32x32_c(src_diff, dst_coeff, diff_stride, tx_type, bd);
+    av1_fwd_txfm2d_32x32
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_32x64(
     mut src_diff: *const int16_t,
@@ -535,7 +567,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_32x64(
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_32x64_c(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, bd);
+    av1_fwd_txfm2d_32x64
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_64x32(
     mut src_diff: *const int16_t,
@@ -545,7 +580,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_64x32(
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_64x32_c(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, bd);
+    av1_fwd_txfm2d_64x32
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, (*txfm_param).tx_type, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_16x64(
     mut src_diff: *const int16_t,
@@ -555,13 +593,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_16x64(
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_16x64_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        DCT_DCT as core::ffi::c_int as TX_TYPE,
-        bd,
-    );
+    av1_fwd_txfm2d_16x64
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, DCT_DCT as core::ffi::c_int as TX_TYPE, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_64x16(
     mut src_diff: *const int16_t,
@@ -571,13 +606,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_64x16(
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_64x16_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        DCT_DCT as core::ffi::c_int as TX_TYPE,
-        bd,
-    );
+    av1_fwd_txfm2d_64x16
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, DCT_DCT as core::ffi::c_int as TX_TYPE, bd);
 }
 unsafe extern "C-unwind" fn highbd_fwd_txfm_64x64(
     mut src_diff: *const int16_t,
@@ -587,13 +619,10 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_64x64(
 ) {
     let mut dst_coeff: *mut int32_t = coeff as *mut int32_t;
     let bd: core::ffi::c_int = (*txfm_param).bd;
-    av1_fwd_txfm2d_64x64_c(
-        src_diff,
-        dst_coeff,
-        diff_stride,
-        DCT_DCT as core::ffi::c_int as TX_TYPE,
-        bd,
-    );
+    av1_fwd_txfm2d_64x64
+        .expect(
+            "non-null function pointer",
+        )(src_diff, dst_coeff, diff_stride, DCT_DCT as core::ffi::c_int as TX_TYPE, bd);
 }
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_fwd_txfm(

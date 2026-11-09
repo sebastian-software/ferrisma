@@ -1,5 +1,5 @@
 {
-  "run_id": 42370060809,
+  "run_id": 42534864431,
   "source_revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
   "status": "native Linux source profiles generated; compilation and acceptance pending",
   "artifact_transformation": "None: the current translator generated both profiles with every correction and optional inline wrapper",
@@ -43,8 +43,8 @@
         "config_sha256": "baa0bc1ff3fd3edb1034e079dcb2e21b7fecbe91e34229e0adff738f801d5a8d",
         "transitive_runtime_dependencies": {}
       },
-      "artifact_manifest_sha256": "7649b2038c9ca1e9ccb808b6e7e503c0c10d44322f6a816c4be2728615be427e",
-      "imported_manifest_sha256": "7649b2038c9ca1e9ccb808b6e7e503c0c10d44322f6a816c4be2728615be427e",
+      "artifact_manifest_sha256": "2e3f64edf361584fc2aca9a19dd51e404ef9973fdce33809fbefb424e419b221",
+      "imported_manifest_sha256": "2e3f64edf361584fc2aca9a19dd51e404ef9973fdce33809fbefb424e419b221",
       "corrections_recorded_in_manifest": true,
       "optional_inline_wrappers": 12
     },
@@ -86,8 +86,8 @@
         "config_sha256": "989d9a5908bd5f1a708100a26fae554703f05316c252df7602c579df49b0b905",
         "transitive_runtime_dependencies": {}
       },
-      "artifact_manifest_sha256": "07bee100bd670fbcf96944f73dc06fbd840edb76fdcec6c7376f67720f22d6ed",
-      "imported_manifest_sha256": "07bee100bd670fbcf96944f73dc06fbd840edb76fdcec6c7376f67720f22d6ed",
+      "artifact_manifest_sha256": "c7b0d20fc5665adb6c0a73cad3996a1638a646ee5fea06fbdf286a758cdc1076",
+      "imported_manifest_sha256": "c7b0d20fc5665adb6c0a73cad3996a1638a646ee5fea06fbdf286a758cdc1076",
       "corrections_recorded_in_manifest": true,
       "optional_inline_wrappers": 12
     }
