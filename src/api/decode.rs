@@ -1894,8 +1894,9 @@ pub struct IncrementalDecoder<'a> {
     mode: ColorMode,
     library_memory: bool,
     complete: bool,
-    /// Whether `append` or `update` passed the translation any call that
-    /// stores data, so that an empty `append` reaches it.
+    /// Whether an `update`, or an `append` that did not fail with
+    /// `OutOfMemory`, reached the translation, so that an empty `append` may
+    /// reach it too.
     started: bool,
 }
 
@@ -2049,8 +2050,12 @@ impl<'a> IncrementalDecoder<'a> {
             // zero bytes first); without the assertion it reports SUSPENDED.
             return Ok(Status::NeedsMoreData);
         }
-        self.started = true;
         let result = webp_i_append(&mut self.idec, data);
+        // An out-of-memory failure can leave the buffer empty: a piece above
+        // `MAX_CHUNK_PAYLOAD` or a failed reservation stores nothing.
+        if result != Err(VP8StatusCode::VP8_STATUS_OUT_OF_MEMORY) {
+            self.started = true;
+        }
         self.step(result)
     }
 

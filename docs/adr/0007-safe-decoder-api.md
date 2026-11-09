@@ -252,7 +252,9 @@ input never reaches a panic:
 - `IncrementalDecoder::append`: an empty piece before any data returns
   `NeedsMoreData` without calling the decoder, because libwebp asserts that
   data was stored before (`WebPIAppend` of zero bytes first); release builds
-  of C and of the translation return `SUSPENDED` there.
+  of C and of the translation return `SUSPENDED` there. An `append` that
+  fails with `OutOfMemory` does not count as stored data: a first piece above
+  `MAX_CHUNK_PAYLOAD` or a failed reservation stores nothing.
 - `IncrementalDecoder::with_output`: the picture is unknown until its header
   arrives, so the API checks what does not depend on it (the plane matching
   above, strides at least 1 and at most `i32::MAX`, slices not empty) and
