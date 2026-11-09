@@ -426,7 +426,12 @@ pub fn webp_mux_push_frame<'a>(
 
         {
             let tag = chunk_info(CHUNK_INDEX::IDX_ANMF).tag;
-            let mut tmp = info.clone();
+            // C copies the struct, which shares the bitstream's pointer; only
+            // the scalar fields are read.
+            let mut tmp = WebPMuxFrameInfo {
+                bitstream: WebPData::default(),
+                ..*info
+            };
             tmp.x_offset &= !1; // Snap offsets to even.
             tmp.y_offset &= !1;
             if tmp.x_offset < 0

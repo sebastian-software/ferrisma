@@ -30,7 +30,9 @@ use wp15_support::{
 /// compares their outputs; returns the number of `assemble.hook` lines where
 /// C's encoder called the hook again (a recorded deviation).
 fn check(oracle: &Oracle, name: &str, test: &str, script: &str) -> usize {
-    let c: Output = oracle.probe("wp15", name).run::<&str>(&[], script.as_bytes());
+    let c: Output = oracle
+        .probe("wp15", name)
+        .run::<&str>(&[], script.as_bytes());
     let rust: Output = oracle
         .probe("wp15", &format!("{name}_rs"))
         .run::<&str>(&[], script.as_bytes());
