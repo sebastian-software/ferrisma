@@ -4,7 +4,9 @@
 Each case encodes one still image through `examples/encode_still.rs`
 (avifImageRGBToYUV + avifEncoderWrite, the calls Ferrixel makes) with the RTCD
 dispatch detected at run time, and compares the SHA-256 of the AVIF bytes with
-the record for the host's profile in `crates/aom/golden/<profile>.json`.
+the record in `crates/aom/golden/release.json`, which lists every profile
+(`<os>-<arch>-release`) that reproduces it. A profile whose floating-point
+results differ gets its own `crates/aom/golden/<profile>.json`.
 No C library is built.
 
 The corpus is derived from PNG files in the committed upstream libavif test
@@ -21,7 +23,7 @@ alpha plane. Thread counts are fixed, because libavif derives the tile layout
 from them.
 
     python3 tools/check_aom_golden.py            # check
-    python3 tools/check_aom_golden.py --record   # write the golden file
+    python3 tools/check_aom_golden.py --record   # record or add this profile
 
 Golden outputs change only through a reviewed diff: a C reference change or a
 deliberate encoder change (ADR 0059).
@@ -233,17 +235,30 @@ def tool_version(command):
         return None
 
 
+def golden_file(profile, explicit):
+    """A profile-specific record overrides the shared one (ADR 0059: one
+    recording where the floating-point profiles agree)."""
+    if explicit:
+        return explicit
+    specific = GOLDEN / f'{profile}.json'
+    return specific if specific.exists() else GOLDEN / 'release.json'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--binary', type=Path, help='Use an already built encode_still example')
-    parser.add_argument('--golden', type=Path, help='Golden file (default: crates/aom/golden/<profile>.json)')
-    parser.add_argument('--record', action='store_true', help='Write the golden file instead of checking it')
+    parser.add_argument('--golden', type=Path,
+                        help='Golden file (default: crates/aom/golden/<profile>.json if present, '
+                             'else crates/aom/golden/release.json)')
+    parser.add_argument('--record', action='store_true',
+                        help='Record this profile: create the golden file, or add the profile to a '
+                             'file whose outputs it reproduces')
     parser.add_argument('--output', type=Path, help='Also write the observed report here')
     args = parser.parse_args()
     profile = host_profile('release')
     translation = f'crates/aom/TRANSLATION-{profile.split("-")[0]}-release.json'
-    golden_path = args.golden or GOLDEN / f'{profile}.json'
+    golden_path = golden_file(profile, args.golden)
 
     binary = args.binary
     if binary is None:
@@ -256,10 +271,9 @@ def main():
     started = time.monotonic()
     images, corpus = prepare(work)
 
-    expected = None
-    missing = not args.record and not golden_path.exists()
-    if not args.record and not missing:
-        expected = json.loads(golden_path.read_text())
+    expected = json.loads(golden_path.read_text()) if golden_path.exists() else None
+    expected_cases = {}
+    if expected is not None:
         recorded_inputs = {item['name']: item['bmp_sha256'] for item in expected['corpus']}
         changed = [item['name'] for item in corpus if recorded_inputs.get(item['name']) != item['bmp_sha256']]
         if changed:
@@ -267,13 +281,15 @@ def main():
                              'the corpus derivation changed, not the encoder.')
         expected_cases = {label(item['image'], item): item for item in expected['cases']}
 
-    cases, failures = [], []
+    cases, selections, failures = [], {}, []
     for name, settings in matrix():
         text = label(name, settings)
         digest, size, rtcd = encode(binary, images[name], work / 'out.avif', settings)
-        record = dict(image=name, **settings, bytes=size, avif_sha256=digest, rtcd=rtcd)
-        cases.append(record)
-        if expected is not None:
+        cases.append(dict(image=name, **settings, bytes=size, avif_sha256=digest))
+        selections[rtcd] = selections.get(rtcd, 0) + 1
+        if expected is None:
+            status = 'new '
+        else:
             want = expected_cases.pop(text, None)
             if want is None:
                 status = 'NEW '
@@ -284,26 +300,27 @@ def main():
                                 f'({want["bytes"]} bytes)')
             else:
                 status = 'ok  '
-        else:
-            status = 'new ' if missing else 'rec '
         print(f'{status} {text} bytes={size} rtcd={rtcd}', flush=True)
-    if expected is not None:
-        failures.extend(f'{text}: golden record without a case' for text in expected_cases)
+    failures.extend(f'{text}: golden record without a case' for text in expected_cases)
+    if expected is not None and not failures and profile not in expected['profiles']:
+        failures.append(f'profile {profile} reproduces every output but is not listed in {golden_path}; '
+                        'add it with --record')
 
+    provenance = dict(
+        translation=translation,
+        translation_sha256=hashlib.sha256((ROOT / translation).read_bytes()).hexdigest(),
+        cargo_profile='release',
+        rustc=tool_version(['rustc', '--version']),
+        host=dict(system=platform.platform(), machine=platform.machine()),
+        rtcd=selections,
+    )
     report = dict(
         check='SHA-256 of AVIF output from encode_still equals the golden record (ADR 0059)',
-        profile=profile,
-        provenance=dict(
-            recorded_from='Rust port (crates/aom, frozen libaom 3.15.2 translation) through the root '
-                          'libavif port; not yet re-recorded from the C reference',
-            translation=translation,
-            translation_sha256=hashlib.sha256((ROOT / translation).read_bytes()).hexdigest(),
-            cargo_profile='release',
-            rustc=tool_version(['rustc', '--version']),
-            host=dict(system=platform.platform(), machine=platform.machine()),
-            floating_point='Rust default code generation: no contraction (ADR 0021, ADR 0024)',
-            dispatch='RTCD defaults detected at run time; SIMD equals C by tools/check_aom_simd_identity.py',
-        ),
+        recorded_from='Rust port (crates/aom, frozen libaom 3.15.2 translation) through the root '
+                      'libavif port; not yet re-recorded from the C reference',
+        floating_point='Rust default code generation, which never contracts (ADR 0021, ADR 0024)',
+        dispatch='RTCD defaults detected at run time; SIMD equals C by tools/check_aom_simd_identity.py',
+        profiles={**(expected or {}).get('profiles', {}), profile: provenance},
         encoder=('examples/encode_still.rs: BT.709 primaries, sRGB transfer, BT.601 matrix, full range; '
                  'avifImageRGBToYUV then avifEncoderWrite; autoTiling when threads != 1'),
         corpus=corpus,
@@ -312,18 +329,24 @@ def main():
     seconds = time.monotonic() - started
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(dict(report, seconds=round(seconds, 1), failed=failures),
-                                          indent=2) + '\n')
-    if missing:
-        raise SystemExit(f'No golden file for profile {profile}: {golden_path}. Review the observed '
-                         'outputs and commit them, or record them with --record.')
+        args.output.write_text(json.dumps(dict(report, profile=profile, seconds=round(seconds, 1),
+                                               failed=failures), indent=2) + '\n')
     if args.record:
+        if expected is not None and failures and not args.golden:
+            print(*failures, sep='\n', file=sys.stderr)
+            raise SystemExit(f'{profile} does not reproduce {golden_path}. If the difference is '
+                             f'expected, record it separately with --golden {GOLDEN / profile}.json')
+        if expected is not None and failures:
+            report['profiles'] = {profile: provenance}
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(json.dumps(report, indent=2) + '\n')
         print(f'Recorded {len(cases)} cases for {profile} in {seconds:.0f} s: {golden_path}')
         return
-    print(f'{len(cases) - len(failures)} of {len(cases)} cases match the golden record for {profile} '
-          f'in {seconds:.0f} s')
+    if expected is None:
+        raise SystemExit(f'No golden file for {profile}: {golden_path}. Review the observed outputs '
+                         'and record them with --record.')
+    print(f'{len(cases) - len(failures)} of {len(cases)} cases match {golden_path} '
+          f'for {profile} in {seconds:.0f} s')
     if failures:
         print('Golden output mismatches:', *failures, sep='\n  ', file=sys.stderr)
         raise SystemExit(1)

@@ -1,18 +1,36 @@
 {
   "check": "SHA-256 of AVIF output from encode_still equals the golden record (ADR 0059)",
-  "profile": "macos-aarch64-release",
-  "provenance": {
-    "recorded_from": "Rust port (crates/aom, frozen libaom 3.15.2 translation) through the root libavif port; not yet re-recorded from the C reference",
-    "translation": "crates/aom/TRANSLATION-macos-release.json",
-    "translation_sha256": "331fe624c2d46e0a5624859054ac7de041430e42103c5de2b2216d5af7b4a2eb",
-    "cargo_profile": "release",
-    "rustc": "rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)",
-    "host": {
-      "system": "macOS-27.0.1-arm64-arm-64bit",
-      "machine": "arm64"
+  "recorded_from": "Rust port (crates/aom, frozen libaom 3.15.2 translation) through the root libavif port; not yet re-recorded from the C reference",
+  "floating_point": "Rust default code generation, which never contracts (ADR 0021, ADR 0024)",
+  "dispatch": "RTCD defaults detected at run time; SIMD equals C by tools/check_aom_simd_identity.py",
+  "profiles": {
+    "macos-aarch64-release": {
+      "translation": "crates/aom/TRANSLATION-macos-release.json",
+      "translation_sha256": "331fe624c2d46e0a5624859054ac7de041430e42103c5de2b2216d5af7b4a2eb",
+      "cargo_profile": "release",
+      "rustc": "rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)",
+      "host": {
+        "system": "macOS-27.0.1-arm64-arm-64bit",
+        "machine": "arm64"
+      },
+      "rtcd": {
+        "simd(neon)": 62
+      }
     },
-    "floating_point": "Rust default code generation: no contraction (ADR 0021, ADR 0024)",
-    "dispatch": "RTCD defaults detected at run time; SIMD equals C by tools/check_aom_simd_identity.py"
+    "linux-x86_64-release": {
+      "translation": "crates/aom/TRANSLATION-linux-release.json",
+      "translation_sha256": "c7b0d20fc5665adb6c0a73cad3996a1638a646ee5fea06fbdf286a758cdc1076",
+      "cargo_profile": "release",
+      "rustc": "rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)",
+      "host": {
+        "system": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "machine": "x86_64"
+      },
+      "rtcd": {
+        "simd(avx2)": 62
+      },
+      "run": "https://github.com/sebastian-software/libavif-rs/actions/runs/42604311630"
+    }
   },
   "encoder": "examples/encode_still.rs: BT.709 primaries, sRGB transfer, BT.601 matrix, full range; avifImageRGBToYUV then avifEncoderWrite; autoTiling when threads != 1",
   "corpus": [
@@ -90,8 +108,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 141355,
-      "avif_sha256": "a858381e5b9b721dd78e4100fe4a04a9dec33bd32ef1624ebafcb180a8ff4c5b",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "a858381e5b9b721dd78e4100fe4a04a9dec33bd32ef1624ebafcb180a8ff4c5b"
     },
     {
       "image": "weld-1368x2048",
@@ -102,8 +119,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 140867,
-      "avif_sha256": "666f7c2ee9e331baf4f451a7cf48578de24269ff93adfcbbec72ea048c061df1",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "666f7c2ee9e331baf4f451a7cf48578de24269ff93adfcbbec72ea048c061df1"
     },
     {
       "image": "weld-1368x2048",
@@ -114,8 +130,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 165590,
-      "avif_sha256": "950b26a3ed8195e0f1c38e1d6be0eeb90f14a62e9347c5b18aac47f957f51df7",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "950b26a3ed8195e0f1c38e1d6be0eeb90f14a62e9347c5b18aac47f957f51df7"
     },
     {
       "image": "weld-1368x2048",
@@ -126,8 +141,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 163127,
-      "avif_sha256": "4bb31c064ce639e70252e84404a77562e0dc11979a7f19d0e1e29d0d624b0400",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "4bb31c064ce639e70252e84404a77562e0dc11979a7f19d0e1e29d0d624b0400"
     },
     {
       "image": "weld-1368x2048",
@@ -138,8 +152,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 143107,
-      "avif_sha256": "817951e41281a83c1407f65b620dba4297f566b5e6e173e0d49283e5b8370db3",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "817951e41281a83c1407f65b620dba4297f566b5e6e173e0d49283e5b8370db3"
     },
     {
       "image": "weld-1024x684",
@@ -150,8 +163,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 35720,
-      "avif_sha256": "344ce555548531cdbb5d5fd16bb90319e66fb3a27c6d5cb21ac47ff7b951d4dc",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "344ce555548531cdbb5d5fd16bb90319e66fb3a27c6d5cb21ac47ff7b951d4dc"
     },
     {
       "image": "weld-1024x684",
@@ -162,8 +174,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 35458,
-      "avif_sha256": "bc3d6a3780c61b77cfff3fa0ac4ccc7606daeacc78c010cefe312ce8357a6a0e",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "bc3d6a3780c61b77cfff3fa0ac4ccc7606daeacc78c010cefe312ce8357a6a0e"
     },
     {
       "image": "weld-1024x684",
@@ -174,8 +185,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 41712,
-      "avif_sha256": "f97c35f430f77fac111ca7e0019f65cac70ebbfb8a924f5cc25056f22f4e4d9e",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "f97c35f430f77fac111ca7e0019f65cac70ebbfb8a924f5cc25056f22f4e4d9e"
     },
     {
       "image": "weld-1024x684",
@@ -186,8 +196,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 40313,
-      "avif_sha256": "8cf37f63c13a37ead6f6d6fa9b3806d2bfe9cd14fdf87559954ce16e09816c91",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "8cf37f63c13a37ead6f6d6fa9b3806d2bfe9cd14fdf87559954ce16e09816c91"
     },
     {
       "image": "weld-1024x684",
@@ -198,8 +207,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 35613,
-      "avif_sha256": "7b731c71eba2c72412ac0b4a1a731a00e84cb140f371c518de1fc4ad2996ac66",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "7b731c71eba2c72412ac0b4a1a731a00e84cb140f371c518de1fc4ad2996ac66"
     },
     {
       "image": "weld-1001x677",
@@ -210,8 +218,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 35408,
-      "avif_sha256": "2f4091b1cf815587ce68145d0a92cebe7b664b4e3446594139068db0b8781594",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "2f4091b1cf815587ce68145d0a92cebe7b664b4e3446594139068db0b8781594"
     },
     {
       "image": "weld-1001x677",
@@ -222,8 +229,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 35208,
-      "avif_sha256": "4ca51ff1c1d8344d1b6735ab1569980fc821799e136c06af7d699063d8906565",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "4ca51ff1c1d8344d1b6735ab1569980fc821799e136c06af7d699063d8906565"
     },
     {
       "image": "weld-1001x677",
@@ -234,8 +240,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 41385,
-      "avif_sha256": "d80d3c7fb125ef8bd11a816c50193010e77e95f19a27e50c734f3efdb578b6f5",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "d80d3c7fb125ef8bd11a816c50193010e77e95f19a27e50c734f3efdb578b6f5"
     },
     {
       "image": "weld-1001x677",
@@ -246,8 +251,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 38903,
-      "avif_sha256": "2d5c0335acb5e099c29ba56a57547c8fc404356b97cf8ad847b75db8db1af1c0",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "2d5c0335acb5e099c29ba56a57547c8fc404356b97cf8ad847b75db8db1af1c0"
     },
     {
       "image": "weld-1001x677",
@@ -258,8 +262,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 35433,
-      "avif_sha256": "261cd487dbf35df10899810211dfef5c27353fcf658518fef6e5e6701a14ea1e",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "261cd487dbf35df10899810211dfef5c27353fcf658518fef6e5e6701a14ea1e"
     },
     {
       "image": "weld-1001x677",
@@ -270,8 +273,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 33762,
-      "avif_sha256": "8b7a07ec9f489607dbc5e28c800943d9cf39200daf5415257a6ef5e2e38fa755",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "8b7a07ec9f489607dbc5e28c800943d9cf39200daf5415257a6ef5e2e38fa755"
     },
     {
       "image": "weld-1001x677",
@@ -282,8 +284,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 41615,
-      "avif_sha256": "7682a6ca4f83bbb0e314bc4051dedb449a526501918078b8b27894e3dd3a70ed",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "7682a6ca4f83bbb0e314bc4051dedb449a526501918078b8b27894e3dd3a70ed"
     },
     {
       "image": "weld-1001x677",
@@ -294,8 +295,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 10859,
-      "avif_sha256": "64b76d087d53badc655d0d92a7c59c0e593977c23d80d59a6809861a755474b9",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "64b76d087d53badc655d0d92a7c59c0e593977c23d80d59a6809861a755474b9"
     },
     {
       "image": "weld-1001x677",
@@ -306,8 +306,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 113794,
-      "avif_sha256": "a6e43de708b4493822a98aeaec4168704363b4e2df3157ebf59a943da78e8564",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "a6e43de708b4493822a98aeaec4168704363b4e2df3157ebf59a943da78e8564"
     },
     {
       "image": "weld-1001x677",
@@ -318,8 +317,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 34408,
-      "avif_sha256": "d1c7b80e08e296393a96b69d7fcf6359c8ed3ae8a34803df5df2a72a09dcaff5",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "d1c7b80e08e296393a96b69d7fcf6359c8ed3ae8a34803df5df2a72a09dcaff5"
     },
     {
       "image": "weld-1001x677",
@@ -330,8 +328,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 550364,
-      "avif_sha256": "e2067e8dc39cb473986d971fcae8b586e7d0758f76f225c066c7718daed4885a",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "e2067e8dc39cb473986d971fcae8b586e7d0758f76f225c066c7718daed4885a"
     },
     {
       "image": "weld-1001x677",
@@ -342,8 +339,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 41959,
-      "avif_sha256": "65f208d719d373909bba9f61c753f944d3021f775a9c4ccb0f4e8ccd173224fc",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "65f208d719d373909bba9f61c753f944d3021f775a9c4ccb0f4e8ccd173224fc"
     },
     {
       "image": "kodim03-768x512",
@@ -354,8 +350,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 19321,
-      "avif_sha256": "07085fa5600e116d472e02a475e640db1f981119c9509381b38fac4732d04ef3",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "07085fa5600e116d472e02a475e640db1f981119c9509381b38fac4732d04ef3"
     },
     {
       "image": "kodim03-768x512",
@@ -366,8 +361,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 18886,
-      "avif_sha256": "88d7076d590ec77bd53e5816eae98e233aada1610f140ed17a110557b595a009",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "88d7076d590ec77bd53e5816eae98e233aada1610f140ed17a110557b595a009"
     },
     {
       "image": "kodim03-768x512",
@@ -378,8 +372,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 21819,
-      "avif_sha256": "8467469d92447cfe2f2ea576726ad9e4208f1ee4a131e62c6d6251cb5ae5dd97",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "8467469d92447cfe2f2ea576726ad9e4208f1ee4a131e62c6d6251cb5ae5dd97"
     },
     {
       "image": "kodim03-768x512",
@@ -390,8 +383,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 18980,
-      "avif_sha256": "46b0f8873ce9cdde7db513e498a0443fc047d2f1a4903d659ff7370a04394bac",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "46b0f8873ce9cdde7db513e498a0443fc047d2f1a4903d659ff7370a04394bac"
     },
     {
       "image": "kodim03-768x512",
@@ -402,8 +394,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 19109,
-      "avif_sha256": "b3c7b7fee206a84529e4c6a0fd33abf3b9f45f0fb95384ae8f60601d9f2a8e3c",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "b3c7b7fee206a84529e4c6a0fd33abf3b9f45f0fb95384ae8f60601d9f2a8e3c"
     },
     {
       "image": "kodim03-768x512",
@@ -414,8 +405,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 18458,
-      "avif_sha256": "fe1df5c4f3249fe4c79636af83d981e4e50f453f7224fe342e9d46608a1205f3",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "fe1df5c4f3249fe4c79636af83d981e4e50f453f7224fe342e9d46608a1205f3"
     },
     {
       "image": "kodim03-768x512",
@@ -426,8 +416,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 21771,
-      "avif_sha256": "037103ebf6b4a840a9b16394cc5b787c38ff39f39e3860e37e94fc86358be569",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "037103ebf6b4a840a9b16394cc5b787c38ff39f39e3860e37e94fc86358be569"
     },
     {
       "image": "kodim03-768x512",
@@ -438,8 +427,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 4677,
-      "avif_sha256": "ff752840e9c1f158e531783969d53b358cb3faae07039a16fd949b04d10d81a6",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "ff752840e9c1f158e531783969d53b358cb3faae07039a16fd949b04d10d81a6"
     },
     {
       "image": "kodim03-768x512",
@@ -450,8 +438,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 51704,
-      "avif_sha256": "962a8936dfe48ccf015ef27a38423a97f9a655a2fc41dc9f97063f6aee906cd9",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "962a8936dfe48ccf015ef27a38423a97f9a655a2fc41dc9f97063f6aee906cd9"
     },
     {
       "image": "kodim03-768x512",
@@ -462,8 +449,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 18522,
-      "avif_sha256": "d760f052ef99791e90d6777b3ab27e5a6de94ad61eee59de9a3988c27219a657",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "d760f052ef99791e90d6777b3ab27e5a6de94ad61eee59de9a3988c27219a657"
     },
     {
       "image": "kodim03-768x512",
@@ -474,8 +460,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 130309,
-      "avif_sha256": "ae27c7ebdfa5fd05ccde2807347fb35ec6b0abe44fbd26fca2181431754fe34c",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "ae27c7ebdfa5fd05ccde2807347fb35ec6b0abe44fbd26fca2181431754fe34c"
     },
     {
       "image": "kodim03-768x512",
@@ -486,8 +471,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 21924,
-      "avif_sha256": "947286453384ec6e050166dfc882ef539084157199f370a868e790c168a5b20c",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "947286453384ec6e050166dfc882ef539084157199f370a868e790c168a5b20c"
     },
     {
       "image": "paris-403x302",
@@ -498,8 +482,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 12442,
-      "avif_sha256": "36574b7f2dddf125bbd65b21b99316e12ad8e485a652fad04694c3f1bd0693fc",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "36574b7f2dddf125bbd65b21b99316e12ad8e485a652fad04694c3f1bd0693fc"
     },
     {
       "image": "paris-403x302",
@@ -510,8 +493,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 12469,
-      "avif_sha256": "88bfeb9e34861606c6566b7d89f4270aba0f67d52acca22e98e78cd63ce89455",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "88bfeb9e34861606c6566b7d89f4270aba0f67d52acca22e98e78cd63ce89455"
     },
     {
       "image": "paris-403x302",
@@ -522,8 +504,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 12944,
-      "avif_sha256": "3a878bae763d02e17870dc07a51d3d3c14ea2da74af0c9b1d4ccfe4b8a32cc08",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "3a878bae763d02e17870dc07a51d3d3c14ea2da74af0c9b1d4ccfe4b8a32cc08"
     },
     {
       "image": "paris-403x302",
@@ -534,8 +515,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 12871,
-      "avif_sha256": "e2fbb7fba243620d20c98b2c736f31984be833810ada11c7eb7e4c12eb380549",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "e2fbb7fba243620d20c98b2c736f31984be833810ada11c7eb7e4c12eb380549"
     },
     {
       "image": "paris-403x302",
@@ -546,8 +526,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 12457,
-      "avif_sha256": "0d2d528d12255a1747c2ef847573af4c844abfb96ecffc57e9d33f347fbdcb7d",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "0d2d528d12255a1747c2ef847573af4c844abfb96ecffc57e9d33f347fbdcb7d"
     },
     {
       "image": "paris-403x302",
@@ -558,8 +537,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 12366,
-      "avif_sha256": "4fac2c39492bc71a76454bac9ef9668a6fd4d2090a27e33a850f7fd173011652",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "4fac2c39492bc71a76454bac9ef9668a6fd4d2090a27e33a850f7fd173011652"
     },
     {
       "image": "paris-403x302",
@@ -570,8 +548,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 13301,
-      "avif_sha256": "c36700dfd8e13922d901d9301d669785d9df70e32bd95906ae50c0e1d593f78c",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "c36700dfd8e13922d901d9301d669785d9df70e32bd95906ae50c0e1d593f78c"
     },
     {
       "image": "paris-403x302",
@@ -582,8 +559,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 2687,
-      "avif_sha256": "148902f383c8d6a43e2226b910396c6ffae47f4566d7452b0f0170cb5edef307",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "148902f383c8d6a43e2226b910396c6ffae47f4566d7452b0f0170cb5edef307"
     },
     {
       "image": "paris-403x302",
@@ -594,8 +570,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 21340,
-      "avif_sha256": "7a2af9f257a4f37f25c70bb286c6b88e57acd9d5896bd1dce18457a850bd27bc",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "7a2af9f257a4f37f25c70bb286c6b88e57acd9d5896bd1dce18457a850bd27bc"
     },
     {
       "image": "paris-403x302",
@@ -606,8 +581,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 12389,
-      "avif_sha256": "1cdf3a486a54664d9f270df952237a8669604227448c1085042039d689a7c006",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "1cdf3a486a54664d9f270df952237a8669604227448c1085042039d689a7c006"
     },
     {
       "image": "paris-403x302",
@@ -618,8 +592,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 82661,
-      "avif_sha256": "3618ea98e5754bad58a1f27c2fed7fe0825c4c5c6e400160919d975e22b86532",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "3618ea98e5754bad58a1f27c2fed7fe0825c4c5c6e400160919d975e22b86532"
     },
     {
       "image": "paris-403x302",
@@ -630,8 +603,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 13301,
-      "avif_sha256": "c36700dfd8e13922d901d9301d669785d9df70e32bd95906ae50c0e1d593f78c",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "c36700dfd8e13922d901d9301d669785d9df70e32bd95906ae50c0e1d593f78c"
     },
     {
       "image": "abc-512x256",
@@ -642,8 +614,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 1588,
-      "avif_sha256": "561580d754f8bf57cad54aa2d8713f0a3d2eba750d6c7a9aa1d0363db5792b98",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "561580d754f8bf57cad54aa2d8713f0a3d2eba750d6c7a9aa1d0363db5792b98"
     },
     {
       "image": "abc-512x256",
@@ -654,8 +625,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 1590,
-      "avif_sha256": "ad58f39c4cd7c1f8b11392262124ff225fbe0286cb70abb951658036e18951ce",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "ad58f39c4cd7c1f8b11392262124ff225fbe0286cb70abb951658036e18951ce"
     },
     {
       "image": "abc-512x256",
@@ -666,8 +636,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 2684,
-      "avif_sha256": "dc701f2b6346b95f2bf7fb4ed06236163820889579801bb56788c788e1f10b66",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "dc701f2b6346b95f2bf7fb4ed06236163820889579801bb56788c788e1f10b66"
     },
     {
       "image": "abc-512x256",
@@ -678,8 +647,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 1600,
-      "avif_sha256": "4c8aeb1bc8aeb903d224a9c613b3c69061725477ebbf73922f1539b849526034",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "4c8aeb1bc8aeb903d224a9c613b3c69061725477ebbf73922f1539b849526034"
     },
     {
       "image": "abc-512x256",
@@ -690,8 +658,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 1595,
-      "avif_sha256": "510d51bd58402e8d885e442778a44f3d072552924f9e615361c1248372388a81",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "510d51bd58402e8d885e442778a44f3d072552924f9e615361c1248372388a81"
     },
     {
       "image": "abc-512x256",
@@ -702,8 +669,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 1447,
-      "avif_sha256": "cadf14715d64394262a63c293a48f5a4251ad04a145036abd607f9fcceec2785",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "cadf14715d64394262a63c293a48f5a4251ad04a145036abd607f9fcceec2785"
     },
     {
       "image": "abc-512x256",
@@ -714,8 +680,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 2704,
-      "avif_sha256": "5c073e876e450b052aa1dd06a8fe4236578db69026ce6127fd88e9328e9249bd",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "5c073e876e450b052aa1dd06a8fe4236578db69026ce6127fd88e9328e9249bd"
     },
     {
       "image": "abc-512x256",
@@ -726,8 +691,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 893,
-      "avif_sha256": "3556291db00b20214b070516a226ae0e1c94d70740521eb913333d53144f7cba",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "3556291db00b20214b070516a226ae0e1c94d70740521eb913333d53144f7cba"
     },
     {
       "image": "abc-512x256",
@@ -738,8 +702,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 2694,
-      "avif_sha256": "9a33f173c304e5529b089862d682ab32bb71edf4d04e0c7500325e78c9393234",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "9a33f173c304e5529b089862d682ab32bb71edf4d04e0c7500325e78c9393234"
     },
     {
       "image": "abc-512x256",
@@ -750,8 +713,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 1572,
-      "avif_sha256": "0002daaa108be8e002ec903407662640b4d20a0543392313d96718559a9eeecc",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "0002daaa108be8e002ec903407662640b4d20a0543392313d96718559a9eeecc"
     },
     {
       "image": "abc-512x256",
@@ -762,8 +724,7 @@
       "threads": 1,
       "alpha": false,
       "bytes": 3652,
-      "avif_sha256": "059d5a3ae51479fc12356bd90d0af4a4033703bd410b24d9ac0d524b438a472a",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "059d5a3ae51479fc12356bd90d0af4a4033703bd410b24d9ac0d524b438a472a"
     },
     {
       "image": "abc-512x256",
@@ -774,8 +735,7 @@
       "threads": 4,
       "alpha": false,
       "bytes": 2704,
-      "avif_sha256": "5c073e876e450b052aa1dd06a8fe4236578db69026ce6127fd88e9328e9249bd",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "5c073e876e450b052aa1dd06a8fe4236578db69026ce6127fd88e9328e9249bd"
     },
     {
       "image": "abc-512x256",
@@ -786,8 +746,7 @@
       "threads": 1,
       "alpha": true,
       "bytes": 2899,
-      "avif_sha256": "1b0484f68b9e183afe27864c997b873bd4d9f47f9847a236478a52788c8feebf",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "1b0484f68b9e183afe27864c997b873bd4d9f47f9847a236478a52788c8feebf"
     },
     {
       "image": "abc-512x256",
@@ -798,8 +757,7 @@
       "threads": 1,
       "alpha": true,
       "bytes": 2912,
-      "avif_sha256": "72377d848258353f1b05a5b44876e5480245ef9326a44309d0cb9d3f9ec98dd3",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "72377d848258353f1b05a5b44876e5480245ef9326a44309d0cb9d3f9ec98dd3"
     },
     {
       "image": "abc-512x256",
@@ -810,8 +768,7 @@
       "threads": 1,
       "alpha": true,
       "bytes": 4663,
-      "avif_sha256": "3f82e7e17ba9ace8daa933fc108970a8dd24cbc1d75aa1dd35bbb15a442ce8f7",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "3f82e7e17ba9ace8daa933fc108970a8dd24cbc1d75aa1dd35bbb15a442ce8f7"
     },
     {
       "image": "abc-512x256",
@@ -822,8 +779,7 @@
       "threads": 1,
       "alpha": true,
       "bytes": 6638,
-      "avif_sha256": "f49dfa143750e736d147b7346d820a491118d22c13b842a5af5265332041bda8",
-      "rtcd": "simd(neon)"
+      "avif_sha256": "f49dfa143750e736d147b7346d820a491118d22c13b842a5af5265332041bda8"
     }
   ]
 }
