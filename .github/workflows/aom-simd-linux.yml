@@ -19,6 +19,11 @@ on:
       - 'tools/check_aom_simd_identity.py'
       - '.github/workflows/aom-simd-linux.yml'
   workflow_dispatch:
+    inputs:
+      measure:
+        description: Also measure encoder time with each RTCD selection
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -58,10 +63,17 @@ jobs:
             exit 0
           fi
           python3 tools/check_aom_simd_identity.py --output build/aom-simd-identity-validation-linux.json
+      - name: Measure encoder time with SIMD, SSE4.1 and C dispatch
+        if: inputs.measure
+        run: |
+          python3 tools/measure_aom_simd_speed.py --binary target/release/examples/encode_still \
+            --output build/aom-x86-performance.json
       - name: Preserve the identity report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: aom-simd-identity-linux
-          path: build/aom-simd-identity-validation-linux.json
+          path: |
+            build/aom-simd-identity-validation-linux.json
+            build/aom-x86-performance.json
           if-no-files-found: ignore
