@@ -1,0 +1,97 @@
+name: AOM golden outputs against the C reference
+
+# ADR 0059: the golden AVIF outputs that pull requests check without a C build
+# are confirmed against the C reference here. tools/encode_still.c makes the
+# calls of examples/encode_still.rs and links the original libavif, portable
+# libaom (scalar `_c` functions only) and the dav1d and SharpYUV references
+# that root parity validation builds (`tools/root_pipeline.py --phase
+# references`). Each output must equal c_reference_sha256 in
+# crates/aom/golden/release.json.
+#
+# Pull requests run this only when the golden record, its tool or the C
+# harness change; nightly and manual runs also cover macOS ARM64.
+on:
+  pull_request:
+    paths:
+      - 'crates/aom/golden/**'
+      - 'tools/check_aom_golden.py'
+      - 'tools/encode_still.c'
+      - '.github/workflows/aom-golden-c.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/aom/golden/**'
+      - 'tools/check_aom_golden.py'
+      - 'tools/encode_still.c'
+      - '.github/workflows/aom-golden-c.yml'
+  schedule:
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run on macOS ARM64
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  c-reference:
+    name: C reference (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos) && '["ubuntu-24.04", "macos-26"]' || '["ubuntu-24.04"]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      CC: ${{ startsWith(matrix.runner, 'macos-') && 'clang' || 'clang-16' }}
+      CXX: ${{ startsWith(matrix.runner, 'macos-') && 'clang++' || 'clang++-16' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Prepare GNU Linux reference tools
+        if: matrix.runner == 'ubuntu-24.04'
+        run: |
+          test "$(uname -m)" = x86_64
+          sudo apt-get update
+          sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config python3-venv cmake libpng-dev libjpeg-dev libxml2-dev
+          echo CLANG_INCLUDE=/usr/lib/llvm-16/lib/clang/16/include >> "$GITHUB_ENV"
+      - name: Prepare macOS ARM64 reference tools
+        if: matrix.runner == 'macos-26'
+        run: |
+          test "$(uname -m)" = arm64
+          for tool in cmake ninja pkg-config libpng jpeg-turbo libxml2; do
+            brew list --formula "$tool" >/dev/null 2>&1 || brew install "$tool"
+          done
+          echo "PKG_CONFIG_PATH=$(brew --prefix libxml2)/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "CLANG_INCLUDE=$(clang -print-resource-dir)/include" >> "$GITHUB_ENV"
+      - name: Install Meson for the dav1d reference
+        run: |
+          python3 -m venv build/root-tools
+          build/root-tools/bin/python -m pip install meson==1.7.2
+          echo "$GITHUB_WORKSPACE/build/root-tools/bin" >> "$GITHUB_PATH"
+      - name: Build the original C references of root parity validation
+        run: |
+          python3 tools/root_pipeline.py --phase references --profile release --variant default \
+            --tier smoke --jobs 4 --clang-include "$CLANG_INCLUDE"
+      - name: Compare C reference output with the golden record
+        run: |
+          python3 tools/check_aom_golden.py --implementation c \
+            --output "build/aom-golden-c-${{ startsWith(matrix.runner, 'macos-') && 'macos' || 'linux' }}.json"
+      - name: Preserve the C reference outputs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aom-golden-c-${{ startsWith(matrix.runner, 'macos-') && 'macos' || 'linux' }}
+          path: |
+            build/aom-golden-c-*.json
+            build/aom-native-release/reference-profile.json
+            build/root-references-*/reference-profile.json
+          if-no-files-found: ignore

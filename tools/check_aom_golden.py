@@ -7,7 +7,16 @@ dispatch detected at run time, and compares the SHA-256 of the AVIF bytes with
 the record in `crates/aom/golden/release.json`, which lists every profile
 (`<os>-<arch>-release`) that reproduces it. A profile whose floating-point
 results differ gets its own `crates/aom/golden/<profile>.json`.
-No C library is built.
+This check builds no C library and fits the pull-request tier.
+
+Next to each Rust output, the record holds `c_reference_sha256`: the output
+of the C reference for the same case. `--implementation c` links
+`tools/encode_still.c`, which makes the same libavif calls, to the original
+libavif, portable libaom (`_c` functions only) and SharpYUV builds of root
+parity validation (`tools/root_pipeline.py --phase references`) and compares
+its outputs with that field. A case is C-confirmed when both hashes are
+equal; the Rust check reports how many are. `aom-golden-c.yml` runs the C
+side nightly and on pull requests that change the record.
 
 The corpus is derived from PNG files in the committed upstream libavif test
 data by this script alone (Python standard library: PNG decoding, 16-to-8-bit
@@ -25,6 +34,8 @@ from them.
     python3 tools/check_aom_golden.py            # check
     python3 tools/check_aom_golden.py --record   # record or add this profile
     python3 tools/check_aom_golden.py --record --replace   # intended change
+    python3 tools/check_aom_golden.py --implementation c            # C reference
+    python3 tools/check_aom_golden.py --implementation c --record   # record it
 
 Golden outputs change only through a reviewed diff: a C reference change or a
 deliberate encoder change (ADR 0059).
@@ -44,6 +55,10 @@ import zlib
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'upstream/libavif/tests/data'
 GOLDEN = ROOT / 'crates/aom/golden'
+RECORDED_FROM = ('avif_sha256: the Rust port (crates/aom, frozen libaom 3.15.2 translation) through the '
+                 'root libavif port. c_reference_sha256: the C reference (tools/encode_still.c linked to the '
+                 'original libavif, portable libaom, and SharpYUV builds of root parity validation; see '
+                 'c_reference). A case is C-confirmed when both hashes are equal.')
 
 # name, source PNG, operations applied in order, purpose
 CORPUS = [
@@ -245,26 +260,102 @@ def golden_file(profile, explicit):
     return specific if specific.exists() else GOLDEN / 'release.json'
 
 
+def evidence():
+    """The CI run that produced a record, or `local`."""
+    if os.environ.get('GITHUB_RUN_ID'):
+        return (f'{os.environ.get("GITHUB_SERVER_URL", "https://github.com")}/'
+                f'{os.environ.get("GITHUB_REPOSITORY")}/actions/runs/{os.environ["GITHUB_RUN_ID"]}')
+    return 'local'
+
+
+def digest_file(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def relative(path):
+    path = path.resolve()
+    return str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path)
+
+
+def build_c_encoder(args, native, triple):
+    """Link tools/encode_still.c to the original C reference that root parity
+    validation builds (`tools/root_pipeline.py --phase references`)."""
+    baseline = (args.c_baseline or ROOT / f'build/root-c-{native}-release-default').resolve()
+    aom = (args.c_aom or ROOT / 'build/aom-native-release').resolve()
+    references = (args.c_references or ROOT / f'build/root-references-{triple}-release').resolve()
+    libavif = sorted(path for path in baseline.rglob('libavif.a') if '_deps' not in path.parts)
+    if len(libavif) != 1:
+        raise SystemExit(f'Expected one C libavif baseline archive under {baseline}, found {len(libavif)}')
+    profile = json.loads((aom / 'reference-profile.json').read_text())
+    if (profile['profile'] != 'release' or '-DAOM_TARGET_CPU=generic' not in profile['options']
+            or '-ffp-contract=off' not in profile['c_flags'].split()):
+        raise SystemExit('The C golden reference requires the noncontracting portable Release libaom reference')
+    archives = [libavif[0], aom / 'libaom.a']
+    archives += [path for path in (references / 'dav1d/src/libdav1d.a', references / 'sharpyuv/libsharpyuv.a')
+                 if path.exists()]
+    compiler = os.environ.get('CC', 'cc')
+    binary = ROOT / 'build/aom-golden/encode_still_c'
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run([compiler, '-O2', '-ffp-contract=off', '-I', ROOT / 'upstream/libavif/include',
+                    ROOT / 'tools/encode_still.c', *archives, '-lm', '-lpthread', '-o', binary],
+                   check=True)
+    cache = baseline / 'CMakeCache.txt'
+    options = {}
+    if cache.exists():
+        for line in cache.read_text().splitlines():
+            name = line.split(':', 1)[0]
+            if name.startswith(('AVIF_CODEC_', 'AVIF_LIB')) and '-' not in name and '=' in line:
+                options[name] = line.split('=', 1)[1]
+    provenance = dict(
+        harness='tools/encode_still.c', harness_sha256=digest_file(ROOT / 'tools/encode_still.c'),
+        archives={relative(path): digest_file(path) for path in archives},
+        libavif_options=options,
+        libaom=dict(options=profile['options'], c_flags=profile['c_flags'], compiler=profile['compiler'],
+                    config_sha256=profile['config_sha256']),
+        compiler=tool_version([compiler, '--version']).splitlines()[0],
+        host=dict(system=platform.platform(), machine=platform.machine()),
+        evidence=evidence(),
+    )
+    return binary, provenance
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--binary', type=Path, help='Use an already built encode_still example')
+    parser.add_argument('--implementation', choices=['rust', 'c'], default='rust',
+                        help='Encode with the Rust port (default) or with the C reference')
+    parser.add_argument('--binary', type=Path, help='Use an already built encoder')
+    parser.add_argument('--c-baseline', type=Path,
+                        help='C libavif baseline build (default: build/root-c-<os>-release-default)')
+    parser.add_argument('--c-aom', type=Path, help='C libaom reference (default: build/aom-native-release)')
+    parser.add_argument('--c-references', type=Path,
+                        help='dav1d and SharpYUV references (default: build/root-references-<target>-release)')
     parser.add_argument('--golden', type=Path,
                         help='Golden file (default: crates/aom/golden/<profile>.json if present, '
                              'else crates/aom/golden/release.json)')
     parser.add_argument('--record', action='store_true',
                         help='Record this profile: create the golden file, or add the profile to a '
-                             'file whose outputs it reproduces')
+                             'file whose outputs it reproduces; with --implementation c, record the C '
+                             'reference hashes next to the Rust ones')
     parser.add_argument('--replace', action='store_true',
                         help='With --record: replace outputs that changed on purpose (a reviewed diff)')
     parser.add_argument('--output', type=Path, help='Also write the observed report here')
     args = parser.parse_args()
     profile = host_profile('release')
-    translation = f'crates/aom/TRANSLATION-{profile.split("-")[0]}-release.json'
+    native = profile.split('-')[0]
+    triple = {'macos-aarch64-release': 'aarch64-apple-darwin',
+              'linux-x86_64-release': 'x86_64-unknown-linux-gnu'}.get(profile)
     golden_path = golden_file(profile, args.golden)
+    reference = args.implementation == 'c'
 
-    binary = args.binary
-    if binary is None:
+    binary, provenance = args.binary, None
+    if reference:
+        if binary is None:
+            binary, provenance = build_c_encoder(args, native, triple)
+        else:
+            provenance = dict(harness='tools/encode_still.c', binary=relative(binary),
+                              host=dict(system=platform.platform(), machine=platform.machine()))
+    elif binary is None:
         subprocess.run(['cargo', 'build', '--release', '--locked', '--example', 'encode_still'],
                        cwd=ROOT, check=True)
         target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target'))
@@ -275,59 +366,109 @@ def main():
     images, corpus = prepare(work)
 
     expected = json.loads(golden_path.read_text()) if golden_path.exists() else None
-    expected_cases = {}
+    if reference and expected is None:
+        raise SystemExit(f'The C reference is compared with an existing golden record: {golden_path}')
+    recorded = {}
     if expected is not None:
         recorded_inputs = {item['name']: item['bmp_sha256'] for item in expected['corpus']}
         changed = [item['name'] for item in corpus if recorded_inputs.get(item['name']) != item['bmp_sha256']]
         if changed:
             raise SystemExit(f'Input bitmaps differ from the golden record ({", ".join(changed)}): '
                              'the corpus derivation changed, not the encoder.')
-        expected_cases = {label(item['image'], item): item for item in expected['cases']}
+        recorded = {label(item['image'], item): item for item in expected['cases']}
 
-    cases, selections, failures = [], {}, []
+    cases, selections, failures, unconfirmed, differs_from_rust = [], {}, [], [], []
     for name, settings in matrix():
         text = label(name, settings)
         digest, size, rtcd = encode(binary, images[name], work / 'out.avif', settings)
-        cases.append(dict(image=name, **settings, bytes=size, avif_sha256=digest))
+        case = dict(image=name, **settings, bytes=size, avif_sha256=digest)
         selections[rtcd] = selections.get(rtcd, 0) + 1
-        if expected is None:
-            status = 'new '
-        else:
-            want = expected_cases.pop(text, None)
-            if want is None:
-                status = 'NEW '
+        want = recorded.get(text)
+        if want is None:
+            status = 'new ' if expected is None else 'NEW '
+            if expected is not None:
                 failures.append(f'{text}: no golden record')
-            elif want['avif_sha256'] != digest:
-                status = 'FAIL'
+        elif reference:
+            # Compare with the recorded C output; before the first C recording,
+            # with the Rust golden output.
+            target = want.get('c_reference_sha256', want['avif_sha256'])
+            if digest != want['avif_sha256']:
+                differs_from_rust.append(f'{text}: C {digest} ({size} bytes), Rust golden '
+                                         f'{want["avif_sha256"]} ({want["bytes"]} bytes)')
+            status = 'ok  ' if digest == target else 'FAIL'
+            if digest != target:
+                failures.append(f'{text}: C {digest} ({size} bytes), recorded C reference {target}')
+        else:
+            status = 'ok  ' if want['avif_sha256'] == digest else 'FAIL'
+            if want['avif_sha256'] != digest:
                 failures.append(f'{text}: {digest} ({size} bytes), golden {want["avif_sha256"]} '
                                 f'({want["bytes"]} bytes)')
-            else:
-                status = 'ok  '
+            if 'c_reference_sha256' in want:
+                case['c_reference_sha256'] = want['c_reference_sha256']
+            if want.get('c_reference_sha256') != digest:
+                unconfirmed.append(text)
+        cases.append(case)
         print(f'{status} {text} bytes={size} rtcd={rtcd}', flush=True)
-    failures.extend(f'{text}: golden record without a case' for text in expected_cases)
-    unlisted = expected is not None and not failures and profile not in expected['profiles']
+    labels = {label(case['image'], case) for case in cases}
+    failures.extend(f'{text}: golden record without a case' for text in recorded if text not in labels)
+    seconds = time.monotonic() - started
 
-    provenance = dict(
-        translation=translation,
-        translation_sha256=hashlib.sha256((ROOT / translation).read_bytes()).hexdigest(),
+    if reference:
+        report = dict(check='SHA-256 of AVIF output from the C reference (tools/encode_still.c)',
+                      profile=profile, reference=provenance, cases=cases, seconds=round(seconds, 1),
+                      failed=failures, differs_from_rust=differs_from_rust)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(report, indent=2) + '\n')
+        print(f'{len(cases) - len(failures)} of {len(cases)} C reference outputs match {golden_path} '
+              f'for {profile} in {seconds:.0f} s; {len(cases) - len(differs_from_rust)} of {len(cases)} '
+              'equal the Rust golden outputs (C-confirmed)')
+        if differs_from_rust:
+            print('C reference outputs that differ from the Rust golden outputs:', *differs_from_rust,
+                  sep='\n  ', file=sys.stderr)
+        if args.record:
+            if differs_from_rust and not args.replace:
+                raise SystemExit('Not recorded: the C reference differs from the Rust golden outputs. '
+                                 'Find the cause before recording (--replace records it anyway).')
+            by_label = {label(case['image'], case): case for case in cases}
+            for item in expected['cases']:
+                item['c_reference_sha256'] = by_label[label(item['image'], item)]['avif_sha256']
+            expected.setdefault('c_reference', {})[profile] = provenance
+            expected['recorded_from'] = RECORDED_FROM
+            golden_path.write_text(json.dumps(expected, indent=2) + '\n')
+            print(f'Recorded the C reference for {profile} in {golden_path}')
+            return
+        if not failures and profile not in expected.get('c_reference', {}):
+            print(f'Note: {profile} reproduces every recorded C output but is not listed under '
+                  f'c_reference in {golden_path}; its provenance:')
+            print(json.dumps({profile: provenance}, indent=2))
+        if failures:
+            print('C reference mismatches:', *failures, sep='\n  ', file=sys.stderr)
+            raise SystemExit(1)
+        return
+
+    rust = dict(
+        translation=f'crates/aom/TRANSLATION-{native}-release.json',
+        translation_sha256=digest_file(ROOT / f'crates/aom/TRANSLATION-{native}-release.json'),
         cargo_profile='release',
         rustc=tool_version(['rustc', '--version']),
         host=dict(system=platform.platform(), machine=platform.machine()),
         rtcd=selections,
+        evidence=evidence(),
     )
+    unlisted = expected is not None and not failures and profile not in expected['profiles']
     report = dict(
         check='SHA-256 of AVIF output from encode_still equals the golden record (ADR 0059)',
-        recorded_from='Rust port (crates/aom, frozen libaom 3.15.2 translation) through the root '
-                      'libavif port; not yet re-recorded from the C reference',
+        recorded_from=RECORDED_FROM,
         floating_point='Rust default code generation, which never contracts (ADR 0021, ADR 0024)',
         dispatch='RTCD defaults detected at run time; SIMD equals C by tools/check_aom_simd_identity.py',
-        profiles={**(expected or {}).get('profiles', {}), profile: provenance},
+        profiles={**(expected or {}).get('profiles', {}), profile: rust},
+        c_reference=(expected or {}).get('c_reference', {}),
         encoder=('examples/encode_still.rs: BT.709 primaries, sRGB transfer, BT.601 matrix, full range; '
                  'avifImageRGBToYUV then avifEncoderWrite; autoTiling when threads != 1'),
         corpus=corpus,
         cases=cases,
     )
-    seconds = time.monotonic() - started
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(dict(report, profile=profile, seconds=round(seconds, 1),
@@ -339,7 +480,7 @@ def main():
                              'add --replace; for a profile whose floating-point results differ, '
                              f'record it separately with --golden {GOLDEN / profile}.json')
         if expected is not None and failures:
-            report['profiles'] = {profile: provenance}
+            report['profiles'] = {profile: rust}
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(json.dumps(report, indent=2) + '\n')
         print(f'Recorded {len(cases)} cases for {profile} in {seconds:.0f} s: {golden_path}')
@@ -348,7 +489,11 @@ def main():
         raise SystemExit(f'No golden file for {profile}: {golden_path}. Review the observed outputs '
                          'and record them with --record.')
     print(f'{len(cases) - len(failures)} of {len(cases)} cases match {golden_path} '
-          f'for {profile} in {seconds:.0f} s')
+          f'for {profile} in {seconds:.0f} s; {len(cases) - len(unconfirmed)} of {len(cases)} are '
+          'C-confirmed')
+    if unconfirmed and len(unconfirmed) < len(cases):
+        print('Not C-confirmed (the golden output differs from the recorded C reference):',
+              *unconfirmed, sep='\n  ')
     if unlisted:
         print(f'Note: {profile} reproduces every output but is not listed in {golden_path}; '
               'add it with --record (the observed report from --output already lists it).')
