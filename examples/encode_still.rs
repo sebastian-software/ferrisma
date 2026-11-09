@@ -11,10 +11,11 @@
 //! (uncompressed, or 32-bit with byte-aligned channel masks); alpha is
 //! ignored unless `--alpha` is given, which requires a 32-bit BMP with an
 //! alpha mask (BITMAPV4HEADER) and encodes RGBA with an alpha plane, as
-//! Ferrixel does for images with alpha. Each repetition prints `encode_us=<microseconds>` for
-//! `avifEncoderWrite` alone and the output size. `--threads=0` uses all
-//! available cores and enables automatic tiling. `--report-rtcd` prints
-//! whether libaom's RTCD tables selected the SIMD kernels (ADR 0056).
+//! Ferrixel does for images with alpha. Each repetition prints
+//! `encode_us=<microseconds>` for `avifEncoderWrite` alone and the output
+//! size. `--threads=0` uses all available cores and enables automatic tiling.
+//! `--report-rtcd` prints whether libaom's RTCD tables selected the SIMD
+//! kernels (ADR 0056).
 use std::time::Instant;
 
 use avif::{avif as image_api, rawdata, reformat, write};

@@ -24,6 +24,7 @@ from them.
 
     python3 tools/check_aom_golden.py            # check
     python3 tools/check_aom_golden.py --record   # record or add this profile
+    python3 tools/check_aom_golden.py --record --replace   # intended change
 
 Golden outputs change only through a reviewed diff: a C reference change or a
 deliberate encoder change (ADR 0059).
@@ -254,6 +255,8 @@ def main():
     parser.add_argument('--record', action='store_true',
                         help='Record this profile: create the golden file, or add the profile to a '
                              'file whose outputs it reproduces')
+    parser.add_argument('--replace', action='store_true',
+                        help='With --record: replace outputs that changed on purpose (a reviewed diff)')
     parser.add_argument('--output', type=Path, help='Also write the observed report here')
     args = parser.parse_args()
     profile = host_profile('release')
@@ -302,9 +305,7 @@ def main():
                 status = 'ok  '
         print(f'{status} {text} bytes={size} rtcd={rtcd}', flush=True)
     failures.extend(f'{text}: golden record without a case' for text in expected_cases)
-    if expected is not None and not failures and profile not in expected['profiles']:
-        failures.append(f'profile {profile} reproduces every output but is not listed in {golden_path}; '
-                        'add it with --record')
+    unlisted = expected is not None and not failures and profile not in expected['profiles']
 
     provenance = dict(
         translation=translation,
@@ -332,10 +333,11 @@ def main():
         args.output.write_text(json.dumps(dict(report, profile=profile, seconds=round(seconds, 1),
                                                failed=failures), indent=2) + '\n')
     if args.record:
-        if expected is not None and failures and not args.golden:
+        if expected is not None and failures and not (args.replace or args.golden):
             print(*failures, sep='\n', file=sys.stderr)
-            raise SystemExit(f'{profile} does not reproduce {golden_path}. If the difference is '
-                             f'expected, record it separately with --golden {GOLDEN / profile}.json')
+            raise SystemExit(f'{profile} does not reproduce {golden_path}. For an intended change, '
+                             'add --replace; for a profile whose floating-point results differ, '
+                             f'record it separately with --golden {GOLDEN / profile}.json')
         if expected is not None and failures:
             report['profiles'] = {profile: provenance}
         golden_path.parent.mkdir(parents=True, exist_ok=True)
@@ -347,6 +349,9 @@ def main():
                          'and record them with --record.')
     print(f'{len(cases) - len(failures)} of {len(cases)} cases match {golden_path} '
           f'for {profile} in {seconds:.0f} s')
+    if unlisted:
+        print(f'Note: {profile} reproduces every output but is not listed in {golden_path}; '
+              'add it with --record (the observed report from --output already lists it).')
     if failures:
         print('Golden output mismatches:', *failures, sep='\n  ', file=sys.stderr)
         raise SystemExit(1)

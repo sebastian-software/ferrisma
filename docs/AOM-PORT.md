@@ -922,3 +922,37 @@ AVX2 saves another 11 to 13 points over SSE4.1, consistent with CDEF, whose
 kernels exist only as AVX2 in this set. At speed 7, where the all-intra
 encoder skips CDEF, SSE4.1 is 0.5 to 3% faster than AVX2 on this CPU; which
 AVX2 kernels cause that is not yet measured.
+
+## Pull-request gate and golden outputs (ADR 0059)
+
+[ADR 0059](adr/0059-freeze-the-libaom-translation-and-gate-owned-code-on-golden-outputs.md)
+gates changes to `crates/aom`, the root sources, and `encode_still` without
+building a C library. `aom-simd-linux.yml` runs these jobs in parallel on
+GNU Linux x86-64:
+
+- `kernels (release)` and `kernels (checked)`: `cargo test -p libavif-aom
+  --test simd` in the Release profile and in the `checked` profile, which
+  compiles the Debug translation profile with debug assertions at Release
+  optimization. The unoptimized Debug run is nightly and on manual dispatch
+  (`debug: true`).
+- `identity`: the SIMD/SSE4.1/C identity corpus above.
+- `golden`: `tools/check_aom_golden.py`, which encodes 62 cases and compares
+  the SHA-256 of each AVIF file with
+  [`crates/aom/golden/release.json`](../crates/aom/golden/release.json).
+
+The golden corpus is derived from upstream libavif test PNGs by the Python
+standard library alone, so it does not depend on ImageMagick or `sips`. macOS
+ARM64 with Neon and GNU Linux x86-64 with AVX2 produce byte-identical outputs
+for all 62 cases and share one record, which lists both profiles. Locally,
+run:
+
+```sh
+python3 tools/check_aom_golden.py
+```
+
+A change that alters an output on purpose updates the record with
+`--record --replace` in the same pull request, so the diff is reviewed. A
+profile whose floating-point results differ gets its own
+`crates/aom/golden/<os>-<arch>-release.json`. The current
+record comes from the Rust port at the frozen translation; re-recording it
+from the C reference is part of the nightly tier.

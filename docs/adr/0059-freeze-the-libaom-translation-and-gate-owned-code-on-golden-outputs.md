@@ -171,6 +171,62 @@ reproduced in the Rust, and accepted on the new golden outputs.
 - The same approach can later apply to the other ports, each in its own
   decision.
 
+## Amendment: first pull-request slice (2026-11-09)
+
+The x86 SIMD workflow (`aom-simd-linux.yml`) now runs four parallel jobs that
+build no C library. Before, one job ran Release and Debug kernel tests and the
+identity corpus in sequence and took 41 minutes (run 42584921441). Run
+42605114224 on four-core ubuntu-24.04 runners:
+
+| Job | Content | Wall clock |
+| --- | --- | --- |
+| `kernels (release)` | 79 SIMD kernel tests, Release translation profile | 3 min 23 s |
+| `kernels (checked)` | the same tests, Debug translation profile at Release optimization | 3 min 35 s |
+| `identity` | 76-case SIMD/SSE4.1/C identity corpus | 3 min 18 s |
+| `golden` | 62 golden AVIF outputs | 1 min 29 s |
+| workflow | | 3 min 38 s |
+
+Each job spends about a minute compiling. Test times vary with the runner CPU
+(AMD EPYC 7763, 9V74 or 9V45): 66 to 114 s for Release, 137 to 169 s for
+`checked`.
+
+**Debug kernel tests.** The unoptimized Debug run took 2,085 s of tests in
+run 42584921441, dominated by the CDEF, high-bitdepth inverse transform and
+quantize tests at `opt-level = 0`. What it adds over Release is the Debug
+translation profile, which `debug_assertions` selects, and the assertions it
+enables, including the standard library's precondition checks on raw pointers
+and slices. The `checked` Cargo profile keeps both: it inherits `release` and
+sets `debug-assertions = true` (overflow checks are off in both profiles).
+Only the optimization level differs, and for Rust code without undefined
+behavior that changes no result, because Rust never contracts or relaxes
+floating-point operations. Pull requests therefore run `checked`. The
+unoptimized run moves to the nightly schedule and to manual dispatch
+(`debug: true`). A defect whose symptom
+depends on the optimization level is found there a night later.
+
+**Golden outputs.** `tools/check_aom_golden.py` derives its corpus from
+upstream libavif test PNGs with the Python standard library alone (decode,
+16-to-8-bit rounding, crop, transpose, mirror), so runner image updates of
+ImageMagick or `sips` cannot change the inputs. Its PNG decoding matches
+ImageMagick byte for byte on all sources. The 62 cases cross six images (up to
+1368x2048, odd sizes, grayscale, text with alpha) with Ferrixel's settings: 8,
+10 and 12 bits, 4:2:0 and 4:4:4, quality 20 to 100 including lossless, speeds
+4 to 10, one thread and four threads with automatic tiling, and RGBA input with
+an alpha plane. Thread counts are fixed because libavif derives the tile
+layout from them. Decoded-pixel hashes are not recorded: the decoder is
+deterministic, so they follow from the AVIF bytes.
+
+macOS ARM64 with Neon and GNU Linux x86-64 with AVX2 produce byte-identical
+output in all 62 cases, so both share `crates/aom/golden/release.json`, which
+lists each profile with its translation record digest and compiler. A profile
+whose results differ would get its own `crates/aom/golden/<profile>.json`.
+
+This slice records the golden outputs from the Rust port at the frozen
+translation, not yet from the C reference. The port's agreement with the C
+reference still rests on the original suites and oracles of ADR 0048; no
+AVIF-level comparison with the C reference is recorded yet. Re-recording from
+the C reference belongs to the nightly slice.
+
 ## Open questions
 
 - Whether hosted runners measure stably enough for the 2 % threshold, or the
@@ -179,7 +235,9 @@ reproduced in the Rust, and accepted on the new golden outputs.
 
 - Which further upstream switches the final regeneration uses: whether the
   decoder, real-time paths or other units can be dropped for Ferrixel's use.
-- The composition of the corpus and the settings matrix for the end-to-end
-  golden outputs.
+- Whether the end-to-end corpus needs more images or settings, such as tuning
+  modes or larger images, once Ferrixel's settings settle. The first corpus is
+  described in the amendment above.
 - Whether the macOS and Linux C references produce identical golden outputs
-  under the non-contracting floating-point profile.
+  under the non-contracting floating-point profile. The Rust port does for the
+  first corpus.
