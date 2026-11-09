@@ -33,8 +33,11 @@ unsafe code only in the loads, stores and kernel calls
 features the crate is the portable reference configuration. Work package 10
 rewrites the x86-64 SSE2 and AVX2 kernels from upstream's NASM assembly as
 intrinsics, with the same unsafe boundaries
-([ADR 0008](docs/adr/0008-x86-64-kernels-from-nasm.md)). The port serves
-Rust programs and exports no C ABI. See the
+([ADR 0008](docs/adr/0008-x86-64-kernels-from-nasm.md)). Work package 11
+runs the ISO/IEC 10918-2 (ITU-T T.83) compliance data for the 8-bit
+baseline, extended and progressive processes: every stream decodes to the
+coded coefficients bit for bit, and the decoder test's measured values are
+recorded. The port serves Rust programs and exports no C ABI. See the
 [port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
 [port status](docs/PORT_STATUS.md) for what is verified.
 
@@ -57,6 +60,9 @@ therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md
   reference configuration, in separate processes, and upstream's own `djpeg`
   bit tests run on the port through a Rust driver
   ([ADR 0002](docs/adr/0002-differential-oracle.md)).
+- The ISO/IEC 10918-2 compliance data, which ITU publishes but does not
+  license for redistribution, is fetched and verified at test time
+  ([ADR 0002](docs/adr/0002-differential-oracle.md)).
 - Safe Rust by default; `unsafe` only where an ADR names it
   ([ADR 0003](docs/adr/0003-toolchain-and-unsafe-policy.md)).
 - The portable C code is ported first; SIMD comes afterwards, NEON from
@@ -75,6 +81,7 @@ The differential tests need the C oracle, which needs CMake and a C compiler:
 
 ```sh
 python3 tools/build_oracle.py          # build/oracle/release
+python3 tools/fetch_t83.py             # build/t83, the ISO/IEC 10918-2 data
 python3 tools/check.py --oracle        # all checks, bit tests and oracle tests
 ```
 
