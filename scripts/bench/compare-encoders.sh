@@ -4,8 +4,10 @@
 # `compare-sharp.py prepare` writes, and the target-A scores of its
 # `anchors.tsv`.
 #
-# usage: scripts/bench/compare-encoders.sh OUT_DIR [match|time|all]
+# usage: scripts/bench/compare-encoders.sh OUT_DIR [anchor|match|time|all]
 #   OUT_DIR  the compare-sharp.py output directory (corpus/, refs/, anchors.tsv)
+#   anchor   write anchors.tsv with target A only (rav1e quality 80, speed 6,
+#            all cores), for runs without the Sharp comparison's `match`
 #   match    bisect libavif-rs quality to target A at speeds 6 and 7
 #   time     best-of-five stage timings at the matched settings; waits until
 #            the 1-minute load average is below COMPARE_MAX_LOAD (default 4)
@@ -29,6 +31,17 @@ images=(
   "kodim03|kodim03.jpg|512|341|--assume-srgb"
   "kodim23|kodim23.jpg|512|341|--assume-srgb"
 )
+anchor() {
+  printf 'image\tanchor\tbytes\tscore\n'
+  for entry in "${images[@]}"; do
+    IFS='|' read -r name file w h flag <<< "$entry"
+    "$rav1e" "$out/corpus/$file" "$out/encoders/$name-anchor.avif" "$w" "$h" "$flag" --quality=80 \
+      --encoder-threads=0 --transform-threads=0 --chroma=444 >/dev/null 2>&1
+    "$qm" score "$out/refs/$name.ref" "$out/encoders/$name-anchor.avif" |
+      awk -v n="$name" -F'\t' '{ printf "%s\tferrixel-q80\t%s\t%.3f\n", n, $2, $3 }'
+  done
+}
+
 target() { awk -v n="$1" '$1 == n && $2 == "ferrixel-q80" { print $4 }' "$out/anchors.tsv"; }
 
 match() {
@@ -78,6 +91,7 @@ timing() {
 }
 
 case $phase in
+  anchor) anchor | tee "$out/anchors.tsv" ;;
   match) match | tee "$out/encoders/matched.tsv" ;;
   time) timing | tee "$out/encoders/time.md" ;;
   all) match | tee "$out/encoders/matched.tsv"; timing | tee "$out/encoders/time.md" ;;
