@@ -783,7 +783,30 @@ pub fn animation_scripts(oracle: &Oracle, directory: &Path) -> Vec<String> {
     scripts
 }
 
-/// The scripts of truncated and bit-flipped files and of extreme size fields.
+/// Whether assembling the parsed `file` fails C's assertion
+/// `x_offset < MAX_POSITION_OFFSET` (or the one for `y_offset`) in
+/// `GetAdjustedCanvasSize`: a parsed `ANMF` chunk can hold offsets up to
+/// `2 * (2^24 - 1)`. C assertions are excluded from the oracle (PORTING rule 8,
+/// `docs/status/wp15.md`); the translation's `debug_assert!` fails in the dev
+/// and `checked` profiles. The file is parsed with the translation.
+fn asserts_in_assembly(file: &[u8]) -> bool {
+    let data = WebPData {
+        bytes: Cow::Borrowed(file),
+    };
+    let Some(mux) = webp_mux_create_internal(&data, 0, WEBP_MUX_ABI_VERSION) else {
+        return false;
+    };
+    let images = webp_mux_num_chunks(&mux, WebPChunkId::WEBP_CHUNK_IMAGE).unwrap_or(0);
+    images > 1
+        && (1..=images.cast_unsigned()).any(|nth| {
+            webp_mux_get_frame(&mux, nth)
+                .is_ok_and(|frame| frame.x_offset >= 1 << 24 || frame.y_offset >= 1 << 24)
+        })
+}
+
+/// The scripts of truncated and bit-flipped files and of extreme size fields;
+/// bit flips that make C's assembly assert are skipped
+/// ([`asserts_in_assembly`]).
 pub fn truncated_scripts(directory: &Path) -> Vec<String> {
     let mut sources: Vec<Vec<u8>> = Vec::new();
     for path in crate::oracle::test_vectors() {
@@ -820,6 +843,9 @@ pub fn truncated_scripts(directory: &Path) -> Vec<String> {
             let mut flipped = bytes.clone();
             let position = rng.below(flipped.len() as u64) as usize;
             flipped[position] ^= 1 << rng.below(8);
+            if asserts_in_assembly(&flipped) {
+                continue;
+            }
             let token = file_token(directory, &format!("flip{count}.webp"), &flipped);
             count += 1;
             scripts.push(format!("create 1 {token}\nstate\nassemble 0\n"));
