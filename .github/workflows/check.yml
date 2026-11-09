@@ -109,6 +109,9 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "Job results: $RESULTS"
-          case " $RESULTS " in
-            *" failure "*|*" cancelled "*|*" skipped "*) exit 1 ;;
-          esac
+          # Only "success" passes: failure, cancelled, skipped, and the
+          # "abandoned" that an Actions incident reports for jobs that never
+          # ran (seen on 9 November 2026) all fail the gate.
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
