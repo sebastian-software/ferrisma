@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Check or build an isolated native root profile before production admission."""
+"""Check or build an isolated native root profile before production admission.
+
+The profile guards reject missing source units, changed source or output hashes,
+cross-target evidence, and changed module selectors. The existing macOS
+translation bodies stay unchanged. `root-translate-linux.yml` prepares isolated
+native root source profiles from the actual C compilation database and the pinned
+original decoder and conversion archives; its generated-source and typecheck
+artifacts are preparation evidence and do not establish native execution
+acceptance (ADR 0050).
+"""
 import argparse
 import hashlib
 import json
