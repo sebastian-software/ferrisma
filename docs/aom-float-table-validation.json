@@ -1,9 +1,0 @@
-{
-  "named_static_arrays": 9,
-  "pointer_rows": 19,
-  "float_elements": 122,
-  "original_sha256": "d4299e27ba93c30eb9e77641c589910d83afe9d08e52224e9741bd2f180c62fc",
-  "bytes_compared": 564,
-  "exact_match": true,
-  "output_sha256": "27955bb0bb9580bf9c3658842df5c96f0a6f6a3a25ec8f0c75b043d208d74c9e"
-}
