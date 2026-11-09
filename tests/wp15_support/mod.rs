@@ -987,6 +987,13 @@ pub fn pick_value(rng: &mut Rng, values: &[i64]) -> i64 {
 }
 
 /// One seeded edit sequence.
+///
+/// Empty chunk payloads are set without copying, and `VP8X` and `ANIM`, which
+/// `ChunkAssignData` always copies, get a one-byte payload instead: C's copy
+/// of empty data has `NULL` bytes, and `WebPMuxAssemble` passes them to
+/// `memcpy` (undefined behavior, excluded in docs/status/wp15.md); the
+/// directed cases of [`edit_scripts`] cover the copied empty chunk without
+/// assembling it.
 pub fn edit_sequence(rng: &mut Rng, pool: &Pool) -> String {
     let mut script = String::from("new\n");
     let steps = 6 + rng.below(30);
@@ -995,7 +1002,16 @@ pub fn edit_sequence(rng: &mut Rng, pool: &Pool) -> String {
         let line = match rng.below(17) {
             0 | 1 => {
                 let fourcc = FOURCCS[rng.below(FOURCCS.len() as u64) as usize].replace(' ', "_");
-                format!("setchunk {fourcc} {copy} {}", pick(rng, &pool.payloads))
+                let mut payload = pick(rng, &pool.payloads);
+                let mut copy = copy;
+                if payload == "hex:" {
+                    if fourcc == "VP8X" || fourcc == "ANIM" {
+                        payload = &pool.payloads[1];
+                    } else {
+                        copy = 0;
+                    }
+                }
+                format!("setchunk {fourcc} {copy} {payload}")
             }
             2 => {
                 let fourcc = FOURCCS[rng.below(FOURCCS.len() as u64) as usize].replace(' ', "_");
@@ -1081,17 +1097,23 @@ pub fn edit_scripts(directory: &Path) -> Vec<String> {
         scripts.push(edit_sequence(&mut rng, &pool));
     }
     // Directed cases: chunk order and copying, empty chunks with and without
-    // copying (C's NULL bytes of an empty copy clear the VP8X flags), a second
-    // unknown chunk (C's ChunkSetHead refuses it), canvas sizes that the frames
-    // exceed, the single-frame cleanup, and images replaced by frames.
+    // copying (C's NULL bytes of an empty copy, read back and then deleted or
+    // replaced: assembling them is undefined behavior in C), a second unknown
+    // chunk (C's ChunkSetHead refuses it), canvas sizes that the frames exceed,
+    // the single-frame cleanup, and images replaced by frames.
     let image = &pool.images[2];
     let raw = &pool.images[5];
     let animation = &pool.animations[2];
     for directed in [
-        format!("new\nsetimage 0 {image}\nsetchunk ICCP 1 hex:\nassemble 0\nstate\n"),
+        format!(
+            "new\nsetimage 0 {image}\nsetchunk ICCP 1 hex:\nstate\ndelchunk ICCP\nassemble 0\nstate\n"
+        ),
         format!("new\nsetimage 0 {image}\nsetchunk ICCP 0 hex:\nassemble 1\nstate\n"),
         format!(
-            "new\nsetimage 1 {image}\nsetchunk EXIF 1 hex:\nsetchunk XMP_ 0 hex:00\nassemble 1\n"
+            "new\nsetimage 1 {image}\nsetchunk EXIF 1 hex:\nsetchunk XMP_ 0 hex:00\ngetchunk EXIF\nnumchunks 7\nsetchunk EXIF 0 hex:\nassemble 1\n"
+        ),
+        format!(
+            "new\nsetimage 0 {image}\nsetchunk abcd 1 hex:\ngetchunk abcd\nnumchunks 9\nsetchunk efgh 1 hex:01\ndelchunk abcd\nsetchunk efgh 1 hex:01\nassemble 1\nstate\n"
         ),
         format!(
             "new\nsetimage 1 {raw}\nsetchunk abcd 1 hex:01\nsetchunk efgh 1 hex:02\nsetchunk abcd 0 hex:03\nassemble 1\nstate\n"
@@ -1593,7 +1615,9 @@ pub fn single_cases() -> Vec<Case> {
     let mut tiny = Case::new("1x1", 1, 1, Background::Opaque, 3);
     tiny.configs = vec![CONFIGS[1].to_owned(), CONFIGS[2].to_owned()];
     cases.push(tiny);
-    // Metadata chunks set, replaced, read and deleted around the frames.
+    // Metadata chunks set, replaced, read and deleted around the frames. Empty
+    // chunks set with copying are deleted before `assemble`: C's copy has NULL
+    // bytes, which WebPMuxAssemble would pass to memcpy (docs/status/wp15.md).
     for (copy, extra) in [
         (
             0,
