@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 120
     env:
       OUT: ${{ github.workspace }}/bench-out
-      BENCH_SHARP_NODE_MODULES: ${{ runner.temp }}/sharp/node_modules
+      BENCH_SHARP_NODE_MODULES: ${{ github.workspace }}/.sharp/node_modules
       COMPARE_LIBAVIF_DATA: ${{ github.workspace }}/libavif-rs/upstream/libavif/tests/data
       COMPARE_LIBJXL_DATA: ${{ github.workspace }}/libjxl-rs/tests/data/decode-test
       # The runner is idle apart from this job; the load rule only skips
@@ -44,7 +44,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install pinned Sharp for the corpus and references
-        run: npm install --prefix "$RUNNER_TEMP/sharp" --no-audit --no-fund sharp@0.34.5
+        run: npm install --prefix "$GITHUB_WORKSPACE/.sharp" --no-audit --no-fund sharp@0.34.5
       - name: Record the runner CPU
         run: |
           grep -m1 'model name' /proc/cpuinfo
