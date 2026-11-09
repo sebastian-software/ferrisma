@@ -12,7 +12,7 @@
 | 7 Upstream bit tests | done | The 30 in-scope `djpeg` bit tests produce upstream's MD5 sums on the port; driver below |
 | 8 Safe Rust API for Ferrixel | done | `Decoder` and `Scanlines` in `src/decode.rs`; compared with the WP6 and WP2 probes below |
 | 9 NEON SIMD | done | The decoder's Neon kernels and their dispatcher translated behind the default `simd` feature; compared with the `simd` oracle, with Neon and with `JSIMD_FORCENONE=1`, below; [ADR 0007](adr/0007-neon-kernels-and-unsafe.md) proposed |
-| 10 x86-64 SIMD | in review | The decoder's SSE2 and AVX2 kernels rewritten from upstream's NASM as intrinsics; each kernel compared with its asm through a kernel probe, and the whole suite with the `simd` oracle in the AVX2, SSE2 and `JSIMD_FORCENONE=1` modes, below; [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md) proposed |
+| 10 x86-64 SIMD | done | The decoder's SSE2 and AVX2 kernels rewritten from upstream's NASM as intrinsics; each kernel compared with its asm through a kernel probe, and the whole suite with the `simd` oracle in the AVX2, SSE2 and `JSIMD_FORCENONE=1` modes, and speed figures from CI, below; [ADR 0008](adr/0008-x86-64-kernels-from-nasm.md) proposed |
 | 11 Conformance | not started | — |
 
 Work packages 1 to 6 are translated: 37 modules under `src/`
@@ -901,8 +901,60 @@ select the kernels one by one: the islow, ifast and float IDCTs, the 4x4 and
 2x2 IDCTs, fancy and merged h2v1 and h2v2 upsampling, and the RGB and RGBX
 color conversion. Rosetta 2 says nothing about native speed, so the
 measurement comes from CI's bench job on Linux x86-64 and ARM64, which keeps
-the record as an artifact.
+the record as an artifact. The figures below are from the job's run on this
+work package's pull request: median of 5 runs of 10 decodes, single-threaded,
+on shared GitHub runners, so the ratios are comparable and the absolute times
+only roughly. A ratio is the port's time over the C time.
 
-**Not covered.** No speed figures yet: the first run of the CI bench job
-provides them. AVX-512 and i386 aren't translated, since upstream's decoder
-has no AVX-512 kernels and the port targets x86-64 only (ADR 0004).
+On `ubuntu-latest` (x86-64 with AVX2):
+
+| Case | C, AVX2 ms | port, AVX2 ms | ratio | SSE2 ratio | portable ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| baseline 4:2:0, RGB | 32.7 | 36.2 | 1.10 | 1.08 | 1.44 |
+| baseline 4:2:2, RGB | 38.2 | 43.3 | 1.13 | 1.09 | 1.39 |
+| baseline 4:4:4, RGB | 47.1 | 55.9 | 1.19 | 1.10 | 1.27 |
+| progressive 4:2:0, RGB | 90.5 | 111.3 | 1.23 | 1.22 | 1.37 |
+| baseline 4:2:0, RGBX | 32.1 | 36.0 | 1.12 | 1.09 | 1.42 |
+| baseline 4:2:0, fast IDCT | 31.3 | 34.3 | 1.09 | 1.11 | 1.51 |
+| baseline 4:2:0, float IDCT | 35.6 | 38.8 | 1.09 | 1.10 | 1.51 |
+| baseline 4:2:0, merged upsampling | 30.7 | 34.4 | 1.12 | 1.08 | 1.31 |
+| baseline 4:2:2, merged upsampling | 36.3 | 41.6 | 1.15 | 1.10 | 1.38 |
+| baseline 4:2:0, scale 1/2 | 27.0 | 31.2 | 1.15 | 1.12 | 1.23 |
+| baseline 4:2:0, scale 1/4 | 24.0 | 28.3 | 1.18 | 1.18 | 1.21 |
+| baseline 4:2:0, scale 1/8 | 20.4 | 26.6 | 1.31 | 1.31 | 1.20 |
+| `testorig.jpg` (227x149) | 0.11 | 0.12 | 1.14 | 1.14 | 1.55 |
+
+On `ubuntu-24.04-arm` (ARM64, Neon from work package 9):
+
+| Case | C, Neon ms | port, Neon ms | ratio | portable ratio |
+| --- | ---: | ---: | ---: | ---: |
+| baseline 4:2:0, RGB | 33.0 | 42.5 | 1.29 | 1.44 |
+| baseline 4:2:2, RGB | 38.1 | 49.6 | 1.30 | 1.50 |
+| baseline 4:4:4, RGB | 45.9 | 61.2 | 1.33 | 1.31 |
+| progressive 4:2:0, RGB | 72.4 | 98.4 | 1.36 | 1.45 |
+| baseline 4:2:0, RGBX | 33.5 | 43.0 | 1.28 | 1.43 |
+| baseline 4:2:0, fast IDCT | 30.7 | 38.8 | 1.26 | 1.45 |
+| baseline 4:2:0, float IDCT | 48.0 | 55.8 | 1.16 | 1.39 |
+| baseline 4:2:0, merged upsampling | 29.9 | 39.2 | 1.31 | 1.40 |
+| baseline 4:2:2, merged upsampling | 35.7 | 47.0 | 1.31 | 1.35 |
+| baseline 4:2:0, scale 1/2 | 24.8 | 33.1 | 1.34 | 1.32 |
+| baseline 4:2:0, scale 1/4 | 21.6 | 29.3 | 1.36 | 1.35 |
+| baseline 4:2:0, scale 1/8 | 17.8 | 27.2 | 1.53 | 1.51 |
+| `testorig.jpg` (227x149) | 0.11 | 0.14 | 1.29 | 1.46 |
+
+On x86-64 the kernels bring the port from 1.2 to 1.55 times upstream's time
+down to 1.1 to 1.2 times, with AVX2 and with SSE2 alike. The gap is widest at
+1/8 scale (1.31), where the kernels do almost nothing, so what remains lies in
+the code that all configurations share, as on ARM64. No kernel case is
+clearly slower than the baseline decode around it.
+
+One difference is worth a later look: upstream's AVX2 kernels gain more over
+SSE2 than the port's. For 4:4:4, where only the color converter and the
+islow IDCT run, AVX2 saves upstream 5.6 ms (52.7 to 47.1) and the port 2.0 ms
+(57.9 to 55.9). The unaligned loads that ADR 0008 names as a cost are one
+candidate.
+
+**Not covered.** The speed figures are one CI run on shared runners, not a
+controlled measurement; later runs of the bench job add to the record.
+AVX-512 and i386 aren't translated, since upstream's decoder has no AVX-512
+kernels and the port targets x86-64 only (ADR 0004).
