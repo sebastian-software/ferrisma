@@ -6,7 +6,9 @@ comment block of each upstream file it translates, copied verbatim, followed by
 a module doc comment that names those files and the owning work package. Work
 packages append their translation below that header and never edit it. The safe
 API modules under src/api translate no upstream file; their header names the
-part of the translation they wrap and the owning work package.
+part of the translation they wrap and the owning work package. A manifest entry
+with an `unsafe` field (the SIMD modules, ADR 0008) gets `#[allow(unsafe_code)]`
+with that reason and the ABI module's unsafe lints on its `pub mod` line.
 
 --create-missing writes the header-only file for a manifest entry whose module
 file does not exist yet. It never overwrites an existing file.
@@ -123,11 +125,17 @@ def declarations(manifest, directory):
     for entry, _ in entries(manifest):
         path = Path(entry["module"])
         if path.parent == Path("src") / directory:
-            found.append((path.stem, entry.get("cfg")))
+            found.append((path.stem, entry.get("cfg"), entry.get("unsafe")))
     lines = []
-    for name, cfg in sorted(found):
+    for name, cfg, unsafe in sorted(found):
         if cfg:
             lines.append(f"#[cfg({cfg})]")
+        if unsafe:
+            # ADR 0008: the SIMD modules may contain unsafe code of two kinds,
+            # under the ABI module's lints.
+            lines.append(f'#[allow(unsafe_code, reason = "{unsafe}")]')
+            lines.append("#[deny(clippy::undocumented_unsafe_blocks)]")
+            lines.append("#[deny(clippy::multiple_unsafe_ops_per_block)]")
         if name == directory:
             lines.append('#[expect(clippy::module_inception, reason = "keeps the upstream file name")]')
         lines.append(f"pub mod {name};")
@@ -183,7 +191,7 @@ def verify(manifest):
             problems.append(f"missing module file: src/{directory}/mod.rs")
             continue
         actual = [line for line in mod_rs.read_text().splitlines()
-                  if line.startswith(("pub mod ", "mod ", "#[cfg(", "#[expect("))]
+                  if line.startswith(("pub mod ", "mod ", "#[cfg(", "#[expect(", "#[allow(", "#[deny("))]
         if actual != declarations(manifest, directory):
             problems.append(f"src/{directory}/mod.rs: declarations differ from tools/units.json")
     for path in sorted((ROOT / "src").rglob("*.rs")):

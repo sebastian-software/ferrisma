@@ -462,8 +462,9 @@
         "src/dsp/common_sse2.h"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")",
-      "note": "also used by the WP19 encoder modules"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "note": "also used by the WP19 encoder modules",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/common_sse41.rs",
@@ -471,8 +472,9 @@
         "src/dsp/common_sse41.h"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")",
-      "note": "also used by the WP19 encoder modules"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "note": "also used by the WP19 encoder modules",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/dec_sse2.rs",
@@ -480,7 +482,8 @@
         "src/dsp/dec_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/dec_sse41.rs",
@@ -488,7 +491,8 @@
         "src/dsp/dec_sse41.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/upsampling_sse2.rs",
@@ -496,7 +500,8 @@
         "src/dsp/upsampling_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/upsampling_sse41.rs",
@@ -504,7 +509,8 @@
         "src/dsp/upsampling_sse41.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/yuv_sse2.rs",
@@ -512,7 +518,8 @@
         "src/dsp/yuv_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/yuv_sse41.rs",
@@ -520,7 +527,8 @@
         "src/dsp/yuv_sse41.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/alpha_processing_sse2.rs",
@@ -528,7 +536,8 @@
         "src/dsp/alpha_processing_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/alpha_processing_sse41.rs",
@@ -536,7 +545,8 @@
         "src/dsp/alpha_processing_sse41.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/filters_sse2.rs",
@@ -544,7 +554,8 @@
         "src/dsp/filters_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/rescaler_sse2.rs",
@@ -552,7 +563,8 @@
         "src/dsp/rescaler_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_sse2.rs",
@@ -560,7 +572,8 @@
         "src/dsp/lossless_sse2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_sse41.rs",
@@ -568,7 +581,8 @@
         "src/dsp/lossless_sse41.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_avx2.rs",
@@ -576,7 +590,8 @@
         "src/dsp/lossless_avx2.c"
       ],
       "package": "WP18",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/enc_sse2.rs",
@@ -584,7 +599,8 @@
         "src/dsp/enc_sse2.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/enc_sse41.rs",
@@ -592,7 +608,8 @@
         "src/dsp/enc_sse41.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/cost_sse2.rs",
@@ -600,7 +617,8 @@
         "src/dsp/cost_sse2.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/ssim_sse2.rs",
@@ -608,7 +626,8 @@
         "src/dsp/ssim_sse2.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_enc_sse2.rs",
@@ -616,7 +635,8 @@
         "src/dsp/lossless_enc_sse2.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_enc_sse41.rs",
@@ -624,7 +644,8 @@
         "src/dsp/lossless_enc_sse41.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_enc_avx2.rs",
@@ -632,7 +653,8 @@
         "src/dsp/lossless_enc_avx2.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/neon.rs",
@@ -640,7 +662,8 @@
         "src/dsp/neon.h"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/alpha_processing_neon.rs",
@@ -648,7 +671,8 @@
         "src/dsp/alpha_processing_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/cost_neon.rs",
@@ -656,7 +680,8 @@
         "src/dsp/cost_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/dec_neon.rs",
@@ -664,7 +689,8 @@
         "src/dsp/dec_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/enc_neon.rs",
@@ -672,7 +698,8 @@
         "src/dsp/enc_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/filters_neon.rs",
@@ -680,7 +707,8 @@
         "src/dsp/filters_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_enc_neon.rs",
@@ -688,7 +716,8 @@
         "src/dsp/lossless_enc_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/lossless_neon.rs",
@@ -696,7 +725,8 @@
         "src/dsp/lossless_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/rescaler_neon.rs",
@@ -704,7 +734,8 @@
         "src/dsp/rescaler_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/upsampling_neon.rs",
@@ -712,7 +743,8 @@
         "src/dsp/upsampling_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dsp/yuv_neon.rs",
@@ -720,7 +752,8 @@
         "src/dsp/yuv_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/dec/common_dec.rs",
@@ -1108,7 +1141,8 @@
         "sharpyuv/sharpyuv_sse2.c"
       ],
       "package": "WP19",
-      "cfg": "any(target_arch = \"x86\", target_arch = \"x86_64\")"
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     },
     {
       "module": "src/sharpyuv/sharpyuv_neon.rs",
@@ -1116,7 +1150,8 @@
         "sharpyuv/sharpyuv_neon.c"
       ],
       "package": "WP20",
-      "cfg": "target_arch = \"aarch64\""
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
     }
   ],
   "exceptions": [

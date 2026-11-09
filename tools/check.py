@@ -73,14 +73,16 @@ def check_static(msrv):
         run("cargo", f"+{rust_version()}", "check", *CARGO, "--all-targets", "--all-features")
 
 
-def check_tests(oracle_variant, baseline, msrv):
+def check_tests(oracle_variant, baseline, msrv, no_simd=False):
     env = dict(os.environ)
-    features = []
+    # --no-simd tests the scalar translation (ADR 0008); the oracle feature
+    # still applies when an oracle is given.
+    features = ["--no-default-features"] if no_simd else []
     if oracle_variant:
         directory = build_oracle.build(oracle_variant, str(os.cpu_count() or 4), fresh=False,
                                        rust_lib=build_oracle.rust_staticlib())
         env["LIBWEBP_ORACLE_DIR"] = str(directory)
-        features = ["--features", "oracle"]
+        features += ["--features", "oracle"]
         run(sys.executable, ROOT / "tools/unit_dependencies.py", "--check", "--variant", oracle_variant)
         if baseline:
             run(sys.executable, ROOT / "tools/oracle_baseline.py", "--variant", oracle_variant)
@@ -106,6 +108,9 @@ def main():
                         help="also run tools/oracle_baseline.py; implies --oracle")
     parser.add_argument("--msrv", action="store_true",
                         help="also build and test with the toolchain named by rust-version")
+    parser.add_argument("--no-simd", action="store_true",
+                        help="run the test stage with --no-default-features: the scalar "
+                             "translation without the SIMD modules (ADR 0008)")
     args = parser.parse_args()
     oracle_variant = None
     if args.oracle or args.oracle_variant or args.baseline:
@@ -115,7 +120,7 @@ def main():
     else:
         check_provenance()
     if args.stage in ("all", "test"):
-        check_tests(oracle_variant, args.baseline, args.msrv)
+        check_tests(oracle_variant, args.baseline, args.msrv, args.no_simd)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 

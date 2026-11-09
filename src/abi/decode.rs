@@ -51,7 +51,7 @@ use core::mem::ManuallyDrop;
 use core::ptr;
 use core::slice;
 use std::collections::BTreeMap;
-use std::sync::atomic::AtomicPtr;
+use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 use crate::abi::types::{malloc_copy, platform_free};
@@ -59,7 +59,6 @@ use crate::dec::buffer_dec::{is_null_plane, webp_init_dec_buffer_internal};
 use crate::dec::idec_dec as idec;
 use crate::dec::vp8_dec::webp_get_decoder_version as rs_webp_get_decoder_version;
 use crate::dec::webp_dec as dec;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::dsp::cpu::CPUFeature;
 use crate::webp::decode::{
     VP8StatusCode, WEBP_CSP_MODE, WebPBitstreamFeatures, WebPDecBuffer as RsDecBuffer,
@@ -598,6 +597,48 @@ pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(x86_cpu_info as 
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
 #[unsafe(export_name = "VP8GetCPUInfo")]
 pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+
+/// A token of the current `VP8GetCPUInfo` pointer for the dispatch cache of
+/// `crate::dsp::cpu::features` (ADR 0008): 0 for `NULL` (`-noasm`), 1 for the
+/// translation's own query, and a fold of the address of a query that the
+/// caller installed, with its low bits set apart from the two fixed tokens.
+pub(crate) fn cpu_query_token() -> u32 {
+    let pointer = VP8_GET_CPU_INFO.load(Ordering::Acquire);
+    if pointer.is_null() {
+        return 0;
+    }
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if pointer == x86_cpu_info as *mut c_void {
+        return 1;
+    }
+    let address = u64::try_from(pointer.addr()).unwrap_or(u64::MAX);
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "a 32-bit fold of the address"
+    )]
+    let fold = (address ^ (address >> 32)) as u32;
+    (fold & !0b11) | 0b10
+}
+
+/// Answers `VP8GetCPUInfo(feature)` as C's `Init` functions call it (ADR
+/// 0008): `None` for a `NULL` pointer, the translation's own query for its own
+/// address, and the caller's function otherwise.
+pub(crate) fn cpu_feature_query(feature: CPUFeature) -> Option<bool> {
+    let pointer = VP8_GET_CPU_INFO.load(Ordering::Acquire);
+    if pointer.is_null() {
+        return None;
+    }
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if pointer == x86_cpu_info as *mut c_void {
+        return Some(crate::dsp::cpu::vp8_get_cpu_info(feature));
+    }
+    // SAFETY: a non-null pointer that a caller stored in `VP8GetCPUInfo`, which
+    // `cpu.h` declares as `VP8CPUInfo`, a function of one `CPUFeature`
+    // returning `int`; calling it with a valid feature is its contract.
+    let query =
+        unsafe { core::mem::transmute::<*mut c_void, extern "C" fn(CPUFeature) -> c_int>(pointer) };
+    Some(query(feature) != 0)
+}
 
 //------------------------------------------------------------------------------
 // Simple API

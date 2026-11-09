@@ -1,10 +1,12 @@
 name: Checks
 
 # Runs for every pull request and push to main, nightly on main, and on demand.
-# Ordinary checks run on Linux x86-64 and macOS ARM64; the MSRV job builds and
-# tests on the rust-version toolchain; the oracle job builds the C oracle in all
-# three variants on both systems, runs the differential tests against the
-# release and asan-ubsan variants, and records the dwebp baseline per variant.
+# Ordinary checks run on Linux x86-64 and macOS ARM64, with the SIMD modules
+# and in the scalar build (ADR 0008); the MSRV job builds and tests on the
+# rust-version toolchain; the oracle job builds the C oracle in its three
+# reference variants on both systems, runs the differential tests against the
+# release and asan-ubsan variants (and the scalar build against the release
+# variant on Linux), and records the dwebp baseline per variant.
 on:
   pull_request:
   push:
@@ -43,6 +45,8 @@ jobs:
       - uses: ./.github/actions/prepare
       - name: Check provenance, skeleton, links, formatting, Clippy and tests
         run: python3 tools/check.py
+      - name: Tests of the scalar build (no SIMD modules, ADR 0008)
+        run: python3 tools/check.py --stage test --no-simd
 
   msrv:
     name: MSRV (Rust 1.95)
@@ -75,6 +79,9 @@ jobs:
         run: python3 tools/check.py --stage test --oracle-variant release --baseline
       - name: Differential tests and baseline against the asan-ubsan oracle
         run: python3 tools/check.py --stage test --oracle-variant asan-ubsan --baseline
+      - name: Differential tests of the scalar build against the release oracle
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 tools/check.py --stage test --oracle-variant release --no-simd
       - name: Baseline of the debug oracle
         run: python3 tools/oracle_baseline.py --variant debug
       - name: Keep the oracle and baseline records
@@ -102,6 +109,9 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "Job results: $RESULTS"
-          case " $RESULTS " in
-            *" failure "*|*" cancelled "*|*" skipped "*) exit 1 ;;
-          esac
+          # Only "success" passes: failure, cancelled, skipped, and the
+          # "abandoned" that an Actions incident reports for jobs that never
+          # ran (seen on 9 November 2026) all fail the gate.
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

@@ -46,7 +46,9 @@ match; measure performance and memory separately after parity.
 6. Keep unported functions absent. Do not add stubs, placeholders, partial
    functions, `todo!()` or C fallbacks.
 7. Write no `unsafe` code outside `src/abi`
-   ([ADR 0005](adr/0005-toolchain-and-unsafe-policy.md)).
+   ([ADR 0005](adr/0005-toolchain-and-unsafe-policy.md)) and the SIMD modules,
+   which may use it for the two operations that
+   [ADR 0008](adr/0008-simd-modules.md) names.
 8. Record ambiguous or undefined source behavior in the package's status file
    and exclude it from the equivalence oracle explicitly, never silently
    define it. Cases that need a `NULL` pointer exist only at the C ABI.
