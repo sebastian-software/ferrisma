@@ -7,11 +7,13 @@
 //! that holds only its provenance header has not been ported yet.
 //!
 //! Ordinary builds compile and link no C. The C ABI export in [`abi`] is the
-//! only module that may contain `unsafe` code (ADR 0004 and ADR 0005).
+//! only module that may contain `unsafe` code (ADR 0004 and ADR 0005). The safe
+//! Rust API in [`api`] wraps the translation for Rust callers (ADR 0006).
 
 #![deny(unsafe_code)]
 #![warn(clippy::all, clippy::pedantic)]
 
+pub mod api;
 pub mod dec;
 pub mod demux;
 pub mod dsp;

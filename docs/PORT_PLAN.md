@@ -10,7 +10,9 @@
 > `test_lossless.sh` covers 33 vectors (32 `lossless_vec_*` and
 > `lossless_color_transform.webp`), not 46; the crate uses `#![deny(unsafe_code)]`,
 > because `forbid` cannot be relaxed for the C ABI module; and on x86-64 the reference
-> configuration needs `-msse2` to build.
+> configuration needs `-msse2` to build. WP17 corrected one statement in place
+> (8 November 2026): Phase 6 called lossy output full-range BT.601, but `src/dsp/yuv.h`
+> converts to limited range, as [ADR 0006](adr/0006-safe-encoder-api.md) records.
 
 **Status:** Plan. Nothing has been ported and the repository does not exist yet. This document scopes a third sister port, libwebp-rs, next to [libavif-rs](https://github.com/sebastian-software/libavif-rs) and [libjxl-rs](https://github.com/sebastian-software/libjxl-rs). It records the upstream pin, the method to confirm, the phase order with the exact source units, the parity gates and the Ferrixel adoption step. Line counts are non-blank, non-comment lines of libwebp 1.6.0 and describe size, not effort. See [the codec evaluation](https://github.com/sebastian-software/ferrixel/blob/main/docs/research/2026-11-05-jpeg-and-webp-codec-evaluation.md) for why libwebp was chosen.
 
@@ -118,7 +120,7 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
 ### Phase 6: safe Rust API and Ferrixel adoption
 
 - Safe API over the port, separate from the C ABI module: a features probe; a decoder configuration with cropping, scaling and colorspace that decodes into a caller `&mut [u8]` or planar YUVA slices; an incremental decoder with `append(&[u8])` and partial-row access; a demux view for `ICCP`, `EXIF` and `XMP` chunks; an encoder with presets, picture import from RGB/RGBA rows with strides and from YUVA planes, output through `Vec<u8>` or `impl FnMut(&[u8]) -> bool` (the `WebPWriterFunction` contract), progress and abort hooks; allocation failures as errors.
-- ADR-0018 gates: (a) the ABI module is the only `unsafe`; (b) stable toolchain; (c) a tagged release or pinned Git revision; (d) CI evidence on Ferrixel's targets; (e) exposed semantics: lossy output is full-range BT.601 YCbCr converted with the constants in `src/dsp/yuv.h`, alpha is straight unless a premultiplied `WEBP_CSP_MODE` is selected, ICC comes from the demux API, and WebP carries no orientation of its own beyond an optional `EXIF` chunk, which Ferrixel's orientation policy must treat as it treats JPEG EXIF ([ADR-0019](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0019-source-side-orientation.md)).
+- ADR-0018 gates: (a) the ABI module is the only `unsafe`; (b) stable toolchain; (c) a tagged release or pinned Git revision; (d) CI evidence on Ferrixel's targets; (e) exposed semantics: lossy output is ITU-R BT.601 Y'CbCr 4:2:0 in limited range (Y 16 to 235, Cb and Cr 16 to 240), converted with the constants in `src/dsp/yuv.h` and converted back by the decoder with the same matrix, alpha is straight unless a premultiplied `WEBP_CSP_MODE` is selected, ICC comes from the demux API, and WebP carries no orientation of its own beyond an optional `EXIF` chunk, which Ferrixel's orientation policy must treat as it treats JPEG EXIF ([ADR-0019](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0019-source-side-orientation.md)).
 - Ferrixel adapters, each with its own ADR when adopted: a `webp-read` source under the [ADR-0012](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0012-codec-source-contract.md) contract (header probe, RGB rows or planar YUV, cropping only with the measured semantics from Phase 2, ICC through demux) and a `webp-write` sink for lossy and lossless output. libwebp's encoder needs the complete picture before analysis, so the sink declares and budgets one output frame like the AVIF sink does; this materialization is reported, not hidden.
 
 ## Verification principles carried over from the sister ports
