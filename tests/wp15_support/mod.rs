@@ -512,9 +512,15 @@ fn parse_config(tokens: &[&str]) -> Option<WebPConfig> {
     Some(config)
 }
 
+/// The probe's `PrintError`: the error string, and the same string through the
+/// pointer that C returned after `new`, which lives in the encoder.
 fn print_enc_error(out: &mut String, key: &str, enc: Option<&WebPAnimEncoder<'_>>) {
     match enc {
-        Some(enc) => writeln!(out, "{key}.error={}", webp_anim_encoder_get_error(enc)).unwrap(),
+        Some(enc) => {
+            let error = webp_anim_encoder_get_error(enc);
+            writeln!(out, "{key}.error_kept={error}").unwrap();
+            writeln!(out, "{key}.error={error}").unwrap();
+        }
         None => writeln!(out, "{key}.error=(null)").unwrap(),
     }
 }
@@ -1372,13 +1378,15 @@ pub fn keyframe_cases() -> Vec<Case> {
         }
     }
     // Long sequences past kmax.
-    for (kmin, kmax, mixed) in [(3, 5, 0), (6, 10, 1), (2, 3, 0), (0, 1, 1)] {
+    // kmax 100 leaves kmin at kmax - MAX_CACHED_FRAMES (70), so key frames are
+    // considered from frame 71 on.
+    for (kmin, kmax, mixed) in [(3, 5, 0), (6, 10, 1), (2, 3, 0), (0, 1, 1), (0, 100, 0)] {
         let mut case = Case::new(
             &format!("long kmin {kmin} kmax {kmax}"),
             28,
             20,
             Background::Half,
-            40,
+            if kmax == 100 { 80 } else { 40 },
         );
         case.options = format!("options 0 {kmin} {kmax} {mixed} 0 4294967295 0");
         case.configs = vec![CONFIGS[2].to_owned(), CONFIGS[1].to_owned()];
@@ -1406,6 +1414,15 @@ pub fn error_cases(directory: &Path) -> Vec<Case> {
     with("gap of MAX_DURATION", &|c| c.frames[2].1 = 100 + (1 << 24));
     with("gap just below MAX_DURATION", &|c| {
         c.frames = vec![(0, 0), (1, (1 << 24) - 1), (2, (1 << 24) + 5)];
+    });
+    with("merged durations of exactly MAX_DURATION", &|c| {
+        c.frames = vec![
+            (0, 0),
+            (1, 10),
+            (1, 10 + (1 << 23)),
+            (1, 10 + (1 << 24)),
+            (2, 20 + (1 << 24)),
+        ];
     });
     with("merged durations past MAX_DURATION", &|c| {
         c.frames = vec![

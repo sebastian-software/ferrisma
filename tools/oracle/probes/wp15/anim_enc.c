@@ -31,7 +31,8 @@
 //                                   arguments
 //
 // After each call the probe prints its result, the picture's error code, the
-// encoder's error string, the number of progress hook calls, and for
+// encoder's error string (from WebPAnimEncoderGetError() and through the
+// pointer that it returned after `new`), the number of progress hook calls, and for
 // `assemble` the size and 64-bit FNV-1a digest of the output. The hook is
 // counted per call: C's encoder keeps the last frame's hook in its canvas and
 // calls it again in WebPAnimEncoderAssemble() (docs/status/wp15.md).
@@ -126,8 +127,15 @@ static int Hook(int percent, const WebPPicture* picture) {
   return !(g_fail_at > 0 && g_hook_calls == g_fail_at);
 }
 
+// The error string as WebPAnimEncoderGetError() returned it after `new`: it
+// lives in the encoder, so it shows the errors of later calls too.
+static const char* g_kept_error = NULL;
+
 static void PrintError(const char* key) {
-  const char* const error = WebPAnimEncoderGetError(g_enc);
+  const char* error;
+  // Read first, so that only the call before shows through it.
+  if (g_kept_error != NULL) printf("%s.error_kept=%s\n", key, g_kept_error);
+  error = WebPAnimEncoderGetError(g_enc);
   printf("%s.error=%s\n", key, error == NULL ? "(null)" : error);
 }
 
@@ -338,11 +346,13 @@ int main(int argc, char* argv[]) {
                                          g_null_options ? NULL : &g_options,
                                          version);
       printf("new=%d\n", g_enc != NULL);
+      g_kept_error = (g_enc != NULL) ? WebPAnimEncoderGetError(g_enc) : NULL;
       if (g_enc != NULL) PrintError("new");
     } else if (!strcmp(tokens[0], "delete")) {
       ARGS(0);
       WebPAnimEncoderDelete(g_enc);
       g_enc = NULL;
+      g_kept_error = NULL;
       printf("delete=1\n");
     } else if (!strcmp(tokens[0], "config")) {
       SetConfig(tokens, count);
