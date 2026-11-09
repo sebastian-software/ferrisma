@@ -1,6 +1,16 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "local>sebastian-software/renovate-config"
+    "github>sebastian-software/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "Keep the standalone encoder and precision research experiments at the dependency versions used for their recorded evidence.",
+      "matchFileNames": [
+        "docs/research/encoder-experiment/**",
+        "docs/research/precision-experiment/**"
+      ],
+      "enabled": false
+    }
   ]
 }

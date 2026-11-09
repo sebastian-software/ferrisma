@@ -32,6 +32,15 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0014](0014-linear-srgb-straight-alpha.md) | Explicit sRGB linear-light resize and premultiplied filtering | Experimental |
 | [0015](0015-typed-output-color-signals.md) | Inspect CICP and ICC output evidence; describe required conversions | Experimental |
 | [0016](0016-working-color-space-and-transform-boundaries.md) | Region-capable working-color transform and output semantics | Proposed |
+| [0017](0017-minimal-public-facade-and-cli.md) | Minimal `pipeline::transcode` facade and feature-gated CLI; partially supersedes 0008 | Experimental |
+| [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies; libavif-rs, libjxl-rs and the planned libwebp-rs as targets; JPEG input-only; MSRV 1.98; committed lockfile | Experimental |
+| [0019](0019-source-side-orientation.md) | Apply EXIF/AVIF orientation through an explicit, budgeted source-side materialization | Experimental |
+| [0020](0020-kernel-crate-and-isa-dispatch.md) | Separate `ferrixel-kernels` crate, `std::arch` intrinsics behind a safe API, runtime ISA dispatch reported in the plan, scalar/SIMD differential tests | Experimental |
+| [0021](0021-working-precision-policy.md) | Working precision: `f32` with exact LUTs and a testable error bound against the `f64` oracle; the Q1.14 path was measured and dropped | Experimental |
+| [0022](0022-parallel-row-pipeline-and-engine.md) | Parallel row pipeline with ordered emission (byte-identical to the sequential executor, standard library only) and an `Engine` for batches | Experimental |
+| [0023](0023-decode-side-work-and-scaling-policy.md) | Full-resolution decode by default; decoder SIMD, linear ICC output and cheaper orientation; shrink-on-load only as an explicit, measured quality policy | Experimental |
+| [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) | Pluggable row-level encoder backends; libavif-rs (Rust AOM) as an adapter crate outside the workspace, `rav1e` stays the default | Experimental |
+| [0025](0025-codec-selection-reference-conformance-and-image-scope.md) | Codec selection: reference implementation or proven conformance, ports reduced to the still-image scope, deviations and removals only after measurement, mechanical oracle for later optimization; JPEG decode before encode | Accepted |
 
 ## Changing an ADR
 

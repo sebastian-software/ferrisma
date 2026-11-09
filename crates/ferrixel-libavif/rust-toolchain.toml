@@ -1,0 +1,5 @@
+# libavif-rs requires this nightly (its rust-toolchain.toml).
+[toolchain]
+channel = "nightly-2026-09-07"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

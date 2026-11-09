@@ -1,0 +1,20 @@
+[package]
+name = "ferrixel-quality-match"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "M2 work package 0: common-reference SSIMULACRA2 scoring and quality bisection for comparator runs"
+
+# Standalone: not a member of the Ferrixel workspace, never shipped, and no
+# dependency on the `ferrixel` crate, so the reference shares none of its code.
+[workspace]
+
+[dependencies]
+avif-decode = { version = "=3.0.0", default-features = false }
+png = "=0.18.1"
+ssimulacra2 = "=0.5.1"
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
+
+[profile.release]
+debug = "line-tables-only"

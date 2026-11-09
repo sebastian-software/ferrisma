@@ -2,9 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-05
 - **Supersedes:** None
-- **Related:** ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0012
+- **Related:** ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0012, ADR-0014, ADR-0016
 
 ## Context
 
@@ -48,7 +48,12 @@ Codec-native scaling or regional execution offers a better tradeoff; linear-ligh
 ## Amendment log
 
 - 2026-10-31 — Initial bounded, codec-backed sample-domain resize experiment.
+- 2026-11-05 — Recorded the working-linear quality domain as the M1 production path; this domain stays a baseline.
 
 ## 2026-10-31: separate linear-light reference (does not supersede this domain)
 
 [ADR-0014](0014-linear-srgb-straight-alpha.md) adds a distinct, opt-in `LinearSrgb` domain for strict sRGB U8 RGB/straight RGBA input. This existing encoded-sample domain remains available for controlled experiments and explicitly does not promise transfer-aware or alpha-correct output.
+
+## 2026-11-05: working-linear quality domain (M1 path)
+
+[ADR-0016](0016-working-color-space-and-transform-boundaries.md)'s pipeline adds a third resize domain, `WorkingLinear(Area | Lanczos3)`, between explicit `ToLinearSrgb` and `ToSrgb8` stages. It accepts tagged sRGB and Display P3 input, filters premultiplied linear-light samples with separable antialiasing taps and keeps out-of-gamut values until final quantization. The public facade ([ADR-0017](0017-minimal-public-facade-and-cli.md)) uses only this domain. The encoded-sample bilinear resize defined here is unchanged and remains an internal baseline for controlled comparisons; it is not used for output.

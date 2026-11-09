@@ -34,6 +34,8 @@ pub(crate) struct PremultipliedLinearSrgb {
 enum SdrSource {
     Srgb,
     DisplayP3,
+    /// Already linear light with sRGB primaries (CICP transfer 8).
+    LinearSrgb,
 }
 
 /// Fail closed unless the *rendered sample profile*, with no conflicting ICC,
@@ -42,13 +44,14 @@ fn source_from_color(color: &ColorEncoding) -> Result<SdrSource, Error> {
     match color {
         ColorEncoding::Cicp([1, 13, 0, 1]) => Ok(SdrSource::Srgb),
         ColorEncoding::Cicp([12, 13, 0, 1]) => Ok(SdrSource::DisplayP3),
+        ColorEncoding::Cicp([1, 8, 0, 1]) => Ok(SdrSource::LinearSrgb),
         _ => Err(Error::UnsupportedColorEncoding),
     }
 }
 
 /// Extended sRGB electro-optical transfer function. Preserve the sign of
 /// extended-range encoded samples rather than clipping them to [0, 1].
-fn decode_srgb(encoded: f64) -> f64 {
+pub(crate) fn decode_srgb(encoded: f64) -> f64 {
     let magnitude = encoded.abs();
     if magnitude <= 0.040_45 {
         encoded / 12.92
@@ -88,6 +91,21 @@ const XYZ_D65_TO_SRGB: [[f64; 3]; 3] = [
     [705.0 / 12_673.0, -2585.0 / 12_673.0, 705.0 / 667.0],
 ];
 
+/// Linear Display P3 to linear sRGB as one matrix (`XYZ_D65_TO_SRGB` times
+/// `P3_TO_XYZ_D65`), for table-driven fast paths. The reference path keeps
+/// the two-step product.
+pub(crate) fn p3_to_srgb_matrix() -> [[f64; 3]; 3] {
+    let mut folded = [[0.0; 3]; 3];
+    for (out, row) in folded.iter_mut().enumerate() {
+        for (input, cell) in row.iter_mut().enumerate() {
+            for (k, xyz_row) in P3_TO_XYZ_D65.iter().enumerate() {
+                *cell += XYZ_D65_TO_SRGB[out][k] * xyz_row[input];
+            }
+        }
+    }
+    folded
+}
+
 /// Decode a *trusted* SDR color signal into unclipped, linear-light sRGB.
 /// Input is a floating-point encoded color triple, not inherently u8/RGBA.
 /// The result is a tiny reference value, not a materialized image surface.
@@ -99,13 +117,13 @@ pub(crate) fn decode_to_linear_srgb(
     if encoded_rgb.iter().any(|sample| !sample.is_finite()) {
         return Err(Error::NonFinitePixelSample);
     }
-    let linear_rgb = encoded_rgb.map(decode_srgb);
     let rgb = match source {
-        SdrSource::Srgb => linear_rgb,
+        SdrSource::Srgb => encoded_rgb.map(decode_srgb),
         SdrSource::DisplayP3 => {
-            let xyz = transform(P3_TO_XYZ_D65, linear_rgb);
+            let xyz = transform(P3_TO_XYZ_D65, encoded_rgb.map(decode_srgb));
             transform(XYZ_D65_TO_SRGB, xyz)
         }
+        SdrSource::LinearSrgb => encoded_rgb,
     };
     if rgb.iter().any(|sample| !sample.is_finite()) {
         return Err(Error::NonFinitePixelSample);

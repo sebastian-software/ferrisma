@@ -52,6 +52,10 @@ pub(crate) struct ImageSemantics {
 }
 
 impl ImageSemantics {
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn unspecified_opaque() -> Self {
         Self {
             color: ColorEncoding::Unspecified,

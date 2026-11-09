@@ -1,0 +1,17 @@
+[package]
+name = "ferrixel-jpeg-decoders-zune"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Times zune-jpeg with Ferrixel's features, matching jpegdec.c's output (ADR-0025 JPEG decoder comparison)"
+
+# Standalone: not a member of the Ferrixel workspace, never shipped.
+[workspace]
+
+[dependencies]
+# Same version and features as Ferrixel's `jpeg-read`.
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std", "neon", "x86"] }
+
+[profile.release]
+debug = "line-tables-only"

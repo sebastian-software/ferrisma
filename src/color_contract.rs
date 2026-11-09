@@ -41,6 +41,9 @@ impl TryFrom<[u8; 4]> for Cicp {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CicpFamily {
     Srgb,
+    /// sRGB primaries with linear transfer (H.273 transfer 8): already in
+    /// Ferrixel's working space, as emitted by the ICC adapter.
+    LinearSrgb,
     DisplayP3,
     Bt2100Pq,
     Bt2100Hlg,
@@ -51,6 +54,7 @@ impl Cicp {
     pub(crate) fn family(self) -> CicpFamily {
         match (self.primaries, self.transfer, self.matrix, self.full_range) {
             (1, 13, 0, true) => CicpFamily::Srgb,
+            (1, 8, 0, true) => CicpFamily::LinearSrgb,
             (12, 13, 0, true) => CicpFamily::DisplayP3,
             (9, 16, 0 | 9, _) => CicpFamily::Bt2100Pq,
             (9, 18, 0 | 9, _) => CicpFamily::Bt2100Hlg,
@@ -190,7 +194,9 @@ pub(crate) fn plan_to_linear_srgb(color: &ColorEncoding) -> LinearSrgbReadiness 
     match inspected {
         ColorSignal::Unspecified => LinearSrgbReadiness::MissingColorEvidence,
         ColorSignal::Cicp(cicp) => match cicp.family() {
-            CicpFamily::Srgb => LinearSrgbReadiness::TransferReferenceReady,
+            CicpFamily::Srgb | CicpFamily::LinearSrgb => {
+                LinearSrgbReadiness::TransferReferenceReady
+            }
             CicpFamily::DisplayP3 => LinearSrgbReadiness::RequiresGamutConversion,
             CicpFamily::Bt2100Pq | CicpFamily::Bt2100Hlg => {
                 LinearSrgbReadiness::RequiresHdrManagement

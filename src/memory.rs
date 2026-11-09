@@ -25,6 +25,10 @@ pub(crate) struct MemoryBudget {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(
+    not(test),
+    allow(dead_code, reason = "diagnostic counters asserted by tests")
+)]
 pub(crate) struct MemorySnapshot {
     pub limit: usize,
     pub live: usize,
@@ -68,6 +72,29 @@ impl MemoryBudget {
         let bytes = elements
             .checked_mul(std::mem::size_of::<T>())
             .ok_or(Error::GeometryOverflow)?;
+        let reservation = self.reserve_bytes(bytes)?;
+        let mut data = Vec::new();
+        data.try_reserve_exact(elements)
+            .map_err(|_| Error::AllocationFailed)?;
+        data.resize(elements, T::default());
+        self.state.allocations.fetch_add(1, Ordering::Relaxed);
+        self.state
+            .allocated_bytes
+            .fetch_add(bytes, Ordering::Relaxed);
+        Ok(ManagedBuffer { data, reservation })
+    }
+
+    /// Charge memory that a component allocates on the engine's request and
+    /// whose size the engine knows exactly, such as an encoder's input frame.
+    /// The reservation is released when the returned value is dropped.
+    #[cfg(feature = "avif-write")]
+    pub(crate) fn reserve_external(&self, bytes: usize) -> Result<ExternalReservation, Error> {
+        Ok(ExternalReservation {
+            reservation: self.reserve_bytes(bytes)?,
+        })
+    }
+
+    fn reserve_bytes(&self, bytes: usize) -> Result<Reservation, Error> {
         let mut live = self.state.live.load(Ordering::Acquire);
         loop {
             let available = self.state.limit.saturating_sub(live);
@@ -95,19 +122,24 @@ impl MemoryBudget {
         self.state.peak.fetch_max(live + bytes, Ordering::AcqRel);
 
         // On allocation failure the reservation automatically releases its bytes.
-        let reservation = Reservation {
+        Ok(Reservation {
             state: Arc::clone(&self.state),
             bytes,
-        };
-        let mut data = Vec::new();
-        data.try_reserve_exact(elements)
-            .map_err(|_| Error::AllocationFailed)?;
-        data.resize(elements, T::default());
-        self.state.allocations.fetch_add(1, Ordering::Relaxed);
-        self.state
-            .allocated_bytes
-            .fetch_add(bytes, Ordering::Relaxed);
-        Ok(ManagedBuffer { data, reservation })
+        })
+    }
+}
+
+/// Budgeted bytes owned by another component (see `reserve_external`).
+#[cfg(feature = "avif-write")]
+#[derive(Debug)]
+pub(crate) struct ExternalReservation {
+    reservation: Reservation,
+}
+
+#[cfg(feature = "avif-write")]
+impl ExternalReservation {
+    pub(crate) fn bytes(&self) -> usize {
+        self.reservation.bytes
     }
 }
 

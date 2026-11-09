@@ -6,6 +6,7 @@
 //! separately require an entire output frame; this executor does not.
 
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 
 use crate::color::{AlphaMode, ColorEncoding};
 use crate::decoder::{ChannelLayout, DecodeReport, DecodeSource, DecodedRow, SampleType};
@@ -26,6 +27,13 @@ pub(crate) struct QualityReport {
     pub decoder_requests: u32,
     pub peak_engine_managed_bytes: usize,
     pub explicit_full_frame_intermediates: u32,
+    /// Wall-clock time inside the source's region reader, excluding the
+    /// per-row transform callback: codec decode plus any source wrapper work
+    /// such as reorientation or ICC conversion.
+    pub source_time: Duration,
+    /// Wall-clock time spent in the per-row transform callback: transfer
+    /// decode, resampling, quantization and the caller's row sink.
+    pub transform_time: Duration,
 }
 
 struct CachedRow {
@@ -33,17 +41,20 @@ struct CachedRow {
     samples: ManagedBuffer<f64>,
 }
 
+/// The validated chain shared by the `f64` reference executor and the fast
+/// executor (`fast_execute`): decoder region, resize input footprint, resize
+/// output region, resize input/output sizes and filter.
 #[derive(Clone, Copy)]
-struct Prepared {
-    source: Rect,
-    footprint: Rect,
-    resize: Rect,
-    input: crate::geometry::Size,
-    output: crate::geometry::Size,
-    filter: Filter,
+pub(crate) struct Prepared {
+    pub source: Rect,
+    pub footprint: Rect,
+    pub resize: Rect,
+    pub input: crate::geometry::Size,
+    pub output: crate::geometry::Size,
+    pub filter: Filter,
 }
 
-fn prepare(
+pub(crate) fn prepare(
     graph: &Graph,
     target: NodeId,
     source_node: NodeId,
@@ -143,14 +154,17 @@ fn final_rgba(acc: [f64; 4], opaque: bool) -> Result<[u8; 4], Error> {
     }
     let alpha = if opaque { 1.0 } else { acc[3].clamp(0.0, 1.0) };
     let mut rgba = [0_u8; 4];
-    if alpha > 1.0e-12 {
-        for channel in 0..3 {
-            rgba[channel] = encode_linear_srgb8(acc[channel] / alpha)?;
-        }
-    }
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     {
         rgba[3] = (alpha * 255.0).round() as u8;
+    }
+    // ADR-0014: an output pixel whose alpha *byte* is zero is transparent
+    // black. Dividing by a tiny but nonzero alpha would emit arbitrary RGB
+    // behind an invisible pixel and make fast paths disagree at random.
+    if rgba[3] != 0 {
+        for channel in 0..3 {
+            rgba[channel] = encode_linear_srgb8(acc[channel] / alpha)?;
+        }
     }
     Ok(rgba)
 }
@@ -226,7 +240,10 @@ pub(crate) fn execute_quality_srgb8(
     let mut output_rows = 0_usize;
     let mut decoded_rows = 0_u32;
     let mut expected_y = plan.source.y;
+    let mut transform_time = Duration::ZERO;
+    let read_started = Instant::now();
     let report = source.read_region(plan.source, budget, &mut |decoder_y, row| {
+        let row_started = Instant::now();
         if decoder_y != expected_y
             || row.len() != source_components
             || row.sample_type() != info.sample
@@ -290,8 +307,11 @@ pub(crate) fn execute_quality_srgb8(
                 cache.pop_front();
             }
         }
+        // Errors abort the whole run, so only the successful path is timed.
+        transform_time += row_started.elapsed();
         Ok(())
     })?;
+    let source_time = read_started.elapsed().saturating_sub(transform_time);
 
     if decoded_rows != plan.source.height
         || output_rows != lines.len()
@@ -305,5 +325,7 @@ pub(crate) fn execute_quality_srgb8(
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
+        source_time,
+        transform_time,
     })
 }

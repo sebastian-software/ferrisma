@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Current milestone:** [M1 — First complete image pipeline](milestones/M1-complete-image-pipeline.md) (planned). It turns the current architecture probes into a usable SDR JPEG/JPEG XL → AVIF tool through ten gated work packages. Its acceptance criteria and dependency ordering supersede the earlier broad phase summaries below; these remain as research/progress history, not a contradictory second task list.
+**Current milestone:** [M1 — First complete image pipeline](milestones/M1-complete-image-pipeline.md) (implementation under validation). **Next:** [M2 — Performance architecture](milestones/M2-performance-architecture.md) (proposed; work package 0, the baseline harness, is in progress). It turns the current architecture probes into a usable SDR JPEG/JPEG XL → AVIF tool through ten gated work packages. Its acceptance criteria and dependency ordering supersede the earlier broad phase summaries below; these remain as research/progress history, not a contradictory second task list.
 
 [Encoder/CMS candidates and licensing](research/2026-10-31-encoder-and-cms-candidates.md) identify a permissively licensed AVIF path, a candidate ICC backend, and a JPEG XL encoder license gate. See [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md) (Proposed) for the working-color design contract.
 
@@ -65,3 +65,7 @@ The [first opt-in linear-light sRGB path](design/color-correctness-experiment.md
 ## Explicit color evidence (2026-10-31)
 
 [ADR-0015](adr/0015-typed-output-color-signals.md) records the next experiment: classify **rendered** decoder color signals without changing pixels. The shared contract identifies sRGB, Display P3, BT.2100 PQ and HLG, preserves unsupported code points, inspects only ICC header/tag-table bounds, and refuses to guess precedence when ICC and CICP are both present. The linear-sRGB path delegates eligibility to that contract; all other conversion capabilities remain unavailable. Before admitting ICC or HDR transforms, specify the CMM's supported profile classes, pixel and reference-white domains, output metadata, black-point/intent policy, memory accounting, licensing and differential color fixtures.
+
+## Codec decisions: JPEG input-only, WebP through a libwebp port (2026-11-05)
+
+JPEG remains input-only through `zune-jpeg`; no JPEG encoder is planned, and `mozjpeg-rs` (BSD-3-Clause, pure Rust) is the recorded candidate should a consumer need one. WebP input and output are planned as a third mechanical port, libwebp-rs, following the libjxl-rs method; Ferrixel takes no interim WebP dependency, because no permissively licensed pure-Rust lossy WebP encoder exists and the port's decoder is its first milestone. This resolves the WebP part of the phase 1 evaluation item. See the [JPEG and WebP evaluation](research/2026-11-05-jpeg-and-webp-codec-evaluation.md), the [libwebp port plan](research/2026-11-05-libwebp-port-plan.md), the [work plan for parallel sessions](research/2026-11-05-libwebp-port-workplan.md) and [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md).

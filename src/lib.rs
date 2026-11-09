@@ -7,31 +7,78 @@
 //! See `docs/architecture.md` and `docs/adr/` in the repository.
 
 #![forbid(unsafe_code)]
-// The experiment is compiled as part of the crate but deliberately has no
-// public API. Remove this allowance when the first supported API lands.
-#![cfg_attr(not(test), allow(dead_code))]
+// Without the `avif-write` facade (ADR-0017) the crate has no public API, so
+// every internal item is unreachable outside tests. With the facade, dead code
+// is reported; architecture experiments carry their own scoped allowances.
+#![cfg_attr(all(not(test), not(feature = "avif-write")), allow(dead_code))]
 
 #[cfg(feature = "avif-write")]
+mod av1_tuning;
+#[cfg(feature = "avif-write")]
 mod avif_sink;
+// The command line needs only the encoder; decoders it lacks report
+// `FeatureDisabled`, so encoder adapters can ship it with a narrower set.
+#[cfg(feature = "avif-write")]
+pub mod cli;
 #[cfg(feature = "icc")]
 mod cms;
 mod codecs;
 mod color;
 mod color_contract;
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "encoded-sample resize baseline, exercised by tests (ADR-0013)"
+    )
+)]
 mod decoded_resize;
 mod decoder;
+#[cfg(feature = "avif-write")]
+mod encoder_backend;
 mod error;
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "Gray8 vertical-slice executor, exercised by tests (ADR-0008)"
+    )
+)]
 mod execute;
+mod fast_execute;
 mod geometry;
 mod graph;
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "strict linear-sRGB bilinear reference, exercised by tests (ADR-0014)"
+    )
+)]
 mod linear_srgb;
 mod memory;
+mod orientation;
+mod parallel_execute;
 #[cfg(feature = "avif-write")]
 pub mod pipeline;
 mod plan;
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "borrowed YUV420P10 experiment, exercised by tests (ADR-0011)"
+    )
+)]
 mod planar;
 mod quality;
 mod quality_execute;
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "borrowed planar surface contract, exercised by tests (ADR-0011)"
+    )
+)]
 mod surface;
 mod working_color;
 
@@ -46,6 +93,9 @@ mod quality_tests;
 
 #[cfg(test)]
 mod quality_execute_tests;
+
+#[cfg(test)]
+mod fast_execute_tests;
 
 #[cfg(test)]
 mod decoder_tests;

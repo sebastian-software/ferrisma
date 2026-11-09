@@ -56,6 +56,7 @@ impl DecodeSource for Probe {
             known_full_frame_buffers: 0,
             peak_engine_managed_bytes: 0,
             opaque_codec_memory_unbounded: true,
+            engine_buffer_bytes: 0,
         })
     }
 }

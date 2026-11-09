@@ -20,6 +20,9 @@ impl JxlSource {
         let image = JxlImage::builder()
             .read(Cursor::new(bytes))
             .map_err(|_| Error::DecodeFailed)?;
+        // jxl-oxide renders upright samples itself: `width()`/`height()` are
+        // display dimensions, crop regions are display coordinates and the
+        // pixel stream applies the header orientation (ADR-0019).
         let size = Size::new(image.width(), image.height())?;
         let layout = match image.pixel_format() {
             PixelFormat::Gray => ChannelLayout::Gray,
@@ -70,10 +73,6 @@ impl DecodeSource for JxlSource {
             .image
             .render_frame_cropped(0)
             .map_err(|_| Error::DecodeFailed)?;
-        // Orientation/ROI coordinate mapping is not validated yet.
-        if rendered.orientation() != 1 {
-            return Err(Error::UnsupportedPixelOperation);
-        }
         let mut stream = rendered.stream();
         if stream.width() != region.width
             || stream.height() != region.height
@@ -105,6 +104,7 @@ impl DecodeSource for JxlSource {
             known_full_frame_buffers: 0,
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
+            engine_buffer_bytes: 0,
         })
     }
 }

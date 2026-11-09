@@ -58,6 +58,10 @@ impl Rect {
         Self::new(x, y, self.width, self.height)
     }
 
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn byte_len(self) -> Result<usize, Error> {
         let w = usize::try_from(self.width).map_err(|_| Error::GeometryOverflow)?;
         let h = usize::try_from(self.height).map_err(|_| Error::GeometryOverflow)?;

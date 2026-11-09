@@ -6,6 +6,7 @@ use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::graph::{Graph, NodeId, NodeKind};
 use crate::memory::MemoryBudget;
+use crate::orientation::Orientation;
 use crate::plan::plan_region;
 use crate::surface::PixelFormat;
 
@@ -44,6 +45,10 @@ pub(crate) struct DecoderInfo {
 impl DecoderInfo {
     /// Inspect actual emitted samples' profile evidence without copying ICC
     /// bytes; input-file tags must not be substituted after decoder conversion.
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     pub(crate) fn rendered_color_signal(&self) -> ColorSignal {
         inspect_rendered_color(self.rendered_icc.as_deref(), self.rendered_cicp)
     }
@@ -95,10 +100,44 @@ pub(crate) struct DecodeReport {
     pub peak_engine_managed_bytes: usize,
     /// Codec-managed compressed data, render cache, and scratch are not capped.
     pub opaque_codec_memory_unbounded: bool,
+    /// Engine-owned sample buffers materialized by source wrappers, such as
+    /// the reorientation region (ADR-0019). Zero for plain decoders.
+    pub engine_buffer_bytes: usize,
+}
+
+/// A stateless per-row conversion that a source wrapper applies to every
+/// row it emits, and that it can hand to the executor instead, so that the
+/// conversion runs on the executor's workers rather than on the thread that
+/// drives the decoder (ADR-0023). The converted row is what the wrapper's
+/// `info()` describes; deferred rows have `input_sample()` and the same
+/// number of samples.
+pub(crate) trait RowConversion: Send + Sync {
+    /// Sample type of the rows the source emits once the conversion is
+    /// deferred.
+    fn input_sample(&self) -> SampleType;
+    /// Convert one deferred row into `out` (same length), using `scratch`
+    /// (same length) as working space.
+    fn convert(
+        &self,
+        row: DecodedRow<'_>,
+        scratch: &mut [f32],
+        out: &mut [f32],
+    ) -> Result<(), Error>;
 }
 
 pub(crate) trait DecodeSource {
     fn info(&self) -> &DecoderInfo;
+    /// How emitted (stored-order) samples must be reoriented for display.
+    fn orientation(&self) -> Orientation {
+        Orientation::IDENTITY
+    }
+    /// Stop applying this source's per-row conversion and return it; the
+    /// caller then applies it to every row before using the row. Called
+    /// before `read_region`. `None`, the default, means rows arrive
+    /// converted.
+    fn defer_conversion(&mut self) -> Option<std::sync::Arc<dyn RowConversion>> {
+        None
+    }
     /// Borrows each output row only for the duration of the sink callback.
     fn read_region(
         &mut self,
@@ -109,6 +148,10 @@ pub(crate) trait DecodeSource {
 }
 
 /// Crop-only graph execution through the existing backwards region planner.
+#[cfg_attr(
+    not(test),
+    allow(dead_code, reason = "used by test-only architecture experiments")
+)]
 /// A separate transform executor is required before resizing these layouts.
 pub(crate) fn execute_decoded(
     graph: &Graph,

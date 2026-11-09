@@ -45,7 +45,8 @@ A graph node describes the image it produces, not an eagerly allocated pixel arr
 ## Read the design
 
 - **[M1 — First complete image pipeline](docs/milestones/M1-complete-image-pipeline.md)**: 10 ordered work packages, acceptance gates, and a usable SDR JPEG/JXL → AVIF goal
-- [SDR working-color reference](src/working_color.rs) and [M1 executor](src/quality_execute.rs): scalar Display P3/sRGB → linear-light, premultiplied area/Lanczos filtering with an explicit output quantization step (experimental)
+- **[M2 — Performance architecture for 2026 CPUs and GPUs](docs/milestones/M2-performance-architecture.md)** (proposed): fused tile kernels, runtime ISA dispatch, planner-chosen precision, tile parallelism and a measured GPU policy; [baseline harness and first numbers](docs/benchmarks/M2-baseline.md)
+- [SDR working-color reference](src/working_color.rs), [M1 reference executor](src/quality_execute.rs) and [default `f32` executor](src/fast_execute.rs): scalar Display P3/sRGB → linear-light, premultiplied area/Lanczos filtering with an explicit output quantization step (experimental)
 
 - [Architecture sketch](docs/architecture.md)
 - [Architecture Decision Records](docs/adr/README.md) — **living**, reviewable decisions with explicit status and reconsideration triggers
@@ -70,7 +71,7 @@ cargo run --release --features cli -- \
 # Use --use-rendered-icc for supported RGB ICC input.
 ```
 
-**Caveats:** untagged output is not automatically sRGB; HDR/unknown color and unsupported alpha must fail closed. JPEG/AVIF may fully decode an image before resizing, and the AVIF encoder currently requires a complete output frame. Some codec-native memory is opaque. MSRV is **Rust 1.98**, and the AVIF decoder may need NASM on x86.
+**Caveats:** untagged output is not automatically sRGB; HDR/unknown color and unsupported alpha must fail closed. AVIF input reports its rendered color from the `colr` box and the AV1 sequence header; PQ/HLG/P3 are never treated as sRGB, and contradictory container/bitstream signals, monochrome input and `irot`/`imir`/`clap` transforms are rejected. JPEG EXIF, JPEG XL and AVIF `irot`/`imir` orientation are applied before cropping, so crop coordinates refer to the upright image. JPEG/AVIF may fully decode an image before resizing, and the AVIF encoder currently requires a complete output frame. Some codec-native memory is opaque. MSRV is **Rust 1.98**, and the AVIF decoder and encoder need NASM on x86-64. `--encoder-threads=0` uses all cores for the AV1 encoder; the default of one thread keeps output identical across machines. The resample runs on all cores by default (`--transform-threads`, byte-identical output for any value), and `pipeline::Engine` transcodes batches of images in parallel.
 
 See [M1 evidence and remaining gates](docs/milestones/M1-evidence-and-gates.md), [quality protocol](docs/benchmarks/M1-protocol.md), [license audit](docs/license-audit.md), and [fuzzing](docs/fuzzing.md).
 

@@ -45,23 +45,23 @@ fn truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn avif_decoder_rejects_truncated_container_without_panicking() {
-    use crate::avif_sink::{AvifSink, EncodeSettings};
+    use crate::avif_sink::{AvifSink, test_settings};
     use crate::codecs::avif::AvifSource;
     use crate::geometry::Size;
     use crate::memory::MemoryBudget;
 
-    let budget = MemoryBudget::new(4 * 4 * 4);
-    let mut sink = AvifSink::new(Size::new(4, 4).unwrap(), &budget).unwrap();
+    let budget = MemoryBudget::new(8 << 20);
+    let mut sink = AvifSink::new(
+        Size::new(4, 4).unwrap(),
+        false,
+        test_settings(80.0, 10),
+        &budget,
+    )
+    .unwrap();
     for row in 0..4 {
         sink.write_row(row, &[40, 60, 100, 255].repeat(4)).unwrap();
     }
-    let file = sink
-        .finish(EncodeSettings {
-            quality: 80.0,
-            speed: 10,
-        })
-        .unwrap()
-        .bytes;
+    let file = sink.finish(&budget).unwrap().bytes;
     for length in [0, 1, 2, 4, 8, 16, file.len() / 2] {
         let truncated = &file[..length.min(file.len())];
         let result = catch_unwind(AssertUnwindSafe(|| AvifSource::new(truncated)));
@@ -121,5 +121,104 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
             },
         )
         .is_err()
+    );
+}
+
+#[cfg(all(feature = "jpeg-read", feature = "avif-write"))]
+#[test]
+fn api_errors_carry_a_matchable_kind() {
+    use crate::pipeline::{
+        Crop, ImageFormat, InputProfilePolicy, ProcessingErrorKind as Kind, TransformOptions,
+        transcode,
+    };
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        output_width: 2,
+        output_height: 2,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        ..TransformOptions::default()
+    };
+    let kind =
+        |bytes: &[u8], format, options| transcode(bytes, format, options).unwrap_err().kind();
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                quality: 101.0,
+                ..options
+            }
+        ),
+        Kind::InvalidOptions
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                output_width: 0,
+                ..options
+            }
+        ),
+        Kind::InvalidOptions
+    );
+    let outside = Crop {
+        x: 0,
+        y: 0,
+        width: u32::MAX,
+        height: 1,
+    };
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                crop: Some(outside),
+                ..options
+            }
+        ),
+        Kind::InvalidOptions
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                max_input_bytes: 1,
+                ..options
+            }
+        ),
+        Kind::InputLimitExceeded
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                max_input_pixels: 1,
+                ..options
+            }
+        ),
+        Kind::InputLimitExceeded
+    );
+    assert_eq!(
+        kind(&[0; 32], ImageFormat::Jpeg, options),
+        Kind::MalformedInput
+    );
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                max_managed_bytes: 1,
+                ..options
+            }
+        ),
+        Kind::ResourceExhausted
+    );
+    #[cfg(not(feature = "jpeg-xl-read"))]
+    assert_eq!(
+        kind(jpeg, ImageFormat::JpegXl, options),
+        Kind::FeatureDisabled
     );
 }

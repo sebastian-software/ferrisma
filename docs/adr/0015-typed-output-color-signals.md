@@ -59,3 +59,4 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 ## Amendment log
 
 - 2026-10-31 — Added explicit, non-transforming color evidence classification.
+- 2026-11-06 — CICP `[1, 8, 0, 1]` (sRGB primaries, linear transfer, full range) is classified as its own family, `LinearSrgb`, and is transfer-ready: it is the graph's working-space signal and what the ICC adapter now emits (ADR-0023). Limited range or other matrices with transfer 8 stay `UnknownSignal`.

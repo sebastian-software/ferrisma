@@ -1,0 +1,79 @@
+name: M2 Encoder Comparison (Linux)
+
+# ADR-0024 on x86-64: `rav1e` against libavif-rs at matched SSIMULACRA2,
+# with the method of docs/benchmarks/M2-libavif-backend.md. Target A comes
+# from the `anchor` phase instead of the full Sharp comparison. The timing
+# runs twice, with libavif-rs's run-time SIMD dispatch and with
+# AOM_SIMD_CAPS_MASK=0, which selects its scalar AOM paths.
+on:
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      OUT: ${{ github.workspace }}/bench-out
+      BENCH_SHARP_NODE_MODULES: ${{ github.workspace }}/.sharp/node_modules
+      COMPARE_LIBAVIF_DATA: ${{ github.workspace }}/libavif-rs/upstream/libavif/tests/data
+      COMPARE_LIBJXL_DATA: ${{ github.workspace }}/libjxl-rs/tests/data/decode-test
+      # The runner is idle apart from this job; the load rule only skips
+      # the tail of the build.
+      COMPARE_MAX_LOAD: "6"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the libavif test images
+        uses: actions/checkout@v4
+        with:
+          repository: sebastian-software/libavif-rs
+          path: libavif-rs
+          sparse-checkout: upstream/libavif/tests/data
+      - name: Fetch the libjxl test image
+        uses: actions/checkout@v4
+        with:
+          repository: sebastian-software/libjxl-rs
+          path: libjxl-rs
+          sparse-checkout: tests/data/decode-test
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install the nightly that libavif-rs pins
+        working-directory: crates/ferrixel-libavif
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Install AV1 assembler
+        run: sudo apt-get update -qq && sudo apt-get install -y nasm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned Sharp for the corpus and references
+        run: npm install --prefix "$GITHUB_WORKSPACE/.sharp" --no-audit --no-fund sharp@0.34.5
+      - name: Record the runner CPU
+        run: |
+          grep -m1 'model name' /proc/cpuinfo
+          nproc
+          grep -m1 -o -w -E 'avx2|avx512f' /proc/cpuinfo | sort -u
+      - name: Prepare corpus and references
+        run: python3 -I scripts/bench/compare-sharp.py prepare "$OUT"
+      - name: Target A and libavif-rs quality matching
+        run: |
+          scripts/bench/compare-encoders.sh "$OUT" anchor
+          scripts/bench/compare-encoders.sh "$OUT" match
+      - name: Time with libavif-rs SIMD dispatch
+        run: |
+          scripts/bench/compare-encoders.sh "$OUT" time
+          mv "$OUT/encoders/time.md" "$OUT/encoders/time-simd.md"
+      - name: Time with libavif-rs scalar AOM
+        env:
+          AOM_SIMD_CAPS_MASK: "0"
+        run: |
+          scripts/bench/compare-encoders.sh "$OUT" time
+          mv "$OUT/encoders/time.md" "$OUT/encoders/time-scalar.md"
+      - name: Attach results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-encoders-linux
+          path: |
+            bench-out/anchors.tsv
+            bench-out/encoders/matched.tsv
+            bench-out/encoders/time-simd.md
+            bench-out/encoders/time-scalar.md
+          if-no-files-found: ignore

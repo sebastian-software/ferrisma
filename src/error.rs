@@ -9,8 +9,20 @@ pub(crate) enum Error {
     OutOfBounds,
     UnknownNode,
     AllocationFailed,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     InvalidPlaneStride,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     InvalidPlaneDimensions,
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     InsufficientPlaneStorage,
     ChromaPhaseRequiresResampling,
     PixelFormatMismatch,
@@ -20,6 +32,10 @@ pub(crate) enum Error {
         requested: usize,
         available: usize,
     },
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "used by test-only architecture experiments")
+    )]
     Cancelled,
     // Constructed only when an optional real codec is enabled.
     #[allow(dead_code)]
@@ -32,6 +48,13 @@ pub(crate) enum Error {
         pixels: u64,
         limit: u64,
     },
+    #[cfg(feature = "avif-read")]
+    ContradictoryColorSignals,
+    #[cfg_attr(
+        not(any(feature = "jpeg-read", feature = "jpeg-xl-read", feature = "avif-read")),
+        allow(dead_code, reason = "constructed only by codec adapters")
+    )]
+    UnsupportedImageTransform,
     #[cfg(feature = "avif-write")]
     InvalidEncodeOptions,
     #[cfg(feature = "avif-write")]
@@ -98,6 +121,15 @@ impl fmt::Display for Error {
                     "input has {pixels} pixels, exceeding the configured {limit} pixel limit"
                 )
             }
+            #[cfg(feature = "avif-read")]
+            Self::ContradictoryColorSignals => write!(
+                f,
+                "container color information contradicts the coded bitstream"
+            ),
+            Self::UnsupportedImageTransform => write!(
+                f,
+                "orientation, mirroring or clean-aperture transforms are not supported yet"
+            ),
             Self::InvalidAlphaValue => {
                 write!(f, "straight alpha must be finite and between zero and one")
             }

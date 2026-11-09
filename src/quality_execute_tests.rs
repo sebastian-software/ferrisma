@@ -72,6 +72,7 @@ impl DecodeSource for RgbSource {
             known_full_frame_buffers: 0,
             peak_engine_managed_bytes: 0,
             opaque_codec_memory_unbounded: false,
+            engine_buffer_bytes: 0,
         })
     }
 }
@@ -213,6 +214,34 @@ fn explicit_color_nodes_preserve_correct_metadata() {
         graph.node(id).unwrap().size,
         graph.node(output).unwrap().size
     );
+}
+
+#[test]
+fn output_whose_alpha_byte_rounds_to_zero_is_transparent_black() {
+    // Alpha 1/255 averaged over three pixels is 1/765, which quantizes to an
+    // alpha byte of 0. Dividing by the tiny alpha would recover pure red
+    // behind an invisible pixel; ADR-0014 requires canonical zero RGB.
+    let mut source = RgbSource::new(
+        Size::new(3, 1).unwrap(),
+        ChannelLayout::Rgba,
+        vec![255, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    );
+    let (graph, input, output) = make_graph(&source, Size::new(1, 1).unwrap(), Filter::Area);
+    let mut actual = Vec::new();
+    execute_quality_srgb8(
+        &graph,
+        output,
+        input,
+        &mut source,
+        Rect::new(0, 0, 1, 1).unwrap(),
+        &MemoryBudget::new(512),
+        |_, row| {
+            actual.extend_from_slice(row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(actual, [0, 0, 0, 0]);
 }
 
 #[test]
