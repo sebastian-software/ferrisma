@@ -172,7 +172,12 @@ fn premultiply(x: u8, m: u32) -> u8 {
 // upstream: src/dsp/alpha_processing.c ApplyAlphaMultiply_C
 /// Premultiplies the color channels of an RGBA or BGRA plane, or of an ARGB
 /// plane when `alpha_first` is set, in place.
-fn apply_alpha_multiply_c(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, stride: i32) {
+///
+/// # Panics
+///
+/// Panics when a stride is negative or a slice is shorter than the
+/// elements the C function addresses.
+pub fn apply_alpha_multiply_c(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, stride: i32) {
     let w = usize::try_from(w).unwrap_or(0);
     let stride = usize::try_from(stride).expect("the stride is not negative");
     let rgb_offset = usize::from(alpha_first);
@@ -196,6 +201,20 @@ fn apply_alpha_multiply_c(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, st
 /// Premultiplies an RGBA, BGRA or ARGB plane of `w` by `h` pixels in place.
 /// `alpha_first` is set for ARGB, where alpha comes first.
 pub fn webp_apply_alpha_multiply(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, stride: i32) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::alpha_processing_neon::apply_alpha_multiply(
+            rgba,
+            alpha_first,
+            w,
+            h,
+            stride,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     apply_alpha_multiply_c(rgba, alpha_first, w, h, stride);
 }
 
@@ -271,7 +290,12 @@ pub fn webp_apply_alpha_multiply4444(rgba4444: &mut [u8], w: i32, h: i32, stride
 // upstream: src/dsp/alpha_processing.c DispatchAlpha_C
 /// Copies the alpha plane into the A byte of each ARGB pixel of `dst`, which
 /// has `dst_stride` bytes per row. Returns whether an alpha value is not 0xff.
-fn dispatch_alpha_c(
+///
+/// # Panics
+///
+/// Panics when a stride is negative or a slice is shorter than the
+/// elements the C function addresses.
+pub fn dispatch_alpha_c(
     alpha: &[u8],
     alpha_stride: i32,
     width: i32,
@@ -304,13 +328,33 @@ pub fn webp_dispatch_alpha(
     dst: &mut [u8],
     dst_stride: i32,
 ) -> bool {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::alpha_processing_neon::dispatch_alpha(
+            alpha,
+            alpha_stride,
+            width,
+            height,
+            dst,
+            dst_stride,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     dispatch_alpha_c(alpha, alpha_stride, width, height, dst, dst_stride)
 }
 
 // upstream: src/dsp/alpha_processing.c DispatchAlphaToGreen_C
 /// Stores the alpha values in the green channel of each `u32` pixel of `dst`,
 /// with the other channels zeroed. `dst_stride` counts `u32` elements.
-fn dispatch_alpha_to_green_c(
+///
+/// # Panics
+///
+/// Panics when a stride is negative or a slice is shorter than the
+/// elements the C function addresses.
+pub fn dispatch_alpha_to_green_c(
     alpha: &[u8],
     alpha_stride: i32,
     width: i32,
@@ -339,13 +383,33 @@ pub fn webp_dispatch_alpha_to_green(
     dst: &mut [u32],
     dst_stride: i32,
 ) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::alpha_processing_neon::dispatch_alpha_to_green(
+            alpha,
+            alpha_stride,
+            width,
+            height,
+            dst,
+            dst_stride,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     dispatch_alpha_to_green_c(alpha, alpha_stride, width, height, dst, dst_stride);
 }
 
 // upstream: src/dsp/alpha_processing.c ExtractAlpha_C
 /// Copies the A bytes of an ARGB plane to `alpha`. Returns whether every alpha
 /// value is 0xff.
-fn extract_alpha_c(
+///
+/// # Panics
+///
+/// Panics when a stride is negative or a slice is shorter than the
+/// elements the C function addresses.
+pub fn extract_alpha_c(
     argb: &[u8],
     argb_stride: i32,
     width: i32,
@@ -378,12 +442,27 @@ pub fn webp_extract_alpha(
     alpha: &mut [u8],
     alpha_stride: i32,
 ) -> bool {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::alpha_processing_neon::extract_alpha(
+            argb,
+            argb_stride,
+            width,
+            height,
+            alpha,
+            alpha_stride,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     extract_alpha_c(argb, argb_stride, width, height, alpha, alpha_stride)
 }
 
 // upstream: src/dsp/alpha_processing.c ExtractGreen_C
 /// Copies the green byte of each `u32` pixel to `alpha`.
-fn extract_green_c(argb: &[u32], alpha: &mut [u8], size: i32) {
+pub fn extract_green_c(argb: &[u32], alpha: &mut [u8], size: i32) {
     let size = usize::try_from(size).unwrap_or(0);
     for i in 0..size {
         alpha[i] = low_byte(argb[i] >> 8);
@@ -394,6 +473,14 @@ fn extract_green_c(argb: &[u32], alpha: &mut [u8], size: i32) {
 /// Copies the green byte of each `u32` pixel to `alpha`. The C dispatch
 /// pointer is `ExtractGreen_C`.
 pub fn webp_extract_green(argb: &[u32], alpha: &mut [u8], size: i32) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::alpha_processing_neon::extract_green(argb, alpha, size);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     extract_green_c(argb, alpha, size);
 }
 
