@@ -1,5 +1,5 @@
 {
-  "comment": "Every upstream file under upstream/libjpeg-turbo/src and the decoder's SIMD directories (expanded_directories), its Rust module and owning work package (docs/PORT_PLAN.md), or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module, and the headers of simd/ share simd/jsimd.c's; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate. own_modules lists the modules that translate no upstream file.",
+  "comment": "Every upstream file under upstream/libjpeg-turbo/src and the decoder's SIMD directories (expanded_directories), its Rust module and owning work package, or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module, and the headers of simd/ share simd/jsimd.c's; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate. own_modules lists the modules that translate no upstream file.",
   "upstream_version": "libjpeg-turbo 3.2.1",
   "packages": {
     "1": "Common infrastructure",

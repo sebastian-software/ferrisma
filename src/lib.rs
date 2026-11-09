@@ -6,9 +6,9 @@
 //! memory manager, utilities), 2 (input and markers, up to
 //! `jpeg_read_header`), 3 (entropy decoding), 4 (coefficients and IDCT), 5
 //! (upsampling, color, buffers) and 6 (master control and the decompression
-//! API) are translated, so every module of the decoder is. See `docs/PORT_PLAN.md` for the scope and the
-//! work packages, `docs/PORT_STATUS.md` for what is translated and verified,
-//! and `docs/adr/` for the decisions that bind them.
+//! API) are translated, so every module of the decoder is. `docs/adr/` holds
+//! the decisions that bind them, including the scope, and the tests show what
+//! is verified.
 //!
 //! Rust programs decode through the safe API of [`decode`], re-exported here:
 //! [`Decoder`] reads the header, EXIF data and ICC profile, and

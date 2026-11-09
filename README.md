@@ -10,36 +10,11 @@ fourth sister port next to
 JPEG input, including scaled decoding for shrink-on-load, to
 [Ferrixel](https://github.com/sebastian-software/ferrixel).
 
-**Status:** the decoder is translated and passes upstream's in-scope bit
-tests. The C oracle, the
-probe harness, the bit-test inventory and the module skeleton exist; work
-package 1 has translated the types, error codes and messages, the memory
-manager and the utilities, work package 2 the input side up to
-`jpeg_read_header`, work package 3 the Huffman, progressive Huffman and
-arithmetic decoders, work package 4 the coefficient buffer controller and
-every inverse DCT, work package 5 the upsamplers, the color conversion
-and the main and postprocessing controllers, work package 6 the master
-control and the decompression API (`jpeg_start_decompress`,
-`jpeg_read_scanlines`, `jpeg_skip_scanlines`, `jpeg_crop_scanline`, raw data
-and buffered-image mode), and work package 7 runs upstream's 30 in-scope
-`djpeg` bit tests on the port through a Rust driver, with upstream's MD5
-sums. Work package 8 adds the safe Rust API: `jpeg::Decoder` and
-`jpeg::Scanlines` stream rows with scaling, cropping and skipping, and return
-the EXIF data, the ICC profile and libjpeg's errors and warnings as values
-([ADR 0006](docs/adr/0006-safe-decoding-api.md)). Work package 9 translates
-upstream's Neon kernels for AArch64 behind the default `simd` feature, with
-unsafe code only in the loads, stores and kernel calls
-([ADR 0007](docs/adr/0007-neon-kernels-and-unsafe.md)); without default
-features the crate is the portable reference configuration. Work package 10
-rewrites the x86-64 SSE2 and AVX2 kernels from upstream's NASM assembly as
-intrinsics, with the same unsafe boundaries
-([ADR 0008](docs/adr/0008-x86-64-kernels-from-nasm.md)). Work package 11
-runs the ISO/IEC 10918-2 (ITU-T T.83) compliance data for the 8-bit
-baseline, extended and progressive processes: every stream decodes to the
-coded coefficients bit for bit, and the decoder test's measured values are
-recorded. The port serves Rust programs and exports no C ABI. See the
-[port plan](docs/PORT_PLAN.md) for the scope and the work packages, and the
-[port status](docs/PORT_STATUS.md) for what is verified.
+**Status:** the decoder is fully ported, with the Neon, SSE2 and AVX2 kernels
+behind the default `simd` feature. It is verified against the original C
+library as an oracle, upstream's own `djpeg` bit tests and the ISO/IEC 10918-2
+(ITU-T T.83) compliance data. Open work is tracked in the
+[issues](https://github.com/sebastian-software/libjpeg-turbo-rs/issues).
 
 ## Why libjpeg-turbo, and why only the decoder
 
@@ -63,11 +38,18 @@ therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md
 - The ISO/IEC 10918-2 compliance data, which ITU publishes but does not
   license for redistribution, is fetched and verified at test time
   ([ADR 0002](docs/adr/0002-differential-oracle.md)).
-- Safe Rust by default; `unsafe` only where an ADR names it
+- Safe Rust by default; `unsafe` only where an ADR names it. The crate serves
+  Rust programs and exports no C ABI
   ([ADR 0003](docs/adr/0003-toolchain-and-unsafe-policy.md)).
 - The portable C code is ported first; SIMD comes afterwards, NEON from
   upstream's C intrinsics and x86-64 as intrinsics rewritten from upstream's
   NASM assembly ([ADR 0004](docs/adr/0004-simd-after-the-portable-port.md)).
+  Without default features the crate is the portable reference
+  configuration ([ADR 0007](docs/adr/0007-neon-kernels-and-unsafe.md)).
+- Rust programs decode through a safe row-streaming API: `jpeg::Decoder` and
+  `jpeg::Scanlines` read rows with scaling, cropping and skipping, and return
+  the EXIF data, the ICC profile and libjpeg's errors and warnings as values
+  ([ADR 0006](docs/adr/0006-safe-decoding-api.md)).
 
 ## Building
 
@@ -85,7 +67,7 @@ python3 tools/fetch_t83.py             # build/t83, the ISO/IEC 10918-2 data
 python3 tools/check.py --oracle        # all checks, bit tests and oracle tests
 ```
 
-[AGENTS.md](AGENTS.md) has the rules for porting sessions.
+[AGENTS.md](AGENTS.md) has the rules for working on the port.
 
 ## License
 

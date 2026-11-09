@@ -23,7 +23,7 @@ The zip keeps identical copies of a stream in several process folders. Every
 copy must equal the pinned SHA-256 of its file; any other copy stops the
 script. 12-bit and lossless streams, the encoder tests (the source images)
 and the streams T.83 never published are out of scope (ADR 0001,
-docs/PORT_STATUS.md); EREF serves as the exact coefficient reference.
+ADR 0002); EREF serves as the exact coefficient reference.
 
 tests/wp11_conformance.rs reads the directory named by LIBJPEG_T83_DIR,
 default build/t83. Only the Python standard library is used.

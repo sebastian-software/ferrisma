@@ -2,16 +2,18 @@
 
 - Use US English for code, documentation, ADRs, comments and commit messages.
 - Use Conventional Commits, for example `feat(dhuff): port the Huffman decoder`.
-- Work on a branch per work package and open a pull request; never push to
-  `main`.
+- Make one branch and one pull request per change, ideally for a
+  [GitHub issue](https://github.com/sebastian-software/libjpeg-turbo-rs/issues);
+  never push to `main`.
 - The port is a mechanical, behavior-preserving translation of the pinned
   libjpeg-turbo 3.2.1 decoder. Preserve algorithms, tables, constants, numeric
   widths, operation order, error codes and messages, and partial state on
   error. Do not combine translation with redesign, tuning or new optimizations.
-- Before writing code, read the [port plan](docs/PORT_PLAN.md) row of your
-  package and the [ADRs](docs/adr/README.md). Update an ADR in place, with its
-  `Updated` date, when its decision changes. A question the ADRs do not answer
-  stops the package; report it instead of deciding alone.
+- Before writing code, read the [ADRs](docs/adr/README.md). Record every
+  decision in the ADR that owns its topic, edited in place with its `Updated`
+  date, or in a new numbered ADR when none fits; there is no separate plan or
+  status document. A question the ADRs do not answer stops the change; report
+  it instead of deciding alone.
 - Mark each translated item with `// upstream: <path> <CName>`, for example
   `// upstream: src/jdhuff.c decode_mcu`. Keep the upstream copyright notices.
 - No stubs, placeholders, partial functions, `todo!()`, C fallbacks, skipped
@@ -25,7 +27,8 @@
 - Keep `upstream/` unmodified and never advance the submodule.
 - Run `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and
   `cargo test` before committing.
-- Passing a package's tests is not evidence that the decoder is ported; record
-  exactly what is translated and verified in [PORT_STATUS.md](docs/PORT_STATUS.md).
+- Passing a change's own tests is not evidence of a faithful port. What is
+  verified is shown by the tests, which assert the measured results, and
+  stated in the ADRs.
 - Do not publish crates, push to `main`, add remotes or create repositories
   unless explicitly asked.

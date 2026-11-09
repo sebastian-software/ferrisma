@@ -4,10 +4,13 @@ Each numbered file contains the current decision for one topic. Accepted
 records are edited in place; update their `Updated` date when their meaning
 changes. Git history preserves previous decisions.
 
-Use `proposed`, `accepted`, `rejected` or `deprecated` as the status.
-Implementation status belongs in [PORT_STATUS.md](../PORT_STATUS.md), not in an
-ADR. A work package that meets a question these records do not answer stops and
-reports it.
+Use `proposed`, `accepted`, `rejected` or `deprecated` as the status. These
+records are the only place for decisions: there is no separate plan, status or
+verification document. What is verified is shown by the tests, which assert
+the measured results. Open work is tracked as
+[GitHub issues](https://github.com/sebastian-software/libjpeg-turbo-rs/issues),
+not in an ADR. A change that meets a question these records do not answer
+stops and reports it.
 
 - [0001: Port the libjpeg-turbo decoder mechanically, 8-bit first](0001-mechanical-port.md)
 - [0002: Compare against the original C decoder in separate processes](0002-differential-oracle.md)
