@@ -82,11 +82,10 @@ fn case(
 }
 
 /// Runs the commands through the probe and compares each with its replay.
-fn run(test: &str, cases: Vec<Case>) -> Tally {
+/// Each test locates the oracle first, so that a run without it skips the
+/// replays as well.
+fn run(oracle: &Oracle, test: &str, cases: Vec<Case>) -> Tally {
     let mut tally = Tally::default();
-    let Some(oracle) = Oracle::locate(test) else {
-        return tally;
-    };
     let input: String = cases.iter().map(|case| case.line.as_str()).collect();
     let output = oracle
         .probe("wp12", "decode")
@@ -148,7 +147,11 @@ fn chunk_size_cases(append: u32) -> Vec<Case> {
 
 #[test]
 fn incremental_append_matches_at_every_chunk_size() {
+    let Some(oracle) = Oracle::locate("incremental_append_matches_at_every_chunk_size") else {
+        return;
+    };
     let tally = run(
+        &oracle,
         "incremental_append_matches_at_every_chunk_size",
         chunk_size_cases(1),
     );
@@ -157,7 +160,11 @@ fn incremental_append_matches_at_every_chunk_size() {
 
 #[test]
 fn incremental_update_matches_at_every_chunk_size() {
+    let Some(oracle) = Oracle::locate("incremental_update_matches_at_every_chunk_size") else {
+        return;
+    };
     let tally = run(
+        &oracle,
         "incremental_update_matches_at_every_chunk_size",
         chunk_size_cases(0),
     );
@@ -166,6 +173,9 @@ fn incremental_update_matches_at_every_chunk_size() {
 
 #[test]
 fn incremental_decoders_match_with_options_and_memory() {
+    let Some(oracle) = Oracle::locate("incremental_decoders_match_with_options_and_memory") else {
+        return;
+    };
     let mut cases = Vec::new();
     let mut rng = Rng(4216);
     for path in vectors() {
@@ -329,13 +339,20 @@ fn incremental_decoders_match_with_options_and_memory() {
             geometry,
         ));
     }
-    let tally = run("incremental_decoders_match_with_options_and_memory", cases);
+    let tally = run(
+        &oracle,
+        "incremental_decoders_match_with_options_and_memory",
+        cases,
+    );
     assert_eq!(tally.skipped, 0, "{tally:?}");
     assert!(tally.refused.get(&Deviation::OddCrop).copied().unwrap_or(0) > 0);
 }
 
 #[test]
 fn incremental_threads_match_on_wide_lossy_images() {
+    let Some(oracle) = Oracle::locate("incremental_threads_match_on_wide_lossy_images") else {
+        return;
+    };
     let mut cases = Vec::new();
     let mut rng = Rng(7716);
     for name in [
@@ -365,6 +382,10 @@ fn incremental_threads_match_on_wide_lossy_images() {
             ));
         }
     }
-    let tally = run("incremental_threads_match_on_wide_lossy_images", cases);
+    let tally = run(
+        &oracle,
+        "incremental_threads_match_on_wide_lossy_images",
+        cases,
+    );
     assert_eq!(tally.skipped, 0);
 }

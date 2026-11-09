@@ -59,11 +59,10 @@ struct Case {
 }
 
 /// Runs the commands through the probe and compares each with its replay.
-fn run(test: &str, cases: Vec<Case>) -> Tally {
+/// Each test locates the oracle first, so that a run without it skips the
+/// replays as well.
+fn run(oracle: &Oracle, test: &str, cases: Vec<Case>) -> Tally {
     let mut tally = Tally::default();
-    let Some(oracle) = Oracle::locate(test) else {
-        return tally;
-    };
     let input: String = cases.iter().map(|case| case.line.as_str()).collect();
     let output = oracle
         .probe("wp12", "decode")
@@ -112,6 +111,9 @@ fn features_replay(data: &[u8]) -> Replay {
 
 #[test]
 fn features_match_on_vectors_prefixes_and_mutations() {
+    let Some(oracle) = Oracle::locate("features_match_on_vectors_prefixes_and_mutations") else {
+        return;
+    };
     let mut cases = Vec::new();
     let mut rng = Rng(16);
     for path in oracle::test_vectors() {
@@ -176,7 +178,11 @@ fn features_match_on_vectors_prefixes_and_mutations() {
             replay: features_replay(&bytes),
         });
     }
-    let tally = run("features_match_on_vectors_prefixes_and_mutations", cases);
+    let tally = run(
+        &oracle,
+        "features_match_on_vectors_prefixes_and_mutations",
+        cases,
+    );
     assert_eq!(tally.skipped, 0);
 }
 
@@ -203,6 +209,9 @@ fn decode_case(path: &Path, len: i64, mode: u32, options: Options, geometry: &Ge
 
 #[test]
 fn decoding_matches_in_every_color_mode() {
+    let Some(oracle) = Oracle::locate("decoding_matches_in_every_color_mode") else {
+        return;
+    };
     let mut cases = Vec::new();
     for path in oracle::test_vectors() {
         let large = !vectors().contains(&path);
@@ -221,7 +230,7 @@ fn decoding_matches_in_every_color_mode() {
             ));
         }
     }
-    let tally = run("decoding_matches_in_every_color_mode", cases);
+    let tally = run(&oracle, "decoding_matches_in_every_color_mode", cases);
     assert_eq!(tally.skipped, 0);
     assert!(tally.refused.is_empty());
 }
@@ -326,6 +335,9 @@ fn option_sets(width: i32, height: i32, rng: &mut Rng) -> Vec<Options> {
 
 #[test]
 fn decoding_matches_with_options_and_caller_memory() {
+    let Some(oracle) = Oracle::locate("decoding_matches_with_options_and_caller_memory") else {
+        return;
+    };
     let mut cases = Vec::new();
     let mut rng = Rng(1616);
     for path in vectors() {
@@ -376,7 +388,11 @@ fn decoding_matches_with_options_and_caller_memory() {
             cases.push(decode_case(&path, cut, 1, Options::default(), &geometry));
         }
     }
-    let tally = run("decoding_matches_with_options_and_caller_memory", cases);
+    let tally = run(
+        &oracle,
+        "decoding_matches_with_options_and_caller_memory",
+        cases,
+    );
     assert!(tally.compared > 4000, "{tally:?}");
 }
 
@@ -448,6 +464,9 @@ fn into_replay(data: &[u8], func: &str, geometry: &Geometry) -> Replay {
 
 #[test]
 fn simple_and_into_functions_match_decode() {
+    let Some(oracle) = Oracle::locate("simple_and_into_functions_match_decode") else {
+        return;
+    };
     let mut cases = Vec::new();
     let mut rng = Rng(916);
     for path in oracle::test_vectors() {
@@ -494,6 +513,6 @@ fn simple_and_into_functions_match_decode() {
             }
         }
     }
-    let tally = run("simple_and_into_functions_match_decode", cases);
+    let tally = run(&oracle, "simple_and_into_functions_match_decode", cases);
     assert_eq!(tally.skipped, 0);
 }
