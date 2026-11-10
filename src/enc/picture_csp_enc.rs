@@ -21,6 +21,44 @@
 //! inverse-alpha table are on (`USE_GAMMA_COMPRESSION`, `USE_INVERSE_ALPHA_TABLE`),
 //! `WEBP_REDUCE_CSP` and `WEBP_MSAN` are off, and the bytes of ARGB samples are read
 //! in native order, as C's casts read them.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Native-order byte views.** C reads and writes ARGB samples as bytes in
+//!    five places: the ARGB-to-YUVA conversion, the YUVA-to-ARGB upsampler
+//!    output, the RGBA import through `VP8LConvertBGRAToRGBA`, the rescaling of
+//!    ARGB pictures, and the metric of `WebPPictureDistortion` on the ARGB
+//!    views. The Rust code makes copies in native byte order (`to_ne_bytes`,
+//!    `from_ne_bytes`), converts, and copies the words back where it writes.
+//!    The values are the same; the copies cost one temporary of the plane size.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Misaligned `uint32_t` reads in the RGBA import.**
+//!    `WebPPictureImportRGBA` with an ARGB picture reads each row through
+//!    `VP8LConvertBGRAToRGBA((const uint32_t*)rgb, ...)`
+//!    (`upstream/libwebp/src/dsp/lossless.c`). When the row stride is not a
+//!    multiple of 4 and the picture has more than one row, the row starts off a
+//!    4-byte boundary, and the `asan-ubsan` variant reports the misaligned
+//!    load. The import test (`tests/wp9_picture.rs`) excludes these inputs
+//!    (`kind == rgba`, ARGB, `stride % 4 != 0`, `height > 1`). The Rust
+//!    translation reads the same bytes in native order, which is the value the
+//!    C code computes where unaligned loads are tolerated; the Rust side
+//!    defines that reading, and the exclusion keeps the oracle from proving it.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. The padding byte of `WebPPictureImportRGBX` and `BGRX` (not read), and
+//!    the alignment of the ARGB plane (not observable, see
+//!    `webp_picture_alloc_argb` in `src/enc/picture_enc.rs`).
 
 use std::sync::LazyLock;
 

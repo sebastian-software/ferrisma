@@ -16,6 +16,20 @@
 //! Translation of `src/enc/config_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP9 (encoder picture and config).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Version checks.** `WebPConfigInitInternal` and
+//!    `WebPPictureInitInternal` keep their version parameter and its ABI check.
+//!    The wrappers pass the crate's version, so the check always succeeds
+//!    through them.
+//! 2. **`use_delta_palette`.** `WebPConfigInit` does not write this reserved
+//!    field in C, so it keeps the caller's value. The Rust translation also
+//!    leaves it alone, and the test (`tests/wp9_config.rs`) compares it as
+//!    unchanged.
 
 use crate::webp::encode::{WEBP_ENCODER_ABI_VERSION, WebPConfig, WebPImageHint, WebPPreset};
 use crate::webp::types::webp_abi_is_incompatible;

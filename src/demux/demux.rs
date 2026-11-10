@@ -16,13 +16,91 @@
 //!
 //! Work package: WP8 (demux).
 //!
-//! Representation (decided for WP8, see `docs/status/wp8.md`): the demuxer
-//! borrows the caller's bytes for its lifetime, as C keeps `mem.buf` without a
-//! copy. C's offsets stay offsets. The frame and chunk lists are `Vec`s in C's
-//! order. The reader positions hold no bytes: each read takes the input that
-//! the demuxer holds (ADR 0003, "Readers over input"). The iterators are
-//! defined in `src/webp/demux.rs` (the exceptions in `tools/units.json`) and
-//! hold `&WebPDemuxer` in place of C's `private_`.
+//! # Representation
+//!
+//! `WebPDemuxer<'a>` borrows the bytes of the `WebPData` that it parses, for
+//! its lifetime, as C keeps `mem.buf` without a copy (the demux header requires
+//! the data to outlive the demuxer). The Rust signature borrows the `WebPData`
+//! value, not only its bytes, so the value must outlive the demuxer. That is
+//! stricter than C, which needs only the bytes; it is the conservative form,
+//! because a `Cow::Owned` payload has no `'a` slice to lend. C's offsets stay
+//! offsets: `start`, `end`, `riff_end`, `buf_size`, `ChunkData.offset` and
+//! `size`. The frame and chunk lists are `Vec`s in C's order. `MemBuffer` holds
+//! positions only and each read takes the input that the demuxer holds, so no
+//! reader stores a borrow of the bytes (ADR 0003, "Readers over input").
+//! ADR 0003's per-call rule for decoders does not apply here.
+//!
+//! The iterators are defined in `src/webp/demux.rs` (the exceptions in
+//! `tools/units.json`). `WebPIterator<'d>` and `WebPChunkIterator<'d>` hold
+//! `dmux: &'d WebPDemuxer<'d>` in place of C's `private_`, and the fragment or
+//! chunk payload as a borrowed `WebPData<'d>`. The demuxer is immutable after
+//! construction, so the shared borrow is sound.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Upstream guard in `AddFrame` never fires.** C checks
+//!    `*dmux->frames_tail` before linking a frame. `frames_tail` points at the
+//!    `next` link of the last frame, which `AddFrame` has just set to `NULL`,
+//!    so the check `last_frame != NULL && !last_frame->complete` is always
+//!    false. C's `AddFrame` therefore appends every frame. The port does the
+//!    same (`add_frame` appends unconditionally, with a comment that names the
+//!    reason). A consequence is observable: an `ANMF` whose frame is incomplete
+//!    (an `ALPH` chunk without its image) followed by another frame is accepted
+//!    by the parser, and `IsValidExtendedFormat` rejects the file ("There
+//!    shouldn't be any frames after an incomplete one"). The animation test in
+//!    `tests/wp8_demux.rs` covers this case.
+//! 2. **Zeroed iterators on failure.** `WebPDemuxGetFrame` and
+//!    `WebPDemuxGetChunk` return `None` where C returns 0 and leaves a zeroed
+//!    iterator with `private_` set. Two C behaviors follow from a zeroed
+//!    iterator and are therefore unreachable: `WebPDemuxNextFrame` on it
+//!    synthesizes frame 1 (its `frame_num` is 0), and `WebPDemuxNextChunk` on
+//!    it computes `chunk.bytes - 8` from NULL, which is undefined behavior.
+//!    Neither is compared by the probe; the walks start only from a successful
+//!    call.
+//! 3. **Chunk tag kept in the iterator.** C's `WebPDemuxNextChunk` recovers the
+//!    tag from the four bytes before the payload. The port stores the tag that
+//!    `WebPDemuxGetChunk` was given (`fourcc`, `pub(crate)`). The two are
+//!    equal, because `GetChunk` matched the header against the tag.
+//! 4. **Allocation.** The frame and chunk lists are `Vec`s. Each C
+//!    `WebPSafeCalloc` of a `Frame` or a `Chunk` becomes `try_reserve(1)` at
+//!    the same point, so a refused host allocation ends the parse as C's NULL
+//!    does, and the following push cannot reallocate. The demuxer itself is a
+//!    struct value and cannot fail in Rust; C's failure path for
+//!    `WebPSafeCalloc(dmux)` is not modeled, and no test can reach it.
+//! 5. **Arithmetic that relies on invariants.** `SizeIsInvalid`'s
+//!    `riff_end - start` and `GetFramePayload`'s
+//!    `image->offset - (alpha->offset + alpha->size)` rely on the order
+//!    `start <= end <= riff_end` and on the alpha chunk ending where the image
+//!    starts, which the parser establishes. The port uses plain arithmetic, so
+//!    a violation panics in the dev and `checked` profiles instead of wrapping.
+//!    `ANMF`'s `frame_chunk_size - ANMF_CHUNK_SIZE` is `wrapping_sub`, as in
+//!    C's unsigned difference, which is used only after `NewFrame` accepts the
+//!    size.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`NULL` arguments.** `WebPDemux(NULL)`, `WebPDemuxPartial(NULL)`,
+//!    `WebPDemuxInternal` with `data == NULL`, `WebPDemuxGetI(NULL)`,
+//!    `WebPDemuxGetFrame(NULL, ...)`, `WebPDemuxGetFrame(..., NULL)`,
+//!    `WebPDemuxGetChunk` with `fourcc == NULL`, `WebPDemuxNextFrame(NULL)` and
+//!    the other iterator calls, `WebPDemuxDelete(NULL)`, and the state pointer.
+//!    References make these unrepresentable. The empty-data case of
+//!    `WebPDemuxInternal` (C's `data->size == 0`) is the empty slice. The C ABI
+//!    module (`src/abi/demux.rs`) keeps the `NULL` results.
+//! 2. **`WebPSafeFree`.** Drops the frame and chunk values that C frees.
+//! 3. **`assert(IsValidSimpleFormat(dmux))`** in `CreateRawImageDemuxer` is a
+//!    `debug_assert!`, as ADR 0003 maps `assert`.
+//! 4. **ABI version.** `WebPDemuxInternal`'s version check
+//!    (`WEBP_ABI_IS_INCOMPATIBLE`) is kept in `webp_demux_internal`; the public
+//!    `webp_demux` and `webp_demux_partial` pass `WEBP_DEMUX_ABI_VERSION`.
+//! 5. **`RemapMemBuffer`.** It refuses a size below the buffer size of the
+//!    reader it remaps. `InitMemBuffer` calls it on a zeroed reader, so the
+//!    refusal is never reached; it is translated as is.
 
 use std::borrow::Cow;
 
@@ -605,7 +683,8 @@ impl WebPDemuxer<'_> {
     /// frame; `AddFrame` sets that link to NULL, so the guard against an incomplete
     /// last frame never refuses a frame. The port keeps that behavior: the frame is
     /// always appended, and an incomplete frame followed by another one is
-    /// rejected by `is_valid_extended_format`, as C does. Recorded in the status file.
+    /// rejected by `is_valid_extended_format`, as C does. See the
+    /// `# Deviations from upstream` section of the module documentation (item 1).
     fn add_frame(&mut self, frame: Frame) {
         self.frames.push(frame);
     }

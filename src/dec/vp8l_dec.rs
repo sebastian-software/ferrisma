@@ -21,6 +21,178 @@
 //! The decoder takes its input, its `VP8Io`, its output buffer and, for alpha,
 //! the alpha plane per call (ADR 0003, "Decoding context per call"). Pointers
 //! into the decoder's pixel buffer and into the output are positions.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Decoding context per call (ADR 0003).** `VP8Io` keeps its scalar
+//!    fields; its `int` flags are `bool`. The input of `io->data` is a
+//!    `data: &[u8]` argument of `vp8l_decode_header`, `vp8l_decode_image`,
+//!    `vp8l_decode_alpha_header` and `vp8l_decode_alpha_image_stream`, and of
+//!    every internal function that reads bits; the image call must receive the
+//!    same bytes at the same positions as the header call, as the
+//!    `VP8LBitReader` keeps positions. `VP8LDecoder` stores no `io` and no
+//!    `output`: `vp8l_decode_image` takes the `VP8Io`, the parameters and the
+//!    output buffer; C stores `output` at the first call and reads it later,
+//!    and the Rust caller passes the same buffer each time. `ALPHDecoder`
+//!    stores no `output`: the VP8 decoder's alpha plane is an argument of
+//!    `vp8l_decode_alpha_image_stream`, and `prev_line` is a position in it.
+//!    `alph_dec->io.opaque` and `dec->io` are not stored; the alpha functions
+//!    take `alph_dec`. `WebPDecParams` holds `options` as a borrow, `tmp_y`,
+//!    `tmp_u` and `tmp_v` as positions in `memory`, the rescalers by value, and
+//!    the emit functions as `Option` plain function pointers.
+//! 2. **Internal pixel buffers.** C's `pixels` is `uint32_t*` for the 32-bit
+//!    path and `uint8_t*` for the paletted alpha path; Rust has
+//!    `pixels: Vec<u32>` and `pixels_8b: Vec<u8>`. The 32-bit buffer holds the
+//!    pixels, the top-prediction row and `argb_cache` in one allocation, as C
+//!    does and as the in-place transforms of `src/dsp/lossless.rs` require;
+//!    `argb_cache` is an `Option<usize>` position, `None` where C has `NULL`.
+//!    `VP8LClear` leaves it, as C leaves the stale pointer. The decode loop
+//!    borrows the pixel buffer out of the decoder for its duration, and the
+//!    row-processing function receives it.
+//! 3. **Rescaler memory.** C carves the rescaler, its work rows and the scaled
+//!    row from one block (`rescaler_memory`). The size test of `WebPSafeMalloc`
+//!    is applied to that total with `WebPRescaler::C_SIZE` (ADR 0003) by
+//!    reserving and dropping it; then the rescaler receives its work rows
+//!    (`WebPRescaler` owns them, ADR 0003) and the decoder holds the scaled row
+//!    as bytes (`rescaled_row`).
+//! 4. **ARGB rows and the byte rescaler.** C casts the `uint32_t` rows to
+//!    `uint8_t*` for `WebPRescalerImport` and the rescaler's byte row back to
+//!    `uint32_t*` for `WebPMultARGBRow` and `VP8LConvertFromBGRA`. Rust
+//!    converts the rows with `to_ne_bytes` and `from_ne_bytes`, one copy per
+//!    row with the same bytes. The premultiplication before the import happens
+//!    in place on the pixel buffer, as in C; the unpremultiplication after the
+//!    export happens on the converted row, where C changes the rescaler's row
+//!    in place, which the next export overwrites before anything reads it.
+//!    `WebPExtractAlpha` reads a byte copy of the row.
+//! 5. **`ProcessRowsFunc`** is a
+//!    `&mut dyn FnMut(&mut VP8LDecoder, &mut [u32], i32)` closure that carries
+//!    its context: the `VP8Io` and the output buffer for `ProcessRows`, and the
+//!    alpha parts for `ExtractAlphaRows` (C reads both through `dec->io` and
+//!    `io->opaque`). `None` is C's `NULL`.
+//! 6. **Errors (ADR 0003).** `VP8LSetError` keeps its precedence and returns
+//!    the status that the decoder holds afterwards. `vp8l_decode_header`,
+//!    `vp8l_decode_image` and `vp8l_decode_alpha_image_stream` return
+//!    `Result<(), VP8StatusCode>` with the recorded status; a suspended
+//!    incremental decoding is `Ok` with `dec.status == VP8_STATUS_SUSPENDED`,
+//!    as C returns 1. The internal functions keep their `int` results as `bool`
+//!    or sizes, because several of them fail without recording an error (a
+//!    repeated transform, the end of the stream in `ReadHuffmanCodes`, a
+//!    mismatched mapping), so the status field is the only record, as in C.
+//!    `vp8l_decode_alpha_header` returns `bool`: its decoder is dropped on
+//!    failure, as C deletes it.
+//! 7. **`ReadHuffmanCodesHelper`** takes the tables and the groups separately
+//!    from the decoder, as C does; the decoder's own tables are moved out of
+//!    `dec.hdr` for the call, because C passes `&dec->hdr.huffman_tables` next
+//!    to `dec` and the helper reaches the decoder only for its bit reader and
+//!    status. `htree_groups` is `Option<Vec<HTreeGroup>>`, `None` where C has
+//!    `NULL`, and becomes `None` on failure. Tree pointers are
+//!    `HuffmanTablesOffset` positions (`src/utils/huffman_utils.rs`).
+//! 8. **`VP8LNew` and `VP8LDelete`.** `VP8LNew` returns a `Box`; its fixed-size
+//!    allocation cannot fail the size test, and a host refusal aborts.
+//!    `VP8LDelete` only clears and frees, so the owner drops the box instead,
+//!    as for `WebPSafeFree` (`src/utils/utils.rs`).
+//! 9. **Bit reader copies.** `SaveState` and `RestoreState` copy the bit reader
+//!    field by field, as the C struct assignment does; `VP8LBitReader` has no
+//!    `Clone`.
+//! 10. **Output rows.** Row `y` of a plane starts at `offset + y * stride`,
+//!     computed per row with the signed stride, so a flipped buffer never forms
+//!     the position past its last row that the C pointer arithmetic forms.
+//!     `ConvertToYUVA` borrows the U and V rows together, from one region
+//!     (internal storage) or two (external storage).
+//! 11. **Pattern copies.** `CopySmallPattern8b` and `CopySmallPattern32b` test
+//!     the address of the destination for alignment, as C does, and store the
+//!     pattern through its native bytes; the 64-bit swap is `rotate_left(32)`.
+//!     The `goto Copy` of `CopyBlock8b` is a fallthrough when no pattern
+//!     applies.
+//! 12. **`DecodeImageData`'s jumps.** The `goto AdvanceByOne` and `goto Error`
+//!     of the decode loop are a labeled block that yields whether to advance,
+//!     and a flag; the order of every read, write, check-point and row callback
+//!     is C's.
+//! 13. **Lint expectations.** `VP8Io` keeps its flags
+//!     (`struct_excessive_bools`); the C names `dst` and `dist`,
+//!     `huffman_xsize` and `huffman_ysize`, `transform_xsize` and
+//!     `transform_ysize` stay (`similar_names`); the pointer-alignment tests
+//!     keep their masks (`verbose_bit_mask`); the two `None` branches of
+//!     `VP8LGetInfo` stay apart (`if_same_then_else`); the debug assertion of
+//!     `DecodeImageData` keeps its C form (`nonminimal_bool`);
+//!     `ReadHuffmanCodesHelper` and `DecodeImageData` keep their length
+//!     (`too_many_lines`), and functions with the C parameters plus the
+//!     per-call context keep them (`too_many_arguments`). Each names the C
+//!     construct (ADR 0005).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8LDecodeImage` after it failed or completed: C asserts that the
+//!    Huffman tables exist and that `last_row` grows. The tests stop after a
+//!    failure or when the status is no longer `VP8_STATUS_SUSPENDED`, as the
+//!    incremental decoder does.
+//! 2. `VP8LDecodeAlphaImageStream` with `last_row` above the height or the crop
+//!    bottom (C asserts), or without a decoded alpha header.
+//! 3. Output buffers smaller than the decoded area, or whose planes overlap, or
+//!    a `WebPDecBufferPlanes` variant that does not match the colorspace: C
+//!    writes outside the buffer or reads the other union member; Rust panics.
+//! 4. `ReadHuffmanCodesHelper` with a mapping that leaves groups unfilled or
+//!    maps outside them, or with color cache bits outside 0 to 11: C reads
+//!    uninitialized groups or indexes `kTableSize` outside its bounds.
+//! 5. `WebPISetIOHooks` combined with a lossless image: C reads the user data
+//!    as `WebPDecParams` in `VP8LDecodeImage`. The Rust decoder takes the
+//!    parameters per call, so this case is defined there; it belongs to the
+//!    incremental decoder (`src/dec/idec_dec.rs`).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **No `put` hook in VP8L.** `VP8LDecodeImage` writes the rows into the
+//!    output buffer itself and calls none of the `VP8Io` hooks; the ARGB rows
+//!    that a `put` callback would receive are therefore compared in the output
+//!    buffer, after the header and after every step, including the bytes
+//!    outside the decoded area. The hooks are called by `frame_dec.c`
+//!    (`src/dec/frame_dec.rs`), and `tests/wp6_decode.rs` tests them.
+//! 2. **`Init` functions.** `VP8LDspInit` (in `VP8LNew`),
+//!    `WebPInitAlphaProcessing` and `WebPInitConvertARGBToYUV` (in
+//!    `VP8LDecodeImage` and `VP8LDecodeAlphaImageStream`) only assign portable
+//!    pointers, and ADR 0003 omits them with an `// upstream:` comment. The
+//!    alpha probe calls `VP8FiltersInit`, as `ALPHInit` does before the VP8L
+//!    alpha calls.
+//! 3. **`WEBP_REDUCE_SIZE`** is unset in the reference configuration, so the
+//!    rescaling branches are translated and its `else` branches (which reject
+//!    scaling with `VP8_STATUS_INVALID_PARAM`) are not compiled.
+//! 4. **Host refusals of an allocation.** The size test of `WebPSafeMalloc` is
+//!    applied with the C sizes, but a refusal by the host of an accepted size
+//!    cannot be provoked here; the Rust code returns `VP8_STATUS_OUT_OF_MEMORY`
+//!    where C does. `VP8LNew` allocates a fixed-size structure, whose size test
+//!    always passes (`# Deviations from upstream`, item 8).
+//! 5. **Big-endian hosts.** `Rotate8b`, the two-byte pattern of `CopyBlock8b`,
+//!    the alpha byte of `ConvertToYUVA` and the native byte order of the casts
+//!    keep both branches; the host is little-endian, so the tests compare the
+//!    little-endian branches only.
+//! 6. **32-bit ARM and MIPS branches of `CopyBlock8b`** (`__arm__`,
+//!    `WEBP_USE_MIPS_DSP_R2`) compute the same pattern values as the
+//!    multiplication; neither target is built.
+//! 7. **`NULL` arguments.** `VP8LDecodeHeader(NULL, ...)`,
+//!    `VP8LDecodeHeader(dec, NULL)` (which records `VP8_STATUS_INVALID_PARAM`),
+//!    `VP8LDecodeImage(NULL)`, `VP8LGetInfo(NULL, ...)` and its `NULL`
+//!    out-parameters exist only at the C ABI (PORTING rule 8); these headers
+//!    are not public.
+//! 8. **Uninitialized C memory.** `VP8LHtreeGroupsNew` does not initialize the
+//!    groups, and C sets `literal_arb` only for a trivial literal and the
+//!    packed table only when it is used; the probes print them only then. The
+//!    pixel and transform buffers come from `WebPSafeMalloc` and are written
+//!    before they are read; Rust zero-initializes them (ADR 0003).
+//! 9. **Threads.** The VP8L decoder starts no worker.
+//! 10. **Floating point.** No function translated here computes in floating
+//!     point.
+//! 11. **Type sizes.** This module allocates no array of a type of its own; the
+//!     C sizes it uses are those of `HuffmanCode`, `HTreeGroup` and
+//!     `WebPRescaler`, which their modules compare with the C `sizeof`, and of
+//!     `int` and `uint32_t`.
 
 use crate::dec::alphai_dec::ALPHDecoder;
 use crate::dec::vp8_dec::VP8Io;

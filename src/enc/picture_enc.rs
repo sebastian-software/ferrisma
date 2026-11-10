@@ -22,6 +22,98 @@
 //! The plane helpers at the end of this file have no C counterpart. They give the
 //! picture functions of this package mutable access to several planes of one
 //! storage at once, which C does with plain pointers (ADR 0003).
+//!
+//! # Functions that write planes in place
+//!
+//! A consumer that needs to write into a picture's planes must know which
+//! functions write into their argument (ADR 0003, "Shared views"). A view has
+//! no mutable access; each function in the first group panics when the
+//! argument is a view.
+//!
+//! - **Write in place into the argument's planes:**
+//!   - `WebPCleanupTransparentArea`: the Y, U and V planes (YUV), or the ARGB
+//!     samples.
+//!   - `WebPBlendAlpha`: the Y, U, V and A planes (YUV), or the ARGB samples.
+//!   - `WebPReplaceTransparentPixels`: the ARGB samples.
+//!   - `WebPPictureRescale`: before rescaling, multiplies the source's luma by
+//!     its alpha (YUV with alpha) or the ARGB samples by their alpha. The call
+//!     leaves them multiplied when it fails, as C does; on success the picture
+//!     is replaced.
+//! - **Write only to planes that they allocate for the argument**, which
+//!   releases the caller's planes without writing them: `WebPPictureAlloc` and
+//!   its allocators, `WebPPictureImport*`, `WebPPictureARGBToYUVA` and its
+//!   forms, and `WebPPictureYUVAToARGB`.
+//! - **Read the argument and write only new planes:** `WebPPictureCrop`,
+//!   `WebPPictureCopy`, `WebPPictureView` (no write at all),
+//!   `WebPPictureDistortion` (it writes only the ARGB planes of its two views),
+//!   `WebPPictureHasTransparency` and `WebPPlaneDistortion`.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Errors.** `WebPEncodingSetError` returns the code that the picture
+//!    holds afterwards, which is the code that a caller propagates with `Err`.
+//!    The setter keeps the oldest error, as C does. Functions whose every
+//!    failure path goes through the setter return
+//!    `Result<(), WebPEncodingError>`: `WebPValidatePicture`, the allocators,
+//!    `WebPPictureAlloc`, the ARGB-to-YUVA conversions,
+//!    `WebPPictureYUVAToARGB`, `WebPPictureRescale`, `WebPPictureCopy` and
+//!    `WebPReportProgress`. Functions with a failure that records no code stay
+//!    `bool`, with the code left on the picture as in C: `WebPPictureImport*`
+//!    (the stride test), `WebPPictureCrop` (the rectangle test),
+//!    `WebPPlaneDistortion`, `WebPPictureDistortion`, `WebPMemoryWrite`, and
+//!    the predicates. `WebPPictureView` returns `Option` (its failure records
+//!    no code).
+//! 2. **Mutable receivers.** `WebPValidatePicture`, `WebPEncodingSetError` and
+//!    `WebPReportProgress` take `&mut WebPPicture`, where C takes `const` and
+//!    casts it away to record the error.
+//! 3. **Zero-initialization.** Allocated planes are zero-filled, as ADR 0003
+//!    requires. A large successful allocation therefore touches its memory; C
+//!    does not.
+//! 4. **Negative strides.** A row start before the start of its slice panics. C
+//!    reads memory before the pointer in that case, which is valid only when
+//!    the caller's memory extends there. The safe encoder API
+//!    (`src/api/encode.rs`, ADR 0006) decides whether it takes a base offset;
+//!    the panic is accepted for now.
+//! 5. **`WebPMemoryWriter.mem`.** Its length is `max_size`, and
+//!    `WebPMemoryWrite` keeps `size` in step with it (`WebPMemoryWriter` in
+//!    `src/webp/encode.rs`). `WebPMemoryWriterInit` leaves `mem` empty, which
+//!    is C's `NULL`.
+//!
+//! The version checks of `WebPPictureInitInternal` are recorded with those of
+//! `WebPConfigInitInternal` in `src/enc/config_enc.rs`,
+//! `# Deviations from upstream`, item 1.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`WEBP_REDUCE_CSP` and `WEBP_REDUCE_SIZE`** are undefined, so the BGR
+//!    functions of the simple API exist, and so do `WebPPictureCopy`, `Crop`
+//!    and `Rescale` in the C ABI.
+//! 2. `NULL` arguments of every function of the config and picture modules
+//!    (`src/enc/config_enc.rs`, `src/enc/picture_*.rs`): `picture`, `config`,
+//!    the source and destination pictures, the `bgr`, `rgba` and similar
+//!    buffers, and the planes of `WebPPlaneDistortion`. Rust takes references,
+//!    so the checks have no counterpart; the ABI mirror (`src/abi/encode.rs`,
+//!    ADR 0004) keeps them.
+//! 3. Zero dimensions and zero-sized allocations. `WebPValidatePicture` rejects
+//!    them before anything is allocated, which the allocation and validation
+//!    tests of `tests/wp9_picture.rs` compare.
+//! 4. Allocation limits at the byte level. The arithmetic of the allocation
+//!    test is that of `WebPSafeMalloc` (`tests/wp1_alloc.rs`).
+//!    `tests/wp9_picture.rs` compares the pictures that the limit rejects
+//!    before allocating, and not successful large allocations: C leaves them
+//!    uncommitted, while Rust zero-fills them (ADR 0003), which would touch the
+//!    memory.
+//! 5. Negative strides and negative dimensions. A Rust slice cannot address
+//!    rows before its start, so a negative row start panics (item 4 of
+//!    `# Deviations from upstream`). The tests do not generate them.
+//!    `WebPPlaneDistortion` with a negative width returns `false` in C and Rust
+//!    by the same comparison, but is not compared.
+//! 6. SIMD and threads: none in the reference configuration.
 
 use crate::enc::webp_enc::webp_encoding_set_error;
 use crate::utils::utils::{WEBP_ALIGN_CST, webp_safe_malloc};

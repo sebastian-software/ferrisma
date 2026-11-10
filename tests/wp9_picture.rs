@@ -6,6 +6,11 @@
 //! in separate processes; this test runs the same calls on the Rust translation and
 //! compares the return values, the error codes, the strides, the null flags and the
 //! visible samples of the planes.
+//!
+//! Not applicable: samples that the library allocates and has not written yet. The
+//! import and conversion tests compare only the visible samples of the planes, never
+//! the padding, and the probes print the caller's buffers whole only where the caller
+//! supplied them.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -305,7 +310,8 @@ fn importers_match_the_c_importers_on_padded_strides() {
 
                     // Upstream reads RGBA rows through a `uint32_t*` cast, which is undefined when a
                     // row starts off a 4-byte boundary (UBSan reports it). These inputs are excluded
-                    // from the oracle comparison; the status page records the case.
+                    // from the oracle comparison (`src/enc/picture_csp_enc.rs`,
+                    // `# Excluded undefined behavior`).
                     if kind == "rgba" && use_argb == 1 && stride % 4 != 0 && height > 1 {
                         continue;
                     }
