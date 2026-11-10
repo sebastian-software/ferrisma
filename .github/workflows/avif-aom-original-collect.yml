@@ -156,7 +156,7 @@ jobs:
         chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
         python3 - <<'PY'
         import json, os, pathlib, subprocess
-        repository = 'sebastian-software/libavif-rs'
+        repository = os.environ['GITHUB_REPOSITORY']
         source, continuation, repair = [int(os.environ[key]) for key in ('SOURCE_RUN', 'CONTINUATION_RUN', 'REPAIR_RUN')]
         def api(path):
             return json.loads(subprocess.check_output(['gh', 'api', f'repos/{repository}/{path}'], text=True))
@@ -166,11 +166,11 @@ jobs:
         previous, repaired = api(f'actions/runs/{continuation}'), api(f'actions/runs/{repair}')
         if (previous['status'] != 'completed' or previous['conclusion'] != 'failure'
                 or repaired['status'] != 'completed' or repaired['conclusion'] != 'success'
-                or repaired['path'].split('@')[0] != '.github/workflows/aom-rate-control-fixtures.yml'):
+                or repaired['path'].split('@')[0] != '.github/workflows/avif-aom-rate-control-fixtures.yml'):
             raise ValueError('Require completed original evidence and a successful guarded fixture repair')
         jobs = pages(f'actions/runs/{continuation}/jobs?per_page=25', 'jobs')
         failed = [j for j in jobs if j['conclusion'] not in ('success', 'skipped')]
-        if len(failed) != 1 or failed[0]['name'] != 'paired (test_aom_rc, 1, 0)' or failed[0]['conclusion'] != 'failure':
+        if len(failed) != 1 or failed[0]['name'] != 'AVIF: paired (test_aom_rc, 1, 0)' or failed[0]['conclusion'] != 'failure':
             raise ValueError('Another failed or incomplete original job cannot be hidden by fixture recovery')
         build = pathlib.Path('build')
         if json.loads((build / 'aom-release-source-plan.json').read_text()) != json.loads((build / 'aom-rc-fixture-failure/aom-release-source-plan.json').read_text()):
