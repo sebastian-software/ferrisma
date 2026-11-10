@@ -1,0 +1,10 @@
+passes-vardct-xyb-3	fs-encode-passes 264 16 0 0 1 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 1 1 -1
+passes-vardct-xyb-2	fs-encode-passes 264 16 0 0 1 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 1 -1 1
+passes-vardct-xyb-3-dc	fs-encode-passes 264 16 0 0 1 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 1 0 1 1 1 1 -1
+passes-vardct-xyb-3-alpha	fs-encode-passes 264 16 0 1 1 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 1 1 -1
+passes-vardct-gray-3	fs-encode-passes 264 16 1 0 1 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 1 1 -1
+passes-vardct-none-3	fs-encode-passes 264 16 0 0 0 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 1 1 -1
+passes-vardct-xyb-3-wide	fs-encode-passes 520 8 0 0 1 0 0 0 1 0 0 0 1 0 0 0 0 2 1 0 0 520 8 0 0 5 0 0 1 1 1 1 -1
+passes-modular-lossless-2	fs-encode-passes 264 16 0 0 0 0 0 0 1 1 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 0 1 -1
+passes-modular-xyb-3	fs-encode-passes 264 16 0 0 1 0 0 0 1 1 0 0 1 0 0 0 0 2 1 0 0 264 16 0 0 3 0 0 1 1 0 1 -1
+passes-sequence-blend	fs-encode-passes 264 16 0 0 1 1 0 0 2 0 0 0 0 1 1 0 0 2 1 0 0 264 16 5 0 1 0 0 1 1 1 1 -1 0 0 0 1 0 1 0 1 1 1 0 0 264 16 7 0 2 0 0 1 1 1 1 -1

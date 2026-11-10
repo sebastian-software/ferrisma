@@ -1,0 +1,218 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'JPEG: Checks'
+'on':
+  workflow_dispatch: null
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: jpeg-check-${{ github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  CARGO_TERM_COLOR: always
+  CC: clang
+defaults:
+  run:
+    shell: bash
+jobs:
+  checks:
+    name: 'JPEG: Checks (${{ matrix.os }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os:
+        - ubuntu-latest
+        - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize the pinned JPEG reference
+      run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
+    - name: Install the shared lint toolchain
+      run: rustup toolchain install stable --profile minimal --component clippy
+    - name: Check the pin, skeleton, links, formatting, Clippy and tests
+      run: python3 tools/check.py
+    defaults:
+      run:
+        working-directory: codecs/libjpeg-turbo-rs
+  msrv:
+    name: 'JPEG: MSRV (Rust 1.95, ${{ matrix.os }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os:
+        - ubuntu-latest
+        - ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Fetch shared dependencies
+      run: cargo fetch --locked
+    - name: Build and test with the rust-version toolchain
+      run: |
+        rustup toolchain install 1.95 --profile minimal
+        cargo +1.95 test --locked
+    defaults:
+      run:
+        working-directory: codecs/libjpeg-turbo-rs
+  oracle:
+    name: 'JPEG: Oracle (${{ matrix.os }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os:
+        - ubuntu-latest
+        - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize the pinned JPEG reference
+      run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
+    - name: Build the release and asan-ubsan oracles
+      run: python3 tools/build_oracle.py --variant reference
+    - name: Restore the ISO/IEC 10918-2 compliance data
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: codecs/libjpeg-turbo-rs/build/t83/T83_data_files.zip
+        key: t83-9f5ed0a74a3087c6c93f4cbb0bd5128c2a87b128e4f59f5b6649e32941da7069
+    - name: Fetch and verify the compliance data
+      run: python3 tools/fetch_t83.py
+    - name: Upstream's whole test suite against both oracles
+      run: |
+        python3 tools/bittests.py --run --all --variant release --jobs 4
+        python3 tools/bittests.py --run --all --variant asan-ubsan --jobs 4
+    - name: In-scope bit tests and differential tests against the release oracle
+      run: python3 tools/check.py --stage test --oracle-variant release
+    - name: In-scope bit tests and differential tests against the asan-ubsan oracle
+      run: python3 tools/check.py --stage test --oracle-variant asan-ubsan
+    - name: Keep the oracle records
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jpeg-oracle-${{ matrix.os }}
+        path: |
+          codecs/libjpeg-turbo-rs/build/oracle/*/oracle.json
+          codecs/libjpeg-turbo-rs/build/oracle/*/bittests-result.json
+          codecs/libjpeg-turbo-rs/build/t83/t83.json
+        if-no-files-found: error
+        retention-days: 30
+    defaults:
+      run:
+        working-directory: codecs/libjpeg-turbo-rs
+  simd:
+    name: 'JPEG: SIMD oracle (${{ matrix.os }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os:
+        - macos-latest
+        - ubuntu-24.04-arm
+        - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize the pinned JPEG reference
+      run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
+    - name: Install NASM for the x86-64 SIMD extensions
+      if: runner.arch == 'X64'
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes --no-install-recommends nasm
+    - name: Build the simd oracle
+      run: python3 tools/build_oracle.py --variant simd
+    - name: Restore the ISO/IEC 10918-2 compliance data
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: codecs/libjpeg-turbo-rs/build/t83/T83_data_files.zip
+        key: t83-9f5ed0a74a3087c6c93f4cbb0bd5128c2a87b128e4f59f5b6649e32941da7069
+    - name: Fetch and verify the compliance data
+      run: python3 tools/fetch_t83.py
+    - name: Upstream's whole test suite against the simd oracle
+      run: python3 tools/bittests.py --run --all --variant simd --jobs 4
+    - name: In-scope bit tests and differential tests in each SIMD mode
+      run: python3 tools/check.py --stage test --oracle-variant simd
+    - name: Keep the oracle records
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jpeg-oracle-simd-${{ matrix.os }}
+        path: |
+          codecs/libjpeg-turbo-rs/build/oracle/*/oracle.json
+          codecs/libjpeg-turbo-rs/build/oracle/*/bittests-result.json
+          codecs/libjpeg-turbo-rs/build/t83/t83.json
+        if-no-files-found: error
+        retention-days: 30
+    defaults:
+      run:
+        working-directory: codecs/libjpeg-turbo-rs
+  bench:
+    name: 'JPEG: Bench (${{ matrix.os }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os:
+        - ubuntu-latest
+        - ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize the pinned JPEG reference
+      run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
+    - name: Install NASM for the x86-64 SIMD extensions
+      if: runner.arch == 'X64'
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes --no-install-recommends nasm
+    - name: Measure the decode speed against libjpeg-turbo
+      run: python3 tools/bench.py
+    - name: Keep the record
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jpeg-bench-${{ matrix.os }}
+        path: codecs/libjpeg-turbo-rs/build/bench/results.json
+        if-no-files-found: error
+        retention-days: 30
+    defaults:
+      run:
+        working-directory: codecs/libjpeg-turbo-rs
+  checks-passed:
+    name: 'JPEG: Checks passed'
+    if: always()
+    needs:
+    - checks
+    - msrv
+    - oracle
+    - simd
+    - bench
+    runs-on: ubuntu-latest
+    steps:
+    - name: Require every job to pass
+      env:
+        RESULTS: ${{ join(needs.*.result, ' ') }}
+      run: |
+        echo "Job results: $RESULTS"
+        for result in $RESULTS; do [ "$result" = success ] || exit 1; done

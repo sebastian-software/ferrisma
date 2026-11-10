@@ -1,0 +1,20 @@
+{
+  "source_revision": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
+  "capture": "Actual original GetWriteToOutputStage and MemoryManagerInit/Alloc/Free in ordinary and ASan/UBSan graphs; source stdout identical, no diagnostics. Inputs are constant to keep native ARM/x86 row-prefix offsets out of sample selection. Layout captures require the supported64-bit matrix.",
+  "cases": [
+    "default-null-input",
+    "self-aliased-mixed-pair",
+    "self-aliased-default-zero-size",
+    "transposed-associated-float-callback-and-half-buffer",
+    "oriented-default-uint8-buffer",
+    "null-manager-retains-initialized-callback",
+    "failed-reprepare-retains-previous-scratch",
+    "retained-manager-current-functions",
+    "callback-priority-preserves-present-caller-buffer"
+  ],
+  "fixture_sha256": "40dc9893066958e7ecb4e7ddf2e0228acff86f8bb04377754b0dd9227ad06976",
+  "binaries": {
+    "oracle": "a8df91582d6b8d9ed3d5e92d9f9490f8a351e2a4593a0f6464afb1c4f79d745b",
+    "oracle-asan": "abd81952036e0b5ccf6c62c630adabc8979af8d90caaa15a88513edee2839636"
+  }
+}

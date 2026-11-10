@@ -1,0 +1,1857 @@
+// libjpeg-turbo 3.2.1, src/jpeglib.h:
+//
+// /*
+//  * jpeglib.h
+//  *
+//  * This file was part of the Independent JPEG Group's software:
+//  * Copyright (C) 1991-1998, Thomas G. Lane.
+//  * Modified 2002-2009 by Guido Vollbeding.
+//  * Lossless JPEG Modifications:
+//  * Copyright (C) 1999, Ken Murchison.
+//  * libjpeg-turbo Modifications:
+//  * Copyright (C) 2009-2011, 2013-2014, 2016-2017, 2020, 2022-2024,
+//              D. R. Commander.
+//  * Copyright (C) 2015, Google, Inc.
+//  * For conditions of distribution and use, see the accompanying README.ijg
+//  * file.
+//  *
+//  * This file defines the application interface for the JPEG library.
+//  * Most applications using the library need only include this file,
+//  * and perhaps jerror.h if they want to know the exact error codes.
+//  */
+//! Translation of `src/jpeglib.h` from libjpeg-turbo 3.2.1.
+//!
+//! Work package: 1 (Common infrastructure).
+//!
+//! Translated for `JPEG_LIB_VERSION` 62, as `jconfig.h` defines it: the fields
+//! and functions guarded by `JPEG_LIB_VERSION >= 70` or `>= 80` are absent.
+//! The compression object, its parameter types (`jpeg_scan_info`,
+//! `jpeg_destination_mgr`) and the 12- and 16-bit sample types are out of
+//! scope (ADR 0001). Pointer types follow ADR 0005: a sample or block array is
+//! one owned buffer with a list of row offsets ([`SampleArray`],
+//! [`BlockArray`]), viewed through [`JSAMPROWS`] and [`JSAMPROWS_MUT`].
+//!
+//! `jpeg_decompress_struct` holds the fields of work packages 1 to 5. Work
+//! package 4 adds `idct`, the implementation of `coef`,
+//! `jpeg_component_info::dct_table` and `sample_range_limit`, which the IDCT
+//! is the first to read; `jdmaster.c` fills it in work package 6. Work
+//! package 5 adds `main`, `post`, `upsample` and `cconvert`. The color
+//! quantizer's slot `cquantize` and `colormap` serve color quantization,
+//! which is out of scope (ADR 0001), and are absent (ADR 0005, "Module
+//! interfaces arrive with their modules"). The function declarations of this
+//! header are translated in the modules that define them.
+
+use core::ffi::c_long;
+
+use crate::jdcoefct::my_coef_controller;
+use crate::jdcolor::my_color_deconverter;
+use crate::jddctmgr::{multiplier_table, my_idct_controller};
+use crate::jdinput::my_input_controller;
+use crate::jdmainct::my_main_controller;
+use crate::jdmarker::my_marker_reader;
+use crate::jdmaster::my_decomp_master;
+use crate::jdpostct::my_post_controller;
+use crate::jerror::{ErrorExit, jpeg_error_methods};
+use crate::jmemmgr::my_memory_mgr;
+use crate::jmorecfg::{
+    C_BOOLEAN, C_INT, C_JDIMENSION, C_POINTER, CLayout, JCOEF, JDIMENSION, JOCTET, JSAMPLE, UINT8,
+    UINT16,
+};
+use crate::jpegint::{
+    jpeg_color_deconverter, jpeg_d_coef_controller, jpeg_d_main_controller, jpeg_d_post_controller,
+    jpeg_entropy_decoder, jpeg_entropy_decoder_impl, jpeg_inverse_dct, jpeg_upsampler,
+    jpeg_upsampler_impl,
+};
+
+// upstream: src/jpeglib.h DCTSIZE
+/// The basic DCT block is 8x8 samples.
+pub const DCTSIZE: usize = 8;
+// upstream: src/jpeglib.h DCTSIZE2
+/// `DCTSIZE` squared; the number of elements in a block.
+pub const DCTSIZE2: usize = 64;
+// upstream: src/jpeglib.h NUM_QUANT_TBLS
+/// Quantization tables are numbered 0..3.
+pub const NUM_QUANT_TBLS: usize = 4;
+// upstream: src/jpeglib.h NUM_HUFF_TBLS
+/// Huffman tables are numbered 0..3.
+pub const NUM_HUFF_TBLS: usize = 4;
+// upstream: src/jpeglib.h NUM_ARITH_TBLS
+/// Arith-coding tables are numbered 0..15.
+pub const NUM_ARITH_TBLS: usize = 16;
+// upstream: src/jpeglib.h MAX_COMPS_IN_SCAN
+/// JPEG limit on the number of components in one scan.
+pub const MAX_COMPS_IN_SCAN: usize = 4;
+// upstream: src/jpeglib.h MAX_SAMP_FACTOR
+/// JPEG limit on sampling factors.
+pub const MAX_SAMP_FACTOR: i32 = 4;
+// upstream: src/jpeglib.h D_MAX_BLOCKS_IN_MCU
+/// The decompressor's limit on data units per MCU.
+pub const D_MAX_BLOCKS_IN_MCU: usize = 10;
+
+/// How far C's `sample_range_limit` points into its allocation:
+/// `MAXJSAMPLE + 1` samples, which `jdmaster.c`'s
+/// `prepare_range_limit_table` skips "to allow negative subscripts of simple
+/// table". Not an upstream item.
+pub const SAMPLE_RANGE_LIMIT_OFFSET: usize = (crate::jmorecfg::MAXJSAMPLE + 1) as usize;
+
+/// C's `sample_range_limit` pointer as the color converters and merged
+/// upsamplers index it: below zero too, down to `-(MAXJSAMPLE + 1)`. Not an
+/// upstream item.
+#[derive(Clone, Copy, Debug)]
+pub struct SampleRangeLimit<'a> {
+    /// The whole allocation of `prepare_range_limit_table`.
+    pub table: &'a [JSAMPLE],
+}
+
+impl SampleRangeLimit<'_> {
+    /// `range_limit[i]`.
+    ///
+    /// # Panics
+    ///
+    /// When `i` lies outside the table, where C would read out of bounds.
+    #[expect(
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        reason = "C's signed subscript of a pointer into the table"
+    )]
+    #[inline]
+    #[must_use]
+    #[expect(clippy::cast_possible_truncation, reason = "C's conversions")]
+    pub fn at(&self, i: i32) -> JSAMPLE {
+        self.table[(SAMPLE_RANGE_LIMIT_OFFSET as i32 + i) as usize]
+    }
+}
+
+// upstream: src/jpeglib.h JBLOCK
+/// One block of coefficients.
+pub type JBLOCK = [JCOEF; DCTSIZE2];
+
+/// `sizeof(JBLOCK)` on the target.
+pub const SIZEOF_JBLOCK: usize = CLayout::of::<JCOEF>().array(DCTSIZE2).size;
+/// `sizeof(JSAMPROW)`, a pointer, on the target.
+pub const SIZEOF_JSAMPROW: usize = C_POINTER.size;
+/// `sizeof(JBLOCKROW)`, a pointer, on the target.
+pub const SIZEOF_JBLOCKROW: usize = C_POINTER.size;
+
+/// A 2-D array of `T` as `alloc_sarray` or `alloc_barray` returns it: one
+/// buffer with the row stride the allocator chose, and the offset of each row
+/// in it, where C keeps an array of row pointers (ADR 0005, "Storage and row
+/// lists"). Not an upstream item; [`SampleArray`] and [`BlockArray`] name its
+/// two uses.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RowArray<T> {
+    /// The storage of every row.
+    pub buffer: Vec<T>,
+    /// `rows[i]` is the offset of row `i` in `buffer`.
+    pub rows: Vec<usize>,
+}
+
+/// A sample array from `alloc_sarray`; C's `JSAMPARRAY` with its storage.
+pub type SampleArray = RowArray<JSAMPLE>;
+/// A coefficient-block array from `alloc_barray`; C's `JBLOCKARRAY` with its
+/// storage.
+pub type BlockArray = RowArray<JBLOCK>;
+
+impl<T> RowArray<T> {
+    /// Row `i`: the storage from its offset to the end of the buffer, so that
+    /// code may run past a row into the alignment padding as C does.
+    #[must_use]
+    pub fn row(&self, i: usize) -> &[T] {
+        &self.buffer[self.rows[i]..]
+    }
+
+    /// Row `i`, mutably; see [`RowArray::row`].
+    pub fn row_mut(&mut self, i: usize) -> &mut [T] {
+        &mut self.buffer[self.rows[i]..]
+    }
+
+    /// The whole array as input rows.
+    #[must_use]
+    pub fn as_rows(&self) -> RowList<'_, T> {
+        RowList {
+            storage: &self.buffer,
+            rows: &self.rows,
+        }
+    }
+
+    /// The whole array as output rows.
+    pub fn as_rows_mut(&mut self) -> RowListMut<'_, '_, T> {
+        RowListMut::Shared {
+            storage: &mut self.buffer,
+            rows: &self.rows,
+        }
+    }
+}
+
+/// Read access to rows of a [`RowArray`]: C's row-pointer array passed as
+/// input (ADR 0005). Pointer arithmetic on the row array (`input_buf + n`)
+/// is [`RowList::offset`]. Not an upstream item.
+#[derive(Clone, Copy, Debug)]
+pub struct RowList<'a, T> {
+    /// The storage the rows lie in.
+    pub storage: &'a [T],
+    /// The offset of each row in `storage`.
+    pub rows: &'a [usize],
+}
+
+/// Input sample rows, C's `JSAMPARRAY` as a parameter.
+pub type JSAMPROWS<'a> = RowList<'a, JSAMPLE>;
+/// Input block rows, C's `JBLOCKARRAY` as a parameter.
+pub type JBLOCKROWS<'a> = RowList<'a, JBLOCK>;
+
+impl<'a, T> RowList<'a, T> {
+    /// The number of rows.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    /// Whether there are no rows.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+
+    /// Row `i`, from its start to the end of the storage.
+    #[must_use]
+    pub fn row(&self, i: usize) -> &'a [T] {
+        &self.storage[self.rows[i]..]
+    }
+
+    /// The rows from row `n` on: C's `array + n`.
+    #[must_use]
+    pub fn offset(&self, n: usize) -> RowList<'a, T> {
+        RowList {
+            storage: self.storage,
+            rows: &self.rows[n..],
+        }
+    }
+}
+
+/// Read access to rows through a pointer into a longer row list: C's
+/// `JSAMPARRAY` that points into the middle of a list, so that the callee
+/// may also index rows before its first one, as `jdsample.c`'s fancy
+/// upsamplers read the context row above through `jdmainct.c`'s "funny"
+/// pointer lists (ADR 0005, "Storage and row lists"). Row `i` is
+/// `rows[origin + i]`; pointer arithmetic on the array (`input_buf[ci] + n`)
+/// is [`RowListAt::offset`]. Not an upstream item.
+#[derive(Clone, Copy, Debug)]
+pub struct RowListAt<'a, T> {
+    /// The storage the rows lie in.
+    pub storage: &'a [T],
+    /// The whole row list: the offset of each row in `storage`.
+    pub rows: &'a [usize],
+    /// The index in `rows` of row 0.
+    pub origin: usize,
+}
+
+/// Input sample rows that may be read before row 0, C's `JSAMPARRAY` into a
+/// longer pointer list.
+#[expect(non_camel_case_types, reason = "named after the C type")]
+pub type JSAMPROWS_AT<'a> = RowListAt<'a, JSAMPLE>;
+
+impl<'a, T> RowListAt<'a, T> {
+    /// Row `i` relative to the origin, from its start to the end of the
+    /// storage; `i` may be negative down to `-origin`.
+    ///
+    /// # Panics
+    ///
+    /// When the row lies outside the list.
+    #[must_use]
+    pub fn row(&self, i: isize) -> &'a [T] {
+        let index = self
+            .origin
+            .checked_add_signed(i)
+            .expect("row before the start of the pointer list");
+        &self.storage[self.rows[index]..]
+    }
+
+    /// The rows from row `n` on: C's `array + n`.
+    #[must_use]
+    pub fn offset(&self, n: usize) -> RowListAt<'a, T> {
+        RowListAt {
+            storage: self.storage,
+            rows: self.rows,
+            origin: self.origin + n,
+        }
+    }
+
+    /// The rows from row 0 on as a plain row list, which cannot reach the
+    /// rows before it.
+    #[must_use]
+    pub fn rows_from_origin(&self) -> RowList<'a, T> {
+        RowList {
+            storage: self.storage,
+            rows: &self.rows[self.origin..],
+        }
+    }
+}
+
+/// Write access to rows: either rows of one [`RowArray`] (`Shared`), or rows
+/// that an application passes and that may lie anywhere (`Separate`), as
+/// `jpeg_read_scanlines` and `jpeg_read_raw_data` receive them (ADR 0005,
+/// "Caller rows"). Not an upstream item.
+#[derive(Debug)]
+pub enum RowListMut<'a, 'r, T> {
+    /// Rows at offsets into one storage.
+    Shared {
+        /// The storage the rows lie in.
+        storage: &'a mut [T],
+        /// The offset of each row in `storage`.
+        rows: &'a [usize],
+    },
+    /// Separate row slices.
+    Separate(&'a mut [&'r mut [T]]),
+}
+
+/// Output sample rows, C's `JSAMPARRAY` as an output parameter.
+#[expect(non_camel_case_types, reason = "named after the C type")]
+pub type JSAMPROWS_MUT<'a, 'r> = RowListMut<'a, 'r, JSAMPLE>;
+/// Output block rows, C's `JBLOCKARRAY` as an output parameter.
+#[expect(non_camel_case_types, reason = "named after the C type")]
+pub type JBLOCKROWS_MUT<'a, 'r> = RowListMut<'a, 'r, JBLOCK>;
+
+impl<'r, T: Copy> RowListMut<'_, 'r, T> {
+    /// The number of rows.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        match self {
+            RowListMut::Shared { rows, .. } => rows.len(),
+            RowListMut::Separate(rows) => rows.len(),
+        }
+    }
+
+    /// Whether there are no rows.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Row `i`; a `Shared` row extends to the end of the storage.
+    #[must_use]
+    pub fn row(&self, i: usize) -> &[T] {
+        match self {
+            RowListMut::Shared { storage, rows } => &storage[rows[i]..],
+            RowListMut::Separate(rows) => rows[i],
+        }
+    }
+
+    /// Row `i`, mutably.
+    pub fn row_mut(&mut self, i: usize) -> &mut [T] {
+        match self {
+            RowListMut::Shared { storage, rows } => &mut storage[rows[i]..],
+            RowListMut::Separate(rows) => rows[i],
+        }
+    }
+
+    /// A shorter-lived view of the same rows, for passing on.
+    pub fn reborrow(&mut self) -> RowListMut<'_, 'r, T> {
+        match self {
+            RowListMut::Shared { storage, rows } => RowListMut::Shared { storage, rows },
+            RowListMut::Separate(rows) => RowListMut::Separate(rows),
+        }
+    }
+
+    /// The rows from row `n` on: C's `array + n`.
+    pub fn offset(&mut self, n: usize) -> RowListMut<'_, 'r, T> {
+        match self {
+            RowListMut::Shared { storage, rows } => RowListMut::Shared {
+                storage,
+                rows: &rows[n..],
+            },
+            RowListMut::Separate(rows) => RowListMut::Separate(&mut rows[n..]),
+        }
+    }
+
+    /// Rows `first` and `first + 1` at once, for a routine that writes two
+    /// rows of one output array, as `jdmerge.c`'s `merged_2v_upsample` does.
+    ///
+    /// # Panics
+    ///
+    /// When `Shared` rows are not in ascending order of storage.
+    pub fn two_rows_mut(&mut self, first: usize) -> (&mut [T], &mut [T]) {
+        match self {
+            RowListMut::Shared { storage, rows } => {
+                let (low, high) = storage.split_at_mut(rows[first + 1]);
+                (&mut low[rows[first]..], high)
+            }
+            RowListMut::Separate(rows) => {
+                let (low, high) = rows.split_at_mut(first + 1);
+                (&mut *low[first], &mut *high[0])
+            }
+        }
+    }
+
+    /// Copies the first `count` elements of row `source` onto row `dest` of
+    /// the same rows, as `jcopy_sample_rows` does when its input and output
+    /// arrays are one array (ADR 0005, "Caller rows"). Rows that share storage
+    /// may overlap, as `memcpy`'s callers allow upstream only for distinct
+    /// rows; the copy behaves like `memmove`.
+    pub fn copy_row(&mut self, source: usize, dest: usize, count: usize) {
+        match self {
+            RowListMut::Shared { storage, rows } => {
+                let from = rows[source];
+                storage.copy_within(from..from + count, rows[dest]);
+            }
+            RowListMut::Separate(rows) => {
+                if source == dest {
+                    return;
+                }
+                let (low, high) = rows.split_at_mut(source.max(dest));
+                let (from, to): (&[T], &mut [T]) = if source < dest {
+                    (low[source], high[0])
+                } else {
+                    (high[0], low[dest])
+                };
+                to[..count].copy_from_slice(&from[..count]);
+            }
+        }
+    }
+}
+
+// upstream: src/jpeglib.h JQUANT_TBL
+/// DCT coefficient quantization table.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JQUANT_TBL {
+    /// The coefficient quantizers in natural array order.
+    pub quantval: [UINT16; DCTSIZE2],
+    /// Used only during compression; `false` in every new table.
+    pub sent_table: bool,
+}
+
+impl Default for JQUANT_TBL {
+    fn default() -> Self {
+        JQUANT_TBL {
+            quantval: [0; DCTSIZE2],
+            sent_table: false,
+        }
+    }
+}
+
+/// `sizeof(JQUANT_TBL)` on the target.
+pub const SIZEOF_JQUANT_TBL: usize =
+    CLayout::structure(&[CLayout::of::<UINT16>().array(DCTSIZE2), C_BOOLEAN]).size;
+
+// upstream: src/jpeglib.h JHUFF_TBL
+/// Huffman coding table.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JHUFF_TBL {
+    /// `bits[k]` is the number of symbols with codes of length `k` bits;
+    /// `bits[0]` is unused.
+    pub bits: [UINT8; 17],
+    /// The symbols, in order of increasing code length.
+    pub huffval: [UINT8; 256],
+    /// Used only during compression; `false` in every new table.
+    pub sent_table: bool,
+}
+
+impl Default for JHUFF_TBL {
+    fn default() -> Self {
+        JHUFF_TBL {
+            bits: [0; 17],
+            huffval: [0; 256],
+            sent_table: false,
+        }
+    }
+}
+
+/// `sizeof(JHUFF_TBL)` on the target.
+pub const SIZEOF_JHUFF_TBL: usize = CLayout::structure(&[
+    CLayout::of::<UINT8>().array(17),
+    CLayout::of::<UINT8>().array(256),
+    C_BOOLEAN,
+])
+.size;
+
+// upstream: src/jpeglib.h jpeg_component_info
+/// Basic info about one component (color channel).
+#[expect(non_camel_case_types, reason = "C type name")]
+#[expect(non_snake_case, reason = "C field names")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct jpeg_component_info {
+    /// Identifier for this component (0..255).
+    pub component_id: i32,
+    /// Its index in SOF or `cinfo->comp_info[]`.
+    pub component_index: i32,
+    /// Horizontal sampling factor (1..4).
+    pub h_samp_factor: i32,
+    /// Vertical sampling factor (1..4).
+    pub v_samp_factor: i32,
+    /// Quantization table selector (0..3).
+    pub quant_tbl_no: i32,
+    /// DC entropy table selector (0..3).
+    pub dc_tbl_no: i32,
+    /// AC entropy table selector (0..3).
+    pub ac_tbl_no: i32,
+    /// Component width in data units.
+    pub width_in_blocks: JDIMENSION,
+    /// Component height in data units.
+    pub height_in_blocks: JDIMENSION,
+    /// Size of a data unit in samples, after IDCT scaling.
+    pub DCT_scaled_size: i32,
+    /// Actual width in samples.
+    pub downsampled_width: JDIMENSION,
+    /// Actual height in samples.
+    pub downsampled_height: JDIMENSION,
+    /// Do we need the value of this component?
+    pub component_needed: bool,
+    /// Number of data units per MCU, horizontally.
+    pub MCU_width: i32,
+    /// Number of data units per MCU, vertically.
+    pub MCU_height: i32,
+    /// `MCU_width * MCU_height`.
+    pub MCU_blocks: i32,
+    /// MCU width in samples, `MCU_width * DCT_scaled_size`.
+    pub MCU_sample_width: i32,
+    /// Number of non-dummy data units across in the last MCU.
+    pub last_col_width: i32,
+    /// Number of non-dummy data units down in the last MCU.
+    pub last_row_height: i32,
+    /// Saved quantization table for the component; `None` if none yet saved.
+    pub quant_table: Option<Box<JQUANT_TBL>>,
+    /// Private per-component storage for the IDCT module: its multiplier
+    /// table, `None` until `jinit_inverse_dct` allocates it.
+    pub dct_table: Option<Box<multiplier_table>>,
+}
+
+/// `sizeof(jpeg_component_info)` on the target, `dct_table` included.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_component_info: usize = CLayout::structure(&[
+    C_INT.array(7),
+    C_JDIMENSION.array(2),
+    C_INT,
+    C_JDIMENSION.array(2),
+    C_BOOLEAN,
+    C_INT.array(6),
+    C_POINTER,
+    C_POINTER,
+])
+.size;
+
+// upstream: src/jpeglib.h jpeg_marker_struct
+/// A saved `APPn` or COM marker, linked into `cinfo.marker_list`.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct jpeg_marker_struct {
+    /// Next in list, or `None`.
+    pub next: jpeg_saved_marker_ptr,
+    /// Marker code: `JPEG_COM`, or `JPEG_APP0 + n`.
+    pub marker: UINT8,
+    /// Number of bytes of data in the file.
+    pub original_length: u32,
+    /// Number of bytes of data saved at `data`.
+    pub data_length: u32,
+    /// The data contained in the marker; `data_length` bytes.
+    pub data: Vec<JOCTET>,
+}
+
+impl Drop for jpeg_marker_struct {
+    /// Unlinks the rest of the list iteratively, so that a long list does
+    /// not exhaust the stack when it is dropped.
+    fn drop(&mut self) {
+        let mut next = self.next.take();
+        while let Some(mut marker) = next {
+            next = marker.next.take();
+        }
+    }
+}
+
+// upstream: src/jpeglib.h jpeg_saved_marker_ptr
+#[expect(non_camel_case_types, reason = "C type name")]
+pub type jpeg_saved_marker_ptr = Option<Box<jpeg_marker_struct>>;
+
+/// `sizeof(struct jpeg_marker_struct)` on the target.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_marker_struct: usize =
+    CLayout::structure(&[C_POINTER, CLayout::of::<UINT8>(), C_INT, C_INT, C_POINTER]).size;
+
+/// An application's processor for COM or `APPn` markers, installed with
+/// `jpeg_set_marker_processor` (ADR 0005, "Public hooks"). Not an upstream
+/// item.
+#[expect(non_camel_case_types, reason = "named after the C typedef")]
+pub trait jpeg_marker_processor {
+    /// Processes the marker in `cinfo.unread_marker`; `Ok(false)` suspends.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the application returns.
+    fn process_marker(&mut self, cinfo: &mut jpeg_decompress_struct<'_>)
+    -> Result<bool, ErrorExit>;
+}
+
+// upstream: src/jpeglib.h jpeg_marker_parser_method
+/// A marker processing method: one of the library's, or an application's
+/// processor.
+#[expect(non_camel_case_types, reason = "C type name")]
+pub enum jpeg_marker_parser_method<'src> {
+    /// A library routine (`skip_variable`, `get_interesting_appn`,
+    /// `save_marker`).
+    Library(fn(j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit>),
+    /// An application's processor.
+    Application(Box<dyn jpeg_marker_processor + 'src>),
+}
+
+impl core::fmt::Debug for jpeg_marker_parser_method<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            jpeg_marker_parser_method::Library(routine) => {
+                f.debug_tuple("Library").field(routine).finish()
+            }
+            jpeg_marker_parser_method::Application(_) => f.write_str("Application"),
+        }
+    }
+}
+
+// upstream: src/jpeglib.h JCS_EXTENSIONS
+pub const JCS_EXTENSIONS: i32 = 1;
+// upstream: src/jpeglib.h JCS_ALPHA_EXTENSIONS
+pub const JCS_ALPHA_EXTENSIONS: i32 = 1;
+
+// upstream: src/jpeglib.h J_COLOR_SPACE
+/// Known color spaces.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct J_COLOR_SPACE(pub u32);
+
+#[expect(non_upper_case_globals, reason = "C enumerator names")]
+impl J_COLOR_SPACE {
+    /// Error or unspecified.
+    pub const JCS_UNKNOWN: J_COLOR_SPACE = J_COLOR_SPACE(0);
+    /// Monochrome.
+    pub const JCS_GRAYSCALE: J_COLOR_SPACE = J_COLOR_SPACE(1);
+    /// Red/green/blue as specified by the `RGB_*` macros.
+    pub const JCS_RGB: J_COLOR_SPACE = J_COLOR_SPACE(2);
+    /// Y/Cb/Cr (also known as YUV).
+    pub const JCS_YCbCr: J_COLOR_SPACE = J_COLOR_SPACE(3);
+    /// C/M/Y/K.
+    pub const JCS_CMYK: J_COLOR_SPACE = J_COLOR_SPACE(4);
+    /// Y/Cb/Cr/K.
+    pub const JCS_YCCK: J_COLOR_SPACE = J_COLOR_SPACE(5);
+    /// Red/green/blue.
+    pub const JCS_EXT_RGB: J_COLOR_SPACE = J_COLOR_SPACE(6);
+    /// Red/green/blue/x.
+    pub const JCS_EXT_RGBX: J_COLOR_SPACE = J_COLOR_SPACE(7);
+    /// Blue/green/red.
+    pub const JCS_EXT_BGR: J_COLOR_SPACE = J_COLOR_SPACE(8);
+    /// Blue/green/red/x.
+    pub const JCS_EXT_BGRX: J_COLOR_SPACE = J_COLOR_SPACE(9);
+    /// X/blue/green/red.
+    pub const JCS_EXT_XBGR: J_COLOR_SPACE = J_COLOR_SPACE(10);
+    /// X/red/green/blue.
+    pub const JCS_EXT_XRGB: J_COLOR_SPACE = J_COLOR_SPACE(11);
+    /// Red/green/blue/alpha.
+    pub const JCS_EXT_RGBA: J_COLOR_SPACE = J_COLOR_SPACE(12);
+    /// Blue/green/red/alpha.
+    pub const JCS_EXT_BGRA: J_COLOR_SPACE = J_COLOR_SPACE(13);
+    /// Alpha/blue/green/red.
+    pub const JCS_EXT_ABGR: J_COLOR_SPACE = J_COLOR_SPACE(14);
+    /// Alpha/red/green/blue.
+    pub const JCS_EXT_ARGB: J_COLOR_SPACE = J_COLOR_SPACE(15);
+    /// 5-bit red/6-bit green/5-bit blue, decompression only; out of scope
+    /// (ADR 0001), but representable.
+    pub const JCS_RGB565: J_COLOR_SPACE = J_COLOR_SPACE(16);
+}
+
+// upstream: src/jpeglib.h J_DCT_METHOD
+/// DCT/IDCT algorithm options.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct J_DCT_METHOD(pub u32);
+
+impl J_DCT_METHOD {
+    /// Accurate integer method.
+    pub const JDCT_ISLOW: J_DCT_METHOD = J_DCT_METHOD(0);
+    /// Less accurate integer method (legacy feature).
+    pub const JDCT_IFAST: J_DCT_METHOD = J_DCT_METHOD(1);
+    /// Floating-point method (legacy feature).
+    pub const JDCT_FLOAT: J_DCT_METHOD = J_DCT_METHOD(2);
+}
+
+// upstream: src/jpeglib.h JDCT_DEFAULT
+pub const JDCT_DEFAULT: J_DCT_METHOD = J_DCT_METHOD::JDCT_ISLOW;
+// upstream: src/jpeglib.h JDCT_FASTEST
+pub const JDCT_FASTEST: J_DCT_METHOD = J_DCT_METHOD::JDCT_IFAST;
+
+// upstream: src/jpeglib.h J_DITHER_MODE
+/// Dithering options for decompression.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct J_DITHER_MODE(pub u32);
+
+impl J_DITHER_MODE {
+    /// No dithering.
+    pub const JDITHER_NONE: J_DITHER_MODE = J_DITHER_MODE(0);
+    /// Simple ordered dither.
+    pub const JDITHER_ORDERED: J_DITHER_MODE = J_DITHER_MODE(1);
+    /// Floyd-Steinberg error diffusion dither.
+    pub const JDITHER_FS: J_DITHER_MODE = J_DITHER_MODE(2);
+}
+
+// upstream: src/jpeglib.h j_common_ptr
+/// The common object is the decompression object while the encoder is out of
+/// scope (ADR 0005, "The common object").
+#[expect(non_camel_case_types, reason = "C type name")]
+pub type j_common_ptr<'a, 'src> = &'a mut jpeg_decompress_struct<'src>;
+
+// upstream: src/jpeglib.h j_decompress_ptr
+#[expect(non_camel_case_types, reason = "C type name")]
+pub type j_decompress_ptr<'a, 'src> = &'a mut jpeg_decompress_struct<'src>;
+
+// upstream: src/jpeglib.h jpeg_decompress_struct
+/// Master record for a decompression instance.
+///
+/// The common fields of `jpeg_common_fields` come first. `client_data` is
+/// replaced by the context that each hook's trait object carries (ADR 0005,
+/// "Public hooks"). See the module documentation for the fields that later
+/// packages add.
+#[expect(non_camel_case_types, reason = "C type name")]
+#[expect(non_snake_case, reason = "C field names")]
+#[expect(clippy::struct_excessive_bools, reason = "C boolean fields")]
+pub struct jpeg_decompress_struct<'src> {
+    /// Error handler module.
+    pub err: Box<jpeg_error_mgr<'src>>,
+    /// Memory manager module; `None` before `jinit_memory_mgr` and after
+    /// `jpeg_destroy`.
+    pub mem: Option<Box<my_memory_mgr>>,
+    /// Progress monitor, or `None` if none.
+    pub progress: Option<Box<jpeg_progress_mgr<'src>>>,
+    /// So common code can tell which is which; always `true` (ADR 0005).
+    pub is_decompressor: bool,
+    /// For checking call sequence validity.
+    pub global_state: i32,
+
+    /// Source of compressed data.
+    pub src: Option<Box<jpeg_source_mgr<'src>>>,
+
+    /// Nominal image width (from SOF marker).
+    pub image_width: JDIMENSION,
+    /// Nominal image height.
+    pub image_height: JDIMENSION,
+    /// Number of color components in JPEG image.
+    pub num_components: i32,
+    /// Colorspace of JPEG image.
+    pub jpeg_color_space: J_COLOR_SPACE,
+
+    /// Colorspace for output.
+    pub out_color_space: J_COLOR_SPACE,
+    /// Numerator of the fraction by which to scale image.
+    pub scale_num: u32,
+    /// Denominator of the fraction by which to scale image.
+    pub scale_denom: u32,
+    /// Image gamma wanted in output.
+    pub output_gamma: f64,
+    /// `true` = multiple output passes.
+    pub buffered_image: bool,
+    /// `true` = downsampled data wanted.
+    pub raw_data_out: bool,
+    /// IDCT algorithm selector.
+    pub dct_method: J_DCT_METHOD,
+    /// `true` = apply fancy upsampling.
+    pub do_fancy_upsampling: bool,
+    /// `true` = apply interblock smoothing.
+    pub do_block_smoothing: bool,
+    /// `true` = colormapped output wanted.
+    pub quantize_colors: bool,
+    /// Type of color dithering to use.
+    pub dither_mode: J_DITHER_MODE,
+    /// `true` = use two-pass color quantization.
+    pub two_pass_quantize: bool,
+    /// Max number of colors to use in created colormap.
+    pub desired_number_of_colors: i32,
+    /// Enable future use of 1-pass quantizer.
+    pub enable_1pass_quant: bool,
+    /// Enable future use of external colormap.
+    pub enable_external_quant: bool,
+    /// Enable future use of 2-pass quantizer.
+    pub enable_2pass_quant: bool,
+
+    /// Scaled image width.
+    pub output_width: JDIMENSION,
+    /// Scaled image height.
+    pub output_height: JDIMENSION,
+    /// Number of color components in `out_color_space`.
+    pub out_color_components: i32,
+    /// Number of color components returned.
+    pub output_components: i32,
+    /// Min recommended height of scanline buffer.
+    pub rec_outbuf_height: i32,
+    /// Number of colormap entries in use.
+    pub actual_number_of_colors: i32,
+
+    /// Row index of next scanline to be read from `jpeg_read_scanlines`.
+    pub output_scanline: JDIMENSION,
+    /// Number of SOS markers seen so far.
+    pub input_scan_number: i32,
+    /// Number of iMCU rows completed.
+    pub input_iMCU_row: JDIMENSION,
+    /// Nominal scan number being displayed.
+    pub output_scan_number: i32,
+    /// Number of iMCU rows read.
+    pub output_iMCU_row: JDIMENSION,
+
+    /// `coef_bits[c][i]`: -1 or the current Al value for each coefficient;
+    /// `None` when reading a non-progressive file.
+    pub coef_bits: Option<Vec<[i32; DCTSIZE2]>>,
+
+    /// Coefficient quantization tables, or `None` if not defined.
+    pub quant_tbl_ptrs: [Option<Box<JQUANT_TBL>>; NUM_QUANT_TBLS],
+    /// DC Huffman coding tables, or `None` if not defined.
+    pub dc_huff_tbl_ptrs: [Option<Box<JHUFF_TBL>>; NUM_HUFF_TBLS],
+    /// AC Huffman coding tables, or `None` if not defined.
+    pub ac_huff_tbl_ptrs: [Option<Box<JHUFF_TBL>>; NUM_HUFF_TBLS],
+
+    /// Bits of precision in image data.
+    pub data_precision: i32,
+
+    /// `comp_info[i]` describes the component that appears i'th in SOF;
+    /// `None` until `get_sof` allocates it.
+    pub comp_info: Option<Vec<jpeg_component_info>>,
+
+    /// `true` if `SOFn` specifies progressive mode.
+    pub progressive_mode: bool,
+    /// `true` = arithmetic coding, `false` = Huffman.
+    pub arith_code: bool,
+    /// L values for DC arith-coding tables.
+    pub arith_dc_L: [UINT8; NUM_ARITH_TBLS],
+    /// U values for DC arith-coding tables.
+    pub arith_dc_U: [UINT8; NUM_ARITH_TBLS],
+    /// Kx values for AC arith-coding tables.
+    pub arith_ac_K: [UINT8; NUM_ARITH_TBLS],
+
+    /// MCUs per restart interval, or 0 for no restart.
+    pub restart_interval: u32,
+
+    /// `true` iff a JFIF APP0 marker was found.
+    pub saw_JFIF_marker: bool,
+    /// JFIF version number, major part.
+    pub JFIF_major_version: UINT8,
+    /// JFIF version number, minor part.
+    pub JFIF_minor_version: UINT8,
+    /// JFIF code for pixel size units.
+    pub density_unit: UINT8,
+    /// Horizontal pixel density.
+    pub X_density: UINT16,
+    /// Vertical pixel density.
+    pub Y_density: UINT16,
+    /// `true` iff an Adobe APP14 marker was found.
+    pub saw_Adobe_marker: bool,
+    /// Color transform code from Adobe marker.
+    pub Adobe_transform: UINT8,
+
+    /// `true` = first samples are cosited.
+    pub CCIR601_sampling: bool,
+
+    /// Head of list of saved markers.
+    pub marker_list: jpeg_saved_marker_ptr,
+
+    /// Largest `h_samp_factor`.
+    pub max_h_samp_factor: i32,
+    /// Largest `v_samp_factor`.
+    pub max_v_samp_factor: i32,
+    /// Smallest `DCT_scaled_size` of any component.
+    pub min_DCT_scaled_size: i32,
+    /// Number of iMCU rows in image.
+    pub total_iMCU_rows: JDIMENSION,
+    /// Table for fast range-limiting, `None` until `jdmaster.c` allocates
+    /// it: the whole allocation, into which C's pointer points
+    /// [`SAMPLE_RANGE_LIMIT_OFFSET`] samples deep, so that its users may
+    /// index below it. [`jpeg_decompress_struct::sample_range_limit`] is
+    /// C's pointer.
+    pub sample_range_limit: Option<Vec<JSAMPLE>>,
+
+    /// Number of JPEG components in this scan.
+    pub comps_in_scan: i32,
+    /// `cur_comp_info[i]` is the index in `comp_info` of the component that
+    /// appears i'th in SOS, where C keeps a pointer.
+    pub cur_comp_info: [Option<usize>; MAX_COMPS_IN_SCAN],
+    /// Number of MCUs across the image.
+    pub MCUs_per_row: JDIMENSION,
+    /// Number of MCU rows in the image.
+    pub MCU_rows_in_scan: JDIMENSION,
+    /// Number of data units per MCU.
+    pub blocks_in_MCU: i32,
+    /// `MCU_membership[i]` is the index in `cur_comp_info` of the component
+    /// owning the i'th data unit in an MCU.
+    pub MCU_membership: [i32; D_MAX_BLOCKS_IN_MCU],
+    /// Progressive JPEG spectral selection start.
+    pub Ss: i32,
+    /// Progressive JPEG spectral selection end.
+    pub Se: i32,
+    /// Progressive JPEG successive approximation, high bit.
+    pub Ah: i32,
+    /// Progressive JPEG successive approximation, low bit.
+    pub Al: i32,
+
+    /// Zero or the code of a JPEG marker that has been read from the data
+    /// source but not yet processed.
+    pub unread_marker: i32,
+
+    /// Master control module.
+    pub master: Option<Box<my_decomp_master>>,
+    /// Main buffer control (downsampled-data buffer).
+    pub main: Option<Box<my_main_controller>>,
+    /// Coefficient buffer control.
+    pub coef: Option<Box<my_coef_controller>>,
+    /// Postprocessing buffer control.
+    pub post: Option<Box<my_post_controller>>,
+    /// Input control module.
+    pub inputctl: Option<Box<my_input_controller>>,
+    /// Marker reading and parsing.
+    pub marker: Option<Box<my_marker_reader<'src>>>,
+    /// Entropy decoding.
+    pub entropy: Option<Box<jpeg_entropy_decoder_impl>>,
+    /// Inverse DCT, which also dequantizes.
+    pub idct: Option<Box<my_idct_controller>>,
+    /// Upsampling, which also does color conversion when merged.
+    pub upsample: Option<Box<jpeg_upsampler_impl>>,
+    /// Color conversion.
+    pub cconvert: Option<Box<my_color_deconverter>>,
+}
+
+impl<'src> jpeg_decompress_struct<'src> {
+    /// An object as an application holds it before `jpeg_create_decompress`:
+    /// every field zero, empty or `false`, as after C's `memset`, with the
+    /// error manager the application installs. `is_decompressor` is `true`
+    /// from the start (ADR 0005, "The common object").
+    #[must_use]
+    pub fn new(err: Box<jpeg_error_mgr<'src>>) -> Self {
+        jpeg_decompress_struct {
+            err,
+            mem: None,
+            progress: None,
+            is_decompressor: true,
+            global_state: 0,
+            src: None,
+            image_width: 0,
+            image_height: 0,
+            num_components: 0,
+            jpeg_color_space: J_COLOR_SPACE::default(),
+            out_color_space: J_COLOR_SPACE::default(),
+            scale_num: 0,
+            scale_denom: 0,
+            output_gamma: 0.0,
+            buffered_image: false,
+            raw_data_out: false,
+            dct_method: J_DCT_METHOD::default(),
+            do_fancy_upsampling: false,
+            do_block_smoothing: false,
+            quantize_colors: false,
+            dither_mode: J_DITHER_MODE::default(),
+            two_pass_quantize: false,
+            desired_number_of_colors: 0,
+            enable_1pass_quant: false,
+            enable_external_quant: false,
+            enable_2pass_quant: false,
+            output_width: 0,
+            output_height: 0,
+            out_color_components: 0,
+            output_components: 0,
+            rec_outbuf_height: 0,
+            actual_number_of_colors: 0,
+            output_scanline: 0,
+            input_scan_number: 0,
+            input_iMCU_row: 0,
+            output_scan_number: 0,
+            output_iMCU_row: 0,
+            coef_bits: None,
+            quant_tbl_ptrs: Default::default(),
+            dc_huff_tbl_ptrs: Default::default(),
+            ac_huff_tbl_ptrs: Default::default(),
+            data_precision: 0,
+            comp_info: None,
+            progressive_mode: false,
+            arith_code: false,
+            arith_dc_L: [0; NUM_ARITH_TBLS],
+            arith_dc_U: [0; NUM_ARITH_TBLS],
+            arith_ac_K: [0; NUM_ARITH_TBLS],
+            restart_interval: 0,
+            saw_JFIF_marker: false,
+            JFIF_major_version: 0,
+            JFIF_minor_version: 0,
+            density_unit: 0,
+            X_density: 0,
+            Y_density: 0,
+            saw_Adobe_marker: false,
+            Adobe_transform: 0,
+            CCIR601_sampling: false,
+            marker_list: None,
+            max_h_samp_factor: 0,
+            max_v_samp_factor: 0,
+            min_DCT_scaled_size: 0,
+            total_iMCU_rows: 0,
+            sample_range_limit: None,
+            comps_in_scan: 0,
+            cur_comp_info: [None; MAX_COMPS_IN_SCAN],
+            MCUs_per_row: 0,
+            MCU_rows_in_scan: 0,
+            blocks_in_MCU: 0,
+            MCU_membership: [0; D_MAX_BLOCKS_IN_MCU],
+            Ss: 0,
+            Se: 0,
+            Ah: 0,
+            Al: 0,
+            unread_marker: 0,
+            master: None,
+            main: None,
+            coef: None,
+            post: None,
+            inputctl: None,
+            marker: None,
+            entropy: None,
+            idct: None,
+            upsample: None,
+            cconvert: None,
+        }
+    }
+
+    /// `cinfo->mem`.
+    ///
+    /// # Panics
+    ///
+    /// When the memory manager is absent, where C would dereference a null
+    /// pointer (ADR 0005, "A method's own state").
+    #[must_use]
+    pub fn mem(&self) -> &my_memory_mgr {
+        self.mem.as_deref().expect("cinfo->mem is NULL")
+    }
+
+    /// `cinfo->mem`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the memory manager is absent; see [`jpeg_decompress_struct::mem`].
+    pub fn mem_mut(&mut self) -> &mut my_memory_mgr {
+        self.mem.as_deref_mut().expect("cinfo->mem is NULL")
+    }
+
+    /// `cinfo->master`.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn master(&self) -> &my_decomp_master {
+        self.master.as_deref().expect("cinfo->master is NULL")
+    }
+
+    /// `cinfo->master`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn master_mut(&mut self) -> &mut my_decomp_master {
+        self.master.as_deref_mut().expect("cinfo->master is NULL")
+    }
+
+    /// `cinfo->inputctl`.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn inputctl(&self) -> &my_input_controller {
+        self.inputctl.as_deref().expect("cinfo->inputctl is NULL")
+    }
+
+    /// `cinfo->inputctl`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn inputctl_mut(&mut self) -> &mut my_input_controller {
+        self.inputctl
+            .as_deref_mut()
+            .expect("cinfo->inputctl is NULL")
+    }
+
+    /// `cinfo->marker`.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn marker(&self) -> &my_marker_reader<'src> {
+        self.marker.as_deref().expect("cinfo->marker is NULL")
+    }
+
+    /// `cinfo->marker`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn marker_mut(&mut self) -> &mut my_marker_reader<'src> {
+        self.marker.as_deref_mut().expect("cinfo->marker is NULL")
+    }
+
+    /// `cinfo->entropy`: the public part of whichever decoder it holds.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn entropy(&self) -> &jpeg_entropy_decoder {
+        self.entropy
+            .as_deref()
+            .expect("cinfo->entropy is NULL")
+            .pub_()
+    }
+
+    /// `cinfo->entropy`, mutably: the public part of whichever decoder it
+    /// holds.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn entropy_mut(&mut self) -> &mut jpeg_entropy_decoder {
+        self.entropy
+            .as_deref_mut()
+            .expect("cinfo->entropy is NULL")
+            .pub_mut()
+    }
+
+    /// `cinfo->coef`: the public part of the coefficient controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn coef(&self) -> &jpeg_d_coef_controller {
+        &self.coef.as_deref().expect("cinfo->coef is NULL").pub_
+    }
+
+    /// `cinfo->coef`, mutably: the public part of the coefficient controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    pub fn coef_mut(&mut self) -> &mut jpeg_d_coef_controller {
+        &mut self.coef.as_deref_mut().expect("cinfo->coef is NULL").pub_
+    }
+
+    /// `cinfo->main`: the public part of the main buffer controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn main(&self) -> &jpeg_d_main_controller {
+        &self.main.as_deref().expect("cinfo->main is NULL").pub_
+    }
+
+    /// `cinfo->post`: the public part of the postprocessing controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn post(&self) -> &jpeg_d_post_controller {
+        &self.post.as_deref().expect("cinfo->post is NULL").pub_
+    }
+
+    /// `cinfo->upsample`: the public part of whichever upsampler it holds.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn upsample(&self) -> &jpeg_upsampler {
+        self.upsample
+            .as_deref()
+            .expect("cinfo->upsample is NULL")
+            .pub_()
+    }
+
+    /// `cinfo->cconvert`: the public part of the color deconverter.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn cconvert(&self) -> &jpeg_color_deconverter {
+        &self
+            .cconvert
+            .as_deref()
+            .expect("cinfo->cconvert is NULL")
+            .pub_
+    }
+
+    /// `cinfo->idct`: the public part of the IDCT controller.
+    ///
+    /// # Panics
+    ///
+    /// When the module is absent.
+    #[must_use]
+    pub fn idct(&self) -> &jpeg_inverse_dct {
+        &self.idct.as_deref().expect("cinfo->idct is NULL").pub_
+    }
+
+    /// `cinfo->sample_range_limit` for signed subscripts.
+    ///
+    /// # Panics
+    ///
+    /// When the table is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn sample_range_limit_signed(&self) -> SampleRangeLimit<'_> {
+        SampleRangeLimit {
+            table: self
+                .sample_range_limit
+                .as_deref()
+                .expect("cinfo->sample_range_limit is NULL"),
+        }
+    }
+
+    /// `cinfo->sample_range_limit`: the table from C's pointer on.
+    ///
+    /// # Panics
+    ///
+    /// When the table is absent, where C would dereference a null pointer.
+    #[must_use]
+    pub fn sample_range_limit(&self) -> &[JSAMPLE] {
+        &self
+            .sample_range_limit
+            .as_deref()
+            .expect("cinfo->sample_range_limit is NULL")[SAMPLE_RANGE_LIMIT_OFFSET..]
+    }
+
+    /// `cinfo->src`.
+    ///
+    /// # Panics
+    ///
+    /// When the source manager is absent.
+    #[must_use]
+    pub fn src(&self) -> &jpeg_source_mgr<'src> {
+        self.src.as_deref().expect("cinfo->src is NULL")
+    }
+
+    /// `cinfo->src`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When the source manager is absent.
+    pub fn src_mut(&mut self) -> &mut jpeg_source_mgr<'src> {
+        self.src.as_deref_mut().expect("cinfo->src is NULL")
+    }
+
+    /// `cinfo->comp_info`.
+    ///
+    /// # Panics
+    ///
+    /// When `get_sof` has not allocated it.
+    #[must_use]
+    pub fn comp_info(&self) -> &[jpeg_component_info] {
+        self.comp_info.as_deref().expect("cinfo->comp_info is NULL")
+    }
+
+    /// `cinfo->comp_info`, mutably.
+    ///
+    /// # Panics
+    ///
+    /// When `get_sof` has not allocated it.
+    pub fn comp_info_mut(&mut self) -> &mut [jpeg_component_info] {
+        self.comp_info
+            .as_deref_mut()
+            .expect("cinfo->comp_info is NULL")
+    }
+}
+
+/// `sizeof(struct jpeg_decompress_struct)` on the target, for
+/// `jpeg_create_decompress`: every C field, including those that later
+/// packages add and the `client_data` that the port replaces.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_decompress_struct: usize = {
+    let u8_ = CLayout::of::<u8>();
+    let u16_ = CLayout::of::<u16>();
+    let f64_ = CLayout::of::<f64>();
+    let enum_ = C_INT;
+    CLayout::structure(&[
+        // jpeg_common_fields: err, mem, progress, client_data,
+        // is_decompressor, global_state
+        C_POINTER.array(4),
+        C_BOOLEAN,
+        C_INT,
+        // src, image_width, image_height, num_components, jpeg_color_space
+        C_POINTER,
+        C_JDIMENSION,
+        C_JDIMENSION,
+        C_INT,
+        enum_,
+        // out_color_space .. enable_2pass_quant
+        enum_,
+        C_INT.array(2),
+        f64_,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        enum_,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        enum_,
+        C_BOOLEAN,
+        C_INT,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        // output_width .. colormap
+        C_JDIMENSION,
+        C_JDIMENSION,
+        C_INT,
+        C_INT,
+        C_INT,
+        C_INT,
+        C_POINTER,
+        // output_scanline .. coef_bits
+        C_JDIMENSION,
+        C_INT,
+        C_JDIMENSION,
+        C_INT,
+        C_JDIMENSION,
+        C_POINTER,
+        // the table pointers
+        C_POINTER.array(NUM_QUANT_TBLS),
+        C_POINTER.array(NUM_HUFF_TBLS),
+        C_POINTER.array(NUM_HUFF_TBLS),
+        // data_precision .. arith_ac_K
+        C_INT,
+        C_POINTER,
+        C_BOOLEAN,
+        C_BOOLEAN,
+        u8_.array(NUM_ARITH_TBLS),
+        u8_.array(NUM_ARITH_TBLS),
+        u8_.array(NUM_ARITH_TBLS),
+        // restart_interval .. marker_list
+        C_INT,
+        C_BOOLEAN,
+        u8_,
+        u8_,
+        u8_,
+        u16_,
+        u16_,
+        C_BOOLEAN,
+        u8_,
+        C_BOOLEAN,
+        C_POINTER,
+        // max_h_samp_factor .. sample_range_limit
+        C_INT,
+        C_INT,
+        C_INT,
+        C_JDIMENSION,
+        C_POINTER,
+        // comps_in_scan .. unread_marker
+        C_INT,
+        C_POINTER.array(MAX_COMPS_IN_SCAN),
+        C_JDIMENSION,
+        C_JDIMENSION,
+        C_INT,
+        C_INT.array(D_MAX_BLOCKS_IN_MCU),
+        C_INT.array(4),
+        C_INT,
+        // master .. cquantize
+        C_POINTER.array(11),
+    ])
+    .size
+};
+
+/// `(*cinfo->src->init_source) (cinfo)`: takes the source methods out of
+/// `cinfo.src`, calls the method and puts them back (ADR 0005, "Public
+/// hooks"). Not an upstream item.
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods, where C would call
+/// through a null pointer.
+pub fn call_init_source(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.init_source(cinfo);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->fill_input_buffer) (cinfo)`; see [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_fill_input_buffer(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.fill_input_buffer(cinfo);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->skip_input_data) (cinfo, num_bytes)`; see
+/// [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_skip_input_data(
+    cinfo: j_decompress_ptr<'_, '_>,
+    num_bytes: c_long,
+) -> Result<(), ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.skip_input_data(cinfo, num_bytes);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->resync_to_restart) (cinfo, desired)`; see
+/// [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_resync_to_restart(
+    cinfo: j_decompress_ptr<'_, '_>,
+    desired: i32,
+) -> Result<bool, ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.resync_to_restart(cinfo, desired);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->src->term_source) (cinfo)`; see [`call_init_source`].
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no source manager or it has no methods.
+pub fn call_term_source(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    let mut methods = take_source_methods(cinfo);
+    let result = methods.term_source(cinfo);
+    restore_source_methods(cinfo, methods);
+    result
+}
+
+/// `(*cinfo->progress->progress_monitor) ((j_common_ptr)cinfo)`: takes the
+/// methods out of the progress monitor for the call and puts them back
+/// (ADR 0005, "Public hooks"). Not an upstream item.
+///
+/// # Errors
+///
+/// What the method returns.
+///
+/// # Panics
+///
+/// When there is no progress monitor or it has no methods, where C would
+/// dereference a null pointer.
+pub fn call_progress_monitor(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), ErrorExit> {
+    let mut methods = cinfo
+        .progress
+        .as_deref_mut()
+        .expect("cinfo->progress is NULL")
+        .methods
+        .take()
+        .expect("progress_monitor is NULL");
+    let result = methods.progress_monitor(cinfo);
+    if let Some(progress) = cinfo.progress.as_deref_mut() {
+        progress.methods = Some(methods);
+    }
+    result
+}
+
+fn take_source_methods<'src>(
+    cinfo: &mut jpeg_decompress_struct<'src>,
+) -> Box<dyn jpeg_source_methods + 'src> {
+    cinfo
+        .src
+        .as_deref_mut()
+        .expect("cinfo->src is NULL")
+        .methods
+        .take()
+        .expect("the source manager's methods are NULL")
+}
+
+fn restore_source_methods<'src>(
+    cinfo: &mut jpeg_decompress_struct<'src>,
+    methods: Box<dyn jpeg_source_methods + 'src>,
+) {
+    // A method may have installed other methods; those are kept.
+    if let Some(src) = cinfo.src.as_deref_mut()
+        && src.methods.is_none()
+    {
+        src.methods = Some(methods);
+    }
+}
+
+// upstream: src/jpeglib.h JMSG_LENGTH_MAX
+/// Recommended size of the `format_message` buffer.
+pub const JMSG_LENGTH_MAX: usize = 200;
+// upstream: src/jpeglib.h JMSG_STR_PARM_MAX
+pub const JMSG_STR_PARM_MAX: usize = 80;
+
+/// `msg_parm`, the union of `int i[8]` and `char s[JMSG_STR_PARM_MAX]` in
+/// `jpeg_error_mgr`: 80 bytes, with the integers read and written in native
+/// byte order so that the union's aliasing is preserved (ADR 0005,
+/// "Messages"). The C union has no type name.
+#[expect(non_camel_case_types, reason = "named after the C field")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct jpeg_msg_parm(pub [u8; JMSG_STR_PARM_MAX]);
+
+impl Default for jpeg_msg_parm {
+    fn default() -> Self {
+        jpeg_msg_parm([0; JMSG_STR_PARM_MAX])
+    }
+}
+
+impl jpeg_msg_parm {
+    /// `msg_parm.i[index]`.
+    #[must_use]
+    pub fn i(&self, index: usize) -> i32 {
+        let start = index * 4;
+        let mut bytes = [0; 4];
+        bytes.copy_from_slice(&self.0[start..start + 4]);
+        i32::from_ne_bytes(bytes)
+    }
+
+    /// `msg_parm.i[index] = value`.
+    pub fn set_i(&mut self, index: usize, value: i32) {
+        let start = index * 4;
+        self.0[start..start + 4].copy_from_slice(&value.to_ne_bytes());
+    }
+
+    /// `msg_parm.s`.
+    #[must_use]
+    pub fn s(&self) -> &[u8; JMSG_STR_PARM_MAX] {
+        &self.0
+    }
+
+    /// `msg_parm.s`, mutably.
+    pub fn s_mut(&mut self) -> &mut [u8; JMSG_STR_PARM_MAX] {
+        &mut self.0
+    }
+}
+
+/// A message table: entry `n` is the format string of message code `n`, or
+/// `None` where C has a null pointer.
+#[expect(non_camel_case_types, reason = "named after the C field")]
+pub type jpeg_message_table<'a> = &'a [Option<&'a str>];
+
+// upstream: src/jpeglib.h jpeg_error_mgr
+/// Error handler object. The five methods are the trait object `methods`
+/// (ADR 0005, "Public hooks"); the C fields follow.
+#[expect(non_camel_case_types, reason = "C type name")]
+pub struct jpeg_error_mgr<'src> {
+    /// `error_exit`, `emit_message`, `output_message`, `format_message` and
+    /// `reset_error_mgr`. `None` where C's pointers are null, as after
+    /// `memset`; taken out for the duration of a call (see
+    /// `jerror::call_error_exit`).
+    pub methods: Option<Box<dyn jpeg_error_methods + 'src>>,
+    /// The message ID code.
+    pub msg_code: i32,
+    /// The message parameters.
+    pub msg_parm: jpeg_msg_parm,
+    /// Max `msg_level` that will be displayed.
+    pub trace_level: i32,
+    /// Number of corrupt-data warnings.
+    pub num_warnings: c_long,
+    /// Library errors.
+    pub jpeg_message_table: jpeg_message_table<'src>,
+    /// Table contains strings `0..=last_jpeg_message`.
+    pub last_jpeg_message: i32,
+    /// Non-library errors, or `None`.
+    pub addon_message_table: Option<jpeg_message_table<'src>>,
+    /// Code for first string in addon table.
+    pub first_addon_message: i32,
+    /// Code for last string in addon table.
+    pub last_addon_message: i32,
+}
+
+impl Default for jpeg_error_mgr<'_> {
+    /// Every field zero or null, as after `memset`.
+    fn default() -> Self {
+        jpeg_error_mgr {
+            methods: None,
+            msg_code: 0,
+            msg_parm: jpeg_msg_parm::default(),
+            trace_level: 0,
+            num_warnings: 0,
+            jpeg_message_table: &[],
+            last_jpeg_message: 0,
+            addon_message_table: None,
+            first_addon_message: 0,
+            last_addon_message: 0,
+        }
+    }
+}
+
+/// `sizeof(struct jpeg_error_mgr)` on the target.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_error_mgr: usize = CLayout::structure(&[
+    C_POINTER.array(5),
+    C_INT,
+    CLayout {
+        size: JMSG_STR_PARM_MAX,
+        align: C_INT.align,
+    },
+    C_INT,
+    crate::jmorecfg::C_LONG,
+    C_POINTER,
+    C_INT,
+    C_POINTER,
+    C_INT,
+    C_INT,
+])
+.size;
+
+/// The method of a progress monitor (ADR 0005, "Public hooks"). Upstream has
+/// no default; the application supplies it.
+#[expect(non_camel_case_types, reason = "named after the C struct")]
+pub trait jpeg_progress_methods {
+    /// `progress_monitor`; may stop decoding with `Err`, where a C
+    /// application could `longjmp`.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the application returns.
+    fn progress_monitor(&mut self, cinfo: &mut jpeg_decompress_struct<'_>)
+    -> Result<(), ErrorExit>;
+}
+
+// upstream: src/jpeglib.h jpeg_progress_mgr
+/// Progress monitor object.
+#[expect(non_camel_case_types, reason = "C type name")]
+pub struct jpeg_progress_mgr<'src> {
+    /// `progress_monitor`, taken out for the duration of a call.
+    pub methods: Option<Box<dyn jpeg_progress_methods + 'src>>,
+    /// Work units completed in this pass.
+    pub pass_counter: c_long,
+    /// Total number of work units in this pass.
+    pub pass_limit: c_long,
+    /// Passes completed so far.
+    pub completed_passes: i32,
+    /// Total number of passes expected.
+    pub total_passes: i32,
+}
+
+/// The buffer a source manager reads from (ADR 0005, "Source manager").
+#[derive(Debug)]
+pub enum InputBuffer<'src> {
+    /// Bytes the application or the library lends, such as the input of
+    /// `jpeg_mem_src` or its fake EOI.
+    Borrowed(&'src [JOCTET]),
+    /// Bytes a streaming source refills in place.
+    Owned(Vec<JOCTET>),
+}
+
+impl InputBuffer<'_> {
+    /// The bytes of the buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &[JOCTET] {
+        match self {
+            InputBuffer::Borrowed(bytes) => bytes,
+            InputBuffer::Owned(bytes) => bytes,
+        }
+    }
+}
+
+/// The methods of a data source (ADR 0005, "Public hooks"). Each returns
+/// `Result`, so that a source can stop decoding where a C source could
+/// `longjmp`; `fill_input_buffer` returns `Ok(false)` to suspend.
+#[expect(non_camel_case_types, reason = "named after the C struct")]
+pub trait jpeg_source_methods {
+    /// `init_source`.
+    ///
+    /// # Errors
+    ///
+    /// A libjpeg error, recorded in `cinfo.err`.
+    fn init_source(&mut self, cinfo: &mut jpeg_decompress_struct<'_>) -> Result<(), ErrorExit>;
+
+    /// `fill_input_buffer`; `Ok(false)` suspends.
+    ///
+    /// # Errors
+    ///
+    /// A libjpeg error, recorded in `cinfo.err`.
+    fn fill_input_buffer(
+        &mut self,
+        cinfo: &mut jpeg_decompress_struct<'_>,
+    ) -> Result<bool, ErrorExit>;
+
+    /// `skip_input_data`.
+    ///
+    /// # Errors
+    ///
+    /// A libjpeg error, recorded in `cinfo.err`.
+    fn skip_input_data(
+        &mut self,
+        cinfo: &mut jpeg_decompress_struct<'_>,
+        num_bytes: c_long,
+    ) -> Result<(), ErrorExit>;
+
+    /// `resync_to_restart`.
+    ///
+    /// # Errors
+    ///
+    /// A libjpeg error, recorded in `cinfo.err`.
+    fn resync_to_restart(
+        &mut self,
+        cinfo: &mut jpeg_decompress_struct<'_>,
+        desired: i32,
+    ) -> Result<bool, ErrorExit>;
+
+    /// `term_source`.
+    ///
+    /// # Errors
+    ///
+    /// A libjpeg error, recorded in `cinfo.err`.
+    fn term_source(&mut self, cinfo: &mut jpeg_decompress_struct<'_>) -> Result<(), ErrorExit>;
+
+    /// Whether these are the methods that `jpeg_mem_src` installs: the
+    /// port's form of upstream's test `cinfo->src->init_source ==
+    /// init_mem_source`. Not an upstream item.
+    fn is_mem_source(&self) -> bool {
+        false
+    }
+}
+
+/// `sizeof(struct jpeg_source_mgr)` on the target.
+#[expect(non_upper_case_globals, reason = "C type name")]
+pub const SIZEOF_jpeg_source_mgr: usize =
+    CLayout::structure(&[C_POINTER, crate::jmorecfg::C_SIZE_T, C_POINTER.array(5)]).size;
+
+// upstream: src/jpeglib.h jpeg_source_mgr
+/// Data source object for decompression.
+#[expect(non_camel_case_types, reason = "C type name")]
+pub struct jpeg_source_mgr<'src> {
+    /// The offset of the next byte to read in `buffer`.
+    pub next_input_byte: usize,
+    /// Number of bytes remaining in `buffer`.
+    pub bytes_in_buffer: usize,
+    /// The bytes that `next_input_byte` points into.
+    pub buffer: InputBuffer<'src>,
+    /// `init_source`, `fill_input_buffer`, `skip_input_data`,
+    /// `resync_to_restart` and `term_source`, taken out for the duration of a
+    /// call.
+    pub methods: Option<Box<dyn jpeg_source_methods + 'src>>,
+}
+
+// upstream: src/jpeglib.h JPOOL_PERMANENT
+/// Lasts until master record is destroyed.
+pub const JPOOL_PERMANENT: i32 = 0;
+// upstream: src/jpeglib.h JPOOL_IMAGE
+/// Lasts until done with image/datastream.
+pub const JPOOL_IMAGE: i32 = 1;
+// upstream: src/jpeglib.h JPOOL_NUMPOOLS
+pub const JPOOL_NUMPOOLS: i32 = 2;
+
+// upstream: src/jpeglib.h jvirt_barray_ptr
+/// A virtual coefficient-block array: its index in the memory manager's
+/// list of control blocks, which own the array (ADR 0005, "Virtual arrays").
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct jvirt_barray_ptr(pub usize);
+
+/// A storage reservation that the memory manager makes where C's
+/// `jpeg_get_small` or `jpeg_get_large` obtains memory: `true` when the
+/// caller's storage could be reserved (ADR 0005, "Owned storage"). Not an
+/// upstream item.
+pub type Reservation<'a> = &'a mut dyn FnMut() -> bool;
+
+// upstream: src/jpeglib.h jpeg_memory_mgr
+/// Memory manager object. The method fields keep upstream's selection;
+/// `request_virt_sarray` and `access_virt_sarray` are absent, because
+/// virtual sample arrays serve only two-pass quantization (ADR 0005).
+#[expect(non_camel_case_types, reason = "C type name")]
+#[derive(Clone, Copy, Debug)]
+pub struct jpeg_memory_mgr {
+    /// Accounts for a small object; the storage is the caller's, reserved
+    /// through the reservation (see `jmemmgr::alloc_small_box`).
+    pub alloc_small: fn(j_common_ptr<'_, '_>, i32, usize, Reservation<'_>) -> Result<(), ErrorExit>,
+    /// Accounts for a large object; the storage is the caller's, reserved
+    /// through the reservation (see `jmemmgr::alloc_large_vec`).
+    pub alloc_large: fn(j_common_ptr<'_, '_>, i32, usize, Reservation<'_>) -> Result<(), ErrorExit>,
+    /// Allocates a 2-D sample array.
+    pub alloc_sarray:
+        fn(j_common_ptr<'_, '_>, i32, JDIMENSION, JDIMENSION) -> Result<SampleArray, ErrorExit>,
+    /// Allocates a 2-D coefficient-block array.
+    pub alloc_barray:
+        fn(j_common_ptr<'_, '_>, i32, JDIMENSION, JDIMENSION) -> Result<BlockArray, ErrorExit>,
+    /// Requests a virtual 2-D coefficient-block array.
+    pub request_virt_barray: fn(
+        j_common_ptr<'_, '_>,
+        i32,
+        bool,
+        JDIMENSION,
+        JDIMENSION,
+        JDIMENSION,
+    ) -> Result<jvirt_barray_ptr, ErrorExit>,
+    /// Allocates the in-memory buffers of the unrealized virtual arrays.
+    pub realize_virt_arrays: fn(j_common_ptr<'_, '_>) -> Result<(), ErrorExit>,
+    /// Makes rows of a virtual block array accessible and returns the index
+    /// of the first requested row in the array's in-memory buffer, the
+    /// offset that C adds to `mem_buffer`.
+    pub access_virt_barray: fn(
+        j_common_ptr<'_, '_>,
+        jvirt_barray_ptr,
+        JDIMENSION,
+        JDIMENSION,
+        bool,
+    ) -> Result<usize, ErrorExit>,
+    /// Releases all objects belonging to a pool.
+    pub free_pool: fn(j_common_ptr<'_, '_>, i32) -> Result<(), ErrorExit>,
+    /// Closes up shop entirely.
+    pub self_destruct: fn(j_common_ptr<'_, '_>) -> Result<(), ErrorExit>,
+    /// Limit on memory allocation for this JPEG object.
+    pub max_memory_to_use: c_long,
+    /// Maximum allocation request accepted by `alloc_large`.
+    pub max_alloc_chunk: c_long,
+}
+
+// upstream: src/jpeglib.h JPEG_SUSPENDED
+/// Suspended due to lack of input data.
+pub const JPEG_SUSPENDED: i32 = 0;
+// upstream: src/jpeglib.h JPEG_HEADER_OK
+/// Found valid image datastream.
+pub const JPEG_HEADER_OK: i32 = 1;
+// upstream: src/jpeglib.h JPEG_HEADER_TABLES_ONLY
+/// Found valid table-specs-only datastream.
+pub const JPEG_HEADER_TABLES_ONLY: i32 = 2;
+// upstream: src/jpeglib.h JPEG_REACHED_SOS
+/// Reached start of new scan.
+pub const JPEG_REACHED_SOS: i32 = 1;
+// upstream: src/jpeglib.h JPEG_REACHED_EOI
+/// Reached end of image.
+pub const JPEG_REACHED_EOI: i32 = 2;
+// upstream: src/jpeglib.h JPEG_ROW_COMPLETED
+/// Completed one iMCU row.
+pub const JPEG_ROW_COMPLETED: i32 = 3;
+// upstream: src/jpeglib.h JPEG_SCAN_COMPLETED
+/// Completed last iMCU row of a scan.
+pub const JPEG_SCAN_COMPLETED: i32 = 4;
+
+// upstream: src/jpeglib.h JPEG_RST0
+/// RST0 marker code.
+pub const JPEG_RST0: i32 = 0xD0;
+// upstream: src/jpeglib.h JPEG_EOI
+/// EOI marker code.
+pub const JPEG_EOI: i32 = 0xD9;
+// upstream: src/jpeglib.h JPEG_APP0
+/// APP0 marker code.
+pub const JPEG_APP0: i32 = 0xE0;
+// upstream: src/jpeglib.h JPEG_COM
+/// COM marker code.
+pub const JPEG_COM: i32 = 0xFE;

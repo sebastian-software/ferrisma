@@ -1,0 +1,57 @@
+{
+  "lowering": {
+    "aarch64": "Each llvm.fmuladd site lowers to FMADD (a negative constant multiplier stays in the FMADD multiplicand).",
+    "x86_64": "Baseline x86-64 has no FMA: each llvm.fmuladd site lowers to a separate MULSS and ADDSS."
+  },
+  "sources": {
+    "lib/jxl/convolve_slow.cc": [
+      {
+        "file": "lib/jxl/convolve_slow.cc",
+        "line": 41,
+        "column": 28,
+        "type": "f32",
+        "expression": "SlowSymmetric3Pixel: row_in[ix] * wc + (row_in[xm1] + row_in[xp1]) * wlr fuses the first product; sum += adds separately",
+        "rust": "convolve_slow.rs kernel_row"
+      },
+      {
+        "file": "lib/jxl/convolve_slow.cc",
+        "line": 112,
+        "column": 11,
+        "type": "f32",
+        "expression": "SlowSeparablePixel: mul += row[sx] * wx * wy",
+        "rust": "unported (SlowSeparable5)"
+      }
+    ],
+    "lib/jxl/convolve_symmetric5.cc": [],
+    "lib/jxl/enc_gaborish.cc": [
+      {
+        "file": "lib/jxl/enc_gaborish.cc",
+        "line": 37,
+        "column": 42,
+        "type": "f32",
+        "expression": "GaborishInverse: kGaborish[4] + 2 * kGaborish[3] in the constant kernel sum; the product is exact",
+        "rust": "enc_gaborish.rs constant sum (no fused rounding difference)",
+        "folded": true
+      }
+    ],
+    "lib/jxl/enc_transforms.cc": [
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 452,
+        "column": 40,
+        "type": "f32",
+        "expression": "AFVTransformFromPixels: block00 + block01 + 2 * block10",
+        "rust": "enc_transforms.rs afv_dc_mix(..., 2.0)"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 454,
+        "column": 40,
+        "type": "f32",
+        "expression": "AFVTransformFromPixels: block00 + block01 - 2 * block10",
+        "rust": "enc_transforms.rs afv_dc_mix(..., -2.0)"
+      }
+    ],
+    "lib/jxl/enc_xyb.cc": []
+  }
+}

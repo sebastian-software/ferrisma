@@ -1,0 +1,216 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Collect complete original libaom acceptance with recovery'
+'on':
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Complete original native source run with immutable binaries
+        required: true
+        type: string
+      recovery_runs:
+        description: Comma-separated successful disjoint recovery run IDs
+        default: ''
+        type: string
+      release_continuation:
+        description: Completed Release continuation to compose under ADR 0048
+        default: ''
+        type: string
+      rc_fixture_recovery:
+        description: Successful strictly classified rate-control fixture repair
+        default: ''
+        type: string
+      runner:
+        description: Same native host as the original binaries
+        type: choice
+        options:
+        - ubuntu-24.04
+        - macos-26
+        - macos-15
+        default: ubuntu-24.04
+permissions:
+  contents: read
+  actions: read
+jobs:
+  collect:
+    if: inputs.release_continuation == ''
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      RECOVERY_RUNS: ${{ inputs.recovery_runs }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - run: |
+        python3 tests/ports/aom_recovery_collection_test.py
+        python3 tests/ports/aom_artifact_download_test.py
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-original-binaries
+        run-id: ${{ inputs.source_run }}
+        github-token: ${{ github.token }}
+        path: codecs/libavif-rs/build
+    - name: Download every matching artifact through all API pages
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 tools/download_aom_artifacts.py --run '${{ inputs.source_run }}' --pattern 'aom-original-shard-*'
+        --destination build
+    - name: Require complete original C/Rust execution and XML evidence
+      run: |
+        chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+        python3 - <<'PY'
+        import os, subprocess
+        command = ['python3', 'tools/collect_aom_recovery.py', '--source-run', str(int(os.environ['SOURCE_RUN']))]
+        for value in filter(None, (v.strip() for v in os.environ['RECOVERY_RUNS'].split(','))):
+            command.extend(['--recovery-run', str(int(value))])
+        subprocess.run(command, check=True)
+        PY
+    - name: Preserve complete acceptance, original summaries, and recovery provenance
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-complete-native-acceptance
+        retention-days: 14
+        if-no-files-found: error
+        path: |
+          codecs/libavif-rs/build/aom-complete-acceptance.json
+          codecs/libavif-rs/build/aom-artifact-downloads/*/manifest-*.json
+          codecs/libavif-rs/build/aom-paired-*/summary.json
+          codecs/libavif-rs/build/aom-recovery-contracts/
+          codecs/libavif-rs/build/aom-paired-*/shard-*.json
+          codecs/libavif-rs/build/aom-paired-*/shard-*.xml
+          codecs/libavif-rs/build/aom-paired-*/shard-*.log
+          codecs/libavif-rs/build/aom-recovery-*/original-*/segment-*/
+    name: 'AVIF: collect'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs
+  release-collect:
+    if: inputs.release_continuation != ''
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      CONTINUATION_RUN: ${{ inputs.release_continuation }}
+      REPAIR_RUN: ${{ inputs.rc_fixture_recovery }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - run: |
+        python3 tests/ports/aom_rc_fixture_recovery_test.py
+        python3 tests/ports/aom_release_reuse_test.py
+        python3 tests/ports/aom_artifact_download_test.py
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-original-binaries
+        run-id: ${{ inputs.source_run }}
+        github-token: ${{ github.token }}
+        path: codecs/libavif-rs/build
+    - name: Download every matching artifact through all API pages
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 tools/download_aom_artifacts.py --run '${{ inputs.source_run }}' --pattern 'aom-original-shard-release-*'
+        --destination build/aom-source-release-evidence
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-release-source-plan
+        run-id: ${{ inputs.release_continuation }}
+        github-token: ${{ github.token }}
+        path: codecs/libavif-rs/build
+    - name: Project only pinned passing source pairs and retain incomplete originals separately
+      run: python3 tools/project_aom_source_evidence.py
+    - name: Download every matching artifact through all API pages
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 tools/download_aom_artifacts.py --run '${{ inputs.release_continuation }}' --pattern 'aom-release-shard-test_libaom-*'
+        --destination build
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-release-shard-test_intra_pred_speed-0
+        run-id: ${{ inputs.release_continuation }}
+        github-token: ${{ github.token }}
+        path: codecs/libavif-rs/build
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-focused-debug
+        run-id: ${{ inputs.release_continuation }}
+        github-token: ${{ github.token }}
+        path: codecs/libavif-rs/build
+    - name: Refuse to replace original rate-control evidence
+      run: test ! -e build/aom-paired-release-test_aom_rc/shard-0.json
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-rate-control-fixture-recovery
+        run-id: ${{ inputs.rc_fixture_recovery }}
+        github-token: ${{ github.token }}
+        path: codecs/libavif-rs/build
+    - name: Recheck actual original failure, repaired cases, frozen identities, and fixture hashes
+      run: python3 tools/check_aom_rc_fixture_recovery.py --source-run '${{ inputs.source_run }}' --continuation-run
+        '${{ inputs.release_continuation }}' --runner '${{ inputs.runner }}' --verify-artifact
+    - name: Require complete unchanged native Release composition
+      run: |
+        chmod +x build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}
+        python3 - <<'PY'
+        import json, os, pathlib, subprocess
+        repository = 'sebastian-software/libavif-rs'
+        source, continuation, repair = [int(os.environ[key]) for key in ('SOURCE_RUN', 'CONTINUATION_RUN', 'REPAIR_RUN')]
+        def api(path):
+            return json.loads(subprocess.check_output(['gh', 'api', f'repos/{repository}/{path}'], text=True))
+        def pages(path, key):
+            output = subprocess.check_output(['gh', 'api', '--paginate', f'repos/{repository}/{path}', '--jq', f'.{key}[] | @json'], text=True)
+            return [json.loads(line) for line in output.splitlines()]
+        previous, repaired = api(f'actions/runs/{continuation}'), api(f'actions/runs/{repair}')
+        if (previous['status'] != 'completed' or previous['conclusion'] != 'failure'
+                or repaired['status'] != 'completed' or repaired['conclusion'] != 'success'
+                or repaired['path'].split('@')[0] != '.github/workflows/aom-rate-control-fixtures.yml'):
+            raise ValueError('Require completed original evidence and a successful guarded fixture repair')
+        jobs = pages(f'actions/runs/{continuation}/jobs?per_page=25', 'jobs')
+        failed = [j for j in jobs if j['conclusion'] not in ('success', 'skipped')]
+        if len(failed) != 1 or failed[0]['name'] != 'paired (test_aom_rc, 1, 0)' or failed[0]['conclusion'] != 'failure':
+            raise ValueError('Another failed or incomplete original job cannot be hidden by fixture recovery')
+        build = pathlib.Path('build')
+        if json.loads((build / 'aom-release-source-plan.json').read_text()) != json.loads((build / 'aom-rc-fixture-failure/aom-release-source-plan.json').read_text()):
+            raise ValueError('Reused original source plan differs from the repaired continuation')
+        artifacts = [a for a in pages(f'actions/runs/{repair}/artifacts?per_page=25', 'artifacts') if a['name'] == 'aom-rate-control-fixture-recovery' and not a['expired']]
+        if len(artifacts) != 1:
+            raise ValueError('Require one immutable complete repair artifact')
+        subprocess.run(['python3', 'tools/collect_aom_recovery.py', '--source-run', str(source), '--release-only', '--source-plan', 'build/aom-release-source-plan.json'], check=True)
+        path = build / 'aom-complete-acceptance.json'
+        report = json.loads(path.read_text())
+        report.update(continuation_run=continuation, continuation_original_conclusion=previous['conclusion'],
+                      collection_run=int(os.environ['GITHUB_RUN_ID']), fixture_repair_run=repair,
+                      fixture_repair_artifact_id=artifacts[0]['id'],
+                      fixture_repair=json.loads((build / 'aom-rc-fixture-recovery.json').read_text()))
+        path.write_text(json.dumps(report, indent=2) + '\n')
+        PY
+    - name: Preserve complete native Release, focused Debug, and classified failure evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-complete-native-release-acceptance
+        retention-days: 14
+        if-no-files-found: error
+        path: |
+          codecs/libavif-rs/build/aom-complete-acceptance.json
+          codecs/libavif-rs/build/aom-artifact-downloads/*/manifest-*.json
+          codecs/libavif-rs/build/aom-release-source-plan.json
+          codecs/libavif-rs/build/aom-source-release-projection.json
+          codecs/libavif-rs/build/aom-source-release-evidence/
+          codecs/libavif-rs/build/aom-focused-debug.json
+          codecs/libavif-rs/build/aom-paired-*/
+          codecs/libavif-rs/build/aom-rc-fixture-failure/
+          codecs/libavif-rs/build/aom-rc-fixture-recovery.json
+          codecs/libavif-rs/build/aom-rc-fixture-verified-inputs.json
+          codecs/libavif-rs/build/aom-abi-*/summary.json
+          codecs/libavif-rs/build/aom-unaligned-input-*/summary.json
+          codecs/libavif-rs/build/aom-rust-*/linkage.json
+          codecs/libavif-rs/build/aom-rust-*/symbol-audit.json
+          codecs/libavif-rs/build/aom-native-*/reference-profile.json
+    name: 'AVIF: release-collect'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

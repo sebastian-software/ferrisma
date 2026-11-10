@@ -1,0 +1,64 @@
+name: Nightly validation
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Codec family to validate
+        type: choice
+        options: [all, jpeg, webp, jxl, avif]
+        default: all
+permissions:
+  contents: read
+jobs:
+  families:
+    permissions:
+      contents: read
+      issues: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        component: ${{ fromJSON(inputs.component && inputs.component != 'all' && format('["{0}"]', inputs.component) || '["jpeg","webp","jxl","avif"]') }}
+    uses: ./.github/workflows/nightly-family.yml
+    with:
+      component: ${{ matrix.component }}
+  macos-workspace:
+    if: inputs.component == '' || inputs.component == 'all'
+    uses: ./.github/workflows/workspace.yml
+  fuzz-smoke:
+    if: inputs.component == '' || inputs.component == 'all'
+    uses: ./.github/workflows/m1-fuzz-smoke.yml
+  performance-smoke:
+    if: inputs.component == '' || inputs.component == 'all'
+    uses: ./.github/workflows/m1-performance-smoke.yml
+  kernel-bench:
+    if: inputs.component == '' || inputs.component == 'all'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: cargo fetch --locked
+      - run: cargo run -p ferrixel-kernels --example detect
+      - run: cargo run --release -p ferrixel-kernels --example bench
+  gate:
+    if: always()
+    needs: [families, macos-workspace, kernel-bench, fuzz-smoke, performance-smoke]
+    runs-on: ubuntu-24.04
+    env:
+      FAMILIES: ${{ needs.families.result }}
+      WORKSPACE: ${{ needs.macos-workspace.result }}
+      BENCH: ${{ needs.kernel-bench.result }}
+      FUZZ: ${{ needs.fuzz-smoke.result }}
+      PERFORMANCE: ${{ needs.performance-smoke.result }}
+      COMPONENT: ${{ inputs.component }}
+    steps:
+      - run: |
+          printf 'Codec families: %s\nmacOS workspace: %s\nKernel benchmark: %s\nFuzz smoke: %s\nPerformance smoke: %s\n' "$FAMILIES" "$WORKSPACE" "$BENCH" "$FUZZ" "$PERFORMANCE" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$FAMILIES" = success ] || exit 1
+          if [ -z "$COMPONENT" ] || [ "$COMPONENT" = all ]; then [ "$WORKSPACE" = success ] && [ "$BENCH" = success ] && [ "$FUZZ" = success ] && [ "$PERFORMANCE" = success ]; else [ "$WORKSPACE" = skipped ] && [ "$BENCH" = skipped ] && [ "$FUZZ" = skipped ] && [ "$PERFORMANCE" = skipped ]; fi

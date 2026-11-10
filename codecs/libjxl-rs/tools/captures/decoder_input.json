@@ -1,0 +1,13 @@
+{
+  "source": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
+  "source_only_initial_probe": "/private/tmp/decoder-input-source-requests-v2.txt",
+  "requests": 24,
+  "sha256": "cdf192fd831036efa1cdb29a8c0df3e610fa5d51903d32207389d1d031cf5a3a",
+  "capture": "actual exact hash-bound original members; no Rust observations used",
+  "exit_code": 0,
+  "stderr": "",
+  "retained_first15_sha256": "5b971ad922b8adf11fce7013ccf2a101e42875afb4335fa221238928eb02fc38",
+  "retained_first22_sha256": "6e3abeb469d6766eb06353456a114c38c8208e4ce7fc3503956134c53e4e8813",
+  "initial_source_requests_sha256": "970895c5680056229f18d91a2395f79ca0ee179ec1949b7ca6436488fcfa40bc",
+  "initial_source_observations_sha256": "9f73d40b8e672c062681868f11525b868b1f1399c0a00feff99d224750103878"
+}

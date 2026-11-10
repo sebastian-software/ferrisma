@@ -1,0 +1,2319 @@
+# Map ownership and storage explicitly
+
+- Status: accepted
+- Created: 2026-10-31
+- Updated: 2026-11-05
+
+C++ pointer arithmetic, mutable visitors, and partially initialized storage
+cannot be copied literally into safe Rust. Preserve their defined behavior with
+explicit representations while retaining source algorithms.
+
+- A bit reader borrows its bytes. Byte offsets replace pointers, including the
+  source's end-minus-eight sentinel. Preserve its 64-bit refill buffer,
+  zero-extension, deferred bounds failures, and explicit `close` checkpoint.
+  Native Rust moves transfer the close obligation; no copying is provided.
+  Debug destruction checks do not raise a second panic during Rust unwinding.
+- `Status` maps to `Result<(), StatusCode>` and `StatusOr<T>` to
+  `Result<T, StatusCode>`. Success is `Ok`; error codes retain upstream numeric
+  values. Error diagnostics and crash-on-error instrumentation are not yet
+  translated. Boolean control predicates remain booleans.
+  In particular, `AllDefault` consumes a source Status as a branch condition:
+  a failed read means false and field visitation continues. Returning early
+  with `?` changes partial state and bit consumption; a differential regression
+  covers this with an empty, truncated bundle.
+- Field visitors mutate borrowed fields. Bundle encoding accepts a mutable
+  bundle because upstream's const visitor casts away constness and may update
+  `all_default`; do not clone complete bundles to hide that mutation.
+- Serialized enums use raw `u32` wrappers implementing `FieldEnum`, so an
+  invalid decoded value can be stored and then rejected in the same order as
+  C++. Never create an invalid Rust enum discriminant. The templated Enum
+  visitor helper is a free function to keep `Visitor` object-safe.
+- ANS alias entries retain the eight-byte packed layout and original word
+  lookup on little-endian targets. The unaligned word read is contained in
+  the lookup with its layout, initialization, and borrow proof. Prefetch uses
+  the source's Clang configuration: a T0 read hint on x86_64 with SSE2, disabled
+  otherwise. Read top-level preprocessor guards as well as function bodies:
+  Highway's SSE2 guard disables its apparent AArch64 builtin branch. Emitting
+  an ARM hint would introduce an optimization absent from the reference.
+- Entropy readers borrow their code tables for their entire lifetime and take
+  a separate mutable bit-reader borrow for each operation. Aligned storage
+  owns typed integer/alias slices; local proofs cover initialization, alignment,
+  bounds, and exclusive mutable access. The LZ77 window starts initialized as
+  required for safe Rust storage; defined decoder reads still follow the
+  source's history/zero-distance rules. Keep all state and history counters
+  32-bit with explicit wrapping, including the unhealthy-reader path for a
+  wrapping decoded run length. Checkpoints restore entropy state and the same
+  512 window entries; restoring the bit-reader position remains the caller's
+  responsibility. Token bitfields use a private packed `u32` and accessors that
+  retain truncation to the source's 31-bit context field. This does not yet
+  establish a public C bitfield ABI.
+- The inverse move-to-front transform initially translates the existing
+  one-lane Highway scalar specialization. Its vector specializations remain
+  separate future work; no SIMD or performance parity is inferred from it.
+- ANS histogram lookup tables use `OnceLock` with initialized, contiguous
+  Rust-owned arrays in place of C++ static initialization. Their formulas,
+  numeric widths, and row order stay unchanged; initialization occurs on first
+  use under the reference's default floating-point environment. This changes
+  storage/initialization timing, not the search algorithm, and does not imply
+  memory or performance parity. Keep `f64` rounding and `f32` cost-conversion
+  points explicit. C++ `max_element`/`min_element` choose the first equal winner;
+  preserve that with strict comparisons, rather than Rust's last-winner
+  maximum iterator behavior. Internal writer traits express source Writer
+  templates for actual output and bit-count-only estimation.
+- Histogram clustering takes mutable input borrows because the C++ const
+  interface writes a mutable entropy cache. Preserve those cache changes and
+  first-winner ties. A Rust heap uses the original reversed `(cost, first,
+  second, version)` ordering; maps retain canonical first-use reindexing. The
+  scalar FastLog2f keeps the source coefficients as exact f32 bit patterns,
+  integer range reduction, and separate polynomial multiplication/addition.
+  Do not replace it with a library logarithm or fused operations. Disjoint
+  slice borrows allow merging two histogram entries without cloning the source
+  entry solely to satisfy the borrow checker.
+- LZ77 retains the RLE, greedy ring-bucket, and optimal hash-chain algorithms,
+  including their different special-distance collision winners and first-match
+  ties. Owned vectors replace source pointers; initialized match records expose
+  only fields assigned by the original dynamic program. The cost tables retain
+  exact f32 bits. Upstream disables Clang auto-vectorization; on AArch64 the
+  scalar histogram accumulation and final `6 - total_cost * inv_total`
+  expression use fused rounding. The Rust mapping makes those rounding sites
+  explicit. The x86_64 baseline has no FMA target; this is configuration-specific
+  evidence, not cross-target bit parity.
+  Differential regressions check all model float bits as well as chosen tokens.
+- Huffman node/table pointers become indices into borrowed slices. Leaf nodes
+  are sorted by population and descending symbol index, exactly as in C++;
+  that comparator is a total order, so the standard library sort's internal
+  implementation does not change ties. Temporary tables/arenas are initialized
+  before borrowing, and only populated entries are observed. Keep signed
+  16-bit node indices, unsigned count wrapping, and the original depth-limiting
+  loop. Invalid internal preconditions panic rather than allowing invalid
+  memory access; they do not add checks to accepted bitstream parsing. Failed
+  parses preserve the source's table resize/mutation order. Symbol reads retain
+  the caller's refill obligation and the reader's deferred bounds checkpoint.
+- Padded storage preserves the minimum capacity, growth rule, padding, alignment,
+  and rotating alignment groups. Storage allocates through the owner's
+  `MemoryManagerPtr`: the caller's JxlMemoryManager in the decoder, or the
+  native Rust allocator elsewhere. Both backends initialize the payload to zero
+  so safe slices never expose uninitialized data. Additional initialization is
+  an internal difference, not a promise of allocation or performance parity.
+  See "Decoder memory-manager propagation" below.
+- Writer allotment parent pointers become indices in an owned stack. Preserve
+  bit budgets, nested charging, and reclaim order. This adds Rust-managed stack
+  storage; it does not change the bit-writing algorithm. The scoped callback
+  receives reborrows of both the writer and optional accounting context, so
+  nested writes can charge the same context without aliased mutable references.
+- Complete entropy encoding retains optional output versus size-only writers,
+  transposition, scalar token-cost counting, config candidate order, nested
+  accounting, and prior histogram/context prefixes. The scalar MaxVectorSize
+  value is four bytes; upstream adds that value to a count of u32 elements, and
+  the Rust storage keeps the same padding. A newly encoded histogram writer is
+  locally owned during table construction and appended even on error, retaining
+  the source's observable partial state without cloning the encoding data.
+  Streaming finalization accepts mutable codes because bundle visitors can
+  mutate fields, following the existing bundle mapping above. The source's
+  release-state fuzzer flag remains false; its debug-only global setter is not
+  yet exposed. Ordinary Rust debug/release builds both match that reference.
+
+- The encoder transform, Gaborish, convolution and XYB units reproduce the
+  original objects' contraction per target. Each source site that Clang
+  records as `llvm.fmuladd` is a `#[cfg(target_arch = "aarch64")]` `mul_add`
+  with the source's operand roles and separate operations elsewhere; the
+  sites are listed in `tools/encoder_transforms_contraction.json`. Highway's
+  scalar Mul stays `scalar_mul` and its MulAdd a product followed by a
+  separate addition. GaborishInverse writes the second and third Symmetric5
+  passes into planes of the same image through disjoint plane borrows, and
+  ToXYB's admitted encodings are a type (`XybInputEncoding`), so the
+  ApplyColorTransform branch and its CMS argument are absent rather than
+  stubbed.
+
+- The quantization, chroma-from-luma and AC strategy heuristics follow the
+  same contraction rule (`base::float::mul_add_f32` at each site of
+  `tools/encoder_heuristics_contraction.json`). ACSConfig's row pointers are
+  reified as `AcsPlanes`, borrows of the owners Init received that
+  ProcessRect receives again, because LossyFrameHeuristics adjusts the quant
+  field between tiles while the source keeps pointing at it; Init stores the
+  scalar fields and strides. The per-thread scratch of CfLHeuristics and
+  AcStrategyHeuristics is the source's AlignedMemory, split into the same
+  regions with disjoint slice borrows. std::nth_element in SetQuantField is
+  the translated reference libc++ algorithm (`base/libcpp_nth_element.rs`).
+
+- Color matrices use typed float/double arrays and a 16-byte aligned temporary,
+  preserving source mixed-precision accumulation and inversion order. The
+  translated callers have disjoint input/output storage; native borrows express
+  that boundary. Ordinary Clang AArch64 expression contraction is explicit,
+  including double results later narrowed through `copysignf`. C++ min/max
+  operand order and unordered comparisons are retained instead of using Rust's
+  different NaN rules. Opsin constants and the A2B cube keep constexpr float
+  evaluation. ICC tag output remains byte-oriented, with the original profile
+  date, aliasing of curve tags, padding, and unsigned MD5 wrapping. Rust's
+  standard formatter supplies the source's default six-significant-digit `%g`
+  output, with explicit fixed/exponent selection and C spellings; no C formatter
+  is linked. Darwin omits a NaN sign, covered by an exact negative-NaN regression.
+  These are reference-configuration results, not cross-platform or SIMD parity.
+
+- Metadata names use byte vectors, because C++ strings accept arbitrary bytes
+  even where comments call them UTF-8. Names and extra-channel vectors resize
+  only on the source's reading branches; default visitation of a reused object
+  must not clear them. Preserve unsigned field offsets before a failed visit,
+  hidden color-storage synchronization, and mutations made before setter errors.
+  The non-callback FromExternal color API deliberately ignores profile-generation
+  failure, as the source does; field parsing propagates that failure instead.
+  Static color encodings use OnceLock for the source's lazy static arrays.
+  Their first-use timing is not performance evidence. Differential inputs to
+  external C enums stay inside C++'s defined enum representation range; invalid
+  decoded internal values still use the existing raw wrappers and validation.
+
+Retain defined unsigned truncation and wrapping explicitly. Invalid programmer
+preconditions must not cause undefined behavior in Rust. Record any discovered
+source ambiguity before changing its interpretation. Do not add blanket unsafe
+code or blanket lint suppression to imitate C++ syntax.
+
+Frame and animation metadata pointers use optional shared borrows, preserving
+the source's nullable cases and branch-local dereferences. Constructors assign
+safe initial storage before running the original field visitor. Inactive pass
+array entries have no defined initial C++ values; the oracle explicitly seeds
+those entries as caller input before comparing state. Serialized fields and
+the last-pass shift retain the source's mutation order. Chroma subsampling
+keeps cached maxima when Set fails partway through: byte operands promote to
+signed int before the difference converts to size_t. Unsigned rectangle
+coordinates and group dimensions use pointer-width wrapping and the original
+clamping, units, and padding; signed RectT and image-row views remain absent.
+Filter validation promotes stored floats to double for the source's unsuffixed
+`1e-8` threshold. Rounding that threshold to f32 incorrectly accepts the nearest
+float below it; an exact differential rejection regression covers this case.
+Bundle::AllDefault retains the release reference's accumulated predicate after
+a failed visit; the source's JXL_DEBUG_ABORT is disabled in that configuration.
+The enclosing CanEncode visit propagates its own validation error. Rust debug
+and release both follow this release-state contract, with source crash-on-error
+instrumentation still outside the translated boundary. The sigma regression
+also checks this error path rather than converting it to a Rust panic.
+
+Permutation coding retains the original Fenwick workspaces and their partial
+mutations. Typed u16/u32 slices replace the source's permutation templates;
+optional output borrows preserve validation without storing an order. A C++
+integer loop can be empty when its starting index exceeds the end: retain that
+with iterator take/skip rather than an invalid Rust subslice. Permutation token
+counts still use unsigned subtraction and narrowing in that case. TOC vectors
+clear, resize, and swap at the source's original checkpoints, including stale
+permutation output when the flag is absent and unchanged offsets after failed
+table reading. Rust slices correspond to non-null empty source spans; test
+fixtures must not accidentally select a null reader's separate close behavior.
+
+Plane/Image3 own the existing aligned allocation through an optional owner.
+Sealed primitive numeric sample types guarantee valid byte representations,
+no destructors, and alignment at most eight; locally proved typed slices borrow
+initialized in-bounds storage. Mutable row/byte views require an exclusive
+owner borrow. Physical row slices include padding, while copy/fill operations
+use the valid width. Image3 preserves the source's first-plane stride and
+per-plane failure order. Native moves transfer ownership; explicit image
+cloning copies samples and transform vectors without implicit plane cloning.
+Source overloads receive explicit Rust names where necessary.
+
+ImageBundle's default move is an explicit member transfer in source declaration
+order. It preserves the existing destination bundle identity and the source's
+initialized scalar fields and color-plane headers. The JPEG owner, name, ICC
+vector and extra-plane vector transfer at their original member checkpoints;
+the observed original standard-library implementation leaves the moved
+vectors/name empty. Plane allocation ownership transfers without copying pixels. Original
+moved-from Plane raw addresses can still alias the destination allocation, so
+these reads are not inherently undefined. `move_from` returns a
+`MovedColorView` borrowed from the destination to represent the reached source
+color aliases: it cannot outlive, mutate, or survive mutation/destruction of
+that destination. The source bundle itself retains headers without a second
+allocation owner. Direct arbitrary moved-from source row access is outside this
+representation. Finalization may discard this view at the original assignment
+checkpoint. RemoveColor resets only color storage; profile, metadata, origin,
+frame fields and extra planes remain intact.
+
+Decoder-owned write stages retain the same shared reference temporary through
+`Rc<RefCell<ImageBundle>>`; indexed DC writers retain the same
+`Rc<RefCell<[Image3; 4]>>` owner and resolve its selected slot for each call.
+`dc()` returns either a direct storage borrow or a mapped Ref guard of that exact
+slot, preserving pointer identity and later writes without a staged image copy.
+Reference writers retain the existing four-slot reference owner and mutate the
+existing boxed bundle. Finalization moves the temporary into that bundle rather
+than replacing its Box, so patch and blending bindings keep their object
+identity. Existing borrowed writer constructors and the externally borrowed
+RefCell constructor keep their original lifetimes. All dynamic writer borrows
+end before return, with no callbacks or concurrent writes while borrowed; this
+mapping covers both sequential pipeline implementations.
+
+Row sizing keeps the scalar source's four-byte MaxVectorSize, including rejection
+of positive widths with eight-byte samples. Zero-sized planes have no allocation
+context; channel reallocation inherits that null context and retains the source
+failure rather than silently using a fresh allocator. Failed channel resize
+keeps newly assigned logical dimensions and the old plane. A plane's memory
+manager is that of its allocation, as the source's `bytes_.memory_manager()`.
+Initialized Rust storage for max_delta_error is an internal
+difference from the source's indeterminate nonserialized member. Oracle callers
+seed that member and observed pixel storage explicitly. No Rust sanitizer or
+memory/performance parity is inferred from C++ instrumentation or these borrows.
+
+Scalar RCT row pointers use disjoint mutable row borrows plus index maps for
+input/output permutations. A private row-access trait expresses the source's
+in-place and separate-buffer calls without aliased shared/mutable references:
+load all three samples before storing any output. Whole-channel inverse moves
+use swaps over the same three owners, preserving component tags without plane
+copies or replacement allocations. Arbitrary C pointer alias contracts remain
+unported. Rows run through RunOnPool: in ascending task order with a null pool,
+and serialized under a runner (see Thread runners and RunOnPool). The source
+uint32 task-end narrowing stays explicit. Forward scalar i32 expressions retain
+the source's nonoverflowing input requirement; inverse Highway Add/Sub use
+explicit wrapping. Keep the in-place forward no-op's false Status distinct from
+the separate-buffer and inverse no-ops' successful Status.
+
+Prediction row pointers become a borrowed sample slice, a position, and a signed
+row stride. The slice includes owned physical padding; relative reads retain
+the source boundary/interior branches and cannot outlive storage. Weighted state
+borrows its immutable header and owns the original two-row buffers and per-state
+reciprocal table. Keep unsigned error sums, signed fixed-point operations,
+narrowing, strict magnitude ties, and division-versus-shift rounding explicit.
+Weighted header parameter reads synchronize their local u32 back to i32 only
+after a successful visit, preserving partial failures.
+
+FlatDecisionNode uses raw integer slots for the original unions, with typed
+accessors and native-endian packing of the two i16 property indices. This avoids
+inactive-union references and invalid enum discriminants while keeping the
+24-byte layout and original twice-unrolled traversal. Rust initializes storage
+that C++ leaves indeterminate, including PredictionResult::multiplier without a
+tree; this gives that member no added non-tree meaning. The oracle must omit
+such undefined observations rather than turning extra initialization into a
+parity claim. Learning predictions likewise initialize inactive entries without
+giving them meaning in source observations.
+
+Tree parsing and tokenization retain breadth-first node/leaf indices, the source
+integer narrowing points, iterative property-range validation, and error-time
+mutation order. Rust VecDeque replaces the source queues; work stacks own their
+records and retain the same traversal order. TreeLut keeps its fixed context
+array; optional offset/multiplier arrays use vectors of exactly zero or 16,384
+entries because stable Rust cannot express those conditional generic array
+lengths. Rust initializes storage that the source leaves indeterminate. The
+oracle seeds LUT storage before observing every entry and reads only the active
+union members of flattened nodes. Header transforms resize only on reading,
+including when an existing bundle receives defaults.
+
+Residual encoding writes into pre-resized caller-owned token storage, using an
+index for the source's local Token pointer. Commit that index only at the source
+success checkpoint; overflow leaves already written tokens and the unchanged
+width output visible. Preserve builtin signed-subtraction overflow through
+overflowing_sub, later i64-to-i32 narrowing, and the separate fast/slow loops.
+The source's kWantDebug=true predictor-image allocation and scratch writes remain
+present even though its image-output call is commented out. Decoder prediction
+temporarily borrows initialized plane samples and ends that borrow before each
+pixel write; no aliased mutable/shared channel pointers or whole-plane copies
+are needed. Its first-row relative-pointer cases map to the same prior samples.
+Shared Huffman/RLE run/value state outlives individual channel calls, and its
+original global-tree predicate remains part of the fast-path selection.
+
+Palette/Squeeze output channels own their allocations and replace the source
+channel at the original assignment point. Palette index planes use the source
+swap; short shared palette/prediction borrows end before each output write.
+Keep source task narrowing and eight-row/64-column span order, signed tendency
+division, i32 forward arithmetic preconditions, and inverse narrowing explicit.
+Clamp1 retains its ordered ternary checks even for reversed bounds: an empty
+single-channel palette distinguishes negative from nonnegative input indices.
+Do not substitute Rust clamp or unordered min/max composition for that case.
+Metadata edits retain changes completed before failure, including meta counts
+and previously processed channels. New source pixel storage is indeterminate;
+metadata-only oracle observations omit it. Reverse stack execution copies one
+Transform as the source does, pops it after success, and leaves a failed entry
+and the error flag visible. The inverse transforms receive the caller's pool;
+FinalizeDecoding's small-image guard still replaces it with a null pool.
+
+ModularDecode temporarily moves its transform-vector owner out while applying
+each mutable entry to the image, then restores it on success or failure.
+MetaApply reads channel/size/meta state and never reads that vector, so this
+avoids aliasing and additional transform copies while preserving partial entry
+mutations. A Result scope performs the original armed guard's zero-filling on
+every status-return path and disarms it before final ANS validation. Allowed
+truncation retains its separate early-header clearing and later nonfatal undo
+rules. Optional global tree/code/map inputs remain independent borrowed options;
+validate their presence at the original checkpoint. Do not compare indeterminate
+source pixels after allowed truncated transforms. Caller-supplied dimensions and
+bit depth remain outside the standalone modular stream's serialized boundary.
+
+TreeSamples owns the source's residual/property/count vectors and both hash
+slots. Preserve resize-retained hash entries, u16 saturation/removal, strict
+split ties, the source's sample partition order, and mutation of pre-quantized
+pixel/difference arrays. Static properties retain their positional contract;
+do not reorder or repair a caller's configuration. Learning consumes its sample
+owner, while image batches and predictor headers remain borrowed. Inactive
+CostInfo predictors and pre-setter fields receive safe Rust initialization with
+no added source meaning. Preserve integer narrowing/wrapping and the original
+unsigned-long histogram accumulation width. The one-lane Highway estimator
+keeps separate float operations; ordinary Clang expressions retain the existing
+target-specific contraction mapping. In particular, the unsuffixed split
+penalties and required-cost constants evaluate in double before narrowing.
+RNG state and geometric sampling retain logf rounding and source distribution
+preconditions. Generic compression clones options at the source checkpoint,
+writes its header before learning errors, and reborrows accounting for nested
+writers. Caller options and transform ownership remain unchanged.
+
+Palette selection uses ordered Rust maps/sets for the source's lexicographic
+keys. A separate owned image retains lossy reconstruction samples while input
+indices are written only in the final iteration. Short row borrows load all
+components before writing an index. Preserve prepass predictor changes,
+palette-count mutation checkpoints, implicit-color promotions, strict distance
+ties, row-error swaps, and original float/double rounding. Do not assign meaning
+to indeterminate source delta entries beyond its RGB lossy configuration.
+
+For palette comparator ties, Rust's general-purpose sort does not specify the
+reference C++ library's concrete order. Preserve it with a mechanical translation
+of the reference libc++ non-arithmetic specialization, including insertion,
+partition, pivot, and heap-fallback behavior. Its versioned/hash-checked SDK
+snapshots and LLVM notices form an explicit dependency boundary. This favors
+reference bitstream reproducibility over using Rust's sort. Moved-from holes
+hold Default values for the source's vector/pair instantiations; those holes
+are never compared. This avoids raw pointers and extra clones for element
+moves. Other C++ library versions/specializations need their own evidence.
+
+CompressParams copies owning vectors and non-owning descriptors at the source's
+checkpoints. Custom spline/progressive inputs use borrowed slices/references;
+they must outlive the copied parameters. CMS/debug callback signatures and raw
+data pointers are stored without invocation or ownership transfer. Their C
+profile/color/bit-depth layouts use explicit representation and are checked
+against original size, alignment, and member offsets. This establishes data
+carriers, not callback execution or the encoder C API. Initialized Rust CMS and
+opaque storage has no source meaning before assignment; do not observe the
+source's indeterminate members before SetCms/caller assignment. Future callback
+invocation needs its own lifetime, buffer, thread, and cleanup proof.
+
+Progressive configuration retains aggregate initialization and leaves reused
+Passes entries untouched except at the source's assignments. Preserve narrowing
+before zero-count rejection and the last-pass shift reset. Stream IDs retain
+size_t wrapping; fixed-underlying raw kinds preserve the source switch's zero
+result for unknown values. Header preparation retains byte names, copied blend
+records, field narrowing, and changes completed before each validation failure.
+Metadata and parsed JPEG inputs are borrowed; JPEG storage does not implement
+the unported field/parser/reconstruction APIs. Source-indeterminate JPEG/spline
+storage receives safe Rust initialization without extra observable meaning.
+
+Sample conversion uses disjoint input/output slices with explicit row lengths.
+Assert the source's valid-buffer and defined numeric/shift preconditions rather
+than silently treating Rust's saturating float-to-int casts as source behavior.
+Preserve the encoder's single/double precision threshold and original target
+contraction sites. Decoder Highway additions wrap before conversion; its
+explicit multiplication remains separate. Bit casts replace memcpy for custom
+floats and binary32, including signed zeros and NaN payloads. Representability
+errors retain prior writes and leave the remaining output storage untouched.
+Original format checks that fail without accessing rows precede buffer-length
+assertions; an error-only call does not require storage for an unused row.
+
+Frame transform attempts clone the source transform, append it only at the
+source success checkpoint, and pop a rejected attempt only after successful
+inverse application. A failed inverse keeps its entry and returns the source's
+false value, not a new status error. Forced metadata edits do not establish
+defined pixel contents. Tree merging retains append offsets even in leaf child
+fields; later tokenization performs the source's canonicalization. Scalar
+gradient-cost residuals keep their defined signed-subtraction precondition;
+weighted cost instead records overflow and rejects that mode with FLT_MAX.
+Preserve per-context float-to-size_t truncation, the accumulated fraction, and
+the final size_t-to-float conversion rather than summing costs in float.
+
+ModularFrameEncoder owns its stream images/options, trees, tokens, headers,
+entropy data, mappings, and copied parameters. Its image allocations use the
+native allocator; the encoder has no caller memory manager yet.
+Preparing a group splits the stream vector into disjoint global/group borrows.
+Keep channel-map insertion before allocation/copy and retain completed changes
+on failure. RCT search owns scratch channels and swaps planes at the original
+checkpoints; do not add atomic rollback to partially completed source work.
+
+Every upstream call to the private PrepareStreamParams passes the encoder's
+own cparams member. The Rust method borrows that field directly, removing a
+same-owner argument that would otherwise require aliasing or an extra parameter
+copy. Other fields remain independently borrowed. ClearStreamData swaps in an
+empty owner and releases the previous image at the source scope exit; it does
+not clear token, mapping, or width state. Stream options and vector resizing
+retain old entries except at the source's assignments. The splitting threshold
+uses size_t arithmetic because decoding_speed_tier is unsigned, including its
+wrapping before float conversion. Multiplier sorting retains the reference
+algorithm; safe Default values fill moved-from holes with no added meaning.
+
+The first image configuration owns private metadata, and its frame owner borrows
+that metadata while owning the header, progressive splitter, modular encoder,
+and initialized quantization matrices. Its parameters contain no borrowed custom
+inputs and can therefore use a static parameter lifetime. Expose read-only observations of these owners;
+do not expose mutations that could select unported source branches. This is a
+configuration-specific internal path, not a substitute general encoder API.
+
+For the fixed lossless Thunder configuration, ComputeEncodingData's Gaborish,
+patch search, custom splines, XYB, extra-channel conversion, channel moves,
+responsive squeeze, and lossy quantization branches are unreachable through
+original parameter/metadata values. Translate the reached integer conversion,
+default global palette/RCT policy, group scheduling/preparation, plane release,
+and validation in source order. The Image3F input can be borrowed immutably
+because the only source writes to it are in the excluded effect branches.
+Retain the source's double conversion factor and physical-plane versus logical
+channel dimensions. General pixel-preparation entry points remain absent.
+
+Block padding keeps its original allocation and the source Image3 stride from
+plane zero. Byte copies retain float payloads and leave physical row padding
+untouched. A failed ShrinkTo retains the planes already resized. Preserve the
+source's unsigned DivCeil/RoundUpTo arithmetic, including defined wrapping.
+An empty fill range does not construct a checked Rust row view.
+
+Downsampling preserves nested float accumulation order and the actual sample
+count at partial edges. Safe row selection replaces strided pointer arithmetic.
+Allocate output through the input image's memory manager: a newly created
+empty image has none, while an allocated image shrunk to zero still has one.
+These equal logical dimensions can therefore yield different allocation
+statuses. Image3 creation receives the same manager-or-null distinction.
+
+DequantMatrices owns the source's default encoding vector, strategy-to-table
+offsets, empty lazy table storage, and three DC/inverse-DC values. Its constructor
+retains the original block-size schedule and all initialized state. The source's
+indeterminate coefficient pointers have no Rust meaning before computation;
+matrix computation/accessors and coefficient libraries remain unported.
+Preserve each coefficient
+assignment before its validation and update the inverse only after validation.
+The serialized all-default flag keeps reused values rather than restoring the
+initial constants. Custom-DC round trips close their private Rust reader even
+on failure, retaining the primary decode status and all earlier matrix changes;
+the extra close has no externally observed reader state.
+Setter inputs borrow a disjoint three-value array, matching the pinned callers'
+local arrays or separate parameter storage. Aliasing matrix members through the
+source's raw input pointer is not represented by this safe internal boundary.
+
+QuantEncoding incorporates the initialization from its C++ constexpr base into
+one owning Rust record. Typed payload variants replace the active union member;
+do not observe inactive source bytes or give them extra meaning. Mode storage
+retains the reference compiler's four-byte unsigned underlying type. Non-RAW
+constructors preserve constexpr initialization. RAW borrows and copies its table
+because the original named rvalue-reference argument is copied, leaving the
+caller's vector unchanged. Clone duplicates its optional table owner; clone_from
+releases an old RAW table before replacement. Explicit move_from transfers the
+table and leaves a null owner with the original mode/metadata in the source,
+while ordinary Rust moves invalidate the old binding. A moved-from null RAW
+owner remains distinct from an allocated empty table. Non-owning raw-pointer
+base copies are not exposed. SetEncodings copies a disjoint vector owner and
+invalidates the computed mask at the source checkpoint.
+
+The fixed profile's EncodeGroups uses an owning writer vector for the source's
+unique writer owners. Preserve single-group merging, the empty global-AC slot,
+DC/AC index order, and the original byte-padding/allotment layer. Null-pool task
+bounds narrow to u32 and use one temporary AuxOut owner, or a null owner when
+statistics are disabled. Reify the resize lambda's captures as parameters for
+sequential disjoint borrows. Assimilate the worker only at the original final
+resize; errors before that point drop its unassimilated statistics while keeping
+earlier output mutations. Pool task failures retain the source's generic status.
+The output vector's nonempty guard precedes all writes. Frame owners release the
+modular encoder before its header and matrices, following reverse creation order.
+
+The fixed profile's finalization boundary returns the local BitWriter before
+TakeBytes/AppendData. Its original special-frame vector is empty and the fixed
+centerfirst=false setting exits PermuteGroups at its first guard. Header
+visitation mutates the real header before group-alignment validation; an error
+drops the local writer while retaining header/statistics changes. Successful
+TOC output precedes the byte-aligned group append. No generic permutation or
+output-processor API is inferred from this boundary. The complete native
+one-shot method now takes that writer's padded byte owner at AppendData's input
+boundary. BitWriter::TakeBytes shrinks the existing allocation and moves it
+without copying. The fixed image entry point writes the original global
+metadata/padding block and appends the complete one-shot frame. Its raw byte
+return replaces only native output plumbing; C output processors, callbacks,
+containers, and the general image API remain unported.
+
+AuxOut includes all source block counters and the signed iteration counter.
+Unsigned sums wrap; signed overflow remains a source precondition, checked in
+Rust. Layer and object assimilation preserve field order and double addition,
+including signed zero and NaN bits in the reference configuration. Diagnostic
+printing remains separate from this storage/accounting boundary.
+
+External plane conversion borrows the actual input byte storage separately
+from the source size argument: size=0 skips only the original size check and
+does not imply an empty allocation. Slice bounds enforce the source pointer
+validity precondition without unsafe loads. Keep row/channel offset arithmetic,
+null-pool u32 task narrowing, float scale construction, and ordered callbacks.
+The source scale shift must be below 64 even for floating input; undefined larger
+shifts remain a checked programmer precondition. SafeMul/SafeAdd/SafeRoundUpTo
+local checks map to checked usize arithmetic, preserving validation order and
+the final source wrapping product. Pixel-format data type and endianness use raw
+u32 wrappers, so unnamed enum values can follow the original guards without
+invalid Rust enum discriminants. This extends the earlier endianness descriptor
+to raw storage; the three named values keep their numeric representations.
+
+The buffer-backed frame adapter borrows color input and owns copied input in
+the source channel field order. Extra channels copy only after a successful
+bind; CopyBuffers copies the color channel. Preserve the old copy's precedence
+over a subsequently rebound pointer, including null-pointer rebindings. Empty
+copies fall back to the borrowed pointer, which CopyBuffer has cleared. Input
+size remains separate from the physical slice extent. SetFormatAndDimensions
+retains format/dimension changes before failed size arithmetic; SafeRoundUpTo
+assigns its wrapped stride even when reporting overflow. Initial Rust numeric
+storage is safe, but source-indeterminate fields are observed only after their
+assignment. The callback/JPEG setters remain absent, so these entry points can
+select only the original buffer path. Native shared views replace its callback
+table and no-op release; they cannot outlive the adapter or its input borrow.
+
+The fixed profile's CopyColorChannels retains the default FrameInfo, including
+FROM_PIXEL_FORMAT and ib_needs_color_transform=true. The original color-only
+component entry point keeps a null alpha destination; the complete fixed-profile
+entry point also binds its optional alpha plane by owner-relative index.
+It sets the interleaved-alpha flag before requesting data and validates channel
+count afterward. A disjoint borrow of the three owned planes supports gray
+replication in source order without cloning storage. Failure retains completed
+plane writes and the alpha flag; later planes remain untouched. This boundary
+remains independently testable at the color-copy boundary. The fixed image
+entry point calls it through the original outer computation order. Allocate all
+extra planes before color import, copy interleaved alpha only after all color
+planes, then run CopyExtraChannels and skip the first interleaved alpha request
+at the original checkpoint. The buffer-only adapter retains no-op release
+semantics through scoped borrows. Separate component callers may supply an
+extra-channel buffer; missing buffers retain the original failure order.
+
+Modular preparation includes each alpha plane after color in original channel
+order, retaining per-channel dimensions/shifts, sample-depth conversion, and
+max-bitdepth updates before the existing palette/compaction policy. The simple
+render pipeline owns three color channels plus the admitted alpha channel. Its
+existing modular conversion and WriteToImageBundleStage retain the alpha plane
+without changing the RGB stages. Complete integer export requests gray/alpha
+or RGBA when metadata has alpha. Associated alpha remains outside this profile,
+so its source unpremultiplication condition is false. The original lossless
+keep-invisible default prevents SimplifyInvisible; the port introduces no
+replacement pixel values for transparent areas.
+
+Quantizer stores the source scalar state and reifies its enclosing matrix
+pointer as an explicit same-owner borrow for construction, recomputation, and
+DC getters. This avoids a Rust self-reference when the containing frame moves.
+Callers must pass the original matrix owner. Mutating that owner changes fresh
+DC getters immediately while the stored multipliers retain their prior values
+until recomputation. The fourth multiplier lanes have no defined source initial
+values; safe Rust storage is initialized but the oracle omits those lanes until
+ClearDCMul assigns them. Recompute changes only the first three lanes, retaining
+a previously cleared fourth lane. Keep the original double-to-float assignments
+and subsequent float arithmetic. The recomputation call stays out of line to
+preserve arithmetic on signaling NaNs; the reference configuration in ADR 0002
+pins the same boundary for both ordinary and instrumented C++ builds.
+
+AcStrategyImage replaces its cached Row(0) pointer with an owner-relative offset
+and retains its cached stride. Both survive native owner moves; borrowed layer
+observations cannot outlive the allocation. Raw AcStrategyType uses u32 storage.
+CountBlocks first truncates the type to u8, then promotes to int for the shift:
+unnamed type 127 counts the 255 sentinel, 256 aliases DCT, and 128/255 compare
+against values above 255. Do not wrap the shifted byte before comparing it.
+
+The fixed frame owns the complete PassesEncoderState/PassesSharedState storage
+and constructors, including four allocated reference ImageBundles and the
+default BlockCtxMap. ImageFeatures owns the original patch/spline/noise storage.
+The fixed-profile ComputeEncodingData retains each allocation/assignment
+checkpoint, the coefficient-order size, and the original default XYB=true map
+construction even for this RGB configuration. Its parameter copy occurs only
+after successful pixel copying. Source image samples not initialized by the
+algorithm remain omitted from observations.
+ColorCorrelation default construction leaves all DC factors zero; only explicit
+recomputation, setters, successful DC parsing, or map creation assign them. Its
+ratio expressions retain the reference's scalar contraction.
+
+Shared DC and patch-reference pointers become owner-relative member selectors.
+The shared owner resolves its DC selector to dc_storage; the reached SetShared
+records the containing reference_frames array. Matrix calls retain explicit
+same-owner borrows. These bindings survive native moves without self-references.
+ImageBundle borrows optional metadata and owns color, profile, extra planes,
+names, and optional JPEG data. Source-indeterminate metadata, dimensions, LUTs,
+and patch fields receive safe initial Rust storage without extra source meaning;
+observations begin only after the original assignment. The `_in` constructors
+take the source's memory manager; the shorter ones select the native allocator.
+
+ACImage's two admitted template instantiations become a closed i16/i32 image
+enum. Typed row-view variants replace its pointer unions and virtual dispatch;
+all original allocation, stride, row, empty, and zero-fill operations are
+preserved. Source unique owners become optional boxed values where null is
+allowed. Splines keeps its borrowed data view and owning storage separately;
+the translated constructor/Clear establishes empty views and releases both
+aligned cache owners in source order. Data import/rendering remain absent.
+
+ModularFrameDecoder owns its full modular image, deferred transform vector,
+global prediction tree, ANS tables, context map, and group header. Init copies
+only frame dimensions, preserving the original reused-state behavior. Global
+decoding borrows the caller's header and reader for each call. A local image is
+assigned to the full-image owner only after the original fatal/truncation
+checks; earlier failures retain the old image and already mutated tree/table/
+header state. Nonfatal truncation can still transfer that local image. Preserve
+the original transform-vector copy before clearing it, and do not reset the
+deferred vector or use_full_image flag at extra checkpoints. MaybeDropFullImage
+releases channel planes while retaining their logical metadata. Native moves
+transfer all owners; no borrowed entropy reader is stored inside the decoder.
+Initial source-indeterminate flags/dimensions receive safe native storage. The
+oracle explicitly seeds those flags before partial-state comparisons, and only
+observes pixels that the original global decoder has initialized.
+
+Group decoding and modular-to-pipeline conversion borrow the original decoder
+state's actual shared owner and pipeline field separately. Conversion reads
+only shared.matrices; finalization additionally reads shared.frame_dim and
+mutates the pipeline. Optional shared-state presence retains DecodeGroup's
+nullable-state checkpoint. These are field dependencies of the translated
+callee, not a replacement PassesDecoderState constructor. The complete decoder
+owner and initialization are translated separately; these callees retain their
+field borrows. Null-pool task loops retain
+uint32 bounds and the source wrapper's generic-error mapping.
+
+Modular Image::move_from copies scalar metadata and transfers channel/transform
+vectors, matching the source move assignment. It leaves the source bit depth,
+dimensions, meta-channel count, and error flag intact. FinalizeDecoding reads
+that retained bit depth while converting the moved image: resetting the source
+to a default Image would incorrectly normalize 16-bit pixels as 8-bit pixels.
+The RGB-from-gray kernel receives three disjoint mutable pipeline plane borrows
+from one ordered iterator, preserving its single computation per sample without
+cloning pixel storage or duplicating the kernel.
+
+The abstract RenderPipeline becomes a trait over a shared base struct that
+owns the protected members. RenderPipelineBuilder is the original Builder:
+Finalize computes the same padding and shift tables, then constructs the
+SimpleRenderPipeline after UseSimpleImplementation and the
+LowMemoryRenderPipeline otherwise, and calls the selected Init. The pipeline
+owner is a boxed trait object. SimpleRenderPipelineBuilder is the Builder after
+UseSimpleImplementation and keeps the concrete type for storage observers.
+Stage trait defaults translate the original base bodies, including its actual
+empty hooks. A mutable stage borrow expresses its SetInputSizes/PrepareForThreads and
+output writes. Preserve settings reads across callbacks: border_y is captured
+after SetInputSizes, and output-row shifts are read at their source checkpoints.
+Do not cache an earlier settings value across that mutable callback.
+
+Pipeline row pointers become descriptors of storage, channel, row, and column.
+RowBuffers resolves them under exclusive borrows of the existing input/output
+planes; it does not clone pixels or retain raw aliases. Vertical mirroring
+copies byte ranges within the same owner, retaining float payloads and avoiding
+scratch allocations. The horizontal offset retains the original architecture
+guard (ARM 24, other supported targets 32). Allocation padding uses hwy/base.h's
+kMaxVectorSize (x86 64, other baseline targets 16), independently of the scalar
+MaxVectorSize() function. RVV intrinsic builds remain unported.
+
+The low-memory pipeline keeps the source's per-group input planes, border
+storage, per-thread ring buffers and out-of-frame rows. Its row pointers may
+point before their row or into a ring slot computed from a negative row, so a
+descriptor keeps the absolute row and the signed column offset as a wrapping
+column; only the final in-row index is resolved. RenderRect lends the group
+planes and that thread's ring buffers to one ordered slice by moving their
+owner headers, without copying pixels, so the stages' existing RowBuffers view
+resolves every row of a call. They return to their owners before RenderRect
+returns, including on errors. RenderPadding views the per-thread out-of-frame
+image directly. GroupBorderAssigner keeps its atomic counters and the source's
+sequentially consistent operations. The pinned NDEBUG graph omits the
+debug-build ring-slot tracking and JXL_DASSERTs, so neither is translated.
+
+The scalar upsampling stage keeps three vectors of aligned temporary owners,
+with the original resize/allocation order and byte counts. Existing u32 views
+store/load float words without adding pointer casts or changing workspace
+layout. Kernel entries not initialized by the source constructor receive safe
+zero storage and remain unused. Preserve Highway's scalar min/max separately:
+they ignore one NaN and choose the second operand on equality. Its scalar
+MulAdd in this stage retains separate multiplication/addition in the original
+compiled object, including on AArch64; it must not inherit another algorithm's
+explicit fused rounding. A mirrored 3x2 regression checks the resulting words.
+
+Gaborish uses the same row descriptors and stores its nine normalized weights
+in source channel order. Its constructor keeps the ordinary reference Clang
+normalization contraction. On x86, a local non-inlined binary32 multiply keeps
+the reciprocal as its first operand when normalizing weights, matching the
+plain source object's destination order and the instrumented object's third
+weight product. The other targets retain the source compound assignments.
+The instrumented x86 constructor commutes its first two products; native
+ordinary/instrumented captures of competing signaling/quiet filter pairs agree
+at stage output. Retain complete native parity gates for both references.
+This mapping does not use Highway's widened
+multiply for the constructor's ordinary float arithmetic.
+The dedicated pristine scalar observation unit in ADR 0002 retains Highway's
+literal Add/Mul/MulAdd boundaries. Its original operator* promotes both binary32
+operands to double, multiplies, and narrows to binary32 before the separate add.
+Those promotions quiet signaling NaNs before the product selects its payload.
+Preserve them even when a particular optimized object folds the finite-equivalent
+sequence to a binary32 multiply. Local non-inlined add, promotion, and
+double-product/narrowing functions retain the original operand order and
+checkpoints in Rust debug/release, with no global numeric helper change.
+The kernel keeps the literal nested product-first MulAdd order rather than
+borrowing fused ordinary-expression helpers or an ARM-only optimized register
+schedule. Exact competing-payload row/normalization corpora and independently
+captured native exceptional-value words guard this mapping. QEMU's x86
+quiet-NaN payload selection is insensitive to operand order and cannot prove
+native exceptional-value equivalence. Native x86 captures from both complete
+original builds agree with the original ARM nine-word table. The prior finite
+3x2 observation remains unchanged. Reinspect these boundaries after compiler,
+source, target, linker, or instrumentation changes; other targets need their
+own oracle runs.
+
+OutputEncodingInfo initializes source-indeterminate scalar/array storage safely;
+the oracle value-initializes those aggregate members explicitly. SetFromMetadata
+and MaybeSetColorEncoding perform SetColorEncoding's first profile copy at the
+original checkpoint, then borrow that stored copy for the remaining body. The
+source argument and copied field stay equal and unchanged during those reads.
+This avoids an extra profile clone when SetFromMetadata passes its own original
+profile field. Subsequent writes and partial errors retain source order.
+Non-XYB updates leave the old opsin matrix/default flag untouched. The
+all_default_opsin intensity comparison retains the unsuffixed double subtraction
+and the float threshold promoted to double; gamma and matrix coordinates narrow
+at the original float assignments/call boundaries.
+Setting the copied linear profile's transfer function retains its ICC bytes;
+regeneration belongs to the later original caller, not to this setter.
+
+The scalar XYB helper returns three float values instead of assigning restrict
+output pointers; the stage resolves its three input rows through existing
+owner-relative descriptors and stores each result in source channel order.
+It copies exactly OpsinParams and the output-is-XYB predicate at construction,
+independently of later caller mutations. Only the leading word of each original
+four-lane inverse-matrix entry participates in the scalar helper. Local Add/Mul
+call boundaries retain the source scalar operand order when native release
+optimization would otherwise commute NaN operands. MulAdd remains exactly
+Add(Mul(a,b),c), with separate rounding; global Highway helpers are unchanged.
+Each local Mul additionally preserves scalar-inl.h's float-to-double promotions,
+binary64 product, and narrowing to the float lane. Out-of-line widening and
+binary64 multiplication keep native optimization from collapsing those source
+checkpoints. Both XybToRgb and the scaled-output stage use this same mapping.
+The helper remains out of line, and its source dataflow matches the isolated
+original-source compiler configuration in ADR 0002. Captured-word regressions
+cover competing NaN payloads, overflow/cancellation, and finite pixels. Review
+this mapping with compiler/target changes; no performance parity is claimed.
+The normal stage's scalar tail has zero length, so its MSan annotations access
+no storage. Scaled XYB retains the original B-minus-Y expression and constants.
+Extra channels are ignored, and failed xextra guards precede every row access.
+
+The derived one-lane tone/HLG classes compose their actual base constructors;
+their Highway bodies keep separate multiply/add operations and the original
+right-nested luminance order. They do not reuse the base classes' different
+pixel equations or the double-precision PQ base transfer function. TF_PQ uses
+the source's exact float coefficient words, degree-four evaluation, sign
+restoration, eager branch evaluation, and x86 atomic-fence sites. Scalar
+FastPow2f retains Highway Floor's positive-zero result for negative zero and
+its sign-based saturating NaN/infinity conversion before wrapped exponent math.
+ZeroIfNegative tests the sign bit, including negative NaNs.
+
+In the scalar GamutMap blend, the AArch64 reference Clang object emits the original
+channel value as the first add operand, followed by the separately computed
+product. Express that emitted operand order explicitly so a quiet-NaN channel
+retains its payload. This does not change finite arithmetic or fuse operations;
+exact differential and captured-word regressions cover it. The original x86_64
+configuration selects the green channel's quieted NaN payload in all three
+channels for the native regression's input. The actual oracle's optimized
+scalar GamutMap object
+uses the green product as the inner ADDSS destination and the red product as
+the outer destination. Its final blend uses the separately computed product as
+the ADDSS destination in every channel. Local out-of-line x86 Add calls preserve
+those operand choices while keeping the original right-nested association and
+separate rounding. An independent tiny source wrapper can allocate different
+operands and is not a substitute for the actual oracle's object. The observed
+emulated x86 runtime selects the same larger quiet-NaN payload in both operand
+orders; native execution and actual-object disassembly are required to verify
+these choices. The selected original O3 object emits scalar MULSS products;
+its Highway double promotions are optimized away at that boundary. Keep the
+AArch64 path and captured words unchanged and retain the same input in the real
+differential corpus. Cross-target NaN payload equality is not assumed. Review
+this mapping with compiler/target changes. ToneMappingStage retains the original
+unneeded return before argument guards, then RGB load/scale/map/gamut/scale/store
+order.
+
+PassesDecoderState owns its complete shared storage and coefficient/reference
+owners. Its shared pointer selects either its own storage or an actual immutable
+external shared borrow; methods retain each source use of shared versus
+shared_storage. Init reads sigma dimensions and transform weights through the
+selected shared owner, while InitForAC always updates owned coefficient fields.
+Valid source shared pointers are non-null at these method boundaries. Separate
+metadata and pipeline lifetimes retain borrowed output owners; the available
+pipeline type currently admits the original simple implementation only.
+
+Shared DC bindings select owned storage or a DC-frame index in the same owner.
+Preserve the assignment before a missing-frame error and the earlier level-four
+guard. Owner moves keep the selector attached to the new owner. Reference-frame
+patch binding still occurs before field allocation, and Create keeps its source
+default xyb=true even for non-XYB metadata. No additional vector clearing or
+coefficient-buffer shrinking occurs during these initialization methods.
+
+The used-AC atomic retains 32-bit sequentially consistent stores/loads, including
+the original per-strategy load in InitForAC. Callback descriptors and image-output
+pointers are non-owning. PixelCallback::init is unsafe because its actual foreign
+function/opaque-data contract belongs to the caller; a local proof covers the
+call. Presence tests only inspect run, and Init returns the callback pointer
+unchanged, including null. Descriptor drops do not call destroy. The output-stage
+lifecycle and custom allocators remain separate work. Oracle fixtures
+explicitly seed source-indeterminate state before observing initialization.
+
+Callback ICC setters take a mutable byte owner: failed guards/parsing retain its
+allocation, while success transfers it at the original assignment. Preserve the
+have_fields/want_icc updates, unknown color/transfer markers, stale gamma state,
+CMYK flag assignment, and partial FromExternal mutations. Source callback output
+locals receive safe native storage; successful callbacks must initialize their
+complete values, and failed callbacks' output is not read.
+
+ColorSpaceTransform owns both ICC caches and the destroy obligation for its
+current foreign context. Moves transfer that obligation without copying caches.
+Destroy runs before ICC storage is freed, with explicit reverse cache-release
+order matching C++. Zero-capacity empty caches expose null ICC pointers in the
+reference configuration; emptied allocated caches retain non-null backing.
+Repeated Init keeps the original context overwrite behavior instead of adding
+an extra destroy. SetICC/transform calls are unsafe at the actual foreign
+function boundary, with callback/data lifetimes, read-only ICC spans, complete
+output initialization, non-unwinding calls, and no owner reentry required.
+The exported decoder C ABI enforces non-reentry per decoder; see below.
+
+CmsStage's unsafe factory establishes the backend contract through stage drop.
+Safe stage methods additionally check source programmer preconditions for input
+size initialization, successful context setup, and CMS thread/pixel bounds.
+Those checks guard undefined source call sequences; they do not add bitstream
+validation. Stack row descriptors borrow pipeline storage, and foreign CMS
+buffers use bounded raw accesses to preserve the permitted identical-pointer
+channel-reduction case without aliased mutable slices. Context/profile members
+are released in source order. The original IsNeeded early return invokes no
+foreign function, including for the fixed lossless profile with cms_set=false.
+
+RenderPipelineInput borrows its pipeline trait object and stores owner-relative
+buffer-set/channel indices and rectangles. Done retains its binding on success or failure, as
+in C++; explicit move_from nulls the old binding and transfers its buffer vector.
+Ordinary Rust moves invalidate the old name. The borrowed token prevents moving
+or aliasing pipeline storage while mutable buffers are live. This establishes
+sequential null-pool behavior, not concurrent pipeline access.
+
+ImageBundle::SetFromImage takes a mutable optional owner. Guard failures retain
+Some(input); the original move consumes it into None before profile assignment
+and size verification. C++ moved-from planes retain non-owning raw addresses;
+native ownership does not expose those aliases as live image owners. The
+destination retains its moved color/profile on a later VerifySizes error.
+Profiles borrow disjoint storage, matching the real write-stage call site.
+Write stages borrow the destination image/bundle directly, or borrow the same
+external RefCell owner used by the sequential frame decoder. Each actual write
+call holds one short exclusive borrow; the decoder can assign origin between
+calls after pipeline preparation, at the original allocation checkpoint. The
+write stage invokes no foreign callback while holding that borrow. This adds
+no Rc, allocation, pixel copy, or competing mutable reference. The pipeline
+releases its owner borrow before the completed bundle moves to the caller.
+Stages own the source profile copy where required. Extra planes clear/allocate only after a
+successful SetFromImage. Size getters retain the pinned JPEG-enabled build's
+JPEG/color/extra-plane precedence and independent X/Y fallbacks.
+
+The fixed raw-frame entry point keeps parsed headers private after admission,
+owns its real decoder state, and follows DecodeFrame's original header/TOC,
+initialization, section-reader, processing, close, and finalization checkpoints.
+The header copy becomes observable only after InitFrameOutput. Section readers
+borrow their physical input spans; logical section IDs retain the original
+permutation assignment. Error cleanup closes every created reader without
+overriding an earlier body error; explicit source close checkpoints still
+propagate their own status. Early source header errors leave only a debug
+close diagnostic in the release reference; native cleanup also discharges its
+reader's ownership obligation without changing the returned codec status.
+Source-indeterminate section/pointer/cache fields receive safe initial storage.
+
+GroupDecCache keeps the original alignment, eleven Image3I owners, DC plane,
+three aligned owners, and maximum block area. Scratch pointer bindings remain
+absent until their VarDCT initializer is translated. The fixed modular path
+constructs the original cache vector but never calls that initializer.
+PatchDictionary::Clear empties positions/references/blendings before executing
+ComputePatchTree's four vector clears and its now-certain empty-position return;
+its nonempty tree builder remains a separate boundary.
+
+Review these mappings when adding the encoder C ABI, parallel runners, custom
+allocators, nested bundle extensions, SIMD, or concurrency. Image kernels must not assume that the current
+pilot establishes their numeric or memory behavior.
+
+The complete fixed decoder parses metadata before transferring its owner into
+an admitted configuration. Failed admission retains the parsed owner and is
+outside the general codec status contract. Its frame bundle and decoder state
+borrow that immutable owner; no self-referential bundle is returned. The result
+owns parsed metadata and integer bytes after all image borrows have ended.
+SetFromMetadata still occurs once at the original pre-padding checkpoint.
+The decoder state and global reader close before external conversion, and a
+prior body error takes precedence over cleanup-close status.
+
+Integer buffer conversion uses slice-backed non-null output and no callback,
+with float_out=false encoded in its function names/types. Preserve the original
+1..16-bit guards, checked scanline/total-size arithmetic, four temporary channel
+owners, per-thread u32 cache, nullable-channel ones, scalar NearestInt, store
+order, endianness, orientation mapping, and conditional alpha unpremultiplication.
+Disjoint temporary-plane borrows replace original channel-pointer rebinding.
+Output allocation size and row-span validity remain caller preconditions where
+the source uses restrict pointers. Separate floating buffer functions select
+float_out=true and admit only 16/32-bit samples; callback entry points remain
+absent. Float32 output copies words without arithmetic, preserving signaling
+NaN bits. Float16 temporary planes own u16 words instead of Highway float16_t;
+native-endian writes precede the source's separate byte-swap pass. Byte slices
+replace typed destination casts without requiring unsafe or aliased references.
+
+The reference Clang/GCC builds select Highway F16FromF32's native-half-operator
+branch. Stable Rust has no binary16 scalar, so preserve that cast's default IEEE
+nearest-even mapping explicitly. Finite conversion follows Highway's existing
+mantissa rounding, carry, exponent clamping, subnormal shift, and sign restoration
+algorithm. Native-cast NaNs retain their sign and high payload bits and set the
+quiet bit; do not substitute Highway's alternate canonical-NaN fallback branch.
+The float oracle fails compilation if HWY_HAVE_SCALAR_F16_OPERATORS is absent,
+rather than claiming those different compile branches are equivalent. Exact
+original-kernel comparisons cover every half word, finite half midpoints and
+their binary32 neighbors, both signs, tiny/subnormal values, overflow, and NaN
+payloads. Review this language-required representation for compiler/target or
+floating-environment changes; alternate rounding modes and fallback branches
+remain separate boundaries.
+
+JxlEndianness value 3 is representable but unnamed and exercises the
+source fall-through; value 9 produces an undefined C++ enum load and has no
+assigned source codec meaning.
+
+The x86_64 reference downsampling loop keeps its accumulator as the destination
+of ADDSS. A local out-of-line scalar addition retains that operand order in
+Rust Debug and Release, including competing NaN payloads. The original x86_64
+DC-scaling object uses the matrix as the multiplication destination for its
+first two lanes and the reciprocal scale for the third; a local out-of-line
+multiplication and the same per-lane argument order retain that behavior.
+AArch64 keeps its existing source expressions. These are explicit mappings of
+the fixed reference compiler's scalar instructions, not changes to the sums,
+scales, rounding, or error checkpoints. Review them after compiler/target
+changes. Captured-word native regressions and the unchanged differential
+corpora cover the observed failures.
+
+AC matrix computation retains the original single aligned owner: the first
+TOTAL_TABLE_SIZE f32 slots hold the table and the next slots hold its inverse.
+Two local views rely on the existing 128-byte alignment, initialized storage,
+exact byte count, and all-valid f32 bit patterns. Immutable access borrows the
+owner; computation splits its exclusive view into disjoint arrays. Matrix
+accessors check the source strategy/channel/computed-mask preconditions and
+return bounded aligned slices instead of pointers. Uncomputed slots have no
+source observation contract. Library entries preserve each original V(float)
+constant as an exact f32 word with its source expression beside it; OnceLock
+owns the immutable static library.
+
+DequantMatrices::Decode recreates Library<0> owners before parsing. Retain its
+initialized 27-float AFV payload as overlapping backing for partial non-RAW
+writes until the original successful final mode assignment. A failure keeps
+the old mode, already written/scaled payload words, and distance-band fields.
+Successful decoding selects the corresponding typed payload. RAW commits its
+mode and optional vector owner before reading its denominator or modular image,
+then retains each copied sample before a nonpositive-sample error. Decode clears
+the computed mask only after every table succeeds, preserving an existing mask
+and allocation on failure. DecodeQuantTable lives beside the QuantEncoding owner;
+its optional frame decoder is an immutable borrow of the same original frame
+dimensions/tree/code/context owners because that source routine mutates none of
+them. The null-pool scalar path retains its established scope; general AC
+encoding and VarDCT frame orchestration remain separate work.
+
+Scalar DCT templates retain the original radix-2 recursion, normalization,
+transpose order, coefficient mutation, and scratch offsets. Valid power-of-two
+sizes become checked internal parameters rather than C++ template arguments.
+A single exclusive scratch slice and owner-relative offsets express recursive
+in-place calls without aliased Rust borrows or replacement temporary allocations.
+The source's DCTFrom/DCTTo adapters become separate bounded slices and strides;
+callers retain the original disjoint-owner and valid-span preconditions.
+Local arrays are safely initialized, but their source-indeterminate unused
+contents are never claimed as observations. Strategy geometry and natural
+coefficient orders retain the original LUTs and zigzag traversal.
+
+The native AArch64 scalar identity loop contracts the DC residual as
+sum.mul_add(-1/16, dc), matching the fixed original configuration in ADR 0002.
+A local out-of-line pixel addition retains the original coefficient-first
+operand order. The exact contraction matters at subnormal underflow and signed
+zero as well as for NaN signs. With coefficient 0 set to binary32 word 1,
+residual words 1 at positions 2/4/6/16/18/20/22/32, and all other words zero,
+both the default original and selected original builds give word 0 at pixel
+index 14 for stride 13; a separate multiplication/subtraction would give word 1.
+Other targets retain their existing ordinary-expression mapping and require
+native differential evidence.
+
+Before the new fixture's unrolling boundary was fixed, the optimized ordinary
+AppleClang 21 AArch64 object emitted FMSUB, whereas its ASan/UBSan object emitted
+FMADD with a negative scale. For 64 coefficients set to 0.125 except coefficient
+21 set to 0x7fc12345, IDENTITY, and stride 13, the original output words at index
+4 were respectively 0xffc12345 and 0x7fc12345; both gave 0x7fc12345 at index 19.
+Actual complete-adapter objects establish those observations. With the loop
+shape retained, both original graphs emit FMADD and give 0x7fc12345 at both
+indices. The captured native AArch64 regression follows that fixed configuration
+and independently checks its fused finite underflow result. All exception inputs
+and exact comparisons remain enabled; the original archive and existing fixture
+flags remain unchanged. Review this mapping after compiler, source, target,
+or instrumentation changes; SIMD and VarDCT frame decoding remain unported.
+
+Competing-payload tests additionally retain the selected AArch64 IDCT object's
+addend-first FADD, AFV's coefficient-1-first final DC sum, and its
+accumulator-first basis FADD. Local out-of-line additions keep those observed
+operand choices in native debug/release builds without changing association,
+normalization, or finite results. The original length-one scaled DCT folds its
+constant multiply-by-one into raw loads/stores in both selected objects. Retain
+that copy so a signaling coefficient is not quieted before a later competing
+addition. Native captures from both complete original graphs check the distinct
+DCT/AFV winning payloads, the later LLF signaling-NaN winner, and the length-one
+unquieted copy. These are target/configuration mappings, not cross-target NaN
+payload equivalence or a replacement of the original scalar algorithms.
+
+Native x86_64 Linux run 41345075028, job 124963054935, separately exercised
+both complete ordinary and ASan/UBSan original graphs. For an 8x8 DCT with
+stride 11, coefficients 0/1 set to 0x7fc12345/0xffc98765, and every other
+coefficient set to 0.125, both original graphs retain 0x7fc12345 at pixel zero.
+The earlier product-first Rust addition instead selected 0xffc98765 in 32
+pixels while coefficients and scratch already matched. The local IDCT addition
+therefore keeps the addend first on both native targets; an x86 captured
+regression retains that original word. The competing-payload corpus still
+compares every complete observation exactly, collecting all mismatches before
+failing. Linux diagnostics inspect the actual ordinary and instrumented DCT
+objects as well as the Rust helpers; small arithmetic probes and emulation do
+not establish the original objects' operand selection.
+
+The next native Linux run, 41347513370 / job 124970408958, matches every
+IDCT, identity, and LLF request. Its two complete original graphs expose the
+same 24 AFV differences: strategies 14 through 17, six ordered NaN pairs at
+coefficients 0/1, and the 16 AFV-quadrant pixels only. Coefficients, scratch,
+padding, and the other 210 differential groups match. In the ordinary original
+DctCommand object, offsets 0x31c6/0x31ca/0x31cd add c to a, copy b, then add
+(a+c) into b. The instrumented object's 0x374d/0x3751/0x3754 retain the same
+operand order. Reuse the existing local afv_add(b, a+c) on both native targets.
+
+The actual ordinary basis loop at 0x324a adds the product into the accumulator;
+the instrumented AFVIDCT4x4 at 0x87/0x8d multiplies the product and adds it into
+the accumulator too. Preserve accumulator-first addition on x86 as on ARM.
+Another 24 exact requests place competing payloads at coefficients 2/16, which
+both enter that basis loop, across all four orientations. Retain every prior
+request and expected word. These changes leave the selected ARM operations,
+association, finite arithmetic, compiler flags, and original source unchanged.
+
+### Packed coefficient-order decoding
+
+The original CoeffOrderOffset macro is a const function over the unchanged
+40-entry offset table. DecodeCoeffOrders receives the existing packed u32 order
+storage as a mutable slice. Each accessed channel range covers the selected
+strategy bucket's full coefficient count; unused buckets need no writes.
+Internal optional slices represent original null outputs for encoded unused
+orders, while the real entropy symbols and final state are still validated.
+
+The source's first-representative strategy loop and masks remain explicit.
+Natural-order scratch grows only when required and is filled by the existing
+AcStrategy traversal. A permutation is fully read before its destination is
+Lehmer-decoded and mapped through the natural order. No synthetic output or
+rollback is added after an error; already completed channels remain observable.
+Zero used_orders leaves the reader untouched; nonzero reserved bits still run
+histogram initialization and final-state validation. The new original-reader
+fixture keeps eight leading and trailing bytes of real backing while exposing
+only its logical input span.
+
+### Quantizer parameter and scale boundary
+
+QuantizerParams uses the existing bundle visitor and the original two U32
+distributions. Decode reads into a local parameter object and assigns the
+quantizer only after successful parsing; reader failure/close state remains
+observable. GetParams preserves signed-to-unsigned field conversion. The matrix
+owner remains an explicit same-owner borrow for decode, recomputation, scale
+changes, and matrix slices. No new stored pointer or runtime dependency is added.
+
+ScaleGlobalScale retains binary32 multiplication, ties-away-from-zero lround,
+ratio computation before assignment, and recomputation afterward. Its native
+precondition bounds the rounded product to the target C long domain and
+excludes nonfinite products. The rounded long then narrows to i32 with the
+selected original low-bit integer conversion, including results outside i32.
+For global_scale=2147483647 and scale=1, the binary32 product is 2147483648;
+both ordinary and instrumented originals narrow it to -2147483648 and return
+ratio word 3212836864. This is integer narrowing after lround, not an undefined
+floating-to-i32 cast. ClampVal uses ordered comparisons corresponding to
+std::max(1, std::min(value, kQuantMax)), including quiet NaNs and infinities.
+
+The selected original optimized AArch64 ClampVal lowers its inner minimum to
+FCMP/FCSEL, its outer maximum to FMAXNM, and the cast to FCVTZS. The exact request
+`qz-clamp 4 2143363909 4290917462 2141266757 4288820310` gives
+`C 1 1 0 0` in the ordinary original. The complete ASan/UBSan original instead
+aborts at pristine quantizer.h:70:9 with `nan is outside the range of
+representable values of type 'int'` on the first signaling NaN. Those inputs
+therefore do not establish a defined portable ClampVal integer result and are
+excluded from that new method's differential domain. This is a narrow observed
+source/compiler boundary, not a claim about every NaN arithmetic operation or
+every target. Constructor, decode, and defined scaling arithmetic retain their
+signaling-NaN cases, and no prior expected words, numeric flags, or sanitizer
+suppressions change.
+
+### VarDCT block-context helpers and wire format
+
+BlockCtxMap retains its existing owner and public vectors. Context lookup keeps
+the original channel swap, threshold comparisons, packed order/DC index, and
+caller-provided map bounds. Bucket calculations retain pointer-width arithmetic
+and source unsigned narrowing. Density normalization uses the original two
+64-entry tables; reached normalized count and position are in 1..63, and coverage
+is the power of two described by its logarithm. Predictor neighbor slices cover
+the reached elements, and each reached signed addition fits i32 as in C++.
+
+DecodeBlockCtxMap replaces the whole owner on its default bit. Otherwise it
+updates DC threshold vectors and their product, then QF thresholds, before the
+64-partition guard. The map is resized before genuine context-map decoding;
+errors preserve that partial state and the original num_ctxs update order.
+Threshold U32 additions narrow/wrap in the same place as the source. Encoding
+uses the same distributions, caller counts that fit four bits, and nested AC
+layer accounting. No new pointers, unsafe code, dependency, numeric option, or
+sanitizer suppression is introduced.
+
+### AC block entropy symbols
+
+DecodeACVarBlock retains its source argument boundary. Existing AcPtrMut typed
+slice variants replace ACPtr and the ACType template parameter; a const bool
+retains uses_lz77 specialization over the genuine symbol reader. Neighbor rows,
+coefficient storage, context maps, and packed order storage remain caller
+borrows with the original valid-index and signed-predictor preconditions.
+
+Nonzero context calculation narrows from pointer width to i32 at the source
+assignment, then promotes back for symbol lookup. Coefficient reconstruction
+uses unsigned magnitude/sign/left-shift first, followed by the source ptrdiff_t
+conversion and low-bit signed narrowing selected by Clang. Shift is below the
+pointer width and reached ptrdiff_t additions must be representable. Defined
+inputs retain identical additions, row updates, early errors, and partial
+mutation. The test adapter extracts only the original template with a pinned
+SHA-256 and calls actual entropy machinery in ordinary and fully instrumented
+original graphs. No unsafe Rust, new dependency, numeric flag, or blanket
+suppression is added.
+
+VarDCT DC/AC metadata methods keep the source's selected-shared reads and owned
+shared-storage writes distinct. Decode failures retain already written CfL,
+sharpness, strategy, and QF cells. Strategy setters preserve overlap checks and
+partial writes; parsed used_acs is atomically merged only at the original final
+checkpoint. Image row/rectangle views borrow their owners and retain physical
+padding. Signed modular-to-map conversion clamps to the original int8 range.
+
+Adaptive DC smoothing retains the existing scalar Highway multiplication's
+binary64 promotion/narrowing and separate additions. Out-of-line boundaries
+preserve competing NaN operand order rather than rewriting NaN bits. Its selected
+pristine ordinary/instrumented objects agree on retained exceptional requests;
+all finite observations also match both default optimized source graphs.
+DequantDC preserves quant bucket assignment, inverse scales, signed plane reads,
+CfL arithmetic and original output writes. ComputeSigma retains source shifted
+coordinates, border copies, and ordered std::min behavior for NaNs and ties.
+
+AC group cache owners expose aligned typed scratch slices through disjoint
+borrows. A borrowed group-state view separates shared fields/code/orders from
+mutable coefficient storage and pipeline input. Physical section readers move
+into the original per-pass scheduling order and move back before propagating
+an error, retaining their close obligations and exact partially consumed state.
+Neither reader state nor complete storage owners are cloned to hide aliasing.
+Dequantization preserves unsigned source bit operations, scalar multiplication,
+ordered CfL additions and coefficient-width narrowing. Source-derived traversal
+fixtures compare initialized pipeline pixels, owners, callback order and partial
+state for every strategy, both widths and draw/accumulation modes.
+
+The first complete VarDCT output uses TF_SRGB::EncodedFromDisplay because the
+pinned common.h defaults JXL_HIGH_PRECISION to 1. Retain its degree-four rational
+polynomials, square-root and sign restoration; FastLinearToSRGB is a separately
+translated helper and has its own exact corpus. No approximate replacement or
+float tolerance is used to make complete-file results pass.
+
+The scalar EPF stages retain the original filter copy, neighbor/SAD accumulation
+order, high-precision reciprocal and scalar Highway multiplication checkpoints.
+Signed extended-row coordinates convert to block indices at the original source
+points. Sigma binding is either an immutable borrowed plane or the same
+`Rc<RefCell<Plane<f32>>>` owner retained by the decoder. Each row call borrows that
+owner immutably and releases it before return; sigma generation requires an
+exclusive borrow between stage calls. No sigma snapshot or self-reference is
+created, and subsequent source-owner writes remain visible to the existing stage.
+The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
+one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
+original reference configuration in ADR 0002; other target specializations remain
+separate work.
+
+Patch decoding receives the same four reference owners denoted by the containing
+shared state's SetShared binding. The dictionary and reference-frame array can
+be retained separately through `Rc<RefCell<...>>` identities. A shared patch stage
+borrows both immutably only for each row call; decoding mutates the dictionary
+between calls, and replacing a saved frame remains visible without copying image
+owners. Extra-channel metadata retains its enclosing metadata lifetime. Borrowed
+stage construction remains available for the source's externally owned inputs.
+
+Patch tree intervals use the translated libc++ non-arithmetic std::sort
+specialization, including tied-element order and its heap fallback. Row results
+retain original patch order before blending. Scalar alpha routines express source
+pointer-identity branches through borrowed input slices; output is a disjoint
+borrow or the original blending temporary plane owner. Colors are copied from
+that temporary only after successful blending. Source contraction, ordered clamps
+and NaN behavior follow the selected original alpha configuration in ADR 0002.
+No new unsafe block, assembly, external dependency, or broad suppression is needed.
+
+Spline decoding owns its deserialized vectors and selects their committed data
+through an owner-relative flag and explicit span lengths. Borrowed SetData views
+retain their external lifetime. A failed repeated Decode preserves the source's
+old committed span lengths and partial new storage. Source spans that became
+invalid after vector reallocation are not recreated as dangling Rust references;
+only their still-defined lengths are observed until the source lifecycle becomes
+valid again. Quantization control points must remain finite and round into i32,
+and reached signed arithmetic must be representable, as required by the original
+routines. Defined coefficient clamps, budget checks and partial errors retain
+their original order.
+
+Spline caches retain the original curve, continuous-IDCT, segment population and
+scanline-index algorithms. Typed owned vectors replace aligned index storage;
+borrowed/shared stage variants retain the same cache owner rather than a copy.
+The shared variant borrows its `Rc<RefCell<Splines>>` only for each row call.
+Three restricted row pointers become disjoint mutable spans obtained through
+safe storage/channel/offset ordering and split_at_mut. Valid spans can belong
+to either input or output storage; overlap is a source programmer-precondition
+violation and is rejected. Extended left-row positions preserve the source's
+unsigned wrapping before its signed drawing calculations. No new unsafe code,
+external dependency or altered reference compilation is required.
+
+The sequential decoder and rendering stages share sigma, noise parameters,
+spline caches, patch dictionaries, reference arrays and the base color-correlation
+owner through separate `Rc<RefCell<...>>` identities. Only reference-count handles
+are copied. Parameter assignments replace the inner value at the original source
+checkpoint; row calls read current owners under short immutable borrows, and
+source decoding writes under exclusive borrows between stage calls. The enclosing
+metadata owner outlives headers, references and pipeline stages. These dynamic
+borrows eliminate owner self-references without cloning images or caches.
+Under a parallel runner, the task bodies that use these owners are serialized
+(see Thread runners and RunOnPool), so the borrows never race.
+
+Noise parsing retains eight ten-bit reads and the original deferred bounds/close
+lifecycle. Xorshift128Plus keeps all eight independent generators, both original
+seed schedules, u32 seed truncation and wrapping u64 arithmetic. Native-endian
+word splitting represents the original memcpy. RandomImage retains its strict
+full-batch condition and unconditional final RNG fill, even for an empty remaining
+row span. PrepareNoiseInput resolves the same per-group input handle already
+borrowed by the simple decoder; its original GetInputBuffers call has no additional
+side effect. Convolution retains all 24 neighbor additions and scalar Highway
+rounding. Application retains original LUT interpolation, sign-bit clamp, color
+correlation and store order under the selected source configuration in ADR 0002.
+
+### Sequential frame ownership and defined error snapshots
+
+`SequenceDecoder` owns one private `PassesDecoderState` and one shared output
+bundle. Its immutable external metadata outlives every header, reference and
+retained pipeline stage. Parsed headers use `Rc<FrameHeader>` so a persistent
+blending stage can retain the exact header without borrowing the containing
+frame decoder. The fixed entry points retain their borrowed output constructor;
+the sequential entry point and its output writers retain the same `Rc<RefCell>`
+allocation. No frame, reference image, DC image or feature owner is copied.
+Finalization moves into the existing reference bundle allocation, preserving all
+four slot identities and the source's declaration-ordered moved-from state.
+
+The original InitFrame/InitFrameOutput, deferred header bounds check, reader
+close, physical TOC order, section status, finalization and decoded-byte
+checkpoints remain distinct. Optional tracing observes reached operations and
+does not replace an earlier source failure with a later cleanup result. Preview
+`is_last` does not terminate the main-frame loop. Visible/nonvisible indices,
+reference dependencies, saved-slot masks, DC selection and overwritten reference
+slots retain the source checkpoints. Main spatial upsampling and early/late
+extra-channel upsampling follow PreparePipeline order around patches, splines,
+noise and reference writes. The connected YCbCr/chroma boundary is described
+below. ICC, spot colors,
+broader extra-channel metadata, external output layouts and public progressive
+API orchestration remain outside this admission boundary.
+
+Error snapshots retain every initialized saved reference pixel. A failed later
+frame cannot make the earlier reference owners indeterminate: the source moves
+them only after successful FinalizeDecoding. DC images differ because the actual
+WriteI3F stage reallocates a slot in SetInputSizes before copying rows. Test-only
+C++ forwarding wrappers delegate the pristine stage's allocation, row writes,
+settings, status and cleanup unchanged, recording only successful allocation
+and row-span checkpoints. The optional Rust trace records those same events.
+Each allocation starts a new coverage generation; successful row spans mark
+all three written color samples. WriteIB forwarding observes output and
+reference-storage color/extra planes separately, including the successful color
+and extra-plane prefix if a later row guard fails. RemoveColor/ClearExtraChannels
+and reference-storage replacement invalidate coverage at their actual source
+checkpoints. A successful reference move leaves a defined source color alias;
+the Rust observer resolves it through that same reference slot without creating
+a second image owner, while moved extra-channel vectors become empty. Snapshots
+include output and reference storage on early header errors as well as section,
+close and finalization errors. They read all and only covered samples, including
+initialized samples retained after later errors, and never inspect newly
+allocated unwritten source samples. The current fixtures use the real host
+allocator and do not establish allocation-fault-injection coverage. The wrapper context is confined to
+one sequential null-runner fixture invocation and does not establish concurrent
+callback or custom-runner coverage. The pristine stage_write.cc supplies the
+actual public factories; there is no replacement pixel algorithm or runtime
+C++ dependency in the Rust library.
+
+### Source-generated lifecycle acceptance fixtures
+
+The sequential header boundary retains the complete parsed U64 flag field.
+Pinned FrameHeader::VisitFields reads it without rejecting reserved bits;
+reached dec_frame/dec_cache operations test only their individual known flags.
+An extra known-bit admission mask would reject earlier than the original
+InitFrameOutput and section-error checkpoints. The sequence admission therefore
+keeps unknown bits unchanged. Earlier fixed-profile entry points retain their
+separate closed-profile admission. The genuine patch fixture's byte-40 XOR
+mutation changes flags from 2 to 4 and explicitly checks the original successful
+output initialization before its later section error.
+
+Expanded lifecycle fixtures supply inputs to the actual encoder rather than
+constructing codec payloads. A separate opt-in command selects Squirrel,
+patches-on, and repeated connected glyph pixels; the unchanged commands keep
+their previous parameters and pixels. FindBestPatchDictionary and
+RoundtripPatchFrame queue the automatic reference-only special frame that the
+real EncodeFrameOneShot prepends. The saved 112-byte original capture and
+all output samples are checked exactly. Dictionary observations use only
+initialized vector entries; GetReferences iterates ref_positions whose source
+reference-index guard precedes insertion. Error snapshots keep partial positions
+without querying a not-yet-built patch tree.
+
+Main/extra resampling fixtures explicitly set CompressParams.resampling,
+ec_resampling, and modular_group_size_shift before ParamsPostInit, observe their
+readback, and check the reached decoded headers. Source EncodeFrame may increase
+the extra-channel factor to the main factor. Aligned positive early-extra cases
+remain distinct from genuine odd-sized Modular source-decoder failures; neither
+encoder rejections nor decoder failures substitute for successful source paths.
+Deliberate group boundaries are asserted from parsed headers, including
+reference, animation, and preview sequences at 257x3, 3x257, and 513x1.
+
+Higher-DC decoder fixtures start with genuine progressive-DC2 1x1 encoder
+output. The original header and TOC readers identify all payloads. Original
+WriteFrameHeader/WriteToc routines change only dc_level, preserving payloads,
+TOC sizes/permutations, and all 18 FrameDimensions fields for each reused frame.
+Reparsing and restoring that one field reproduces each original frame byte for
+byte; the DC2 whole-file control is also identical. This proves the original
+DC3/DC4 decoder schedules without claiming MakeFrameHeader can emit those
+levels. No handwritten codec framing, substitute entropy decoder, or production
+C++ dependency is introduced. All earlier fixture inputs and requests remain
+in the expanded corpus.
+
+Alpha's unassociated color term preserves `(bg * bga) * (1 - fga)` in that
+source operand order. Native x86 retains `1 - ((1 - fga) * (1 - bga))` as a
+subtraction and foreground-first additions; replacing it with a negated product
+changes exceptional words. ARM retains its source contraction. Local arithmetic
+call boundaries preserve those choices across Rust optimization. The selected
+pristine configuration and its finite/default audit are recorded in ADR 0002.
+PerformMulBlending also passes its literal background-first product through the
+existing out-of-line binary32 multiplication boundary. Native Linux ordinary
+Debug matched the selected source, while Rust Release commuted competing NaN
+operands in the clamped 1,536-pixel request. Retain the same request and every
+expected word; the call boundary preserves source operand order without changing
+the clamp, multiplication, rounding, or loop. Native replacement parity remains
+the acceptance gate.
+The original zero-width aliased memcpy boundary is exercised separately by
+oracle subprocesses, with explicit sanitizer evidence and no claimed source
+pixel semantics, including the source-derived tree-rendering boundaries recorded
+in ADR 0002. Rust's empty owned temporary remains safe to represent.
+
+YCbCr and horizontal/vertical chroma upsampling keep stack row descriptors,
+source channel order, the original 3/4–1/4 interpolation, shift/border settings,
+and the YCbCr no-extra-span guard before any input mutation. Preserve the
+Highway scalar double-promotion/product/narrowing checkpoints and separate
+binary32 additions rather than contracting them. Both complete native AArch64
+optimized original objects keep YCbCr's addend first and horizontal chroma's
+current value first. The vertical stage keeps the neighbor product first in
+its top-row sum and the current value first in its bottom-row sum. Out-of-line
+addition boundaries retain those observed operand destinations without changing
+association or finite arithmetic. The established ARM mapping and every ARM
+captured word remain unchanged. On Linux x86_64 the selected pristine -O0
+original objects instead retain the narrowed product first in YCbCr, the
+neighbor product first in horizontal interpolation, and the neighbor product
+first in both vertical sums. Target-scoped binary32 addition boundaries map
+those original operands; double promotion, product narrowing, and addition
+rounding stay separate. ADR 0002 records why this target alone selects the
+dedicated original stage objects, leaving the archives unchanged.
+
+The standalone native Linux capture uses the existing original request 44,
+physical row 3, coordinate 38 (lane 6). The caller's original input pattern
+values[(c*7+y*3+x)%9] gives (Cb,Y,Cr) = (0x7fc98765,0x7fa12345,0x3f800000),
+the same tuple as the retained ARM capture's third sample. Both native original
+Linux -O0 graphs return 0x7fc98765 for G/B at output fields 549/906; ARM keeps
+its captured 0x7fe12345 words. These two target-specific expectations come from
+independent original output, not assembly inference or Rust results. A second
+Linux capture retains the original horizontal request 1154, output row 2 words
+1920 through 1933, including competing NaN neighbors. Exact exceptional-word
+comparisons remain required on each native target; review these mappings when
+the source, compiler, target, or instrumentation changes.
+
+Complete-file YCbCr admission retains the same simple-pipeline implementation.
+Per-channel horizontal then vertical chroma stages precede Gaborish and EPF,
+and YCbCr conversion occupies PreparePipeline's original color-transform
+checkpoint after DC/pre-color reference writes and before blending/post-color
+reference writes. Pipeline input shifts are the original reverse accumulation
+of stage shifts; group buffers use the original ceil-divided channel sizes.
+Coefficient reconstruction retains its existing source HShift/VShift traversal
+and aligned-block checks. No image or reference owner is copied for this path.
+
+The sequence boundary admits source sRGB YCbCr 4:4:4, 4:2:2, 4:2:0 and 4:4:0,
+including source grayscale JPEG metadata. Existing NONE/XYB admissions and all
+metadata constraints remain unchanged. Genuine baseline JPEG files pass through
+original ParseJPG and JxlEncoderAddJPEGFrame with container and JPEG-metadata
+storage disabled. Their already quantized samples are compared to original
+decoded samples, not the pre-JPEG input pattern. Typed header observations
+retain actual padding, block/group dimensions and channel shifts. Complete and
+partial/error snapshots use the existing reached-write coverage machinery;
+new Rust-only captures retain every source-initialized planar float word.
+This does not provide JPEG reconstruction, ICC parsing, arbitrary sampling,
+or the public progressive decoder API.
+The scalar EPF stages retain the original filter copy, neighbor/SAD accumulation
+order, high-precision reciprocal and scalar Highway multiplication checkpoints.
+Signed extended-row coordinates convert to block indices at the original source
+points. Sigma binding is either an immutable borrowed plane or the same
+`Rc<RefCell<Plane<f32>>>` owner retained by the decoder. Each row call borrows that
+owner immutably and releases it before return; sigma generation requires an
+exclusive borrow between stage calls. No sigma snapshot or self-reference is
+created, and subsequent source-owner writes remain visible to the existing stage.
+The pipeline order remains EPF0 for at least three iterations, EPF1 for at least
+one, and EPF2 for at least two. Scalar operator boundaries preserve the selected
+original reference configuration in ADR 0002; other target specializations remain
+separate work.
+
+JPEG reconstruction writing retains borrowed marker/tail payloads and owned
+bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
+storage with a separate active prefix length; output callbacks receive None for
+a null source pointer and Some(empty) for retained allocated empty storage.
+The pinned short-write loop decreases length without advancing its pointer;
+the Rust callback lifecycle preserves that behavior rather than repairing it.
+Callback overreporting remains a source programmer-precondition violation.
+The queue is passed alongside a mutable bit-writer borrow instead of storing an
+owner-relative output pointer. Current AC Huffman and padding pointers become
+indices into their existing stable owners; no Huffman tables or JPEG data are
+cloned to resolve borrows. Source-indeterminate storage gets safe initialization
+without assigning meaning to otherwise undefined reads. Variable shifts promote
+coeff_t operands to i32 before shifting, narrowing only at original int16_t
+assignments; source-defined Al16..31 structures remain accepted. The sequential
+extra-zero-run counter likewise retains promoted subtraction followed by int16_t
+narrowing. These standalone writer domains are wider than JPEGData field
+serialization and do not establish validity of an encoded JPEG file.
+
+ICC command decoding retains the original fallible PaddedBytes header append
+before inspecting the decoded output size, including zero-size output. Temporary
+array views borrow that allocated header; they do not replace its allocation
+checkpoint. The reached WithInitialSpace, clear, push_back and append operations
+retain their original size/growth/status order. No decoded prefix is discarded
+on a command or varint error.
+
+Linear ICC prediction keeps the logical current position separate from physical
+history backing. The source's width-four DecodeUint32 guard uses that logical
+position; only the preceding words need physical backing. Safe checked loads
+therefore do not require a slice extending to the current position. Width-one
+and width-two promoted integer formulas narrow at the original byte/word
+boundaries; explicit modulo-u32 arithmetic followed by narrowing preserves those
+results. Width-four prediction retains original unsigned wrapping. Invalid raw
+pointer, zero shuffle-width and overlapping-container caller preconditions do
+not receive invented codec semantics. Streaming ICCReader ownership remains a
+separate boundary.
+
+Output-stage callback buffers preserve the complete source lifetime protocol.
+Unsafe construction borrows actual external output storage, callback contexts
+and the live JxlMemoryManager pointer through stage destruction. Output metadata
+is copied as in the original; manager alloc/free/opaque fields are reread at each
+call, including cleanup after field mutation. Callbacks must uphold the stated
+raw-storage and non-reentrancy contract. Initialized views are created only for
+reached writes; raw float words preserve signaling NaN payloads without extra
+arithmetic. Unwritten scratch is represented by raw uninitialized storage.
+
+The callback-backed AlignedMemory owner retains the actual returned block and
+exact original requested size, with no payload copy, shadow allocation or custom
+header. It shares the existing source alignment-group counter at the original
+successful-allocation checkpoint. Null allocations do not advance that counter.
+Only the default Rust malloc-compatible callbacks add a private aligned size
+header to reconstruct std::alloc::Layout at free; custom callback blocks never
+use this header. Default payload bytes remain uninitialized. MemoryManagerInit
+follows its own null/default/pair and aliasing rules, including copying fields
+before reporting a mixed-pair failure; Brotli rules are not substituted.
+
+PrepareForThreads preserves original overwritten callback tokens, partial
+scratch replacement, failure prefixes and retry order. Destruction calls main
+then extra-output destroy callbacks before freeing output and input scratch.
+Explicit reverse pops match the configured libc++ vector member cleanup, which
+the independent source audit checks against the actual compiler/standard
+library on each native target. Source guards precede every read they protect.
+No invented codec status is assigned to invalid caller-pointer preconditions.
+The output stage keeps this uninitialized callback scratch; the other decoder
+owners use the initialized manager-backed AlignedMemory described under
+"Decoder memory-manager propagation".
+
+Spot-color stages retain a borrow of the original four-coefficient array rather
+than snapshotting it. The ordinary factory borrows `[f32; 4]`, matching immutable
+frame metadata in the reached decoder pipeline; the `Cell<f32>` array factory
+permits safe writes to that same external pointee between calls. Alpha scale is
+read once after the extra-span guard, while each color coefficient is read at
+the original channel/x loop point. No metadata owner is cloned or redesigned.
+The source's `size_t` channel-offset addition wraps explicitly; wrapped RGB
+aliases are query-only because processing them would violate the original
+`JXL_RESTRICT` row-pointer precondition. RGB arithmetic uses the existing target
+scalar multiply/add mapping, with exact operand-word coverage against the actual
+original stage rather than a new interpolation formula.
+
+The internal sequence decoder borrows parsed immutable metadata for its complete
+lifetime. Remove its single-alpha, depth-matching, association and dimension-shift
+admission constraints only at that boundary; the existing fixed profiles retain
+their original admission. Each spot stage borrows the same metadata coefficient
+array and is inserted after blending and post-color reference storage, before
+linear output conversion, as in PreparePipeline. Reference storage therefore
+retains pre-spot color. Source-defined non-rendered channels pass unchanged to
+bundle output through the existing modular channel/dimension and early/late
+upsampling algorithms; metadata does not invent a rendering rule for them.
+
+Associated alpha remains associated in bundle output. First-alpha metadata
+selection determines its association and export plane even when other channels
+precede it or a second alpha has a different association. Explicit integer and
+float ConvertToExternal buffer exports retain the existing source unpremultiply
+option and independently export every extra plane. Failed complete-file decoding
+is observed before export without reading unwritten output. Public callback
+orchestration and the public incremental API remain separate unported boundaries.
+
+Sequence orientation and intrinsic size remain properties of the single immutable
+metadata owner borrowed by bundles, frame headers and retained reference state.
+Removing the sequence-specific orientation/intrinsic admission guards does not
+rotate stored planes or rewrite internal geometry. Existing ConvertToExternal
+applies the requested original orientation; keep-orientation selects identity
+at that boundary. Oriented dimensions come from the original metadata helpers.
+All parsed YCbCr modes use the existing per-channel horizontal/vertical stage
+order; no normalization or replacement chroma interpolation is added.
+
+Decoder API framing helpers retain caller-owned output parameters. ParseBoxHeader
+writes header_size=8 on an incomplete initial header without changing the type
+or box size. An incomplete extended header retains the decoded type, box_size=1,
+and header_size=16. Later validation errors retain the completed header outputs.
+Use explicit usize wrapping for source size_t additions; checked slice access
+follows the original overflow/range guard. Signature failure leaves the input
+position unchanged, including an incomplete container candidate whose available
+bytes already differ from the final signature. Borrowed slices replace raw
+input pointer/length pairs without copying bytes or introducing unsafe code.
+The source's separate JxlDecoderStatus values are not internal StatusCode errors.
+Transparent-u32 public values follow the existing pixel-format descriptor mapping;
+this component does not yet export C ABI entry points or a decoder object.
+Frame-owned decoder fields stay in the public `FrameDecoder` owner, in their
+original relative order. Each public method receives the caller's
+`PassesDecoderState` (the source's `dec_state_` pointer) and opens a private
+`FrameDecoderScope` view for that call only. This represents the original
+retained frame object and codec-state pointer without retaining an exclusive
+Rust borrow of codec state between calls, callbacks or frames. The mapping adds
+no allocation, clone, reset, shared-mutation wrapper, or algorithm change.
+DecodeFrame and the fixed entry points call the same public methods. Owned
+vector allocations and render references retain their existing identities;
+`decoded_` is an `Rc<RefCell>` bundle shared with the retained writer stages.
+The Rust `PassesSharedState` records only manager presence, so the decoder's
+`JxlMemoryManager` is passed to `FrameDecoder::new` for the single reached
+consumer of `dec_state_->memory_manager()`, the WriteToOutputStage factory.
+Raw output descriptors and an installed CMS reach foreign code through retained
+pipeline stages, so `FrameDecoder::new` is unsafe: its contract covers every
+descriptor, the manager and the CMS for each state passed to the decoder until
+the pipelines built from them are destroyed. The fixed entry points own their
+state and never install either. The constructor flag selects the simple or
+low-memory pipeline exactly as in the source; a header
+outside the profile is an Unsupported admission result, and the processing
+methods then refuse to run instead of using an unadmitted header.
+
+Scalar FromLinearStage and ToLinearStage factories copy only their selected
+operation state. PQ captures the original intensity target; HLG captures the
+source-selected intensity and luminances in HlgOOTF; gamma captures inverse_gamma
+or its reciprocal at construction. Later mutations of OutputEncodingInfo do not
+change the existing stage. Each scalar row loads RGB together, applies the
+original operation order, then stores RGB together. Extras remain ignored and
+horizontal guards run before row access. The legacy sRGB stage/factory and
+existing PQ/sRGB encoding helper bodies remain unchanged.
+
+The general FromLinear factory preserves the source's nullable release return
+for an invalid target. Its source JXL_DEBUG_ABORT programmer-error branch maps
+to a Rust debug assertion; it does not become a codec status. The ToLinear
+factory instead returns an initialized identity operation for an invalid target,
+as in the original. Uninstantiated private template default constructors are not
+introduced as public Rust APIs.
+
+HLG and BT709 double constexpr expressions convert to binary32 at their original
+Set sites. HLG's kA product promotes the original binary32 kInvLog2e constant to
+double before its final conversion. Both vector alternatives are expressed
+before selection, including masked low-input FastLog2f/FastPowf calculations.
+The original FastLog2f explicitly leaves selected negative/NaN approximations
+undefined. This excludes claims about a selected HLG OOTF with negative or NaN
+luminance, raw HLG encoding of NaNs, or selected gamma/BT709 powers of NaNs. It does not exclude valid
+negative inputs selected by the original gamma/BT709 low branches, mirrored HLG
+transfer inputs, or negative HLG channels with positive total luminance; exact
+original cases cover those boundaries. Scalar Highway integer reduction and
+conversion semantics remain those of the existing FastPow helpers. No new
+numeric configuration, unsafe code, or dependency is introduced.
+not receive invented codec semantics.
+
+ICCReader owns its ANSCode separately from a code-independent
+ANSSymbolReaderState. The state carrier moves all fifteen non-code fields,
+including the same aligned LZ77 window allocation, into a temporary borrowed
+ANSSymbolReader for each decoding call and moves them back on every Status
+return. Existing borrowed APIs and decoding/checkpoint algorithms are unchanged;
+three reader mode checks now access the source-cached scalar rather than the
+mutable owner mode. This replaces the source's retained code pointers without cloning
+code or windows, reparsing input, self-references, raw aliases or new unsafe
+operations. Native Rust moves transfer the complete reader owner.
+
+Default initialized ANS scalars retain the source values; source-uninitialized
+cached pointers and prefix-selection state are not exposed as fixture data.
+Reset clears only bits_to_skip and decompressed logical size, retaining the code,
+ANS state, index, encoded size and allocations. Init sets the used-bit base after
+its initial EOI check and either parses the original histogram/preamble or skips
+the retained checkpoint distance. Process checkpoints at the original 512-byte
+intervals, restores only ANS state and the logical index on NotEnoughBytes, and
+retains the consumed bit-reader position. Its expansion-ratio and ANS final-state
+guards precede output clearing and UnpredictICC in source order.
+
+Defined decompressed writes after a saved index remain observable after rollback;
+they must not be confused with the restored logical index. Fixture callers track
+the initialized physical prefix independently across growth and Reset, including
+the PaddedBytes byte initialized after an allocation copy. They observe only the
+intersection with logical size and initialized LZ77 history, never uninitialized
+capacity or uninitialized cached source pointers. Allocation identity is compared while
+capacity is unchanged; allocator address reuse after growth is not required.
+Read-only snapshots exist only with the explicit cpp-oracle feature. Cache-mode
+and view-identity observations require a proven Create; source-uninitialized
+default cached mode/pointers are never read by the original observer.
+
+A short input can produce a fatal histogram or preamble error as well as
+NotEnoughBytes. Fixtures retain each original fatal status, complete pre-reset
+state and output; separate caller-recovery sequences explicitly Reset before
+replaying after fatal errors. NotEnoughBytes instead resumes from the saved
+checkpoint without Reset. Process before Init follows its actual source EOI,
+ANS-final-state and empty UnpredictICC path; it does not acquire a fabricated
+initialization error. These component APIs do not admit ICC profiles through the
+complete-file decoder or provide ICC parsing/CMS transforms.
+
+A failed histogram parse can change the owner mode before recreating the ANS
+reader while leaving its cached Huffman/ANS tables and configuration entries
+valid. Retain the source use_prefix_code_ scalar from Create in both the reader
+and moved state carrier; never resolve it from the subsequently mutated owner.
+Surviving cached table/config pointers resolve to the same owning array entries,
+including in-place partial updates. Replacement or vector reallocation may
+invalidate a reached source view; an unused stale view does not invalidate an
+otherwise defined call. Additive original fixtures positively execute direct
+Process after fatal Init in both mode-switch directions, independently observing
+the real cached scalar and pointer identities, including a changed unused
+Huffman view while the reached ANS/config arrays remain valid.
+
+Reset midway through an existing stream clears the decompressed logical size
+without resetting its index; Process requires a successful fresh Init before
+reaching those cleared indices again. Custom allocator failures and arbitrary
+invalid caller sequences remain outside these observations. Source-integrity
+audits normalize only the three enumerated cached-mode field accesses and the
+single constructor cache initializer before requiring the previously recorded
+byte-identical decoder/checkpoint body hash.
+
+### JPEG reconstruction metadata fields
+
+The JPEG metadata bundle implements the existing Fields visitor contract on the
+same JpegData owner. Source enum object representation becomes the existing raw
+AppMarkerType wrapper, retaining assignment before enum validation. All vector
+resizes preserve old entries and source value-initialized new entries; byte
+payloads, quant values and coefficients not serialized by VisitFields stay in
+the same owner. Genuine parsed scan fixtures seed only the source-indeterminate
+unused scan-component entries before observing the full owner representation.
+
+Delta-encoded block indices are mutated in place before each visit and restored
+only after that visit succeeds. Explicit modulo-u32 subtraction/addition matches
+the C++ unsigned conversion of last_block_idx+1. The source's different reset
+and extra-zero-run upper-bound comparisons remain distinct. Padding bits append
+to existing storage while tail/intermarker allocations occur only after the
+final table-definition validation. ICC byte injection writes directly into the
+existing marker allocations and retains completed writes on a later error.
+The source fixture reserves real backing for a zero-length ICC vector before
+zero-byte memcpy calls, preserving its logical size and byte contents.
+
+The table-order validation retains original reached-index preconditions. The
+source CanEncode visitor accumulates bit-range errors, so an out-of-range
+Huffman slot can access bool[4] before reporting its error; the source sanitizer
+probe establishes this undefined domain. Safe Rust bounds checks do not invent
+a codec status for that source-undefined call.
+
+Reading into an owner appends to its retained marker_order but resizes scan_info
+to the newly read scan count. When a previous DecodeJPEGData call on the same
+owner left an SOS marker behind, the table validation walks the old and new
+markers and reads scan_info[scan_info.size()]. The instrumented original reports
+a heap-buffer-overflow READ 16 bytes after the scan_info allocation: the
+num_components field of the element past its end. The ordinary original returns
+or faults depending on heap layout. The payload corpus derives the stale SOS
+count from the original's own first-call owner snapshot. Those 24 repeated-owner
+requests run in separate original-only processes and must produce exactly that
+diagnostic on every instrumented graph. They have no C++/Rust comparison;
+the Rust test asserts only that its bounds check stops at the same element.
+The 4,740 defined histories, including empty and short stale prefixes, retain
+exact parity. Revisit this mapping for the public decoder API and coefficients.
+
+Pinned skcms transfer functions and 3x3/3x4 matrix carriers retain their original
+repr(C) field order and float widths. Shared matrix carriers have one canonical
+Rust definition. Transfer inversion and matrix inversion retain initialized
+caller destinations on early failure and every source write on later failure.
+In-place methods snapshot only the initialized input scalars because the source
+loads those scalars before its first destination write; they do not clone an
+ICC buffer or profile owner. Optional mutable matrix destinations represent the
+original null-output guard without creating a Rust reference to null storage.
+
+The original skcms bespoke logarithm, exponential and power approximations are
+translated directly, including constants, integer range reduction, classification
+and signed branches. No standard-library power approximation replaces them.
+Defined float-to-integer conversions keep their original rounding/cast points;
+positively undefined original conversions remain separately diagnosed source
+requests. Explicit native contraction follows the pinned source configuration.
+For ARM matrix inversion, a non-inlined bitwise sign change retains the measured
+FNEG checkpoint before subsequent FMUL/FMADD. This prevents LLVM from moving a
+negation across a NaN-producing operation and changing an initialized output
+word. Two source expressions negate an input before multiplication, while the
+other subtraction sites negate the rounded product. The distinction is retained
+in Debug, Release and Rust 1.85. It changes neither source algebra nor the
+accepted request domain. Revalidate these compiler-dependent details after a
+source, compiler, target or instrumentation change.
+
+
+### skcms fitting output and initialization checkpoints
+
+Curve fitting borrows the canonical raw Curve/table representation and uses
+individual raw output fields at original source checkpoints. No Rust reference
+to caller outputs survives an aliasing write. ApproximateCurve writes infinity
+to the actual max_error slot only after its original guards, rereads that slot
+after possible prior TF assignments, and retains max_error-before-full-TF write
+order. Valid source aliases can target any one actual TF float.
+
+Residual/gradient evaluation reads only g/a/b/c/d/f; e can remain genuinely
+uninitialized. Gauss-Newton writes g, a and b in source order and retains every
+source failure/partial state. Private fit temporaries are initialized without
+adding caller-visible writes; admitted table fitting initializes every reached
+parameter before use. The original eight iterations and saved-best restoration
+remain unchanged. Existing scalar matrix and bespoke TF arithmetic supply the
+source numeric boundaries; fitting does not introduce a different optimizer.
+### Borrowed skcms profiles and active curve storage
+
+The pinned skcms profile representation remains one canonical `#[repr(C)]`
+profile/curve family. A curve's seven-word parametric function starts after its
+32-bit count; the count is not its gamma word. The table branch retains its
+native pointer alignment, padding and two borrowed byte pointers. Explicit
+`MaybeUninit` storage preserves initialized inactive bytes without manufacturing
+values for source-indeterminate bytes. Whole-curve copies transfer raw
+representation bytes and pointer provenance, without cloning table payloads.
+
+ICC parsing retains the original profile-wide memset, individual field writes,
+short-circuit tag reads and partial errors. Raw pointer operations carry an
+explicit initialized-branch, reached-bounds and external-lifetime contract.
+GetTagByIndex keeps the source's literal `idx > tag_count` guard; a physically
+backed `idx == tag_count` request remains observable. Successful parsing does not
+create an owner for ICC bytes, curve tables or color grids. Immutable built-in
+profiles receive a narrowly scoped static wrapper; arbitrary borrowed profiles
+and curves do not gain a general Send/Sync promise.
+
+Scalar curve evaluation and linear fitting retain original float checkpoints,
+output-pointer aliases and write order. Their safety contracts include the
+source's reached signed arithmetic and float-to-integer domain. Positive
+nonrecovering diagnostics classify individual undefined-source requests; they do
+not justify rejecting defined requests merely because their table counts match.
+The pinned Brotli decoder uses a separate malloc-like allocation contract.
+Each source request owns the actual returned block, including custom callbacks;
+no Rust Vec or Box shadows its state or buffer payload. Owned block descriptors
+move inline without relocating the allocation. Explicit cleanup checkpoints
+execute source-order frees, including null callbacks; Drop is only the unique
+block's matching deallocation backstop. A callback pair is either both absent
+or both present, and mixed pairs fail before any callback. Custom construction
+is unsafe because allocator/free/opaque lifetime, alignment, exclusive ownership,
+null acceptance and no-unwind behavior are caller obligations. No Send or Sync
+implementation is added. Default allocation uses Rust's fallible global
+allocator, without a C runtime dependency. Its zero-byte reservation occupies
+one physical byte, within the source malloc(0) choice of a freeable result;
+custom callbacks always receive the unchanged requested size.
+
+Storage starts as MaybeUninit bytes. Source field writes initialize only their
+reached fields; only the original memset checkpoints initialize complete blocks.
+This preserves bytes seeded by a custom allocator that the source does not
+write. Initialized byte views require a local initialized-range proof. The
+original allocation/layout observer independently records native sizes,
+alignments, selected offsets, callback failure order and null frees under both
+ordinary and complete ASan/UBSan original builds. Native repr(C) field layouts
+must agree with that observation before the decoder state uses these blocks;
+the initial storage support alone does not implement the streaming decoder.
+
+The source Brotli state flags share a C bitfield word with fields and padding
+that StateInit leaves uninitialized. Reading that entire word as a Rust integer
+would be invalid; clearing it would overwrite caller-initialized sentinel bits.
+The AArch64/x86-64 representation candidate therefore performs native raw
+load/mask/store entirely within a small inline-assembly helper over an exclusive,
+aligned four-byte MaybeUninit borrow. Selected-field reads mask and shift before
+returning a Rust scalar and require those field bits to be source-initialized.
+Scratch registers are early outputs, not late outputs; memory effects and x86
+flag clobbers are explicit. Source assignment order is retained individually.
+Other architectures have no guessed bitfield implementation. Before core state
+use, native original C-declaration and real constructor observations must prove
+every field's byte masks, truncation, neighboring sentinel preservation and
+partially initialized selected-field reads on both supported architectures and
+ordinary/instrumented graphs. The 33,664-request proof and actual constructor/assembly observations pass
+against both original graphs and all three Rust profiles on native AArch64 and
+x86-64. The separate raw byte-XOR primitive also passes its complete native
+1,633,984-tuple source/tail proof on both architectures.
+
+The complete Brotli streaming state machine retains the actual decoder block
+in `DecoderInstance`, with fixed borrowed-dictionary binding metadata beside
+it. No code/state/ring payload is cloned. Real callable default allocator thunks
+use private size bookkeeping for Rust deallocation; custom callbacks retain
+their exact addresses, sizes, returned backing and free identity. Native C
+`max_align_t` is observed separately from Rust's sufficient payload alignment.
+Default allocation remains fallible and uninitialized. Source cleanup invokes
+null frees at its actual checkpoints, independently from the unique owner's
+backstop cleanup. Helper entry histories remain source preconditions; arbitrary
+partially initialized state is not a new generic API.
+
+Local label enums represent original gotos without changing save/return order.
+Source reader loans transfer the same accumulator, available-bit count and
+input/guard/last positions on the same input anchor, including a guard behind
+next. They do not recalculate these fields through SetInput. Only source-reached
+initialized fields and table slots form Rust scalars. Loans end before allocator,
+free or metadata callbacks; later accesses reload actual native fields.
+`MetadataCallbacksHandle` and `DecoderStateHandle` point to the stable source
+allocation, never the movable Rust sidecar. They convey no ownership/lifetime
+extension and permit only their documented callback-field/getter operations.
+
+The canonical streaming and TakeOutput boundaries use raw caller cursor/size
+pointers. This retains source-defined scalar aliases and original conditional
+loads/stores without holding conflicting Rust references across callbacks or
+native state operations. Returned output pointers remain tied to the actual
+ring allocation; NULL and a non-NULL empty view stay distinct. A byte read needs
+its own initialized-range proof. Speculative memmove copies MaybeUninit object
+representations; raw dictionary views retain actual caller pointer/length and
+allow source-defined late initialization/mutation between loans. They create
+no eager slice or second payload owner. Unknown transform tails use the native
+accepted raw XOR primitive without clearing or truncating source writes.
+
+The default embedded dictionary owns one named static byte array, and every
+source-shaped descriptor/getter points into that same backing. A static
+reference to independently promoted include_bytes expressions did not preserve
+this identity under real Cargo compilation; named storage preserves source
+static initialization without runtime OnceLock or changed bytes. The source's
+default SetDictionaryData no-op remains unchanged. The one-shot stack-owned
+entry cannot be implemented by an extra CreateInstance allocation and stays
+separate until translated. Current state/partial-bit admission is AArch64 and
+x86-64 only. Untested private-state/input aliases receive no equivalence claim;
+proven external I/O and raw scalar aliases retain their source checkpoints.
+Decoder API framing helpers retain caller-owned output parameters. ParseBoxHeader
+writes header_size=8 on an incomplete initial header without changing the type
+or box size. An incomplete extended header retains the decoded type, box_size=1,
+and header_size=16. Later validation errors retain the completed header outputs.
+Use explicit usize wrapping for source size_t additions; checked slice access
+follows the original overflow/range guard. Signature failure leaves the input
+position unchanged, including an incomplete container candidate whose available
+bytes already differ from the final signature. Borrowed slices replace raw
+input pointer/length pairs without copying bytes or introducing unsafe code.
+The source's separate JxlDecoderStatus values are not internal StatusCode errors.
+Transparent-u32 public values follow the existing pixel-format descriptor mapping;
+this component does not yet export C ABI entry points or a decoder object.
+
+### Persistent incremental input storage
+
+DecoderInput retains the original codestream copy, partial-consumption counters,
+input pointer identity and ordered jxlp payload ownership. It is storage for the
+eventual complete decoder object, not an alternate buffered decoder. The three
+contiguous input cursor fields use MaybeUninit so SetInput, ReleaseInput and
+CloseInput read only the source-defined reached fields. Non-null empty input
+remains set until ReleaseInput; a null empty input retains its distinct identity.
+Operation-scoped byte spans end before input replacement, owner mutation or an
+allocation callback. Public C entry points remain absent.
+
+This boundary uses a callback-owned PaddedBytes representation. Its allocation,
+capacity growth, initialized prefix, source alignment-group formula and free
+checkpoints follow padded_bytes.h and memory_manager_internal.cc. All input/output allocation paths share the source alignment-group counter
+and the canonical JxlMemoryManager ABI. Callback storage does not
+zero unknown capacity or lend input bytes across callbacks. An append failure
+preserves old allocation/size/capacity and external input consumption; successful
+growth commits capacity before releasing the old allocation. A BTreeMap retains
+ordered payload lookup and separately boxed unique payload owners; injection erases/destroys the selected
+payload before decrementing the total. Map ownership is released before the
+codestream-copy owner, as in the source enclosing object's destruction order.
+Remaining payloads drop in ascending key order. The order in which std::map
+destroys its nodes is unspecified and depends on the standard library: libc++ 21
+destroys them post-order, libc++ 22 in key order. The oracle adapter therefore
+releases the retained payloads in key order before destroying the decoder, so
+the compared free order is independent of the standard library.
+
+The unsafe boundary retains the source's same-allocation pointer/advance,
+initialized-input, nonoverlapping-copy and callback-lifetime requirements.
+Callbacks cannot unwind or reenter the input owner. This does not establish a
+general private-state/caller-buffer alias contract or the complete decoder's
+reset, allocation or callback APIs. Source size_t additions wrap explicitly;
+PaddedBytes allocation geometry retains the original checked additions.
+
+### Public decoder object
+
+JxlDecoderCreate allocates the decoder object through the caller's memory
+manager and constructs it in place; JxlDecoderDestroy copies the manager,
+destroys the object and frees it through that copy. The object's size is the
+Rust layout's, so observers name that first allocation `Adec` instead of
+comparing its size. The allocation must be aligned for the Rust object, as the
+source's placement new requires; a misaligned block panics instead of creating
+an invalid object.
+
+Fields keep the source order. The persistent input fields stay in the existing
+DecoderInput owner at the codestream_copy position. The memory manager, codec
+metadata, output image metadata and the simple image-callback record live in
+stable Rust heap cells beside the object. Other owners retain raw pointers to
+those fields: the input copy, frame headers, image bundles and the simple
+callback's opaque value. A reference derived from an inline field would be
+invalidated whenever an API call borrows the decoder exclusively. The cells are
+global-allocator storage, not memory-manager allocations. A retained reference
+is never read after a later mutation of its cell: Rewind releases the bundle
+and codec state before replacing the metadata, and the frame header created by
+Rewind is replaced before any reader of its metadata pointer can run.
+
+Destruction releases every owner explicitly in reverse declaration order, so
+the jxlp payloads and the codestream copy keep their original free order
+relative to each other and to the remaining owners. std::map destroys its
+nodes in a standard-library-dependent order, so the public-API observers
+compare the releases of one destruction checkpoint (Destroy, Rewind or Reset)
+in ascending allocation order. Source-indeterminate scalars that the original
+first assigns during decoding receive safe initial values with no meaning
+before that assignment.
+
+A codestream bit reader borrows its span for its scope. GetBitReader's deleter
+runs AllReadsWithinBounds and Close with discarded results. Where the source
+calls RequestMoreInput while that reader is still alive, the Rust scope ends
+first, because RequestMoreInput may reallocate the borrowed copy. The deleter
+has no observable effect, so the reordering is unobservable. The ICC reader,
+its decoded output, the codec state, the image bundle and the frame owners
+allocate through the decoder's memory manager (see the next section).
+
+The decoder's image bundle is an `Rc<RefCell>` owner shared with the frame
+decoder, which retains it as the source's `decoded_` pointer. The output
+writer stage holds only a `Weak` handle, as the source's raw pointer. Where the
+source calls `ib.reset()`, the decoder first releases the frame decoder's
+handle, so the bundle's planes are freed at that checkpoint; the source does
+not use the dangling `decoded_` pointer before the next InitFrame, and the
+Rust frame decoder panics rather than reading a released bundle. ProcessSections copies the frame decoder's TOC so
+that the frame decoder can be borrowed mutably while its sections are
+processed; ProcessSections does not change the TOC. FrameDecoder construction
+admits every parsed metadata header, so a construction failure is an
+unreachable precondition and panics instead of inventing a decoder status.
+
+A caller that releases its input leaves `next_in` null. When ProcessInput then
+continues an uncompressed box being written to a box buffer or stored as
+Exif/XMP for JPEG reconstruction, the original JxlBoxContentDecoder::Process
+calls `memcpy(*next_out, nullptr, 0)`. That call is undefined:
+instrumented Linux graphs report the nonnull memcpy argument
+(box_content_decoder.cc:110), while the macOS libc declares none and the probe
+completes. The Rust copy is defined for zero bytes with any pointer, so its
+behavior is unchanged. Under `cpp-oracle`, the box decoder counts that copy
+for test observation only. Histories that reach it run original-only, each in
+its own process: instrumented Linux graphs must report exactly that
+diagnostic, and every other graph must complete. All other histories compare
+exactly. The instrumented Linux runs report no other null memcpy or memmove
+argument for the remaining corpus.
+
+The public entry points are Rust functions with the original names in snake
+case. Caller buffers, callback opaque values and input remain raw pointers on
+unsafe entry points that state their lifetime contracts. Output structs that
+the source accepts as null are `Option<&mut T>`. A struct pointer that the
+source dereferences without a check (the pixel format, the frame header,
+extra-channel and blend info, box type, bit depth and buffer-size outputs) is
+also an `Option`, unwrapped exactly where the source dereferences it. A null
+pointer therefore panics only on the paths where the original would
+dereference it, and keeps the original status on paths that return first.
+C enums use transparent integer carriers.
+
+### Public encoder object
+
+JxlEncoderCreate allocates the encoder object through the caller's memory
+manager and constructs it in place, as the decoder does; its size is the Rust
+layout's. Frame settings, queued frames and queued boxes are
+MemoryManagerUniquePtr owners allocated through the same manager with Rust
+sizes, so observers compare the order and identity of manager calls, not
+their sizes. The manager lives in a stable heap cell beside the object
+because these owners retain its address. Destroy and Reset release the queued
+inputs and then the frame settings, each vector from its last element, as the
+source's reverse member order and libc++'s vector destruction do.
+
+Frame-settings functions take the settings pointer that FrameSettingsCreate
+returned and reach the encoder through its retained `enc` pointer, a copy of
+the caller's raw encoder pointer rather than one derived from a Rust borrow;
+the settings and the encoder are separate allocations, so the two borrows of
+one call do not overlap. Owners that only untranslated functions install (the
+thread pool, a fast-lossless frame, the external output processor and
+statistics) are uninhabited `Option<Infallible>` fields at their source
+positions, and the source branches that test them are matches on that value.
+A queued frame keeps its adapter without the caller-buffer lifetime once
+CopyBuffers has copied every buffer. When an extra-channel SetFromBuffer
+fails its size check, the original leaves the caller pointer in the channel
+without copying it; the Rust owner stores no caller pointer. A
+JxlOutputProcessorBuffer borrows its wrapper for its lifetime, and its append
+rejects a copy longer than its window before writing, where the source would
+overflow the window; no translated caller requests one. ProcessOutput keeps raw caller output pointers because the
+wrapper retains them across calls, as in the source.
+
+### Exported decoder C ABI
+
+`src/jxl/decode_abi.rs` exports every function that `decode.h` declares
+under its original unmangled name, and `src/threads/abi.rs` exports every
+function of `thread_parallel_runner.h` and `resizable_parallel_runner.h`. The
+original builds the runners as a separate `jxl_threads` library; the Rust
+static and dynamic libraries export them next to the decoder, so a C program
+links one library in place of both. The runner callbacks keep the
+`JxlParallelRunner` signature with non-nullable init and data functions, which
+the decoder always passes. Each wrapper only maps representation: raw
+pointers become the references and options above, and the snake-case function
+performs every original argument check in source order. Structs crossing the
+boundary are the `#[repr(C)]` header types. Compile-time assertions fix their
+size, alignment and field offsets on 64-bit targets; the test oracle measures
+the same values, every enumerator, the version and the address of every
+exported function from the pinned headers with a C compiler. The crate builds
+an rlib, a static library and a dynamic library from the same Rust code; none
+of them compiles or links C or C++.
+
+The source dereferences `dec` without a check, so a null decoder panics. A
+panic cannot unwind into C: the `extern "C"` boundary aborts the process.
+Each call borrows its decoder for the whole call, exclusively or shared for a
+`const JxlDecoder*` getter. A callback (memory manager, CMS, pixel output)
+that reenters the same decoder on the calling thread would alias that borrow,
+so a thread-local set of active decoders makes it abort. The original
+permits some reentrant getter calls; Rust aliasing cannot express them while
+the decoder is being mutated. Other decoders remain usable from a callback.
+Concurrent use of one decoder from several threads is outside the contract, as
+in the source. Output structs are only written, never read, so C callers may
+pass uninitialized storage.
+
+### Thread runners and RunOnPool
+
+The thread and resizable runners of `lib/threads` use `std::thread`,
+`std::sync::Mutex` and `Condvar`; no C or C++ code is linked. Each runner keeps
+its original command/condition-variable protocol, guided or atomic-counter work
+distribution, thread-id assignment, init thread count and re-entry detection.
+A std::mutex and the variables it guards become one `Mutex`. Lock poisoning
+cannot occur, because an unwinding `extern "C"` callback aborts. Fields that
+the main thread writes and workers read after the mutex hand-off are
+`UnsafeCell`s with stated happens-before edges. The thread runner is
+constructed in place in its memory manager's allocation and keeps
+`#[repr(C)]` so that its false-sharing padding still separates the workers'
+counter. Workers hold a raw pointer to the runner, which does not move until
+its destructor has joined them. The resizable runner's destructor body runs
+through a shared reference before its box is released. `hardware_concurrency`
+maps to `available_parallelism`, which honors CPU affinity and cgroup quotas
+where libc++ reports online processors. Only default and suggested thread
+counts read it.
+
+`ThreadPool::new` is unsafe: a present runner must obey parallel_runner.h for
+the pool's lifetime. `run` and `run_on_pool` are then safe. The decoder's
+RunOnPool task bodies borrow non-thread-safe owners: the `Rc<RefCell>` sharing
+above, the pipeline's per-thread storage and exclusive borrows of the frame
+state and section readers. They therefore run through `run_on_pool_exclusive`.
+The runner still chooses the init thread count, the calling threads, the task
+order and which tasks an error flag skips. One lock per RunOnPool call
+serializes the init and task bodies, and its acquire/release orders every
+access to those owners. This is sound because the calling thread waits inside
+the runner call, no other thread holds a handle to the borrowed owners, and
+none of them is thread-affine. Output callbacks are therefore called from
+runner threads one at a time, which decode.h permits. Thread ids select
+per-thread storage as in the source.
+
+The port panics where the source makes an undefined use, for example of a
+null buffer that a failed allocation left behind. A panic in an init or task
+body cannot unwind through the `extern "C"` RunCallState trampolines into a
+runner. The trampolines catch it, set the error flag so that the remaining
+tasks are skipped as after a failed task, and ThreadPool::Run resumes the
+first panic on the calling thread once the runner returns. The caller
+therefore observes the same panic with and without a runner.
+
+The frame decoder retains a pointer to the decoder's boxed pool, as the
+source's `pool_`. The box is replaced only in the Inited stage or by Reset,
+while no frame decoder exists. The fixed internal profiles keep a null pool.
+Serialized task bodies preserve every observable output, but they provide no
+parallel speedup. Running them concurrently requires thread-safe owners. That
+is a separate change with its own performance evidence, not part of the
+mechanical port. The encoder's RunOnPool sites still use a null pool.
+
+JPEG reconstruction writing retains borrowed marker/tail payloads and owned
+bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
+storage with a separate active prefix length; output callbacks receive None for
+a null source pointer and Some(empty) for retained allocated empty storage.
+The pinned short-write loop decreases length without advancing its pointer;
+the Rust callback lifecycle preserves that behavior rather than repairing it.
+Callback overreporting remains a source programmer-precondition violation.
+The queue is passed alongside a mutable bit-writer borrow instead of storing an
+owner-relative output pointer. Current AC Huffman and padding pointers become
+indices into their existing stable owners; no Huffman tables or JPEG data are
+cloned to resolve borrows. Source-indeterminate storage gets safe initialization
+without assigning meaning to otherwise undefined reads. Variable shifts promote
+coeff_t operands to i32 before shifting, narrowing only at original int16_t
+assignments; source-defined Al16..31 structures remain accepted. The sequential
+extra-zero-run counter likewise retains promoted subtraction followed by int16_t
+narrowing. These standalone writer domains are wider than JPEGData field
+serialization and do not establish validity of an encoded JPEG file.
+
+JPEG coefficient reconstruction borrows the existing JPEGData box only for each
+frame/group operation. The same accumulated i32 AC storage is transposed in
+place at the original DecodeGroupImpl checkpoint; coefficient output never
+passes through an inverse transform or pixel re-encoding. Grayscale channel
+selection, component order, subsampling alignment and partial writes retain the
+source traversal. Highway integer products/additions retain low 32 bits before
+arithmetic shifts and saturating i16 demotion. DC replacement keeps the original
+ordered Clamp1 comparisons and truncating conversion. Source NaN-to-short casts
+and pre-validation zero quantizer divisions remain undefined caller domains,
+with separate original sanitizer probes; the Rust boundary asserts those
+preconditions rather than inventing decoder status codes. Quantization matrices
+and the original JPEG marker/scan owners remain distinct; no metadata or
+coefficient owner is cloned to resolve borrows. Ordinary pixel callers retain
+the original null-JPEG specialization of the same traversal.
+
+The complete box-content owner retains a source Brotli decoder between Process
+calls and releases it at the original reset/destruction checkpoints. Borrowed
+input/output buffers and raw cursor cells retain their reached lifetimes and
+callback nonreentrancy requirements. DecodeJPEGData owns an independent Brotli
+decoder for the complete call, preserves every partial JPEG marker mutation, and
+uses only the final probe's one writable sink byte without reading unwritten
+storage. Neither boundary calls C/C++ at runtime.
+
+JxlToJpegDecoder owns its reconstruction-box buffer, optional JPEGData box and
+box scalars. Process takes one borrowed slice cursor for the source's
+next_in/avail_in pair, which always advance together. Each decode attempt
+replaces the owner with a fresh JPEGData, so the stale-scan history above is
+not reachable through it. The caller's JPEG output buffer remains a raw pointer
+and count. Setting and releasing it only store values; WriteOutput alone writes
+through it under an unsafe caller contract. A null pointer with a nonzero size
+stays representable and, as in the source, is not an output buffer. A failed
+write keeps its copied prefix but not the advanced position. SetExif and SetXmp
+borrow their payloads. A matching Exif marker shorter than nine bytes overflows
+both original SetExif copies; that call runs only as an original sanitizer
+probe, and Rust stops at a bounds check instead of returning a status.
+
+### Decoder memory-manager propagation
+
+`MemoryManagerPtr` carries the source's `JxlMemoryManager*` to every owner
+that allocates through it. `Null` is the source's null pointer and fails at the
+allocation checkpoint; `Manager` retains the caller's live manager; `Native`
+is the crate's Rust allocator, used where no caller manager reaches an owner
+(the encoder, dec_external_image and standalone units). A `Manager` value is
+created only by the unsafe `from_raw`, whose caller keeps the manager valid,
+thread-callable and non-reentrant until every owner allocated through it is
+destroyed. The public decoder satisfies this with its stable manager cell,
+which it drops after every owner; FrameDecoder::new's contract covers its own
+pointer, which is also the modular frame decoder's manager, as the source's
+`dec_state_->memory_manager()` is.
+
+AlignedMemory requests `size + pre_padding + kAlias` bytes from the callback,
+advances the alignment-group counter only after a successful request and
+frees the block with the same manager at the owner's destruction. It
+zero-initializes the returned block so that safe slices never expose
+indeterminate bytes; that write is an internal difference that no allocator
+event observes. The output stage keeps its uninitialized callback scratch.
+
+Ownership follows the source. A plane's manager is that of its allocation and
+an Image3's that of its first plane. ImageBundle, PassesSharedState and
+PassesDecoderState, ModularFrameDecoder and the modular Image, PatchDictionary,
+Splines, PaddedBytes, ICCReader, the render pipeline (through its builder),
+UpsamplingStage, WriteToImage3FStage and BlendingStage retain the manager they
+were constructed with. The modular Image's move assignment keeps the
+destination's manager. DecodeANSCodes stores its manager in ANSCode, and
+ANSSymbolReader::Create allocates its LZ77 window through it. Constructors
+named `_in` take the source's manager argument; the shorter constructors
+select `Native`. Splines' segment arrays are AlignedMemory, as in the source.
+Rust-only heap cells, Box and Rc owners are global allocations where the
+source also uses global operator new or embeds the field in the decoder object.
+
+C++ destroys members in reverse declaration order and libc++ vectors last
+first; Rust drops fields in declaration order and Vec elements first to last.
+Owners whose releases are observable outside the sorted Destroy/Rewind/Reset
+checkpoints therefore reproduce the source order: Drop impls for Image3 (planes
+last first), the modular Image, GroupDecCache, ModularFrameDecoder,
+FrameDecoder, both render pipelines and UpsamplingStage; ImageBundle declares
+its extra channels before its color planes in a lifetime-free `Vector`, so its
+field order yields the source destructor order without a Drop impl that would
+constrain borrowed metadata lifetimes; and `libcpp_vector` helpers for clear,
+erase and move assignment. A source move assignment releases the old contents
+in member order, while a plain Rust assignment would run the destructor order,
+so those sites use Image3::assign, ImageBundle::move_from and the modular
+Image's move_assign. Every allocation size, order, failure status and free
+order then matches the original under a logging custom manager.
+
+Allocation failures return the source statuses. When a failed allocation
+leaves a pipeline group buffer or a group-cache buffer empty and the caller
+continues, for example by calling ProcessInput after FlushImage failed, the
+source later dereferences the null buffer. The Rust port panics at that use
+instead. Such histories run as original-only probes that must terminate
+abnormally; all other failure histories compare exactly, also through the
+exported C ABI. Under a parallel runner, the serialized RunOnPool task bodies
+call the manager from runner threads, one at a time, which the manager
+contract above permits. The order of allocations made inside tasks then
+follows the runner's schedule, in the original as well, so the allocator-log
+and allocation-failure histories run without a runner.
+
+### Baseline skcms stages and source-reached initialization
+
+PixelFormat and AlphaFormat use transparent i32 carriers with the original
+numeric named constants. This also represents unnamed, source-defined enum
+values at Release rejection/alpha paths without constructing an invalid Rust
+enum. The internal stage enum retains all 79 original names and numeric values.
+
+Transformation borrows canonical raw profiles, curves, tables and grids. Local
+matrices/functions and temporary profile copies remain live through program
+execution. Raw whole-object copies use MaybeUninit representation storage;
+external pointers never acquire ownership. The source's same-address, different
+width rejection, partial-overlap traversal, guards, error status and profile
+write/cleanup order remain observable. No reference spans a caller-visible
+mutating alias.
+
+The original classifier and selector short-circuit over raw fields. A count-zero
+curve with only g=-129 initialized is valid on its immediate-invalid path.
+Gamma stages read only g; PQ/HLG stages read a..f without reading g. CLUT stages
+read only grid_points[0..input_channels], while both original grid pointers are
+evaluated. Safe transfer methods delegate to the same raw classifier/evaluator
+boundary; their arithmetic bodies remain unchanged. Source memcmp paths still
+require every byte actually compared to be initialized.
+
+The baseline engine retains four lanes, native NEON/SSE arithmetic and the
+original zeroed 64-byte tail scratch schedule. Stable Rust, including the 1.95
+minimum version, cannot promise Clang's musttail ABI. Stage dispatch therefore follows the original interpreter
+traversal while retaining the selected baseline operations and load/store
+branches. This is a language-required call-dispatch mapping, not a new scalar
+algorithm or a claim of equivalent call-stack/performance behavior. Native
+contraction checkpoints are validated against actual compiled original objects;
+source compiler options are not changed to obtain agreement.
+
+On x86_64 the reference Clang build also compiles the HSW (N=8, AVX2/F16C,
+no FMA) and SKX (N=16, AVX-512F/DQ) engines, and Transform selects one with
+cpu_type(). Rust translates both from the same header with lane-count generic
+stages and the source's non-NEON branches. HSW rounds contracted products; SKX
+fuses the same frontend-contracted expressions, including U16_from_F. SKX
+issues each 512-bit operation as two 256-bit AVX/FMA/F16C operations. This
+split was chosen under the earlier Rust 1.85 minimum version, which had no
+stable AVX-512 intrinsics or target features. They are stable since Rust 1.89,
+so translating SKX to native 512-bit operations is a possible follow-up with its
+own parity evidence. Every used operation is lane-independent with identical
+per-lane results, including F16C rounding, floor and truncating conversion. cpu_type() maps each cpuid/xgetbv condition to
+std_detect, whose AVX and AVX-512 reports include the same XCR0 state checks.
+Direct-stage oracle programs still call the baseline engine only.
+
+Curve selection keeps source control counts as i32, including the post-decrement
+before its comparison. A2B input and B2A output u32 channel words use the
+original native int conversion. Only a proven nonnegative, bounded source index
+becomes usize for Rust array/pointer access. A count's source-defined no-access
+path does not become an allocation-sized unsigned loop. INT_MIN's original
+signed-overflow boundary remains a separately diagnosed source precondition.
+
+
+## Default CMS context and selected assertion configuration
+
+The default CMS translation retains borrowed input ICC backing, with ownership
+only for generated intermediate linear profiles. Its static interface has a
+stable address and points init_data back to that same interface. Init reads only
+the source-reached ICC span fields, including after callbacks that may change
+descriptors or the callback interface. Inactive external encoding/channel fields
+may remain unknown. Callback field loads are repeated at each original call.
+
+Per-thread sample storage uses interior-mutable float cells with stable raw
+views. Row execution never creates an exclusive borrow of the whole context or
+its vectors while independent thread callbacks can run. Original 128-byte
+alignment, 32-float stride rounding, zero-filled allocation, zero-width views,
+backward gray expansion, forward gray contraction and copy/alias branches remain
+explicit. The selected original wrapper uses Highway scalar transfer functions;
+this does not replace the separate skcms four-lane engine with scalar math.
+Private transfer contexts and failed CICP guards retain source prefix-only reads
+and writes; unnamed ExtraTF values use their original switch fallthrough.
+
+The original jxl_cms.cc build selects O3 and NDEBUG. Its two HLG Base JXL_DASSERTs
+in transfer_functions.h:49,62 are inactive, including for NaN inputs with defined
+returned float words. Rust debug assertions at those sites would instead panic
+in a Debug consumer. Omit precisely those two assertions in TfHlgBase in every
+Rust profile, retaining its arithmetic body, sign conversion and contraction
+checkpoints unchanged. This maps the selected reference configuration, without
+changing upstream or selecting alternate optimization/sanitizer flags. Keep the
+actual ordinary/instrumented exceptional observations and initial Rust panics as
+regressions, along with every inherited transfer/parser/fitting/transform case.
+
+Default-CMS callbacks may change their interface callback/data pair and either
+caller's ICC span. Reload only the fields at the original subsequent call sites;
+retain both the caller's replacement backing and the already copied profile
+bytes for their original lifetimes. Successful callbacks initialize the CMYK
+word and the external fields reached by FromExternal. Its inactive custom xy,
+gamma and gray-primary fields need not be written. The Rust local carrier is
+already initialized, so this preserves source-defined partial callback outputs
+without reading unknown source bytes. Explicitly destroy owning context vectors
+in reverse C++ member declaration order before automatic Rust field destruction.
+
+The actual ARM objects also select distinct contraction checkpoints for two
+HLG luminance helpers. Default CMS rounds G*Yg before fusing R*Yr then B*Yb;
+the original skcms N=4 forward and inverse OOTF stages do the same with their
+XYZD50 constants. Preserve those observed checkpoints, including the initial
+callback/ICC-replacement cases that exposed the inherited N=4 discrepancy.
+Keep the non-ARM path and all reference flags unchanged.
+
+CIExyFromXYZ retains the source's float sum, conversion to double, reciprocal
+and two double products. Its actual ARM helper issues each product with the
+factor as the first FMUL operand. Use precisely those two register operations
+to preserve competing NaN payload selection across Rust compilation profiles;
+do not normalize NaN values or replace finite arithmetic. Both original source
+graphs agree on all 144,905 numeric probes, including the 854 initial Rust
+payload differences. Every original input and failed observation remains part
+of the retained regression record.
+
+A callback may replace the destination ICC span with null+zero after init's
+initial nonempty checks. Preserve both subsequent descriptor loads and the
+original empty vector assignment, then its SetFieldsFromICC empty-input failure.
+Do not construct a null Rust slice, even with length zero. Observer empty-vector
+spans retain the selected libc++ nullness, and zero-size observations access no
+backing. Keep the eight initial Rust aborts alongside the agreeing ordinary and
+instrumented source controls. Native captures involving platform libm apply
+only to their recorded macOS ARM configuration; other targets use their own
+actual source comparisons.
+ARM matrix concatenation retains the source's first multiplicand at the middle
+FMUL and both FMADD checkpoints. Rust Release otherwise commutes selected
+unrolled products with two competing input NaNs. Keep these operations in local
+non-inlined functions; preserve the original contraction and rounding tree.
+The vector product used by adaptation and primaries keeps its existing mapping.
+No NaN bits are classified or rewritten by the runtime mapping. Independent
+native source captures cover all 27 cell/term positions with both operand orders
+and quiet/signaling inputs.

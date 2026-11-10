@@ -1,0 +1,220 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Run complete original libaom suites on Linux'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      CC: clang-16
+      CXX: clang++-16
+      CARGO_BUILD_JOBS: '2'
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the reference build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config cmake
+        rustup show active-toolchain
+    - name: Verify the complete source and error-target contract
+      run: |
+        python3 tools/verify_upstream.py --tracked
+        python3 tools/generate_licenses.py --check
+        python3 tests/ports/aom_jumps_test.py
+        python3 tools/review_aom_header_roles.py --check
+        python3 tools/check_translation.py
+    - name: Build both original profiles and all three original test consumers
+      run: |
+        python3 tools/build_aom.py --debug --jobs 2
+        python3 tools/build_aom.py --jobs 2
+        python3 tools/build_aom_consumers.py --debug --only test_libaom --only test_aom_rc --only test_intra_pred_speed
+        python3 tools/build_aom_consumers.py --only test_libaom --only test_aom_rc --only test_intra_pred_speed
+        python3 tools/check_aom_linkage.py --debug
+        python3 tools/check_aom_linkage.py
+    - name: Preserve the exact binaries and inventories for every shard
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-original-binaries
+        retention-days: 7
+        if-no-files-found: error
+        path: |
+          codecs/libavif-rs/build/aom-native-*/test_libaom
+          codecs/libavif-rs/build/aom-native-*/test_aom_rc
+          codecs/libavif-rs/build/aom-native-*/test_intra_pred_speed
+          codecs/libavif-rs/build/aom-native-*/test_*-inventory.txt
+          codecs/libavif-rs/build/aom-native-*/test_*-inventory.json
+          codecs/libavif-rs/build/aom-native-*/test-data.json
+          codecs/libavif-rs/build/aom-native-*/config/aom_config.h
+          codecs/libavif-rs/build/aom-native-*/reference-profile.json
+          codecs/libavif-rs/build/aom-rust-*/test_libaom
+          codecs/libavif-rs/build/aom-rust-*/test_aom_rc
+          codecs/libavif-rs/build/aom-rust-*/test_intra_pred_speed
+          codecs/libavif-rs/build/aom-rust-*/linkage.json
+          codecs/libavif-rs/build/aom-rust-*/symbol-audit.json
+    name: 'AVIF: build'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs
+  paired:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        profile:
+        - debug
+        - release
+        program:
+        - test_libaom
+        shards:
+        - 32
+        index:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+        - 18
+        - 19
+        - 20
+        - 21
+        - 22
+        - 23
+        - 24
+        - 25
+        - 26
+        - 27
+        - 28
+        - 29
+        - 30
+        - 31
+        include:
+        - profile: debug
+          program: test_aom_rc
+          shards: 1
+          index: 0
+        - profile: release
+          program: test_aom_rc
+          shards: 1
+          index: 0
+        - profile: debug
+          program: test_intra_pred_speed
+          shards: 1
+          index: 0
+        - profile: release
+          program: test_intra_pred_speed
+          shards: 1
+          index: 0
+    env:
+      AOM_PROFILE: ${{ matrix.profile }}
+      AOM_PROGRAM: ${{ matrix.program }}
+      AOM_SHARDS: ${{ matrix.shards }}
+      AOM_INDEX: ${{ matrix.index }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-original-binaries
+        path: codecs/libavif-rs/build
+    - name: Restore executable permissions
+      run: |
+        for aom_binary in build/aom-{native,rust}-{debug,release}/test_{libaom,aom_rc,intra_pred_speed}; do
+          chmod +x "$aom_binary"
+        done
+    - name: Fetch and verify every original selected fixture
+      if: matrix.program != 'test_intra_pred_speed'
+      run: python3 tools/fetch_aom_test_data.py --profile "$AOM_PROFILE" --jobs 2
+    - name: Run the identical original C and Rust shard
+      run: |
+        aom_profile_args=()
+        if [ "$AOM_PROFILE" = debug ]; then aom_profile_args+=(--debug); fi
+        python3 tools/run_aom_paired_shard.py "${aom_profile_args[@]}" --program "$AOM_PROGRAM" --shards "$AOM_SHARDS" --index "$AOM_INDEX"
+    - name: Preserve cases, diagnostics, and fixture provenance even after failure
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-original-shard-${{ matrix.profile }}-${{ matrix.program }}-${{ matrix.index }}
+        retention-days: 7
+        if-no-files-found: error
+        path: |
+          codecs/libavif-rs/build/aom-paired-${{ matrix.profile }}-${{ matrix.program }}/
+          codecs/libavif-rs/build/aom-native-${{ matrix.profile }}/reference-profile.json
+    name: 'AVIF: paired'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs
+  collect:
+    needs:
+    - build
+    - paired
+    if: ${{ always() && !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: aom-original-binaries
+        path: codecs/libavif-rs/build
+    - name: Download every matching artifact through all API pages
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 tools/download_aom_artifacts.py --run '${{ github.run_id }}' --pattern 'aom-original-shard-*'
+        --destination build
+    - name: Restore the original report directories and executable permissions
+      run: |
+        for aom_profile in debug release; do
+          for aom_program in test_libaom test_aom_rc test_intra_pred_speed; do
+            mkdir -p "build/aom-paired-$aom_profile-$aom_program"
+            chmod +x "build/aom-native-$aom_profile/$aom_program" "build/aom-rust-$aom_profile/$aom_program"
+          done
+        done
+    - name: Require complete original case and dynamic-skip inventories
+      run: |
+        aom_failed=0
+        for aom_profile in debug release; do
+          aom_profile_args=()
+          if [ "$aom_profile" = debug ]; then aom_profile_args+=(--debug); fi
+          for aom_program in test_libaom test_aom_rc test_intra_pred_speed; do
+            aom_shards=1
+            if [ "$aom_program" = test_libaom ]; then aom_shards=32; fi
+            python3 tools/run_aom_paired_shard.py "${aom_profile_args[@]}" --program "$aom_program" --shards "$aom_shards" --collect || aom_failed=1
+          done
+        done
+        exit "$aom_failed"
+    - name: Preserve complete-suite acceptance results
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-original-results
+        retention-days: 7
+        if-no-files-found: error
+        path: codecs/libavif-rs/build/aom-paired-*/summary.json
+    name: 'AVIF: collect'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

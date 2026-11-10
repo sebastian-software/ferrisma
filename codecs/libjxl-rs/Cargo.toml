@@ -1,0 +1,20 @@
+[package]
+name = "libjxl-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception)"
+description = "A mechanical Rust port of the JPEG XL reference implementation"
+publish = false
+
+[lib]
+name = "jxl"
+# The rlib serves Rust callers and the tests. The static and dynamic libraries
+# export the decoder C ABI of lib/include/jxl/decode.h (src/jxl/decode_abi.rs)
+# for C programs. Building them compiles and links no C or C++ code.
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[features]
+# The C++ oracle is an executable used by integration tests, never a dependency
+# of the Rust library. Enabling this feature requires building it first.
+cpp-oracle = []

@@ -237,6 +237,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
+name = "c2rust-bitfields"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb34f0c0ace43530b2df7f18bc69ee0c4082158aa451ece29602f8c841e73764"
+dependencies = [
+ "c2rust-bitfields-derive",
+]
+
+[[package]]
+name = "c2rust-bitfields-derive"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3dd1601a7b828ab874d890e5a895563ca8ad485bdd3d2a359f148c8b72537241"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -328,6 +348,18 @@ dependencies = [
 
 [[package]]
 name = "ferrixel-kernels"
+version = "0.1.0"
+
+[[package]]
+name = "ferrixel-libavif"
+version = "0.0.0"
+dependencies = [
+ "ferrixel",
+ "libavif-rs",
+]
+
+[[package]]
+name = "ferrixel-xtask"
 version = "0.1.0"
 
 [[package]]
@@ -584,6 +616,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c83bff1d572d6b9aeef67ddfc8448e4a3737909cb28e81f97c791b9018703e52"
 
 [[package]]
+name = "libavif-aom"
+version = "0.1.0"
+dependencies = [
+ "c2rust-bitfields",
+ "libc",
+]
+
+[[package]]
+name = "libavif-dav1d"
+version = "0.1.0"
+dependencies = [
+ "c2rust-bitfields",
+ "libc",
+]
+
+[[package]]
+name = "libavif-rs"
+version = "0.1.0"
+dependencies = [
+ "libavif-aom",
+ "libavif-dav1d",
+ "libavif-sharpyuv",
+ "libc",
+]
+
+[[package]]
+name = "libavif-sharpyuv"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "libwebp-rs",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -598,6 +664,18 @@ dependencies = [
  "arbitrary",
  "cc",
 ]
+
+[[package]]
+name = "libjpeg-turbo-rs"
+version = "0.1.0"
+
+[[package]]
+name = "libjxl-rs"
+version = "0.1.0"
+
+[[package]]
+name = "libwebp-rs"
+version = "0.1.0"
 
 [[package]]
 name = "lock_api"
@@ -1063,6 +1141,17 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "syn"
+version = "1.0.109"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
 ]
 
 [[package]]

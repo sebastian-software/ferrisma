@@ -1,0 +1,48 @@
+name: Nightly codec family
+on:
+  workflow_call:
+    inputs:
+      component:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  jpeg:
+    permissions:
+      contents: read
+    if: inputs.component == 'jpeg'
+    uses: ./.github/workflows/jpeg-check.yml
+  webp:
+    permissions:
+      contents: read
+    if: inputs.component == 'webp'
+    uses: ./.github/workflows/webp-check.yml
+  jxl:
+    permissions:
+      contents: read
+      issues: write
+    if: inputs.component == 'jxl'
+    uses: ./.github/workflows/jxl-check.yml
+    with:
+      macos: true
+  avif:
+    permissions:
+      contents: read
+    if: inputs.component == 'avif'
+    uses: ./.github/workflows/nightly-avif.yml
+  gate:
+    if: always()
+    needs: [jpeg, webp, jxl, avif]
+    runs-on: ubuntu-24.04
+    env:
+      COMPONENT: ${{ inputs.component }}
+      JPEG: ${{ needs.jpeg.result }}
+      WEBP: ${{ needs.webp.result }}
+      JXL: ${{ needs.jxl.result }}
+      AVIF: ${{ needs.avif.result }}
+    steps:
+      - run: |
+          case "$COMPONENT" in jpeg|webp|jxl|avif) ;; *) exit 1 ;; esac
+          check() { if [ "$COMPONENT" = "$1" ]; then [ "$2" = success ]; else [ "$2" = skipped ]; fi; }
+          check jpeg "$JPEG" && check webp "$WEBP" && check jxl "$JXL" && check avif "$AVIF"

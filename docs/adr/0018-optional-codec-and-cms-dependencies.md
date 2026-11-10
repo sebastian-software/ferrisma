@@ -2,15 +2,15 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-07
+- **Last reviewed:** 2026-11-10
 - **Supersedes:** None
-- **Related:** [libavif-rs](https://github.com/sebastian-software/libavif-rs), [libjxl-rs](https://github.com/sebastian-software/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
+- **Related:** [libavif-rs](../../codecs/libavif-rs), [libjxl-rs](../../codecs/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
 
 ## Context
 
 The research notes of 2026-10-31 named candidates but chose no dependency. PR #11 then added four optional crates (`ravif`, `avif-decode`, `avif-parse`, `moxcms`), raised the package MSRV to 1.98 and left `Cargo.lock` uncommitted, without a decision record. AGENTS.md requires an ADR before new dependencies. This ADR records the current choices, the evidence behind them and the gates that remain open. It does not declare any of them release-ready.
 
-**Strategic direction.** Ferrixel's AVIF and JPEG XL codecs are meant to come from the sister projects [libavif-rs](https://github.com/sebastian-software/libavif-rs) and [libjxl-rs](https://github.com/sebastian-software/libjxl-rs): mechanical, reference-equivalent Rust ports of libavif (with libaom, dav1d and SharpYUV) and libjxl. Their state on 2026-11-05:
+**Strategic direction.** Ferrixel's AVIF and JPEG XL codecs are meant to come from the sister projects [libavif-rs](../../codecs/libavif-rs) and [libjxl-rs](../../codecs/libjxl-rs): mechanical, reference-equivalent Rust ports of libavif (with libaom, dav1d and SharpYUV) and libjxl. Their state on 2026-11-05:
 
 - **libavif-rs:** complete port with Rust AOM, dav1d and SharpYUV; validated as a whole pipeline on macOS ARM64 and, since 2026-11-06 (`f3b2981`), on GNU Linux x86-64 for six Cargo feature sets. It exposes the original unsafe C ABI, requires nightly Rust and sets `publish = false`.
 - **libjxl-rs:** complete public decoder API and decoder C ABI with exact parity against libjxl; thread runners in review; no encoder yet. Its Rust API is provisional (`jxl::jxl` module tree) and the crate is not publishable.
@@ -93,3 +93,4 @@ libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pi
 - 2026-11-06 — The maintainer accepted libavif-rs as an encoder now, waiving gates (a) and (b) for it: ADR-0024 adds pluggable encoders and the `crates/ferrixel-libavif` adapter outside the workspace, so the core stays stable and `unsafe`-free. libavif-rs's dav1d port and `rav1d` export the same `dav1d_*` symbols, so the adapter cannot be combined with `avif-read`.
 - 2026-11-06 — ADR-0025 sets the final selection rule for the interim codecs: reference implementation or, for decoders, recorded conformance; replacement and removal only after a measurement on Arm and x86-64. JPEG input gains a sister-port target (libjpeg-turbo or jpegli, chosen by measurement) in place of `zune-jpeg`.
 - 2026-11-07 — libavif-rs `8be367f` builds its AOM without VMAF tuning, which removes the libvmaf build requirement for AVIF. Gates (a) safe API and (b) stable toolchain remain open.
+- 2026-11-10 — ADR-0026 moves the four ports and the existing adapter into the common workspace. Source links now point to their local locations; codec selection, the scoped adapter waiver, and the remaining adoption gates are unchanged.

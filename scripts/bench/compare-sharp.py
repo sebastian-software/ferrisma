@@ -7,8 +7,8 @@ docs/benchmarks/M2-sharp-comparison.md for the method and the results.
 
 Environment:
   BENCH_SHARP_NODE_MODULES  node_modules directory containing sharp (required)
-  COMPARE_LIBAVIF_DATA      libavif tests/data (dog, kodim03, kodim23)
-  COMPARE_LIBJXL_DATA       libjxl tests/data/decode-test (flower)
+  COMPARE_LIBAVIF_DATA      libavif tests/data (default: imported local fixtures)
+  COMPARE_LIBJXL_DATA       libjxl decode-test (default: imported local fixtures)
   COMPARE_REPO              Ferrixel checkout to build and measure (default:
                             the checkout containing this script)
   COMPARE_RUNS              timed runs per measurement (default 10)
@@ -117,8 +117,8 @@ def prepare(out):
     print("building ferrixel CLI, batch example and quality-match", file=sys.stderr)
     run(["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel", "--example", "batch"], capture=False)
     run(["cargo", "build", "--release", "--manifest-path", QM_DIR / "Cargo.toml"], capture=False)
-    avif = Path(os.environ["COMPARE_LIBAVIF_DATA"])
-    jxl = Path(os.environ["COMPARE_LIBJXL_DATA"])
+    avif = Path(os.environ.get("COMPARE_LIBAVIF_DATA", REPO / "codecs/libavif-rs/upstream/libavif/tests/data"))
+    jxl = Path(os.environ.get("COMPARE_LIBJXL_DATA", REPO / "codecs/libjxl-rs/tests/data/decode-test"))
     (corpus / "dog.jpg").write_bytes((avif / "dog_exif_extended_xmp_icc.jpg").read_bytes())
     (corpus / "flower.jpg").write_bytes((jxl / "flower.png.im_q85_420.jpg").read_bytes())
     env = node_env()

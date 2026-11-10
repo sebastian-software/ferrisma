@@ -1,0 +1,562 @@
+{
+  "comment": "Every allocation call of the upstream files that tools/units.json maps to a module, and per pool the fields of jpeg_decompress_struct that those calls fill, with the work package that adds each field (ADR 0005, Pools). `field` is what releases the storage in the port: an object field (`cinfo.*`, a module slot holding its module's sub-allocations), the memory manager's own list (`mem.*`), or the array or table the call returns to its caller. `pool_id` is the caller's pool. `out_of_scope` names the untranslated feature (ADR 0001). tools/pools.py verifies the list against upstream and release_pool_fields in src/jmemmgr.rs.",
+  "upstream_version": "libjpeg-turbo 3.2.1",
+  "fields": {
+    "JPOOL_PERMANENT": {
+      "quant_tbl_ptrs": "1",
+      "dc_huff_tbl_ptrs": "1",
+      "ac_huff_tbl_ptrs": "1",
+      "src": "1",
+      "master": "2",
+      "inputctl": "2",
+      "marker": "2"
+    },
+    "JPOOL_IMAGE": {
+      "comp_info": "2",
+      "marker_list": "2",
+      "entropy": "3",
+      "coef_bits": "2",
+      "coef": "4",
+      "idct": "4",
+      "upsample": "5",
+      "cconvert": "5",
+      "post": "5",
+      "main": "5",
+      "sample_range_limit": "4"
+    }
+  },
+  "allocations": [
+    {
+      "site": "src/jcomapi.c:228",
+      "function": "jpeg_alloc_quant_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "the new table",
+      "field": "(returned table)"
+    },
+    {
+      "site": "src/jcomapi.c:240",
+      "function": "jpeg_alloc_huff_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "the new table",
+      "field": "(returned table)"
+    },
+    {
+      "site": "src/jmemmgr.c:483",
+      "function": "alloc_sarray",
+      "call": "alloc_small",
+      "pool": "pool_id",
+      "fills": "the row pointers",
+      "field": "(returned array)"
+    },
+    {
+      "site": "src/jmemmgr.c:490",
+      "function": "alloc_sarray",
+      "call": "alloc_large",
+      "pool": "pool_id",
+      "fills": "a chunk of rows",
+      "field": "(returned array)"
+    },
+    {
+      "site": "src/jmemmgr.c:501",
+      "function": "alloc_sarray",
+      "call": "alloc_small",
+      "pool": "pool_id",
+      "fills": "12-bit row pointers",
+      "field": "(returned array)",
+      "out_of_scope": "precision"
+    },
+    {
+      "site": "src/jmemmgr.c:509",
+      "function": "alloc_sarray",
+      "call": "alloc_large",
+      "pool": "pool_id",
+      "fills": "a chunk of 12-bit rows",
+      "field": "(returned array)",
+      "out_of_scope": "precision"
+    },
+    {
+      "site": "src/jmemmgr.c:521",
+      "function": "alloc_sarray",
+      "call": "alloc_small",
+      "pool": "pool_id",
+      "fills": "16-bit row pointers",
+      "field": "(returned array)",
+      "out_of_scope": "precision"
+    },
+    {
+      "site": "src/jmemmgr.c:529",
+      "function": "alloc_sarray",
+      "call": "alloc_large",
+      "pool": "pool_id",
+      "fills": "a chunk of 16-bit rows",
+      "field": "(returned array)",
+      "out_of_scope": "precision"
+    },
+    {
+      "site": "src/jmemmgr.c:578",
+      "function": "alloc_barray",
+      "call": "alloc_small",
+      "pool": "pool_id",
+      "fills": "the row pointers",
+      "field": "(returned array)"
+    },
+    {
+      "site": "src/jmemmgr.c:585",
+      "function": "alloc_barray",
+      "call": "alloc_large",
+      "pool": "pool_id",
+      "fills": "a chunk of rows",
+      "field": "(returned array)"
+    },
+    {
+      "site": "src/jmemmgr.c:649",
+      "function": "request_virt_sarray",
+      "call": "alloc_small",
+      "pool": "pool_id",
+      "fills": "a virtual sample array control block",
+      "field": "mem.virt_sarray_list",
+      "out_of_scope": "quantization"
+    },
+    {
+      "site": "src/jmemmgr.c:679",
+      "function": "request_virt_barray",
+      "call": "alloc_small",
+      "pool": "pool_id",
+      "fills": "a virtual block array control block",
+      "field": "mem.virt_barray_list"
+    },
+    {
+      "site": "src/jmemmgr.c:782",
+      "function": "realize_virt_arrays",
+      "call": "alloc_sarray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "a virtual sample array's buffer",
+      "field": "mem.virt_sarray_list",
+      "out_of_scope": "quantization"
+    },
+    {
+      "site": "src/jmemmgr.c:806",
+      "function": "realize_virt_arrays",
+      "call": "alloc_barray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "a virtual block array's buffer",
+      "field": "mem.virt_barray_list"
+    },
+    {
+      "site": "src/jdapimin.c:99",
+      "function": "jpeg_CreateDecompress",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->master",
+      "field": "cinfo.master"
+    },
+    {
+      "site": "src/jdatasrc.c:224",
+      "function": "jpeg_stdio_src",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->src",
+      "field": "cinfo.src",
+      "out_of_scope": "stdio source"
+    },
+    {
+      "site": "src/jdatasrc.c:228",
+      "function": "jpeg_stdio_src",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "src->buffer",
+      "field": "cinfo.src",
+      "out_of_scope": "stdio source"
+    },
+    {
+      "site": "src/jdatasrc.c:272",
+      "function": "jpeg_mem_src",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->src",
+      "field": "cinfo.src"
+    },
+    {
+      "site": "src/jdinput.c:280",
+      "function": "latch_quant_tables",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "compptr->quant_table",
+      "field": "cinfo.comp_info"
+    },
+    {
+      "site": "src/jdinput.c:410",
+      "function": "jinit_input_controller",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->inputctl",
+      "field": "cinfo.inputctl"
+    },
+    {
+      "site": "src/jdmarker.c:283",
+      "function": "get_sof",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->comp_info",
+      "field": "cinfo.comp_info"
+    },
+    {
+      "site": "src/jdmarker.c:497",
+      "function": "get_dht",
+      "call": "jpeg_alloc_huff_table",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->dc_huff_tbl_ptrs[n] or cinfo->ac_huff_tbl_ptrs[n]",
+      "field": "cinfo.dc_huff_tbl_ptrs"
+    },
+    {
+      "site": "src/jdmarker.c:535",
+      "function": "get_dqt",
+      "call": "jpeg_alloc_quant_table",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->quant_tbl_ptrs[n]",
+      "field": "cinfo.quant_tbl_ptrs"
+    },
+    {
+      "site": "src/jdmarker.c:783",
+      "function": "save_marker",
+      "call": "alloc_large",
+      "pool": "JPOOL_IMAGE",
+      "fills": "an entry of cinfo->marker_list",
+      "field": "cinfo.marker_list"
+    },
+    {
+      "site": "src/jdmarker.c:1294",
+      "function": "jinit_marker_reader",
+      "call": "alloc_small",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->marker",
+      "field": "cinfo.marker"
+    },
+    {
+      "site": "src/jdhuff.c:169",
+      "function": "jpeg_make_d_derived_tbl",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "a derived table of the Huffman or progressive Huffman decoder",
+      "field": "cinfo.entropy"
+    },
+    {
+      "site": "src/jdhuff.c:826",
+      "function": "jinit_huff_decoder",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->entropy",
+      "field": "cinfo.entropy"
+    },
+    {
+      "site": "src/jstdhuff.c:27",
+      "function": "add_huff_table",
+      "call": "jpeg_alloc_huff_table",
+      "pool": "JPOOL_PERMANENT",
+      "fills": "cinfo->dc_huff_tbl_ptrs[n] or cinfo->ac_huff_tbl_ptrs[n]",
+      "field": "cinfo.dc_huff_tbl_ptrs"
+    },
+    {
+      "site": "src/jdphuff.c:660",
+      "function": "jinit_phuff_decoder",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->entropy",
+      "field": "cinfo.entropy"
+    },
+    {
+      "site": "src/jdphuff.c:672",
+      "function": "jinit_phuff_decoder",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->coef_bits",
+      "field": "cinfo.coef_bits"
+    },
+    {
+      "site": "src/jdarith.c:716",
+      "function": "start_pass",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "entropy->dc_stats[tbl]",
+      "field": "cinfo.entropy"
+    },
+    {
+      "site": "src/jdarith.c:728",
+      "function": "start_pass",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "entropy->ac_stats[tbl]",
+      "field": "cinfo.entropy"
+    },
+    {
+      "site": "src/jdarith.c:756",
+      "function": "jinit_arith_decoder",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->entropy",
+      "field": "cinfo.entropy"
+    },
+    {
+      "site": "src/jdarith.c:774",
+      "function": "jinit_arith_decoder",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->coef_bits",
+      "field": "cinfo.coef_bits"
+    },
+    {
+      "site": "src/jdcoefct.c:420",
+      "function": "smoothing_ok",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "coef->coef_bits_latch",
+      "field": "cinfo.coef"
+    },
+    {
+      "site": "src/jdcoefct.c:876",
+      "function": "_jinit_d_coef_controller",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->coef",
+      "field": "cinfo.coef"
+    },
+    {
+      "site": "src/jdcoefct.c:903",
+      "function": "_jinit_d_coef_controller",
+      "call": "request_virt_barray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "coef->whole_image[ci]",
+      "field": "cinfo.coef"
+    },
+    {
+      "site": "src/jdcoefct.c:923",
+      "function": "_jinit_d_coef_controller",
+      "call": "alloc_large",
+      "pool": "JPOOL_IMAGE",
+      "fills": "coef->MCU_buffer",
+      "field": "cinfo.coef"
+    },
+    {
+      "site": "src/jdcoefct.c:935",
+      "function": "_jinit_d_coef_controller",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "coef->workspace",
+      "field": "cinfo.coef"
+    },
+    {
+      "site": "src/jddctmgr.c:344",
+      "function": "_jinit_inverse_dct",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->idct",
+      "field": "cinfo.idct"
+    },
+    {
+      "site": "src/jddctmgr.c:353",
+      "function": "_jinit_inverse_dct",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "compptr->dct_table",
+      "field": "cinfo.comp_info"
+    },
+    {
+      "site": "src/jdsample.c:463",
+      "function": "_jinit_upsampler",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->upsample",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdsample.c:559",
+      "function": "_jinit_upsampler",
+      "call": "alloc_sarray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "upsample->color_buf[ci]",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdmerge.c:174",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "upsample->Cr_r_tab",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdmerge.c:177",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "upsample->Cb_b_tab",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdmerge.c:180",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "upsample->Cr_g_tab",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdmerge.c:183",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "upsample->Cb_g_tab",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdmerge.c:476",
+      "function": "_jinit_merged_upsampler",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->upsample",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdmerge.c:528",
+      "function": "_jinit_merged_upsampler",
+      "call": "alloc_large",
+      "pool": "JPOOL_IMAGE",
+      "fills": "upsample->spare_row",
+      "field": "cinfo.upsample"
+    },
+    {
+      "site": "src/jdcolor.c:226",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cconvert->Cr_r_tab",
+      "field": "cinfo.cconvert"
+    },
+    {
+      "site": "src/jdcolor.c:229",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cconvert->Cb_b_tab",
+      "field": "cinfo.cconvert"
+    },
+    {
+      "site": "src/jdcolor.c:232",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cconvert->Cr_g_tab",
+      "field": "cinfo.cconvert"
+    },
+    {
+      "site": "src/jdcolor.c:235",
+      "function": "build_ycc_rgb_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cconvert->Cb_g_tab",
+      "field": "cinfo.cconvert"
+    },
+    {
+      "site": "src/jdcolor.c:276",
+      "function": "build_rgb_y_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cconvert->rgb_y_tab",
+      "field": "cinfo.cconvert"
+    },
+    {
+      "site": "src/jdcolor.c:646",
+      "function": "_jinit_color_deconverter",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->cconvert",
+      "field": "cinfo.cconvert"
+    },
+    {
+      "site": "src/jdpostct.c:287",
+      "function": "_jinit_d_post_controller",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->post",
+      "field": "cinfo.post"
+    },
+    {
+      "site": "src/jdpostct.c:306",
+      "function": "_jinit_d_post_controller",
+      "call": "request_virt_sarray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "post->whole_image",
+      "field": "cinfo.post",
+      "out_of_scope": "quantization"
+    },
+    {
+      "site": "src/jdpostct.c:317",
+      "function": "_jinit_d_post_controller",
+      "call": "alloc_sarray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "post->buffer",
+      "field": "cinfo.post",
+      "out_of_scope": "quantization"
+    },
+    {
+      "site": "src/jdmainct.c:150",
+      "function": "alloc_funny_pointers",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "main_ptr->xbuffer[0] and [1]",
+      "field": "cinfo.main"
+    },
+    {
+      "site": "src/jdmainct.c:163",
+      "function": "alloc_funny_pointers",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "the funny pointer lists of a component",
+      "field": "cinfo.main"
+    },
+    {
+      "site": "src/jdmainct.c:451",
+      "function": "_jinit_d_main_controller",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->main",
+      "field": "cinfo.main"
+    },
+    {
+      "site": "src/jdmainct.c:476",
+      "function": "_jinit_d_main_controller",
+      "call": "alloc_sarray",
+      "pool": "JPOOL_IMAGE",
+      "fills": "main_ptr->buffer[ci]",
+      "field": "cinfo.main"
+    },
+    {
+      "site": "src/jdmaster.c:430",
+      "function": "prepare_range_limit_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "cinfo->sample_range_limit",
+      "field": "cinfo.sample_range_limit"
+    },
+    {
+      "site": "src/jdmaster.c:450",
+      "function": "prepare_range_limit_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "the 12-bit cinfo->sample_range_limit",
+      "field": "cinfo.sample_range_limit",
+      "out_of_scope": "precision"
+    },
+    {
+      "site": "src/jdmaster.c:474",
+      "function": "prepare_range_limit_table",
+      "call": "alloc_small",
+      "pool": "JPOOL_IMAGE",
+      "fills": "the 16-bit cinfo->sample_range_limit",
+      "field": "cinfo.sample_range_limit",
+      "out_of_scope": "precision"
+    }
+  ]
+}

@@ -1,0 +1,1534 @@
+{
+  "comment": "Upstream translation units, their Rust modules and owning work packages, each package's sub-wave and declared dependencies (ADR 0009), function- and type-level exceptions inside a module, and reviewed header includes. Fixed by WP0; tools/units.py verifies it against upstream/libwebp and src/, and tools/unit_dependencies.py compares the dependencies with the oracle's actual cross-unit references. The api list names the safe API modules (ADR 0006), which translate no upstream file.",
+  "packages": {
+    "WP1": {
+      "name": "types, memory, workers",
+      "wave": "1a",
+      "depends": []
+    },
+    "WP2": {
+      "name": "bit I/O",
+      "wave": "1b",
+      "depends": [
+        "WP1"
+      ]
+    },
+    "WP3": {
+      "name": "lossless shared",
+      "wave": "1c",
+      "depends": [
+        "WP1",
+        "WP4"
+      ]
+    },
+    "WP4": {
+      "name": "pixel ops",
+      "wave": "1b",
+      "depends": [
+        "WP1"
+      ]
+    },
+    "WP5": {
+      "name": "`SharpYUV`",
+      "wave": "1b",
+      "depends": [
+        "WP1",
+        "WP4"
+      ]
+    },
+    "WP6": {
+      "name": "VP8 decoder core",
+      "wave": "2b",
+      "depends": [
+        "WP1",
+        "WP2",
+        "WP4",
+        "WP7"
+      ]
+    },
+    "WP7": {
+      "name": "VP8L decoder",
+      "wave": "2a",
+      "depends": [
+        "WP1",
+        "WP2",
+        "WP3",
+        "WP4"
+      ]
+    },
+    "WP8": {
+      "name": "demux",
+      "wave": "3b",
+      "depends": [
+        "WP1",
+        "WP12"
+      ]
+    },
+    "WP9": {
+      "name": "encoder picture and config",
+      "wave": "2a",
+      "depends": [
+        "WP1",
+        "WP3",
+        "WP4",
+        "WP5"
+      ]
+    },
+    "WP10": {
+      "name": "VP8 encoder core",
+      "wave": "2c",
+      "depends": [
+        "WP1",
+        "WP2",
+        "WP4",
+        "WP6",
+        "WP9",
+        "WP11"
+      ]
+    },
+    "WP11": {
+      "name": "VP8L encoder",
+      "wave": "2b",
+      "depends": [
+        "WP1",
+        "WP2",
+        "WP3",
+        "WP4",
+        "WP9"
+      ]
+    },
+    "WP12": {
+      "name": "decoder integration",
+      "wave": "3a",
+      "depends": [
+        "WP6",
+        "WP7"
+      ]
+    },
+    "WP13": {
+      "name": "encoder integration",
+      "wave": "3b",
+      "depends": [
+        "WP9",
+        "WP10",
+        "WP11",
+        "WP12"
+      ]
+    },
+    "WP14": {
+      "name": "animation decode and demux ABI",
+      "wave": "3c",
+      "depends": [
+        "WP8",
+        "WP12"
+      ]
+    },
+    "WP15": {
+      "name": "mux and animation encode",
+      "wave": "4",
+      "depends": [
+        "WP6",
+        "WP7",
+        "WP12",
+        "WP13",
+        "WP14"
+      ]
+    },
+    "WP16": {
+      "name": "safe decoder API",
+      "wave": "4",
+      "depends": [
+        "WP12",
+        "WP14"
+      ]
+    },
+    "WP17": {
+      "name": "safe encoder API",
+      "wave": "4",
+      "depends": [
+        "WP13"
+      ]
+    },
+    "WP18": {
+      "name": "SIMD x86 decoder",
+      "wave": "4",
+      "depends": [
+        "WP12"
+      ]
+    },
+    "WP19": {
+      "name": "SIMD x86 encoder",
+      "wave": "4",
+      "depends": [
+        "WP13",
+        "WP18"
+      ]
+    },
+    "WP20": {
+      "name": "NEON",
+      "wave": "4",
+      "depends": [
+        "WP12",
+        "WP13"
+      ]
+    }
+  },
+  "modules": [
+    {
+      "module": "src/webp/types.rs",
+      "upstream": [
+        "src/webp/types.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/webp/format_constants.rs",
+      "upstream": [
+        "src/webp/format_constants.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/webp/decode.rs",
+      "upstream": [
+        "src/webp/decode.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/webp/encode.rs",
+      "upstream": [
+        "src/webp/encode.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/webp/demux.rs",
+      "upstream": [
+        "src/webp/demux.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/webp/mux_types.rs",
+      "upstream": [
+        "src/webp/mux_types.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/webp/mux.rs",
+      "upstream": [
+        "src/webp/mux.h"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/utils/utils.rs",
+      "upstream": [
+        "src/utils/utils.c",
+        "src/utils/utils.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/utils/endian_inl_utils.rs",
+      "upstream": [
+        "src/utils/endian_inl_utils.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/utils/random_utils.rs",
+      "upstream": [
+        "src/utils/random_utils.c",
+        "src/utils/random_utils.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/utils/thread_utils.rs",
+      "upstream": [
+        "src/utils/thread_utils.c",
+        "src/utils/thread_utils.h"
+      ],
+      "package": "WP1"
+    },
+    {
+      "module": "src/utils/bit_reader_utils.rs",
+      "upstream": [
+        "src/utils/bit_reader_utils.c",
+        "src/utils/bit_reader_utils.h"
+      ],
+      "package": "WP2"
+    },
+    {
+      "module": "src/utils/bit_reader_inl_utils.rs",
+      "upstream": [
+        "src/utils/bit_reader_inl_utils.h"
+      ],
+      "package": "WP2"
+    },
+    {
+      "module": "src/utils/bit_writer_utils.rs",
+      "upstream": [
+        "src/utils/bit_writer_utils.c",
+        "src/utils/bit_writer_utils.h"
+      ],
+      "package": "WP2"
+    },
+    {
+      "module": "src/utils/huffman_utils.rs",
+      "upstream": [
+        "src/utils/huffman_utils.c",
+        "src/utils/huffman_utils.h"
+      ],
+      "package": "WP3"
+    },
+    {
+      "module": "src/utils/huffman_encode_utils.rs",
+      "upstream": [
+        "src/utils/huffman_encode_utils.c",
+        "src/utils/huffman_encode_utils.h"
+      ],
+      "package": "WP3"
+    },
+    {
+      "module": "src/utils/color_cache_utils.rs",
+      "upstream": [
+        "src/utils/color_cache_utils.c",
+        "src/utils/color_cache_utils.h"
+      ],
+      "package": "WP3"
+    },
+    {
+      "module": "src/utils/palette.rs",
+      "upstream": [
+        "src/utils/palette.c",
+        "src/utils/palette.h"
+      ],
+      "package": "WP3"
+    },
+    {
+      "module": "src/utils/filters_utils.rs",
+      "upstream": [
+        "src/utils/filters_utils.c",
+        "src/utils/filters_utils.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/utils/rescaler_utils.rs",
+      "upstream": [
+        "src/utils/rescaler_utils.c",
+        "src/utils/rescaler_utils.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/utils/quant_levels_utils.rs",
+      "upstream": [
+        "src/utils/quant_levels_utils.c",
+        "src/utils/quant_levels_utils.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/utils/quant_levels_dec_utils.rs",
+      "upstream": [
+        "src/utils/quant_levels_dec_utils.c",
+        "src/utils/quant_levels_dec_utils.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/dsp.rs",
+      "upstream": [
+        "src/dsp/dsp.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/cpu.rs",
+      "upstream": [
+        "src/dsp/cpu.c",
+        "src/dsp/cpu.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/yuv.rs",
+      "upstream": [
+        "src/dsp/yuv.c",
+        "src/dsp/yuv.h"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/upsampling.rs",
+      "upstream": [
+        "src/dsp/upsampling.c"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/alpha_processing.rs",
+      "upstream": [
+        "src/dsp/alpha_processing.c"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/filters.rs",
+      "upstream": [
+        "src/dsp/filters.c"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/rescaler.rs",
+      "upstream": [
+        "src/dsp/rescaler.c"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/ssim.rs",
+      "upstream": [
+        "src/dsp/ssim.c"
+      ],
+      "package": "WP4"
+    },
+    {
+      "module": "src/dsp/lossless.rs",
+      "upstream": [
+        "src/dsp/lossless.c",
+        "src/dsp/lossless.h"
+      ],
+      "package": "WP3"
+    },
+    {
+      "module": "src/dsp/lossless_common.rs",
+      "upstream": [
+        "src/dsp/lossless_common.h"
+      ],
+      "package": "WP3"
+    },
+    {
+      "module": "src/dsp/dec.rs",
+      "upstream": [
+        "src/dsp/dec.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dsp/dec_clip_tables.rs",
+      "upstream": [
+        "src/dsp/dec_clip_tables.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dsp/enc.rs",
+      "upstream": [
+        "src/dsp/enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/dsp/cost.rs",
+      "upstream": [
+        "src/dsp/cost.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/dsp/quant.rs",
+      "upstream": [
+        "src/dsp/quant.h"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/dsp/lossless_enc.rs",
+      "upstream": [
+        "src/dsp/lossless_enc.c"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/dsp/common_sse2.rs",
+      "upstream": [
+        "src/dsp/common_sse2.h"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "note": "also used by the WP19 encoder modules",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/common_sse41.rs",
+      "upstream": [
+        "src/dsp/common_sse41.h"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "note": "also used by the WP19 encoder modules",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/dec_sse2.rs",
+      "upstream": [
+        "src/dsp/dec_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/dec_sse41.rs",
+      "upstream": [
+        "src/dsp/dec_sse41.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/upsampling_sse2.rs",
+      "upstream": [
+        "src/dsp/upsampling_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/upsampling_sse41.rs",
+      "upstream": [
+        "src/dsp/upsampling_sse41.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/yuv_sse2.rs",
+      "upstream": [
+        "src/dsp/yuv_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/yuv_sse41.rs",
+      "upstream": [
+        "src/dsp/yuv_sse41.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/alpha_processing_sse2.rs",
+      "upstream": [
+        "src/dsp/alpha_processing_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/alpha_processing_sse41.rs",
+      "upstream": [
+        "src/dsp/alpha_processing_sse41.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/filters_sse2.rs",
+      "upstream": [
+        "src/dsp/filters_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/rescaler_sse2.rs",
+      "upstream": [
+        "src/dsp/rescaler_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_sse2.rs",
+      "upstream": [
+        "src/dsp/lossless_sse2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_sse41.rs",
+      "upstream": [
+        "src/dsp/lossless_sse41.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_avx2.rs",
+      "upstream": [
+        "src/dsp/lossless_avx2.c"
+      ],
+      "package": "WP18",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/enc_sse2.rs",
+      "upstream": [
+        "src/dsp/enc_sse2.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/enc_sse41.rs",
+      "upstream": [
+        "src/dsp/enc_sse41.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/cost_sse2.rs",
+      "upstream": [
+        "src/dsp/cost_sse2.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/ssim_sse2.rs",
+      "upstream": [
+        "src/dsp/ssim_sse2.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_enc_sse2.rs",
+      "upstream": [
+        "src/dsp/lossless_enc_sse2.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_enc_sse41.rs",
+      "upstream": [
+        "src/dsp/lossless_enc_sse41.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_enc_avx2.rs",
+      "upstream": [
+        "src/dsp/lossless_enc_avx2.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/neon.rs",
+      "upstream": [
+        "src/dsp/neon.h"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/alpha_processing_neon.rs",
+      "upstream": [
+        "src/dsp/alpha_processing_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/cost_neon.rs",
+      "upstream": [
+        "src/dsp/cost_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/dec_neon.rs",
+      "upstream": [
+        "src/dsp/dec_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/enc_neon.rs",
+      "upstream": [
+        "src/dsp/enc_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/filters_neon.rs",
+      "upstream": [
+        "src/dsp/filters_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_enc_neon.rs",
+      "upstream": [
+        "src/dsp/lossless_enc_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/lossless_neon.rs",
+      "upstream": [
+        "src/dsp/lossless_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/rescaler_neon.rs",
+      "upstream": [
+        "src/dsp/rescaler_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/upsampling_neon.rs",
+      "upstream": [
+        "src/dsp/upsampling_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dsp/yuv_neon.rs",
+      "upstream": [
+        "src/dsp/yuv_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/dec/common_dec.rs",
+      "upstream": [
+        "src/dec/common_dec.h"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/vp8_dec.rs",
+      "upstream": [
+        "src/dec/vp8_dec.c",
+        "src/dec/vp8_dec.h"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/vp8i_dec.rs",
+      "upstream": [
+        "src/dec/vp8i_dec.h"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/tree_dec.rs",
+      "upstream": [
+        "src/dec/tree_dec.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/quant_dec.rs",
+      "upstream": [
+        "src/dec/quant_dec.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/frame_dec.rs",
+      "upstream": [
+        "src/dec/frame_dec.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/vp8l_dec.rs",
+      "upstream": [
+        "src/dec/vp8l_dec.c"
+      ],
+      "package": "WP7"
+    },
+    {
+      "module": "src/dec/vp8li_dec.rs",
+      "upstream": [
+        "src/dec/vp8li_dec.h"
+      ],
+      "package": "WP7"
+    },
+    {
+      "module": "src/dec/webp_dec.rs",
+      "upstream": [
+        "src/dec/webp_dec.c"
+      ],
+      "package": "WP12"
+    },
+    {
+      "module": "src/dec/buffer_dec.rs",
+      "upstream": [
+        "src/dec/buffer_dec.c"
+      ],
+      "package": "WP12"
+    },
+    {
+      "module": "src/dec/io_dec.rs",
+      "upstream": [
+        "src/dec/io_dec.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/alpha_dec.rs",
+      "upstream": [
+        "src/dec/alpha_dec.c"
+      ],
+      "package": "WP6"
+    },
+    {
+      "module": "src/dec/idec_dec.rs",
+      "upstream": [
+        "src/dec/idec_dec.c"
+      ],
+      "package": "WP12"
+    },
+    {
+      "module": "src/dec/alphai_dec.rs",
+      "upstream": [
+        "src/dec/alphai_dec.h"
+      ],
+      "package": "WP7"
+    },
+    {
+      "module": "src/dec/webpi_dec.rs",
+      "upstream": [
+        "src/dec/webpi_dec.h"
+      ],
+      "package": "WP12"
+    },
+    {
+      "module": "src/demux/demux.rs",
+      "upstream": [
+        "src/demux/demux.c"
+      ],
+      "package": "WP8"
+    },
+    {
+      "module": "src/demux/anim_decode.rs",
+      "upstream": [
+        "src/demux/anim_decode.c"
+      ],
+      "package": "WP14"
+    },
+    {
+      "module": "src/enc/config_enc.rs",
+      "upstream": [
+        "src/enc/config_enc.c"
+      ],
+      "package": "WP9"
+    },
+    {
+      "module": "src/enc/picture_enc.rs",
+      "upstream": [
+        "src/enc/picture_enc.c"
+      ],
+      "package": "WP9"
+    },
+    {
+      "module": "src/enc/picture_csp_enc.rs",
+      "upstream": [
+        "src/enc/picture_csp_enc.c"
+      ],
+      "package": "WP9"
+    },
+    {
+      "module": "src/enc/picture_rescale_enc.rs",
+      "upstream": [
+        "src/enc/picture_rescale_enc.c"
+      ],
+      "package": "WP9"
+    },
+    {
+      "module": "src/enc/picture_tools_enc.rs",
+      "upstream": [
+        "src/enc/picture_tools_enc.c"
+      ],
+      "package": "WP9"
+    },
+    {
+      "module": "src/enc/picture_psnr_enc.rs",
+      "upstream": [
+        "src/enc/picture_psnr_enc.c"
+      ],
+      "package": "WP9"
+    },
+    {
+      "module": "src/enc/analysis_enc.rs",
+      "upstream": [
+        "src/enc/analysis_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/iterator_enc.rs",
+      "upstream": [
+        "src/enc/iterator_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/quant_enc.rs",
+      "upstream": [
+        "src/enc/quant_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/tree_enc.rs",
+      "upstream": [
+        "src/enc/tree_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/token_enc.rs",
+      "upstream": [
+        "src/enc/token_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/syntax_enc.rs",
+      "upstream": [
+        "src/enc/syntax_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/frame_enc.rs",
+      "upstream": [
+        "src/enc/frame_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/filter_enc.rs",
+      "upstream": [
+        "src/enc/filter_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/cost_enc.rs",
+      "upstream": [
+        "src/enc/cost_enc.c",
+        "src/enc/cost_enc.h"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/vp8i_enc.rs",
+      "upstream": [
+        "src/enc/vp8i_enc.h"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/webp_enc.rs",
+      "upstream": [
+        "src/enc/webp_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/enc/vp8l_enc.rs",
+      "upstream": [
+        "src/enc/vp8l_enc.c"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/predictor_enc.rs",
+      "upstream": [
+        "src/enc/predictor_enc.c"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/backward_references_cost_enc.rs",
+      "upstream": [
+        "src/enc/backward_references_cost_enc.c"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/near_lossless_enc.rs",
+      "upstream": [
+        "src/enc/near_lossless_enc.c"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/histogram_enc.rs",
+      "upstream": [
+        "src/enc/histogram_enc.c",
+        "src/enc/histogram_enc.h"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/backward_references_enc.rs",
+      "upstream": [
+        "src/enc/backward_references_enc.c",
+        "src/enc/backward_references_enc.h"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/vp8li_enc.rs",
+      "upstream": [
+        "src/enc/vp8li_enc.h"
+      ],
+      "package": "WP11"
+    },
+    {
+      "module": "src/enc/alpha_enc.rs",
+      "upstream": [
+        "src/enc/alpha_enc.c"
+      ],
+      "package": "WP10"
+    },
+    {
+      "module": "src/mux/muxedit.rs",
+      "upstream": [
+        "src/mux/muxedit.c"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/mux/muxinternal.rs",
+      "upstream": [
+        "src/mux/muxinternal.c"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/mux/muxread.rs",
+      "upstream": [
+        "src/mux/muxread.c"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/mux/anim_encode.rs",
+      "upstream": [
+        "src/mux/anim_encode.c"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/mux/muxi.rs",
+      "upstream": [
+        "src/mux/muxi.h"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/mux/animi.rs",
+      "upstream": [
+        "src/mux/animi.h"
+      ],
+      "package": "WP15"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv.c",
+        "sharpyuv/sharpyuv.h"
+      ],
+      "package": "WP5"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv_cpu.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv_cpu.c",
+        "sharpyuv/sharpyuv_cpu.h"
+      ],
+      "package": "WP5"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv_csp.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv_csp.c",
+        "sharpyuv/sharpyuv_csp.h"
+      ],
+      "package": "WP5"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv_dsp.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv_dsp.c",
+        "sharpyuv/sharpyuv_dsp.h"
+      ],
+      "package": "WP5"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv_gamma.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv_gamma.c",
+        "sharpyuv/sharpyuv_gamma.h"
+      ],
+      "package": "WP5"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv_sse2.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv_sse2.c"
+      ],
+      "package": "WP19",
+      "cfg": "all(feature = \"simd\", any(target_arch = \"x86\", target_arch = \"x86_64\"))",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    },
+    {
+      "module": "src/sharpyuv/sharpyuv_neon.rs",
+      "upstream": [
+        "sharpyuv/sharpyuv_neon.c"
+      ],
+      "package": "WP20",
+      "cfg": "all(feature = \"simd\", target_arch = \"aarch64\")",
+      "unsafe": "ADR 0008: SIMD intrinsics"
+    }
+  ],
+  "exceptions": [
+    {
+      "module": "src/utils/utils.rs",
+      "upstream": "src/utils/utils.c",
+      "package": "WP3",
+      "functions": [
+        "WebPGetColorPalette"
+      ],
+      "reason": "it calls `GetColorPalette` from `src/utils/palette.c`"
+    },
+    {
+      "module": "src/dec/vp8li_dec.rs",
+      "upstream": "src/dec/vp8li_dec.h",
+      "package": "WP3",
+      "types": [
+        "VP8LTransform"
+      ],
+      "reason": "the inverse transforms in `src/dsp/lossless.c` take it"
+    },
+    {
+      "module": "src/dec/vp8_dec.rs",
+      "upstream": "src/dec/vp8_dec.h",
+      "package": "WP7",
+      "types": [
+        "VP8Io",
+        "VP8IoPutHook",
+        "VP8IoSetupHook",
+        "VP8IoTeardownHook"
+      ],
+      "reason": "`VP8LDecoder` and `ALPHDecoder` hold a `VP8Io`"
+    },
+    {
+      "module": "src/dec/webpi_dec.rs",
+      "upstream": "src/dec/webpi_dec.h",
+      "package": "WP7",
+      "types": [
+        "WebPDecParams",
+        "OutputFunc",
+        "OutputAlphaFunc",
+        "OutputRowFunc"
+      ],
+      "reason": "`VP8LDecodeImage` reads `WebPDecParams` through `io->opaque`"
+    },
+    {
+      "module": "src/dec/webp_dec.rs",
+      "upstream": "src/dec/webp_dec.c",
+      "package": "WP7",
+      "functions": [
+        "WebPIoInitFromOptions",
+        "WebPCheckCropDimensions",
+        "WebPCheckCropDimensionsBasic"
+      ],
+      "reason": "`VP8LDecodeImage` calls `WebPIoInitFromOptions`, which checks the crop with the other two"
+    },
+    {
+      "module": "src/enc/webp_enc.rs",
+      "upstream": "src/enc/webp_enc.c",
+      "package": "WP9",
+      "functions": [
+        "WebPEncodingSetError",
+        "WebPReportProgress"
+      ],
+      "reason": "the picture functions and the VP8L encoder report errors and progress through them"
+    },
+    {
+      "module": "src/dsp/lossless_common.rs",
+      "upstream": "src/dsp/lossless_common.h",
+      "package": "WP11",
+      "functions": [
+        "VP8LFastLog2",
+        "VP8LFastSLog2",
+        "VP8LPrefixEncodeBits",
+        "VP8LPrefixEncode"
+      ],
+      "reason": "they read `kLog2Table`, `kSLog2Table`, `VP8LFastLog2Slow`, `VP8LFastSLog2Slow`, `kPrefixEncodeCode` and `kPrefixEncodeExtraBitsValue`, which WP11 translates from `src/dsp/lossless_enc.c`"
+    },
+    {
+      "module": "src/enc/webp_enc.rs",
+      "upstream": "src/enc/webp_enc.c",
+      "package": "WP13",
+      "functions": [
+        "WebPEncode",
+        "GetPSNR",
+        "FinalizePSNR",
+        "StoreStats"
+      ],
+      "reason": "`WebPEncode` joins picture conversion, the VP8, VP8L and alpha encoders and the statistics"
+    },
+    {
+      "module": "src/enc/picture_enc.rs",
+      "upstream": "src/enc/picture_enc.c",
+      "package": "WP13",
+      "functions": [
+        "Encode",
+        "WebPEncodeRGB",
+        "WebPEncodeBGR",
+        "WebPEncodeRGBA",
+        "WebPEncodeBGRA",
+        "WebPEncodeLosslessRGB",
+        "WebPEncodeLosslessBGR",
+        "WebPEncodeLosslessRGBA",
+        "WebPEncodeLosslessBGRA"
+      ],
+      "reason": "the simple encoding API calls `WebPEncode`"
+    },
+    {
+      "module": "src/webp/decode.rs",
+      "upstream": "src/webp/decode.h",
+      "package": "WP12",
+      "functions": [
+        "WebPInitDecBuffer",
+        "WebPGetFeatures",
+        "WebPInitDecoderConfig",
+        "WebPIDecGetYUV"
+      ],
+      "reason": "each one calls an entry point that WP12 translates from `src/dec/buffer_dec.c`, `src/dec/webp_dec.c` or `src/dec/idec_dec.c`"
+    },
+    {
+      "module": "src/webp/encode.rs",
+      "upstream": "src/webp/encode.h",
+      "package": "WP9",
+      "functions": [
+        "WebPConfigInit",
+        "WebPConfigPreset",
+        "WebPPictureInit"
+      ],
+      "reason": "each one calls an entry point that WP9 translates from `src/enc/config_enc.c` or `src/enc/picture_enc.c`"
+    },
+    {
+      "module": "src/webp/demux.rs",
+      "upstream": "src/webp/demux.h",
+      "package": "WP8",
+      "functions": [
+        "WebPDemux",
+        "WebPDemuxPartial"
+      ],
+      "types": [
+        "WebPIterator",
+        "WebPChunkIterator"
+      ],
+      "reason": "the functions call `WebPDemuxInternal`, which WP8 translates from `src/demux/demux.c`, and the iterators hold the demuxer's state"
+    },
+    {
+      "module": "src/webp/demux.rs",
+      "upstream": "src/webp/demux.h",
+      "package": "WP14",
+      "functions": [
+        "WebPAnimDecoderOptionsInit",
+        "WebPAnimDecoderNew"
+      ],
+      "reason": "each one calls an `Internal` entry point that WP14 translates from `src/demux/anim_decode.c`"
+    }
+  ],
+  "reviewed_includes": [
+    {
+      "unit": "src/utils/endian_inl_utils.h",
+      "header": "src/dsp/dsp.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_inl_utils.h",
+      "header": "src/dsp/cpu.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_inl_utils.h",
+      "header": "src/dsp/dsp.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_utils.c",
+      "header": "src/dsp/cpu.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/utils/bit_reader_utils.h",
+      "header": "src/dsp/cpu.h",
+      "reason": "uses only preprocessor macros and target tests from it, which become Rust `cfg` or attributes"
+    },
+    {
+      "unit": "src/dsp/yuv.h",
+      "header": "src/dec/vp8_dec.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/demux/demux.c",
+      "header": "src/webp/mux.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/demux/anim_decode.c",
+      "header": "src/webp/mux.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/enc/picture_csp_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only prototypes of WP9's functions and of `WebPEncodingSetError`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/picture_psnr_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses nothing from it"
+    },
+    {
+      "unit": "src/enc/picture_rescale_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only prototypes of WP9's functions and of `WebPEncodingSetError`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/picture_tools_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only prototypes of WP9's functions and of `WebPEncodingSetError`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/backward_references_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/histogram_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/predictor_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    },
+    {
+      "unit": "src/enc/vp8l_enc.c",
+      "header": "src/enc/vp8i_enc.h",
+      "reason": "uses only the prototypes of `WebPEncodingSetError` and `WebPReportProgress`, which WP9 translates"
+    }
+  ],
+  "abi": [
+    {
+      "module": "src/abi/types.rs",
+      "exports": "src/webp/types.h",
+      "package": "WP12",
+      "note": "exports `WebPMalloc` and `WebPFree`, which the decoder tools need first"
+    },
+    {
+      "module": "src/abi/decode.rs",
+      "exports": "src/webp/decode.h",
+      "package": "WP12"
+    },
+    {
+      "module": "src/abi/encode.rs",
+      "exports": "src/webp/encode.h",
+      "package": "WP13"
+    },
+    {
+      "module": "src/abi/demux.rs",
+      "exports": "src/webp/demux.h",
+      "package": "WP14"
+    },
+    {
+      "module": "src/abi/mux.rs",
+      "exports": "src/webp/mux.h",
+      "package": "WP15"
+    }
+  ],
+  "api": [
+    {
+      "module": "src/api/decode.rs",
+      "package": "WP16",
+      "subject": "decoder"
+    },
+    {
+      "module": "src/api/encode.rs",
+      "package": "WP17",
+      "subject": "encoder"
+    }
+  ],
+  "excluded": [
+    {
+      "upstream": "src/dsp/alpha_processing_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/cost_mips32.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/cost_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/dec_mips32.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/dec_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/dec_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/enc_mips32.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/enc_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/enc_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/filters_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/filters_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/lossless_enc_mips32.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/lossless_enc_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/lossless_enc_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/lossless_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/lossless_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/mips_macro.h",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/msa_macro.h",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/rescaler_mips32.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/rescaler_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/rescaler_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/upsampling_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/upsampling_msa.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/yuv_mips32.c",
+      "reason": "MIPS and MSA variants are not planned"
+    },
+    {
+      "upstream": "src/dsp/yuv_mips_dsp_r2.c",
+      "reason": "MIPS and MSA variants are not planned"
+    }
+  ]
+}

@@ -1,0 +1,376 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'JXL: Checks'
+'on':
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run the hosted macOS jobs of the deep gate
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      macos:
+        description: Also run the hosted macOS jobs of the deep gate
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: jxl-check-${{ github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  CC: clang
+  CXX: clang++
+defaults:
+  run:
+    shell: bash
+jobs:
+  static:
+    name: 'JXL: Static checks (${{ matrix.os }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos)
+          && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+      with:
+        msrv: true
+        oracle: false
+    - name: Check pins, notices, links, formatting, Clippy, MSRV, and release builds
+      run: python3 tools/check.py --stage static --msrv
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
+  parity:
+    name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.shard }}/${{ matrix.os == ''macos-latest''
+      && matrix.oracle == ''ordinary'' && 2 || 4 }})'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos)
+          && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos) && '["ordinary",
+          "sanitized"]' || '["ordinary"]') }}
+        shard:
+        - 1
+        - 2
+        - 3
+        - 4
+        exclude:
+        - os: macos-latest
+          oracle: ordinary
+          shard: 3
+        - os: macos-latest
+          oracle: ordinary
+          shard: 4
+    runs-on: ${{ matrix.os }}
+    env:
+      PARTITION: ${{ matrix.shard }}/${{ matrix.os == 'macos-latest' && matrix.oracle == 'ordinary' && 2 || 4 }}
+      ORACLE_FLAGS: ${{ matrix.oracle == 'sanitized' && '--sanitizers' || '' }}
+      ORACLE_GRAPH: ${{ matrix.oracle == 'sanitized' && 'oracle-asan' || 'oracle' }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+    - name: Identify the oracle build inputs
+      id: inputs
+      run: |
+        {
+          git rev-parse HEAD:./upstream/libjxl
+          "$CXX" --version
+          if command -v dpkg-query >/dev/null; then dpkg-query -W 'libc++*'; fi
+          echo "$ImageOS $ImageVersion"
+        } | tee "$RUNNER_TEMP/oracle-toolchain.txt"
+        echo "toolchain=$(shasum -a 256 "$RUNNER_TEMP/oracle-toolchain.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+    - name: Restore the oracle build
+      id: restore
+      if: github.event_name == 'pull_request' || github.event_name == 'push'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        key: oracle-${{ runner.os }}-${{ runner.arch }}-${{ matrix.oracle }}-${{ steps.inputs.outputs.toolchain
+          }}-${{ hashFiles('codecs/libjxl-rs/upstream.json', 'codecs/libjxl-rs/tools/oracle/**', 'codecs/libjxl-rs/tools/*.py')
+          }}
+        path: |
+          codecs/libjxl-rs/target/${{ env.ORACLE_GRAPH }}
+          codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}
+          !codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}/captures
+    - name: Date the checkout before the restored build
+      if: steps.restore.outputs.cache-hit == 'true'
+      run: find upstream/libjxl tools -name .git -prune -o -type f -exec touch -t 200001010000 {} +
+    - name: Build the oracle
+      run: python3 tools/check.py --stage oracle $ORACLE_FLAGS
+    - name: Save the oracle build
+      if: steps.restore.outputs.cache-hit != 'true' && (github.event_name == 'pull_request' || github.event_name
+        == 'push')
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        key: oracle-${{ runner.os }}-${{ runner.arch }}-${{ matrix.oracle }}-${{ steps.inputs.outputs.toolchain
+          }}-${{ hashFiles('codecs/libjxl-rs/upstream.json', 'codecs/libjxl-rs/tools/oracle/**', 'codecs/libjxl-rs/tools/*.py')
+          }}
+        path: |
+          codecs/libjxl-rs/target/${{ env.ORACLE_GRAPH }}
+          codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}
+          !codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}/captures
+    - name: Run the checked-profile tests
+      run: python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
+  audit:
+    name: 'JXL: Audit (${{ matrix.os }}, ${{ matrix.group }})'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos) && '["ubuntu-latest", "macos-latest"]'
+          || '["ubuntu-latest"]') }}
+        group:
+        - decoder
+        - decoder-state
+        - public-decoder
+        - extra-channels
+        - geometry
+        - components
+        - brotli
+        - diagnostics
+        exclude:
+        - os: macos-latest
+          group: diagnostics
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+      with:
+        msrv: true
+    - name: Build the ordinary and instrumented oracles
+      run: |
+        python3 tools/check.py --stage oracle
+        python3 tools/check.py --stage oracle --sanitizers
+    - name: Capture the default CMS parity requests
+      if: matrix.group == 'decoder'
+      run: |
+        python3 tools/check.py --stage test --filter default_cms::
+        python3 tools/check.py --stage test --filter default_cms:: --sanitizers
+    - name: Audit the decoder numeric reference configurations
+      if: matrix.group == 'decoder'
+      run: |
+        python3 tools/epf_reference.py
+        python3 tools/noise_reference.py
+        python3 tools/alpha_reference.py
+        python3 tools/decoder_api_reference.py --output target/decoder-api-acceptance
+        python3 tools/skcms_reference.py --output target/skcms-acceptance
+        python3 tools/skcms_fitting_reference.py --output target/skcms-fitting-acceptance
+        python3 tools/skcms_transform_reference.py --output target/skcms-transform-acceptance
+        python3 tools/default_cms_reference.py --output target/default-cms-acceptance
+    - name: Audit complete chroma images and retained frame lifecycles
+      if: ${{ !cancelled() && matrix.group == 'decoder' }}
+      run: |
+        python3 tools/chroma_reference.py --audit --output target/chroma-acceptance
+        python3 tools/chroma_image_reference.py --output target/chroma-image-acceptance
+        python3 tools/frame_sequences.py --output target/lifecycle-acceptance
+        python3 tools/output_stage_reference.py --output target/output-stage-acceptance
+    - name: Retain complete decoder source evidence
+      if: ${{ !cancelled() && matrix.group == 'decoder' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-decoder-source-${{ matrix.os }}
+        path: |
+          codecs/libjxl-rs/target/chroma-acceptance
+          !codecs/libjxl-rs/target/chroma-acceptance/**/jxl_oracle
+          !codecs/libjxl-rs/target/chroma-acceptance/**/*.o
+          codecs/libjxl-rs/target/chroma-image-acceptance
+          codecs/libjxl-rs/target/lifecycle-acceptance
+          codecs/libjxl-rs/target/output-stage-acceptance
+          codecs/libjxl-rs/target/decoder-api-acceptance
+          codecs/libjxl-rs/target/skcms-acceptance
+          codecs/libjxl-rs/target/skcms-fitting-acceptance
+          codecs/libjxl-rs/target/skcms-transform-acceptance
+          codecs/libjxl-rs/target/default-cms-acceptance
+        if-no-files-found: error
+    - name: Audit complete extra-channel source bindings and stride boundaries
+      if: matrix.group == 'extra-channels'
+      run: python3 tools/extra_channels_reference.py --output target/extra-channels-reference
+    - name: Retain complete extra-channel source evidence
+      if: ${{ !cancelled() && matrix.group == 'extra-channels' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-extra-channels-reference-${{ runner.os }}
+        path: codecs/libjxl-rs/target/extra-channels-reference
+        if-no-files-found: error
+        retention-days: 7
+    - name: Audit complete geometry source bindings and independent output captures
+      if: matrix.group == 'geometry'
+      run: python3 tools/decoder_geometry_reference.py --output target/decoder-geometry-reference
+    - name: Retain complete geometry source evidence
+      if: ${{ !cancelled() && matrix.group == 'geometry' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-decoder-geometry-reference-${{ runner.os }}
+        path: codecs/libjxl-rs/target/decoder-geometry-reference
+        if-no-files-found: error
+    - name: Audit integrated ICC reader, parser, and JPEG metadata
+      if: matrix.group == 'components'
+      run: |
+        python3 tools/icc_reader_reference.py --output target/icc-reader-acceptance
+        python3 tools/skcms_parser_reference.py --output target/skcms-parser-acceptance
+        python3 tools/jpeg_metadata_reference.py --output target/jpeg-metadata-acceptance
+    - name: Audit the encoder transform contraction map
+      if: ${{ !cancelled() && matrix.group == 'components' }}
+      run: python3 tools/encoder_transforms_contraction.py --output target/encoder-transforms-contraction
+    - name: Audit the encoder heuristics contraction map
+      if: ${{ !cancelled() && matrix.group == 'components' }}
+      run: python3 tools/encoder_transforms_contraction.py --map tools/encoder_heuristics_contraction.json --output
+        target/encoder-heuristics-contraction
+    - name: Retain integrated component source evidence
+      if: ${{ !cancelled() && matrix.group == 'components' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-integrated-components-${{ runner.os }}
+        path: |
+          codecs/libjxl-rs/target/icc-reader-acceptance
+          codecs/libjxl-rs/target/skcms-parser-acceptance
+          codecs/libjxl-rs/target/jpeg-metadata-acceptance
+          codecs/libjxl-rs/target/encoder-transforms-contraction
+          codecs/libjxl-rs/target/encoder-heuristics-contraction
+        if-no-files-found: error
+    - name: Audit complete Brotli streaming and API source boundaries
+      if: matrix.group == 'brotli'
+      run: |
+        python3 tools/brotli_stream_reference.py --output target/brotli-stream-acceptance
+        python3 tools/brotli_stream_api_reference.py --output target/brotli-stream-api-acceptance
+    - name: Retain Brotli source acceptance
+      if: ${{ !cancelled() && matrix.group == 'brotli' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-brotli-source-${{ runner.os }}
+        path: |
+          codecs/libjxl-rs/target/brotli-support/**/report.json
+          codecs/libjxl-rs/target/brotli-stream-acceptance
+          codecs/libjxl-rs/target/brotli-stream-api-acceptance
+          !codecs/libjxl-rs/target/brotli-*-acceptance/**/*.o
+          !codecs/libjxl-rs/target/brotli-*-acceptance/**/*.a
+        if-no-files-found: error
+        retention-days: 7
+    - name: Audit recovered input, box, and JPEG reconstruction boundaries
+      if: matrix.group == 'decoder-state'
+      run: |
+        python3 tools/jpeg_payload_reference.py --output target/jpeg-payload-acceptance
+        python3 tools/decoder_input_reference.py --output target/decoder-input-acceptance
+        python3 tools/box_content_decoder_reference.py --output target/box-content-acceptance
+        python3 tools/jpeg_reconstruction_reference.py --output target/jpeg-reconstruction-reference
+    - name: Retain recovered decoder source evidence
+      if: ${{ !cancelled() && matrix.group == 'decoder-state' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-recovered-decoder-${{ runner.os }}
+        path: |
+          codecs/libjxl-rs/target/jpeg-payload-acceptance
+          codecs/libjxl-rs/target/decoder-input-acceptance
+          codecs/libjxl-rs/target/box-content-acceptance
+          codecs/libjxl-rs/target/jpeg-reconstruction-reference
+        if-no-files-found: error
+        retention-days: 7
+    - name: Capture the public decoder parity requests
+      if: matrix.group == 'public-decoder'
+      run: |
+        python3 tools/check.py --stage test --filter decoder_public::
+        python3 tools/check.py --stage test --filter decoder_public:: --sanitizers
+    - name: Audit the public decoder against the original public C API
+      if: matrix.group == 'public-decoder'
+      run: python3 tools/decoder_public_reference.py --output target/decoder-public-acceptance
+    - name: Retain public decoder source evidence
+      if: ${{ !cancelled() && matrix.group == 'public-decoder' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-decoder-public-${{ runner.os }}
+        path: |
+          codecs/libjxl-rs/target/decoder-public-acceptance
+          !codecs/libjxl-rs/target/decoder-public-acceptance/**/build
+        if-no-files-found: error
+        retention-days: 7
+    - name: Build the tested parity binaries
+      if: matrix.group == 'diagnostics'
+      run: |
+        cargo test --locked --offline --profile checked --all-features --test parity --no-run
+        cargo test --locked --offline --release --all-features --test parity --no-run
+    - name: Record native Linux scalar diagnostics
+      if: matrix.group == 'diagnostics'
+      run: python3 tools/scalar_diagnostics.py
+    - name: Record native alpha configuration diagnostics
+      if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
+      run: python3 tools/alpha_diagnostics.py
+    - name: Census every original patch-tree boundary
+      if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
+      run: python3 tools/patches_boundaries.py
+    - name: Retain native alpha diagnostic evidence
+      if: ${{ !cancelled() && matrix.group == 'diagnostics' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-alpha-diagnostics-${{ runner.os }}
+        path: |
+          codecs/libjxl-rs/target/alpha-diagnostics.json
+          codecs/libjxl-rs/target/patches-boundaries.json
+        if-no-files-found: error
+        retention-days: 7
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
+  checks:
+    name: 'JXL: Checks passed'
+    if: always()
+    needs:
+    - static
+    - parity
+    - audit
+    runs-on: ubuntu-latest
+    steps:
+    - name: Require every gate job to pass
+      env:
+        RESULTS: ${{ join(needs.*.result, ' ') }}
+      run: |
+        echo "Job results: $RESULTS"
+        for result in $RESULTS; do [ "$result" = success ] || exit 1; done
+  report:
+    name: 'JXL: Report the nightly failure'
+    if: always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result,
+      'cancelled'))
+    needs:
+    - static
+    - parity
+    - audit
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+    - name: Open or update the nightly failure issue
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        TITLE: Nightly deep check failed
+        BODY: |
+          The nightly deep check failed on `main` at ${{ github.sha }}.
+
+          - Static checks: ${{ needs.static.result }}
+          - Tests: ${{ needs.parity.result }}
+          - Audits: ${{ needs.audit.result }}
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+          --jq "map(select(.title == env.TITLE)) | first | .number // empty")
+        if [ -n "$number" ]; then
+          gh issue comment "$number" --body "$BODY"
+        else
+          gh issue create --title "$TITLE" --body "$BODY"
+        fi

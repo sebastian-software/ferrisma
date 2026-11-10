@@ -15,29 +15,15 @@ jobs:
     env:
       OUT: ${{ github.workspace }}/bench-out
       BENCH_SHARP_NODE_MODULES: ${{ github.workspace }}/.sharp/node_modules
-      COMPARE_LIBAVIF_DATA: ${{ github.workspace }}/libavif-rs/upstream/libavif/tests/data
-      COMPARE_LIBJXL_DATA: ${{ github.workspace }}/libjxl-rs/tests/data/decode-test
+      COMPARE_LIBAVIF_DATA: ${{ github.workspace }}/codecs/libavif-rs/upstream/libavif/tests/data
+      COMPARE_LIBJXL_DATA: ${{ github.workspace }}/codecs/libjxl-rs/tests/data/decode-test
       # The runner is idle apart from this job; the load rule only skips
       # the tail of the build.
       COMPARE_MAX_LOAD: "6"
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch the libavif test images
-        uses: actions/checkout@v4
-        with:
-          repository: sebastian-software/libavif-rs
-          path: libavif-rs
-          sparse-checkout: upstream/libavif/tests/data
-      - name: Fetch the libjxl test image
-        uses: actions/checkout@v4
-        with:
-          repository: sebastian-software/libjxl-rs
-          path: libjxl-rs
-          sparse-checkout: tests/data/decode-test
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install the nightly that libavif-rs pins
-        working-directory: crates/ferrixel-libavif
-        run: rustup show active-toolchain || rustup toolchain install
+      - name: Activate the root toolchain
+        run: rustup show active-toolchain
       - name: Install AV1 assembler
         run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - uses: actions/setup-node@v4

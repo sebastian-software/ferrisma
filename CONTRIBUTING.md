@@ -38,3 +38,7 @@ Do not introduce release automation, external APIs, bindings, C FFI, a dedicated
 ## License of contributions
 
 Unless explicitly stated otherwise, contributions intentionally submitted to Ferrixel are licensed under **MIT OR Apache-2.0**, at the recipient's option. Only submit code and assets you have the right to license on those terms. Third-party libraries and copied code must undergo a separate license, attribution, and patent-obligation review before inclusion; the project's license does not relicense its dependencies.
+
+## Codec changes
+
+Follow [the shared codec development guide](docs/codecs.md). Use one branch for a codec change and its Ferrixel integration. Keep the codec-local porting and oracle contracts, and run its scoped fast loop, for example `cargo xtask codecs --codec webp --stage pr`.

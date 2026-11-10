@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/sebastian-software/libjpeg-turbo-rs",
+  "revision": "9249a36e8a83cec56a0288a1641b250a5e67ac42",
+  "tree": "af0ac326a70f1d9b7dd2a0357f9c5a3dc613cc63",
+  "imported_on": "2026-11-10",
+  "scope": "Tracked source including open pull requests; original commit history and upstream gitlinks are retained.",
+  "main_revision": "22dfdceb5d60dcf770405098028354fb07cb4240",
+  "pull_requests": [
+    23
+  ]
+}

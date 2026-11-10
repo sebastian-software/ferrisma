@@ -1,0 +1,36 @@
+name: Nightly AVIF validation
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  root:
+    uses: ./.github/workflows/avif-root.yml
+  sharpyuv:
+    uses: ./.github/workflows/avif-sharpyuv.yml
+    with:
+      runner: all
+      tier: full
+  dav1d:
+    uses: ./.github/workflows/avif-dav1d.yml
+    with:
+      runner: all
+      tier: full
+  goldens:
+    uses: ./.github/workflows/avif-aom-golden-c.yml
+    with:
+      macos: true
+  simd:
+    uses: ./.github/workflows/avif-aom-simd-linux.yml
+    with:
+      debug: true
+  gate:
+    if: always()
+    needs: [root, sharpyuv, dav1d, goldens, simd]
+    runs-on: ubuntu-24.04
+    env:
+      RESULTS: ${{ join(needs.*.result, ' ') }}
+    steps:
+      - run: |
+          printf 'AVIF validation results: %s\n' "$RESULTS" | tee -a "$GITHUB_STEP_SUMMARY"
+          for result in $RESULTS; do [ "$result" = success ] || exit 1; done

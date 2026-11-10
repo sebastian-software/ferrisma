@@ -1,0 +1,78 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Root platform validation'
+'on':
+  workflow_dispatch: null
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: avif-root-${{ github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  linux-nightly:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini
+        - extended-pixi
+        - mini-extended-pixi
+        - libgav1-rav1e-svt-libyuv
+        - mini-extended-pixi-libgav1-rav1e-svt-libyuv
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      profile: both
+      variant: ${{ matrix.variant }}
+      tier: full
+      package: production
+    name: 'AVIF: linux-nightly'
+  linux-asan-nightly:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini
+        - extended-pixi
+        - mini-extended-pixi
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      profile: release
+      variant: ${{ matrix.variant }}
+      tier: full
+      sanitizer: address
+    name: 'AVIF: linux-asan-nightly'
+  macos-nightly:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini-extended-pixi
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      runner: macos-26
+      profile: both
+      variant: ${{ matrix.variant }}
+      tier: full
+    name: 'AVIF: macos-nightly'
+  macos-production-nightly:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini-extended-pixi
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      runner: macos-26
+      profile: release
+      variant: ${{ matrix.variant }}
+      tier: full
+      package: production
+    name: 'AVIF: macos-production-nightly'

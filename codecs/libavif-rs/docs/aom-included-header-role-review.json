@@ -1,0 +1,4284 @@
+{
+  "scope": "Static references and dependent lookup candidates in selected inputs and included original C++ test helpers; may include unused bodies",
+  "original_test_compilation_inputs": 149,
+  "verified_original_inputs": {
+    "aom/aom_codec.h": "2771dcd2e2250a130821b5742cf188109487784b032f1c3500650cf587809f82",
+    "aom/aom_decoder.h": "39aa4e4328bab8aee530e47cf4ef920b8428db7db4b262ed52501c896c4b32b6",
+    "aom/aom_encoder.h": "34a6d979603210ee8bf8294a195dcb88973c6f7a9f35f26ae4ce87432f208101",
+    "aom/aom_image.h": "4dfe0362cff3b7f995be867b93bb90667ed03e9d7f1d9f1d6f24cde1d49d58af",
+    "aom/aom_integer.h": "9af5a90e9cfd1290e2b763647efc7abdb1ad3113382986fcfa300f23176bb106",
+    "aom/aomcx.h": "525911c396b01d34688987d02623cba4ec9d609152d2c61ba8a6311d9337cf3e",
+    "aom/aomdx.h": "2df31f09ec3053873b8ee9bc46eadeb5b1b3d361c3596dfdbef7272a864fe161",
+    "aom/internal/aom_image_internal.h": "0ea2a05addfea358a7ec88e346179f998a03772f66f46003b3b34726b36a945f",
+    "aom_dsp/aom_dsp_common.h": "438b026ee7fc0484643ac7ca73246290a77c1384862264df146f669893ee98d9",
+    "aom_dsp/binary_codes_reader.h": "f93eb999e5865855223717e293ed9738a54f883e240278cfa408c38579c1ff5a",
+    "aom_dsp/binary_codes_writer.h": "f8363172d2e67f431309ad5421e7e8b2042c8bcce838454378b5e5b101bd0459",
+    "aom_dsp/bitreader.h": "d192f841ba386abfe4ea2dca67efc474efdfa4e8cadf11237485ffbd643b5353",
+    "aom_dsp/bitwriter.h": "1dc3044c8fa72c6dd296f20aa63f5fa7e3f3c9d94d32022fda2767cf61d8ea67",
+    "aom_dsp/bitwriter_buffer.h": "539c7d38f47413835d0945b83ee8f65faf4dccf89c34ee48c0bf15a4975fe83f",
+    "aom_dsp/entdec.h": "c2a2ea92a22678983491ce5718305cf31e85f3a4e8bd9927cea8996406a82f33",
+    "aom_dsp/entenc.h": "cea96bad5d830a5c866b0c9ca56bfd459361261eeb40710a0e4eded5c1fc213e",
+    "aom_dsp/grain_table.h": "7e87eef83d6c3a06c47e24e44c1607898d50c69438380d72cc98fc1e5ea85b9a",
+    "aom_dsp/noise_model.h": "a17b97f73e6ccd7e6eafd407de55a70cbcfacbd123f607565ae37b6b231c9c7b",
+    "aom_dsp/noise_util.h": "d95bffa8ee04685e04fc913bbe2484792f9da575f9ee51a080bee7fbf5655dc5",
+    "aom_dsp/ssim.h": "7df11350561ac14f999c9876f88a565b2a8e70af67dd8298feb5b0beaa1484b9",
+    "aom_dsp/txfm_common.h": "2bb0a38e0b5d5358f463f5f652b59fa8859f206f0355c0b66895801851b4b983",
+    "aom_mem/aom_mem.h": "71b98c64b9d7b3380e796e3a7fcd7ea98f6c7b135a3576357cf23eb647acba61",
+    "aom_ports/aom_timer.h": "4a3f1ee54b4e518eb5c960363e530e288cfca5b0514673f1855ddc58caaf97ce",
+    "aom_ports/bitops.h": "ea293a6c2ed98f8e60d61f82f35e1597ff868ae4facb79219d63d4ff873b2b08",
+    "aom_scale/yv12config.h": "13dbe8bc18212086593f7301ef21c5960b773528881b0df6b31b2b9c0662eccb",
+    "aom_util/aom_thread.h": "c04215c3d202296f7bafd7f9f3ffa84d764226240fe187c6969ba8a54b1a97f6",
+    "av1/common/av1_common_int.h": "1a75cd0d1ab8ab54f8d3bded02cf047e8bb43a364633c94aa989f3c2519e5dc1",
+    "av1/common/av1_inv_txfm1d.h": "076be6972bb19f58bf3ad85b4118a05a327e4b4548ee8d5167eb51b49d126ed6",
+    "av1/common/av1_txfm.h": "af3bcaae01687bb47cb82386b619b6534962fe4c187e5bda54439d42071e5aad",
+    "av1/common/blockd.h": "0ec337e7a4dbb63f9d6ecca5378f274af34bab93b0753a3ad9517b3af9a7c361",
+    "av1/common/convolve.h": "3181c1f5293f513463bac250a0818a1d7b39a96fffb5b89390fa794e1c573927",
+    "av1/common/filter.h": "e844d8f4e103b01fdd70f021aa76f7558d3469b92043f2710818478a3f2e31a2",
+    "av1/common/mvref_common.h": "c14a366127313c1a735130d5f0117fff43f6a39f6bb0f5d995e78019683cde6e",
+    "av1/common/quant_common.h": "c27c44944ddac719106f30d8ba1afb6484aa82fe8a9079cd1b42c79002e4d5fd",
+    "av1/common/reconinter.h": "0fb92041e23b672bbcaf93632e8bf90d1457279a64b9f66d63ea9cee3a70c57e",
+    "av1/common/reconintra.h": "7a63726d585ecd4c7cbe2502de8a6cdbf386e5c589ecf6f807e70059f4ed9a78",
+    "av1/common/restoration.h": "54edda38522067dffc06a949afa1dca8ca0e006cde9be812d29c34f33090586c",
+    "av1/common/scan.h": "f8c73638eda86393c772e3125169e68c01320e41deda81056b805f38ea3ba2fb",
+    "av1/common/txb_common.h": "02a8080cc581f5d5f6f52c4ad2947da4c07aed569ba6dc1f462f32d0f7e51656",
+    "av1/decoder/decodemv.h": "f48da477730e822f99b44a186cf3f716f74b170c394c410c536ab79bc05bb45e",
+    "av1/decoder/grain_synthesis.h": "3172f67558ae966ca1ad534ad13174cfd3b80e730a6453a04ceba07b852f93a0",
+    "av1/encoder/av1_fwd_txfm1d.h": "60dd1fabcb76ae14cae8608b71e2e89df0a42c493d8f90b84a80354ea012c49a",
+    "av1/encoder/av1_quantize.h": "2ce349279db05c8589b83b4855dc74493792ef65290ac21e3838801bd1166d99",
+    "av1/encoder/bitstream.h": "cbabf097c1bb1c7ffc88df079b08adff09114db54a5336abd074d783f471b14a",
+    "av1/encoder/cnn.h": "4e71c39868a3bb584aa3ef6b3c12dbb3290af0311b0382e9a5e70309a59dc7e3",
+    "av1/encoder/cost.h": "782b4f167c9321a669fc2921e3a316dacadf4c97449729688018d3a54ba2d0e4",
+    "av1/encoder/encodemb.h": "13e6e42b7735eccb5b248263350928757718b244557c53ead1b4071cfb483e94",
+    "av1/encoder/encodemv.h": "1d36857c5719307db4854c1b847d28f0d50e1fa29948cd3d97e0bfcac805b70f",
+    "av1/encoder/encoder.h": "e732a9eb0cbad55e580677b6858f391790b8b3e57427390b297cc9057fffe4be",
+    "av1/encoder/firstpass.h": "00fcc8201c2316a7055f8e1ada3cefe658f95e83abde859f948ae749f16b8e63",
+    "av1/encoder/hybrid_fwd_txfm.h": "6d7de7bb54b96f3d870cee7fb6b4c2744a3085b902c6bbc403afea41ead4efb4",
+    "av1/encoder/ml.h": "4d3fd52f056c3fb5babe4c9b699a74062d1201aff3c49d3898662bc4d2904c07",
+    "av1/encoder/pickrst.h": "e37e0f29d9a2ebd5b60294d2e72ef38845992d0a5e728dafa9fd6b65227c80c0",
+    "av1/encoder/ratectrl.h": "0395ecf927437ba0ead6f231c6b0203ee9d8aa44530b9f3cbca9bdcb5fa2bc0b",
+    "av1/encoder/rd.h": "24232fc2be7ad8b71a2a14c55eadb7e3fd1c2de2b27d4aafb5f9e1647e9f3a7d",
+    "av1/encoder/tpl_model.h": "d5cf6fce36246c3b64dc1821825ec48386f80332d9a604e2fd0ebff1be572547",
+    "test/acm_random.h": "f4f13fcddca11bdfe6eded0457ec2fb041bc99c4ef2b55a78b2e2e17127a11ed",
+    "test/active_map_test.cc": "a67339235cd9086c20a6f5895e06ecb3b312be6096641fd74419f6069abd7f99",
+    "test/allintra_end_to_end_test.cc": "946baae2e190a7e30b633607e92bc90caa773532679060c321a2429b897f0cfd",
+    "test/altref_test.cc": "a55514ca21ccd006c26b5189d38cedb409593731a3e0d3a442489c5249aa4d7f",
+    "test/aom_image_test.cc": "cb8d09d77447da68d746c31ac55e877b9dec56166f0776f3ffed4be02b827855",
+    "test/aom_integer_test.cc": "9ca9f16703b10e54882df809ded67fcfe33dba05360b37ac0a2522f7d3ddfddb",
+    "test/aom_mem_test.cc": "c6834e1983a3e2f901732c07b867ecc15ae09eec50107c2b9e4d3ada9113d833",
+    "test/aq_segment_test.cc": "4d6eba9fb4a0ae32bdfe40adf6722e7631d57fa0e0f5abf588a4efad97ab1527",
+    "test/arf_freq_test.cc": "f8cb36811d9974ad8ce403ee384d9be2f4dd89f5eff699735636196961523aeb",
+    "test/av1_common_int_test.cc": "bba847dfe54a3c95aff96267fd4a45b22b5347be67c95e828539505dbde0acfb",
+    "test/av1_config_test.cc": "fddf64e109e065c6d7bd0a3a273ab713d3960b270c0cdb36397260f93ae0d278",
+    "test/av1_convolve_test.cc": "7938ca35f4e46717eeef4da66f6e1fb50a8db9415f57f4b164291e664591f7ff",
+    "test/av1_encoder_parms_get_to_decoder.cc": "805f31d2880b821cdddc49cd61cb3ac787c012f8e823eba3784ea11e2b9d5ed0",
+    "test/av1_ext_tile_test.cc": "6481aa1a67f74b410370eb39b232a325b930d4264ba8b1868076bfb01735ae4b",
+    "test/av1_external_partition_test.cc": "7b4fefbd31f7a2145977c58b6e93a061121c2b04b4c7a34e82bbd20986c4032b",
+    "test/av1_fwd_txfm1d_test.cc": "44586326cf7d5bf9d544dfc0b1fadcdd812bff4616476ae03a4009c76169c609",
+    "test/av1_fwd_txfm2d_test.cc": "9ceabe4387d14799391fd72a014310bd279a6eed9215d85872307bf027740472",
+    "test/av1_get_qmlevel_test.cc": "e5b0f03f2ffecc7ddaf90a9d9c382fde3d919bfdb0726c55ce912909031a4d60",
+    "test/av1_inv_txfm1d_test.cc": "b9edb831ba94e4f1d2809d5aa18e6d298698992b060f050f212821e563510c48",
+    "test/av1_inv_txfm2d_test.cc": "0b580ce9ac71beff1761b2a544543a99f63ee0846aa4cbfe128014518ca83b3d",
+    "test/av1_k_means_test.cc": "16425c96943aa3da4ce0eee6a61e39d8bf685beaf204014cfa569e1bd4fe7e86",
+    "test/av1_key_value_api_test.cc": "e214444ea34c478d69fdee669bb01d7f2a653fef09daa4c59c30c97fa5e39bc7",
+    "test/av1_nn_predict_test.cc": "f7ce5351531ca709b381dd58dd5725777bf1e8cfc952486dabf1b01d80a284af",
+    "test/av1_round_shift_array_test.cc": "4e7a92a4118159158d7724e6e8aa5d4274989a1ca1ed457200cdeabe3c0602de",
+    "test/av1_scale_test.cc": "56e49b521d7ac0ba15b1b527d3b86df8514f517eb6f619d866d7c635231112ec",
+    "test/av1_softmax_test.cc": "6e5ae88e36b371dc95b3becd178980c6342ac5f64183e6f8f412a16dd389e4b3",
+    "test/av1_txfm_test.cc": "95d0f15759c52537ace08ca7823d6fe4fa5fa33d500a46176e599a1c6a3ac0ce",
+    "test/av1_txfm_test.h": "c13361b25f6c55a3ed6dd2c13c6c93ebe9ac173f46783afd19b6a4c0035bb7d5",
+    "test/av1_wedge_utils_test.cc": "ba016d8a32bf6227480891148ae3ab7c35d76cc5554d70e13c8e7db39d85fc98",
+    "test/avg_test.cc": "aa5353bc7b524f98a548ccdf42c1906331691ee270d683c6bac11f1696446066",
+    "test/avif_progressive_test.cc": "7916a6515ff57e37d342b087e4a59d8da6402ae11b2d0714a1ce0751771045fc",
+    "test/binary_codes_test.cc": "e4d58191b2c1fddecd064197b76f0523a8dd3250ccbe8ab11c2427bd43d11c66",
+    "test/bitwriter_buffer_test.cc": "7718842fe6ce4e429eb1a655fb3b191135ddc8612c361440743aae475a78114b",
+    "test/blend_a64_mask_1d_test.cc": "e81d8b62daad11234bffee46e7ddbee68873c626b929fd534227322293ca98bf",
+    "test/blend_a64_mask_test.cc": "381f6cbee1f0ce67e6fd36027bc367a08eeaaef0e841c2710b3f8acf597c39f1",
+    "test/block_test.cc": "4dba5e367699a391fd580f0f2b3117a2618fd7ef51830590adfd1042dbadc740",
+    "test/boolcoder_test.cc": "15ce69ec3e052a922dfd11d6ffb82b63905a6f7a7243ea05983f2e3e699547f7",
+    "test/borders_test.cc": "c8b1309bc6a0cdac504fc1135c096c2f5f7685d63f45a90f935f8ab3ab1d496d",
+    "test/cdef_test.cc": "1bc8d0ff1bf573bafacaa4c820718a67c6298d38d6b3af37c1c2b995b7081f2e",
+    "test/cfl_test.cc": "c95febab330b782a9427b0132011c7735631259f71f4b74c178a80d18735554c",
+    "test/cnn_test.cc": "1364441d5b08b53bdc781f9d918d4a3ad3bf85ed16eca9008896c0117c31c0ed",
+    "test/codec_factory.h": "a9d2fd2c5ba31bf378ae008881a430f2f0665ddf39ba81df8fa2ef995258b0e0",
+    "test/coding_path_sync.cc": "01b00579c1069c1cc551eb3d4ae84728d07774f0dbe63bae45af2ca4fcbf0205",
+    "test/comp_mask_pred_test.cc": "370176487a84088a04fc244764c6496900c86c56a0216b0ce22c078b3be0a6d7",
+    "test/convolve_test.cc": "f580b4c32314797c9b6cb2c0bb4322bdf4bb782c11d21f5f737bead377aed9b1",
+    "test/cpu_speed_test.cc": "391f007a625d27f6913b563c3e4b52c0b5d153779bae359ff83b48fd1e514fb8",
+    "test/cpu_used_firstpass_test.cc": "74efa279db7e3a2ca4a342d9b1eb55dda52d0bded3b12b92b1ee8fd79413c58f",
+    "test/datarate_test.cc": "7c6127dc3f6ba107c170b0cd93de8354f0b51195f1325254b1e658294f6c947c",
+    "test/datarate_test.h": "ad869376568ec7991f651c4638241bd9b3f76e363ef1ea97e64c48329a149bcc",
+    "test/decode_api_test.cc": "c12b7863868281dd39ed5f71129f5b1c173ce0b693ea3e6a0e03d0fccbef8806",
+    "test/decode_frame_size_limit_test.cc": "919e552032adb52dc43de5839e90d08a4cea01150e7b0ce82faf56fecc136286",
+    "test/decode_multithreaded_test.cc": "5450c3ac19fe3f424c57630ca782eb52c91af3b70aa357854bd89b4a69e0487b",
+    "test/decode_scalability_test.cc": "66a555a1b21e359f22f05bfc39b9c059ce6d3e9510d4045780fdd2a4a03c0beb",
+    "test/decode_test_driver.cc": "c5c4d6d068a4a8a376ce722be702625fe4d00e73cd79f327ae107c4ee6c46367",
+    "test/decode_test_driver.h": "a155b0d5d2e3719638f03d781fb27b3e4a8b6b3552446e1e54fb4a9bbbaa5043",
+    "test/deltaq_mode_test.cc": "22fd39e2db4967cc3dc80e9c41506b0a942caf6609597466a684d5dd19c2925f",
+    "test/disflow_test.cc": "a81ad16cd5ef949963c6520ab9f8e3ba4c5a8f9ab66fd763c4a828dac9de677a",
+    "test/divu_small_test.cc": "108f4a6d04e4366155cd544195fd2e2947f09f1169c0d96cb8c705328963cf5d",
+    "test/dr_prediction_test.cc": "422a837ad2b3b0625e9eb1012c737d77f3c57e639952d059dbf602853725ce94",
+    "test/dropframe_encode_test.cc": "168b8c607f320b61405c80ed144302417357c70ae451493c57ea0b7df2c8446f",
+    "test/ec_test.cc": "06f92722e3293de9a63945053239b0c6e5d3c378053ae644d198a283772d7a92",
+    "test/encode_api_test.cc": "51f6c0b04f7a71a39ff2250822199939aa830dd14190e3c5f5ef00bf4c8860ef",
+    "test/encode_large_width_height_test.cc": "5c0338bf1c7d29fcc2de6deeb75e1d9f08f44569d56db689ab02332ca8dbab6c",
+    "test/encode_small_width_height_test.cc": "59369298885fb00c2ed910407a346719155ed90a38d0d4d126036ebc72c7ee6d",
+    "test/encode_test_driver.cc": "dfae9c97fa8b26f864ccaba52fb4c250e713a02f4d51d0ce0f9da0f7f25a3ce1",
+    "test/encode_test_driver.h": "197b928f28fee53a7db5977b11e06a0996fc1fc7adc8e353fe31413f55e311c1",
+    "test/encodemb_test.cc": "e3642d43ec53cbff5cb08ccb650d36f5caf21b9977490fd93bd86083727d7a28",
+    "test/encodetxb_test.cc": "77790f1318635dfe56f9add014cae3da1bd595dea419e121c8510ec3d8990893",
+    "test/end_to_end_psnr_test.cc": "0858f3ee1f298ecc1b4b38500a6ccc631cf64ca6acc8c82cf10e135c185e1756",
+    "test/end_to_end_qmpsnr_test.cc": "d6f1052d348b31d7dfc5ab1e76fda8660c4dfd8547f39caef8f177341b6fead9",
+    "test/end_to_end_ssim_test.cc": "ab53080c8132c36f976669295ac80b12e5e6fb5dc5643c18407c09df677e71f1",
+    "test/error_block_test.cc": "2cb7cd19da3265c3834f8a5618f144fe7ad07303d852cf27161821e96d1309e4",
+    "test/error_resilience_test.cc": "3b55dc01f09b24d3172c5c99822bb317d3da4aa01c29c85dd3a9a70f40f82403",
+    "test/ethread_test.cc": "fd96fd2dcef0eddaea1f1fd741083674f75daebe1cfe77edb0c37a6bdc0e10be",
+    "test/ext_ratectrl_test.cc": "85e1d2f6e6de97b5ef3ec26a19e8d06128e47def7f451943f3953f0983ea14b4",
+    "test/external_frame_buffer_test.cc": "75b8840640efbeae53d41edee35ddd7fdee72710e4985b22ef589a695c34b47d",
+    "test/fdct4x4_test.cc": "2d100f8c449cbf41320f1afd366a9b88717df7ad67ca6e10ff0fdecfa65f7ac2",
+    "test/fft_test.cc": "db291017746a4057d6e90d0b6940747fcbacfceec7eba61fe097d3ebfaa0141b",
+    "test/film_grain_table_test.cc": "6648e33b1b217baaaf082a17d2891eb1d176bcd288666db65d62b0d4b5e04276",
+    "test/firstpass_test.cc": "bc01bee456e7170f6d5b85143d0404f348cac7189d89319b85e316c4adb8768f",
+    "test/force_key_frame_test.cc": "50e9af2bd9ed0aac28e4eb096fb47ea71da768060561bab111c910cab4f05e18",
+    "test/forced_max_frame_width_height_test.cc": "ff5a55a8d77571124f7955fe685901a7859865d92c003d53293696ab32f79b21",
+    "test/frame_resize_test.cc": "1c342a29e3e78c9a3b7514a1d7dd8344370a770ec8232009ddb120fe839f9d79",
+    "test/frame_size_tests.cc": "0e91b1abd93e80fd87d36c3464fbcb7b6f31d3ea0dab2e3104a20beff9f8be36",
+    "test/function_equivalence_test.h": "c594c47ee5707171c274de220c6b908157e25333698959966642c46e03cfec4a",
+    "test/fwht4x4_test.cc": "837812b2d1fe97a835b582f550c845339a4734f3a9288f986748a7d9eaf88ed2",
+    "test/gf_pyr_height_test.cc": "4c36d8c99c6d3d0f98c06d525c28dcb2f717489d2c85b0836bc3339cd8796083",
+    "test/grain_synthesis_race_test.cc": "d9c0a5bbdb6924550c8d307a80e2a03e78c8b6e7cd2a2d25bb2a0d082aea886e",
+    "test/hadamard_test.cc": "a157992295a6ce7af18dbf4943b4f75bdbeb2b7fc11da0151030b0d54d8d09b2",
+    "test/hiprec_convolve_test.cc": "dd1c11b24639c33d3e004838ed5fd6b01590afae1589c721396321a9fcbb1f2b",
+    "test/hiprec_convolve_test_util.cc": "a2a30dc98ed0aa294542ed1404a982862ca28cc8cad645818a569002282c2ae5",
+    "test/hiprec_convolve_test_util.h": "f3673d0411722d592ac538a73602c121ee94fed5ea2dcdd86b7af5b9172e92b7",
+    "test/horver_correlation_test.cc": "dfd123783413ea6cd6bf1a7d407bb38bd51585acd9663ff475aeb2f7a0a6c873",
+    "test/horz_superres_test.cc": "9200fac16255def429e817e74b61528edfa7c4286c01328459ba0a8f4902d49b",
+    "test/i420_video_source.h": "d8dc283b4a35a027f565015e9a31707966badae136fb7be19bea36bd6d5f9626",
+    "test/intrabc_test.cc": "8f92be7ae33a30cebb38d0b94e812618f3aee864e9d0f0ad2ddec30e88bad18e",
+    "test/intrapred_test.cc": "cf9c2a545998f5c3a6eb4d095226644bf6b8830ae697023f1af1c5f65bce59cf",
+    "test/invalid_file_test.cc": "32d229d054ee1345e157f6316ee407cb14d566f077b551cf877e60d8a054f775",
+    "test/ivf_video_source.h": "d87a261c814bef30ab483d21a0a5c1617d8ea382bc0c828a25a09207f7c17c8e",
+    "test/kf_test.cc": "ac9fa01bf80212cf6610833a02f5b2fff6c30b51cb599645cad47bbe42ec0370",
+    "test/level_test.cc": "71b181f28e59a1274e890d2a512bb094c7b36c44c3976565d8ee9d8b664ca265",
+    "test/log2_test.cc": "bce8b609436f5fb406887cb08f4ab38e5167a67e6fe3b5dc1deba1517b10a876",
+    "test/loopfilter_control_test.cc": "34035e114fadf8e0f06dbae6fb9b0bb6694354af22b42533e232764cd9a0f37d",
+    "test/lossless_test.cc": "c0273c30823078ce9c62d7442030d29069365b550c28841b7163dddeea86caba",
+    "test/lpf_test.cc": "6679d72c44ec1fe80227e8666f76f82f8fdfc5619e1a81dcf9b8e1fd3d363dd4",
+    "test/masked_sad_test.cc": "81cf6f6e7d72532d1558ceeeb0f2a1364ac8f59de7c0a8c6ac70abf8a358aafa",
+    "test/masked_variance_test.cc": "379db8b548c0f0eb5352ad7cfc5675e3d24b9e7079e1f0bbdeb5160304325a00",
+    "test/md5_helper.h": "6876bb15f3392ae6f9bdbac1594f79a09dfdbb66da606da6a28efc9b4549131d",
+    "test/metadata_test.cc": "6e446ac3933dfac718ee51eb0690f81ffdb329e5b520fe56f3c29c81054cf56c",
+    "test/minmax_test.cc": "e6924520d38aee2faad11c256244451712a03655cbdb58d75fe6d521776c7913",
+    "test/model_rd_test.cc": "39118c1dfbe94f389d687122964881338524641ad794b960affbec537f0b7f76",
+    "test/monochrome_test.cc": "6bd6969f3dd387e7e0ce042cef608a292a410af3e512f1e22d009ba020c894bc",
+    "test/motion_vector_test.cc": "65ceae5ad73add59bfe87d5a8057d78bbc10f7c526c25827734b5fc1adb2ea7e",
+    "test/multilayer_metadata_test.cc": "90453acfe8b133a6f5359bd2a37ff015e1bd93b55b90c93be53d7219e835d55a",
+    "test/mv_cost_test.cc": "6fe8dabf25c82bf695148beb3454181bede4e28ec84b733501f1a2543c5d91ba",
+    "test/noise_model_test.cc": "c025265e8f4646a8a317fb6a7aa290d4d0d880d8544dacb176304dc4afcc8d24",
+    "test/obmc_sad_test.cc": "e88c2912843b14cc57b16ccf72c3957badc5f58056521e775d6737a6df6ee05a",
+    "test/obmc_variance_test.cc": "644bf04145b3d27aa7b9bb7ba7bdb9d13d5c824fafb5ca26e55f468cc0bf24e7",
+    "test/pickrst_test.cc": "5dc3cc6da0189deb6cb604d9af069170ae3db698cac6e1094d0e9f4483841c88",
+    "test/postproc_filters_test.cc": "3ec2a8c6890eb34eb32c3179e424656423b1c00ce361f3e0a071db9fb5a26749",
+    "test/quant_test.cc": "219745371f0767097982c8b07c4a9a571d0359ced89239ced920fea4f6c791e3",
+    "test/ratectrl_rtc_test.cc": "0651aebbfebecdb94085129cb79e9b265ea5ebec861957fdd89110d161b5aa8f",
+    "test/rd_test.cc": "f7148559c4d73392b3494e436f7f9cefcf95f8f68267d25fcbce337ae520abc8",
+    "test/reconinter_test.cc": "7088e47b40a38f5b7645dff73fb5a152f840d7d7b7b0bf3a940c05b159952387",
+    "test/register_state_check.h": "7c9a0f09811389c1b6fb44efac3f1535b996883c0b94e677198d06c94f2bf7fe",
+    "test/resize_test.cc": "874a164ebe22445d280d4853bf1bf3f995229aff192d33d461da50c1f5f21d8d",
+    "test/roi_map_test.cc": "9156dc8bed0665217b1a495ea3d83630ad92adbeb300f1da649cbc92e1be69b1",
+    "test/rt_end_to_end_test.cc": "16cc4bee5d383ab411d87fdd17a1e8f506e0ffc85c57563ed5b791283a80d41c",
+    "test/sad_test.cc": "32341fbd96f0cda46376bf871907da718da78c0bef4cd7f4887ee26741c2b038",
+    "test/sb_multipass_test.cc": "1bc42ee37b02244240c59ba64f925a899d63e6937b856350c148c1e11301166c",
+    "test/sb_qp_sweep_test.cc": "ddefcacc986d3882f60b4c9ed4ddde75802e78bc8b513186b2775052d5793f27",
+    "test/scalability_test.cc": "a7e92cc51ddf03950e2fc2ee38c4858a1043c19657bb578b066f197fda5be0e9",
+    "test/scan_test.cc": "922698cbf72ee6ff90ce6fc632e2753c882b962d9cdd0338e1e9033a13241b9b",
+    "test/screen_content_detection_mode_2_test.cc": "4bf304797d1fc6430a99e97d1edbc815f114be396f16da9ccd074e1fe0a14b47",
+    "test/screen_content_test.cc": "142a62f8df91d72de63e02030428b7ff0fbfb4149da959a70824de23c8a1474c",
+    "test/segment_binarization_sync.cc": "55825d38b0fcc87dc80be3c85555263156c0088e2440f4d4aa1436fe0b98ca30",
+    "test/selfguided_filter_test.cc": "41e2dcdd7834d4a1daf60ee3d652ae58a951f8c1c9bfcc6e4bbf9ecdbf9bf3c5",
+    "test/sharpness_test.cc": "fea4f284c545425bde1dc0c97ab708c063fccf6df259d459274876405a676e70",
+    "test/sse_sum_test.cc": "1cbbd196fc7cadecd7808fe431834cc3b1f7d4893244baa74cb757534b417260",
+    "test/still_picture_test.cc": "8cf4b48454de1e8a88740da74e241f16f01da9a2c285e919581e4ebe3c598e1d",
+    "test/subtract_test.cc": "2b4d2fdf0ad5bcab219e93815bf6618a128bfe4145d1921383479e77d5f5a1e7",
+    "test/sum_squares_test.cc": "d158f560f1ce0d33afbf5a6800bf26c609c3402a36fc5387bef968c1591e18c4",
+    "test/svc_datarate_test.cc": "4049295011d606b8a01476e45f1a26feb79c4722b20b41ea7ce3c28b8cad64f1",
+    "test/temporal_filter_test.cc": "9e363bed58d0da5fb72e4fcbacf98e5c822e516a3237eca61547b02fc98b0783",
+    "test/test_aom_rc.cc": "e355bc0b362f2720264f5c57e491f6221ea247298be95f950b356e2a16450ffa",
+    "test/test_libaom.cc": "cbe0f4d96386a5b327f81fbc31082359b78b971b922668f15930b7e1b1404fdc",
+    "test/test_vector_test.cc": "aa87938fcd797634fb754b1d6cf7de062a3e929b87e491451dfef4a2e98d34b2",
+    "test/test_vectors.cc": "ed47a8f16d8648d8d051a1d09e3b83ce304265cc5d4dd733e0f05491243759a9",
+    "test/test_vectors.h": "b1effe2dfa60a852649e919c00f8b6617fb03c49eac3d7af81f7e35068bc3a29",
+    "test/tile_config_test.cc": "45b2f9c7f0754d2f88320f59319e8f990056206a10cc5fce5a6dcfc6a63c8cc9",
+    "test/tile_independence_test.cc": "f8129a665dfdc471c2b286b652a282dea47bd17b31e98caa4753e349f2dcc3b5",
+    "test/time_stamp_test.cc": "f2d451b72288b879d36964d4dc94be33eed967f126ca11a0d9b01b4cc38deabf",
+    "test/tpl_model_test.cc": "036a59cad7da1a2a5cab18b2da21f3cc468a8023dd104ee198f4e6d561bb697d",
+    "test/transform_test_base.h": "958f7a428cbf5ca54097ca2cbea6a98eb18bcc07f26beef7153f22d424b5c585",
+    "test/use_fixed_qp_offsets_test.cc": "0757b4992f695fba09535e100604e57781f92c297a8b47e207dced93905ccfd8",
+    "test/util.h": "171a37f95f0a5258b3fea0f10cbd1b495dd992397e30c29803f765de919281bc",
+    "test/variance_test.cc": "45a0a8dbe5b3c9edf4ef151ea56916f89492c6ea31256e417e503458406f69a5",
+    "test/video_source.h": "e8d0cafd5d08096e24756cee056306ed13794ab2d6c1bc546e7d5583fde3931b",
+    "test/warp_filter_test.cc": "499b3b554ede1d21b16b142755eb0eb2491d730fbeff7c870d348a261abc5ae3",
+    "test/warp_filter_test_util.cc": "ac8bb0758aaa86ee68432437ada06624c8a583a483c4e18fe136c4efd484eb98",
+    "test/warp_filter_test_util.h": "43bac0cd667b72959ad038be46519b53c3d1bba17e0d848827b6edb70eeb0dd7",
+    "test/webm_video_source.h": "3674bf6b12ccb9b9d3701717081099d3b309ed3608483b9bbb79a20d66e1f2fd",
+    "test/webmenc_test.cc": "44ecd1958506763eb0da00ebe2c9fdfc09de9107cf0b3a6e46aeccc48cccb537",
+    "test/wiener_test.cc": "c6c6d0f0afa21de484638925f1624622f8d09be53752dd8370594d7597f15a8d",
+    "test/y4m_test.cc": "bed551e8f669d4e509de117bab93adfa0db29319e6afc46a631e2fa08ce8e50c",
+    "test/y4m_video_source.h": "9e1bff8393bd18aadafcdac21caeadc513e0d06eba6c561a8e43e14ea3cda317",
+    "test/yuv_video_source.h": "6f682542db84f85712d4f03c95ca0681aab143f8dcbaa81b99eef104e5d53581"
+  },
+  "inventory_sha256": "ab8a0d6112b988d6daa1df6677917b3a721b16e864216c0f35fd6554fd73c4dd",
+  "config_sha256": "ef64f3b87c3cc954cd3f0449fc4eebd035cb0bc911fa9f189451cffa01c10a2c",
+  "clang_version": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+  "target": "aarch64-apple-darwin",
+  "profile": "release",
+  "distinct_header_functions": 41,
+  "includes_original_cpp_helper_bodies_and_dependent_lookup_candidates": true,
+  "additional_function": "av1_use_intra_edge_upsample",
+  "additional_function_role": "Selects input upsampling in DrPredTest::SetParams; retain its original native fixture behavior.",
+  "complete_runtime_or_indirect_call_coverage_proven": false,
+  "source_and_static_candidates_receive_no_execution_credit": true,
+  "functions": {
+    "aom_usec_timer_elapsed": {
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 75,
+      "translated_name_present": false,
+      "sites": [
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 392,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 404,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 499,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 511,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 609,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 621,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 715,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 727,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 819,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 829,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 917,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 927,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1016,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1026,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1114,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1124,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1353,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1364,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1549,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1561,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1676,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1687,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1840,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1853,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2402,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2410,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 340,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 348,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 632,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 640,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 312,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 318,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_k_means_test.cc",
+          "line": 119,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_k_means_test.cc",
+          "line": 225,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_nn_predict_test.cc",
+          "line": 158,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_nn_predict_test.cc",
+          "line": 164,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_round_shift_array_test.cc",
+          "line": 99,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_scale_test.cc",
+          "line": 244,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_scale_test.cc",
+          "line": 251,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_softmax_test.cc",
+          "line": 91,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 165,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 180,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 189,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 263,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 272,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 434,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 436,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 524,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 526,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 721,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 723,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 941,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 943,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 179,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 188,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 297,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 306,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 411,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 420,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 526,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 536,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 146,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 285,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 290,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 392,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 398,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 215,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 221,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 271,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 277,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 407,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 414,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 458,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 465,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cnn_test.cc",
+          "line": 2601,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cnn_test.cc",
+          "line": 2610,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 162,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 273,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 393,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 569,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 700,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 832,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 656,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 1091,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/disflow_test.cc",
+          "line": 90,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/disflow_test.cc",
+          "line": 98,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 184,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 194,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 137,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 138,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/error_block_test.cc",
+          "line": 226,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/error_block_test.cc",
+          "line": 235,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 109,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 118,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 223,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 232,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/fwht4x4_test.cc",
+          "line": 147,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/fwht4x4_test.cc",
+          "line": 148,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hadamard_test.cc",
+          "line": 338,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 213,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 226,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 355,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 368,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/horver_correlation_test.cc",
+          "line": 97,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/horver_correlation_test.cc",
+          "line": 103,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/intrapred_test.cc",
+          "line": 144,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/intrapred_test.cc",
+          "line": 145,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 170,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 176,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 256,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 271,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/model_rd_test.cc",
+          "line": 100,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/model_rd_test.cc",
+          "line": 108,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/obmc_variance_test.cc",
+          "line": 120,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/obmc_variance_test.cc",
+          "line": 128,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 115,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 123,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 287,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 295,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 468,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 475,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 653,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 660,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 331,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 341,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sad_test.cc",
+          "line": 315,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 100,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 117,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 296,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 313,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sse_sum_test.cc",
+          "line": 134,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sse_sum_test.cc",
+          "line": 143,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/subtract_test.cc",
+          "line": 181,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/subtract_test.cc",
+          "line": 192,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 134,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 143,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 381,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 389,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 561,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 569,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 735,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 742,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 884,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 891,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 245,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 256,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 400,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 407,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 654,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 665,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 795,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 802,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/util.h",
+          "line": 57,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 428,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 435,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 535,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 542,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 803,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 957,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 970,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1119,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1133,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1380,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1393,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1589,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1876,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1883,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 191,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 390,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 270,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 278,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 632,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 640,
+          "reviewed_role": "native measurement infrastructure"
+        }
+      ]
+    },
+    "aom_usec_timer_mark": {
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 67,
+      "translated_name_present": false,
+      "sites": [
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 391,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 403,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 498,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 510,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 608,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 620,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 714,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 726,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 818,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 828,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 916,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 926,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1015,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1025,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1113,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1123,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1352,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1363,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1548,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1560,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1675,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1686,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1839,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1852,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2401,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2409,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 338,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 346,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 630,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 638,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 311,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 317,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_k_means_test.cc",
+          "line": 118,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_k_means_test.cc",
+          "line": 224,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_nn_predict_test.cc",
+          "line": 157,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_nn_predict_test.cc",
+          "line": 163,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_round_shift_array_test.cc",
+          "line": 98,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_scale_test.cc",
+          "line": 243,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_scale_test.cc",
+          "line": 250,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_softmax_test.cc",
+          "line": 90,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 164,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 168,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 179,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 183,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 262,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 271,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 424,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 432,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 514,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 522,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 709,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 719,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 930,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 939,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 178,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 187,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 296,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 305,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 410,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 419,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 525,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 535,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 145,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 284,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 289,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 390,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 396,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 214,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 220,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 270,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 276,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 406,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 413,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 457,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 464,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cnn_test.cc",
+          "line": 2600,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cnn_test.cc",
+          "line": 2609,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 161,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 272,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 392,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 568,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 699,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 831,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 653,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 1089,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/disflow_test.cc",
+          "line": 88,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/disflow_test.cc",
+          "line": 96,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 183,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 193,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 124,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 134,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/error_block_test.cc",
+          "line": 224,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/error_block_test.cc",
+          "line": 232,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 108,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 117,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 222,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 231,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/fwht4x4_test.cc",
+          "line": 136,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/fwht4x4_test.cc",
+          "line": 145,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hadamard_test.cc",
+          "line": 336,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 212,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 225,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 354,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 367,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/horver_correlation_test.cc",
+          "line": 96,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/horver_correlation_test.cc",
+          "line": 102,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/intrapred_test.cc",
+          "line": 135,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/intrapred_test.cc",
+          "line": 142,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 169,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 175,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 255,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 270,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/model_rd_test.cc",
+          "line": 97,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/model_rd_test.cc",
+          "line": 106,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/obmc_variance_test.cc",
+          "line": 118,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/obmc_variance_test.cc",
+          "line": 126,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 114,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 122,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 286,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 294,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 467,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 474,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 652,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 659,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 330,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 340,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sad_test.cc",
+          "line": 314,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 99,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 116,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 295,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 312,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sse_sum_test.cc",
+          "line": 133,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sse_sum_test.cc",
+          "line": 142,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/subtract_test.cc",
+          "line": 180,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/subtract_test.cc",
+          "line": 191,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 133,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 142,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 379,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 387,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 559,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 567,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 734,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 741,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 883,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 890,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 243,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 254,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 399,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 406,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 652,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 663,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 794,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 801,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/util.h",
+          "line": 56,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 427,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 434,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 534,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 541,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 802,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 955,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 968,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1117,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1131,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1378,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1391,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1587,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1875,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1882,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 190,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 389,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 269,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 277,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 631,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 639,
+          "reviewed_role": "native measurement infrastructure"
+        }
+      ]
+    },
+    "get_partition_subsize": {
+      "declaration": "av1/common/blockd.h",
+      "declaration_line": 995,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/block_test.cc",
+          "line": 122,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "aom_ceil_log2": {
+      "declaration": "aom_ports/bitops.h",
+      "declaration_line": 74,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/log2_test.cc",
+          "line": 35,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 37,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 43,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 44,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 45,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 49,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "get_msb": {
+      "declaration": "aom_ports/bitops.h",
+      "declaration_line": 42,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/divu_small_test.cc",
+          "line": 24,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/divu_small_test.cc",
+          "line": 26,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/divu_small_test.cc",
+          "line": 36,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/divu_small_test.cc",
+          "line": 38,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 67,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 182,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 21,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 27,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 28,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/log2_test.cc",
+          "line": 29,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "aom_memset16": {
+      "declaration": "aom_mem/aom_mem.h",
+      "declaration_line": 42,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/aom_mem_test.cc",
+          "line": 32,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 375,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encode_api_test.cc",
+          "line": 448,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/masked_variance_test.cc",
+          "line": 276,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/masked_variance_test.cc",
+          "line": 278,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/masked_variance_test.cc",
+          "line": 280,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/minmax_test.cc",
+          "line": 149,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/minmax_test.cc",
+          "line": 150,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/minmax_test.cc",
+          "line": 168,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/minmax_test.cc",
+          "line": 169,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 769,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 770,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 771,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1194,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1195,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1331,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1332,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1333,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1334,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1537,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1538,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_tx_size": {
+      "declaration": "av1/common/av1_common_int.h",
+      "declaration_line": 1710,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_common_int_test.cc",
+          "line": 18,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "aom_usec_timer_start": {
+      "declaration": "aom_ports/aom_timer.h",
+      "declaration_line": 59,
+      "translated_name_present": false,
+      "sites": [
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 386,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 398,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 493,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 505,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 602,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 615,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 708,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 721,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 813,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 823,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 911,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 921,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1010,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1020,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1107,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1118,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1346,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1357,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1542,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1555,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1669,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1680,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1833,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1846,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2394,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2404,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 334,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 342,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 626,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_fwd_txfm2d_test.cc",
+          "line": 634,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 307,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 313,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_k_means_test.cc",
+          "line": 113,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_k_means_test.cc",
+          "line": 219,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_nn_predict_test.cc",
+          "line": 153,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_nn_predict_test.cc",
+          "line": 159,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_round_shift_array_test.cc",
+          "line": 93,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_scale_test.cc",
+          "line": 239,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_scale_test.cc",
+          "line": 247,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/av1_softmax_test.cc",
+          "line": 86,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 162,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 168,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 177,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 183,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 257,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 266,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 420,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 427,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 510,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 517,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 704,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 714,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 926,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/avg_test.cc",
+          "line": 934,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 171,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 180,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 289,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 298,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 403,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 412,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 516,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/blend_a64_mask_test.cc",
+          "line": 527,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 139,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 282,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 287,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 388,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 394,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 210,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 216,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 266,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 272,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 402,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 409,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 453,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cfl_test.cc",
+          "line": 460,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cnn_test.cc",
+          "line": 2594,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/cnn_test.cc",
+          "line": 2603,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 156,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 266,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 387,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 562,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 691,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 825,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 631,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 1084,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/disflow_test.cc",
+          "line": 83,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/disflow_test.cc",
+          "line": 92,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 178,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 187,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 119,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 129,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 239,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 244,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/error_block_test.cc",
+          "line": 220,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/error_block_test.cc",
+          "line": 228,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 103,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 112,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 217,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/frame_resize_test.cc",
+          "line": 226,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/fwht4x4_test.cc",
+          "line": 131,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/fwht4x4_test.cc",
+          "line": 139,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hadamard_test.cc",
+          "line": 332,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 202,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 216,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 344,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 358,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/horver_correlation_test.cc",
+          "line": 91,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/horver_correlation_test.cc",
+          "line": 98,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/intrapred_test.cc",
+          "line": 131,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/intrapred_test.cc",
+          "line": 138,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 166,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 172,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 249,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/masked_sad_test.cc",
+          "line": 257,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/model_rd_test.cc",
+          "line": 93,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/model_rd_test.cc",
+          "line": 102,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/obmc_variance_test.cc",
+          "line": 114,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/obmc_variance_test.cc",
+          "line": 122,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 108,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 116,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 280,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 288,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 461,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 469,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 646,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/pickrst_test.cc",
+          "line": 654,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 70,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 76,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 167,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 176,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 323,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 334,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sad_test.cc",
+          "line": 309,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 85,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 103,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 282,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/selfguided_filter_test.cc",
+          "line": 299,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sse_sum_test.cc",
+          "line": 128,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sse_sum_test.cc",
+          "line": 139,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/subtract_test.cc",
+          "line": 175,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/subtract_test.cc",
+          "line": 186,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 128,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 139,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 375,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 383,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 555,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 563,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 729,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 738,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 878,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/sum_squares_test.cc",
+          "line": 887,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 236,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 247,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 394,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 401,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 645,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 656,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 789,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/temporal_filter_test.cc",
+          "line": 796,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 423,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 430,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 530,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 537,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 797,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 945,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 959,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1107,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1121,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1372,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1384,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1580,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1871,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/variance_test.cc",
+          "line": 1878,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 185,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 383,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 263,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 271,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 625,
+          "reviewed_role": "native measurement infrastructure"
+        },
+        {
+          "source": "test/wiener_test.cc",
+          "line": 633,
+          "reviewed_role": "native measurement infrastructure"
+        }
+      ]
+    },
+    "clamp": {
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 74,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_wedge_utils_test.cc",
+          "line": 98,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_wedge_utils_test.cc",
+          "line": 99,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_wedge_utils_test.cc",
+          "line": 258,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_wedge_utils_test.cc",
+          "line": 313,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 104,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 252,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/cdef_test.cc",
+          "line": 346,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 155,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 89,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 90,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_get_interp_filter_kernel": {
+      "declaration": "av1/common/filter.h",
+      "declaration_line": 256,
+      "translated_name_present": false,
+      "sites": [
+        {
+          "source": "test/convolve_test.cc",
+          "line": 480,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 562,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 624,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 635,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 693,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 1075,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 1113,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "clip_pixel_highbd": {
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 86,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/convolve_test.cc",
+          "line": 216,
+          "reviewed_role": "native expected-output helper"
+        },
+        {
+          "source": "test/convolve_test.cc",
+          "line": 241,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    },
+    "get_conv_params_wiener": {
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 107,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 131,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 177,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 265,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/hiprec_convolve_test_util.cc",
+          "line": 316,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_is_dv_valid": {
+      "declaration": "av1/common/mvref_common.h",
+      "declaration_line": 279,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/intrabc_test.cc",
+          "line": 167,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "is_chroma_reference": {
+      "declaration": "av1/common/av1_common_int.h",
+      "declaration_line": 1456,
+      "translated_name_present": false,
+      "sites": [
+        {
+          "source": "test/intrabc_test.cc",
+          "line": 164,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_default_scan": {
+      "declaration": "av1/common/scan.h",
+      "declaration_line": 41,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_inv_txfm2d_test.cc",
+          "line": 281,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/scan_test.cc",
+          "line": 126,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "get_txb_high": {
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 60,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 71,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 107,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 222,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/scan_test.cc",
+          "line": 101,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_txb_wide": {
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 55,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 70,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 106,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 221,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/scan_test.cc",
+          "line": 102,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "aom_read_": {
+      "declaration": "aom_dsp/bitreader.h",
+      "declaration_line": 104,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 80,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 113,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 154,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 169,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "aom_write": {
+      "declaration": "aom_dsp/bitwriter.h",
+      "declaration_line": 72,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 66,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 101,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/boolcoder_test.cc",
+          "line": 147,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "av1_get_dx": {
+      "declaration": "av1/common/reconintra.h",
+      "declaration_line": 122,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 299,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 333,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 357,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 396,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 408,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_get_dy": {
+      "declaration": "av1/common/reconintra.h",
+      "declaration_line": 137,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 300,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 334,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 358,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 397,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 409,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_use_intra_edge_upsample": {
+      "declaration": "av1/common/reconintra.h",
+      "declaration_line": 148,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 215,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/dr_prediction_test.cc",
+          "line": 217,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "fclamp": {
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 82,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/noise_model_test.cc",
+          "line": 1233,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/noise_model_test.cc",
+          "line": 1241,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_get_interp_filter_params_with_block_size": {
+      "declaration": "av1/common/filter.h",
+      "declaration_line": 249,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 356,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 379,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 572,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 595,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 791,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 808,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 988,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1005,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1102,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1290,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1292,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1338,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1340,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1636,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1638,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1661,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1663,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1824,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1826,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2029,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2137,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2234,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2291,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2611,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2613,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2722,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2724,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_conv_params_no_round": {
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 68,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 358,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 365,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 381,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 394,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 462,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 472,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 490,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 502,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 574,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 582,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 597,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 611,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 676,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 686,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 705,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 718,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1312,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1321,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1344,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1356,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1404,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1414,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1510,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1520,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1540,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1554,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1642,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1648,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1667,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1679,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1714,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1721,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1797,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1808,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1831,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 1845,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/av1_convolve_test.cc",
+          "line": 2005,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 266,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/reconinter_test.cc",
+          "line": 309,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 180,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 249,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 269,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 379,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 452,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 476,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "round_shift": {
+      "declaration": "av1/common/av1_txfm.h",
+      "declaration_line": 118,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_fwd_txfm1d_test.cc",
+          "line": 48,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_fwd_txfm1d_test.cc",
+          "line": 49,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_fwd_txfm1d_test.cc",
+          "line": 51,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_fwd_txfm1d_test.cc",
+          "line": 52,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_fwd_txfm1d_test.cc",
+          "line": 54,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_fwd_txfm1d_test.cc",
+          "line": 55,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_inv_txfm1d_test.cc",
+          "line": 146,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "aom_get_qmlevel": {
+      "declaration": "av1/common/quant_common.h",
+      "declaration_line": 61,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 19,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 21,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 23,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 25,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 27,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 42,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 44,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 52,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 54,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "aom_get_qmlevel_allintra": {
+      "declaration": "av1/common/quant_common.h",
+      "declaration_line": 77,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 64,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 66,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 68,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 70,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 72,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 89,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 91,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 100,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        },
+        {
+          "source": "test/av1_get_qmlevel_test.cc",
+          "line": 102,
+          "reviewed_role": "reviewed Rust subject in the separate original-assertion bridge execution"
+        }
+      ]
+    },
+    "fdct_round_shift": {
+      "declaration": "aom_dsp/txfm_common.h",
+      "declaration_line": 150,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_txfm_test.cc",
+          "line": 182,
+          "reviewed_role": "native expected-output helper"
+        },
+        {
+          "source": "test/av1_txfm_test.cc",
+          "line": 183,
+          "reviewed_role": "native expected-output helper"
+        },
+        {
+          "source": "test/av1_txfm_test.cc",
+          "line": 184,
+          "reviewed_role": "native expected-output helper"
+        },
+        {
+          "source": "test/av1_txfm_test.cc",
+          "line": 185,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    },
+    "get_rect_tx_log_ratio": {
+      "declaration": "av1/common/av1_txfm.h",
+      "declaration_line": 254,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/av1_txfm_test.cc",
+          "line": 247,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    },
+    "get_wedge_types_lookup": {
+      "declaration": "av1/common/reconinter.h",
+      "declaration_line": 330,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 130,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 147,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 514,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/comp_mask_pred_test.cc",
+          "line": 544,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_get_max_eob": {
+      "declaration": "av1/common/blockd.h",
+      "declaration_line": 1601,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodemb_test.cc",
+          "line": 27,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodemb_test.cc",
+          "line": 38,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodemb_test.cc",
+          "line": 54,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_scan": {
+      "declaration": "av1/common/scan.h",
+      "declaration_line": 46,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodemb_test.cc",
+          "line": 28,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodemb_test.cc",
+          "line": 39,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_padded_idx": {
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 69,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 154,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "get_txb_bhl": {
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 50,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 69,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 105,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "set_levels": {
+      "declaration": "av1/common/txb_common.h",
+      "declaration_line": 65,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 76,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 116,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 126,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 226,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/encodetxb_test.cc",
+          "line": 227,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "av1_get_mv_class": {
+      "declaration": "av1/encoder/encodemv.h",
+      "declaration_line": 67,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/mv_cost_test.cc",
+          "line": 44,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    },
+    "clamp64": {
+      "declaration": "aom_dsp/aom_dsp_common.h",
+      "declaration_line": 78,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 91,
+          "reviewed_role": "native expected-output helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 94,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    },
+    "get_conv_params": {
+      "declaration": "av1/common/convolve.h",
+      "declaration_line": 102,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 160,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 221,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 252,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 356,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 423,
+          "reviewed_role": "native fixture/reference helper"
+        },
+        {
+          "source": "test/warp_filter_test_util.cc",
+          "line": 455,
+          "reviewed_role": "native fixture/reference helper"
+        }
+      ]
+    },
+    "find_average": {
+      "declaration": "av1/encoder/pickrst.h",
+      "declaration_line": 60,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/wiener_test.cc",
+          "line": 51,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    },
+    "find_average_highbd": {
+      "declaration": "av1/encoder/pickrst.h",
+      "declaration_line": 73,
+      "translated_name_present": true,
+      "sites": [
+        {
+          "source": "test/wiener_test.cc",
+          "line": 427,
+          "reviewed_role": "native expected-output helper"
+        }
+      ]
+    }
+  }
+}

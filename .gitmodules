@@ -1,0 +1,15 @@
+[submodule "codecs/libjpeg-turbo-rs/upstream/libjpeg-turbo"]
+	path = codecs/libjpeg-turbo-rs/upstream/libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+
+[submodule "codecs/libwebp-rs/upstream/libwebp"]
+	path = codecs/libwebp-rs/upstream/libwebp
+	url = https://chromium.googlesource.com/webm/libwebp
+
+[submodule "codecs/libwebp-rs/upstream/libwebp-test-data"]
+	path = codecs/libwebp-rs/upstream/libwebp-test-data
+	url = https://chromium.googlesource.com/webm/libwebp-test-data
+
+[submodule "codecs/libjxl-rs/upstream/libjxl"]
+	path = codecs/libjxl-rs/upstream/libjxl
+	url = https://github.com/libjxl/libjxl.git

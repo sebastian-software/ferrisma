@@ -1,0 +1,139 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Portable dav1d'
+'on':
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Native targets to execute
+        type: choice
+        options:
+        - all
+        - ubuntu-24.04
+        - macos-15
+        default: all
+      tier:
+        description: Bounded API checks or the complete original corpus
+        type: choice
+        options:
+        - full
+        - smoke
+        default: full
+  workflow_call:
+    inputs:
+      runner:
+        description: Native targets to execute
+        type: string
+        default: all
+      tier:
+        description: Bounded API checks or the complete original corpus
+        type: string
+        default: full
+permissions:
+  contents: read
+concurrency:
+  group: avif-dav1d-${{ github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  parity:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: |-
+          ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
+              inputs.runner == 'ubuntu-24.04' && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
+              (github.event_name == 'pull_request' || github.event_name == 'push') && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
+              '[{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"macos-15","architecture":"arm64"}]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.tier == 'full')
+        && 'full' || 'smoke') }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Prepare native reference tools
+      shell: bash
+      run: |
+        test "$(uname -m)" = "${{ matrix.architecture }}"
+        if [ "${{ runner.os }}" = Linux ]; then
+          sudo apt-get update
+          sudo apt-get install -y clang-16 nasm ninja-build pkg-config python3-venv
+          echo CC=clang-16 >> "$GITHUB_ENV"
+        else
+          brew install ninja pkg-config
+        fi
+        rustup show active-toolchain
+        python3 -m venv build/dav1d-tools
+        build/dav1d-tools/bin/python -m pip install meson==1.7.2
+        python3 tools/import_dav1d.py --fetch
+        python3 tools/check_translation.py
+        python3 tools/generate_licenses.py --check
+    - name: Build both original portable references and Rust profiles
+      run: |
+        python3 tools/build_dav1d.py --debug
+        python3 tools/build_dav1d.py
+        python3 tools/build_dav1d_consumers.py
+        python3 tools/build_dav1d_consumers.py --debug
+    - name: Original reference corpus inventories
+      if: env.CI_TIER == 'full'
+      run: |
+        build/dav1d-tools/bin/meson test -C build/dav1d-reference-release --no-rebuild --num-processes 2 --print-errorlogs
+        build/dav1d-tools/bin/meson test -C build/dav1d-reference-debug --no-rebuild --num-processes 2 --print-errorlogs
+    - name: Native layouts and isolated public API comparisons
+      run: |
+        python3 tools/check_dav1d_abi.py
+        python3 tools/check_dav1d_api.py
+        python3 tools/check_dav1d_api.py --debug
+        python3 tools/check_dav1d_linkage.py
+        python3 tools/check_dav1d_linkage.py --debug
+    - name: All original test bodies with Rust decoder
+      if: env.CI_TIER == 'full'
+      run: |
+        python3 tools/run_dav1d_tests.py build/dav1d-rust-release --jobs 2
+        python3 tools/run_dav1d_tests.py build/dav1d-rust-debug --jobs 2 --timeout-multiplier 4
+    - name: Original DSP test bodies with verified C and Rust pointers
+      if: env.CI_TIER == 'full'
+      run: |
+        python3 tools/check_dav1d_dsp.py
+        python3 tools/check_dav1d_dsp.py --debug
+        python3 tools/verify_upstream.py
+    - name: Original static allocation and thread-failure fuzzer
+      if: runner.os == 'Linux' && env.CI_TIER == 'full'
+      run: |
+        python3 tools/check_dav1d_faults.py
+        python3 tools/check_dav1d_faults.py --debug
+    - name: Record executed CI scope
+      run: |
+        python3 - <<'PY'
+        import json, os
+        from pathlib import Path
+        tier = os.environ['CI_TIER']
+        Path('build/dav1d-ci-scope.json').write_text(json.dumps(dict(
+            tier=tier, native_runner=os.environ['RUNNER_OS'], api_and_abi_profiles=['release', 'debug'],
+            public_api_abi_and_ownership=True, complete_original_corpus_profiles=['release', 'debug'] if tier == 'full' else []), indent=2) + '\n')
+        PY
+    - name: Preserve native comparison evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: dav1d-${{ matrix.runner }}-${{ matrix.architecture }}
+        path: |
+          codecs/libavif-rs/build/dav1d-ci-scope.json
+          codecs/libavif-rs/build/dav1d-reference-*/reference-profile.json
+          codecs/libavif-rs/build/dav1d-reference-*/meson-logs/testlog*
+          codecs/libavif-rs/build/dav1d-rust-*/original-*.json
+          codecs/libavif-rs/build/dav1d-rust-*/original-test-logs/
+          codecs/libavif-rs/build/dav1d-rust-*/linkage*.json
+          codecs/libavif-rs/build/dav1d-abi/summary.json
+          codecs/libavif-rs/build/dav1d-api-*/summary.json
+          codecs/libavif-rs/build/dav1d-api-*/*.log
+          codecs/libavif-rs/build/dav1d-dsp-*/results.log
+          codecs/libavif-rs/build/dav1d-dsp-*/inventory.json
+          codecs/libavif-rs/build/dav1d-faults-*/summary.json
+    name: 'AVIF dav1d: parity'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

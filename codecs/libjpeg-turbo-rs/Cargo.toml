@@ -1,0 +1,27 @@
+[package]
+name = "libjpeg-turbo-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+# The translated libjpeg API library is under the IJG License; the SIMD
+# extensions, once translated, are under the zlib License (LICENSE.md).
+license = "IJG AND Zlib"
+description = "A mechanical Rust port of libjpeg-turbo's JPEG decoder"
+repository = "https://github.com/sebastian-software/ferrixel"
+publish = false
+
+[lib]
+name = "jpeg"
+
+[features]
+default = ["simd"]
+# WITH_SIMD: upstream's SIMD extensions, on by default as upstream builds them
+# (ADR 0007, ADR 0008). build.rs turns it into cfg(with_simd) on the architectures whose
+# kernels are translated; elsewhere it has no effect. Without it the crate is
+# the reference configuration of the C oracle (ADR 0002) and has no unsafe code.
+simd = []
+# The C oracle is a set of probe executables used by differential tests, never
+# a dependency of the library (ADR 0002). Without this feature a test that needs
+# the oracle skips with a message when LIBJPEG_ORACLE_DIR is unset; with it, the
+# test fails instead. tools/check.py --oracle builds the oracle and enables it.
+oracle = []

@@ -2,13 +2,10 @@ name: M1 Synthetic Performance Smoke
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/m1-performance-smoke.yml"
-      - "scripts/m1-performance-smoke.sh"
+  workflow_call:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: m1-performance-smoke-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:

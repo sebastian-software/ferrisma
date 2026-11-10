@@ -1,0 +1,65 @@
+resampling-alpha-0-1-1	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 1 1
+resampling-alpha-0-1-2	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 2 1
+resampling-alpha-0-1-4	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 4 1
+resampling-alpha-0-1-8	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 8 1
+resampling-main-0-1	fs-encode-ext 17 9 0 0 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 1 1 1
+resampling-alpha-0-2-1	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 1 1
+resampling-alpha-0-2-2	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 2 1
+resampling-alpha-0-2-4	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 4 1
+resampling-alpha-0-2-8	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 8 1
+resampling-main-0-2	fs-encode-ext 17 9 0 0 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 2 2 1
+resampling-alpha-0-4-1	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 1 1
+resampling-alpha-0-4-2	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 2 1
+resampling-alpha-0-4-4	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 4 1
+resampling-alpha-0-4-8	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 8 1
+resampling-main-0-4	fs-encode-ext 17 9 0 0 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 4 4 1
+resampling-alpha-0-8-1	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 1 1
+resampling-alpha-0-8-2	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 2 1
+resampling-alpha-0-8-4	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 4 1
+resampling-alpha-0-8-8	fs-encode-ext 17 9 0 1 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 8 1
+resampling-main-0-8	fs-encode-ext 17 9 0 0 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 8 8 1
+resampling-alpha-1-1-1	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 1 1
+resampling-alpha-1-1-2	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 2 1
+resampling-alpha-1-1-4	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 4 1
+resampling-alpha-1-1-8	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 1 8 1
+resampling-main-1-1	fs-encode-ext 17 9 0 0 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 1 1 1
+resampling-alpha-1-2-1	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 1 1
+resampling-alpha-1-2-2	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 2 1
+resampling-alpha-1-2-4	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 4 1
+resampling-alpha-1-2-8	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 2 8 1
+resampling-main-1-2	fs-encode-ext 17 9 0 0 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 2 2 1
+resampling-alpha-1-4-1	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 1 1
+resampling-alpha-1-4-2	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 2 1
+resampling-alpha-1-4-4	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 4 1
+resampling-alpha-1-4-8	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 4 8 1
+resampling-main-1-4	fs-encode-ext 17 9 0 0 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 4 4 1
+resampling-alpha-1-8-1	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 1 1
+resampling-alpha-1-8-2	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 2 1
+resampling-alpha-1-8-4	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 4 1
+resampling-alpha-1-8-8	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 2 0 0 8 8 1
+resampling-main-1-8	fs-encode-ext 17 9 0 0 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 3 0 0 8 8 1
+resampling-aligned-modular-1-2	fs-encode-ext 16 16 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 16 16 0 0 5 0 0 1 2 1
+resampling-aligned-modular-1-4	fs-encode-ext 16 16 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 16 16 0 0 5 0 0 1 4 1
+resampling-aligned-modular-1-8	fs-encode-ext 16 16 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 16 16 0 0 5 0 0 1 8 1
+resampling-aligned-modular-2-4	fs-encode-ext 16 16 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 16 16 0 0 5 0 0 2 4 1
+resampling-aligned-modular-2-8	fs-encode-ext 16 16 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 16 16 0 0 5 0 0 2 8 1
+resampling-aligned-modular-4-8	fs-encode-ext 16 16 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 16 16 0 0 5 0 0 4 8 1
+encoder-unsupported-resampling-3-1	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 4 0 0 3 1 1
+encoder-unsupported-resampling-1-3	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 4 0 0 1 3 1
+encoder-unsupported-resampling-16-1	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 4 0 0 16 1 1
+encoder-unsupported-resampling-1-16	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 4 0 0 1 16 1
+encoder-unsupported-resampling-2-3	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 4 0 0 2 3 1
+encoder-unsupported-resampling-3-8	fs-encode-ext 17 9 0 1 0 0 0 0 1 1 0 0 1 0 1 0 0 2 1 0 0 17 9 0 0 4 0 0 3 8 1
+multigroup-257-3-0-0	fs-encode-ext 257 3 0 0 1 1 0 0 3 0 2 0 0 3 1 0 0 2 1 0 0 257 3 0 0 1 0 0 1 1 1 0 0 0 0 1 3 0 1 1 1 0 0 257 3 17 42 2 0 0 1 1 1 0 0 0 1 0 1 0 1 1 1 0 0 257 3 23 87 3 0 0 1 1 1
+multigroup-257-3-0-1	fs-encode-ext 257 3 0 0 1 1 3 2 4 0 0 0 1 0 1 0 0 2 1 0 0 3 2 0 0 9 0 1 1 1 1 0 2 0 0 3 1 0 0 2 1 0 0 257 3 0 0 1 0 0 1 1 1 0 0 0 0 1 3 0 1 1 1 0 0 257 3 17 42 2 0 0 1 1 1 0 0 0 1 0 1 0 1 1 1 0 0 257 3 23 87 3 0 0 1 1 1
+multigroup-257-3-1-0	fs-encode-ext 257 3 0 0 0 1 0 0 3 1 2 0 0 3 1 0 0 2 1 0 0 257 3 0 0 1 0 0 1 1 1 1 0 0 0 1 3 0 1 1 1 0 0 257 3 17 42 2 0 0 1 1 1 1 0 0 1 0 1 0 1 1 1 0 0 257 3 23 87 3 0 0 1 1 1
+multigroup-257-3-1-1	fs-encode-ext 257 3 0 0 0 1 3 2 4 1 0 0 1 0 1 0 0 2 1 0 0 3 2 0 0 9 0 1 1 1 1 1 2 0 0 3 1 0 0 2 1 0 0 257 3 0 0 1 0 0 1 1 1 1 0 0 0 1 3 0 1 1 1 0 0 257 3 17 42 2 0 0 1 1 1 1 0 0 1 0 1 0 1 1 1 0 0 257 3 23 87 3 0 0 1 1 1
+multigroup-3-257-0-0	fs-encode-ext 3 257 0 0 1 1 0 0 3 0 2 0 0 3 1 0 0 2 1 0 0 3 257 0 0 1 0 0 1 1 1 0 0 0 0 1 3 0 1 1 1 0 0 3 257 17 42 2 0 0 1 1 1 0 0 0 1 0 1 0 1 1 1 0 0 3 257 23 87 3 0 0 1 1 1
+multigroup-3-257-0-1	fs-encode-ext 3 257 0 0 1 1 3 2 4 0 0 0 1 0 1 0 0 2 1 0 0 3 2 0 0 9 0 1 1 1 1 0 2 0 0 3 1 0 0 2 1 0 0 3 257 0 0 1 0 0 1 1 1 0 0 0 0 1 3 0 1 1 1 0 0 3 257 17 42 2 0 0 1 1 1 0 0 0 1 0 1 0 1 1 1 0 0 3 257 23 87 3 0 0 1 1 1
+multigroup-3-257-1-0	fs-encode-ext 3 257 0 0 0 1 0 0 3 1 2 0 0 3 1 0 0 2 1 0 0 3 257 0 0 1 0 0 1 1 1 1 0 0 0 1 3 0 1 1 1 0 0 3 257 17 42 2 0 0 1 1 1 1 0 0 1 0 1 0 1 1 1 0 0 3 257 23 87 3 0 0 1 1 1
+multigroup-3-257-1-1	fs-encode-ext 3 257 0 0 0 1 3 2 4 1 0 0 1 0 1 0 0 2 1 0 0 3 2 0 0 9 0 1 1 1 1 1 2 0 0 3 1 0 0 2 1 0 0 3 257 0 0 1 0 0 1 1 1 1 0 0 0 1 3 0 1 1 1 0 0 3 257 17 42 2 0 0 1 1 1 1 0 0 1 0 1 0 1 1 1 0 0 3 257 23 87 3 0 0 1 1 1
+multigroup-513-1-0-0	fs-encode-ext 513 1 0 0 1 1 0 0 3 0 2 0 0 3 1 0 0 2 1 0 0 513 1 0 0 1 0 0 1 1 1 0 0 0 0 1 3 0 1 1 1 0 0 513 1 17 42 2 0 0 1 1 1 0 0 0 1 0 1 0 1 1 1 0 0 513 1 23 87 3 0 0 1 1 1
+multigroup-513-1-0-1	fs-encode-ext 513 1 0 0 1 1 3 2 4 0 0 0 1 0 1 0 0 2 1 0 0 3 2 0 0 9 0 1 1 1 1 0 2 0 0 3 1 0 0 2 1 0 0 513 1 0 0 1 0 0 1 1 1 0 0 0 0 1 3 0 1 1 1 0 0 513 1 17 42 2 0 0 1 1 1 0 0 0 1 0 1 0 1 1 1 0 0 513 1 23 87 3 0 0 1 1 1
+multigroup-513-1-1-0	fs-encode-ext 513 1 0 0 0 1 0 0 3 1 2 0 0 3 1 0 0 2 1 0 0 513 1 0 0 1 0 0 1 1 1 1 0 0 0 1 3 0 1 1 1 0 0 513 1 17 42 2 0 0 1 1 1 1 0 0 1 0 1 0 1 1 1 0 0 513 1 23 87 3 0 0 1 1 1
+multigroup-513-1-1-1	fs-encode-ext 513 1 0 0 0 1 3 2 4 1 0 0 1 0 1 0 0 2 1 0 0 3 2 0 0 9 0 1 1 1 1 1 2 0 0 3 1 0 0 2 1 0 0 513 1 0 0 1 0 0 1 1 1 1 0 0 0 1 3 0 1 1 1 0 0 513 1 17 42 2 0 0 1 1 1 1 0 0 1 0 1 0 1 1 1 0 0 513 1 23 87 3 0 0 1 1 1
+dc-ladder-base	fs-encode 1 1 0 0 1 0 0 0 1 0 0 0 1 0 1 0 0 2 1 0 0 1 1 0 0 3 2 0

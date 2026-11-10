@@ -1,0 +1,60 @@
+{
+  "status": "fixture provisioning defect diagnosed; corrected native Linux execution still required",
+  "source_run": 41548531529,
+  "continuation_run": 41609941416,
+  "job_id": 125829585716,
+  "artifact_id": 13250448251,
+  "workflow_commit": "f626104a02a90142ab99da37559616d89ccb4b8e",
+  "codec_implementation_commit": "8c978b2b476d593d74ae919c76c0cfb2971b178d",
+  "original_registered_cases_per_implementation": 38,
+  "failed_cases_per_implementation": 16,
+  "failed_case_names": [
+    "AV1/RcInterfaceTest.OneLayer/0",
+    "AV1/RcInterfaceTest.OneLayer/1",
+    "AV1/RcInterfaceTest.OneLayerDropFramesCBR/0",
+    "AV1/RcInterfaceTest.OneLayerDropFramesCBR/1",
+    "AV1/RcInterfaceTest.OneLayerPeriodicKey/0",
+    "AV1/RcInterfaceTest.OneLayerPeriodicKey/1",
+    "AV1/RcInterfaceTest.OneLayerScreen/0",
+    "AV1/RcInterfaceTest.OneLayerScreen/1",
+    "AV1/RcInterfaceTest.Svc/0",
+    "AV1/RcInterfaceTest.Svc/1",
+    "AV1/RcInterfaceTest.SvcPeriodicKey/0",
+    "AV1/RcInterfaceTest.SvcPeriodicKey/1",
+    "AV1/RcInterfaceTest.SvcDynamicTemporal/0",
+    "AV1/RcInterfaceTest.SvcDynamicTemporal/1",
+    "AV1/RcInterfaceTest.SvcDynamicSpatial/0",
+    "AV1/RcInterfaceTest.SvcDynamicSpatial/1"
+  ],
+  "missing_original_fixtures": [
+    "niklas_640_480_30.yuv",
+    "hantro_collage_w352h288.yuv"
+  ],
+  "cause": "The paired job fetched fixtures only for test_libaom. Original rate-control video tests also require the two named fixtures. Both C and Rust failed the original file-open assertion and its fatal-failure propagation.",
+  "failed_identity": {
+    "profile": "release",
+    "program": "test_aom_rc",
+    "shards": 1,
+    "filter": "*",
+    "c_executable_sha256": "546e4363195ece898db372ecf20b8bc76e79463d648c947b41f0ec0b6e1b9197",
+    "rust_executable_sha256": "6b93f546f5cc55c3308069423ff292ca78226ebbfd8be624050bd0209279a6a6",
+    "original_inventory_sha256": "b7d4a18130d66d6d2b4fc87a2d1cb0ca55f1c3046e02d12bb5969e2a34c4f27c",
+    "config_sha256": "73fed02ff2d9ed47cf8964f4dc39f511868064de2bd1329519448990549a2079",
+    "translation_manifest_sha256": "65861b0dd9a865942a4def7db4026bde1d4ba7a27503b1fb48832ed064cd77de",
+    "verified_fixtures_sha256": null,
+    "rust_archive_sha256": "6b2f70bf9651345443c8fbe6b7073d1e9cfa9abc1ac54412994b425a894fa7be"
+  },
+  "preserved_actual_files_sha256": {
+    "aom-native-release/reference-profile.json": "5782d0119a80cc6f86a694037cce83ee4ecd4cf50eff45cb078ca736f2b363cc",
+    "aom-paired-release-test_aom_rc/shard-0-c.xml": "512b863f3ac8077ee94aacb6dfce550361f7fb4ae8fb085e6fb77e4aab2b45e2",
+    "aom-paired-release-test_aom_rc/shard-0.json": "803f38bbe3fa6afa63115787161fc475cdc9ee9b5d46c4909f8cad0eee783d33",
+    "aom-paired-release-test_aom_rc/shard-0-rust.log": "c423469c6cbcbe5a41f4fbfecca010db6eda37ee20020a62ad260a4d5786ecc0",
+    "aom-paired-release-test_aom_rc/shard-0-rust.xml": "5989d1bb0f27e13cd4c5ac94c7c2e73140a3b61e84ce6db94b7b2b464f9c4d77",
+    "aom-paired-release-test_aom_rc/shard-0-c.log": "407f44c261c8ce10f10749bce5592ba3b7c141f7c7dc255b974b6b6c2765b09e"
+  },
+  "correction": "Fetch and verify the unchanged original selected fixture corpus for both test_libaom and test_aom_rc. Keep the original disabled-speed boundary unchanged.",
+  "recovery_contract": "Repeat all 38 original C/Rust rate-control cases from the same frozen native Linux binaries after verifying the original fixtures. Preserve this failure and all passing original main-suite evidence.",
+  "assertions_inputs_parameters_goldens_and_disabled_flags_unchanged": true,
+  "full_acceptance": false,
+  "root_default_engine_switched": false
+}
