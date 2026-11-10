@@ -23,6 +23,12 @@ makes a reference, so that acceptance is per unit, not per function. Includes
 that use nothing of the other package's code (macros, target constants or
 nothing at all) are listed under "reviewed_includes" with a reason.
 
+In a SIMD oracle variant (release-simd) a portable unit's Init function calls
+the Init functions of its SIMD variants (VP8DspInit calls VP8DspInitSSE2 and
+VP8DspInitNEON); the Rust dispatch functions carry that edge under cfg, as
+ADR 0008 decides, so a call to an Init function of a SIMD unit (a module entry
+with "unsafe") is not a package reference.
+
 With --check the script exits with status 1 when any reference is left;
 tools/check.py --oracle runs it that way.
 """
@@ -62,6 +68,7 @@ def closure(packages, package):
 def analyze(manifest, variant):
     packages = manifest["packages"]
     owner = {path: entry["package"] for entry in manifest["modules"] for path in entry["upstream"]}
+    simd_units = {path for entry in manifest["modules"] if entry.get("unsafe") for path in entry["upstream"]}
     unit_packages = collections.defaultdict(set)
     function_owner = {}
     for exception in manifest.get("exceptions", []):
@@ -102,6 +109,9 @@ def analyze(manifest, variant):
         for name in names:
             target_unit = defined.get(name)
             if target_unit is None:
+                continue
+            if target_unit in simd_units and "Init" in name:
+                # Runtime selection (ADR 0008): the portable Init calls the SIMD Init.
                 continue
             target = function_owner.get((target_unit, name), owner[target_unit])
             if target not in permitted:
