@@ -238,6 +238,17 @@ pub fn webp_rescaler_export_row_shrink_c(wrk: &mut WebPRescaler, dst: &mut [u8])
 /// The import of a row for a rescaler that expands in x. The C dispatch
 /// pointer is `WebPRescalerImportRowExpand_C`.
 pub fn webp_rescaler_import_row_expand(wrk: &mut WebPRescaler, src: &[u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::rescaler_sse2::rescaler_import_row_expand(wrk, src);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_rescaler_import_row_expand_c(wrk, src);
 }
 
@@ -245,6 +256,17 @@ pub fn webp_rescaler_import_row_expand(wrk: &mut WebPRescaler, src: &[u8]) {
 /// The import of a row for a rescaler that shrinks in x. The C dispatch
 /// pointer is `WebPRescalerImportRowShrink_C`.
 pub fn webp_rescaler_import_row_shrink(wrk: &mut WebPRescaler, src: &[u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::rescaler_sse2::rescaler_import_row_shrink(wrk, src);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_rescaler_import_row_shrink_c(wrk, src);
 }
 
@@ -252,6 +274,17 @@ pub fn webp_rescaler_import_row_shrink(wrk: &mut WebPRescaler, src: &[u8]) {
 /// The export of a row for a rescaler that expands in y. The C dispatch
 /// pointer is `WebPRescalerExportRowExpand_C`.
 pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::rescaler_sse2::rescaler_export_row_expand(wrk, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_rescaler_export_row_expand_c(wrk, dst);
 }
 
@@ -259,6 +292,17 @@ pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
 /// The export of a row for a rescaler that shrinks in y. The C dispatch
 /// pointer is `WebPRescalerExportRowShrink_C`.
 pub fn webp_rescaler_export_row_shrink(wrk: &mut WebPRescaler, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::rescaler_sse2::rescaler_export_row_shrink(wrk, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_rescaler_export_row_shrink_c(wrk, dst);
 }
 
