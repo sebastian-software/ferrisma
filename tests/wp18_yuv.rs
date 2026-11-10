@@ -256,7 +256,7 @@ fn converters(levels: &[Level], tally: &mut Tally, rng: &mut Rng) {
 fn yuv_simd_matches_the_c_translation() {
     let levels = simd_levels();
     assert!(!levels.is_empty(), "an x86 host has SSE2");
-    let mut rng = Rng(0x5750_3138_5955_56);
+    let mut rng = Rng(0x0057_5031_3859_5556);
     let mut tally = Tally::default();
     samplers(&levels, &mut tally, &mut rng);
     converters(&levels, &mut tally, &mut rng);
