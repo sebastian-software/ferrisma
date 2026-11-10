@@ -109,12 +109,34 @@ pub fn webp_mult_row_c(ptr: &mut [u8], alpha: &[u8], width: i32, inverse: bool) 
 // upstream: src/dsp/alpha_processing.c WebPMultARGBRow
 /// Premultiplies `width` ARGB pixels. The C dispatch pointer is `WebPMultARGBRow_C`.
 pub fn webp_mult_argb_row(ptr: &mut [u32], width: i32, inverse: bool) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::mult_argb_row(ptr, width, inverse);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_mult_argb_row_c(ptr, width, inverse);
 }
 
 // upstream: src/dsp/alpha_processing.c WebPMultRow
 /// Premultiplies one row of single values. The C dispatch pointer is `WebPMultRow_C`.
 pub fn webp_mult_row(ptr: &mut [u8], alpha: &[u8], width: i32, inverse: bool) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::mult_row(ptr, alpha, width, inverse);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_mult_row_c(ptr, alpha, width, inverse);
 }
 
@@ -196,6 +218,23 @@ fn apply_alpha_multiply_c(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, st
 /// Premultiplies an RGBA, BGRA or ARGB plane of `w` by `h` pixels in place.
 /// `alpha_first` is set for ARGB, where alpha comes first.
 pub fn webp_apply_alpha_multiply(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, stride: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::apply_alpha_multiply(
+                rgba,
+                alpha_first,
+                w,
+                h,
+                stride,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     apply_alpha_multiply_c(rgba, alpha_first, w, h, stride);
 }
 
@@ -304,6 +343,24 @@ pub fn webp_dispatch_alpha(
     dst: &mut [u8],
     dst_stride: i32,
 ) -> bool {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::dispatch_alpha(
+                alpha,
+                alpha_stride,
+                width,
+                height,
+                dst,
+                dst_stride,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     dispatch_alpha_c(alpha, alpha_stride, width, height, dst, dst_stride)
 }
 
@@ -339,6 +396,24 @@ pub fn webp_dispatch_alpha_to_green(
     dst: &mut [u32],
     dst_stride: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::dispatch_alpha_to_green(
+                alpha,
+                alpha_stride,
+                width,
+                height,
+                dst,
+                dst_stride,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     dispatch_alpha_to_green_c(alpha, alpha_stride, width, height, dst, dst_stride);
 }
 
@@ -378,6 +453,34 @@ pub fn webp_extract_alpha(
     alpha: &mut [u8],
     alpha_stride: i32,
 ) -> bool {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::alpha_processing_sse41::extract_alpha(
+                argb,
+                argb_stride,
+                width,
+                height,
+                alpha,
+                alpha_stride,
+            );
+        }
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::extract_alpha(
+                argb,
+                argb_stride,
+                width,
+                height,
+                alpha,
+                alpha_stride,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     extract_alpha_c(argb, argb_stride, width, height, alpha, alpha_stride)
 }
 
@@ -394,6 +497,17 @@ fn extract_green_c(argb: &[u32], alpha: &mut [u8], size: i32) {
 /// Copies the green byte of each `u32` pixel to `alpha`. The C dispatch
 /// pointer is `ExtractGreen_C`.
 pub fn webp_extract_green(argb: &[u32], alpha: &mut [u8], size: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::extract_green(argb, alpha, size);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     extract_green_c(argb, alpha, size);
 }
 
@@ -445,6 +559,17 @@ fn has_alpha8b_c(src: &[u8], length: i32) -> bool {
 /// pointer is `HasAlpha8b_C`.
 #[must_use]
 pub fn webp_has_alpha8b(src: &[u8], length: i32) -> bool {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::has_alpha8b(src, length);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     has_alpha8b_c(src, length)
 }
 
@@ -461,6 +586,17 @@ fn has_alpha32b_c(src: &[u8], length: i32) -> bool {
 /// plane `src` is not 0xff. The C dispatch pointer is `HasAlpha32b_C`.
 #[must_use]
 pub fn webp_has_alpha32b(src: &[u8], length: i32) -> bool {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::has_alpha32b(src, length);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     has_alpha32b_c(src, length)
 }
 
@@ -479,5 +615,16 @@ fn alpha_replace_c(src: &mut [u32], length: i32, color: u32) {
 /// Replaces every fully transparent pixel of `src` by `color`. The C dispatch
 /// pointer is `AlphaReplace_C`.
 pub fn webp_alpha_replace(src: &mut [u32], length: i32, color: u32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::alpha_processing_sse2::alpha_replace(src, length, color);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     alpha_replace_c(src, length, color);
 }
