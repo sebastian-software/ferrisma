@@ -33,7 +33,12 @@
 //! Work package: WP4 (pixel ops).
 //!
 //! `VP8GetCPUInfo` is a query, not a function pointer (ADR 0003). On x86 it
-//! answers for the running CPU as `x86CPUInfo` does. Elsewhere the reference
+//! answers for the running CPU as `x86CPUInfo` does. On 64-bit ARM with the
+//! `simd` feature it answers `kNEON` as `armCPUInfo` does in upstream's NEON
+//! build (WP20, ADR 0008): upstream defines `WEBP_HAVE_NEON` there, assigns
+//! `armCPUInfo`, and without `WEBP_HAVE_NEON_RTCD`, which only 32-bit ARM
+//! builds use for their `/proc/cpuinfo` test, the query reports NEON and
+//! nothing else. Elsewhere, and in the scalar build, the reference
 //! configuration leaves the pointer NULL, and the query answers `false`.
 //! The `WEBP_DSP_INIT` guards of `cpu.h` have no counterpart: they protect
 //! pointer assignments, which ADR 0003 omits. The compile-time macros of
@@ -185,10 +190,33 @@ pub fn vp8_get_cpu_info(feature: CPUFeature) -> bool {
     x86cpu_info(feature)
 }
 
+// upstream: src/dsp/cpu.c armCPUInfo
+/// The ARM query of upstream's NEON build: NEON is reported, every other
+/// feature is not. `WEBP_HAVE_NEON_RTCD`, the run-time test of 32-bit ARM
+/// Linux builds, is not defined for 64-bit ARM.
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+fn arm_cpu_info(feature: CPUFeature) -> bool {
+    feature == CPUFeature::kNEON
+}
+
+// upstream: src/dsp/cpu.c VP8GetCPUInfo
+/// Reports whether the running CPU supports `feature`. On 64-bit ARM with the
+/// `simd` feature the answer is `armCPUInfo`'s: NEON only, as in upstream's
+/// NEON build (ADR 0008).
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+#[must_use]
+pub fn vp8_get_cpu_info(feature: CPUFeature) -> bool {
+    arm_cpu_info(feature)
+}
+
 // upstream: src/dsp/cpu.c VP8GetCPUInfo
 /// Reports whether the running CPU supports `feature`. Without an x86 query,
 /// the reference configuration's NULL pointer reports no feature.
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(not(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(feature = "simd", target_arch = "aarch64")
+)))]
 #[must_use]
 pub fn vp8_get_cpu_info(_feature: CPUFeature) -> bool {
     false

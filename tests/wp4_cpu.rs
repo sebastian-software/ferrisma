@@ -4,10 +4,15 @@
 //! The C probe `tools/oracle/probes/wp4/cpu.c` runs in its own process. On
 //! x86 the reference configuration installs `x86CPUInfo`, and the probe answers
 //! for each of the ten features on the running CPU; the Rust query must give
-//! the same answers on the same host. On other targets the configuration leaves
-//! the pointer NULL, and the probe says so; the Rust query then answers `false`
-//! for every feature. On x86 the probe also prints `CheckSlowModel` for a grid
-//! of `cpuid` leaf-1 EAX values, which the Rust helper must match.
+//! the same answers on the same host. On other targets the reference
+//! configuration leaves the pointer NULL, and the probe says so; the scalar
+//! Rust build then answers `false` for every feature. On 64-bit ARM the
+//! `release-simd` oracle installs `armCPUInfo`, which answers `kNEON` only, and
+//! so does the Rust query with the `simd` feature (WP20, ADR 0008); against
+//! the reference oracle that build is compared with `armCPUInfo`'s answers,
+//! and the scalar build against `release-simd` with the NULL pointer's. On x86
+//! the probe also prints `CheckSlowModel` for a grid of `cpuid` leaf-1 EAX
+//! values, which the Rust helper must match.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -38,10 +43,30 @@ fn cpu_query_matches_the_c_query() {
     let no_args: [&str; 0] = [];
     let output = probe.run(&no_args, b"");
     let fields = output.success().fields();
+    // The NEON build of upstream on 64-bit ARM: `armCPUInfo` reports NEON only.
+    let neon_build = cfg!(all(feature = "simd", target_arch = "aarch64"));
+    let arm_cpu_info = |feature: CPUFeature| feature == CPUFeature::kNEON;
     match fields.int("null") {
         1 => {
-            // The reference configuration has no query on this target.
+            // The reference configuration has no query on this target; the
+            // Rust NEON build answers as the NEON build's `armCPUInfo` does.
             for (number, feature) in FEATURES.into_iter().enumerate() {
+                assert_eq!(
+                    vp8_get_cpu_info(feature),
+                    neon_build && arm_cpu_info(feature),
+                    "feature {number} differs from the configuration's query"
+                );
+            }
+        }
+        0 if cfg!(target_arch = "aarch64") && !neon_build => {
+            // The `release-simd` oracle's `armCPUInfo`, against the scalar
+            // Rust build, whose reference configuration has no query.
+            for (number, feature) in FEATURES.into_iter().enumerate() {
+                assert_eq!(
+                    fields.int(&format!("feature{number}")) == 1,
+                    arm_cpu_info(feature),
+                    "the C query of the NEON build reports feature {number}"
+                );
                 assert!(
                     !vp8_get_cpu_info(feature),
                     "feature {number} is reported without a C query"
