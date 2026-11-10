@@ -95,7 +95,11 @@ ABI's `VP8GetCPUInfo` pointer, as the `Init` functions compute their choices:
 a `NULL` pointer answers no x86 feature (`-noasm`), the translation's own
 query answers from `cpuid`, and a query a caller installed answers for
 itself; `neon` is true on AArch64 whatever the pointer says, as upstream
-compiles NEON in there. With `simd` on AArch64, `vp8_get_cpu_info` answers
+compiles NEON in there, and `query_neon` is what the pointer answers for
+`kNEON` (`NULL` answers no), for the one `Init` that selects NEON by the
+query alone rather than by `WEBP_NEON_OMIT_C_CODE`, `VP8EncDspCostInit`, so
+that `-noasm` returns the residual-cost functions to C as in upstream's NEON
+build. With `simd` on AArch64, `vp8_get_cpu_info` answers
 `kNEON` as upstream's `armCPUInfo` does in a NEON build, and the C ABI's
 pointer is that query rather than `NULL` (WP20 makes both changes; the
 reference-configuration answers stay in the scalar build). The record is
