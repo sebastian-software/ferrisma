@@ -29,7 +29,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(helpers))
 import bpy
 from studio import light, material, render, scene, studio
-from hero_geometry import box, cylinder, ring, rod, verify_geometry
+from hero_geometry import box, cylinder, ring, rod, surfaces, verify_geometry
 
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
@@ -37,10 +37,9 @@ result = scene('Ferrixel raster loupe mark', draft=opts.draft)
 result.render.resolution_x = result.render.resolution_y = 768 if opts.draft else 1600
 result.cycles.samples = 48 if opts.draft else 160
 steel = material('Ferra polished steel', (0.54, 0.52, 0.48), 0.18)
-copper = material('Ferra polished oxide copper', (0.32, 0.11, 0.045), 0.22, oxide=True)
 graphite = material('Ferra narrow graphite recess', (0.033, 0.030, 0.026), 0.38, metallic=0.55)
 mid = material('Raster matte steel inlay', (0.31, 0.30, 0.28), 0.40, metallic=0.65)
-for surface, roughness in [(steel, 0.18), (copper, 0.22), (graphite, 0.38), (mid, 0.40)]:
+for surface, roughness in [(steel, 0.18), (graphite, 0.38), (mid, 0.40)]:
     for shader in surface.node_tree.nodes:
         if shader.type == 'BUMP':
             shader.inputs['Strength'].default_value = 0.035
@@ -49,23 +48,28 @@ for surface, roughness in [(steel, 0.18), (copper, 0.22), (graphite, 0.38), (mid
             shader.inputs['To Min'].default_value = roughness - 0.015
             shader.inputs['To Max'].default_value = roughness + 0.015
 
-# The loupe is a real annulus. A shallow metal lens plate supports the bold
-# raster cells; only the slim shadow edge is graphite.
+_, rust, _, _ = surfaces()
+# Weathered iron oxide occupies the broad ring face while polished steel lips
+# keep both boundaries crisp at icon size. A shallow plate supports the cells.
 ring('Graphite lens depth', 1.015, 0.650, 0.105, (0, 0, -0.10), graphite)
-ring_body = ring('Bright steel loupe rim', 1.010, 0.650, 0.22, (0, 0, 0.025), steel)
-for modifier in ring_body.modifiers:
-    if modifier.type == 'BEVEL':
-        modifier.width = 0.033
-        modifier.segments = 6
+ring('Weathered oxide loupe face', 1.010, 0.650, 0.185, (0, 0, 0.025), rust)
+for name, outer, inner in [('Bright outer steel lip', 1.018, 0.938),
+                           ('Bright inner steel lip', 0.725, 0.645)]:
+    lip = ring(name, outer, inner, 0.22, (0, 0, 0.027), steel)
+    for modifier in lip.modifiers:
+        if modifier.type == 'BEVEL':
+            modifier.width = 0.023
+            modifier.segments = 6
 cylinder('Recessed steel lens ground', 0.642, 0.065, (0, 0, -0.104), mid, bevel=0.009)
 # Seven broad cells give the lens an unmistakable pixel reading at 32px.
 for row, col in [(0,0),(0,1),(1,0),(1,1),(1,2),(2,1),(2,2)]:
     x, y = (col-1)*0.31, (1-row)*0.31
     box(f'Raised raster cell {row}-{col}', (0.287, 0.287, 0.085),
         (x, y, -0.023), steel, 0.018)
-# A short, coherent handle grows from the ring; copper is one retained collar.
+# A short, coherent handle grows from the ring. The rust grip is substantial,
+# with a visible steel ferrule and end to retain the family material contrast.
 rod('Steel loupe handle', (0.62, -0.62, -0.04), (1.35, -1.35, -0.04), 0.145, steel)
-rod('Oxide handle collar', (0.77, -0.77, -0.04), (0.94, -0.94, -0.04), 0.178, copper)
+rod('Weathered oxide handle grip', (0.80, -0.80, -0.04), (1.20, -1.20, -0.04), 0.171, rust)
 checks = verify_geometry()
 studio((0.10, -0.10, 0), (3.1, -4.1, 12), up=(0, 1, 0))
 light('Rolling face reflection', (-5.5, 2.5, 8), 160, 1, 6, (1, 0.97, 0.93), (0, 0, 0))
@@ -75,7 +79,7 @@ if not opts.draft:
     record = {
         'product': 'Ferrixel',
         'role': 'Transparent native Blender raster loupe product mark master',
-        'meaning': 'A polished steel loupe frames seven raised raster cells; a single oxide collar marks the handle.',
+        'meaning': 'A weathered iron-oxide loupe with polished steel lips frames seven raised raster cells; a patinated grip completes the handle.',
         'renderer': f'Blender {bpy.app.version_string}, Cycles',
         'dimensions': '1600x1600', 'samples': result.cycles.samples,
         'colorManagement': 'AgX Medium High Contrast, sRGB alpha',

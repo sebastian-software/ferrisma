@@ -1,7 +1,7 @@
 {
   "product": "Ferrixel",
   "role": "Transparent native Blender raster loupe product mark master",
-  "meaning": "A polished steel loupe frames seven raised raster cells; a single oxide collar marks the handle.",
+  "meaning": "A weathered iron-oxide loupe with polished steel lips frames seven raised raster cells; a patinated grip completes the handle.",
   "renderer": "Blender 5.3.0, Cycles",
   "dimensions": "1600x1600",
   "samples": 160,
@@ -11,8 +11,8 @@
     "studio.py": "7b0616e4bc8899ccd98f93fb5f61337d21e21da0b8aa90df60bd36f469d824b7",
     "hero_geometry.py": "060cd7feb85d6477e6a79d97c26e41f87bdd7f6d3899a36981b8e8a89fabdd17"
   },
-  "constructionSha256": "7793c8ac8c2ede73e26191736aaf6b1a2a820443697cadf17a98cbe8d519609d",
-  "masterSha256": "f12bba5fa8a40485324e02da1a7d74bc863f349b1a679991174e137d9f16b86a",
+  "constructionSha256": "c16eeb0af57333772d2ac591a5d1b52be148e7765646b1939c28e5b61fd49834",
+  "masterSha256": "4c26d7fb4120534f2fcd682403a1bd64d053eab861063d7e6241b052d5906650",
   "geometryVerification": [
     {
       "body": "Graphite lens depth",
@@ -21,9 +21,21 @@
       "machinedPockets": 0
     },
     {
-      "body": "Bright steel loupe rim",
+      "body": "Weathered oxide loupe face",
       "closedManifold": true,
-      "volume": 0.407292209,
+      "volume": 0.346588144,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Bright outer steel lip",
+      "closedManifold": true,
+      "volume": 0.10507206,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Bright inner steel lip",
+      "closedManifold": true,
+      "volume": 0.073593413,
       "machinedPockets": 0
     },
     {
@@ -81,25 +93,25 @@
       "machinedPockets": 0
     },
     {
-      "body": "Oxide handle collar",
+      "body": "Weathered oxide handle grip",
       "closedManifold": true,
-      "volume": 0.023858972,
+      "volume": 0.051850405,
       "machinedPockets": 0
     }
   ],
   "verificationScope": "Each evaluated mesh is closed and has positive volume; assembly contacts are not generally collision-checked.",
   "export": {
     "pipeline": "10% alpha bounds; 12.5% transparent padding; Lanczos resize; 32/48/64 ICO; 256 lossless WebP; 512 PNG; 180 paper touch icon",
-    "alphaBounds": "1395x1323+104+140",
+    "alphaBounds": "1397x1325+102+138",
     "familyTokensSha256": "1db5c57209f4cec921d2b303f548e7f2dfa112fb81e6b14a43b7621c0733f725",
     "paper": "#F4F0E6",
     "imageMagick": "Version: ImageMagick 7.1.2-35 Q16-HDRI aarch64 acaf7e418:20261031 https://imagemagick.org",
     "exporterSha256": "e6d007ebaa5655324bfc46287386f04c96a9576350084d832c056a52110062cf",
     "files": {
-      "ferrixel-mark-512.png": "2b6a9bfd086787fd341cb28c4005d63de51c478288f66fb4d6a17aacd1bc6ed3",
-      "ferrixel-mark.webp": "b952e7b49c92d43b0efeaecc8ac7d1178d6d7e9deabea06f740802f170426d05",
-      "favicon.ico": "2e3105b5f462a38ff8770185b3733beff1344b3469745e28eb8f55869e3bcad1",
-      "apple-touch-icon.png": "53ccd3537dc13c4aad09db326f814123a8384a219893ba10142e57cf030616ae"
+      "ferrixel-mark-512.png": "fa024c093de0c57672cb3870f492292a45911e598c237d8b0946517b5aed9aa6",
+      "ferrixel-mark.webp": "2ce5018c4e5db8cba5a21a88903de286a1e1ee7ca8a56db703b041e34b29a43c",
+      "favicon.ico": "ee6aeee54ab12b709ee4d765814af501d8e7541590af20f6b34b76f9f97b6d81",
+      "apple-touch-icon.png": "597130adbc2f2df38f41be1679cb03b0b8a57affa63d95737dc2b3d7ba1a1711"
     }
   }
 }

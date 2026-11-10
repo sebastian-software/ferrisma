@@ -1,7 +1,7 @@
 {
   "product": "Ferrixel",
   "role": "Transparent native Blender homepage instrument",
-  "meaning": "A steel inspection ring frames an enlarged raster beside a fine source grid.",
+  "meaning": "One steel workbench trims, presses, and inspects three scales of the same mountain photograph.",
   "renderer": "Blender 5.3.0, Cycles",
   "dimensions": "2400x1200",
   "samples": 192,
@@ -11,480 +11,1884 @@
     "studio.py": "7b0616e4bc8899ccd98f93fb5f61337d21e21da0b8aa90df60bd36f469d824b7",
     "hero_geometry.py": "060cd7feb85d6477e6a79d97c26e41f87bdd7f6d3899a36981b8e8a89fabdd17"
   },
-  "constructionSha256": "7a82e40904c7a449f93e3cabda5bd5c3e5035f1984a9bcbfe39a3381ab5d8d30",
-  "masterSha256": "c465fed4620e8b6841efa44ae72467c6f2a88bde2b2d7d63c49dfe92e0bcff09",
+  "constructionSha256": "fc298d1bc712ffc5a73c7d846e9ed3d0123281f4b7eac9a81a46fdb86e1d1c60",
+  "masterSha256": "e58107b32233acbea96bbbd082a526031a3e8b2abf20274628e783a0a6bd2284",
   "geometryVerification": [
     {
-      "body": "Loupe machined mounting plate",
+      "body": "Image workbench machined mounting plate",
       "closedManifold": true,
-      "volume": 8.149204548,
+      "volume": 12.511932767,
       "machinedPockets": 4
     },
     {
-      "body": "Loupe flush bed anchor counterbore floor",
+      "body": "Image workbench flush bed anchor counterbore floor",
       "closedManifold": true,
       "volume": 0.000963949,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor recessed sleeve washer",
+      "body": "Image workbench flush bed anchor recessed sleeve washer",
       "closedManifold": true,
       "volume": 0.004207988,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor flush socket head",
+      "body": "Image workbench flush bed anchor flush socket head",
       "closedManifold": true,
       "volume": 0.007556067,
       "machinedPockets": 1
     },
     {
-      "body": "Loupe flush bed anchor dark hex floor",
+      "body": "Image workbench flush bed anchor dark hex floor",
       "closedManifold": true,
-      "volume": 8.4442e-05,
+      "volume": 0.000084442,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor counterbore floor.001",
+      "body": "Image workbench flush bed anchor counterbore floor.001",
       "closedManifold": true,
       "volume": 0.000963949,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor recessed sleeve washer.001",
+      "body": "Image workbench flush bed anchor recessed sleeve washer.001",
       "closedManifold": true,
       "volume": 0.004207988,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor flush socket head.001",
+      "body": "Image workbench flush bed anchor flush socket head.001",
       "closedManifold": true,
       "volume": 0.007556067,
       "machinedPockets": 1
     },
     {
-      "body": "Loupe flush bed anchor dark hex floor.001",
+      "body": "Image workbench flush bed anchor dark hex floor.001",
       "closedManifold": true,
-      "volume": 8.4442e-05,
+      "volume": 0.000084442,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor counterbore floor.002",
+      "body": "Image workbench flush bed anchor counterbore floor.002",
       "closedManifold": true,
       "volume": 0.000963949,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor recessed sleeve washer.002",
+      "body": "Image workbench flush bed anchor recessed sleeve washer.002",
       "closedManifold": true,
       "volume": 0.004207988,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor flush socket head.002",
+      "body": "Image workbench flush bed anchor flush socket head.002",
       "closedManifold": true,
       "volume": 0.007556067,
       "machinedPockets": 1
     },
     {
-      "body": "Loupe flush bed anchor dark hex floor.002",
+      "body": "Image workbench flush bed anchor dark hex floor.002",
       "closedManifold": true,
-      "volume": 8.4442e-05,
+      "volume": 0.000084442,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor counterbore floor.003",
+      "body": "Image workbench flush bed anchor counterbore floor.003",
       "closedManifold": true,
       "volume": 0.000963949,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor recessed sleeve washer.003",
+      "body": "Image workbench flush bed anchor recessed sleeve washer.003",
       "closedManifold": true,
       "volume": 0.004207988,
       "machinedPockets": 0
     },
     {
-      "body": "Loupe flush bed anchor flush socket head.003",
+      "body": "Image workbench flush bed anchor flush socket head.003",
       "closedManifold": true,
       "volume": 0.007556067,
       "machinedPockets": 1
     },
     {
-      "body": "Loupe flush bed anchor dark hex floor.003",
+      "body": "Image workbench flush bed anchor dark hex floor.003",
       "closedManifold": true,
-      "volume": 8.4442e-05,
+      "volume": 0.000084442,
       "machinedPockets": 0
     },
     {
-      "body": "Shallow specimen stage",
+      "body": "Continuous specimen rail",
       "closedManifold": true,
-      "volume": 0.916980671,
+      "volume": 0.113473046,
       "machinedPockets": 0
     },
     {
-      "body": "Fine specimen image plate",
+      "body": "Continuous front registration rail",
       "closedManifold": true,
-      "volume": 0.240512012,
-      "machinedPockets": 25
-    },
-    {
-      "body": "Fine specimen image plate groove floor 0",
-      "closedManifold": true,
-      "volume": 6.0217e-05,
+      "volume": 0.080378409,
       "machinedPockets": 0
     },
     {
-      "body": "Fine specimen image plate groove floor 1",
+      "body": "Rail fixing washer",
       "closedManifold": true,
-      "volume": 6.0217e-05,
+      "volume": 0.000302385,
       "machinedPockets": 0
     },
     {
-      "body": "Fine specimen image plate groove floor 2",
+      "body": "Rail fixing socket head",
       "closedManifold": true,
-      "volume": 6.0217e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 3",
-      "closedManifold": true,
-      "volume": 6.0217e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 4",
-      "closedManifold": true,
-      "volume": 6.0217e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 5",
-      "closedManifold": true,
-      "volume": 6.0217e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 6",
-      "closedManifold": true,
-      "volume": 6.0217e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 7",
-      "closedManifold": true,
-      "volume": 6.0217e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 8",
-      "closedManifold": true,
-      "volume": 8.9414e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 9",
-      "closedManifold": true,
-      "volume": 8.9414e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 10",
-      "closedManifold": true,
-      "volume": 8.9414e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 11",
-      "closedManifold": true,
-      "volume": 8.9414e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 12",
-      "closedManifold": true,
-      "volume": 8.9414e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 0.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 1.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 2.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 3.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 4.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 5.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 6.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 7.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 8.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 9.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 10.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fine specimen image plate groove floor 11.001",
-      "closedManifold": true,
-      "volume": 0.000128304,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window",
-      "closedManifold": true,
-      "volume": 0.265580226,
-      "machinedPockets": 20
-    },
-    {
-      "body": "Enlarged sample window groove floor 0",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 1",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 2",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 3",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 4",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 5",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 6",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 7",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 8",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 9",
-      "closedManifold": true,
-      "volume": 9.9906e-05,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 0.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 1.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 2.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 3.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 4.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 5.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 6.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 7.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 8.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Enlarged sample window groove floor 9.001",
-      "closedManifold": true,
-      "volume": 0.000228096,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Loupe pivot ground socket",
-      "closedManifold": true,
-      "volume": 0.050190578,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Loupe pivot axle",
-      "closedManifold": true,
-      "volume": 0.016129927,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Pivot thrust washer",
-      "closedManifold": true,
-      "volume": 0.002316006,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Single angled inspection arm",
-      "closedManifold": true,
-      "volume": 0.018469463,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Loupe barrel fork",
-      "closedManifold": true,
-      "volume": 0.018078317,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fork retaining socket washer",
-      "closedManifold": true,
-      "volume": 0.00038275,
-      "machinedPockets": 0
-    },
-    {
-      "body": "Fork retaining socket socket head",
-      "closedManifold": true,
-      "volume": 0.000438117,
+      "volume": 0.00030951,
       "machinedPockets": 1
     },
     {
-      "body": "Fork retaining socket dark socket floor",
+      "body": "Rail fixing dark socket floor",
       "closedManifold": true,
-      "volume": 1.6482e-05,
+      "volume": 0.000013074,
       "machinedPockets": 0
     },
     {
-      "body": "Magnifier bright outer barrel",
+      "body": "Rail fixing washer.001",
       "closedManifold": true,
-      "volume": 0.207569752,
+      "volume": 0.000302385,
       "machinedPockets": 0
     },
     {
-      "body": "Magnifier inner optical rim",
+      "body": "Rail fixing socket head.001",
       "closedManifold": true,
-      "volume": 0.014057023,
+      "volume": 0.00030951,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Rail fixing dark socket floor.001",
+      "closedManifold": true,
+      "volume": 0.000013074,
       "machinedPockets": 0
     },
     {
-      "body": "Machined focus scale",
+      "body": "Rail fixing washer.002",
       "closedManifold": true,
-      "volume": 0.007355549,
+      "volume": 0.000302385,
       "machinedPockets": 0
     },
     {
-      "body": "Small oxide focal index",
+      "body": "Rail fixing socket head.002",
       "closedManifold": true,
-      "volume": 0.000802845,
+      "volume": 0.00030951,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Rail fixing dark socket floor.002",
+      "closedManifold": true,
+      "volume": 0.000013074,
       "machinedPockets": 0
     },
     {
-      "body": "Pivot brace",
+      "body": "Rail fixing washer.003",
       "closedManifold": true,
-      "volume": 0.003033695,
+      "volume": 0.000302385,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Rail fixing socket head.003",
+      "closedManifold": true,
+      "volume": 0.00030951,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Rail fixing dark socket floor.003",
+      "closedManifold": true,
+      "volume": 0.000013074,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Station joint",
+      "closedManifold": true,
+      "volume": 0.00420473,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Station joint.001",
+      "closedManifold": true,
+      "volume": 0.00420473,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Photo trimming board",
+      "closedManifold": true,
+      "volume": 0.638096306,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer dark cutting slot",
+      "closedManifold": true,
+      "volume": 0.001042051,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer rear paper fence",
+      "closedManifold": true,
+      "volume": 0.052368972,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer left square",
+      "closedManifold": true,
+      "volume": 0.023077934,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo paper border",
+      "closedManifold": true,
+      "volume": 0.105812869,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-0",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-1",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-2",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-3",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-4",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-5",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-6",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 0-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 1-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 2-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 3-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 4-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 5-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 6-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 7-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 8-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 9-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source photo pixel 10-7",
+      "closedManifold": true,
+      "volume": 0.000236971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 0",
+      "closedManifold": true,
+      "volume": 0.00000957,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 1",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 2",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 3",
+      "closedManifold": true,
+      "volume": 0.00000957,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 4",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 5",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 6",
+      "closedManifold": true,
+      "volume": 0.00000957,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 7",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 8",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 9",
+      "closedManifold": true,
+      "volume": 0.00000957,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 10",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Trimmer ruler tick 11",
+      "closedManifold": true,
+      "volume": 0.000005157,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Blade hinge bearing",
+      "closedManifold": true,
+      "volume": 0.012640562,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lifted oxide cutting lever",
+      "closedManifold": true,
+      "volume": 0.046545803,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inset polished cutting edge",
+      "closedManifold": true,
+      "volume": 0.002608996,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised flat steel shear blade",
+      "closedManifold": true,
+      "volume": 0.008820621,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Blade rear pivot cap",
+      "closedManifold": true,
+      "volume": 0.002990695,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Blade hinge fastener washer",
+      "closedManifold": true,
+      "volume": 0.000281161,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Blade hinge fastener socket head",
+      "closedManifold": true,
+      "volume": 0.000278059,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Blade hinge fastener dark socket floor",
+      "closedManifold": true,
+      "volume": 0.000012172,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Photo retention clamp",
+      "closedManifold": true,
+      "volume": 0.005437732,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Clamp adjustment washer",
+      "closedManifold": true,
+      "volume": 0.000203982,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Clamp adjustment socket head",
+      "closedManifold": true,
+      "volume": 0.000173517,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Clamp adjustment dark socket floor",
+      "closedManifold": true,
+      "volume": 0.000008889,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Resizing press tray",
+      "closedManifold": true,
+      "volume": 0.740311385,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press lower die",
+      "closedManifold": true,
+      "volume": 0.254681271,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo paper border",
+      "closedManifold": true,
+      "volume": 0.073719146,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 0-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 1-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 2-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 3-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 4-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 5-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 6-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 7-0",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 0-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 1-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 2-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 3-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 4-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 5-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 6-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 7-1",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 0-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 1-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 2-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 3-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 4-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 5-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 6-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 7-2",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 0-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 1-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 2-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 3-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 4-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 5-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 6-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 7-3",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 0-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 1-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 2-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 3-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 4-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 5-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 6-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 7-4",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 0-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 1-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 2-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 3-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 4-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 5-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 6-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Reduced photo pixel 7-5",
+      "closedManifold": true,
+      "volume": 0.000277275,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press foot bearing",
+      "closedManifold": true,
+      "volume": 0.014640384,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press guide post",
+      "closedManifold": true,
+      "volume": 0.029755971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press post collar",
+      "closedManifold": true,
+      "volume": 0.002721607,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press foot bearing.001",
+      "closedManifold": true,
+      "volume": 0.014640384,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press guide post.001",
+      "closedManifold": true,
+      "volume": 0.029755971,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press post collar.001",
+      "closedManifold": true,
+      "volume": 0.002721607,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Weathered resizing yoke",
+      "closedManifold": true,
+      "volume": 0.209971272,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Moving press platen",
+      "closedManifold": true,
+      "volume": 0.087202684,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Depth-extending moving die face",
+      "closedManifold": true,
+      "volume": 0.13905252,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw to platen coupling",
+      "closedManifold": true,
+      "volume": 0.016781751,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Platen hanger",
+      "closedManifold": true,
+      "volume": 0.003727844,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Platen hanger.001",
+      "closedManifold": true,
+      "volume": 0.003727844,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press lead shaft",
+      "closedManifold": true,
+      "volume": 0.013971191,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 0",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 1",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 2",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 3",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 4",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 5",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 6",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 7",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 8",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 9",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 10",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Lead screw thread 11",
+      "closedManifold": true,
+      "volume": 0.000086908,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press handwheel rim",
+      "closedManifold": true,
+      "volume": 0.011690507,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Handwheel spoke",
+      "closedManifold": true,
+      "volume": 0.001022104,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Handwheel spoke.001",
+      "closedManifold": true,
+      "volume": 0.001022104,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Handwheel spoke.002",
+      "closedManifold": true,
+      "volume": 0.001022104,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Handwheel spoke.003",
+      "closedManifold": true,
+      "volume": 0.001022104,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Handwheel hub",
+      "closedManifold": true,
+      "volume": 0.006837024,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press spindle keeper washer",
+      "closedManifold": true,
+      "volume": 0.000335669,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press spindle keeper socket head",
+      "closedManifold": true,
+      "volume": 0.000360997,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Press spindle keeper dark socket floor",
+      "closedManifold": true,
+      "volume": 0.000014486,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press tray keeper washer",
+      "closedManifold": true,
+      "volume": 0.000459161,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press tray keeper socket head",
+      "closedManifold": true,
+      "volume": 0.000573249,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Press tray keeper dark socket floor",
+      "closedManifold": true,
+      "volume": 0.000019717,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press tray keeper washer.001",
+      "closedManifold": true,
+      "volume": 0.000459161,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Press tray keeper socket head.001",
+      "closedManifold": true,
+      "volume": 0.000573249,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Press tray keeper dark socket floor.001",
+      "closedManifold": true,
+      "volume": 0.000019717,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inspection window carrier",
+      "closedManifold": true,
+      "volume": 0.616149521,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inset photo well",
+      "closedManifold": true,
+      "volume": 0.185252349,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo paper border",
+      "closedManifold": true,
+      "volume": 0.146627246,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-0",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-1",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-2",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-3",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-4",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-5",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 0-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 1-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 2-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 3-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 4-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 5-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Magnified mountain photo pixel 6-6",
+      "closedManifold": true,
+      "volume": 0.000619185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Loupe bearing pedestal",
+      "closedManifold": true,
+      "volume": 0.048903668,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Loupe upright spindle",
+      "closedManifold": true,
+      "volume": 0.027953376,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Loupe thrust bearing",
+      "closedManifold": true,
+      "volume": 0.002903979,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Weathered articulated inspection arm",
+      "closedManifold": true,
+      "volume": 0.02575083,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Steel optical barrel fork",
+      "closedManifold": true,
+      "volume": 0.021147033,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Loupe fork keeper washer",
+      "closedManifold": true,
+      "volume": 0.000335669,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Loupe fork keeper socket head",
+      "closedManifold": true,
+      "volume": 0.000360997,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Loupe fork keeper dark socket floor",
+      "closedManifold": true,
+      "volume": 0.000014486,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Weathered loupe barrel",
+      "closedManifold": true,
+      "volume": 0.125535671,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Polished loupe front bevel",
+      "closedManifold": true,
+      "volume": 0.022905404,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Polished loupe inner rim",
+      "closedManifold": true,
+      "volume": 0.009045923,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Loupe focusing track",
+      "closedManifold": true,
+      "volume": 0.003048681,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Focus witness mark",
+      "closedManifold": true,
+      "volume": 0.000689322,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inspection carrier keeper washer",
+      "closedManifold": true,
+      "volume": 0.000395003,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inspection carrier keeper socket head",
+      "closedManifold": true,
+      "volume": 0.000458976,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Inspection carrier keeper dark socket floor",
+      "closedManifold": true,
+      "volume": 0.000017001,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inspection carrier keeper washer.001",
+      "closedManifold": true,
+      "volume": 0.000395003,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Inspection carrier keeper socket head.001",
+      "closedManifold": true,
+      "volume": 0.000458976,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Inspection carrier keeper dark socket floor.001",
+      "closedManifold": true,
+      "volume": 0.000017001,
       "machinedPockets": 0
     }
   ],
   "verificationScope": "Each evaluated mesh is closed and has positive volume; Boolean cuts remove material. Assembly contacts are not generally collision-checked.",
-  "webpSha256": "de92a16d86e8baa72da3e1bb80a68fc1797cab6f170ede85846e091f7c1a1577",
+  "webpSha256": "6c359ac81db8b74d7c459857d2a65e40a75518f203029b8ba1a2f14905e86b74",
   "webpEncoder": "cwebp 1.6.0 -q 90 (libsharpyuv 0.4.2)",
   "renderPlatform": "macOS ARM64",
   "webpPath": "homepage/public/ferrixel-instrument.webp",

@@ -1,10 +1,17 @@
 # Ferrixel artwork
 
-The raster loupe is Ferrixel's image-inspection motif. The homepage instrument
-places an inspection ring above a coarse pixel grid, beside a finer source
-raster on a bright steel plate with recessed hex screws. The compact product
-mark keeps the ring, seven bold raster cells, and one oxide handle collar.
-Its simpler silhouette is used in the header and browser icons.
+Ferrixel's homepage instrument is a compact image-processing workstation.
+A photo trimmer, screw-operated resizing press, and inspection loupe share
+a bright machined steel bed. The same mountain-and-sun specimen appears at
+different sizes and sampling densities, with filled tonal pixels replacing
+the earlier engraved grid. Fences, guide rails, recessed fasteners and
+adjusters follow the mechanical detail of the other Ferramenta instruments.
+Weathered iron oxide covers selected clamps, the press yoke and the loupe
+housing, with polished steel edges keeping the assemblies distinct.
+
+The compact product mark keeps the loupe and seven bold raster cells. Its broad
+weathered-oxide face and handle grip are bounded by polished steel lips.
+This simpler silhouette is used in the header and browser icons.
 
 Both are symbolic illustrations, not optical simulations or claims about
 pipeline capabilities. Their native Blender recipes use Ferramenta's studio
