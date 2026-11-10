@@ -16,7 +16,7 @@ JPEG input, including scaled decoding for shrink-on-load, to
 behind the default `simd` feature. It is verified against the original C
 library as an oracle, upstream's own `djpeg` bit tests and the ISO/IEC 10918-2
 (ITU-T T.83) compliance data. Open work is tracked in the
-[issues](https://github.com/sebastian-software/libjpeg-turbo-rs/issues).
+[issues](https://github.com/sebastian-software/ferrixel/issues).
 
 ## Why libjpeg-turbo, and why only the decoder
 

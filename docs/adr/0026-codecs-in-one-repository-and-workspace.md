@@ -101,6 +101,30 @@ Run the native oracle checks after relocating their harnesses. Record actual
 results when available; this decision alone makes no validation or performance
 claim. A clean checkout must reproduce source setup without sibling repositories.
 
+Migration evidence recorded on 2026-11-10 (macOS ARM64):
+
+- Formatting, workspace compilation, engine tests and strict Clippy, adapter
+  release tests and strict Clippy, and the declared Rust 1.95/1.98 build checks
+  pass. The generated AVIF packages retain their existing compiler warnings.
+- JPEG's complete SIMD oracle run, JXL's ordinary C++ oracle run, and WebP's
+  SIMD and scalar oracle runs pass. JPEG and WebP exercise dev, release, and
+  checked profiles. The relocated AVIF tooling passes 114 tests (one existing
+  platform skip); all 62 AOM golden cases match their C-confirmed expectations.
+- The SharpYUV results below pass. All 24 workflows pass Actionlint.
+- A separate clean clone builds all ten workspace members offline. Its local
+  dependency paths stay inside the checkout; reference setup fetches the
+  original public repositories and passes each port's pin checks. All 2,651
+  embedded upstream Git blobs, 1,380 generated Rust files, and generated license
+  records retain their recorded identities. No golden outputs were refreshed.
+- All eight original PR heads are ancestors of the migration branch. The
+  history-only merge leaves the imported workspace tree unchanged.
+
+These local results do not replace native GNU Linux or the full sanitizer and
+original-consumer acceptance tiers. Those remain in the relocated workflows.
+Additional WebP x86 tests pass under Rosetta; that is emulated coverage, not
+native Linux acceptance. Reproduce the local tiers with the commands in the
+[codec guide](../codecs.md).
+
 ## Review when
 
 - A generated AVIF package can enable overflow checks or use stable Rust.

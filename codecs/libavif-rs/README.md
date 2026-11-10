@@ -28,7 +28,7 @@ translated without VMAF tuning, so libvmaf is not a dependency ([ADR 0057](docs/
 
 Complete applies to the stated scope. The selected portable library
 implementations and their default integration are delivered; open work is
-tracked in [GitHub issues](https://github.com/sebastian-software/libavif-rs/issues)
+tracked in [GitHub issues](https://github.com/sebastian-software/ferrixel/issues)
 and decisions in [`docs/adr/`](docs/adr).
 
 | Capability | Delivered scope |

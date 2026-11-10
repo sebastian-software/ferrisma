@@ -17,7 +17,7 @@ and `mux.h` for the unmodified upstream tools, and the safe Rust APIs for
 decoding and encoding. The SIMD variants (SSE2, SSE4.1, AVX2, NEON) are being
 translated behind runtime selection. Each module's documentation records how
 it departs from upstream and which undefined behavior its comparison excludes;
-the [issues](https://github.com/sebastian-software/libwebp-rs/issues) track the
+the [issues](https://github.com/sebastian-software/ferrixel/issues) track the
 open work, and the [Checks workflow](https://github.com/sebastian-software/ferrixel/actions/workflows/webp-check.yml)
 on `main` is the evidence.
 
