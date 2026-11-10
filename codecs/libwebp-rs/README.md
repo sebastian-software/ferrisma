@@ -1,25 +1,28 @@
 # libwebp-rs
 
-This port is maintained in the Ferrixel monorepo. See the [shared workspace guide](../../docs/codecs.md) for setup and checks; local porting contracts and licenses still apply.
+This port is a workspace member of the Ferrixel monorepo. Start with the
+[project overview](../../README.md), [current status](../../docs/status.md), or
+[codec workspace guide](../../docs/codecs.md). Its local porting contracts
+and licenses still apply.
 
 A mechanical, behavior-preserving Rust port of [libwebp](https://chromium.googlesource.com/webm/libwebp)
 v1.6.0, the WebP reference implementation: decoder, demuxer, animation
 decoder, encoder, muxer, animation encoder and SharpYUV, in safe Rust except
-for an audited C ABI module and the SIMD modules. It is the third sister port
-next to [libavif-rs](../libavif-rs) and
-[libjxl-rs](../libjxl-rs), and it supplies
-WebP input and output to [Ferrixel](https://github.com/sebastian-software/ferrixel).
+for an audited C ABI module and the SIMD modules. It is maintained alongside [libjpeg-turbo-rs](../libjpeg-turbo-rs),
+[libavif-rs](../libavif-rs), and [libjxl-rs](../libjxl-rs).
 
-**Status:** the portable translation is complete and verified byte-identical
-against the C library on Linux x86-64 and macOS ARM64: every decoder, encoder,
-container and SharpYUV unit, the C ABIs of `decode.h`, `encode.h`, `demux.h`
-and `mux.h` for the unmodified upstream tools, and the safe Rust APIs for
-decoding and encoding. The SIMD variants (SSE2, SSE4.1, AVX2, NEON) are being
-translated behind runtime selection. Each module's documentation records how
-it departs from upstream and which undefined behavior its comparison excludes;
-the [issues](https://github.com/sebastian-software/ferrixel/issues) track the
-open work, and the [Checks workflow](https://github.com/sebastian-software/ferrixel/actions/workflows/webp-check.yml)
-on `main` is the evidence.
+**Port status:** the portable decoder, encoder, container, animation and
+SharpYUV translations have differential evidence against libwebp v1.6.0.
+The C ABI is used to run upstream tools; safe Rust APIs cover decoding and
+encoding. SIMD implementations and their exceptions are documented in
+[ADR 0008](docs/adr/0008-simd-modules.md), including the NEON rescaler
+export rows that remain on the scalar path. Each module records its deviations
+and excluded undefined behavior.
+
+**Engine integration:** Ferrixel does not currently provide WebP input or
+output adapters. The port's APIs are the intended adoption boundary, subject
+to the gates in [ADR 0010](docs/adr/0010-ferrixel-adoption.md); see the
+[project status](../../docs/status.md) for current integration work.
 
 ## Using the library
 
@@ -36,7 +39,8 @@ The safe API is `webp::api`:
   rows or from YUVA planes; `Encoder` with progress and abort hooks and output
   through `Vec<u8>` or a writer closure; `encode_lossy` and `encode_lossless`.
 
-Every result is byte-identical to libwebp v1.6.0 with the same options. The
+The differential suite compares results with libwebp v1.6.0 for its tested
+inputs and configurations; it is not proof for every possible input. The
 translated modules (`webp::dec`, `webp::enc`, `webp::dsp`, ...) are public but
 mirror the C library's shapes; `webp::abi` exports the C API for the upstream
 tools and is not meant for Rust callers. What the library promises Ferrixel is
@@ -65,12 +69,19 @@ tools and is not meant for Rust callers. What the library promises Ferrixel is
 
 ## Building and checking
 
+Run from `codecs/libwebp-rs`:
+
 ```sh
-git submodule update --init
-cargo build
+git submodule update --init upstream/libwebp upstream/libwebp-test-data
+cargo fetch --locked
+cargo build -p libwebp-rs --locked
 python3 tools/check.py            # fmt, Clippy, tests in three profiles, provenance
 python3 tools/check.py --oracle   # also builds the C oracle and requires it
 ```
+
+The check script uses offline Cargo commands after the fetch; Rust artifacts
+are in the monorepo root `target/`. Tests needing an oracle skip without it
+unless the `oracle` feature is enabled.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) lists the prerequisites and focused checks;
 [AGENTS.md](AGENTS.md) has the rules for porting sessions.

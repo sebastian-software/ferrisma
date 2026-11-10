@@ -1,6 +1,6 @@
 # Architecture sketch
 
-*Status: exploratory. This page summarizes design intent, not an implementation contract.*
+*Status: exploratory. This page summarizes design intent and the current implementation, not a stable API contract. Start with the [documentation guide](README.md) and [current status](status.md).*
 
 ## Core separation
 
@@ -33,7 +33,9 @@ The architecture has four conceptual layers:
 
 ## Demand-driven example
 
-For a request to crop an AVIF image, resize it, and encode a JPEG XL thumbnail:
+As a design example, consider cropping an AVIF image, resizing it, and encoding
+a JPEG XL thumbnail. JPEG XL output is not implemented in the current pipeline;
+the example illustrates dependency propagation:
 
 ```text
 required output region
@@ -100,7 +102,7 @@ This experiment has no codec integration, advanced color model, multi-input bran
 
 The [second executable experiment](design/planar-surface-experiment.md) introduces a `Planar10Source` node with format and CICP-like color metadata but **no owned buffer**. Execution binds borrowed byte-strided `Yuv420P10<'a>` planes to that node, then forwards crop-only requests through the existing region planner. This directly tests the graph/storage lifetime boundary. The graph is not lifetime-parametrized by decoder buffers.
 
-Only even-origin YUV 4:2:0 crops are representable as direct views: shifting the chroma phase requires a real resampling policy. Planar resize is intentionally rejected rather than using the existing Gray8 bilinear filter on subsampled/HDR data. All source memory remains caller-owned, and the executor reports no managed *pixel* allocations. This does not assert zero process allocations, universal format support, or a stable API; the next validation requires an actual decoder.
+Only even-origin YUV 4:2:0 crops are representable as direct views: shifting the chroma phase requires a real resampling policy. Planar resize is intentionally rejected rather than using the existing Gray8 bilinear filter on subsampled/HDR data. All source memory remains caller-owned, and the executor reports no managed *pixel* allocations. This does not assert zero process allocations, universal format support, or a stable API; the experiment itself does not validate an actual decoder.
 
 ## Decoder source seam (experimental)
 
@@ -120,9 +122,9 @@ Graph nodes now share exact rendered ICC and CICP metadata and alpha-association
 
 ## M1 pipeline, facade and dependencies (experimental)
 
-The M1 path runs `decoder source → crop → ToLinearSrgb → WorkingLinear(Area | Lanczos3) → ToSrgb8 → AVIF sink` through a bounded row-cache executor ([ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md)). Two executors implement it: the scalar `f64` reference (`quality_execute`) and the default scalar `f32` executor (`fast_execute`), which linearizes each sample once through exact tables and keeps filtered rows in an O(1) ring; a differential test holds the second to the first within [ADR-0021](adr/0021-working-precision-policy.md)'s bound. The AVIF sink explicitly materializes one output frame for the encoder and reports it. One public entry point, `pipeline::transcode`, and a `cli`-gated binary exercise this path; graph, planner and executor stay private ([ADR-0017](adr/0017-minimal-public-facade-and-cli.md)).
+The current experimental M1 path runs `decoder source → crop → ToLinearSrgb → WorkingLinear(Area | Lanczos3) → ToSrgb8 → AVIF sink` through a bounded row-cache executor ([ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md)). Two executors implement it: the scalar `f64` reference (`quality_execute`) and the default `f32` executor (`fast_execute`), with runtime-dispatched CPU kernels, which linearizes each sample once through exact tables and keeps filtered rows in an O(1) ring; a differential test holds the second to the first within [ADR-0021](adr/0021-working-precision-policy.md)'s bound. The AVIF sink explicitly materializes one output frame for the encoder and reports it. One public entry point, `pipeline::transcode`, and a `cli`-gated binary exercise this path; graph, planner and executor stay private ([ADR-0017](adr/0017-minimal-public-facade-and-cli.md)).
 
-Codecs and the ICC CMS are optional features: `zune-jpeg`, `jxl-oxide`, `avif-decode` for input, `rav1e` with `avif-serialize` for output (driven by Ferrixel's own sink, which converts rows to YCbCr directly into the encoder's frame and derives AV1 tiles from the output size) and `moxcms` for rendered-ICC conversion. Sources describe their rendered color before decoding. For AVIF, Ferrixel reads `colr`, orientation properties and the AV1 sequence header itself, because the decoder crate does not expose them ([ADR-0012](adr/0012-codec-source-contract.md), [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)). The core's only unconditional dependency is the first-party kernel crate `crates/ferrixel-kernels` (ADR-0020): `std::arch` SIMD kernels with runtime dispatch behind a safe API, so the engine keeps `#![forbid(unsafe_code)]`. The package declares Rust 1.98 because of `avif-decode`. These third-party codecs are interim: the AVIF and JPEG XL adapters are meant to move to the sister ports libavif-rs and libjxl-rs once those offer a safe, stable-toolchain Rust API. WebP has no interim adapter: input and output are planned through a third port, libwebp-rs ([plan](research/2026-11-05-libwebp-port-plan.md)). JPEG stays input-only.
+Codecs and the ICC CMS are optional features: `zune-jpeg`, `jxl-oxide`, `avif-decode` for input, `rav1e` with `avif-serialize` for output (driven by Ferrixel's own sink, which converts rows to YCbCr directly into the encoder's frame and derives AV1 tiles from the output size) and `moxcms` for rendered-ICC conversion. Sources describe their rendered color before decoding. For AVIF, Ferrixel reads `colr`, orientation properties and the AV1 sequence header itself, because the decoder crate does not expose them ([ADR-0012](adr/0012-codec-source-contract.md), [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)). The core's only unconditional dependency is the first-party kernel crate `crates/ferrixel-kernels` (ADR-0020): `std::arch` SIMD kernels with runtime dispatch behind a safe API, so the engine keeps `#![forbid(unsafe_code)]`. The package declares Rust 1.98 because of `avif-decode`. These third-party codecs are interim: the AVIF and JPEG XL adapters are meant to move to the workspace ports libavif-rs and libjxl-rs once those offer a safe, stable-toolchain Rust API. WebP has no pipeline adapter: input and output are planned through the workspace port libwebp-rs ([plan](research/2026-11-05-libwebp-port-plan.md)). JPEG stays input-only.
 
 ## Orientation (experimental)
 
@@ -135,8 +137,8 @@ Decoders emit stored-order samples and report the EXIF orientation that displays
 ## Repository and verification boundaries
 
 [ADR-0026](adr/0026-codecs-in-one-repository-and-workspace.md) places the four
-codec ports under `codecs/` in the engine's Cargo workspace. The encoder adapter
-uses the local libavif package. The engine, adapters, codec APIs, licenses and
+codec ports under `codecs/` in the engine's Cargo workspace. The optional encoder adapter
+uses the local libavif package; the default engine AVIF encoder remains rav1e. The engine, adapters, codec APIs, licenses and
 unsafe boundaries remain distinct; membership does not select new pipeline
 backends. The root owns the lockfile, development toolchain, profiles and active
 CI workflows. Component checks retain their independent C/C++ references,
@@ -145,3 +147,11 @@ upstream pins and comparison rules, with a common entry point in
 feature combinations, reference setup, and independent publication.
 
 [ADR-0027](adr/0027-tiered-validation-and-rust-test-orchestration.md) defines scoped PR validation and deeper scheduled and manual reference checks. Rust owns the shared orchestration; existing Python oracle harnesses remain until evidence-preserving ports replace them.
+
+## Documentation delivery
+
+The Ardo website in `homepage/` presents the engine and ports through the shared
+Ferramenta theme. Technical pages are generated from this repository's Markdown;
+the website has a separate Node/pnpm dependency graph and build, outside Cargo.
+[ADR-0028](adr/0028-ardo-documentation-site.md) records the content ownership and
+presentation boundary. It adds no engine API or codec capability.

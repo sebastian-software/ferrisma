@@ -1,22 +1,30 @@
 # libjpeg-turbo-rs
 
-This port is maintained in the Ferrixel monorepo. See the [shared workspace guide](../../docs/codecs.md) for setup and checks; local porting contracts and licenses still apply.
+This decoder is a workspace member of the Ferrixel monorepo. Start with the
+[project overview](../../README.md), [current status](../../docs/status.md), or
+[codec workspace guide](../../docs/codecs.md). Its local porting contracts
+and licenses still apply.
 
 A mechanical, behavior-preserving Rust port of the JPEG decoder in
-[libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) 3.2.1, the
-fastest descendant of the Independent JPEG Group's reference libjpeg. It is the
-fourth sister port next to
-[libavif-rs](../libavif-rs),
+[libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) 3.2.1, a
+descendant of the Independent JPEG Group's reference libjpeg. It is maintained
+alongside [libavif-rs](../libavif-rs),
 [libjxl-rs](../libjxl-rs) and
-[libwebp-rs](../libwebp-rs), and will supply
-JPEG input, including scaled decoding for shrink-on-load, to
-[Ferrixel](https://github.com/sebastian-software/ferrixel).
+[libwebp-rs](../libwebp-rs), as a candidate for Ferrixel JPEG input.
 
-**Status:** the decoder is fully ported, with the Neon, SSE2 and AVX2 kernels
-behind the default `simd` feature. It is verified against the original C
-library as an oracle, upstream's own `djpeg` bit tests and the ISO/IEC 10918-2
-(ITU-T T.83) compliance data. Open work is tracked in the
-[issues](https://github.com/sebastian-software/ferrixel/issues).
+**Port status:** the in-scope 8-bit decoder and Neon, SSE2 and AVX2 kernels
+are translated. The validation includes differential tests against the C
+library, upstream `djpeg` bit tests and ISO/IEC 10918-2 (ITU-T T.83)
+compliance data. The scope excludes JPEG encoding, 12- and 16-bit samples,
+lossless JPEG, color quantization and RGB565 output; see
+[ADR 0001](docs/adr/0001-mechanical-port.md) and
+[ADR 0006](docs/adr/0006-safe-decoding-api.md).
+
+**Engine integration:** Ferrixel currently uses `zune-jpeg` for `jpeg-read`;
+this port is not yet wired into the engine. Its row-streaming API exposes
+scaled decoding, but that capability is not yet available through the
+Ferrixel JPEG adapter. See [ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
+and the [project status](../../docs/status.md) for adoption and open work.
 
 ## Why libjpeg-turbo, and why only the decoder
 
@@ -26,8 +34,7 @@ alternatives before choosing
 On an Apple M1 Ultra, single-threaded, libjpeg-turbo decoded a 12 Mpx photograph
 in 39 ms, against 54 ms for `zune-jpeg` and 67–70 ms for jpegli
 ([measurement](https://github.com/sebastian-software/ferrixel/blob/main/docs/benchmarks/M2-jpeg-decoders.md)).
-Ferrixel writes AVIF, WebP and JPEG XL, so JPEG matters as input. The port
-therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md)).
+Ferrixel treats JPEG as an input format. The port therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md)).
 
 ## How it works
 
@@ -55,11 +62,18 @@ therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md
 
 ## Building
 
+Run from `codecs/libjpeg-turbo-rs`:
+
 ```sh
-git submodule update --init
-cargo build
-cargo test
+git submodule update --init upstream/libjpeg-turbo
+cargo fetch --locked
+cargo build -p libjpeg-turbo-rs --locked
+cargo test -p libjpeg-turbo-rs --locked
 ```
+
+Rust artifacts go to the monorepo root `target/`. The check script uses
+offline Cargo commands, so fetch dependencies first. Tests requiring the
+C oracle skip without it unless the `oracle` feature is enabled.
 
 The differential tests need the C oracle, which needs CMake and a C compiler:
 

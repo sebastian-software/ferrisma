@@ -1,0 +1,25 @@
+{
+  "name": "ferrixel-homepage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/sync-docs.ts && ardo dev",
+    "build": "node scripts/sync-docs.ts && ardo build",
+    "typecheck": "node scripts/sync-docs.ts && tsc6 --noEmit -p tsconfig.json",
+    "preview": "ardo preview",
+    "test": "node --test scripts/*.test.ts"
+  },
+  "dependencies": {
+    "ardo": "^6.4.1",
+    "ferramenta-family": "github:sebastian-software/ferramenta#70d696962356af5a100c970f0f4b0187fdafcccf&path:/packages/family"
+  },
+  "devDependencies": {
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vite": "^8.3.5",
+    "unified": "^11.0.5",
+    "remark-parse": "^11.0.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "packageManager": "pnpm@11.17.0"
+}

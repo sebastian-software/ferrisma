@@ -85,7 +85,7 @@ verify that the real source factory and stage bind to the dedicated object.
 The finite 3x2 native observation is unchanged; another captured regression with
 competing payloads and 128 normalization/pixel cases guard the repaired seam.
 The ARM native exceptional words came from the original stage. Native hosted
-x86 [captures from both complete ordinary and ASan/UBSan original oracles](https://github.com/sebastian-software/libjxl-rs/actions/runs/41331075671/job/124921109245)
+x86 captures from both complete ordinary and ASan/UBSan original oracles (retired libjxl-rs repository, run 41331075671, job 124921109245)
 agree with the unchanged ARM nine-word table. The earlier x86 table was observed
 under QEMU, whose quiet-NaN selection ignored operand order; those emulated
 values are not evidence of native x86 payload behavior and were removed.

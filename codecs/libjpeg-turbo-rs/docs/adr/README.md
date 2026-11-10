@@ -8,7 +8,7 @@ Use `proposed`, `accepted`, `rejected` or `deprecated` as the status. These
 records are the only place for decisions: there is no separate plan, status or
 verification document. What is verified is shown by the tests, which assert
 the measured results. Open work is tracked as
-[GitHub issues](https://github.com/sebastian-software/libjpeg-turbo-rs/issues),
+[GitHub issues](https://github.com/sebastian-software/ferrixel/issues),
 not in an ADR. A change that meets a question these records do not answer
 stops and reports it.
 

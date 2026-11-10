@@ -1,12 +1,14 @@
 # M2 — Performance architecture for 2026 CPUs and GPUs
 
-- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) landed except the libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped; work package 4 (parallel execution) landed as a row pipeline and a batch engine; work package 5 (decode) first step landed
+- **Status:** Proposed; work package 0 (baseline harness) in progress, work package 1 (scalar `f32` executor) landed, work package 2 (encoder) has an experimental libavif-rs comparison, work package 3 (SIMD kernels) landed; the Q1.14 path was measured and dropped; work package 4 (parallel execution) landed as a row pipeline and a batch engine; work package 5 (decode) first step landed
 - **Created:** 2026-11-05
 - **Audience:** Ferrixel maintainers and contributors
 - **Horizon:** The milestone after [M1](M1-complete-image-pipeline.md); M1-RC gates stay open and are not replaced by this plan
 - **Scope:** Make the M1 pipeline (`decode → crop → linear-light resize → quantize → encode`) fast on current hardware without giving up its correctness, memory and observability contracts
 - **Ambition:** Measurably better than libvips and Sharp at *matched output quality* on modern Arm and x86-64 machines, with a GPU path that is used only where it is measured to win
 - **Architecture direction:** [ADR-0006](../adr/0006-cpu-first-gpu-capable-execution.md) (Proposed), [ADR-0007](../adr/0007-correctness-and-performance-evidence.md) (Accepted); new ADRs 0020–0024 listed below
+
+For current implementation status, see [status](../status.md). The dated progress notes below preserve the state and measurements at the time; they are not current dependency or workspace requirements.
 
 ## Milestone statement
 
@@ -55,7 +57,11 @@ M2 is done only when all of these hold:
 
 ## Work packages
 
-Ordered by evidence first, then algorithmic wins, then hardware-specific wins. A package may span several pull requests. Each package ends with numbers in `docs/benchmarks/`, not with a claim.
+The original work-package outline below orders evidence, algorithmic improvements,
+and hardware-specific work. It records the proposal, not today's implementation:
+later ADRs and the dated progress notes replace the band scheduler with a row
+pipeline and record the dropped fixed-point and SVE2 experiments. A package may
+span several pull requests. Each package ends with numbers in `docs/benchmarks/`.
 
 | # | Work package | Exit evidence | Depends on |
 | --- | --- | --- | --- |
@@ -66,7 +72,7 @@ Ordered by evidence first, then algorithmic wins, then hardware-specific wins. A
 | 4 | **Tiled, fused, work-stealing executor** (ADR-0022) | The planner emits output bands with filter halos; each band runs the fused chain on one worker; horizontal-pass rows are shared between adjacent bands without recomputation; a decoder stage feeds a bounded row ring ahead of the workers; an `Engine` owns the pool, buffer pool and budget; cancellation and backpressure across workers; batch API for many images. Measured scaling from 1 to all cores on all three hardware classes. | 3 |
 | 5 | **Decode-side scaling and native layouts** (ADR-0023) | JPEG DCT-domain 1/2, 1/4, 1/8 decode where the decoder supports it (verify `zune-jpeg`; otherwise contribute it or switch adapter); JPEG XL reduced-resolution decode where `jxl-oxide` exposes it; AVIF stays full-resolution but gains a native 10-bit YUV 4:2:0 path into the encoder without an RGB round trip, under an explicit *gamma-domain native* quality policy that is distinct from the linear-light reference (ADR-0011 stays in force until that policy is written). The report states the achieved decode scale factor. | 4 |
 | 6 | **Cross-platform benchmark CI** | macOS arm64, Linux arm64 (Graviton) and Linux x86-64 (AVX2 and AVX-512 runners) run the package-0 harness on every main merge and keep a history; regressions beyond a stated threshold fail the job. | 0, 4 |
-| 7 | **GPU experiment** (ADR-0024) | One `wgpu` compute pair (transfer decode plus separable resample) using the same tile contract; measured upload, kernel and readback time on Apple unified memory, Intel/AMD integrated and one discrete GPU; a cost model in the planner that picks the device per workload; CPU/GPU outputs compared within the stated bound. Keep or drop by evidence. | 4, 6 |
+| 7 | **GPU experiment** (future ADR) | One `wgpu` compute pair (transfer decode plus separable resample) using the same tile contract; measured upload, kernel and readback time on Apple unified memory, Intel/AMD integrated and one discrete GPU; a cost model in the planner that picks the device per workload; CPU/GPU outputs compared within the stated bound. Keep or drop by evidence. | 4, 6 |
 | 8 | **Hardware codec adapters** (optional) | VideoToolbox (Apple) and VA-API (Linux) decode/encode as FFI-isolated, feature-gated adapters with the same honest capability reporting; only if package 2 shows the software encoder is the ceiling. | 2, 7 |
 
 ### Checkpoints
@@ -79,11 +85,11 @@ Ordered by evidence first, then algorithmic wins, then hardware-specific wins. A
 
 | ADR | Topic | Core question |
 | --- | --- | --- |
-| [0020](../adr/0020-kernel-crate-and-isa-dispatch.md) (Proposed) | Kernel crate, ISA dispatch and the `unsafe` boundary | Decided: a separate `ferrixel-kernels` crate with `std::arch` intrinsics behind a safe API, hand-written runtime dispatch, the chosen level in plan and report, differential tests per level |
+| [0020](../adr/0020-kernel-crate-and-isa-dispatch.md) (Experimental) | Kernel crate, ISA dispatch and the `unsafe` boundary | Decided: a separate `ferrixel-kernels` crate with `std::arch` intrinsics behind a safe API, hand-written runtime dispatch, the chosen level in plan and report, differential tests per level |
 | [0021](../adr/0021-working-precision-policy.md) (Experimental) | Working precision policy | Decided: `f32` with exact LUTs and a testable bound against the `f64` oracle; the Q1.14 path was prototyped, measured below its 1.25× threshold on every hardware class and dropped |
 | [0022](../adr/0022-parallel-row-pipeline-and-engine.md) (Experimental) | Parallel execution | Decided: a row pipeline instead of bands (decoders stream rows once, so bands would duplicate halos), byte-identical to the sequential executor, standard library only; an `Engine` schedules whole images for batches |
-| 0023 | Decode-side scaling and native YUV policy | Which codecs really skip work, how the scale factor enters the plan, the gamma-domain native path as a separate declared quality policy; facts in [the codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) |
-| 0024 | GPU execution policy | Cost model inputs, unified-memory fast path, when the planner may choose the device, dependency weight of `wgpu`, output equivalence bound |
+| [0023](../adr/0023-decode-side-work-and-scaling-policy.md) (Experimental) | Decode-side work and scaling | Decided: full-resolution decode by default; native-layout and shrink-on-load paths require an explicit quality policy and measured decoder support |
+| Future ADR | GPU execution policy | Cost model inputs, unified-memory fast path, when the planner may choose the device, dependency weight of `wgpu`, output equivalence bound |
 | [0025](../adr/0025-codec-selection-reference-conformance-and-image-scope.md) (Accepted) | Codec selection and port scope | Decided: reference implementation or proven conformance, measured selection on Arm and x86-64 before any removal, ports reduced to still images, mechanical oracle for optimization |
 
 Each ADR starts as Proposed, gets an experiment, and moves to Experimental only with numbers from package 0's harness.
@@ -96,6 +102,8 @@ Each ADR starts as Proposed, gets an experiment, and moves to Experimental only 
 - **Safe core, audited edges.** `unsafe` only in the kernel crate and FFI adapters, each with a documented audit and fuzz target.
 - **Dispatch by runtime detection, never by build flags alone.** A binary built on one machine must be correct and fast on another.
 - **GPU is opt-in by evidence**, per workload class, never a global default.
+
+ADR-0024 was subsequently assigned to [pluggable encoders and the libavif backend](../adr/0024-pluggable-encoders-and-libavif-rs-backend.md). The original reservation for GPU policy did not become a GPU decision.
 
 ## Risks and decision gates
 
@@ -159,6 +167,8 @@ Implemented as ADR-0022 decides, not as the band sketch of the work-package tabl
 The per-row work in front of the row pipeline left the driver thread ([ADR-0023](../adr/0023-decode-side-work-and-scaling-policy.md) decision 2, extended). The ICC adapter hands its moxcms conversion to the fast executor, which runs it on the row-pipeline workers, and the orientation wrapper gathers upright rows in parallel blocks. The output is byte-identical. The 12 Mpx ICC-tagged phone photo with EXIF orientation 6 went from 113 to 66 ms in the decode stage and from 407 to 356 ms end to end at its upright 1600×2133 output size; what remains of its decode stage is the single-threaded `zune-jpeg` decode. Inputs without ICC or orientation are unchanged. Still open in package 5: shrink-on-load as an opt-in policy (a maintainer decision on a scaled IDCT in `zune-jpeg`), `jxl-oxide` threads and native AVIF YUV.
 
 ## Progress note — encoder backends and libavif-rs (2026-11-06)
+
+**Current context:** [ADR-0026](../adr/0026-codecs-in-one-repository-and-workspace.md) places the adapter and codec in the shared workspace. The current AOM build does not require libvmaf, and x86 SIMD has since been measured; see the [updated benchmark](../benchmarks/M2-libavif-backend.md). The default remains `rav1e`, and the `avif-read` symbol collision still requires separate builds. The following paragraph records the earlier configuration and results.
 
 [ADR-0024](../adr/0024-pluggable-encoders-and-libavif-rs-backend.md) makes the output encoder pluggable at the row boundary (`transcode_with`, `Engine::transcode_batch_with`, `EncoderBackend`) and adds `crates/ferrixel-libavif`, an adapter crate outside the workspace that encodes with libavif-rs's Rust AOM; the core stays stable and `unsafe`-free, and `rav1e` stays the default. At matched SSIMULACRA2 on the four test photographs ([measurements](../benchmarks/M2-libavif-backend.md)), libavif-rs speed 6 writes 5–13 % fewer bytes than `rav1e` and is at or below Sharp's libaom on all four, at 8–32 % more time with all cores; speed 7 is 25–43 % faster than `rav1e` and smaller on three of four. The adapter needs nightly and libvmaf, runs on aarch64 macOS and x86-64 GNU Linux, cannot be linked with `avif-read` (rav1d and libavif-rs's dav1d port export the same symbols), and runs in CI on macOS arm64 and x86-64 Linux (the Linux job builds the pinned libvmaf 3.2.1). Update 2026-11-07: with libavif-rs `c9b583c` (Neon in its AOM, same bytes) speed 6 is smaller and 21–40 % faster than `rav1e` with all cores on all four photographs, on macOS ARM64. Open: SIMD for x86-64 in libavif-rs's AOM, an AOM profile without VMAF tuning to drop libvmaf, AVIF input through libavif-rs, and a streaming YUV path that avoids the RGBA frame.
 

@@ -1,6 +1,13 @@
 # Port status
 
-This repository contains complete Rust raw-codestream paths for the fixed
+This is the JXL port and historical evidence record in the
+[Ferrixel workspace](../../../README.md). See the [current project status](../../../docs/status.md)
+and [codec guide](../../../docs/codecs.md) for integration and validation cadence.
+Ferrixel currently uses `jxl-oxide` for JPEG XL input; this port is not its decoder.
+Historical PR and CI references below describe their original revisions, not a
+current release or platform acceptance.
+
+This port contains complete Rust raw-codestream paths for the fixed
 lossless Thunder profile and the first VarDCT profile. VarDCT decoding connects
 global metadata/frame parsing, actual DC/AC groups, dequantization, all scalar
 inverse transforms, optional Gaborish, XYB conversion and high-precision sRGB
@@ -18,8 +25,8 @@ There are no C++ runtime fallbacks and no placeholder codec APIs. The source rev
 [upstream.json](../upstream.json).
 
 The first six decoder expansion steps are merged into `main` through
-[PR #30](https://github.com/sebastian-software/libjxl-rs/pull/30). Its
-[native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41493531478)
+PR #30 (retired libjxl-rs repository). Its
+native acceptance run (retired libjxl-rs repository, run 41493531478)
 passes all six ordinary/ASan/UBSan Debug, Release and Rust 1.85 configurations
 on both Linux and macOS: 307 differential groups and 926,392 exact defined
 requests per configuration, with zero failures or ignored tests. Linux runs
@@ -28,20 +35,20 @@ audits and retained lifecycle corpus also pass. The remaining decoder scope is
 tracked in [DECODER_EXPANSION.md](DECODER_EXPANSION.md).
 
 The public decoder API from `decode.cc` is ported in `src/jxl/decode.rs`
-([PR #50](https://github.com/sebastian-software/libjxl-rs/pull/50)). It drives
+(PR #50 (retired libjxl-rs repository)). It drives
 the incremental FrameDecoder (PR #49) with the low-memory render pipeline
 (PR #48), whole-image color output, tone mapping and CMS output conversions
 through the translated default CMS (PR #47), and JPEG reconstruction with
 Exif/XMP restoration through JxlToJpegDecoder (PR #46). It reads raw
 codestreams and containers with their boxes. The
-[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+deep gate (retired libjxl-rs repository, run 41762944219)
 on the merged PR #50 tree passes the ordinary and ASan/UBSan oracles and its
 source audits on Linux and macOS. Every test definition in the pinned
 `decode_test.cc` runs as a differential case
-([PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52)). The
+(PR #52 (retired libjxl-rs repository)). The
 crate exports the decoder C ABI of `decode.h` from a static and a dynamic
 library, so a C program can link it instead of libjxl
-([PR #54](https://github.com/sebastian-software/libjxl-rs/pull/54)). The thread
+(PR #54 (retired libjxl-rs repository)). The thread
 and resizable runners and JxlDecoderSetParallelRunner are ported and exported
 under their C names, and the public decoder runs its RunOnPool schedules
 through them. The sections below
@@ -807,7 +814,7 @@ ordinary check passes Debug, Release and Rust 1.85: 765 tests per configuration,
 including the unchanged 374 libjxl differential groups and 1,455,093 exact
 comparisons, plus the Brotli tests and 16 independently bound source observers.
 Dedicated streaming and API audits are now required in CI. The later
-[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+deep gate (retired libjxl-rs repository, run 41762944219)
 on the merged PR #50 tree passes them, with the instrumented checks, on native
 Linux and macOS. The stack-based one-shot decoder remains unported.
 
@@ -822,7 +829,7 @@ optimized Linux concat graphs disagree on new paired-NaN products. A dedicated
 complete-source observer and preserved native investigation now pin that
 boundary without changing the original archive, previous requests, or finite
 results. The later
-[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+deep gate (retired libjxl-rs repository, run 41762944219)
 on the merged PR #50 tree passes these groups and the skcms and default CMS
 audits on native Linux and macOS. Complete-image ICC admission followed in
 PRs #47 and #50.
@@ -843,9 +850,9 @@ later deep gate above; SKX remains unaccepted.
 
 ## Reviewed decoder integration (2026-11-03)
 
-[PR #34](https://github.com/sebastian-software/libjxl-rs/pull/34) delivers the
+PR #34 (retired libjxl-rs repository) delivers the
 output stage and signature/container-header helpers, including PR #29. Its
-[native acceptance](https://github.com/sebastian-software/libjxl-rs/actions/runs/41548861657)
+native acceptance (retired libjxl-rs repository, run 41548861657)
 passes all six ordinary/instrumented Debug, Release and Rust 1.85 configurations
 on Linux and macOS. The lifecycle work in PR #26 was already integrated through
 PR #30. The SpotColor implementation, component tests and independent source
@@ -1032,12 +1039,10 @@ translated boundaries, not whole-file or whole-library completion.
 
 From 2026-11-03, the checks run the Rust tests once per oracle graph in the
 optimized `checked` profile, with overflow checks and debug assertions enabled,
-and compile all targets with the minimum Rust version, now 1.95. Results below
-that name Debug, Release and Rust 1.85 test runs record the configurations and
-the minimum version in use at that time. Pull
-requests and `main` get a fast Linux gate; both oracle graphs on Linux and
-macOS and all audits run in the nightly deep gate on `main`, as described in
-[ADR 0002](adr/0002-differential-oracle.md).
+and compile all targets with the minimum Rust version, now 1.95. Results below that name Debug, Release and Rust 1.85 test runs record the
+configurations and minimum version in use at that time. Current PR and deep
+validation cadence is governed by [Ferrixel ADR-0027](../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md);
+these historical results do not establish acceptance of a later revision.
 
 Validated on 2026-11-02 on macOS arm64 with Rust 1.99.0 (stable), Rust 1.85.1
 (minimum-version series), and Apple Clang 21.0.0. The C++ oracle is built from
@@ -1067,7 +1072,7 @@ Commands: `python3 tools/check.py --sanitizers --msrv` and
 | Rust 1.85.1 | PASSED | Same 425 tests and corpus |
 | C++ ASan and UBSan | PASSED | Fail-fast instrumentation during all three Rust test configurations |
 | Ordinary C++ reference | PASSED | The same 425 tests and 868,587 requests in debug, release, and Rust 1.85.1 |
-| Native x86_64 Linux full baseline | PASSED | [Hosted baseline run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
+| Native x86_64 Linux full baseline | PASSED | Hosted baseline run (retired libjxl-rs repository, run 41332171725), job 124924385248: ordinary and ASan/UBSan reference graphs, each in debug, release, and Rust 1.85; all six blocks ran 344 tests and 744,124 requests with zero failed/ignored cases |
 | Native macOS hosted baseline | PASSED | The same run, job 124924385015: instrumented reference graph in debug, release, and Rust 1.85; this is evidence for the prior 344-test tree, separate from the alpha extension below |
 
 Each differential run compares **868,587 requests** against C++. These include
@@ -1894,7 +1899,7 @@ and filtering. The original finite 3x2 native regression and its captured words
 are unchanged. A second native regression uses captured competing
 payload words and verifies untouched rows, extra spans, and ignored channels.
 Both complete ordinary and ASan/UBSan x86 original oracles in hosted
-[run 41331075671, job 124921109245](https://github.com/sebastian-software/libjxl-rs/actions/runs/41331075671/job/124921109245)
+run 41331075671, job 124921109245 (retired libjxl-rs repository)
 produce the unchanged ARM nine-word table. The invalid earlier QEMU-specific
 x86 alternate was removed using those original captures. The input stencil is
 identical despite different row padding.
@@ -2061,7 +2066,7 @@ remain enabled. The source maps and representation records above include both
 slices; AC encoding and general VarDCT frame decoding remain unported. Native
 Linux/macOS checks are required for this combined PR tree before integration.
 
-The separate alpha commit also passed the [native hosted matrix](https://github.com/sebastian-software/libjxl-rs/actions/runs/41343768003):
+The separate alpha commit also passed the native hosted matrix (retired libjxl-rs repository, run 41343768003):
 Linux ordinary and ASan/UBSan reference graphs each ran debug, release, and
 Rust 1.85; macOS ran the instrumented graph in those three configurations.
 Every block passed 351 tests and 745,762 requests with zero failed or ignored
@@ -2110,7 +2115,7 @@ including 211 differential groups and 750,177 exact C++/Rust requests, with
 zero failed or ignored cases. Existing corpora and expected words remain intact.
 The captured-word unit tests are target-specific: two run on each of AArch64
 and x86_64; every target runs the same complete differential corpus.
-[Integration PR #7](https://github.com/sebastian-software/libjxl-rs/pull/7)
+Integration PR #7 (retired libjxl-rs repository)
 records the native hosted matrix for this combined tree.
 
 The new scalar dependencies do not expand the admitted complete image profile.
@@ -2323,7 +2328,7 @@ both untouched default graphs. All six actual public alpha symbols bind to the
 pristine selected unit, including complete-file calls. That unit alone uses O0
 and no-inline configuration, with strict FP additionally on x86_64 Linux.
 ARM retains source contraction; strict FP there changes finite words. The
-[native source experiment](https://github.com/sebastian-software/libjxl-rs/actions/runs/41446120185)
+native source experiment (retired libjxl-rs repository, run 41446120185)
 records the accepted x86 strict-O0 configuration and rejected candidates. Both
 initial local ARM gates passed Debug, Release and Rust 1.85 but included the
 48 subsequently identified undefined tree observations; their apparent ARM
@@ -2554,7 +2559,7 @@ coverage remain unchanged. A fresh source review retained the fallible allocated
 header checkpoint and the full logical-position/history domain. Focused
 comparisons pass all six native ARM ordinary/ASan/UBSan Debug, Release and
 Rust 1.85 configurations, including the three standalone regressions.
-Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
+Complete ordinary and ASan/UBSan checks also pass Debug, Release and Rust 1.85: each configuration runs 449 tests, including 261 differential groups and 894,179 exact requests, with no failures or ignored tests. Native run 41463504601 (retired libjxl-rs repository) also passes: Linux completes all six configurations and macOS completes its three instrumented configurations, each with 449 tests, 261 differential groups and 894,179 exact requests. Streaming ICCReader entropy/checkpoint ownership, ICC parsing/default CMS and whole-file ICC admission remain open; the README color-profile checkbox stays unchecked.
 
 
 ## Output buffers and pixel callbacks
@@ -2595,7 +2600,7 @@ originals after integration with
 the accepted extra-channel implementation. Each runs 540 tests, 327 differential
 groups and 1,036,783 exact defined comparisons, with zero failures or ignored
 tests. The independent output-stage, extra-channel and retained frame-lifecycle
-source audits also pass. Native [run 41517918249](https://github.com/sebastian-software/libjxl-rs/actions/runs/41517918249)
+source audits also pass. Native run 41517918249 (retired libjxl-rs repository)
 passes all six configurations and source audits on both Linux and macOS for
 this source tree: Linux runs 541 tests per configuration; macOS runs 540.
 The geometry union passes all six complete local configurations with 545
@@ -2641,7 +2646,7 @@ All six focused configurations and all six complete local ordinary/ASan/UBSan
 Debug, Release and Rust 1.85 checks pass. Each complete configuration runs 530
 tests, 318 differential groups and 1,032,779 defined comparisons, with no
 failures or ignored tests. The 888 half-stride source-only probes and 72 inherited
-patch-boundary probes remain present. Native [run 41494057418](https://github.com/sebastian-software/libjxl-rs/actions/runs/41494057418)
+patch-boundary probes remain present. Native run 41494057418 (retired libjxl-rs repository)
 now passes all six configurations on Linux and macOS with those same group and
 request counts: Linux runs 531 tests per configuration; macOS runs 530. Both
 native source audits verify the actual bindings, all 111 complete files, the
@@ -2708,11 +2713,11 @@ With the verified extra-channel prerequisite, all six full local checks pass:
 configuration, with no failures or ignored tests. Debug, Release and Rust 1.85
 each compare against ordinary and ASan/UBSan originals. The separate source
 audit reproduces all 128 JPEG encodings, 20 sequence encodings, eight metadata
-rewrites and 154 native captures under both original graphs. Native [run 41505031128](https://github.com/sebastian-software/libjxl-rs/actions/runs/41505031128)
+rewrites and 154 native captures under both original graphs. Native run 41505031128 (retired libjxl-rs repository)
 now passes all six configurations and every source audit on Linux and macOS.
 Each configuration retains 322 groups and 1,091,467 exact defined requests, with
 zero failures or ignored tests. Linux runs 536 tests per configuration; macOS
-runs 535. The verified source is merged through [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32),
+runs 535. The verified source is merged through PR #32 (retired libjxl-rs repository),
 and the README geometry milestone is checked. Color management/HDR, original
 JPEG reconstruction and the public incremental decoder remain open.
 
@@ -2746,7 +2751,7 @@ tests, 326 differential groups and 1,183,919 exact defined requests, with zero
 failures or ignored tests. Complete lifecycle, extra-channel and geometry source
 audits also pass. Its four API groups retain the original helper bodies and
 corpus unchanged. Fresh native acceptance of this union remains pending.
-The earlier leaf passed native [run 41484988662](https://github.com/sebastian-software/libjxl-rs/actions/runs/41484988662):
+The earlier leaf passed native run 41484988662 (retired libjxl-rs repository):
 all six Linux configurations and the three instrumented macOS configurations.
 The independent helper audit now checks exact optimization/sanitizer tokens,
 every compiled generated fragment against the original source, and actual live
@@ -2798,7 +2803,7 @@ HDR/ICC/color-profile integration remain separate acceptance gates.
 The command component passes complete ordinary and ASan/UBSan checks in Debug,
 Release and Rust 1.85: each configuration runs 449 tests, including 261
 differential groups and 894,179 exact requests, with no failures or ignored
-tests. Native [run 41463504601](https://github.com/sebastian-software/libjxl-rs/actions/runs/41463504601)
+tests. Native run 41463504601 (retired libjxl-rs repository)
 also passes all six Linux and three instrumented macOS configurations. The
 streaming reader component below requires its own complete integration checks.
 ICC parsing/default CMS and whole-file ICC admission remain open; the README

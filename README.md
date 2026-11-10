@@ -1,108 +1,60 @@
 # Ferrixel
 
-**A pipeline-first image processing engine for modern formats and hardware, written in Rust.**
+**A Rust image pipeline and its codec ports, developed in one repository.**
 
-> **Status: experimental M1 implementation under validation.** The feature-gated JPEG/JXL/AVIF → AVIF pipeline, Rust facade and CLI exist, but color/format coverage is limited and the M1 release-quality, quality-parity, security and dependency audits are **not complete**. No stable API or benchmark superiority is claimed.
+Ferrixel combines an image processing engine, CPU kernels, and Rust ports of
+JPEG, WebP, JPEG XL, and AVIF libraries. The goal is to make color, decoder
+capabilities, intermediate buffers, and execution costs explicit throughout
+the pipeline.
 
-Ferrixel explores what an image engine should look like when designed today for a five-year horizon rather than for compatibility with historical image-processing APIs.
+**Experimental and unpublished.** The JPEG/JPEG XL/AVIF → crop/resize → AVIF
+pipeline, Rust facade, and CLI work for supported SDR inputs. M1 quality,
+hardening, dependency, and release gates remain open; there is no stable API
+or production-readiness claim.
 
-## Thesis
+## What's here
 
-The pipeline is the product. Codecs provide capabilities; the planner minimizes work; execution backends perform the remaining operations. **Performance should emerge from architecture before micro-optimization.**
+| Component | Current role |
+| --- | --- |
+| [Engine](src/pipeline.rs) | Experimental SDR pipeline with orientation, linear-light resampling, parallel execution, and reported materializations |
+| [CPU kernels](crates/ferrixel-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
+| [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API; engine adoption pending |
+| [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; engine adoption pending |
+| [JPEG XL port](codecs/libjxl-rs) | Incremental decoder with provisional APIs; encoder incomplete; engine adoption pending |
+| [AVIF ports](codecs/libavif-rs) | libavif, AOM, dav1d, and SharpYUV; an [optional encoder adapter](crates/ferrixel-libavif) exercises the port |
+| [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
-Ferrixel's primary goals are:
+The four codec ports share the Cargo workspace, but importing them does not
+automatically select them as engine backends. Ferrixel currently reads through
+`zune-jpeg`, `jxl-oxide`, and `avif-decode`, and writes AVIF through `rav1e`.
 
-- **Demand-driven execution:** ask upstream stages for only the data actually required downstream.
-- **No default full-frame intermediates:** represent regions and borrowed views wherever semantics and dependencies permit; materialize explicitly only when required.
-- **Codec-aware, codec-independent core:** exploit capabilities of JPEG XL, AVIF, WebP, and future formats without binding the graph to a specific codec.
-- **Modern pixel representations:** retain appropriate planar, interleaved, high-bit-depth, alpha, and color metadata rather than forcing every operation through RGBA8.
-- **CPU-first, GPU-capable design:** excellent CPU behavior with optional measured SIMD paths; permit GPU execution when transfers and workload make it worthwhile.
-- **Memory safety by construction:** safe Rust in the core, bounded engine-managed allocations, explicit buffer ownership, and honest accounting for limits imposed by codecs.
-- **Correctness and observability:** measurable output fidelity, explainable execution plans, and reproducible benchmarks; no unmeasured performance claims.
+**[Current status and remaining gates](docs/status.md)** gives the component
+and integration overview. **[Documentation guide](docs/README.md)** maps the
+architecture, development instructions, decisions, and recorded experiments.
 
-### Deliberate non-goals
+## Try the experimental CLI
 
-Ferrixel is **not** initially a libvips/Sharp API clone, a universal image editor, a replacement for every codec, a JPEG benchmark project, or a cross-platform GPU abstraction framework. JPEG can be supported later as an input compatibility adapter without steering the architecture.
-
-## Conceptual pipeline
-
-```text
-Image source / encoded input
-           |
-      Semantic graph         (what the caller wants)
-           |
-     Capability planner      (what can actually be avoided)
-           |
-    Execution plan           (regions, layouts, buffers, tasks)
-           |
-    CPU backend  /  future GPU backend
-           |
-   Encoded sink / raw surface / stream
-```
-
-A graph node describes the image it produces, not an eagerly allocated pixel array. A consumer's required region propagates backward through operations, including filter halos, decoder alignment, and unavoidable whole-image dependencies. The planner may select reduced-resolution decode, reuse a compatible native layout, fuse operations, or choose an explicit materialization point. All such choices must preserve declared output semantics.
-
-## Read the design
-
-- **[M1 — First complete image pipeline](docs/milestones/M1-complete-image-pipeline.md)**: 10 ordered work packages, acceptance gates, and a usable SDR JPEG/JXL → AVIF goal
-- **[M2 — Performance architecture for 2026 CPUs and GPUs](docs/milestones/M2-performance-architecture.md)** (proposed): fused tile kernels, runtime ISA dispatch, planner-chosen precision, tile parallelism and a measured GPU policy; [baseline harness and first numbers](docs/benchmarks/M2-baseline.md)
-- [SDR working-color reference](src/working_color.rs), [M1 reference executor](src/quality_execute.rs) and [default `f32` executor](src/fast_execute.rs): scalar Display P3/sRGB → linear-light, premultiplied area/Lanczos filtering with an explicit output quantization step (experimental)
-
-- [Architecture sketch](docs/architecture.md)
-- [Architecture Decision Records](docs/adr/README.md) — **living**, reviewable decisions with explicit status and reconsideration triggers
-- [Research hypotheses and codec capability checklist](docs/research/format-capabilities.md)
-- [First vertical slice](docs/roadmap.md)
-- [Color-signalling contract](docs/design/color-management-contract.md) and [ADR-0015](docs/adr/0015-typed-output-color-signals.md)
-- [Linear-light sRGB and alpha experiment](docs/design/color-correctness-experiment.md) and [ADR-0014](docs/adr/0014-linear-srgb-straight-alpha.md)
-- [Real decoded resize experiment](docs/design/decoded-resize-experiment.md) and [ADR-0013](docs/adr/0013-sample-domain-resize.md)
-- [Real decoder experiment](docs/design/real-decoder-experiment.md) and [codec candidate audit](docs/research/codec-adapter-audit.md), [the Gray8 experiment](docs/design/region-experiment.md), and [the borrowed planar experiment](docs/design/planar-surface-experiment.md)
-- [Contributor guide](CONTRIBUTING.md) and [agent guide](AGENTS.md)
-
-## Development
-
-Ferrixel and the JPEG, WebP, JPEG XL and AVIF ports now live in one Cargo
-workspace. See [codec development](docs/codecs.md) for source setup, scoped
-oracle checks, independent release policy and the imported PR revisions.
-Use `cargo xtask codecs --codec webp --stage pr` for a scoped codec fast loop; [ADR-0027](docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) describes PR and deep validation.
-The root pins the nightly required by generated AVIF code; the engine keeps
-its stable/MSRV checks. Root default members are the engine and kernels.
-
-
-### Experimental M1 CLI
-
-The optional CLI is built with Cargo's `cli` feature, which enables JPEG, JPEG XL, AVIF and ICC adapters. The core remains independently compilable without codecs.
+From a checkout with Rust installed (NASM is also needed on x86-64):
 
 ```sh
-cargo run --release --features cli -- \
+cargo run -p ferrixel --release --features cli -- \
   photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
-# Only use --assume-srgb when you accept that input profile assumption.
-# Use --use-rendered-icc for supported RGB ICC input.
 ```
 
-**Caveats:** untagged output is not automatically sRGB; HDR/unknown color and unsupported alpha must fail closed. AVIF input reports its rendered color from the `colr` box and the AV1 sequence header; PQ/HLG/P3 are never treated as sRGB, and contradictory container/bitstream signals, monochrome input and `irot`/`imir`/`clap` transforms are rejected. JPEG EXIF, JPEG XL and AVIF `irot`/`imir` orientation are applied before cropping, so crop coordinates refer to the upright image. JPEG/AVIF may fully decode an image before resizing, and the AVIF encoder currently requires a complete output frame. Some codec-native memory is opaque. MSRV is **Rust 1.98**, and the AVIF decoder and encoder need NASM on x86-64. `--encoder-threads=0` uses all cores for the AV1 encoder; the default of one thread keeps output identical across machines. The resample runs on all cores by default (`--transform-threads`, byte-identical output for any value), and `pipeline::Engine` transcodes batches of images in parallel.
+Use `--assume-srgb` only when that input assumption is appropriate; supported
+RGB ICC input can use `--use-rendered-icc`. Unknown or contradictory color,
+HDR, and unsupported alpha cases fail explicitly. Crops use upright image
+coordinates. Full-frame codec buffers and opaque native memory remain relevant
+even when the transform streams rows.
 
-See [M1 evidence and remaining gates](docs/milestones/M1-evidence-and-gates.md), [quality protocol](docs/benchmarks/M1-protocol.md), [license audit](docs/license-audit.md), and [fuzzing](docs/fuzzing.md).
+For features, build prerequisites, and scoped checks, see
+[getting started](docs/getting-started.md), [contributing](CONTRIBUTING.md),
+and [codec development](docs/codecs.md). The [Ardo website](homepage/README.md)
+presents these guides with the shared Ferramenta theme and can be previewed locally.
 
-### Prior architectural experiments
+## License
 
-The repository contains **two internal, experimental, codec-free** slices: (1) `synthetic Gray8 source → crop → bilinear resize → borrowed scanline sink`, exercising backward region planning and bounded managed pixel buffers; (2) externally borrowed, byte-strided **10-bit YUV 4:2:0 planes → even-origin crop → borrowed scanline sink**, preserving color metadata without RGB conversion or pixel allocation. Chroma-phase-changing crops and planar resizing are deliberately not implemented. Read-only JPEG and JPEG XL are **optional, private experimental decoder adapters**, and a narrow **encoded-sample-domain bilinear resize** now exercises both. Decoder ICC/CICP and alpha-association metadata propagate through the graph. An opt-in **linear-sRGB bilinear reference** now supports explicitly tagged sRGB RGB8 and straight RGBA8 with premultiplied filtering; unknown/ICC/HDR color and unspecified alpha are rejected, not guessed. The earlier encoded-sample resize remains a distinct baseline and is **not** color-managed. ICC/CICP evidence is now inspected through a typed, non-transforming color contract: sRGB, Display P3, BT.2100 PQ/HLG, ICC and dual-signalled output are distinguishable, with unsafe or unsupported cases explicitly rejected. The M1 branch adds **opt-in SDR RGB ICC conversion** through `moxcms` and an **experimental public facade and AVIF encoder**. General ICC precedence, HDR, orientation correctness, SIMD, GPU and other output formats remain unimplemented or unverified. JPEG uses an explicit full-frame fallback; JPEG XL requests a codec-level ROI without claiming internal work savings.
-
-```sh
-cargo fmt --all --check
-cargo test --all-targets
-cargo clippy --all-targets -- -D warnings
-
-# Optional codecs, SDR AVIF encoder, ICC and CLI
-cargo test --all-targets --all-features
-cargo clippy --all-targets --all-features -- -D warnings
-```
-
-All project materials, code, comments, ADRs and commits use **US English**. We follow Conventional Commits.
-
-## Status and licensing
-
-Design exploration; unpublished, unstable, and **not ready for production**.
-
-Ferrixel is dual-licensed under **[MIT](LICENSE-MIT) OR [Apache License 2.0](LICENSE-APACHE)**, at your option. See [ADR-0010](docs/adr/0010-dual-licensing.md) for the rationale. Contributions are submitted under the same dual-license terms unless explicitly stated otherwise. Third-party codecs and dependencies retain their own licenses and require individual review before integration.
-
-Licensing does not imply a stable API or a published crate; first publication remains a separate decision. An AVIF parsing dependency is MPL-2.0; its obligations are documented in [the dependency audit](docs/license-audit.md) and require explicit distribution review.
+The engine is **[MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE)**. Codec
+packages retain their own licenses, notices, and publication gates. The
+[dependency audit](docs/license-audit.md) includes the interim AVIF parser's
+MPL-2.0 obligations; the root license does not relicense the workspace.

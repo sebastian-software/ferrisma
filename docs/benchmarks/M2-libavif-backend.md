@@ -2,9 +2,11 @@
 
 **Status:** measurements for [ADR-0024](../adr/0024-pluggable-encoders-and-libavif-rs-backend.md) on one machine (Apple M1 Ultra, 20 logical cores, macOS 27.0.1), 2026-11-06. Ferrixel at the ADR-0024 commit, libavif-rs `f3b2981` (Rust AOM, no SIMD). Same corpus, references and target A as the [Sharp comparison](M2-sharp-comparison.md); read every number as "these four photographs, this machine".
 
-**Update 2026-11-07:** libavif-rs `c9b583c` adds Neon kernels to its AOM ([libavif-rs#9](https://github.com/sebastian-software/libavif-rs/pull/9)). The re-run is in [After Neon](#after-neon-libavif-rs-c9b583c); bytes are unchanged, time drops by a third to a half.
+**Current context:** The adapter and codec now share the Ferrixel workspace ([ADR-0026](../adr/0026-codecs-in-one-repository-and-workspace.md)); `rav1e` remains the default. The tables below describe the specific historical revisions and hosts, not current performance guarantees.
 
-**Update 2026-11-09:** libavif-rs `3df161d` adds SSE2, SSE4.1 and AVX2 kernels on x86-64 GNU Linux ([libavif-rs#11](https://github.com/sebastian-software/libavif-rs/pull/11)). The first x86-64 run is in [x86-64 Linux with AVX2](#x86-64-linux-with-avx2-libavif-rs-3df161d): libavif-rs speed 6 is 41–47 % faster than `rav1e` with all cores and 5–13 % smaller.
+**Update 2026-11-07:** libavif-rs `c9b583c` adds Neon kernels to its AOM ([retained Neon commit](https://github.com/sebastian-software/ferrixel/commit/c9b583ccd12aabcfe2bb1ad5ad2f8b3165ad9bc0)). The re-run is in [After Neon](#after-neon-libavif-rs-c9b583c); bytes are unchanged, time drops by a third to a half.
+
+**Update 2026-11-09:** libavif-rs `3df161d` adds SSE2, SSE4.1 and AVX2 kernels on x86-64 GNU Linux ([retained x86 SIMD commit](https://github.com/sebastian-software/ferrixel/commit/3df161d9715ac743a1c7305f9a37ffaa3ae51c05)). The first x86-64 run is in [x86-64 Linux with AVX2](#x86-64-linux-with-avx2-libavif-rs-3df161d): libavif-rs speed 6 is 41–47 % faster than `rav1e` with all cores and 5–13 % smaller.
 
 ## Method
 

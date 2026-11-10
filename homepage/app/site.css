@@ -1,0 +1,126 @@
+/* Ferrixel-specific composition; Monografie owns the shared type and palette. */
+.fx-header .mono-header-in {
+  gap: 2rem;
+}
+.fx-status {
+  display: inline-block;
+  margin-left: 0.6rem;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+.fx-nav {
+  display: flex;
+  gap: 1.7rem;
+  margin-left: auto;
+}
+.fx-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+.fx-nav a:hover,
+.fx-nav a:focus-visible {
+  text-decoration: underline;
+}
+.fx-opening {
+  padding: clamp(4rem, 9vw, 8rem) 1.5rem 3rem;
+}
+.fx-opening-inner {
+  max-width: 70rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.fx-kicker {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.fx-kicker span {
+  color: var(--mono-oxide, #a74d36);
+  padding: 0 0.35rem;
+}
+.fx-opening h1 {
+  max-width: 17ch;
+  margin: 1.2rem auto;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.98;
+}
+.fx-opening .mono-standfirst {
+  max-width: 46rem;
+  margin: 0 auto 2rem;
+}
+.fx-opening .mono-actions {
+  justify-content: center;
+}
+.fx-pipeline {
+  max-width: 52rem;
+  margin: 3.5rem auto 0;
+}
+.fx-pipeline svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.fx-pipeline figcaption {
+  max-width: 36rem;
+  margin: 0.8rem auto 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.fx-paper {
+  fill: var(--mono-steel);
+  stroke: var(--mono-steel-3);
+}
+.fx-rail {
+  fill: none;
+  stroke: var(--mono-oxide);
+  stroke-width: 3;
+}
+.fx-station rect {
+  fill: var(--mono-paper);
+  stroke: var(--mono-ink-2);
+  stroke-width: 2;
+}
+.fx-lens {
+  fill: none;
+  stroke: var(--mono-ink-2);
+  stroke-width: 2;
+}
+.fx-svg-label {
+  fill: var(--mono-ink-2);
+  font: 600 12px sans-serif;
+  text-anchor: middle;
+}
+.fx-home > .mono-engraving {
+  display: block;
+  margin: 1rem auto;
+}
+@media (max-width: 60rem) {
+  .fx-nav {
+    display: none;
+  }
+  .fx-header .mono-header-actions {
+    margin-left: auto;
+  }
+}
+@media (max-width: 35rem) {
+  .fx-opening {
+    padding-top: 3rem;
+  }
+  .fx-svg-label {
+    font-size: 32px;
+  }
+}
+
+.fx-table-wrap {
+  overflow-x: auto;
+}
+.fx-codec-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.fx-codec-table th,
+.fx-codec-table td {
+  border-bottom: 1px solid var(--mono-steel);
+  padding: 0.8rem;
+  vertical-align: top;
+}

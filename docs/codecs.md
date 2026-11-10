@@ -4,7 +4,7 @@ Ferrixel, its encoder adapter, and the four codec ports share one Cargo workspac
 lockfile, development toolchain, and repository. [ADR-0026](adr/0026-codecs-in-one-repository-and-workspace.md)
 owns the consolidation decision. Importing a port does not select it as a pipeline
 backend or approve publication; [ADR-0025](adr/0025-codec-selection-reference-conformance-and-image-scope.md)
-and the M1 acceptance gates still apply.
+and the M1 acceptance gates still apply. For the current pipeline, see [status](status.md); for navigation, see the [documentation guide](README.md).
 
 | Component | Package | Local source |
 | --- | --- | --- |
@@ -14,6 +14,7 @@ and the M1 acceptance gates still apply.
 | JPEG | `libjpeg-turbo-rs` | `codecs/libjpeg-turbo-rs` |
 | WebP | `libwebp-rs` | `codecs/libwebp-rs` |
 | JPEG XL | `libjxl-rs` | `codecs/libjxl-rs` |
+| Tooling | `ferrixel-xtask` (invoked as `cargo xtask`) | `tools/xtask` |
 | AVIF, AOM, dav1d, SharpYUV | `libavif-rs`, `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | `codecs/libavif-rs` |
 
 ## Setup
@@ -45,8 +46,9 @@ The engine still builds on stable Rust 1.98 and the handwritten ports on Rust 1.
 ## Checks
 
 Root default members are the engine and kernels. This keeps the ordinary
-contributor loop bounded and preserves a stable-compatible engine. All 11 members (ten engine, adapter, and codec packages plus `xtask`) participate in `cargo check --workspace --all-targets` on the AVIF
-port's supported native hosts (macOS ARM64 and GNU Linux x86-64).
+contributor loop bounded and preserves a stable-compatible engine. All 11 members (ten engine, adapter, and codec packages plus `xtask`) participate
+in `cargo check --workspace --all-targets` on the AVIF port's supported native
+hosts (macOS ARM64 and GNU Linux x86-64).
 
 ```sh
 cargo fmt --all --check
@@ -69,8 +71,13 @@ protocols and working directories.
 scoped PR checks, retained reference fixtures, and nightly or manual deep runs.
 Live differential checks require their C/C++ references and fail if missing.
 A bounded local run does not establish full codec or platform acceptance.
+Rust `xtask` is the shared control plane; TypeScript may be used where warranted.
 Existing Python oracle harnesses remain until their incremental replacements
-preserve and compare protocol, fixtures, provenance, and error behavior.
+preserve and compare protocol, fixtures, provenance, and error behavior. The
+central nightly runs deep checks; manual component runs and the exhaustive AOM
+original-consumer, recovery, and translation workflows supply additional evidence.
+Changes to oracle pins, goldens, unsafe ABI, SIMD, or floating-point semantics
+need the relevant deep branch run or equivalent recorded native evidence.
 
 Do not use workspace-wide `--all-features`: the interim `avif-read` backend and
 the libavif adapter export conflicting `dav1d_*` symbols. Engine all-feature
@@ -106,7 +113,6 @@ Shared development does not grant publication authority or relicense imported
 source. The root license screen still covers the engine's reachable dependency
 graph; codec notice and provenance checks remain separate.
 
-The young source repositories need no permanent archive arrangement. Their
-retirement follows successful migration validation and transfer of still-active
-issue context. Deletion is a separate remote action; the import itself does not
-delete repositories or close their pull requests.
+The four original codec repositories have been retired and their issues migrated.
+Development and issue tracking continue in Ferrixel; retained import metadata and
+Git history document the source revisions.

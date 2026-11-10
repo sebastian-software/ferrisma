@@ -2,6 +2,9 @@
 
 Ferrixel keeps **living ADRs**: decisions are durable and reviewable, not immutable historical monuments. A decision can change when evidence changes, but its previous rationale and the reason for revision must remain discoverable.
 
+For implemented capabilities and package status, use [current status](../status.md).
+The [documentation guide](../README.md) also links the codec-local ADR indexes.
+
 ## Lifecycle
 
 - **Proposed:** hypothesis/design under review, not binding implementation policy.
@@ -33,7 +36,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0015](0015-typed-output-color-signals.md) | Inspect CICP and ICC output evidence; describe required conversions | Experimental |
 | [0016](0016-working-color-space-and-transform-boundaries.md) | Region-capable working-color transform and output semantics | Proposed |
 | [0017](0017-minimal-public-facade-and-cli.md) | Minimal `pipeline::transcode` facade and feature-gated CLI; partially supersedes 0008 | Experimental |
-| [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies; libavif-rs, libjxl-rs and the planned libwebp-rs as targets; JPEG input-only; MSRV 1.98; committed lockfile | Experimental |
+| [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies and port adoption gates; JPEG input-only; MSRV 1.98; committed lockfile | Experimental |
 | [0019](0019-source-side-orientation.md) | Apply EXIF/AVIF orientation through an explicit, budgeted source-side materialization | Experimental |
 | [0020](0020-kernel-crate-and-isa-dispatch.md) | Separate `ferrixel-kernels` crate, `std::arch` intrinsics behind a safe API, runtime ISA dispatch reported in the plan, scalar/SIMD differential tests | Experimental |
 | [0021](0021-working-precision-policy.md) | Working precision: `f32` with exact LUTs and a testable error bound against the `f64` oracle; the Q1.14 path was measured and dropped | Experimental |
@@ -42,8 +45,8 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) | Pluggable row-level encoder backends; libavif-rs (Rust AOM) as an isolated adapter crate (workspace placement superseded by 0026), `rav1e` stays the default | Experimental |
 | [0025](0025-codec-selection-reference-conformance-and-image-scope.md) | Codec selection: reference implementation or proven conformance, ports reduced to the still-image scope, deviations and removals only after measurement, mechanical oracle for later optimization; JPEG decode before encode | Accepted |
 | [0026](0026-codecs-in-one-repository-and-workspace.md) | One repository and Cargo workspace for the engine, adapter and four codec ports; imported PRs, common verification entry point and early SharpYUV consolidation review | Accepted |
-
 | [0027](0027-tiered-validation-and-rust-test-orchestration.md) | Scoped PR checks, deep validation cadence and Rust orchestration | Accepted |
+| [0028](0028-ardo-documentation-site.md) | Ardo website with the shared Ferramenta theme and canonical repository Markdown | Accepted |
 
 ## Changing an ADR
 

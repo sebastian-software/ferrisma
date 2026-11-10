@@ -1,5 +1,9 @@
 # Contributing
 
+This package lives in the Ferrixel monorepo. See the [project overview](../../README.md),
+[current status](../../docs/status.md), and [codec workspace guide](../../docs/codecs.md).
+Commands below run from `codecs/libwebp-rs` unless stated otherwise.
+
 Use US English in all project artifacts and Conventional Commits for every
 commit, for example `feat(utils): port the VP8 bit reader` or
 `fix(dec): keep the first decoding error`. Create commits without signatures,
@@ -23,7 +27,8 @@ the provenance check compares with the pinned commit, and the newer test-data
 revision that `tools/oracle_baseline.py --diagnose-post-v1.6.0` reads:
 
 ```sh
-git submodule update --init
+git submodule update --init upstream/libwebp upstream/libwebp-test-data
+cargo fetch --locked
 ```
 
 Keep the checkouts unmodified. `upstream.json` and the submodules must agree;
@@ -33,7 +38,7 @@ an upstream change is a separate migration with renewed evidence.
 
 ```text
 Cargo.toml                    package libwebp-rs, library webp (rlib, staticlib, cdylib);
-                              features simd (default) and oracle; profile checked
+                              features simd (default) and oracle; root workspace defines profile checked
 src/webp/ utils/ dsp/ dec/ enc/ demux/ mux/ sharpyuv/
                               one module per upstream unit (tools/units.json)
 src/api/                      the safe Rust APIs (ADR 0006, ADR 0007)
@@ -50,12 +55,15 @@ docs/adr/  docs/PORTING.md  docs/PROVENANCE.md
 ## Checks
 
 ```sh
+cargo fetch --locked
 python3 tools/check.py
 ```
 
-This verifies the upstream pins and license copies, the module skeleton and the
-local documentation links, then runs `cargo fmt --all --check`,
-`cargo clippy --all-targets --all-features -- -D warnings` and `cargo test` in the
+The script uses the shared root lockfile and runs Cargo offline, so fetch
+dependencies first. Rust build artifacts live in the root `target/`; oracle
+artifacts remain in this component’s `build/`. This verifies the upstream pins and license copies, the module skeleton and the
+local documentation links, then runs `cargo fmt -p libwebp-rs -- --check`,
+`cargo +stable clippy --locked --offline --all-targets --all-features -- -D warnings` and `cargo test` in the
 dev, release and `checked` profiles. The `checked` profile inherits release
 optimizations and keeps overflow checks and debug assertions enabled, because
 the port mirrors C unsigned arithmetic with explicit wrapping operations and an
@@ -107,18 +115,17 @@ python3 tools/unit_dependencies.py
 
 ## CI
 
-`../../.github/workflows/webp-check.yml` runs on pull requests, on pushes to `main`, nightly
-and on manual dispatch:
+The root [CI workflow](../../.github/workflows/ci.yml) selects affected
+components using the full Git diff. The bounded WebP PR stage runs static,
+MSRV and checked Rust regression checks on Linux x86-64, with checked tests
+on native Linux ARM64. The [nightly workflow](../../.github/workflows/nightly.yml)
+calls [WebP's deep workflow](../../.github/workflows/webp-check.yml), which is
+also manually dispatchable. It retains:
 
-- static checks and tests on Linux x86-64 and macOS ARM64, with the SIMD
-  modules and in the scalar build;
-- the MSRV build and tests on Rust 1.95;
-- the oracle on both systems: the `release`, `asan-ubsan` and `debug` variants,
-  the differential tests against `release` and `asan-ubsan` (and the scalar
-  build against `release` on Linux), and the baseline for each variant.
+- static and scalar tests on Linux and macOS, plus Rust 1.95 checks;
+- release, ASan/UBSan and debug oracles, differential and scalar checks,
+  baseline records, and the benchmark.
 
-LeakSanitizer does not run on macOS, so the Linux `asan-ubsan` job is the first
-leak check of new probes; the probes free what they allocate.
-
-The `Checks passed` job is the single required status check. A local result does
-not imply that the hosted jobs have run.
+LeakSanitizer does not run on macOS, so the Linux ASan/UBSan job provides the
+leak check for new probes. The root `Checks passed` job is the aggregate fast
+gate. A local result does not imply that hosted or nightly jobs have run.

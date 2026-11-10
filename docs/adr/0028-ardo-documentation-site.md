@@ -1,0 +1,91 @@
+# ADR-0028: Present the pipeline and codec workspace through an Ardo site
+
+- **Status:** Accepted
+- **Date:** 2026-11-10
+- **Last reviewed:** 2026-11-10
+- **Supersedes:** None
+- **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [0027](0027-tiered-validation-and-rust-test-orchestration.md)
+
+## Context
+
+Consolidation made the README responsible for explaining an engine, four codec
+ports, their integration, and multiple validation tiers. Historical experiments
+and port progress were easy to mistake for current pipeline capabilities. The
+maintainer requested a short README, a coherent status overview, and a website
+using Ardo and the Ferramenta family's theming, with Ferromark and Ferroni as
+references.
+
+Both reference sites use Ardo and the Monografie components/styles from
+`ferramenta-family`. The inspected family revision does not register Ferrixel's
+identity or provide a Ferrixel instrument image. Reusing another engine's name
+or asset would misrepresent the product.
+
+## Decision
+
+Keep the README as a compact repository entry. The
+[status overview](../status.md) owns current capabilities and integration gates;
+the [documentation guide](../README.md) maps the deeper sources. Port-specific
+contracts, provenance, licenses, and historical evidence stay with their owners.
+
+Build a static Ardo site in `homepage/`, using the shared Monografie theme and
+components. The homepage explains the pipeline and links to structured guides
+and codec pages. A TypeScript build step derives those pages from the canonical
+repository Markdown and translates links for the website. Do not maintain a
+second editable status register or copy benchmark figures into marketing claims
+without their measurement context.
+
+Use narrow site-local identity markup and a pipeline specimen until the family
+package supports Ferrixel. Typography, spacing, color tokens, reading styles,
+and general components come from the pinned shared package. The local layer
+must not impersonate another registered product or fork the entire theme.
+
+Website checks run independently of codec oracle suites. Website dependencies
+stay in a private pnpm package and do not alter the Cargo dependency graph.
+Build artifacts and local previews make the result reviewable; production
+hosting and a custom domain remain separate configuration choices.
+
+## Consequences
+
+- Readers can distinguish working engine paths, standalone port coverage, and
+  unfulfilled acceptance gates without reconstructing history.
+- Website and repository guides share content and change together. The build
+  must verify link translation and fail when a canonical source is missing.
+- The repository gains a TypeScript website toolchain and its maintenance cost.
+  Rust contributors do not need it for engine or codec checks.
+- Local identity markup is a small temporary duplication; family registration
+  should remove it when shared components can represent Ferrixel correctly.
+
+## Alternatives considered
+
+- A longer README: keeps one file but makes the existing navigation problem
+  worse as codec evidence grows.
+- Independent website prose for every technical page: gives editorial freedom
+  but creates competing status and command references.
+- A different framework or a copied family stylesheet: diverges from the
+  maintainer's chosen stack and duplicates shared theme maintenance.
+- Registering a fake product identity to reuse another instrument: rejected
+  because the rendered identity would describe another engine.
+
+## Validation
+
+Compare the build with the current Cargo features, port guides, and acceptance
+records. Check generated links, static routes, search, type checking, and the
+production build. Inspect the homepage and a documentation page on desktop and
+mobile, including keyboard navigation. Claims must retain the project's
+experimental status and the separation between ports and active backends.
+
+The reference source inspection establishes stack/theme compatibility, not
+Ferrixel's rendered result; build and browser evidence are recorded separately.
+
+## Review when
+
+- The family registry and shared shell support Ferrixel's identity.
+- Canonical Markdown cannot express a required website interaction or source
+  links stop surviving generation.
+- A release changes the experimental status, codec selection, or claims.
+- Hosting requires a different base path, domain, or privacy boundary.
+
+## Amendment log
+
+- 2026-11-10 — Accepted the maintainer's Ardo and shared-theme direction; kept
+  technical Markdown canonical and deployment separate from the site build.

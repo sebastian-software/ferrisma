@@ -67,6 +67,8 @@ impl Selection {
         {
             self.engine = true;
             self.adapter = true;
+        } else if path.starts_with("homepage/") || path == ".github/workflows/homepage.yml" {
+            // The standalone website workflow validates this separate dependency graph.
         } else if (path.starts_with("docs/")
             && [".md", ".png", ".jpg", ".jpeg", ".svg", ".webp"]
                 .iter()
@@ -443,6 +445,10 @@ mod tests {
     fn dependencies_and_docs() {
         let mut s = Selection::default();
         s.classify("docs/architecture.md");
+        assert_eq!(s, Selection::default());
+        s.classify("homepage/app/routes/home.tsx");
+        s.classify("homepage/pnpm-lock.yaml");
+        s.classify(".github/workflows/homepage.yml");
         assert_eq!(s, Selection::default());
         s.classify("crates/ferrixel-kernels/src/lib.rs");
         assert!(s.kernels && s.engine && s.adapter && !s.jpeg);

@@ -59,12 +59,12 @@ work must still be translated before exposing the corresponding decoder path.
 ## Current integration
 
 The first six steps are merged into `main` through
-[PR #30](https://github.com/sebastian-software/libjxl-rs/pull/30). The internal
+PR #30 (retired libjxl-rs repository). The internal
 sequence decoder connects EPF/noise/patch/spline rendering, general NONE/XYB
 Modular and VarDCT frames, shared reference/DC state, blending, animation and
 previews. It also connects the admitted sRGB YCbCr/chroma configurations.
 
-The final [native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41493531478)
+The final native acceptance run (retired libjxl-rs repository, run 41493531478)
 passes Debug, Release and Rust 1.85 against ordinary and ASan/UBSan originals on
 both Linux and macOS. Each configuration passes 307 differential groups and
 926,392 exact defined requests, with zero failures or ignored tests. Linux runs
@@ -79,10 +79,10 @@ independent source audit repeats the full lifecycle corpus under both original
 graphs. Detailed source mappings and component evidence remain in
 [PORT_STATUS.md](PORT_STATUS.md).
 
-Step eight is merged through [PR #31](https://github.com/sebastian-software/libjxl-rs/pull/31).
+Step eight is merged through PR #31 (retired libjxl-rs repository).
 It connects associated/subsampled alpha, independent channel depths, every
 source-defined extra-channel type and ordered spot rendering at the internal
-sequence boundary. The [native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41494057418)
+sequence boundary. The native acceptance run (retired libjxl-rs repository, run 41494057418)
 passes all six configurations on Linux and macOS: 318 differential groups and
 1,032,779 exact defined requests each, with zero failures or ignored tests.
 Linux runs 531 tests per configuration; macOS runs 530. The independent audit
@@ -90,9 +90,9 @@ also verifies 111 genuine complete files, 12 rejected-type fixtures and all
 15,315 new defined observations. All 888 original half-stride probes remain
 accounted for, including 528 positive original misalignment diagnostics.
 
-Step seven is merged through [PR #32](https://github.com/sebastian-software/libjxl-rs/pull/32).
+Step seven is merged through PR #32 (retired libjxl-rs repository).
 The sequence decoder connects every parsed YCbCr channel mode, source cropping
-and resampling, and external orientation conversion. Its [native acceptance run](https://github.com/sebastian-software/libjxl-rs/actions/runs/41505031128)
+and resampling, and external orientation conversion. Its native acceptance run (retired libjxl-rs repository, run 41505031128)
 passes all six configurations on Linux and macOS, each with 322 differential
 groups and 1,091,467 exact defined requests, with zero failures or ignored tests.
 Linux runs 536 tests per configuration; macOS runs 535. Both source audits
@@ -103,26 +103,26 @@ The merged runtime, fixtures, observers and CI are identical to the tested sourc
 the main merge updates only the checklist and acceptance documentation.
 
 Steps nine through eleven are merged through the public decoder slices.
-[PR #47](https://github.com/sebastian-software/libjxl-rs/pull/47) translates the
+PR #47 (retired libjxl-rs repository) translates the
 color, tone-mapping and CMS stage selection of PreparePipeline and admits every
 enum and ICC color encoding.
-[PR #46](https://github.com/sebastian-software/libjxl-rs/pull/46) ports
+PR #46 (retired libjxl-rs repository) ports
 JxlToJpegDecoder from `decode_to_jpeg.cc`.
-[PR #48](https://github.com/sebastian-software/libjxl-rs/pull/48) ports the
+PR #48 (retired libjxl-rs repository) ports the
 low-memory render pipeline, and
-[PR #49](https://github.com/sebastian-software/libjxl-rs/pull/49) the
+PR #49 (retired libjxl-rs repository) the
 incremental FrameDecoder interface that `decode.cc` drives.
-[PR #50](https://github.com/sebastian-software/libjxl-rs/pull/50) ports
+PR #50 (retired libjxl-rs repository) ports
 `decode.cc` itself: the JxlDecoder state machine, events, buffers and
 callbacks, progressive detail, box and container input, the color setters with
 CMS output on the low-memory pipeline, JxlDecoderSetJPEGBuffer with Exif/XMP
 restoration, and the serial ThreadPool. Its caller histories compare exactly
 with the original public C API: 10,662 histories in eleven differential groups,
 plus 839 original-only probes of an undefined original box copy. The
-[deep gate](https://github.com/sebastian-software/libjxl-rs/actions/runs/41762944219)
+deep gate (retired libjxl-rs repository, run 41762944219)
 on its merged tree passes the ordinary and ASan/UBSan oracles on Linux and
 macOS, including the new `public-decoder` audit.
-[PR #52](https://github.com/sebastian-software/libjxl-rs/pull/52) runs all 64
+PR #52 (retired libjxl-rs repository) runs all 64
 test definitions of the pinned `decode_test.cc` as differential cases, with
 6,304 Rust histories in 31 families matching the original.
 

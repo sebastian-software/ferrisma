@@ -1,5 +1,8 @@
 # libwebp-rs fuzz targets
 
+This is the WebP port in the Ferrixel monorepo. See the [project overview](../../../README.md),
+[status](../../../docs/status.md), and [codec workspace guide](../../../docs/codecs.md).
+
 cargo-fuzz targets that exercise the Rust translation, ported from the
 upstream fuzzers in `upstream/libwebp/tests/fuzzer/` (Apache License 2.0; each
 target keeps its upstream notice). This crate is separate from the library: it
@@ -20,7 +23,8 @@ library, and its only dependency besides the library is `libfuzzer-sys`
 | `animation_api_fuzzer` | `animation_api_fuzzer.cc` | `WebPAnimDecoderNew` with fuzzed threading and color mode, then up to three frames, after upstream's canvas- and frame-size limits |
 | `animencoder_fuzzer` | `animencoder_fuzzer.cc` | `WebPAnimEncoderNew` with fuzzed key-frame options and up to 15 built-in pictures, cropped, scaled and rescaled, each added with a fuzzed configuration and timestamp step, then `WebPAnimEncoderAssemble` |
 
-cargo-fuzz needs a nightly toolchain. From the repository root:
+cargo-fuzz needs a nightly toolchain. From the WebP component directory (`codecs/libwebp-rs`), after initializing
+its pinned submodules:
 
 ```sh
 cargo +nightly fuzz build

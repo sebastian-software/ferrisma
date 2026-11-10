@@ -1,6 +1,10 @@
 # libjxl-rs
 
-This port is maintained in the Ferrixel monorepo. See the [shared workspace guide](../../docs/codecs.md) for setup and checks; local porting contracts and licenses still apply.
+This port is maintained in the [Ferrixel workspace](../../README.md). See the
+[project status](../../docs/status.md) and [codec guide](../../docs/codecs.md)
+for integration and checks; local porting contracts and licenses still apply.
+Ferrixel currently uses `jxl-oxide` for JPEG XL input, not this port
+([ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)).
 
 A mechanical Rust port of the JPEG XL reference implementation, starting from
 the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserves
@@ -154,10 +158,11 @@ optimization follow the mechanical port.
 
 ## Build and verify
 
-With the source initialized as described in [CONTRIBUTING.md](CONTRIBUTING.md):
+From `codecs/libjxl-rs`, with the source initialized as described in
+[CONTRIBUTING.md](CONTRIBUTING.md):
 
 ```sh
-cargo test --locked --offline
+cargo test -p libjxl-rs --locked --offline
 python3 tools/check.py
 ```
 
@@ -168,7 +173,8 @@ assertions. Missing oracle prerequisites are an error. All binary16 input
 patterns are compared against the original code.
 
 To link a C program against the decoder C ABI, `cargo build --release --lib`
-writes `target/release/libjxl.a` and the dynamic library. Compile against the
+writes `../../target/release/libjxl.a` and the dynamic library in the workspace
+target directory. Compile against the
 pinned headers in `upstream/libjxl/lib/include` and the export and version
 headers that upstream's CMake configuration generates (the oracle build writes
 them to `target/oracle/upstream/lib/include`). With the static library, define
