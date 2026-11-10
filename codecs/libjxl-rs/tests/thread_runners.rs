@@ -517,7 +517,16 @@ fn resizable_parallel_runner_resizes() {
         };
         pool.get().run(0, 100, &no_init_func, &data).unwrap();
         assert_eq!(calls.load(Ordering::SeqCst), 100);
-        assert_ne!(seen.load(Ordering::SeqCst) & 1, 0, "the caller runs tasks");
+        // Workers can drain the queue before the caller claims a task. With
+        // no workers, however, every task must run on the caller.
+        if threads <= 1 {
+            assert_eq!(seen.load(Ordering::SeqCst), 1);
+        }
+        // The single-task fast path always invokes the caller, even when the
+        // pool has workers (matching the original runner's Run).
+        seen.store(0, Ordering::SeqCst);
+        pool.get().run(0, 1, &no_init_func, &data).unwrap();
+        assert_eq!(seen.load(Ordering::SeqCst), 1);
     }
     // Destroying a null runner does nothing.
     // SAFETY: Null is accepted.

@@ -164,16 +164,20 @@ impl WebPAnimEncoder {
     /// Copies the encoder's error string into `error`, where C keeps it.
     fn sync_error(&mut self) {
         let message = anim::webp_anim_encoder_get_error(&self.enc).as_bytes();
-        let length = message.len().min(ERROR_STR_MAX_LENGTH - 1);
-        for (target, &byte) in self.error.iter_mut().zip(&message[..length]) {
-            *target = byte.cast_signed();
-        }
-        self.error[length] = 0;
+        copy_error_bytes(&mut self.error, message);
     }
 }
 
 //------------------------------------------------------------------------------
 // Helpers
+
+fn copy_error_bytes(error: &mut [c_char; ERROR_STR_MAX_LENGTH], message: &[u8]) {
+    let length = message.len().min(ERROR_STR_MAX_LENGTH - 1);
+    for (target, &byte) in error.iter_mut().zip(&message[..length]) {
+        *target = c_char::from_ne_bytes([byte]);
+    }
+    error[length] = 0;
+}
 
 /// Writes an output parameter that the caller checked for null.
 ///
@@ -1256,4 +1260,33 @@ pub unsafe extern "C" fn webp_anim_encoder_delete_chunk(
     // SAFETY: four readable characters (checked non-null; caller's contract).
     let tag = unsafe { read_fourcc(fourcc) };
     code(&anim::webp_anim_encoder_delete_chunk(&mut handle.enc, &tag))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ERROR_STR_MAX_LENGTH, c_char, copy_error_bytes};
+
+    #[test]
+    fn error_bytes_preserve_high_bits_and_terminate_when_truncated() {
+        let message = [0x80, 0xff, b'A'];
+        let mut error = [0 as c_char; ERROR_STR_MAX_LENGTH];
+        copy_error_bytes(&mut error, &message);
+        assert_eq!(
+            error[..3]
+                .iter()
+                .map(|byte| byte.to_ne_bytes()[0])
+                .collect::<Vec<_>>(),
+            message
+        );
+        assert_eq!(error[3], 0);
+
+        let long_message = [0xff; ERROR_STR_MAX_LENGTH + 1];
+        copy_error_bytes(&mut error, &long_message);
+        assert!(
+            error[..ERROR_STR_MAX_LENGTH - 1]
+                .iter()
+                .all(|byte| byte.to_ne_bytes() == [0xff])
+        );
+        assert_eq!(error[ERROR_STR_MAX_LENGTH - 1], 0);
+    }
 }

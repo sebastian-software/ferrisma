@@ -12,6 +12,7 @@ concurrency:
 jobs:
   affected:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       engine: ${{ steps.scope.outputs.engine }}
       kernels: ${{ steps.scope.outputs.kernels }}
@@ -44,8 +45,16 @@ jobs:
     needs: affected
     if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Restore rust build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: target
+          key: core-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            core-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
       - run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - run: cargo fetch --locked
       - run: cargo fmt --all --check
@@ -70,8 +79,16 @@ jobs:
     needs: affected
     if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Restore minimum-rust build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: target
+          key: core-minimum-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            core-minimum-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
       - uses: dtolnay/rust-toolchain@1.98.0
       - run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - run: cargo +1.98.0 fetch --locked
@@ -81,8 +98,16 @@ jobs:
     needs: affected
     if: needs.affected.outputs.kernels == 'true' || needs.affected.outputs.engine == 'true'
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Restore kernels-arm build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: target
+          key: core-kernels-arm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            core-kernels-arm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
       - run: cargo fetch --locked
       - run: cargo run -p ferrixel-kernels --example detect
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
@@ -91,8 +116,16 @@ jobs:
     needs: affected
     if: needs.affected.outputs.workspace == 'true' || needs.affected.outputs.adapter == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Restore workspace build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: target
+          key: core-workspace-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            core-workspace-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
       - run: sudo apt-get update -qq && sudo apt-get install -y ninja-build pkg-config nasm
       - run: cargo fetch --locked
       - run: cargo check --workspace --all-targets --locked
@@ -160,6 +193,7 @@ jobs:
     if: always()
     needs: [affected, rust, minimum-rust, kernels-arm, workspace, codecs]
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     env:
       DETECTOR: ${{ needs.affected.result }}
       CORE: ${{ needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true' }}
