@@ -16,6 +16,14 @@
 //! Translation of `src/enc/tree_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`VP8CodeIntraModes` calls `VP8IteratorInit`**, which resets the top
+//!    samples, the non-zero contexts and the diffusion errors of the encoder.
 
 use crate::dec::common_dec::{
     B_DC_PRED, B_HD_PRED, B_HE_PRED, B_LD_PRED, B_RD_PRED, B_TM_PRED, B_VE_PRED, B_VL_PRED,

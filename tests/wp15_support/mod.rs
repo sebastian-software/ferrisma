@@ -438,7 +438,8 @@ pub fn file_token(directory: &Path, name: &str, bytes: &[u8]) -> String {
 
 /// The keys whose values differ from C by a recorded deviation: C's encoder
 /// calls the last frame's progress hook again in `WebPAnimEncoderAssemble`
-/// (`docs/status/wp15.md`), the translation does not.
+/// (`src/mux/anim_encode.rs`, `# Deviations from upstream`, item 2), the
+/// translation does not.
 pub const ANIM_DEVIATION_KEYS: [&str; 1] = ["assemble.hook"];
 
 /// Compares the animation encoder probe's output with the translation's, line
@@ -787,8 +788,9 @@ pub fn animation_scripts(oracle: &Oracle, directory: &Path) -> Vec<String> {
 /// `x_offset < MAX_POSITION_OFFSET` (or the one for `y_offset`) in
 /// `GetAdjustedCanvasSize`: a parsed `ANMF` chunk can hold offsets up to
 /// `2 * (2^24 - 1)`. C assertions are excluded from the oracle (PORTING rule 8,
-/// `docs/status/wp15.md`); the translation's `debug_assert!` fails in the dev
-/// and `checked` profiles. The file is parsed with the translation.
+/// `src/mux/muxedit.rs`, `# Excluded undefined behavior`, item 2); the
+/// translation's `debug_assert!` fails in the dev and `checked` profiles. The
+/// file is parsed with the translation.
 fn asserts_in_assembly(file: &[u8]) -> bool {
     let data = WebPData {
         bytes: Cow::Borrowed(file),
@@ -991,9 +993,9 @@ pub fn pick_value(rng: &mut Rng, values: &[i64]) -> i64 {
 /// Empty chunk payloads are set without copying, and `VP8X` and `ANIM`, which
 /// `ChunkAssignData` always copies, get a one-byte payload instead: C's copy
 /// of empty data has `NULL` bytes, and `WebPMuxAssemble` passes them to
-/// `memcpy` (undefined behavior, excluded in docs/status/wp15.md); the
-/// directed cases of [`edit_scripts`] cover the copied empty chunk without
-/// assembling it.
+/// `memcpy` (undefined behavior, excluded in `src/mux/muxinternal.rs`,
+/// `# Excluded undefined behavior`, item 2); the directed cases of
+/// [`edit_scripts`] cover the copied empty chunk without assembling it.
 pub fn edit_sequence(rng: &mut Rng, pool: &Pool) -> String {
     let mut script = String::from("new\n");
     let steps = 6 + rng.below(30);
@@ -1056,7 +1058,7 @@ pub fn edit_sequence(rng: &mut Rng, pool: &Pool) -> String {
             }
             12 => {
                 // Areas from 2^31 to 2^32 overflow C's int product (excluded,
-                // docs/status/wp15.md).
+                // `src/mux/muxedit.rs`, `# Excluded undefined behavior`, item 1).
                 let (width, height) = [
                     (0, 0),
                     (0, 5),
@@ -1352,7 +1354,7 @@ pub fn matrix_cases() -> Vec<Case> {
     }
     // Both candidates of a frame, where the lossy one wins after the lossless
     // one cleaned the transparent pixels of the canvas (C writes through its
-    // view of the canvas; docs/status/wp15.md).
+    // view of the canvas; `src/mux/anim_encode.rs`, `# Representation`).
     for option in [
         "options 1 0 0 1 0 0 0",
         "options 0 0 0 1 0 0 0",
@@ -1617,7 +1619,8 @@ pub fn single_cases() -> Vec<Case> {
     cases.push(tiny);
     // Metadata chunks set, replaced, read and deleted around the frames. Empty
     // chunks set with copying are deleted before `assemble`: C's copy has NULL
-    // bytes, which WebPMuxAssemble would pass to memcpy (docs/status/wp15.md).
+    // bytes, which WebPMuxAssemble would pass to memcpy (`src/mux/muxinternal.rs`,
+    // `# Excluded undefined behavior`, item 2).
     for (copy, extra) in [
         (
             0,

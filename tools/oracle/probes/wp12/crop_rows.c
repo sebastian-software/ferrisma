@@ -1,5 +1,5 @@
 // WP12 probe: the row counters of the Ferrixel cropping measurement
-// (docs/PORT_PLAN.md, WP21). Decodes with the internal API that DecodeInto
+// (docs/adr/0010-ferrixel-adoption.md). Decodes with the internal API that DecodeInto
 // uses, with put() wrapped by a counter, and prints which rows a cropped or
 // scaled decoding touches. Commands on standard input:
 //
@@ -14,7 +14,7 @@
 //         out (output rows: last_out_row).
 //
 // OPTIONS is as in decode.c. tests/wp12_crop_rows.rs compares the Rust
-// translation and records the numbers in docs/status/wp12.md.
+// translation and holds the table of numbers in its documentation.
 
 #include <stdio.h>
 #include <stdlib.h>

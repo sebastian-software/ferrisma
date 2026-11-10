@@ -19,9 +19,38 @@
 //!
 //! `WebPPictureView` shares the planes of its source through the `Shared` storage
 //! of ADR 0003, amended 2026-11-07. `WebPPictureCopy` copies the pixels into new
-//! planes and gives the copy no callbacks, `extra_info` or `stats` (a WP9
-//! deviation; see the status page). `WebPPictureRescale` and `WebPPictureCrop`
-//! replace their picture, so they move the callbacks instead.
+//! planes and gives the copy no callbacks, `extra_info` or `stats` (see the
+//! `# Deviations from upstream` section below, item 1). `WebPPictureRescale` and
+//! `WebPPictureCrop` replace their picture, so they move the callbacks instead.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Callbacks of a copy and of a view.** `WebPPictureCopy` and
+//!    `WebPPictureView` set `writer`, `progress_hook`, `extra_info` and `stats`
+//!    to `None`. C copies these pointers, so source and copy share them. In
+//!    Rust a boxed closure cannot be shared without shared ownership, and
+//!    changing the writer and progress hook types for every user is not
+//!    accepted. The internal callers (the animation encoder in
+//!    `src/mux/anim_encode.rs`) set their own writer on the pictures they
+//!    encode. The copy otherwise matches C: the specifications, the error code,
+//!    new planes with the samples of the source, and the four `None` fields.
+//!    The oracle test (`tests/wp9_view.rs`) records the C sharing as its
+//!    expected output.
+//!
+//! The rescaling of ARGB pictures reads and writes native-order byte copies of
+//! the samples, where C casts them: see `src/enc/picture_csp_enc.rs`,
+//! `# Deviations from upstream`, item 1.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. `NULL` planes of a view's source. C computes pointers from a `NULL`
+//!    plane, which is a precondition violation; Rust keeps the plane `None` in
+//!    the view.
 
 use crate::dsp::alpha_processing::{webp_mult_argb_rows, webp_mult_rows};
 use crate::enc::picture_enc::{
@@ -145,7 +174,7 @@ fn owns_samples<T>(storage: &PlaneStorage<'_, T>) -> bool {
 /// Rescales one plane of `num_channels` samples per pixel (C: `RescalePlane`).
 ///
 /// C reuses the caller's `work` block for every plane. The rescaler owns its two
-/// side rows (WP4 deviation 8), so each call gives it a vector of exactly
+/// side rows (ADR 0003), so each call gives it a vector of exactly
 /// `2 * num_channels * dst_width` elements; the caller keeps C's allocation check.
 #[expect(
     clippy::too_many_arguments,
@@ -618,9 +647,10 @@ fn copy_yuva_plane(
 // upstream: src/enc/picture_rescale_enc.c WebPPictureCopy
 /// Copies `src` into `dst`: the specifications, new planes, and the samples of
 /// `src` in them (C: `WebPPictureCopy`). `dst` gets no writer, progress hook,
-/// `extra_info` or `stats`, where C shares the pointers of `src`; the status page
-/// records the deviation. The error code of `src` is copied, and a failed allocation
-/// returns the code that `dst` records.
+/// `extra_info` or `stats`, where C shares the pointers of `src`; see the
+/// `# Deviations from upstream` section of the module documentation (item 1). The
+/// error code of `src` is copied, and a failed allocation returns the code that
+/// `dst` records.
 ///
 /// # Errors
 ///

@@ -86,7 +86,7 @@ fn refine_rect_matches_the_c_encoder() {
         };
         // C asserts a non-empty rectangle in MinimizeChangeRectangle; an
         // initial rectangle that clips to nothing is excluded
-        // (docs/status/wp15.md).
+        // (`src/mux/anim_encode.rs`, `# Excluded undefined behavior`, item 3).
         let right = (x + w).clamp(0, width);
         let left = x.clamp(0, width - 1);
         let bottom = (y + h).clamp(0, height);

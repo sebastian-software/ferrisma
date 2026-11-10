@@ -16,6 +16,39 @@
 //! Translation of `src/dsp/enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **DSP forms.** Predictors take the destination buffer, `left` as
+//!    `Option<(&[u8], usize)>` (the buffer and the position of `left[0]`,
+//!    because C reads `left[-1]`), and `top` as `Option<&[u8]>`; `None` is C's
+//!    `NULL`. `VP8EncPredLuma4` takes the boundary and the position of
+//!    `top[0]`, because C reads `top[-5]` to `top[7]`. `VP8Mean16x4` writes
+//!    four entries of a slice. Transforms and quantizers take slices from the
+//!    block's first element.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Signed overflow in `VP8ITransform`.** Coefficients above about 15,700
+//!    in magnitude overflow the `int` products of the horizontal pass; the dev
+//!    and `checked` profiles report it. The DSP test bounds the coefficients at
+//!    15,000; the encoder's dequantized levels stay far below.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **SIMD variants.** `enc_sse2.c`, `enc_sse41.c`, `enc_neon.c`,
+//!    `cost_sse2.c`, `cost_neon.c` and `IsFlat_NEON` of `quant.h` belong to the
+//!    SIMD modules (ADR 0008); the reference configuration compiles none of
+//!    them, so `IsFlat` is `IsFlat_C`. MIPS and MSA variants are excluded
+//!    (`tools/units.json`).
 
 use std::sync::LazyLock;
 

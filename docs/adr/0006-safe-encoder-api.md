@@ -2,21 +2,22 @@
 
 - Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-08
+- Updated: 2026-11-10
 
 ## Context
 
-The translation exposes libwebp's encoder in C's shape ([ADR 0001](0001-mechanical-port.md),
-[ADR 0003](0003-rust-representation.md)): `WebPConfig` with `i32` flags,
-`WebPPicture<'a>` with plane offsets, `PlaneStorage` and boxed callbacks,
-`webp_encode` returning `bool` with the code in `pic.error_code`, and
-functions that panic on inputs that are preconditions in C (WP9 deviation 7:
-negative strides; short buffers index out of bounds). Ferrixel's `webp-write`
-sink (WP22) needs a safe API under the adoption gates of its ADR-0018, with
-buffers it owns and budgets (its ADR-0004), and the port plan (Phase 6) lists
-what the encoder half must offer. WP17 has no upstream unit: it adds no
-behavior, so every encoding must stay byte-identical to `webp_encode` with the
-same `WebPConfig`, and therefore to the C oracle.
+The translation exposes libwebp's encoder in C's shape ([ADR
+0001](0001-mechanical-port.md), [ADR 0003](0003-rust-representation.md)):
+`WebPConfig` with `i32` flags, `WebPPicture<'a>` with plane offsets,
+`PlaneStorage` and boxed callbacks, `webp_encode` returning `bool` with the
+code in `pic.error_code`, and functions that panic on inputs that are
+preconditions in C (negative strides, item 4 of `# Deviations from upstream` in
+`src/enc/picture_enc.rs`; short buffers index out of bounds). Ferrixel's
+`webp-write` sink (WP22) needs a safe API under the adoption gates of its
+ADR-0018, with buffers it owns and budgets (its ADR-0004), and Ferrixel's port
+plan (Phase 6) lists what the encoder half must offer. WP17 has no upstream
+unit: it adds no behavior, so every encoding must stay byte-identical to
+`webp_encode` with the same `WebPConfig`, and therefore to the C oracle.
 
 ## Decision
 

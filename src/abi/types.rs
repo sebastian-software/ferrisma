@@ -24,6 +24,14 @@
 //! Memory that C callers release with `WebPFree()` or `free()` comes from the
 //! platform `malloc`, which this module declares (ADR 0004, memory). The other
 //! ABI modules hand decoded samples to C through [`malloc_copy`].
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`WebPMalloc(0)`**: C asserts `nmemb * size > 0` in debug builds; the
+//!    ABI returns `malloc(0)`.
 
 use core::ffi::c_void;
 

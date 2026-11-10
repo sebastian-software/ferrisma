@@ -29,4 +29,29 @@ cargo +nightly fuzz run dec_fuzzer -- -dict=upstream/libwebp/tests/fuzzer/fuzz.d
 
 Seed the corpus with the test vectors, for example
 `mkdir -p fuzz/corpus/dec_fuzzer && cp upstream/libwebp-test-data/*.webp fuzz/corpus/dec_fuzzer/`.
-WP13, WP14 and WP15 added their targets here.
+
+## Deviations from upstream
+
+The targets translate upstream's fuzzers with these changes:
+
+1. **Decoder targets.** FuzzTest domains become one `arbitrary` tuple (the
+   colorspace is taken modulo `MODE_LAST`), and `kFuzzPxLimit` keeps its value
+   without sanitizers. The targets keep upstream's names, which nightly cargo's
+   `non_kebab_case_bins` lint warns about.
+2. **Encoder targets.** The FuzzTest domains become one `arbitrary` tuple; the
+   24 values of `ArbitraryWebPConfig` pick their field's range by modulo. The
+   optimization index is dropped (SIMD: none in the reference configuration,
+   `tests/wp13_encode.rs`, `# Checks not applicable`, item 2). imageio's PNG,
+   JPEG, TIFF and PNM readers have no Rust counterpart, so `enc_fuzzer` reads
+   WebP input only, with a port of `ReadWebP` that decodes into the library's
+   memory and copies the samples into the picture's planes, where C decodes
+   into them. The source images of `img_*.h` are read from upstream's headers
+   at compile time. The targets keep upstream's names (cargo's
+   `non_kebab_case_bins` warning).
+3. **Animation decoder target.** The FuzzTest domain is libFuzzer's input; the
+   target keeps upstream's name (cargo's `non_kebab_case_bins` warning).
+4. **Muxer and animation targets.** The FuzzTest domains are `arbitrary`
+   tuples (modulo for the ranges); `animencoder_fuzzer` drops the unused input
+   string and the SIMD optimization index, returns on an empty frame list and
+   ignores frames past 15; the targets keep upstream's names (cargo's
+   `non_kebab_case_bins` warning).

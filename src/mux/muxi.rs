@@ -25,6 +25,22 @@
 //! has no field of its own. C's `bytes == NULL` inside a mux is an owned empty
 //! `WebPData` ([`data_is_null`]): `WebPDataCopy` leaves `bytes` `NULL` for empty
 //! data, and every other source of a chunk's bytes is a non-null pointer.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Lists and ownership.** C's `NULL` bytes inside a mux (an empty copy,
+//!    `WebPDataCopy` of empty data) are an owned empty `WebPData`
+//!    (`data_is_null`); `CreateVP8XChunk` tests them for the metadata flags and
+//!    the image, as C tests `bytes != NULL` (not compared with C for the
+//!    metadata, see `# Excluded undefined behavior`, item 2, of
+//!    `src/mux/muxinternal.rs`), and the C ABI hands them out as `NULL`.
+//!    Functions that return C's next list element return nothing; `ChunkAppend`
+//!    needs no cached list end (`chunk_list_ends`); `ChunkSetHead` takes the
+//!    chunk and leaves it initialized, where C clears its `owner` flag, so
+//!    `MuxImageParse` reads a chunk's size before handing it over.
 
 use std::borrow::Cow;
 
@@ -154,7 +170,8 @@ pub struct ChunkInfo {
 /// when it does not copy; Rust can keep bytes only when they are borrowed for
 /// the mux's lifetime `'a` (`Lent`). Bytes that are only readable during the
 /// call (`Read`: a `WebPData` that owns its bytes, or a buffer local to the
-/// call) are copied even with `copy_data == 0`; `docs/status/wp15.md` records it.
+/// call) are copied even with `copy_data == 0`; the `# Representation` section
+/// of `src/webp/mux.rs` records it.
 #[derive(Clone, Copy, Debug)]
 pub enum ChunkBytes<'a: 's, 's> {
     /// Bytes that the mux may keep for `'a` without copying them.

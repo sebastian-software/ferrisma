@@ -1,5 +1,5 @@
 //! WP13 differential test: `WebPEncode` (`src/enc/webp_enc.c`) over the
-//! encoder matrix of `docs/PORT_PLAN.md` (Phase 3). The C probe
+//! encoder matrix of `docs/PORTING.md` (end-to-end gates). The C probe
 //! `tools/oracle/probes/wp13/encode.c` imports each seeded picture with the
 //! oracle, optionally moves it into caller memory or takes a view of it, and
 //! encodes it with `WebPEncode`; the Rust test does the same with the
@@ -11,12 +11,39 @@
 //! produced or the transparent-area cleanup changed), and the caller's buffers
 //! with their padding. A view's source is compared separately: the
 //! translation leaves it untouched where C writes through the view
-//! (`docs/status/wp13.md`, deviation 1). The case groups are in
-//! `support/wp13_matrix.rs`; `tests/wp13_abi.rs` runs them through the C ABI.
+//! (`src/enc/webp_enc.rs`, `# Deviations from upstream`, item 1). The case
+//! groups are in `support/wp13_matrix.rs`; `tests/wp13_abi.rs` runs them
+//! through the C ABI.
 //!
-//! Excluded, as `docs/status/wp10.md` records (undefined behavior in C): the
-//! statistics of pictures with alpha and `alpha_compression` 0, the statistics
-//! of threaded alpha encodings that fail, and `extra_info_type` 6.
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Uninitialized lossless statistics of uncompressed alpha**
+//!    (`alpha_compression` 0): the encoder tests request no statistics for such
+//!    pictures, and `cwebp -alpha_method 0` reports are compared only up to the
+//!    lossless-alpha block, which C prints from uninitialized memory (for
+//!    example a size of 2139062143) and the translation does not print.
+//! 2. **`extra_info_type` 6**, which reads uninitialized bit counts: not used.
+//! 3. **Statistics of threaded alpha encodings that fail** (data race): not
+//!    requested.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`NULL` arguments** exist only at the C ABI (PORTING rule 8); the ABI
+//!    test compares every one with C.
+//! 2. **SIMD**: none in the reference configuration. The fuzz targets drop
+//!    `SetOptimization`, which only selects SIMD paths.
+//! 3. **Allocation failures.** No compared input reaches
+//!    `WEBP_MAX_ALLOCABLE_MEMORY`, and host allocation failures (the
+//!    translation's or the ABI's `malloc`) are not injected.
+//! 4. **Threads**: nothing new; `thread_level` 0 and 1 are matrix dimensions,
+//!    and the alpha worker and the lossless side thread are compared through
+//!    them.
+//! 5. **32-bit targets** are not run.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -45,7 +72,8 @@ fn compare(test: &str, oracle: &Oracle, cases: &[Case]) -> Vec<Fields> {
         if let Some((before, after)) = source {
             // A view: C writes through it into the source picture where
             // WebPEncode writes into the planes; the translation gives the view
-            // its own planes, and the source stays as it was (deviation 1).
+            // its own planes, and the source stays as it was (see
+            // `src/enc/webp_enc.rs`, `# Deviations from upstream`, item 1).
             assert_eq!(
                 before,
                 after,

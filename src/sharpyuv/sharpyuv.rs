@@ -38,12 +38,68 @@
 //! offset with a checked signed sum.
 //!
 //! `SharpYuvGetCPUInfo` is translated in `sharpyuv_cpu.rs`. `SharpYuvInit` is not
-//! (`docs/status/wp5.md`, decision 1). Its argument replaces the CPU-information
+//! (see `# Representation`, item 1). Its argument replaces the CPU-information
 //! pointer, which ADR 0003 leaves to the ABI module that exports the pointer, and
 //! its gamma-table work is already done on first use here. The conversion
 //! functions below do not call `SharpYuvInit`, because nothing in the Rust
 //! conversion depends on it: the dispatch functions are direct calls and the gamma
 //! tables are computed on first use.
+//!
+//! # Representation
+//!
+//! 1. **Dispatch and init-once state.** Dispatch pointers are plain functions
+//!    over the portable `_c` implementations (ADR 0003). The functions that
+//!    only assign pointers are absent: `SharpYuvInitDsp`, and the pointer and
+//!    mutex state of `SharpYuvInit`. The runtime selection of the SSE2 and NEON
+//!    variants belongs to the SIMD modules (ADR 0008); see item 1 of
+//!    `# Deviations from upstream`.
+//!    - `SharpYuvInit` stays absent. Forcing the gamma tables is the only part
+//!      the Rust code can keep, and the Rust gamma tables already compute on
+//!      first use. The rest of the function replaces the C pointer
+//!      `SharpYuvGetCPUInfo` with the caller's argument. ADR 0003 gives that
+//!      pointer no Rust state: the query is a function, and the ABI module that
+//!      exports the pointer owns any override, which is the rule ADR 0003
+//!      states for `VP8GetCPUInfo`. Dropping the argument would change what
+//!      `SharpYuvGetCPUInfo` answers after `SharpYuvInit(f)` once the SIMD
+//!      variants consult the query, so the function cannot be translated
+//!      faithfully. No `SharpYUV` C ABI is planned (ADR 0004).
+//!    - `sharpyuv_cpu.rs` translates `SharpYuvGetCPUInfo` as a function with
+//!      that name that calls `vp8_get_cpu_info`, with the `VP8CPUInfo`
+//!      signature. The C file is the re-compilation of `cpu.c` under another
+//!      name, so the answers are the same query. The NULL pointer of the
+//!      reference configuration is item 1 of `# Deviations from upstream` in
+//!      `src/sharpyuv/sharpyuv_cpu.rs`.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **No `SharpYuvInit` call and no dispatch initialization.** C conversions
+//!    call `SharpYuvInit`, which assigns the dispatch pointers, computes the
+//!    gamma tables and stores the CPU-information function. In Rust the
+//!    dispatch functions are direct calls (ADR 0003), the tables are `LazyLock`
+//!    statics computed on first use, and the selection of the SSE2 and NEON
+//!    variants (ADR 0008) is not yet present, so the conversion results do not
+//!    depend on the call.
+//! 2. **Negative strides and steps.** Rows and pixels are addressed with a
+//!    checked signed sum from the origin, so a flipped plane works as in C when
+//!    the origin is its last row or pixel (tested, groups `flipped-*`). A row
+//!    that would start before the slice panics, where C reads memory before the
+//!    buffer, which C leaves undefined.
+//! 3. **Predicates return `bool`.** `SharpYuvConvert` and
+//!    `SharpYuvConvertWithOptions` return `bool` in place of `int` 0 and 1
+//!    (ADR 0003, predicate rule), and `SharpYuvOptionsInitInternal` returns an
+//!    `Option`. `SharpYuvGetVersion` keeps its `i32`.
+//! 4. **Integer width of sizes.** Buffer sizes are computed in `usize` and
+//!    `u64`, where the C code multiplies `int` values (`w * 3` and similar)
+//!    that can overflow for widths near `INT_MAX`. The inventory of
+//!    `tests/wp5_convert.rs` has no such size; the allocation fails in both
+//!    (item 3 of `# Checks not applicable` in `tests/wp5_convert.rs`).
+//! 5. **Integer overflow of `RGBToYUVComponent`.** The C `int` products are
+//!    undefined when they overflow; the Rust arithmetic panics in the dev and
+//!    `checked` profiles. No input in the inventory or the seeded cases
+//!    overflows, which the `checked` runs confirm.
 
 use std::mem::size_of;
 

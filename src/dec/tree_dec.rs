@@ -20,6 +20,15 @@
 //! `VP8ParseProba` and `VP8ParseIntraModeRow` take the bit reader as their first
 //! argument in C, and every caller passes `&dec->br`; the Rust functions read
 //! `dec.br` and take the input that it reads (ADR 0003).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`USE_GENERIC_TREE`.** The table-driven 4x4 mode parser is compiled on
+//!    x86 and the coded tree on ARM, `AArch64` and WebAssembly, as in C; both
+//!    read the same bits. An arm64 host runs the coded tree; the Linux x86-64
+//!    CI runs the table.
 
 use crate::dec::common_dec::{
     B_DC_PRED, B_HD_PRED, B_HE_PRED, B_HU_PRED, B_LD_PRED, B_RD_PRED, B_TM_PRED, B_VE_PRED,

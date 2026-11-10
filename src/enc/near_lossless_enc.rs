@@ -23,6 +23,16 @@
 //! Only the `WEBP_NEAR_LOSSLESS == 1` branch is translated: the reference
 //! configuration enables near-lossless, and the other branch defines only the
 //! empty `VP8LNearLosslessStub`.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8ApplyNearLossless` with quality 100 (C asserts `limit_bits > 0`; the
+//!    encoder calls it only below 100), `VP8LExtraCost` with an odd or short
+//!    length, `VP8LResidualImage` and `VP8LColorSpaceTransform` with bits
+//!    outside 2 to 9, and the prefix encodings with negative distances.
 
 use crate::dsp::lossless_common::vp8l_near_lossless_bits;
 use crate::enc::backward_references_enc::to_index;

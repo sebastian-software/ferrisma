@@ -16,6 +16,36 @@
 //! Translation of `src/enc/quant_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Trellis.** For `n == 15`, `TrellisQuantizeBlock` reads
+//!    `costs[16][ctx]`, one entry past the remapped table, and never uses the
+//!    value; the Rust code stores a placeholder row there. Dead and terminal
+//!    nodes are otherwise as in C. The out-of-bounds read lies inside
+//!    `VP8EncProba` and is not reported by the sanitizers.
+//! 2. **Pointer swaps of the mode search.** `PickBestIntra16` tracks which of
+//!    its two scores is the best (C swaps `rd_cur` and `rd_best`); `PickBestUV`
+//!    tracks which output buffer holds the best block (C swaps `dst` and
+//!    `tmp_dst`). `PickBestIntra4` reconstructs its trials into a local 4-row
+//!    block instead of `yuv_p + I4TMP`, a scratch area of the prediction buffer
+//!    that nothing else reads, and tracks whether the best block is there or in
+//!    `yuv_out2` (C swaps `tmp_dst` and `best_block`).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point.** `pow` in `QualityToCompression`,
+//!    `QualityToJPEGCompression` and `VP8SetSegmentParams`, the `float` pass
+//!    statistics of `frame_enc.c`, `log10` in `GetPSNR` of `frame_enc.c`, and
+//!    the `double` SSIM sums of the filter search are compared bit for bit on
+//!    the development host (ARM64, Apple clang, `-ffp-contract=off`). Rust's
+//!    `f64::powf` and `f64::log10` call the platform libm, as C does; equality
+//!    on other hosts is recorded, not assumed (`docs/PORTING.md`).
 
 use crate::dec::common_dec::{NUM_BMODES, NUM_MB_SEGMENTS, NUM_PRED_MODES};
 use crate::dsp::cost::VP8_ENC_BANDS;
@@ -1398,7 +1428,7 @@ const I4_SCRATCH_SIZE: usize = 3 * BPS_U + 4;
 // upstream: src/enc/quant_enc.c PickBestIntra4
 /// C writes the 4x4 trials into `it->yuv_p + I4TMP`, a scratch area of the
 /// prediction buffer that nothing else reads; here the scratch is a local block
-/// (see the status page).
+/// (see the `# Deviations from upstream` section of this module, item 2).
 fn pick_best_intra4(it: &mut VP8EncIterator, enc: &mut VP8Encoder, rd: &mut VP8ModeScore) -> bool {
     let segment = usize::from(enc.mb_info[it.mb].segment);
     let dqm = enc.dqm[segment];

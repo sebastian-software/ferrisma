@@ -16,6 +16,17 @@
 //! Translation of `src/enc/iterator_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Iterator import and export.** A row start before the start of its plane
+//!    panics, as in the picture functions (`offset_by` in
+//!    `src/enc/picture_enc.rs`); C reads memory before the pointer, which only
+//!    a negative stride produces. `VP8IteratorExport` writes into the picture's
+//!    planes and panics on a shared view.
 
 use crate::dsp::dsp::BPS;
 use crate::enc::picture_enc::{offset_by, yuva_planes_mut, yuva_samples};

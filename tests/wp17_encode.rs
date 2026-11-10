@@ -25,6 +25,9 @@
 //! `VP8_ENC_ERROR_INVALID_CONFIGURATION`); the test prints C's code for them
 //! and so checks that the observable state (no callback, untouched
 //! statistics) is C's.
+//!
+//! Floating point results (PSNR) are compared bit for bit on the host that
+//! runs the test; equality on other hosts is not assumed.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -581,9 +584,8 @@ fn raw_mut_and_from_build_the_same_configuration() {
 /// (`Picture::from_argb`) encode exactly as the same rows imported into ARGB
 /// (`Picture::import`), which the groups above compare with C, and, for a
 /// lossy encoding without sharp YUV, as the rows imported into YUVA, which is
-/// `cwebp`'s route. This is the packing that `docs/status/wp17.md` recommends
-/// to a sink that fills a budgeted frame row by row (Rust only: every route
-/// ends in `webp_encode`).
+/// `cwebp`'s route. This is the packing for a sink that fills a budgeted frame
+/// row by row (Rust only: every route ends in `webp_encode`).
 #[test]
 fn rgba_rows_packed_as_argb_words_encode_as_the_importer() {
     let mut rng = wp13_cases::Rng(0x1717_a4b0);

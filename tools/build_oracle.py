@@ -44,7 +44,7 @@ VARIANTS = {
     # SIMD or to the port. Not a reference variant: --variant all skips it.
     "release-simd": {"build_type": "Release", "sanitizers": False, "simd": True},
 }
-# The reference configuration from the port plan, in the order it lists them.
+# The reference configuration from Ferrixel's port plan, in the order it lists them.
 REFERENCE = [
     "-DWEBP_ENABLE_SIMD=OFF", "-DWEBP_USE_THREAD=ON", "-DWEBP_NEAR_LOSSLESS=ON",
     "-DWEBP_ENABLE_SWAP_16BIT_CSP=OFF", "-DWEBP_BUILD_DWEBP=ON", "-DWEBP_BUILD_CWEBP=ON",

@@ -24,6 +24,19 @@
 //! the middle of the tables and are indexed with negative values in C; each is a
 //! [`CenteredTable`], which keeps the table and the index of the center
 //! (ADR 0003, "Pointers"), and is indexed with the same signed `i32` values.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Clip tables.** The tables are static arrays with C's values, and each
+//!    exported pointer into their middle is a `CenteredTable` indexed with C's
+//!    signed offsets. `sclip1` and `sclip2` hold the `int8_t` values that C
+//!    reads through the cast pointers. C initializes 2040 of the 2041 entries
+//!    of `sclip1`, 224 of 225 of `sclip2` and 766 of 767 of `clip1`; the last
+//!    entry is an implicit 0 in C and an explicit 0 here, and the DSP test
+//!    (`tests/wp6_dsp.rs`) compares it. No decoded input reaches those entries.
 
 use std::ops::Index;
 

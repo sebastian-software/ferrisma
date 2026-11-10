@@ -52,7 +52,8 @@
 //!   plane, or the YUVA planes that the conversion to ARGB reads, and writes
 //!   the results back: the error code and, after a conversion, the new ARGB
 //!   plane. The frame's progress hook is called with the frame's pointer, where
-//!   C passes its view of the encoder's canvas (`docs/status/wp15.md`).
+//!   C passes its view of the encoder's canvas (`# Deviations from upstream`,
+//!   item 1).
 //! - The error string that `WebPAnimEncoderGetError()` returns lives in the
 //!   encoder's box, NUL-terminated in `ERROR_STR_MAX_LENGTH` bytes, and is
 //!   updated by every call that changes it, as C's string is.
@@ -61,7 +62,38 @@
 //!
 //! Bytes lent to a mux are an immutable Rust slice while the mux may read
 //! them, so they must not change then; C would read the changed bytes. A
-//! frame's progress hook must not touch the frame (WP13 deviation 15).
+//! frame's progress hook must not touch the frame (see the module
+//! documentation of `src/abi/encode.rs`).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **C ABI frames.** `WebPAnimEncoderAdd` converts the frame with
+//!    `with_picture` of `src/abi/encode.rs`; a frame that it cannot lend (the
+//!    rejected layouts of `src/abi/encode.rs`: a negative stride over several
+//!    rows, overlapping planes, a misaligned ARGB plane) records
+//!    `VP8_ENC_ERROR_INVALID_CONFIGURATION` and the error string "ERROR adding
+//!    frame: the C ABI cannot lend the frame's planes.", where C would encode
+//!    it. The frame's C hook is called with the frame's pointer
+//!    (`progress_closure(hook, frame)`), where C copies `progress_hook` and
+//!    `user_data` from the frame into the canvas copy (`anim_encode.c` lines
+//!    834 and 835) and calls the hook with its sub-frame view's pointer:
+//!    `user_data` matches, the pointer identity does not. A hook must not touch
+//!    the frame (see the module documentation of `src/abi/encode.rs`).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`NULL` arguments and `NULL` bytes** exist only at the C ABI (PORTING
+//!    rule 8); every `NULL` case of `mux.h` is compared there. The Rust API
+//!    takes references, and an empty `WebPData` it is given is an empty,
+//!    non-null slice (C rejects only `NULL` bytes).
+//! 2. **`WebPAnimEncoderRefineRect`** is declared in an internal header, so the
+//!    C ABI does not export it; the probe and the test call it on each side
+//!    directly.
 
 use core::ffi::{c_char, c_int};
 use core::ptr;

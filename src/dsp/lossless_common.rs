@@ -25,6 +25,33 @@
 //! above, which WP11 appends to this module with the tables they read
 //! (decided 2026-11-06). The declarations of those tables and slow functions
 //! belong with their definitions in `src/dsp/lossless_enc.rs`.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`GENERATE_PREDICTOR_ADD`** is a `macro_rules!` macro of this module,
+//!    re-exported to the crate, which generates functions of the decoder form.
+//!    The C `assert(upper != NULL)` has no counterpart, because positions
+//!    cannot be `NULL`; the left position is formed with a wrapping
+//!    subtraction, as the C `&out[x - 1]` is formed, and only read by the
+//!    predictors that read it.
+//!
+//! # Excluded undefined behavior
+//!
+//! `VP8LSubSampleSize`, `RightShiftRound`, `DivRound` and the prefix encodings
+//! exclude inputs that are undefined behavior in C; they are listed in
+//! `src/utils/color_cache_utils.rs`, `# Excluded undefined behavior` (item 1).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point.** No translated function of the lossless utilities
+//!    computes in floating point. `LOG_2_RECIPROCAL` and
+//!    `LOG_2_RECIPROCAL_FIXED_DOUBLE` are constants and are compared as bit
+//!    patterns.
 
 use crate::utils::utils::bits_log2_floor;
 

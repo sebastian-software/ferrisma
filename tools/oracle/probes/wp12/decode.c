@@ -50,6 +50,11 @@
 // dithering_strength, flip, alpha_dithering_strength.
 //
 // tests/wp12_decode.rs generates the commands and the expected output.
+//
+// Checks not applicable:
+//
+//   Pointer values. The probe prints plane positions relative to the memory
+//   that holds them, never addresses.
 
 #include <stdio.h>
 #include <stdlib.h>

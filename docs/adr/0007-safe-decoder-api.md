@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-09
-- Updated: 2026-11-09
+- Updated: 2026-11-10
 
 ## Context
 
@@ -19,8 +19,8 @@ where C has a precondition: a buffer description that does not match its
 slices, or a flipped plane outside its region. Ferrixel's `webp-read` source
 (WP21) needs a safe API under its ADR-0012 contract (describe the source, then
 stream rows of a region into memory the engine budgets) and its ADR-0018
-adoption gates, and the port plan (Phase 6) lists what the decoder half must
-offer. WP16 has no upstream unit: it adds no behavior, so every decoding must
+adoption gates, and Ferrixel's port plan (Phase 6) lists what the decoder half
+must offer. WP16 has no upstream unit: it adds no behavior, so every decoding must
 equal `webp_decode` (or the incremental decoder, or the animation decoder)
 with the same configuration, and therefore the C oracle. [ADR 0006](0006-safe-encoder-api.md)
 is the model.
@@ -318,8 +318,7 @@ is never returned (the API sets no I/O hooks) and is kept for `code()`.
   one frame with timestamp 0, loop count 1 and background `0xFFFFFFFF`.
 
 **Cropping.** The crop is libwebp's (`use_cropping` and the four values) and
-saves what WP12 measured (`docs/status/wp12.md`, "Cropping measurement for
-Ferrixel"): for `VP8 ` and `VP8L` images, `decode` and `decode_into` decode
+saves what WP12 measured (`tests/wp12_crop_rows.rs` holds the table): for `VP8 ` and `VP8L` images, `decode` and `decode_into` decode
 only the rows down to the crop's bottom (plus 2 or 8 rows of filter margin for
 lossy), never fewer rows above it, and nothing is saved by a horizontal crop;
 the incremental decoder parses every macroblock row of a lossy image whatever

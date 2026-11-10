@@ -3,8 +3,9 @@
 //! The modules mirror the upstream source tree: one module per upstream C file,
 //! with the same name, and translated functions carry `// upstream:` references
 //! to the C function they translate. See `docs/PORTING.md` for the porting
-//! contract and `docs/PORT_STATUS.md` for what has been translated; a module
-//! that holds only its provenance header has not been ported yet.
+//! contract; a module that holds only its provenance header has not been
+//! ported yet, and each module's documentation names its deviations from
+//! upstream.
 //!
 //! Ordinary builds compile and link no C. The C ABI export in [`abi`] is the
 //! only module that may contain `unsafe` code (ADR 0004 and ADR 0005). The safe

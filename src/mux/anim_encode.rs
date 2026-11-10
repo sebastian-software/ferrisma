@@ -16,6 +16,8 @@
 //!
 //! Work package: WP15 (mux and animation encode).
 //!
+//! # Representation
+//!
 //! - The encoder owns its mux, the three canvases, the ring of encoded frames,
 //!   both configurations, the options and the error string. C's `curr_canvas`,
 //!   a pointer to the caller's frame during `WebPAnimEncoderAdd`, is the frame
@@ -29,12 +31,85 @@
 //!   makes the view and makes the view where it is used: a shared one
 //!   (`webp_picture_view`) for reading, and one that borrows the canvas's ARGB
 //!   samples exclusively for an encoding ([`sub_frame_view`]), so that the
-//!   encoder writes where C writes (`docs/status/wp15.md`).
+//!   encoder writes where C writes (see "Views of the canvas" below).
 //! - C copies the frame's progress hook into the canvas copy and from there
 //!   into the views. The views here call the frame's hook through a borrow, so
 //!   the candidate encodings report progress as in C; the canvas copy holds no
 //!   hook, so the re-encoding of `WebPAnimEncoderAssemble` reports none, where C
-//!   calls the hook of the last frame (`docs/status/wp15.md`).
+//!   calls the hook of the last frame (see `# Deviations from upstream`,
+//!   item 2).
+//! - **Views of the canvas.** C makes `WebPPictureView`s of the current canvas
+//!   in `GetSubRect` and encodes them later in `EncodeCandidate`. Between the
+//!   two, `IncreaseTransparency`, `FlattenSimilarBlocks` and
+//!   `CopyCurrentCanvas` change the canvas, which the view sees, and the
+//!   lossless encoding writes into the canvas through the view
+//!   (`WebPReplaceTransparentPixels` unless `exact`), which the lossy candidate
+//!   of the same frame then encodes. The shared view of
+//!   `src/enc/picture_rescale_enc.rs` would copy its planes before that write
+//!   (as `webp_encode` in `src/enc/webp_enc.rs` does for a view) and lose it.
+//!   The translation therefore checks the rectangle where C makes the view and
+//!   makes the view where it is used: a shared `webp_picture_view` for
+//!   `WebPGetColorPalette`, and for an encoding a picture that borrows the
+//!   canvas's ARGB samples exclusively as `PlaneStorage::External`
+//!   (`sub_frame_view`), as the C ABI lends caller memory. No interface of
+//!   `src/enc/` changes. Evidence: with a shared view, the "patchy" cases of
+//!   `option_and_config_matrix_matches_the_c_encoder` (noisy opaque content, so
+//!   that the lossy candidate wins, next to transparent pixels that keep a
+//!   color) give other bytes than C.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`EncodeFrame`** removes the memory writer from the picture after the
+//!    call, where C leaves `writer` and `custom_ptr` set (C never encodes the
+//!    picture again without setting them); the writer holds the memory writer
+//!    through an `Rc<RefCell<...>>`, because the canvas copy is a
+//!    `WebPPicture<'static>`.
+//! 2. **Progress hook.** C copies the frame's `progress_hook` and `user_data`
+//!    into the canvas copy (`CopyCurrentCanvas`) and from there into each view.
+//!    The views here call the frame's hook through a borrow, so every candidate
+//!    encoding reports as in C. The canvas copy holds no hook, so the
+//!    re-encoding of the canvas in `WebPAnimEncoderAssemble`
+//!    (`FrameToFullCanvas`, for a single frame smaller than the canvas) reports
+//!    nothing, where C calls the last frame's hook with that frame's
+//!    `user_data`, which the header does not promise to keep valid. The tests
+//!    accept C's count there and require 0.
+//! 3. **Verbose output** (`SanitizeEncoderOptions`, `FlushFrames`, the YUV
+//!    warning) goes to `std::io::stderr`, unbuffered like C's `stderr`; write
+//!    errors are ignored, as `fprintf` ignores them.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`WebPAnimEncoderAdd` after `WebPAnimEncoderAssemble`:** the flushed
+//!    encoder has no frame left, and `IncreasePreviousDuration` reads
+//!    `GetFrame(enc, count - 1)`, which fails C's assertion and indexes before
+//!    the ring in release. The translation wraps the `size_t` arithmetic as C
+//!    does and panics where the index leaves the vector. Not generated.
+//! 2. **`FrameToFullCanvas` when its second encoding fails:** C frees the first
+//!    encoding's bytes and `OptimizeSingleFrame` frees them again (a double
+//!    free). In C the stale progress hook can make the second encoding fail;
+//!    the translation calls no hook there (`# Deviations from upstream`,
+//!    item 2), and only a memory error remains, which is not injected.
+//! 3. **`WebPAnimEncoderRefineRect` with a rectangle that clips to nothing**
+//!    fails the assertion of `MinimizeChangeRectangle`'s pixel comparison, and
+//!    with a quality outside `[0, 100]` converts a NaN to `int`. The test skips
+//!    both.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Big-endian targets** are not run. `DecodeFrameOntoCanvas` reads the
+//!    decoded BGRA bytes as native-order words, as C's `uint32_t*` view does.
+//! 2. **32-bit targets** are not run; `ENCODED_FRAME_SIZE` follows the pointer
+//!    width and the encoder never allocates more than 31 frames.
+//! 3. **Threads**: `thread_level` 0 and 1 are matrix dimensions; the encoder
+//!    adds no thread of its own.
 
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -1263,8 +1338,8 @@ fn sub_frame_view<'v>(
 ) -> WebPPicture<'v> {
     // The canvas copy is an ARGB picture: C's view of a YUV picture, after an
     // encoding of WebPAnimEncoderAssemble left the copy in YUV, would need
-    // another WebPAnimEncoderAdd after WebPAnimEncoderAssemble, which
-    // docs/status/wp15.md excludes.
+    // another WebPAnimEncoderAdd after WebPAnimEncoderAssemble, which the
+    // module documentation excludes (`# Excluded undefined behavior`, item 1).
     debug_assert!(canvas.use_argb != 0);
     let plane = canvas.argb.expect("the canvas has an ARGB plane");
     let offset = plane.offset + pixel(rect.x_offset, rect.y_offset, canvas.argb_stride);
@@ -2157,7 +2232,8 @@ fn frame_to_full_canvas(
     })();
     if !ok {
         // Err: C also frees the bytes of 'full_image' here, which its caller
-        // frees again when the second encoding fails (docs/status/wp15.md).
+        // frees again when the second encoding fails (the module documentation,
+        // `# Excluded undefined behavior`, item 2).
         webp_memory_writer_clear(&mut mem1);
         webp_memory_writer_clear(&mut mem2);
         return None;

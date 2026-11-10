@@ -2,6 +2,14 @@
 //! lossless encoder. The sizes are the `size` arguments of the allocations of
 //! these types (ADR 0003); the C probe `tools/oracle/probes/wp11/constants.c`
 //! lets the oracle's compiler lay them out.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Type sizes on other hosts.** The `C_SIZE` constants follow the 64-bit
+//!    layout; the arm64 development host checks them, and the x86-64 CI host
+//!    checks them again. 32-bit targets are not built.
 
 #[path = "support/oracle.rs"]
 mod oracle;

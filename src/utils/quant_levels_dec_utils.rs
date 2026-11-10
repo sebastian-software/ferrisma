@@ -34,6 +34,21 @@
 //! Translation of `src/utils/quant_levels_dec_utils.c` and `src/utils/quant_levels_dec_utils.h` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Uninitialized scratch in `WebPDequantizeLevels`.** `VFilter` reads the
+//!    first `2 * radius + 1` rows of its ring before any row has been stored
+//!    there, and the C allocation (`WebPSafeMalloc`) is not initialized.
+//!    Reading it is undefined in C, and Rust zero-initializes the scratch
+//!    (ADR 0003, PORTING rule 8). The probe ran random planes with
+//!    `MallocScribble=1`, which fills allocations with `0xaa`, and the output
+//!    did not change. The differential test compares the C output as the build
+//!    prints it. The probe does not fill the heap itself: a fill before the
+//!    call did not reach the allocation on the development host.
 
 use crate::utils::utils::webp_safe_malloc;
 

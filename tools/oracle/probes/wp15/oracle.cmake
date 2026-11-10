@@ -1,4 +1,4 @@
-# WP15 consumer builds (ADR 0004, docs/status/wp15.md).
+# WP15 consumer builds (ADR 0004).
 #
 # webpmux: upstream's examples/webpmux.c, unmodified. The reference
 # configuration turns WEBP_BUILD_WEBPMUX off, so the oracle has no webpmux;
@@ -19,9 +19,12 @@
 # With LIBWEBP_RS_STATICLIB (tools/build_oracle.py --rust-lib), the probes that
 # use only the public mux API are linked against the Rust library as well:
 # probes/wp15/mux_rs and anim_enc_rs. The pinned headers come first in every
-# include path (PORT_STATUS.md, "Consumer builds"). The Rust builds reuse WP12's
-# libwebp_rs target and rs_ copies of upstream's imageio and example libraries
-# (probes/wp12/oracle.cmake) and WP13's wp13_link_shim (probes/wp13/oracle.cmake).
+# include path: upstream's targets get upstream/libwebp/src only through the
+# webp target they link, and a system libwebp (Homebrew's on macOS) would
+# otherwise supply webp/*.h. Keep that order when adding a consumer. The Rust
+# builds reuse WP12's libwebp_rs target and rs_ copies of upstream's imageio
+# and example libraries (probes/wp12/oracle.cmake) and WP13's wp13_link_shim
+# (probes/wp13/oracle.cmake).
 
 function(wp15_tool target output)
   cmake_parse_arguments(TOOL "NO_CONFIG" "" "SOURCES;LIBRARIES" ${ARGN})

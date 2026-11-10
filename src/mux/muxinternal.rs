@@ -24,6 +24,56 @@
 //! `MuxImageRelease`, `MuxImageDelete`) return nothing; their callers remove
 //! the element from its vector. A failed host reservation for a new list
 //! element is `WEBP_MUX_MEMORY_ERROR`, where C's `WebPSafeMalloc` fails.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Unreachable `NULL` checks.** `MuxValidate`'s `NULL` mux and
+//!    `ChunkAssignData`'s `NULL` data have no counterpart; `MuxImageCount` and
+//!    `GetImageInfo` panic where C dereferences `NULL` for ids or images that
+//!    no caller passes.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Fourcc characters from 0x80 on:** `MKFOURCC` promotes `char`, which is
+//!    signed on macOS ARM64 and x86-64, so the first character sign-extends and
+//!    the second and third shift a negative `int`. The translation takes
+//!    unsigned bytes (C's result where `char` is unsigned). The tests use ASCII
+//!    fourccs.
+//! 2. **`ChunkEmit`'s `memcpy` of a copied empty chunk:** `WebPDataCopy` of
+//!    empty data leaves `NULL` bytes, and `WebPMuxAssemble` emits every chunk
+//!    before `MuxValidate` runs, so it calls `memcpy(dst, NULL, 0)`, even where
+//!    the assembly then fails with `WEBP_MUX_INVALID_ARGUMENT` because
+//!    `CreateVP8XChunk` sets a metadata flag only for non-`NULL` bytes.
+//!    `WebPMuxGetFrame` does the same for an empty `ALPH` chunk copied with a
+//!    frame. It is harmless in practice, and `UBSan` reports it only where
+//!    `memcpy` is declared `nonnull` (glibc): the Linux asan-ubsan job found
+//!    it, the macOS run did not. The translation copies an empty slice. The
+//!    edit sequences set empty payloads without copying (the mux keeps the
+//!    caller's non-null pointer, and the `memcpy` of 0 bytes is defined), and
+//!    give `VP8X` and `ANIM`, which `ChunkAssignData` copies whatever
+//!    `copy_data` says, a one-byte payload instead of an empty one; the
+//!    directed sequences read a copied empty chunk back (`getchunk`,
+//!    `numchunks`, `state`) and delete or replace it before any `assemble`, as
+//!    the encoder cases do. So the oracle no longer compares
+//!    `CreateVP8XChunk`'s flag test for `NULL` bytes or the refusal it leads to
+//!    (`src/mux/muxi.rs`, `# Deviations from upstream`, item 1): C reaches them
+//!    only through this `memcpy`. A candidate for an upstream report:
+//!    `ChunkEmit` could skip the `memcpy` when `chunk_size` is 0.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Allocation failures** (`WEBP_MUX_MEMORY_ERROR`,
+//!    `VP8_ENC_ERROR_OUT_OF_MEMORY`) are not injected; the translation reserves
+//!    fallibly where C allocates (`try_reserve` for list elements,
+//!    `webp_safe_malloc` for chunk and output bytes) and returns C's codes.
 
 use std::borrow::Cow;
 
@@ -179,8 +229,8 @@ pub fn chunk_get_id_from_tag(tag: u32) -> WebPChunkId {
 
 // upstream: src/mux/muxinternal.c ChunkGetTagFromFourCC
 /// Convert a fourcc string to a tag. The bytes are unsigned; C passes `char`
-/// values, which sign-extend where `char` is signed (`docs/status/wp15.md`,
-/// undefined behavior excluded from the oracle).
+/// values, which sign-extend where `char` is signed (the module documentation,
+/// `# Excluded undefined behavior`, item 1).
 #[must_use]
 pub fn chunk_get_tag_from_four_cc(fourcc: &[u8; 4]) -> u32 {
     mkfourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3])
@@ -209,7 +259,9 @@ fn chunk_search_next_in_list(chunks: &[WebPChunk<'_>], start: usize, tag: u32) -
 
 // upstream: src/mux/muxinternal.c ChunkSearchList
 /// Search for nth chunk with given `tag` in the chunk list. `nth = 0` means
-/// "last of the list".
+/// "last of the list". The check of a missing nth chunk (`nth > 0 && iter > 0`)
+/// is equivalent to dropping it for every caller: they pass 1, where `iter` is 0
+/// after the loop.
 #[must_use]
 pub fn chunk_search_list<'c, 'a>(
     first: &'c [WebPChunk<'a>],

@@ -16,6 +16,17 @@
 //! Translation of `src/enc/picture_tools_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP9 (encoder picture and config).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Missing planes.** `WebPCleanupTransparentArea` and `WebPBlendAlpha`
+//!    return unchanged when a plane they need is missing, and
+//!    `WebPReplaceTransparentPixels` returns when the ARGB plane is missing. C
+//!    dereferences the missing plane for every block, which is a precondition
+//!    violation; the cases are not generated.
 
 use crate::dsp::alpha_processing::webp_alpha_replace;
 use crate::dsp::yuv::{YUV_HALF, vp8rgb_to_u, vp8rgb_to_v, vp8rgb_to_y};

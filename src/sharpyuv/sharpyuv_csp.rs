@@ -27,6 +27,45 @@
 //! Translation of `sharpyuv/sharpyuv_csp.c` and `sharpyuv/sharpyuv_csp.h` from libwebp v1.6.0.
 //!
 //! Work package: WP5 (`SharpYUV`).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Out-of-range float conversions.** C converts a float that is out of
+//!    range for an integer type with an undefined conversion. Rust `as`
+//!    saturates. This is reachable only in the excluded cases of
+//!    `# Excluded undefined behavior`: item 2 here and item 1 of
+//!    `src/sharpyuv/sharpyuv_gamma.rs`.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Seeded color spaces (`csp.c`, `wp5_matrix.rs`).** The seeded color
+//!    spaces draw `kr` and `kb` from `[0, 0.5)` and the bit depth from 8 to 15.
+//!    In `SharpYuvComputeConversionMatrix`, `ToFixed16` converts
+//!    `f * 65536 + 0.5` to `int`, which is undefined when `|f| >= 32768`. With
+//!    these bounds every scale factor is at most 1 and every coefficient is at
+//!    most 1 in magnitude, so every intermediate fits `int`.
+//! 2. **Bit depth 16 in `SharpYuvComputeConversionMatrix`.** The offset
+//!    `128 << (bit_depth - 8)` is `2^15` at 16 bits, and `ToFixed16` of
+//!    `2^15 * 65536` overflows `int`, for every color space. The C result is
+//!    undefined: an oracle run observed `INT_MIN`, and the Rust function
+//!    saturates to `i32::MAX`. The bit depth 16 is excluded from the seeded
+//!    color spaces. The computed matrices of the inventory (see
+//!    `tests/wp5_matrix.rs`) use 8, 10 and 12 bits. `SharpYuvConvert` does not
+//!    use computed matrices, so no conversion reaches this case.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point across hosts.** The matrix computation uses `float`; the
+//!    full text is in `# Checks not applicable` (item 1) of
+//!    `src/sharpyuv/sharpyuv_gamma.rs`.
 
 use super::sharpyuv::SharpYuvConversionMatrix;
 

@@ -16,6 +16,24 @@
 //! Translation of `src/dsp/alpha_processing.c` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`WebPMultARGBRows`** casts a byte pointer to `uint32_t*` in C. Rust has
+//!    no safe reinterpretation, so the function takes `&mut [u32]` and a stride
+//!    in `u32` elements. The probe calls the C function with the stride in
+//!    bytes, which reaches the same pixels.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Big-endian sources.** `PackARGB_C` and the `WebPPackARGB` pointer
+//!    (`WORDS_BIGENDIAN`) are not compiled on little-endian hosts, which the
+//!    reference configuration is.
 
 // upstream: src/dsp/alpha_processing.c MFIX
 /// Fixed-point precision of the alpha multiplication.

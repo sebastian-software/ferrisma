@@ -35,7 +35,8 @@
 // pointer that it returned after `new`), the number of progress hook calls, and for
 // `assemble` the size and 64-bit FNV-1a digest of the output. The hook is
 // counted per call: C's encoder keeps the last frame's hook in its canvas and
-// calls it again in WebPAnimEncoderAssemble() (docs/status/wp15.md).
+// calls it again in WebPAnimEncoderAssemble() (src/mux/anim_encode.rs,
+// "Deviations from upstream", item 2).
 // tests/wp15_anim_encode.rs reproduces the output with the Rust translation,
 // except for `nulls`; tests/wp15_abi.rs compares this probe with anim_enc_rs.
 

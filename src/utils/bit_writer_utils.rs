@@ -43,6 +43,74 @@
 //! The constants below make the same choice, so that the internal state matches
 //! the oracle built for the same host. The output bytes are the same for both
 //! choices.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Writer buffers.** `VP8BitWriter::buf` and `VP8LBitWriter::buf` are
+//!    `Vec<u8>`. The length of the vector is the allocated size (`max_pos`, or
+//!    `end - buf`), and `cur` is an offset. Allocations use
+//!    `webp_safe_calloc::<u8>(n, 1)`, which applies the size test of
+//!    `WebPSafeMalloc(1, n)` with the same decision (`n` and `1` in place of
+//!    `1` and `n`), and it zero-fills the buffer, as ADR 0003 requires. C's
+//!    `malloc` does not zero-fill.
+//! 2. **Bit values.** `VP8PutBit` and `VP8PutBitUniform` take and return a
+//!    `bool`, because the C `int` is used only as a predicate. `VP8GetBit`,
+//!    `VP8GetSigned` and `VP8GetBitAlt` (`src/utils/bit_reader_inl_utils.rs`)
+//!    return an `i32`, because the decoder uses the bit as a value.
+//! 3. **Errors.** The writers keep `error` as a `bool`. A refused allocation
+//!    sets it, and it stays set until `Init` or `WipeOut` clears it, as in C.
+//!
+//! The fields of the writers are `pub` for the reason given in item 1 of
+//! `# Deviations from upstream` in `src/utils/bit_reader_utils.rs`.
+//! `VP8PutSignedBits` takes the magnitude with `unsigned_abs`, which defines
+//! the case of `INT_MIN`; see item 1 of `# Deviations from upstream` in
+//! `src/utils/bit_reader_inl_utils.rs`.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8). The
+//! asan-ubsan oracle found these, and the generators keep the tests away from
+//! them:
+//!
+//! 1. `VP8LPutBitsInternal` with 32 bits at `used == 0` on the 16-bit path
+//!    shifts a `uint32_t` by 32. The Rust `>>=` panics in dev and `checked`
+//!    builds. The generator narrows such a call to 31 bits.
+//! 2. Writes after `VP8LBitWriterFinish`, whose cursor may be odd, store a
+//!    16-bit or 32-bit word at an odd address (`*(vp8l_wtype_t*)bw->cur`). The
+//!    sequences finish and wipe a writer only at their end.
+//! 3. A write into a writer without a buffer (after a refused `Init`) adds the
+//!    cursor offset to a null pointer. The Rust version resizes the empty
+//!    vector and writes. The refused-allocation test issues only writes that do
+//!    not flush, then a finish.
+//! 4. `VP8LBitWriterReset` to a cursor whose bytes the destination does not
+//!    hold: a resize copies only the bytes before the cursor, and C then reads
+//!    memory that it never wrote. The tests reset only after a clone of the
+//!    same source.
+//! 5. `VP8LBitWriterClone` from a writer without a buffer passes a null pointer
+//!    to `memcpy`. No sequence wipes a writer before a clone.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. The C assertion `sizeof(vp8l_wtype_t) == 2` of `VP8LPutBitsInternal`
+//!    holds on every path that calls the function, the 16-bit accumulator path,
+//!    so it is not checked at run time.
+//! 2. The failure branch of `VP8LPutBitsFlushBits` (the cursor returns to the
+//!    start, and the error flag is set) is reached only when the growth would
+//!    exceed `WEBP_MAX_ALLOCABLE_MEMORY`, which the tests cannot reach without
+//!    reserving 16 GiB. The arithmetic is the same as the refused `Init`, which
+//!    is tested.
+//! 3. The host-specific writer state. On macOS ARM64 (not x86-64) the lossless
+//!    writer uses the 32-bit accumulator and 16-bit write words; x86-64 uses 64
+//!    and 32 bits. The tests compare the internal state, so they check the path
+//!    of the host they run on. `VP8LPutBitsInternal` is reached only by the
+//!    16-bit words, so the x86-64 CI host exercises the 32-bit path alone, and
+//!    the macOS ARM64 host the 16-bit path.
 
 use crate::utils::utils::{check_size_overflow, webp_safe_calloc};
 

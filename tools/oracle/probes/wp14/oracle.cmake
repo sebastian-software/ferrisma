@@ -1,4 +1,4 @@
-# WP14 consumer builds (ADR 0004, docs/status/wp14.md).
+# WP14 consumer builds (ADR 0004).
 #
 # anim_dump: upstream's examples/anim_dump.c with anim_util.c and gifdec.c,
 # unmodified. Upstream's CMake builds it only with WEBP_BUILD_ANIM_UTILS, which
@@ -10,7 +10,9 @@
 # config.h only defines WEBP_HAVE_GIF (and the Windows-only HAVE_WINCODEC_H), so
 # both builds read WebP input only and need no giflib on any host, as upstream's
 # own build does where giflib is missing. The pinned headers come first in the
-# include path (PORT_STATUS.md, "Consumer builds").
+# include path: upstream's targets get upstream/libwebp/src only through the
+# webp target they link, and a system libwebp (Homebrew's on macOS) would
+# otherwise supply webp/*.h. Keep that order when adding a consumer.
 #
 # With LIBWEBP_RS_STATICLIB (tools/build_oracle.py --rust-lib), the probes that
 # use only the public demux API are linked against the Rust library as well:

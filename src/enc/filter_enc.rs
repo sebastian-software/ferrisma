@@ -16,6 +16,27 @@
 //! Translation of `src/enc/filter_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Chroma filters of `DoFilter`.** The decoder's chroma filters
+//!    (`VP8HFilter8i` and `VP8VFilter8i` in `src/dsp/dec.rs`) take the U and V
+//!    planes as two buffers; `yuv_out2` holds U and V side by side in each row,
+//!    which no split separates. The V samples are filtered in a copy of the
+//!    buffer and copied back; each filter touches only its own plane's columns,
+//!    so the samples are C's.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Compile-time switches.** `WEBP_REDUCE_SIZE` is undefined; see
+//!    `src/enc/frame_enc.rs`, `# Checks not applicable`, item 1.
+//! 2. **Floating point.** See `src/enc/quant_enc.rs`,
+//!    `# Checks not applicable`, item 1.
 
 use crate::dec::common_dec::NUM_MB_SEGMENTS;
 use crate::dsp::dec::{
@@ -125,7 +146,7 @@ fn get_i_level(sharpness: i32, level: i32) -> i32 {
 /// Filters a copy of `yuv_out` into `yuv_out2`. The decoder's chroma filters
 /// take the U and V planes as two buffers, which `yuv_out2` holds side by side
 /// in each row; the V samples are filtered in a copy of the buffer and copied
-/// back (see the status page).
+/// back (see the `# Deviations from upstream` section of this module, item 1).
 #[expect(clippy::similar_names, reason = "the C names level and ilevel")]
 #[expect(clippy::bool_to_int_with_if, reason = "the C condition form")]
 fn do_filter(it: &mut VP8EncIterator, enc: &VP8Encoder, config: &WebPConfig, level: i32) {

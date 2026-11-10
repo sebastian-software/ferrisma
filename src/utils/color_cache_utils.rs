@@ -32,6 +32,38 @@
 //! Translation of `src/utils/color_cache_utils.c` and `src/utils/color_cache_utils.h` from libwebp v1.6.0.
 //!
 //! Work package: WP3 (lossless shared).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`VP8LColorCache`.** `colors` is a `Vec<u32>`, empty where C has `NULL`.
+//!    `Set` and `Insert` take `&mut`, because C writes through the cache's
+//!    pointer from a `const` struct pointer. Keys index after a checked
+//!    conversion.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8LHashPix` with a shift of 32 or more, `VP8LColorCacheInit` with hash
+//!    bits outside 1 to 30, `VP8LSubSampleSize` with 31 or more sampling bits,
+//!    `RightShiftRound` with a shift of 64 or more, `DivRound` by zero or with
+//!    an overflowing quotient, and the prefix encodings for distances below 3:
+//!    shifts out of range, a zero argument to `BitsLog2Floor` or signed
+//!    overflow in C. (`VP8LSubSampleSize`, `RightShiftRound`, `DivRound` and
+//!    the prefix encodings are in `src/dsp/lossless_common.rs`.)
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`VP8LColorCacheInit` failure.** The format allows 1 to 11 hash bits,
+//!    which always pass the size test; the failure branch keeps C's partial
+//!    state (see the documentation of `vp8l_color_cache_init`) but is not
+//!    reached.
 
 use crate::utils::utils::webp_safe_calloc;
 

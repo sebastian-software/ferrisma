@@ -8,7 +8,8 @@
 // A HEX argument is "-" for a plane that the picture does not use. The copy command
 // also reports whether the copy holds the same callback and reference pointers as the
 // source (writer_copied, progress_copied, extra_info_copied, stats_copied): C copies
-// them, the Rust copy holds none of them (WP9 deviation).
+// them, the Rust copy holds none of them (src/enc/picture_rescale_enc.rs,
+// "Deviations from upstream", item 1).
 
 #include <stdint.h>
 #include <stdio.h>

@@ -22,6 +22,35 @@
 //!
 //! Only the `WEBP_NEAR_LOSSLESS == 1` branches are translated, as the
 //! reference configuration enables near-lossless.
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`VP8LResidualImage` returns 0 without recording an error** when its
+//!    modes cannot be allocated, and `EncodeStreamHook` (`src/enc/vp8l_enc.rs`)
+//!    then returns success because it tests only `picture->error_code`;
+//!    `VP8LEncodeImage` goes on to write the partial stream. The Rust code
+//!    keeps this (not reachable in the tests).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8LResidualImage` and `VP8LColorSpaceTransform` with bits outside 2 to
+//!    9; see `src/enc/near_lossless_enc.rs`, `# Excluded undefined behavior`,
+//!    item 1.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Big-endian hosts.** The `max_diffs` bytes of the predictor scratch are
+//!    written by `MaxDiffsForRow` and read by `GetResidual` only, both in
+//!    native byte order, so the byte order cannot change a result; the
+//!    development host is little-endian.
 
 use crate::dsp::lossless::{VP8LMultipliers, vp8l_predictors};
 use crate::dsp::lossless_common::{

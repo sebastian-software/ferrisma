@@ -16,10 +16,15 @@
 //!   memory and into caller rows and planes with padded strides and WP12's
 //!   guard bytes, caller memory one byte too short or narrow, and truncated
 //!   input; options that the API refuses although libwebp decodes them (odd
-//!   crop offsets, dithering above 100) are the recorded deviations, counted;
+//!   crop offsets, dithering above 100) are the deviations 1 and 3 in
+//!   `src/api/decode.rs` (`# Deviations from upstream`), counted;
 //! - `decode` with `Config::new(mode)` against the simple API
 //!   (`WebPDecodeRGB` to `WebPDecodeYUV`) and `decode_into` against the
 //!   `...Into` functions.
+//!
+//! The two largest vectors get the features, two modes and the simple API in
+//! the decode tests and are left out of the incremental tests, as in
+//! `tests/wp12_decode.rs` and `tests/wp12_incremental.rs`.
 
 #[path = "support/oracle.rs"]
 mod oracle;

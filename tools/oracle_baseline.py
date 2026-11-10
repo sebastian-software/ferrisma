@@ -23,8 +23,8 @@ Rust-linked cwebp.
 --diagnose-post-v1.6.0 also compares the oracle with test-data 06ddd96, whose
 last two commits regenerated seven PGM checksums and the grid, peak and
 lossless_color_transform PGM references for libwebp 0d14d84b, a change made
-after v1.6.0. That is why the test data is pinned at 260804d (docs/WORKPLAN.md,
-findings from WP0). The diagnostic expects exactly those entries to differ.
+after v1.6.0. That is why the test data is pinned at 260804d
+(docs/PROVENANCE.md). The diagnostic expects exactly those entries to differ.
 """
 
 import argparse

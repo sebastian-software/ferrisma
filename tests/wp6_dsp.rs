@@ -6,7 +6,8 @@
 //! The test generates seeded inputs, runs each function in Rust and in the
 //! probe, and compares every byte of the updated buffers. The transform inputs
 //! stay within ±15000, below which the C `int` arithmetic of `TransformOne`
-//! cannot overflow (PORTING rule 8; `docs/status/wp6.md`).
+//! cannot overflow (PORTING rule 8; see `# Excluded undefined behavior` in
+//! `src/dsp/dec.rs`).
 
 #[path = "support/oracle.rs"]
 mod oracle;

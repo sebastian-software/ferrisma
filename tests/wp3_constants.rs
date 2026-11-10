@@ -3,6 +3,10 @@
 //! `palette.h` and `lossless_common.h`, printed by the C probe
 //! `tools/oracle/probes/wp3/constants.c`. The sizes are the `size` arguments of
 //! the allocations of these types (ADR 0003, allocation limits).
+//!
+//! Type sizes on other hosts are not compared. The `C_SIZE` constants follow
+//! the pointer width; an arm64 host checks the 64-bit values, and the x86-64 CI
+//! host checks them again. 32-bit targets are not built.
 
 #[path = "support/oracle.rs"]
 mod oracle;

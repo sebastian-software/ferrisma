@@ -18,6 +18,21 @@
 //! Work package: WP12 (decoder integration).
 //!
 //! Exception: WP7 translates `WebPIoInitFromOptions`, `WebPCheckCropDimensions` and `WebPCheckCropDimensionsBasic` from `src/dec/webp_dec.c`, because `VP8LDecodeImage` calls `WebPIoInitFromOptions`, which checks the crop with the other two.
+//!
+//! # Calling the VP8 decoder
+//!
+//! How `DecodeInto` drives the VP8 decoder:
+//!
+//! 1. `DecodeInto` calls `vp8_get_headers(dec, &mut io, data)` with `data` from
+//!    the frame offset, sets `dec.mt_method =
+//!    vp8_get_thread_method(params.options, io.width, io.height)` (keep
+//!    `assert(!headers.is_lossless)` there), calls
+//!    `vp8_init_dithering(params.options, dec)` and `vp8_decode(dec, &mut io,
+//!    data, alpha_data, Some(&mut hooks))`, where `alpha_data` is the ALPH
+//!    payload slice (`None` without ALPH) and `hooks` is
+//!    `webp_init_custom_io(&mut params, &mut output, &mut io)`. On failure read
+//!    `dec.status`, as C does; it can be OK after a failed `put()` of the last
+//!    threaded row.
 
 // The items below are WP7's exception in this module (`tools/units.json`):
 // `WebPIoInitFromOptions` and the two crop checks that it calls.

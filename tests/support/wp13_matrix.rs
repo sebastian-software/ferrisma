@@ -1,4 +1,4 @@
-//! The case groups of the WP13 encoder matrix (`docs/PORT_PLAN.md`, Phase 3),
+//! The case groups of the WP13 encoder matrix (`docs/PORTING.md`, end-to-end gates),
 //! shared by `tests/wp13_encode.rs` (the Rust translation against the oracle)
 //! and `tests/wp13_abi.rs` (the C ABI against the oracle). Each group is one
 //! test; `support/wp13_cases.rs` holds the records and the replay.

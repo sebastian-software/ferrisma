@@ -44,7 +44,46 @@
 //! writes before the pointer, outside the buffer that `decode.h` describes, and
 //! input that overlaps the output memory would be read while it is written.
 //! Rust cannot form those slices, so such calls fail as an invalid buffer does
-//! (`NULL` or `VP8_STATUS_INVALID_PARAM`); `docs/status/wp12.md` records them.
+//! (`NULL` or `VP8_STATUS_INVALID_PARAM`); see `# Deviations from upstream`,
+//! item 2, and `# Excluded undefined behavior`, items 1 and 2.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **C ABI memory.** One extra copy per decoding: the simple API copies the
+//!    translation's buffer into a `malloc` block; a library buffer of
+//!    `WebPDecode` and of the incremental decoder moves into one after the call
+//!    that allocated it. If that `malloc` fails, the incremental decoder keeps
+//!    the translation's memory and hands out pointers into it, which live as
+//!    long as the decoder. Plane pointers of a library buffer whose memory was
+//!    never allocated, or was released after a failed decoding, keep their
+//!    previous C values (C: pointers to the freed memory).
+//! 2. **C ABI rejects** caller memory with a negative stride, input that
+//!    overlaps caller output memory, and overlapping planes passed as separate
+//!    slices (`WebPDecodeYUVInto`, `WebPINewYUVA`), with C's failure result
+//!    (`NULL` or `VP8_STATUS_INVALID_PARAM`): Rust cannot form those slices
+//!    (`# Excluded undefined behavior`, items 1 and 2). Overlapping planes of a
+//!    `WebPDecBuffer` (`WebPDecode`, `WebPIDecode`, `WebPINewDecoder`) share
+//!    one region and decode as in C.
+//! 3. **C ABI configuration copies.** `WebPIDecode` and `WebPINewDecoder`
+//!    convert the caller's options and output buffer when the decoder is
+//!    created; later changes by the caller are not seen, where C reads through
+//!    its pointers. The caller's buffer receives the dimensions, strides, plane
+//!    pointers and `private_memory` after every call.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Caller memory with a negative stride**: C writes before the pointer,
+//!    outside the buffer that `decode.h` describes; the C ABI rejects it
+//!    (`# Deviations from upstream`, item 2).
+//! 2. **Input that overlaps caller output memory**, and overlapping planes
+//!    passed to `WebPDecodeYUVInto` or `WebPINewYUVA`: the C ABI rejects them
+//!    (`# Deviations from upstream`, item 2).
 
 use core::ffi::{c_int, c_void};
 use core::mem::ManuallyDrop;

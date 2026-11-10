@@ -2,8 +2,9 @@
 // sharpyuv/sharpyuv_gamma.c. SharpYuvGammaToLinear and SharpYuvLinearToGamma are
 // evaluated over every valid transfer function (1 and 4 to 18; the reserved and
 // unspecified values 0, 2 and 3 and the count 19 are undefined, see
-// docs/status/wp5.md) and every bit depth of the conversion (8, 10, 12 and 16),
-// which covers both gamma tables through the sRGB path.
+// src/sharpyuv/sharpyuv_gamma.rs, "Excluded undefined behavior", item 2) and
+// every bit depth of the conversion (8, 10, 12 and 16), which covers both gamma
+// tables through the sRGB path.
 //
 // Output, one group per table, with the values as little-endian bytes in hex:
 //   group=gamma-to-linear-tN-bB  hex=...   (u32 per input value)
@@ -59,7 +60,8 @@ static void PrintLinearToGamma(int transfer, int bit_depth) {
   // Linear values reach 1 << 16 for the sRGB table, which the sweep includes. The
   // other transfer functions stop at 65535: for 65536, a value that the conversion
   // never passes them, the C code converts an out-of-range float to uint16_t, which
-  // is undefined (docs/status/wp5.md, excluded case).
+  // is undefined (src/sharpyuv/sharpyuv_gamma.rs, "Excluded undefined
+  // behavior", item 1).
   const uint32_t top = (transfer == 13) ? (1u << 16) : 65535u;
   const uint32_t step = (transfer == 13) ? 1u : 257u;
   uint32_t v, count = 0;

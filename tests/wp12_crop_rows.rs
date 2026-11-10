@@ -1,15 +1,78 @@
-//! WP12 measurement for Ferrixel (`docs/PORT_PLAN.md`, WP21): which rows a
-//! cropped or scaled decoding touches, counted in the C library by the probe
-//! `tools/oracle/probes/wp12/crop_rows.c` and in the Rust translation here,
-//! through the internal API that `DecodeInto` uses, with a counting `put()`.
-//! The two must agree; `docs/status/wp12.md` records the numbers, which this
-//! test prints.
+//! Cropping measurement for Ferrixel (`docs/adr/0010-ferrixel-adoption.md`):
+//! which rows a cropped or scaled decoding touches, counted in the C library
+//! by the probe `tools/oracle/probes/wp12/crop_rows.c` and in the Rust
+//! translation here, through the internal API that `DecodeInto` uses
+//! (`VP8Decode`, `VP8LDecodeImage`) with a counting `put()`, into RGBA. The
+//! two must agree on every number; the test prints them.
 //!
-//! VP8: the macroblock rows of the image, the rows that `ParseFrame` parses
-//! (`br_mb_y`), the filter type, the rows that are in-loop filtered, the
-//! `put()` calls with their first row and number of rows, and the output
-//! rows. VP8L: the height, the rows that `DecodeImageData` decodes
-//! (`last_row`) and the output rows (`last_out_row`).
+//! VP8 columns: the macroblock rows of the image, the rows that `ParseFrame`
+//! parses (`br_mb_y`), the filter type (0 none or bypassed, 1 simple, 2
+//! complex), the rows that are in-loop filtered, the `put()` calls with their
+//! first row and number of rows, and the output rows. VP8L: the height, the
+//! rows that `DecodeImageData` decodes (`last_row`) and the output rows
+//! (`last_out_row`).
+//!
+//! The test covers six vectors with six crops each, with and without scaling.
+//! This representative subset shows the result (crop as left,top and size):
+//!
+//! | Vector | Crop (left,top size) | Scale | Parsed rows | Filtered rows | `put()` | Output rows |
+//! | --- | --- | --- | --- | --- | --- | --- |
+//! | `vp80-00-comprehensive-008.webp` (1432 x 888) | none | - | 56 of 56 | 0 (type 0) | 56 (888 rows) | 888 |
+//! | | none | 716x444 | 56 of 56 | 0 (type 0) | 56 (888 rows) | 444 |
+//! | | 0,0 1432x222 | - | 14 of 56 | 0 (type 0) | 14 (222 rows) | 222 |
+//! | | 0,333 1432x222 | - | 35 of 56 | 0 (type 0) | 15 (222 rows) | 222 |
+//! | | 0,666 1432x222 | - | 56 of 56 | 0 (type 0) | 15 (222 rows) | 222 |
+//! | | 0,0 716x888 | - | 56 of 56 | 0 (type 0) | 56 (888 rows) | 888 |
+//! | | 684,412 64x64 | - | 30 of 56 | 0 (type 0) | 5 (64 rows) | 64 |
+//! | `vp80-05-sharpness-1430.webp` (352 x 288) | none | - | 18 of 18 | 18 (type 2) | 18 (288 rows) | 288 |
+//! | | none | 176x144 | 18 of 18 | 0 (bypassed) | 18 (288 rows) | 144 |
+//! | | 0,0 352x72 | - | 5 of 18 | 5 (type 2) | 5 (72 rows) | 72 |
+//! | | 0,108 352x72 | - | 12 of 18 | 12 (type 2) | 5 (72 rows) | 72 |
+//! | | 0,216 352x72 | - | 18 of 18 | 18 (type 2) | 4 (72 rows) | 72 |
+//! | | 0,0 176x288 | - | 18 of 18 | 18 (type 2) | 18 (288 rows) | 288 |
+//! | | 144,112 64x64 | - | 12 of 18 | 12 (type 2) | 5 (64 rows) | 64 |
+//! | | 144,112 64x64 | 32x32 | 11 of 18 | 0 (bypassed) | 4 (64 rows) | 32 |
+//! | `lossy_alpha1.webp` (1000 x 307) | none | - | 20 of 20 | 20 (type 1) | 20 (307 rows) | 307 |
+//! | | 0,0 1000x76 | - | 5 of 20 | 5 (type 1) | 5 (76 rows) | 76 |
+//! | | 0,115 1000x76 | - | 12 of 20 | 5 (type 1) | 5 (76 rows) | 76 |
+//! | | 0,231 1000x76 | - | 20 of 20 | 6 (type 1) | 6 (76 rows) | 76 |
+//! | | 0,0 500x307 | - | 20 of 20 | 20 (type 1) | 20 (307 rows) | 307 |
+//! | | 468,121 64x64 | - | 12 of 20 | 5 (type 1) | 5 (64 rows) | 64 |
+//! | | 468,121 64x64 | 32x32 | 12 of 20 | 0 (bypassed) | 5 (64 rows) | 32 |
+//! | `lossless1.webp` (1000 x 307, VP8L) | none | - | 307 of 307 | | | 307 |
+//! | | 0,0 1000x76 | - | 76 of 307 | | | 76 |
+//! | | 0,115 1000x76 | - | 191 of 307 | | | 76 |
+//! | | 0,231 1000x76 | - | 307 of 307 | | | 76 |
+//! | | 0,0 500x307 | - | 307 of 307 | | | 307 |
+//! | | 468,121 64x64 | 32x32 | 185 of 307 | | | 32 |
+//! | `lossless_color_transform.webp` (512 x 512, VP8L) | 0,192 512x128 | - | 320 of 512 | | | 128 |
+//! | | 224,224 64x64 | - | 288 of 512 | | | 64 |
+//!
+//! What they show, which the source predicts (`src/dec/frame_dec.c`,
+//! `vp8_dec.c`, `io_dec.c`, `vp8l_dec.c`):
+//!
+//! - **VP8 parsing** always starts at macroblock row 0 and stops at
+//!   `br_mb_y = (crop_bottom + 15 + extra) >> 4`, where `extra` is 0, 2 or 8 rows
+//!   of filter margin for no, simple and complex filtering. A crop saves the rows
+//!   below it, never the rows above it.
+//! - **VP8 filtering**: the complex filter (type 2) filters every row from 0 to
+//!   `br_mb_y`, because of its dependency chain; the simple filter (type 1) filters
+//!   from `(crop_top - 2) >> 4` on. Scaling below 3/4 in both dimensions bypasses
+//!   the in-loop filter (`WebPIoInitFromOptions`), which changes the pixels.
+//! - **VP8 output**: `put()` receives only the cropped rows, at full resolution;
+//!   scaling runs after reconstruction, inside the emit functions.
+//! - **Horizontal cropping saves nothing** in VP8 or VP8L: every macroblock or
+//!   pixel of the parsed rows is decoded.
+//! - **VP8L** decodes every row from 0 to `crop_bottom` (`last_row`) and outputs
+//!   only the cropped rows; scaling runs after full-resolution decoding.
+//! - **The incremental decoder** parses every macroblock row of a VP8 image,
+//!   whatever the crop: `DecodeRemaining` loops to `mb_h`, not to `br_mb_y`, and
+//!   `VP8ProcessRow` emits nothing below the crop (source reading;
+//!   `WebPIDecoder` exposes no counters).
+//! - **Alpha** (`ALPH` chunk of a lossy image): `VP8DecompressAlphaRows` decodes
+//!   alpha rows from 0 up to the last row it is asked for, so the same rows as the
+//!   luma; with alpha dithering (pre-processed levels) it decodes the whole plane
+//!   at once (source reading).
 
 #[path = "support/oracle.rs"]
 mod oracle;

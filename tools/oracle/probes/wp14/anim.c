@@ -26,6 +26,10 @@
 //       NULL and invalid arguments around the file at PATH, and prints the
 //       results; pointers are printed as their relation to the input
 //
+// Pointer values are not compared (a check that does not apply): the probes
+// print positions relative to the input and whether private_ is the
+// demuxer, never addresses.
+//
 // Each command starts with a `command=N` line. tests/wp14_anim_decode.rs
 // generates the commands and reproduces the anim output with the Rust
 // translation; tests/wp14_abi.rs compares this probe with anim_rs.

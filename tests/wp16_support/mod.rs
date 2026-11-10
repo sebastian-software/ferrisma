@@ -48,8 +48,8 @@ pub fn color_mode(mode: u32) -> Option<ColorMode> {
     })
 }
 
-/// Why the API refuses a configuration that libwebp decodes: the recorded
-/// deviations of ADR 0007.
+/// Why the API refuses a configuration that libwebp decodes: the deviations 1
+/// to 3 in `src/api/decode.rs` (`# Deviations from upstream`, ADR 0007).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Deviation {
     /// An odd `crop_left` or `crop_top` (libwebp snaps lossy crops).

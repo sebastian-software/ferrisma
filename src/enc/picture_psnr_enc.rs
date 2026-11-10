@@ -20,6 +20,20 @@
 //! The C file is compiled only without `WEBP_DISABLE_STATS` and `WEBP_REDUCE_SIZE`,
 //! which the reference configuration does not define. `WebPPictureDistortion` reads
 //! both inputs through shared views (`WebPPictureView`), which leave them unchanged.
+//!
+//! # Deviations from upstream
+//!
+//! The metric of `WebPPictureDistortion` on the ARGB views reads native-order
+//! byte copies of the samples, where C reads them as bytes: see
+//! `src/enc/picture_csp_enc.rs`, `# Deviations from upstream`, item 1.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. Cross-host floating point. The distortion results are compared bit for
+//!    bit on this host (macOS on Apple Silicon with Apple clang and
+//!    `-ffp-contract=off`). Equality on other hosts is recorded, not assumed.
 
 use crate::dsp::dsp::VP8_SSIM_KERNEL;
 use crate::dsp::ssim::{vp8_accumulate_sse, vp8ssim_get, vp8ssim_get_clipped};

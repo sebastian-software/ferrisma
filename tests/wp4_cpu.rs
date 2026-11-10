@@ -8,6 +8,9 @@
 //! the pointer NULL, and the probe says so; the Rust query then answers `false`
 //! for every feature. On x86 the probe also prints `CheckSlowModel` for a grid
 //! of `cpuid` leaf-1 EAX values, which the Rust helper must match.
+//!
+//! The x86 branches do not run on other hosts; see `# Checks not applicable`
+//! (item 1) in `src/dsp/cpu.rs`.
 
 #[path = "support/oracle.rs"]
 mod oracle;

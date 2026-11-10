@@ -29,6 +29,41 @@
 //! Translation of `src/enc/backward_references_enc.c` and `src/enc/backward_references_enc.h` from libwebp v1.6.0.
 //!
 //! Work package: WP11 (VP8L encoder).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Allocation totals.** Where C allocates one block and carves several
+//!    arrays from it (the reference blocks, the histogram sets, the cost model,
+//!    the Huffman code arrays of `GetHuffBitLengthsAndCodes`, see
+//!    `HuffmanTreeCode`), the Rust code applies the size test of
+//!    `WebPSafeMalloc` to the C total, including `sizeof` of the header and
+//!    `WEBP_ALIGN_CST` padding, before it allocates separate buffers
+//!    (`safe_malloc_test` reserves zero-sized elements, so it allocates
+//!    nothing). The `C_SIZE` constants are compared with the C compiler.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. Pictures large enough that the `int` progress products overflow, such as
+//!    `percent_range * pos` in `VP8LHashChainFill` (about 100 million pixels);
+//!    the tests stay far below.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Host refusals of an allocation.** The size tests of `WebPSafeMalloc`
+//!    and `WebPSafeCalloc` are reproduced with the C totals (item 1 of
+//!    `# Deviations from upstream`), but a refusal by the host of an accepted
+//!    size cannot be provoked; the Rust code fails where C fails
+//!    (`try_reserve`). The fixed-size structures that C allocates once
+//!    (`VP8LEncoder`, `CostManager`, `CostModel`, `Histograms`) are Rust values
+//!    or boxes; their size tests always pass in C.
 
 use crate::dsp::lossless_common::{WEBP_UINT64_MAX, vp8l_prefix_encode};
 use crate::dsp::lossless_enc::vp8l_vector_mismatch;

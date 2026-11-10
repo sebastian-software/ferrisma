@@ -39,6 +39,69 @@
 //! [`HuffmanTablesOffset`]: the index of the segment and the position of the
 //! entry inside it. The owner of the tables passes them to each function that
 //! reads an entry.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`HuffmanTables` stores positions (ADR 0003, "Readers over input").**
+//!    The tables own their segments: `root`, then `next_segments` in the order
+//!    of the C `next` chain, so `HuffmanTablesSegment` has no `next` field.
+//!    `curr_segment` is the segment's index (0 is `root`), and `curr_table` is
+//!    a position in the segment's `start`. A C `HuffmanCode*` into the tables
+//!    is a `HuffmanTablesOffset { segment, offset }`, and `HTreeGroup::htrees`
+//!    holds five of them; the owner (the decoder's `VP8LMetadata`) passes the
+//!    tables to whatever reads an entry. `segment()` and `segment_mut()`
+//!    resolve an index. A second-level table is addressed as in C, relative to
+//!    its root entry in the same segment.
+//! 2. **Segment lifetimes.** `VP8LHuffmanTablesAllocate` drops the old chain
+//!    where C cuts it with `root->next = NULL` without freeing; `Deallocate`
+//!    empties `root.start` and drops the chain. As in C, `Deallocate` leaves
+//!    `curr_segment`, `root.curr_table` and `root.size` alone; a stale
+//!    `curr_segment` panics on use where the C pointer dangles. A new segment
+//!    replaces the chain after the current one, as `curr_segment->next = next`
+//!    does; the current segment is always the last.
+//! 3. **Tree groups.** `VP8LHtreeGroupsNew` returns `Option<Vec<HTreeGroup>>`
+//!    with default groups (C leaves them uninitialized). `VP8LHtreeGroupsFree`
+//!    only frees, so the owner drops the vector instead, as for `WebPSafeFree`
+//!    (see the module documentation of `src/utils/utils.rs`). The flags
+//!    `is_trivial_literal`, `is_trivial_code` and `use_packed_table` are
+//!    `bool`, because C uses them only as predicates.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8LBuildHuffmanTable` with a negative code length (C writes outside its
+//!    histogram; Rust panics), with no code lengths (C asserts), or with
+//!    `root_bits` above `MAX_ALLOWED_CODE_LENGTH` (C reads its histogram past
+//!    the end). The decoder passes 7 or 8; the tests use 1 to 12.
+//! 2. `VP8LHuffmanTablesAllocate(0)` and `VP8LHtreeGroupsNew(0)`: the zero-size
+//!    request of `WebPSafeMalloc` (`src/utils/utils.rs`,
+//!    `# Excluded undefined behavior`, item 2). `VP8LHtreeGroupsNew` above
+//!    `MAX_HTREE_GROUPS` with a successful allocation asserts in C.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Host refusals of an allocation.** The size tests of `WebPSafeMalloc`
+//!    are compared through negative sizes (`alloc`, `groups`) and counts above
+//!    the limit. A refusal by the host of an accepted size (the new segment,
+//!    the heap-sorted array, the co-occurrence matrix) cannot be provoked here;
+//!    the Rust code returns the same failure where C does (`try_reserve`,
+//!    `webp_safe_malloc`).
+//! 2. **Uninitialized C memory.** `VP8LHuffmanTablesAllocate`, the new segments
+//!    and `VP8LHtreeGroupsNew` use `WebPSafeMalloc` without initialization;
+//!    Rust initializes (ADR 0003). `BuildHuffmanTable` writes every entry of
+//!    the range it returns for an accepted code, and only that range is
+//!    compared. The lines of `CoOccurrenceBuild` are written before they are
+//!    read.
+//! 3. **`NULL` arguments.** `VP8LHtreeGroupsFree(NULL)`,
+//!    `VP8LHuffmanTablesDeallocate(NULL)` and `VP8LColorCacheClear(NULL)` exist
+//!    only at the C ABI (PORTING rule 8); none of these headers is public.
 
 use crate::utils::utils::webp_safe_malloc;
 use crate::webp::format_constants::{

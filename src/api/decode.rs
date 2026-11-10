@@ -76,6 +76,10 @@
 //!   `ICCP` chunk and no orientation besides an `EXIF` chunk. [`Container`]
 //!   returns the raw payloads and parses neither; without a profile, readers
 //!   assume sRGB.
+//! - **Animation.** Full canvases after blending and disposal, premultiplied
+//!   blending in the premultiplied modes, a transparent black start, the
+//!   background color reported and not applied, timestamps as end times in
+//!   milliseconds.
 //!
 //! # Cropping
 //!
@@ -84,7 +88,111 @@
 //! the rows below the crop and nothing above it; a horizontal crop saves
 //! nothing, and the incremental decoder parses every macroblock row of a lossy
 //! image whatever the crop. Scaling runs after decoding at full resolution.
-//! `docs/status/wp12.md` ("Cropping measurement for Ferrixel") has the counts.
+//! `tests/wp12_crop_rows.rs` has the counts.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Odd crop offsets** are refused with `InvalidCrop`. libwebp moves an odd
+//!    `crop_left` or `crop_top` of a lossy image to the even position below it
+//!    (`WebPIoInitFromOptions` snaps when the source is YUV) and crops a
+//!    lossless image exactly.
+//! 2. **Scales** need both sides, each 1 to 16383. libwebp derives a side given
+//!    as 0 and accepts outputs up to `i32::MAX / 2`, for which it reserves and
+//!    zeroes up to 16 GiB of library memory.
+//! 3. **Dithering strengths above 100** are refused with `InvalidParameter`, as
+//!    `WebPValidateDecoderConfig` refuses them; `WebPDecode`, which does not
+//!    validate, clamps them.
+//! 4. **Order of errors.** `decode` and `decode_into` check the configuration
+//!    first, then the features, then the crop, scale and caller memory against
+//!    them, and call `webp_decode` last. C reports a bitstream error in a frame
+//!    header before the `VP8_STATUS_INVALID_PARAM` of a crop, scale or buffer
+//!    that does not fit, and a features error before any configuration error.
+//!    The samples of every accepted decoding are libwebp's.
+//! 5. **Caller memory** has one stride for both chroma planes, and the API
+//!    refuses an alpha plane for `Yuv` (`OutputMismatch`); C takes separate U
+//!    and V strides and ignores an alpha plane in `MODE_YUV`.
+//! 6. **An empty `append` before any data** returns `NeedsMoreData` without
+//!    calling the decoder. C asserts against it (see
+//!    `# Excluded undefined behavior` in `src/dec/idec_dec.rs`), and the
+//!    translation's `debug_assert` panics in the dev and `checked` profiles;
+//!    release builds of both return `SUSPENDED`. An `append` that fails with
+//!    `OutOfMemory` does not count as data, since a first piece above
+//!    `MAX_CHUNK_PAYLOAD` or a failed reservation stores nothing; if that
+//!    failure came from decoding a stored first piece instead, C would answer
+//!    the empty call with `BITSTREAM_ERROR`.
+//! 7. **The incremental decoder owns its output buffer** (C's `WebPINewRGB`,
+//!    `WebPINewYUVA` and `WebPINewDecoder` buffers) and takes the options as
+//!    `WebPIDecode` does; C's `WebPIDecode` decodes into the configuration's
+//!    buffer, which keeps the memory after `WebPIDelete`. The samples are equal
+//!    (`tests/wp16_incremental.rs` compares them); `into_image` moves the
+//!    library memory out. Slow memory is not offered.
+//! 8. **Errors without a C status.** `AnimationDecoder::new` and
+//!    `Container::new` classify a failure by running `Features::parse` and the
+//!    partial demuxer on the data; C returns `NULL` and the demuxer reports a
+//!    non-WebP file as a header in progress. A failed `next_frame` is
+//!    `FrameFailed`. On failure `Features::parse` returns no features, where C
+//!    writes what it parsed.
+//! 9. **`IncrementalDecoder::output_size`** is `None` while libwebp's decoded
+//!    area exists with a width of 0 (between a lossless header and the
+//!    allocation of the output); `rows` then lends the caller's memory with 0
+//!    rows, as C's getter returns the caller's pointer.
+//! 10. **The canvas of a failed frame** is not exposed: the borrow of the
+//!     previous frame ends at the next call (see the deviation on the canvas
+//!     after a failure in `src/demux/anim_decode.rs`).
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **A whole-image decoding of a truncated file returns libwebp's status:**
+//!    `BitstreamError` when the file ends before the image's dimensions (C maps
+//!    the features' `NOT_ENOUGH_DATA`), and the decoder's `NotEnoughData` or
+//!    `BitstreamError` later; caller memory then holds the rows decoded so far.
+//! 2. **The incremental getters follow libwebp's pointer and stride:** while a
+//!    flipped decoding runs, row 0 is the bottom row of the output and the
+//!    stride is negative; once complete, the stride is positive. With a scale,
+//!    chroma and alpha rows lag behind the luma rows.
+//! 3. **After a failed incremental step** every later step returns
+//!    `BitstreamError`.
+//! 4. **A still image through the animation decoder** is one frame with
+//!    timestamp 0, loop count 1 and background `0xFFFFFFFF`.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Source correspondence.** This module translates no upstream unit, so
+//!    there are no `// upstream:` markers, no `tools/rust_name.py` names and no
+//!    probe of its own.
+//! 2. **`NULL` arguments** do not exist in the API (references and slices).
+//! 3. **Callbacks.** The API takes no callbacks, so a panicking callback (the
+//!    test of the encoder API in `tests/wp17_misuse.rs`) cannot occur.
+//! 4. **I/O hooks, slow memory, `WebPCopyDecBuffer`, `WebPGrabDecBuffer`, the
+//!    demuxer's frame iterators, `WebPGetInfo` and the simple functions** are
+//!    not in the API (ADR 0007); the simple functions are compared through
+//!    `decode`. The `fconfig` commands of the probe
+//!    `tools/oracle/probes/wp12/decode.c` (features first, which matters only
+//!    for slow memory) and its constructor cases that the API cannot express
+//!    (`WebPINewRGB` with a YUV mode, YUVA memory without a V plane) are not
+//!    replayed.
+//! 5. **Undefined behavior in C.** The exclusions of the decoder translation
+//!    hold. The API passes the bitstream to the translation, so crafted lossy
+//!    streams whose coefficients overflow `int` in `TransformOne_C` (see
+//!    `# Excluded undefined behavior` in `src/dsp/dec.rs`) still panic in the
+//!    dev and `checked` profiles and wrap in release; the API cannot detect
+//!    them before decoding. `WebPIAppend` of zero bytes before any data (see
+//!    `# Excluded undefined behavior` in `src/dec/idec_dec.rs`) no longer
+//!    reaches the translation (item 6 of `# Deviations from upstream`).
+//!    Negative strides and overlapping input and output memory, which the
+//!    decoder translation also excludes, cannot be expressed.
+//! 6. **Allocation failures** are not injected; `OutOfMemory` is reached only
+//!    through the translation's fallible reservations.
+//! 7. **32-bit targets** are not run; the `usize` overflow of a plane's extent
+//!    maps to `InvalidStride` and is reachable there only.
 
 use std::borrow::Cow;
 use std::fmt;

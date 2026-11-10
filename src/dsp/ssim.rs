@@ -16,6 +16,27 @@
 //! Translation of `src/dsp/ssim.c` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`ssim_calculation` uses `f64` division** of the two 64-bit sums, as the
+//!    C `double` division does; the result is compared bit for bit on the
+//!    development host.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point.** The SSIM functions are compared bit for bit on the
+//!    development host; the full text is in `# Checks not applicable` (item 1)
+//!    of `src/utils/quant_levels_utils.rs`.
+//! 2. **Assertions.** The C `assert`s are `debug_assert!` (ADR 0003). The SSIM
+//!    assertion `0 <= r <= 1` holds for the statistics of real windows, which
+//!    the tests use; the statistics of arbitrary sums can fail it in the C
+//!    debug build too, and no caller of the public API produces them.
 
 use crate::dsp::dsp::{VP8_SSIM_KERNEL, VP8DistoStats};
 

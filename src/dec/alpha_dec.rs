@@ -25,6 +25,16 @@
 //! has no Rust counterpart (ADR 0003), and `WebPInitCustomIo(NULL, io)`, whose
 //! hooks on the alpha decoder's io the lossless decoder never calls; `VP8Io` has
 //! no hook fields, so the call has nothing to set.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **The rows of the alpha plane that a decoding has not reached.** The
+//!    plane is `malloc`ed; the alpha test (`alpha_rows_match_the_c_decoder` in
+//!    `tests/wp6_decode.rs`) prints only the decoded rows, from the crop top on
+//!    (the lossless path may skip the rows above it).
 
 use crate::dec::alphai_dec::ALPHDecoder;
 use crate::dec::vp8_dec::{VP8Io, vp8_init_io, vp8_set_error};

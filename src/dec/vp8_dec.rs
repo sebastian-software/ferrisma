@@ -33,6 +33,77 @@
 //! Work package: WP6 (VP8 decoder core).
 //!
 //! Exception: WP7 translates `VP8Io`, `VP8IoPutHook`, `VP8IoSetupHook` and `VP8IoTeardownHook` from `src/dec/vp8_dec.h`, because `VP8LDecoder` and `ALPHDecoder` hold a `VP8Io`.
+//!
+//! # Representation
+//!
+//! 1. **Alpha input.** `dec->alpha_data` points into the caller's input outside
+//!    the VP8 payload, so it is a per-call argument `alpha_data: Option<&[u8]>`
+//!    (C's `alpha_data[..alpha_data_size]`, `None` for `NULL`) of `vp8_decode`,
+//!    `vp8_init_frame`, `vp8_process_row`, `vp8_exit_critical` and
+//!    `vp8_decompress_alpha_rows`. The decoder stores neither field.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Pointers into blocks and planes (ADR 0003).** A pointer that the C code
+//!    only moves forward is a slice from it; one from which it also reads
+//!    backwards (the predictors' `dst[-1]` and `dst[-BPS]`, the filters'
+//!    `p[-2 * step]`) is a slice and a position. Positions outside the slice
+//!    panic, where C reads or writes outside the buffer (item 2 of
+//!    `# Deviations from upstream` in `src/dsp/dsp.rs`). The bit readers of the
+//!    first partition and of the token partitions hold positions in `data`, the
+//!    VP8 payload: `VP8InitBitReader(br, buf + start, size)` is the init of
+//!    `src/utils/bit_reader_utils.rs` on the bytes followed by
+//!    `VP8RemapBitReader` by `start`.
+//! 2. **`GetCoeffs`** is a `LazyLock` of the function that `InitGetCoeffs`
+//!    selects from the CPU query (C: the `volatile` pointer that `VP8New`
+//!    sets). The coefficient probabilities are the bands of one type and the
+//!    indexes of `bands_ptr` into them, where C passes an array of pointers;
+//!    `bands_ptr` starts at 0 where C has `NULL`, and nothing reads it before
+//!    `VP8ParseProba` sets it (the probes print it only when the decoder is
+//!    ready).
+//! 3. **Per-call context (ADR 0003).** `VP8GetHeaders`, `VP8Decode`,
+//!    `VP8ParseProba`, `VP8ParseIntraModeRow`, `VP8ParseQuant` and
+//!    `VP8DecodeMB` take `data`, C's `io->data[..io->data_size]`; the functions
+//!    that emit rows take `alpha_data` and `Option<&mut (dyn VP8IoHooks + '_)>`
+//!    (item 1 of `# Representation`). C's `VP8ParseProba(br, dec)` and
+//!    `VP8ParseIntraModeRow(br, dec)` receive `&dec->br` from every caller and
+//!    read `dec.br` here; `VP8DecodeMB` takes the index of the token partition,
+//!    which every caller computes as `mb_y & num_parts_minus_one`.
+//! 4. **Errors (ADR 0003).** `VP8SetError` keeps its precedence and returns the
+//!    status that the decoder holds afterwards. `VP8GetHeaders` and
+//!    `VP8EnterCritical` return `Result<(), VP8StatusCode>` with the recorded
+//!    status. `VP8Decode`, `VP8InitFrame`, `VP8ProcessRow`, `VP8ExitCritical`,
+//!    `ParseFrame` and `VP8DecodeMB` return `bool`, because C can fail there
+//!    without recording a status (a failed `put()` of the last threaded row, a
+//!    size test that does not fit), so the status field is the only record, as
+//!    in C. `VP8GetInfo` returns `Option<(width, height)>`, since C writes them
+//!    only on success. `VP8DecompressAlphaRows` returns `Option<usize>`, the
+//!    position of the row in the alpha plane, `None` where C returns `NULL`.
+//!    `error_msg` is `Option<&'static str>`.
+//! 5. **Hooks.** C tests `io->put != NULL` and the others; the Rust calls test
+//!    `Option` and `has_put`, `has_setup` and `has_teardown` (the `VP8IoHooks`
+//!    trait). The trait objects take their own lifetime
+//!    (`dyn VP8IoHooks + '_`), so that the calls can reborrow them.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Parse failures after a successful `VP8Decode` without new headers**,
+//!    and calls of `VP8ProcessRow` and `VP8ExitCritical` outside the pairing
+//!    that `VP8EnterCritical` documents.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`GetCoeffsAlt`** is selected only on x86 CPUs with slow SSSE3; the
+//!    development host and the CI hosts run `GetCoeffsFast`. Both decode the
+//!    same values.
 
 // The items below are WP7's exception in this module (`tools/units.json`):
 // `VP8Io` and its three hook types. ADR 0003 ("Decoding context per call")

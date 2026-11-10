@@ -16,7 +16,7 @@
 //!
 //! Work package: WP14 (animation decode and demux ABI).
 //!
-//! Representation (decided for WP14, see `docs/status/wp14.md`):
+//! # Representation
 //!
 //! - [`WebPAnimDecoder`] owns the demuxer that it creates from the caller's
 //!   `WebPData`, which therefore outlives the decoder, as `demux.h` requires.
@@ -31,6 +31,75 @@
 //!   per call").
 //! - `src/webp/mux.h` is a reviewed include (`tools/units.json`): only the
 //!   `WEBP_MUX_*` enums of `mux_types.h` are used.
+//! - **API shapes.**
+//!   `webp_anim_decoder_get_next(&mut dec) -> Option<(&[u8], i32)>` (canvas and
+//!   timestamp), `webp_anim_decoder_get_info(&dec) -> WebPAnimInfo`,
+//!   `has_more_frames`, `reset`, `get_demuxer(&dec) -> &WebPDemuxer`, and
+//!   `webp_anim_decoder_delete(dec)` as the drop. Only `MODE_RGBA`,
+//!   `MODE_BGRA`, `MODE_rgbA` and `MODE_bgrA` are accepted. C's widths are kept
+//!   in the canvas arithmetic (`(size_t)size != size`, the `uint64_t` products,
+//!   the `uint32_t` pixel indexes).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Decoder configuration per call.** C points the output at
+//!    `curr_frame + out_offset` with the size `iter.height * stride`, which on
+//!    the bottom rows reaches `x_offset * 4` bytes past the canvas, where C
+//!    never writes. The translation lends the canvas from `out_offset` to its
+//!    end, with that length as the size. `CheckDecBuffer` asks for
+//!    `stride * (height - 1) + width * 4` bytes, which both sizes hold for
+//!    every frame inside the canvas, and the demuxer admits no other, so the
+//!    same frames pass and fail. The rest of the configuration is rebuilt per
+//!    call: `WebPDecode` overwrites `config.input` and the output's dimensions
+//!    before reading them.
+//! 2. **Canvas allocation.** `WebPSafeCalloc(canvas_width * 4, canvas_height)`
+//!    is `webp_safe_calloc(canvas_width * 4 * canvas_height, 1)`: the size
+//!    tests agree (`h > MAX / n` holds exactly when `n * h > MAX`), and the
+//!    product cannot wrap. The Rust helper writes the zeros when it reserves,
+//!    where C's `calloc` may leave the pages untouched until the first frame's
+//!    `ZeroFillCanvas` and `CopyCanvas` write both canvases; the memory is
+//!    touched earlier, which no result shows.
+//! 3. **Canvas after a failure.** C callers can read the canvas that a failed
+//!    `GetNext` leaves behind through the pointer of an earlier call (the
+//!    header promises it only until the next call). The Rust API ends the
+//!    borrow, so that canvas is compared only through the C ABI (`PARTIAL` in
+//!    `abi_animation_decoder_matches_the_c_library`), which hands out the same
+//!    memory.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Timestamp overflow.** `prev_frame_timestamp + iter.duration` is an
+//!    `int` sum; 129 frames of the largest duration (0xFFFFFF) overflow it,
+//!    which is undefined. The translation panics in the dev and `checked`
+//!    profiles and wraps in release. The inputs keep the sum below 2^31.
+//! 2. **`ZeroFillFrameRect` offsets.** `y_offset * buf_stride` is computed in
+//!    `int` and overflows for canvases of 2 GiB and more. Not reached.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Big-endian targets** (`WORDS_BIGENDIAN`) are not run; `CHANNEL_SHIFT`
+//!    is translated for both byte orders. Its big-endian form shifts the
+//!    blended channel by `CHANNEL_SHIFT(3) = 0` in `BlendChannelNonPremult`, as
+//!    C does.
+//! 2. **32-bit targets** are not run; `(size_t)size != size` and
+//!    `CheckSizeOverflow` never fail on 64-bit hosts.
+//! 3. **Allocation limits.** The demuxer limits a canvas to fewer than 2^32
+//!    pixels (`MAX_IMAGE_AREA`), so `WebPSafeCalloc`'s 2^34-byte limit is never
+//!    reached by the canvases; a refused host reservation fails `New` as C's
+//!    `NULL` does, and no test reaches it.
+//! 4. **`WebPDemuxReleaseIterator(&dec->prev_iter)`** in `GetNext`, `Reset` and
+//!    `Delete` frees nothing in C; the translation keeps comments at those
+//!    points.
+//! 5. **Threads.** `use_threads` goes to the decoder options; 0 and 1 (and -3)
+//!    are matrix dimensions.
 
 use crate::dec::webp_dec::webp_decode;
 use crate::demux::demux::{WebPDemuxer, demux_bytes, webp_demux_get_frame, webp_demux_get_i};
@@ -311,8 +380,9 @@ fn zero_fill_canvas(buf: &mut [u8], canvas_width: u32, canvas_height: u32) -> bo
 
 // upstream: src/demux/anim_decode.c ZeroFillFrameRect
 /// Clears the given frame rectangle to transparent. C computes the offsets in
-/// `int`, whose overflow is undefined (`docs/status/wp14.md`); the frame lies
-/// inside the canvas, so the offset is never negative otherwise.
+/// `int`, whose overflow is undefined (the module documentation, `# Excluded
+/// undefined behavior`, item 2); the frame lies inside the canvas, so the
+/// offset is never negative otherwise.
 fn zero_fill_frame_rect(
     buf: &mut [u8],
     buf_stride: i32,
@@ -489,7 +559,9 @@ fn blend_pixel_row_premult(src: &mut [u8], dst: &[u8], num_pixels: i32) {
 // upstream: src/demux/anim_decode.c FindBlendRangeAtRow
 /// Returns two ranges (`<left, width>` pairs) at row `canvas_y` that belong to
 /// `src` but not `dst`, as `(left1, width1, left2, width2)`. A range is empty if
-/// its width is 0 (C writes the four values through pointers).
+/// its width is 0 (C writes the four values through pointers). Changing `>` to
+/// `>=` in `src_max_x > dst_max_x` is an equivalent mutation: equal right edges
+/// give a range of width 0 either way.
 fn find_blend_range_at_row(
     src: &IteratorFields,
     dst: &IteratorFields,
@@ -604,8 +676,9 @@ pub fn webp_anim_decoder_get_next<'d>(dec: &'d mut WebPAnimDecoder<'_>) -> Optio
         // bytes past the canvas, where C never writes. The canvas from that
         // offset to its end is lent with its own length as the size: the buffer
         // check asks only for stride * (height - 1) + width * 4 bytes, so the same
-        // frames pass and fail (docs/status/wp14.md). The demuxer keeps every
-        // frame inside the canvas, so the offset lies inside it.
+        // frames pass and fail (the module documentation, `# Deviations from
+        // upstream`, item 1). The demuxer keeps every frame inside the canvas, so
+        // the offset lies inside it.
         let out_offset =
             usize::try_from(out_offset).expect("the demuxer keeps the frame inside the canvas");
         let canvas = &mut dec.curr_frame[out_offset..];
@@ -733,7 +806,8 @@ pub fn webp_anim_decoder_get_demuxer<'d, 'a>(dec: &'d WebPAnimDecoder<'a>) -> &'
 
 // upstream: src/demux/anim_decode.c WebPAnimDecoderDelete
 /// Deletes the decoder: dropping it releases the demuxer and both canvases. C
-/// accepts `NULL`; in Rust the caller holds no `Option`.
+/// accepts `NULL`; in Rust the caller holds no `Option`. C also calls
+/// `WebPDemuxReleaseIterator(&dec->prev_iter)`, which frees nothing.
 pub fn webp_anim_decoder_delete(dec: WebPAnimDecoder<'_>) {
     drop(dec);
 }

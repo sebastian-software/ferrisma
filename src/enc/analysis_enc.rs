@@ -16,6 +16,40 @@
 //! Translation of `src/enc/analysis_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Threaded analysis (ADR 0003, threads: a worker inside one call).** With
+//!    `thread_level > 0` and at least two split rows, `VP8EncAnalyze` runs the
+//!    side `SegmentJob` on a `std::thread::scope` thread and the main job on
+//!    the calling thread, as C's `Launch` and `Execute` do; thread creation
+//!    failure is C's failed `Reset`, and the join is the two `Sync` calls, a
+//!    panicking side job counting as a failed hook. The jobs share the encoder
+//!    read-only; `mb_info`, `preds` and `percent` leave the encoder for the
+//!    time of the jobs, and `mb_info` and `preds` are split at the side job's
+//!    first row, so each job writes only its rows (with two macroblock rows the
+//!    side job has no rows, and its first position, one past the plane, is
+//!    clamped). The picture's callbacks are not `Send`, so the jobs work on
+//!    pictures rebuilt from the planes (`SourcePlanes`); the main job's picture
+//!    gets a hook that forwards to the picture's hook, which leaves the picture
+//!    for that time, and its error code is recorded on the picture after the
+//!    join. The single-thread path runs the job on the picture itself. Only the
+//!    main job reports progress, in C too.
+//! 2. **Allocation helpers.** `SmoothSegmentMap`, `ApplyFiltersAndEncode` and
+//!    the alpha copy apply `WebPSafeMalloc`'s size test and reserve fallibly;
+//!    the buffers are zeroed where C leaves them uninitialized, and every
+//!    element is written before it is read.
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`ResetAllMBInfo` ignores the result of `WebPReportProgress`**: an abort
+//!    is recorded on the picture, and `VP8EncAnalyze` succeeds.
 
 use crate::dec::common_dec::NUM_MB_SEGMENTS;
 use crate::dsp::dsp::{BPS, VP8Histogram};

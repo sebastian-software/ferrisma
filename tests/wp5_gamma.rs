@@ -87,7 +87,8 @@ fn gamma_and_transfer_tables_match_the_c_functions() {
                 .hex("hex", &bytes);
             groups += 1;
 
-            // The other transfer functions stop at 65535; see docs/status/wp5.md.
+            // The other transfer functions stop at 65535; see
+            // `# Excluded undefined behavior` in sharpyuv_gamma.rs.
             let top = if transfer == SRGB {
                 1_u32 << 16
             } else {

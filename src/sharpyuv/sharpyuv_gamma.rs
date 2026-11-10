@@ -27,6 +27,41 @@
 //! Translation of `sharpyuv/sharpyuv_gamma.c` and `sharpyuv/sharpyuv_gamma.h` from libwebp v1.6.0.
 //!
 //! Work package: WP5 (`SharpYUV`).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Gamma tables.** `static` tables filled once by
+//!    `SharpYuvInitGammaTables` become `LazyLock` statics with the same
+//!    computation and values (ADR 0003). The function forces the computation.
+//!    Its values are compared through the transfer functions
+//!    (`tests/wp5_gamma.rs`), since the C tables are not visible outside their
+//!    file.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Gamma sweep of 65,536 for non-sRGB transfers.** `SharpYuvLinearToGamma`
+//!    at 16 bits converts a value above 65,535 from float to `uint16_t`, which
+//!    is undefined; the probe observed a wrap to 0 for the inverse of the IEC
+//!    61966 transfer, and Rust saturates. The sweep stops at 65,535 for these
+//!    transfers. The conversion never reaches this case, because it calls the
+//!    functions with bit depths up to 14.
+//! 2. **Transfer functions 0, 2, 3 and 19.** The C `default:` branch asserts
+//!    and returns a linear value of 0. The Rust branch does the same with
+//!    `debug_assert!`. These inputs are not swept.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point across hosts.** Gamma and matrix computations use
+//!    `float` and libm. The results are equal on the development host (macOS
+//!    ARM64); other hosts (the Linux x86-64 runner) are not claimed.
 
 use std::sync::LazyLock;
 

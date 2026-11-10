@@ -64,6 +64,89 @@
 //! - **Metadata**: the output is a still WebP file with no `ICCP`, `EXIF` or
 //!   `XMP` chunk; WebP carries no other color or orientation signal. Metadata
 //!   and animation belong to the muxer (WP15).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Early refusal of dimensions.** Widths and heights above 16383 are
+//!    refused with `InvalidDimensions` before anything is allocated; C imports
+//!    them and fails in `WebPEncode` with `VP8_ENC_ERROR_BAD_DIMENSION`. Zero
+//!    dimensions are refused as well, where C fails the import.
+//! 2. **Floats.** A NaN or infinite `quality` or `target_psnr` is refused with
+//!    `InvalidParameter`; C accepts it and converts it to an integer, which is
+//!    undefined. A quality outside 0 to 100 is `InvalidParameter`, where C
+//!    reports `INVALID_CONFIGURATION` (or `WebPConfigPreset` returns 0).
+//! 3. **Row strides of the X layouts** must hold four bytes per pixel, and the
+//!    last row `width * bytes_per_pixel` bytes; C checks three bytes per pixel,
+//!    which lets RGBX and BGRX rows overlap, and reads `4 * width - 1` bytes of
+//!    the last row.
+//! 4. **Negative strides and dimensions** cannot be expressed (`u32`, `usize`),
+//!    so bottom-up rows are not accepted (C reads them upward; the translation
+//!    panics on them, see item 4 of `# Deviations from upstream` in
+//!    `src/enc/picture_enc.rs`).
+//! 5. **`Encoder::encode`** returns the bytes only on success; C's memory
+//!    writer keeps the partial output of a failed encoding. Its vector keeps
+//!    the memory writer's capacity, up to twice the length.
+//! 6. **`target_size`** takes a `u32` and saturates at `i32::MAX`, C's `int`.
+//! 7. **Panicking callbacks** leave the picture without planes; C has no
+//!    panics.
+//! 8. **The simple functions** return the recorded error instead of C's 0, and
+//!    accept RGBX and BGRX, which C's simple API lacks; their bytes are C's.
+//! 9. **A successful encoding is `Ok`** even when libwebp recorded
+//!    `VP8_ENC_ERROR_USER_ABORT` at a report whose answer it ignores
+//!    (`ResetAllMBInfo` in `src/enc/analysis_enc.c`, and `StatLoop`, whose
+//!    result `VP8EncLoop` in `src/enc/frame_enc.c` drops for lossy methods 0 to
+//!    2); C returns 1 and leaves the code in the picture, which the API does
+//!    not expose on success.
+//! 10. **Callbacks** receive no picture (ADR 0003, as in the translation).
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **The encoder writes into the picture's planes unless `exact`:** the Y, U
+//!    and V samples under fully transparent 8 by 8 blocks (lossy), every
+//!    transparent ARGB pixel to 0 (lossless), and with `show_compressed` the
+//!    decoded samples. A second encoding of a picture sees these writes and the
+//!    planes of the first encoding's conversion.
+//! 2. **A lossy encoding of ARGB samples converts with sharp YUV or dithering**
+//!    when configured; an import into YUVA converts at once without them.
+//! 3. **`WebPConfigLosslessPreset` overrides `lossless`, `method` and
+//!    `quality`.**
+//! 4. **libwebp ignores the progress hook's answer** at the end of an analysis
+//!    without segments and during the statistics pass of lossy methods 0 to 2;
+//!    the documentation of `Encoder::progress` tells a cancelling hook to keep
+//!    returning `false`.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Source correspondence.** This module translates no upstream unit, so
+//!    there are no `// upstream:` markers, no `tools/rust_name.py` names and no
+//!    probe of its own.
+//! 2. **`NULL` arguments** do not exist in the API (references and slices).
+//! 3. **Views, crop, rescale, distortion, alpha blending, `extra_info` and the
+//!    standalone conversions** are not in the API (ADR 0006); their cases in
+//!    `tests/support/wp13_cases.rs` are left out or run without the map.
+//!    Metadata chunks and animation belong to the muxer and the animation
+//!    encoder in `src/mux/`.
+//! 4. **Undefined behavior in C.** The exclusions of the encoder translation
+//!    hold through its case records (statistics of alpha with
+//!    `alpha_compression` 0 and of failed threaded alpha encodings,
+//!    `extra_info_type` 6), and the simple-API test skips
+//!    `WebPEncodeLosslessRGBA` on misaligned rows (see
+//!    `# Excluded undefined behavior` in `src/enc/picture_csp_enc.rs`). The API
+//!    accepts such rows; the translation reads them as bytes, which C cannot
+//!    confirm.
+//! 5. **Allocation failures** are not injected; `OutOfMemory`, `BadWrite` from
+//!    a refused memory-writer growth and `Unreported` are reached only through
+//!    the translation's fallible reservations.
+//! 6. **32-bit targets** are not run; the `usize` overflow of a plane's extent
+//!    maps to `InvalidStride` and is reachable there only.
 
 use std::fmt;
 

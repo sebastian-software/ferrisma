@@ -12,6 +12,15 @@
 //! Compared per case: the written bytes and the sizes of each writer call, the
 //! return value, the error code, every progress report, the statistics, the
 //! `extra_info` map and, with `show_compressed`, the planes after the call.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Allocation failures.** The size tests of `WebPSafeMalloc` are
+//!    translated with the C totals, but no generated input exceeds
+//!    `WEBP_MAX_ALLOCABLE_MEMORY` (that needs dimensions above
+//!    `WEBP_MAX_DIMENSION`), and host allocation failures are not injected.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -801,7 +810,8 @@ fn alpha_matches_the_c_encoder() {
                         .set(F::Method, [0, 3, 4, 6][rng.below(4) as usize]);
                     case.import = 1 + rng.below(2) as i32;
                     // Without compression C copies uninitialized lossless
-                    // statistics into the picture (see the status page).
+                    // statistics into the picture (see `src/enc/alpha_enc.rs`,
+                    // `# Excluded undefined behavior`, item 1).
                     case.with_stats = alpha_compression == 1;
                     cases.push(case);
                 }

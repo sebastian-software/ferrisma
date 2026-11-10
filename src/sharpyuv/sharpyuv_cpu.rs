@@ -33,6 +33,17 @@
 //! Where the C pointer is NULL, the query answers `false` (`src/dsp/cpu.rs`).
 //! `SharpYuvInit` replaces the pointer and is not translated here; see
 //! `sharpyuv.rs`.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **NULL CPU-information pointer.** Outside x86 the reference configuration
+//!    sets `SharpYuvGetCPUInfo` to NULL, and calling it would crash. The Rust
+//!    query answers `false` for every feature there, as `src/dsp/cpu.rs`
+//!    records for `VP8GetCPUInfo` (ADR 0003). On x86 it answers as the C
+//!    pointer does.
 
 use crate::dsp::cpu::{CPUFeature, vp8_get_cpu_info};
 

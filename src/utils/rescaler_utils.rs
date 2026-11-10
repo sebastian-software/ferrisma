@@ -31,6 +31,41 @@
 //! Translation of `src/utils/rescaler_utils.c` and `src/utils/rescaler_utils.h` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`WebPRescaler`.** The C `dst` pointer is the caller's output buffer.
+//!    The struct does not hold it: `webp_rescaler_export_row` and
+//!    `webp_rescaler_export` take the buffer on each call, and the struct keeps
+//!    `dst_pos`, the start of the next output row, and `dst_stride`. The stride
+//!    may be negative, as for a flipped buffer, and the owner may set `dst_pos`
+//!    to the start of the first row. `irow` and `frow` are the two side rows,
+//!    owned by the struct. `webp_rescaler_init` takes the work vector by value
+//!    and splits it, and the import swaps the two vectors, which is what the C
+//!    pointer swap does. The struct has no lifetime parameter, so a decoder can
+//!    store it beside its work and output buffers (ADR 0003, readers over
+//!    input). `fx_scale` is not set when the rescaler expands in x, and
+//!    `fxy_scale` is not set when it expands in y; C leaves them unset and
+//!    never reads them on those paths, and Rust stores 0. The flags are `bool`.
+//!    The C size of the struct is `WebPRescaler::C_SIZE`, computed from the
+//!    pointer size as the other `C_SIZE` constants are: 104 on 64-bit targets,
+//!    where the probe confirms the value, and 84 on 32-bit targets, where it is
+//!    computed but not run here. The caller that carves a block from one
+//!    allocation (ADR 0003) uses it for the size check: `src/dec/io_dec.rs` and
+//!    `src/dec/vp8l_dec.rs` are the callers.
+//! 2. **`WebPRescalerInit`** returns `Option` and never returns `None` on a
+//!    64-bit target, because `CheckSizeOverflow` accepts every size that fits
+//!    `size_t`. The work vector must hold exactly
+//!    `2 * dst_width * num_channels` elements; the size check runs first, then
+//!    a vector of another length panics. The side rows are zeroed, as the C
+//!    `memset` zeroes them. A non-positive `dst_width` or channel count panics,
+//!    which the C code leaves undefined.
+//! 3. **`WebPRescalerGetScaledDimensions`** writes its two arguments only on
+//!    success, as in C. Its 64-bit products wrap as the `uint64_t` arithmetic
+//!    does.
 
 use crate::dsp::rescaler::{webp_rescaler_export_row, webp_rescaler_import_row};
 use crate::utils::utils::check_size_overflow;

@@ -8,8 +8,9 @@
 //! The views cover rectangles inside and outside the picture, with odd corners (the
 //! chroma position is snapped), in both storage forms. The copies cover both forms
 //! with padded strides. The C copy also shares the callback and reference pointers of
-//! its source; the Rust copy and view hold none of them (WP9 deviation), so the test
-//! records the C sharing as the expected output and checks the Rust fields separately.
+//! its source; the Rust copy and view hold none of them (`src/enc/picture_rescale_enc.rs`,
+//! `# Deviations from upstream`, item 1), so the test records the C sharing as the
+//! expected output and checks the Rust fields separately.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -104,7 +105,8 @@ fn copy_matches_the_c_copy() {
             if result.is_ok() {
                 fields.0.extend(visible_picture(&copy).0);
             }
-            // The C copy shares these pointers with its source (WP9 deviation).
+            // The C copy shares these pointers with its source (`src/enc/picture_rescale_enc.rs`,
+            // `# Deviations from upstream`, item 1).
             fields
                 .with("writer_copied", 1)
                 .with("progress_copied", 1)
