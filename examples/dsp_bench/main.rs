@@ -15,6 +15,15 @@
 
 use std::time::Instant;
 
+mod alpha_processing;
+mod dec;
+mod filters;
+mod lossless;
+mod rescaler;
+mod upsampling;
+mod x86;
+mod yuv;
+
 /// A benchmark case: a dispatch function of one module, measured as the
 /// closure runs it on the inputs it prepared.
 pub struct Case {
@@ -33,7 +42,15 @@ pub type Cases = fn() -> Vec<Case>;
 
 /// The registered modules: a name to select on the command line and the
 /// function that builds its cases. The SIMD packages add their entries here.
-const MODULES: &[(&str, Cases)] = &[];
+const MODULES: &[(&str, Cases)] = &[
+    ("dec", dec::cases),
+    ("upsampling", upsampling::cases),
+    ("yuv", yuv::cases),
+    ("alpha", alpha_processing::cases),
+    ("filters", filters::cases),
+    ("rescaler", rescaler::cases),
+    ("lossless", lossless::cases),
+];
 
 /// Calls per measurement.
 const CALLS: u32 = 2_000;

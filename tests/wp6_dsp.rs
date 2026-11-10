@@ -8,15 +8,25 @@
 //! stay within ±15000, below which the C `int` arithmetic of `TransformOne`
 //! cannot overflow (PORTING rule 8; see `# Excluded undefined behavior` in
 //! `src/dsp/dec.rs`).
+//!
+//!
+//! The test compares the C translation: it selects it through
+//! `VP8GetCPUInfo = NULL`, as `-noasm` does, because its transform inputs and
+//! thresholds go beyond the range in which upstream's SSE2 variants equal the C
+//! functions, and the reference oracle has no SIMD code (ADR 0008;
+//! `src/dsp/dec_sse2.rs`, checks not applicable).
 
 #[path = "support/oracle.rs"]
 mod oracle;
 #[path = "wp6_support/mod.rs"]
 mod wp6_support;
 
+use core::ptr;
 use std::fmt::Write as _;
+use std::sync::atomic::Ordering;
 
 use oracle::Oracle;
+use webp::abi::decode::VP8_GET_CPU_INFO;
 use webp::dsp::dec::{
     vp8_dither_combine8x8, vp8_pred_chroma8, vp8_pred_luma4, vp8_pred_luma16,
     vp8_simple_h_filter16, vp8_simple_h_filter16i, vp8_simple_v_filter16, vp8_simple_v_filter16i,
@@ -314,11 +324,15 @@ fn decoder_dsp_matches_the_c_functions() {
     let probe = oracle.probe("wp6", "dsp");
     let mut rng = Rng(0x5750_3644_5350);
     let mut script = Script::new();
+    // The C translation, as `-noasm` selects it: the inputs leave the domain of
+    // upstream's SSE2 transform and filters (see the module documentation).
+    let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
     tables(&mut script);
     transforms(&mut script, &mut rng);
     predictors(&mut script, &mut rng);
     filters(&mut script, &mut rng);
     dithering(&mut script, &mut rng);
+    VP8_GET_CPU_INFO.store(previous, Ordering::Release);
     let output = probe.run::<&str>(&[], script.commands.as_bytes());
     output.success();
     compare("dsp", &output.stdout, &script.expected);

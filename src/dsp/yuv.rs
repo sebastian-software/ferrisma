@@ -400,6 +400,45 @@ static WEBP_SAMPLERS: [Option<WebPSamplerRowFunc>; 13] = [
 /// Panics for `MODE_YUV` and `MODE_YUVA`, which have no sampler; the C table
 /// holds NULL there and calling it is undefined behavior (PORTING rule 8).
 pub fn webp_samplers(mode: WEBP_CSP_MODE, y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            match mode {
+                WEBP_CSP_MODE::MODE_RGB => {
+                    return crate::dsp::yuv_sse41::yuv_to_rgb_row(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_BGR => {
+                    return crate::dsp::yuv_sse41::yuv_to_bgr_row(y, u, v, dst, len);
+                }
+                _ => {}
+            }
+        }
+        if features.sse2 {
+            match mode {
+                WEBP_CSP_MODE::MODE_RGB => {
+                    return crate::dsp::yuv_sse2::yuv_to_rgb_row(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_RGBA => {
+                    return crate::dsp::yuv_sse2::yuv_to_rgba_row(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_BGR => {
+                    return crate::dsp::yuv_sse2::yuv_to_bgr_row(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_BGRA => {
+                    return crate::dsp::yuv_sse2::yuv_to_bgra_row(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_ARGB => {
+                    return crate::dsp::yuv_sse2::yuv_to_argb_row(y, u, v, dst, len);
+                }
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     let sampler = WEBP_SAMPLERS[mode.0 as usize].expect("YUV modes have no row sampler");
     sampler(y, u, v, dst, len);
 }
@@ -540,6 +579,20 @@ pub fn webp_convert_rgba32_to_uv_c(rgb: &[u16], u: &mut [u8], v: &mut [u8], widt
 // assigns to `ConvertARGBToY_C`; the portable pointer is the only one that the
 // reference configuration uses (ADR 0003).
 pub fn webp_convert_argb_to_y(argb: &[u32], y: &mut [u8], width: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            return crate::dsp::yuv_sse41::convert_argb_to_y(argb, y, width);
+        }
+        if features.sse2 {
+            return crate::dsp::yuv_sse2::convert_argb_to_y(argb, y, width);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     convert_argb_to_y_c(argb, y, width);
 }
 
@@ -552,23 +605,79 @@ pub fn webp_convert_argb_to_uv(
     src_width: i32,
     do_store: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            return crate::dsp::yuv_sse41::convert_argb_to_uv(argb, u, v, src_width, do_store);
+        }
+        if features.sse2 {
+            return crate::dsp::yuv_sse2::convert_argb_to_uv(argb, u, v, src_width, do_store);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_convert_argb_to_uv_c(argb, u, v, src_width, do_store);
 }
 
 // upstream: src/dsp/yuv.c WebPConvertRGB24ToY
 // The dispatch to `ConvertRGB24ToY_C`, as for `WebPConvertARGBToY`.
 pub fn webp_convert_rgb24_to_y(rgb: &[u8], y: &mut [u8], width: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            return crate::dsp::yuv_sse41::convert_rgb24_to_y(rgb, y, width);
+        }
+        if features.sse2 {
+            return crate::dsp::yuv_sse2::convert_rgb24_to_y(rgb, y, width);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     convert_rgb24_to_y_c(rgb, y, width);
 }
 
 // upstream: src/dsp/yuv.c WebPConvertBGR24ToY
 // The dispatch to `ConvertBGR24ToY_C`, as for `WebPConvertARGBToY`.
 pub fn webp_convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            return crate::dsp::yuv_sse41::convert_bgr24_to_y(bgr, y, width);
+        }
+        if features.sse2 {
+            return crate::dsp::yuv_sse2::convert_bgr24_to_y(bgr, y, width);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     convert_bgr24_to_y_c(bgr, y, width);
 }
 
 // upstream: src/dsp/yuv.c WebPConvertRGBA32ToUV
 // The dispatch to `WebPConvertRGBA32ToUV_C`, as for `WebPConvertARGBToY`.
 pub fn webp_convert_rgba32_to_uv(rgb: &[u16], u: &mut [u8], v: &mut [u8], width: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            return crate::dsp::yuv_sse41::convert_rgba32_to_uv(rgb, u, v, width);
+        }
+        if features.sse2 {
+            return crate::dsp::yuv_sse2::convert_rgba32_to_uv(rgb, u, v, width);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     webp_convert_rgba32_to_uv_c(rgb, u, v, width);
 }

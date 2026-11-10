@@ -400,6 +400,69 @@ pub fn webp_upsamplers(
     top_dst: &mut [u8],
     len: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            match mode {
+                WEBP_CSP_MODE::MODE_RGB => {
+                    return crate::dsp::upsampling_sse41::upsample_rgb_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_BGR => {
+                    return crate::dsp::upsampling_sse41::upsample_bgr_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                _ => {}
+            }
+        }
+        if features.sse2 {
+            match mode {
+                WEBP_CSP_MODE::MODE_RGBA | WEBP_CSP_MODE::MODE_rgbA => {
+                    return crate::dsp::upsampling_sse2::upsample_rgba_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_BGRA | WEBP_CSP_MODE::MODE_bgrA => {
+                    return crate::dsp::upsampling_sse2::upsample_bgra_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_RGB => {
+                    return crate::dsp::upsampling_sse2::upsample_rgb_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_BGR => {
+                    return crate::dsp::upsampling_sse2::upsample_bgr_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_ARGB | WEBP_CSP_MODE::MODE_Argb => {
+                    return crate::dsp::upsampling_sse2::upsample_argb_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_RGB_565 => {
+                    return crate::dsp::upsampling_sse2::upsample_rgb565_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                WEBP_CSP_MODE::MODE_RGBA_4444 | WEBP_CSP_MODE::MODE_rgbA_4444 => {
+                    return crate::dsp::upsampling_sse2::upsample_rgba4444_line_pair(
+                        top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len,
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     let upsampler = WEBP_UPSAMPLERS[mode.0 as usize].expect("YUV modes have no upsampler");
     upsampler(top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len);
 }
@@ -414,6 +477,22 @@ pub fn webp_upsamplers(
 /// Never panics: the BGRA and ARGB entries of the table are set.
 #[must_use]
 pub fn webp_get_line_pair_converter(alpha_is_last: bool) -> WebPUpsampleLinePairFunc {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `WebPInitUpsamplersSSE41` assigns neither entry.
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return if alpha_is_last {
+                crate::dsp::upsampling_sse2::upsample_bgra_line_pair
+            } else {
+                crate::dsp::upsampling_sse2::upsample_argb_line_pair
+            };
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     let mode = if alpha_is_last {
         WEBP_CSP_MODE::MODE_BGRA
     } else {
@@ -441,43 +520,43 @@ fn yuv444_row(
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToRgba_C
-fn webp_yuv444_to_rgba_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_rgba_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 4, vp8_yuv_to_rgba);
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToBgra_C
-fn webp_yuv444_to_bgra_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_bgra_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 4, vp8_yuv_to_bgra);
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToArgb_C
-fn webp_yuv444_to_argb_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_argb_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 4, vp8_yuv_to_argb);
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToRgb_C
-fn webp_yuv444_to_rgb_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_rgb_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 3, |y, u, v, out| {
         vp8_yuv_to_rgb(i32::from(y), i32::from(u), i32::from(v), out);
     });
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToBgr_C
-fn webp_yuv444_to_bgr_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_bgr_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 3, |y, u, v, out| {
         vp8_yuv_to_bgr(i32::from(y), i32::from(u), i32::from(v), out);
     });
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToRgba4444_C
-fn webp_yuv444_to_rgba4444_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_rgba4444_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 2, |y, u, v, out| {
         vp8_yuv_to_rgba4444(i32::from(y), i32::from(u), i32::from(v), out);
     });
 }
 
 // upstream: src/dsp/upsampling.c WebPYuv444ToRgb565_C
-fn webp_yuv444_to_rgb565_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
+pub(crate) fn webp_yuv444_to_rgb565_c(y: &[u8], u: &[u8], v: &[u8], dst: &mut [u8], len: i32) {
     yuv444_row(y, u, v, dst, len, 2, |y, u, v, out| {
         vp8_yuv_to_rgb565(i32::from(y), i32::from(u), i32::from(v), out);
     });
@@ -516,6 +595,51 @@ pub fn webp_yuv444_converters(
     dst: &mut [u8],
     len: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse4_1 {
+            match mode {
+                WEBP_CSP_MODE::MODE_RGB => {
+                    return crate::dsp::upsampling_sse41::yuv444_to_rgb(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_BGR => {
+                    return crate::dsp::upsampling_sse41::yuv444_to_bgr(y, u, v, dst, len);
+                }
+                _ => {}
+            }
+        }
+        if features.sse2 {
+            match mode {
+                WEBP_CSP_MODE::MODE_RGBA | WEBP_CSP_MODE::MODE_rgbA => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_rgba(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_BGRA | WEBP_CSP_MODE::MODE_bgrA => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_bgra(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_RGB => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_rgb(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_BGR => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_bgr(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_ARGB | WEBP_CSP_MODE::MODE_Argb => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_argb(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_RGB_565 => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_rgb565(y, u, v, dst, len);
+                }
+                WEBP_CSP_MODE::MODE_RGBA_4444 | WEBP_CSP_MODE::MODE_rgbA_4444 => {
+                    return crate::dsp::upsampling_sse2::yuv444_to_rgba4444(y, u, v, dst, len);
+                }
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     let converter = WEBP_YUV444_CONVERTERS[mode.0 as usize].expect("YUV modes have no converter");
     converter(y, u, v, dst, len);
 }
