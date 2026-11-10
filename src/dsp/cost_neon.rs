@@ -20,10 +20,10 @@
 //! (`SetResidualCoeffs_NEON`) and `VP8GetResidualCost`
 //! (`GetResidualCost_NEON`). Unlike the other NEON `Init` functions,
 //! `VP8EncDspCostInit` calls it only when `VP8GetCPUInfo` is not `NULL` and
-//! answers `kNEON`, not unconditionally; that answer is not in
-//! `crate::dsp::cpu::Features`, whose `neon` is true on 64-bit ARM whatever
-//! the pointer says, so the selection in the dispatch functions of
-//! `src/dsp/cost.rs` waits for it (checks not applicable, 4).
+//! answers `kNEON`, not unconditionally, so `-noasm` keeps the C functions;
+//! the dispatch functions of `src/dsp/cost.rs` select the entry points below
+//! on `crate::dsp::cpu::Features::query_neon`, that answer (decided on issue
+//! #28).
 //!
 //! # Deviations from upstream
 //!
@@ -47,10 +47,6 @@
 //! 2. **The assertion of `GetResidualCost_NEON`** (`flevel != 0`) is a
 //!    `debug_assert!`, as in `src/dsp/cost.rs`.
 //! 3. **`WEBP_RESTRICT`** has no counterpart: the slices cannot alias.
-//! 4. **Selection.** `vp8_set_residual_coeffs` and `vp8_get_residual_cost`
-//!    call the C functions until `Features` carries the query's `kNEON`
-//!    answer that `VP8EncDspCostInit` tests; the parity test compares the
-//!    entry points below with the C functions directly.
 
 use core::arch::aarch64::{
     vabsq_s16, vandq_u8, vcombine_u8, vdupq_n_s16, vdupq_n_u8, vmaxvq_u8, vminq_u8, vqmovn_u16,

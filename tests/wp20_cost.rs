@@ -3,7 +3,9 @@
 //! position of the last non-zero level and the residual cost, for the four
 //! coefficient types, the three start contexts, the default and random
 //! probabilities, and levels from empty blocks to full blocks of the
-//! largest magnitude (`MAX_LEVEL`, 2047), as the encoder passes them.
+//! largest magnitude (`MAX_LEVEL`, 2047), as the encoder passes them. The
+//! dispatch functions, which select the NEON variants by the query's `kNEON`
+//! answer (`Features::query_neon`), are compared with the C functions too.
 
 #![cfg(all(feature = "simd", target_arch = "aarch64"))]
 
@@ -11,7 +13,9 @@
 mod support;
 
 use support::Rng;
-use webp::dsp::cost::{get_residual_cost_c, set_residual_coeffs_c};
+use webp::dsp::cost::{
+    get_residual_cost_c, set_residual_coeffs_c, vp8_get_residual_cost, vp8_set_residual_coeffs,
+};
 use webp::dsp::cost_neon as neon;
 use webp::enc::cost_enc::{vp8_calculate_level_costs, vp8_init_residual};
 use webp::enc::picture_enc::webp_picture_alloc;
@@ -109,10 +113,18 @@ fn residual_coefficients_and_costs_match_c() {
             neon::set_residual_coeffs(coeffs, &mut res);
             assert_eq!(res.last, last_c, "coeffs={coeffs:?}");
             assert!(std::ptr::eq(res.coeffs, coeffs));
+            res.last = 77;
+            vp8_set_residual_coeffs(coeffs, &mut res);
+            assert_eq!(res.last, last_c, "dispatch coeffs={coeffs:?}");
 
             for ctx in 0..3 {
                 let expected = get_residual_cost_c(ctx, &res);
                 assert_eq!(neon::get_residual_cost(ctx, &res), expected, "ctx={ctx}");
+                assert_eq!(
+                    vp8_get_residual_cost(ctx, &res),
+                    expected,
+                    "dispatch ctx={ctx}"
+                );
                 cases += 1;
             }
         }

@@ -39,8 +39,16 @@ fn features_follow_the_query_and_the_noasm_pointer() {
         ))
     );
 
+    // The query's own kNEON answer, which `VP8EncDspCostInit` selects by:
+    // `armCPUInfo` answers it in the NEON build, every other query does not.
+    assert_eq!(
+        detected.query_neon,
+        cfg!(all(feature = "simd", target_arch = "aarch64"))
+    );
+
     // -noasm: the tools set the pointer to NULL before any call; every x86
-    // feature is off, NEON on AArch64 stays, as upstream compiles it in.
+    // feature and the query's kNEON answer are off, NEON on AArch64 stays,
+    // as upstream compiles it in.
     let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
     let off = features();
     VP8_GET_CPU_INFO.store(previous, Ordering::Release);
@@ -51,6 +59,7 @@ fn features_follow_the_query_and_the_noasm_pointer() {
             ..Features::default()
         }
     );
+    assert!(!off.query_neon);
 
     // The cache follows the pointer back.
     assert_eq!(features(), detected);
