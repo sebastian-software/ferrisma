@@ -1,9 +1,11 @@
 # Ferrixel homepage
 
 This Ardo site uses the Ferramenta family's pinned Monografie package. Ferrixel
-is not yet a registered family identity, so its header, footer and pipeline
-illustration are site-local; shared typography, color and reading components
-come from the package. No other product's identity is used.
+is not yet a registered family identity, so its header, footer and instrument
+are site-local; shared typography, color and reading components come from the
+package. The original Ferrixel instrument is rendered in Blender using the
+family's pinned studio; its editable recipe and provenance are in
+[artwork/](artwork/README.md). Blender is not needed to build or test the site.
 
 From `homepage/`, run `pnpm install --frozen-lockfile`, then `pnpm dev`.
 `pnpm test` checks the Markdown link translation. `pnpm typecheck` and
@@ -19,3 +21,10 @@ route, and retains the static site as a CI artifact. It does not deploy the site
 The site describes an experimental project. Keep codec-port capabilities
 separate from the engine's implemented adapters, and source performance claims
 to reproducible evidence.
+
+The homepage's pipeline explorer explains the current stages. Its interactive
+black/white example illustrates the sRGB transfer formula in
+`src/working_color.rs` and the midpoint covered in `src/linear_srgb_tests.rs`;
+it does not execute the Rust pipeline in the browser. Current component status
+remains owned by `docs/status.md`. Guides are derived from canonical Markdown,
+including the color contract, codec development and M1 acceptance register.

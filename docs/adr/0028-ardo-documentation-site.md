@@ -34,8 +34,10 @@ repository Markdown and translates links for the website. Do not maintain a
 second editable status register or copy benchmark figures into marketing claims
 without their measurement context.
 
-Use narrow site-local identity markup and a pipeline specimen until the family
-package supports Ferrixel. Typography, spacing, color tokens, reading styles,
+Use narrow site-local identity markup and an original Ferrixel instrument until
+the family package supports Ferrixel. The Blender scene uses the pinned shared
+studio and records its authoring sources; only the optimized render is needed
+at website build time. Typography, spacing, color tokens, reading styles,
 and general components come from the pinned shared package. The local layer
 must not impersonate another registered product or fork the entire theme.
 
@@ -89,3 +91,9 @@ Ferrixel's rendered result; build and browser evidence are recorded separately.
 
 - 2026-11-10 — Accepted the maintainer's Ardo and shared-theme direction; kept
   technical Markdown canonical and deployment separate from the site build.
+- 2026-11-10 — The first homepage's short passages and abstract diagram were
+  too sparse beside the reference sites. Added an original Blender instrument,
+  source-backed pipeline and color illustrations, usage examples, richer codec
+  and validation explanations, and canonical color, development and acceptance
+  pages. The original diagram-only identity is replaced; family registration
+  remains open and no pipeline capability is added by this presentation work.

@@ -1,0 +1,719 @@
+{
+  "product": "Ferrixel",
+  "role": "Transparent native Blender homepage instrument",
+  "meaning": "An image raster, a registered crop aperture, a filter carriage, and a smaller output raster.",
+  "renderer": "Blender 5.3.0, Cycles",
+  "dimensions": "2400x1200",
+  "samples": 192,
+  "colorManagement": "AgX Medium High Contrast, sRGB alpha",
+  "familySourceCommit": "5284a1264ed78f71c72387621e63fb997b7a8842",
+  "familySourceHashes": {
+    "studio.py": "7b0616e4bc8899ccd98f93fb5f61337d21e21da0b8aa90df60bd36f469d824b7",
+    "hero_geometry.py": "060cd7feb85d6477e6a79d97c26e41f87bdd7f6d3899a36981b8e8a89fabdd17"
+  },
+  "constructionSha256": "c8970fa046cdb605c6a7a72aba2d7f3598fe02e888e65a4a1631a3568e3d504e",
+  "masterSha256": "533f76af6b7ff50cc937924b0f8194a6946ec9d191901e1e0023063bc3b9c9ca",
+  "geometryVerification": [
+    {
+      "body": "Image registration bench machined mounting plate",
+      "closedManifold": true,
+      "volume": 8.002829884,
+      "machinedPockets": 4
+    },
+    {
+      "body": "Image registration bench flush bed anchor counterbore floor",
+      "closedManifold": true,
+      "volume": 0.000963949,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor recessed sleeve washer",
+      "closedManifold": true,
+      "volume": 0.004207988,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor flush socket head",
+      "closedManifold": true,
+      "volume": 0.007556067,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Image registration bench flush bed anchor dark hex floor",
+      "closedManifold": true,
+      "volume": 8.4442e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor counterbore floor.001",
+      "closedManifold": true,
+      "volume": 0.000963949,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor recessed sleeve washer.001",
+      "closedManifold": true,
+      "volume": 0.004207988,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor flush socket head.001",
+      "closedManifold": true,
+      "volume": 0.007556067,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Image registration bench flush bed anchor dark hex floor.001",
+      "closedManifold": true,
+      "volume": 8.4442e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor counterbore floor.002",
+      "closedManifold": true,
+      "volume": 0.000963949,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor recessed sleeve washer.002",
+      "closedManifold": true,
+      "volume": 0.004207988,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor flush socket head.002",
+      "closedManifold": true,
+      "volume": 0.007556067,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Image registration bench flush bed anchor dark hex floor.002",
+      "closedManifold": true,
+      "volume": 8.4442e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor counterbore floor.003",
+      "closedManifold": true,
+      "volume": 0.000963949,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor recessed sleeve washer.003",
+      "closedManifold": true,
+      "volume": 0.004207988,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Image registration bench flush bed anchor flush socket head.003",
+      "closedManifold": true,
+      "volume": 0.007556067,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Image registration bench flush bed anchor dark hex floor.003",
+      "closedManifold": true,
+      "volume": 8.4442e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source tray",
+      "closedManifold": true,
+      "volume": 0.224756861,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 0-0",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 0-1",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 0-2",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 0-3",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 1-0",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 1-1",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 1-2",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 1-3",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 2-0",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 2-1",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 2-2",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 2-3",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 3-0",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 3-1",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 3-2",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 3-3",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 4-0",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 4-1",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 4-2",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 4-3",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 5-0",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 5-1",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 5-2",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Source sample 5-3",
+      "closedManifold": true,
+      "volume": 0.001779723,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output tray",
+      "closedManifold": true,
+      "volume": 0.089838353,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output sample 0-0",
+      "closedManifold": true,
+      "volume": 0.002307234,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output sample 0-1",
+      "closedManifold": true,
+      "volume": 0.002307234,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output sample 1-0",
+      "closedManifold": true,
+      "volume": 0.002307234,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output sample 1-1",
+      "closedManifold": true,
+      "volume": 0.002307234,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output sample 2-0",
+      "closedManifold": true,
+      "volume": 0.002307234,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Output sample 2-1",
+      "closedManifold": true,
+      "volume": 0.002307234,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Crop aperture side",
+      "closedManifold": true,
+      "volume": 0.003938566,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Crop aperture side.001",
+      "closedManifold": true,
+      "volume": 0.003938566,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Crop aperture crossbar",
+      "closedManifold": true,
+      "volume": 0.004939185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Crop aperture crossbar.001",
+      "closedManifold": true,
+      "volume": 0.004939185,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Aperture standoff",
+      "closedManifold": true,
+      "volume": 0.0006112,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Aperture standoff.001",
+      "closedManifold": true,
+      "volume": 0.0006112,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Aperture standoff.002",
+      "closedManifold": true,
+      "volume": 0.0006112,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Aperture standoff.003",
+      "closedManifold": true,
+      "volume": 0.0006112,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Polished guide",
+      "closedManifold": true,
+      "volume": 0.03714821,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Guide support",
+      "closedManifold": true,
+      "volume": 0.009442575,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Guide support.001",
+      "closedManifold": true,
+      "volume": 0.009442575,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Polished guide.001",
+      "closedManifold": true,
+      "volume": 0.03714821,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Guide support.002",
+      "closedManifold": true,
+      "volume": 0.009442575,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Guide support.003",
+      "closedManifold": true,
+      "volume": 0.009442575,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Filter carriage",
+      "closedManifold": true,
+      "volume": 0.340436381,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Carriage inset",
+      "closedManifold": true,
+      "volume": 0.04967734,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Filter layer",
+      "closedManifold": true,
+      "volume": 0.013792166,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Filter layer.001",
+      "closedManifold": true,
+      "volume": 0.013792166,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Filter layer.002",
+      "closedManifold": true,
+      "volume": 0.013792166,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Carriage retainer washer",
+      "closedManifold": true,
+      "volume": 0.000459161,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Carriage retainer socket head",
+      "closedManifold": true,
+      "volume": 0.00057325,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Carriage retainer dark socket floor",
+      "closedManifold": true,
+      "volume": 1.9717e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Carriage retainer washer.001",
+      "closedManifold": true,
+      "volume": 0.000459161,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Carriage retainer socket head.001",
+      "closedManifold": true,
+      "volume": 0.00057325,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Carriage retainer dark socket floor.001",
+      "closedManifold": true,
+      "volume": 1.9717e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster spindle",
+      "closedManifold": true,
+      "volume": 0.0025435,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster thrust washer",
+      "closedManifold": true,
+      "volume": 0.001268405,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster knurled hub",
+      "closedManifold": true,
+      "volume": 0.010371728,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 1",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 2",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 3",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 4",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 5",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 6",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 7",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 8",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 9",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 10",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 11",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 12",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 13",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 14",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 15",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 16",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 17",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 18",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 19",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 20",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 21",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 22",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 23",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 24",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 25",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 26",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 27",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 28",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 29",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 30",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 31",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 32",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 33",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 34",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 35",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster grip ridge 36",
+      "closedManifold": true,
+      "volume": 1.2678e-05,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster center washer",
+      "closedManifold": true,
+      "volume": 0.000111374,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Registration adjuster center socket head",
+      "closedManifold": true,
+      "volume": 7.1656e-05,
+      "machinedPockets": 1
+    },
+    {
+      "body": "Registration adjuster center dark socket floor",
+      "closedManifold": true,
+      "volume": 4.929e-06,
+      "machinedPockets": 0
+    }
+  ],
+  "verificationScope": "Each evaluated mesh is closed and has positive volume; Boolean cuts remove material. Assembly contacts are not generally collision-checked.",
+  "webpSha256": "0f41cf0f1a52c2f484f0b77f81590346b331df5cb9b7497548463d808bb7bbe4",
+  "webpEncoder": "cwebp 1.6.0 -q 90 (libsharpyuv 0.4.2)",
+  "renderPlatform": "macOS ARM64",
+  "webpPath": "homepage/public/ferrixel-instrument.webp"
+}
