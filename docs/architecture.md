@@ -131,3 +131,15 @@ Decoders emit stored-order samples and report the EXIF orientation that displays
 ## Parallel execution (experimental)
 
 [ADR-0022](adr/0022-parallel-row-pipeline-and-engine.md): with `transform_threads > 1` the f32 executor runs a row pipeline. The thread that drives the decoder copies each needed source row and submits it to workers, which linearize it and run the horizontal kernel; output rows whose horizontal inputs all exist are submitted for the vertical pass and quantization; a reorder buffer hands finished rows to the sink in order. A bounded job queue applies backpressure to the decoder, horizontal rows are released by the same rule as the sequential ring, and every buffer is charged to the shared budget. The output is byte-identical to the sequential path. `Engine::transcode_batch` schedules whole images across scoped workers instead, each with one transform and one encoder thread.
+
+## Repository and verification boundaries
+
+[ADR-0026](adr/0026-codecs-in-one-repository-and-workspace.md) places the four
+codec ports under `codecs/` in the engine's Cargo workspace. The encoder adapter
+uses the local libavif package. The engine, adapters, codec APIs, licenses and
+unsafe boundaries remain distinct; membership does not select new pipeline
+backends. The root owns the lockfile, development toolchain, profiles and active
+CI workflows. Component checks retain their independent C/C++ references,
+upstream pins and comparison rules, with a common entry point in
+`scripts/check-codecs.py`. See [codec development](codecs.md) for supported
+feature combinations, reference setup, and independent publication.

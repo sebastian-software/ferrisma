@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/sebastian-software/libavif-rs",
+  "revision": "932d13d7eba2001106664d527e7174133d064d0a",
+  "tree": "71e3c65a3b7681b1b53f0979353963a15d6f852b",
+  "imported_on": "2026-11-10",
+  "scope": "Tracked source including open pull requests; original commit history and upstream gitlinks are retained.",
+  "main_revision": "8825a773c8b92c222b01cfc58eeb1f7e1986ad83",
+  "pull_requests": [
+    65
+  ]
+}

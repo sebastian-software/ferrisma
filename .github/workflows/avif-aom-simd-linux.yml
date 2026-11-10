@@ -1,0 +1,160 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: AOM x86 SIMD validation'
+'on':
+  pull_request:
+    paths:
+    - codecs/libavif-rs/crates/aom/**
+    - codecs/libavif-rs/src/**
+    - codecs/libavif-rs/examples/encode_still.rs
+    - codecs/libavif-rs/Cargo.toml
+    - codecs/libavif-rs/tools/check_aom_simd_identity.py
+    - codecs/libavif-rs/tools/check_aom_golden.py
+    - Cargo.toml
+    - Cargo.lock
+    - rust-toolchain.toml
+    - rustfmt.toml
+    - .github/workflows/avif-*.yml
+  push:
+    branches:
+    - main
+    paths:
+    - codecs/libavif-rs/crates/aom/**
+    - codecs/libavif-rs/src/**
+    - codecs/libavif-rs/examples/encode_still.rs
+    - codecs/libavif-rs/Cargo.toml
+    - codecs/libavif-rs/tools/check_aom_simd_identity.py
+    - codecs/libavif-rs/tools/check_aom_golden.py
+    - Cargo.toml
+    - Cargo.lock
+    - rust-toolchain.toml
+    - rustfmt.toml
+    - .github/workflows/avif-*.yml
+  schedule:
+  - cron: 23 2 * * *
+  workflow_dispatch:
+    inputs:
+      measure:
+        description: Also measure encoder time with each RTCD selection
+        type: boolean
+        default: false
+      debug:
+        description: Also run the kernel tests unoptimized in the Debug profile (about 40 minutes)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  RUSTUP_TOOLCHAIN: nightly-2026-09-07
+  CARGO_TERM_COLOR: never
+jobs:
+  kernels:
+    name: 'AVIF: kernels (${{ matrix.profile }})'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - release
+        - checked
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the pinned toolchain
+      run: rustup toolchain install nightly-2026-09-07 --profile minimal
+    - name: Record the runner CPU
+      run: |
+        grep -m1 'model name' /proc/cpuinfo
+        grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
+    - name: Compare the SIMD kernels with their C functions
+      run: cargo test -p libavif-aom --locked --profile ${{ matrix.profile }} --test simd
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs
+  kernels-debug:
+    name: 'AVIF: kernels (dev, unoptimized)'
+    if: github.event_name == 'schedule' || inputs.debug
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the pinned toolchain
+      run: rustup toolchain install nightly-2026-09-07 --profile minimal
+    - name: Record the runner CPU
+      run: grep -m1 'model name' /proc/cpuinfo
+    - name: Compare the SIMD kernels with their C functions
+      run: cargo test -p libavif-aom --locked --test simd
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs
+  identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the pinned toolchain and ImageMagick
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y imagemagick
+        rustup toolchain install nightly-2026-09-07 --profile minimal
+    - name: Record the runner CPU
+      run: |
+        grep -m1 'model name' /proc/cpuinfo
+        grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
+    - name: Compare AVIF output with SIMD, SSE4.1 and C dispatch
+      run: |
+        if ! grep -q '"rtcd_dispatch"' crates/aom/TRANSLATION-linux-release.json; then
+          echo "The committed Linux profiles predate x86 dispatch; skipping the AVIF identity corpus."
+          exit 0
+        fi
+        python3 tools/check_aom_simd_identity.py --output build/aom-simd-identity-validation-linux.json
+    - name: Measure encoder time with SIMD, SSE4.1 and C dispatch
+      if: inputs.measure
+      run: |
+        python3 tools/measure_aom_simd_speed.py --binary ../../target/release/examples/encode_still \
+          --output build/aom-x86-performance.json
+    - name: Preserve the identity report
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-simd-identity-linux
+        path: |
+          codecs/libavif-rs/build/aom-simd-identity-validation-linux.json
+          codecs/libavif-rs/build/aom-x86-performance.json
+        if-no-files-found: ignore
+    name: 'AVIF: identity'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs
+  golden:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the pinned toolchain
+      run: rustup toolchain install nightly-2026-09-07 --profile minimal
+    - name: Record the runner CPU
+      run: grep -m1 'model name' /proc/cpuinfo
+    - name: Compare AVIF output with the golden record
+      run: python3 tools/check_aom_golden.py --output build/aom-golden-linux-x86_64-release.json
+    - name: Preserve the observed outputs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-golden-linux
+        path: codecs/libavif-rs/build/aom-golden-linux-x86_64-release.json
+        if-no-files-found: ignore
+    name: 'AVIF: golden'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

@@ -1,0 +1,226 @@
+[
+  {
+    "path": "lib/jxl/render_pipeline/render_pipeline_test.cc",
+    "start": "Status DecodeFile(",
+    "end": "\n\nTEST(RenderPipelineTest, Build)",
+    "sha256": "a835c2a037aa67561d51e96d6db8b67539af4f22e2c83094f727bccba62a3a7f",
+    "output": "original_decode_file.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "Status ReadICC(",
+    "end": "\n\nnamespace {  // For EncodeFile",
+    "sha256": "420d570600a751642f9ca1b58d9a9e401fc60a894f2bbdbef3e566163a9e52d9",
+    "output": "original_read_icc.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "template <ACType ac_type, bool uses_lz77>\nStatus DecodeACVarBlock(",
+    "end": "\n\n// Structs used by DecodeGroupImpl",
+    "sha256": "bc0f7688d79f9e9c587f8177cd5270c6c3248ce8ad4c739eac23dbea9ec821e3",
+    "output": "original_decode_ac_var_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "class GetBlock {",
+    "end": "\n\n// Controls whether DecodeGroupImpl",
+    "sha256": "fc4d8e65d4ffa066d3401a4978d875ea6fa726ec0878c607304a68de9157e30a",
+    "output": "original_get_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "struct GetBlockFromBitstream : public GetBlock {",
+    "end": "\n\nstruct GetBlockFromEncoder",
+    "sha256": "7c37c7d001e229c55464b414e2bc7797f6592840fa63acbce3a850743cd68f53",
+    "output": "original_get_block_from_bitstream.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "template <ACType ac_type>\nvoid DequantLane(",
+    "end": "\n\nStatus DecodeGroupImpl",
+    "sha256": "2453a5e6796ed63f05f92c6f553d8082f2c5451b0550a5e3835f7ea03da34664",
+    "output": "original_dequant_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "class GetBlock {",
+    "end": "\n\n}  // namespace jxl\n#endif",
+    "sha256": "96661569daacff879be6cee42da78164478c2ae89ab2f46094c90cb0cbcc6b13",
+    "output": "original_group_get_block.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "void Transpose8x8InPlace(int32_t* JXL_RESTRICT block)",
+    "end": "\n\ntemplate <ACType ac_type>\nvoid DequantLane(",
+    "sha256": "a4a1bb71deef8cfeeeb76a2557286e2409cfd9569666eb82e813de2fede0c7da",
+    "output": "original_group_transpose.inc"
+  },
+  {
+    "path": "lib/jxl/dec_group.cc",
+    "start": "Status DecodeGroupImpl(",
+    "end": "\n\n// NOLINTNEXTLINE(google-readability-namespace-comments)",
+    "sha256": "76e1c80895d8bb7c00b7c3c1fb77e7f7266cdbec0718974bc4f7a796c13821bb",
+    "output": "original_decode_group_impl.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "bool OutOfBounds(",
+    "end": "\n\nJXL_INLINE size_t InitialBasicInfoSizeHint()",
+    "sha256": "b715b4d677a9c98308edb3141a05508ff10983ff9302582036e2096c8dc35870",
+    "output": "original_decoder_bounds.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JXL_INLINE size_t InitialBasicInfoSizeHint()",
+    "end": "\n\n// Debug-printing failure macro",
+    "sha256": "feae7fad06b762618cc84513bd24610a3eef915d30958a81ae79aed98facada9",
+    "output": "original_decoder_size_hint.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "// Debug-printing failure macro",
+    "end": "\nJxlDecoderStatus ConvertStatus",
+    "sha256": "e9d2e327badb80c1f3e7dbd0993e39c9507eb3ddd2911d7a3e50213a1bc35f74",
+    "output": "original_decoder_errors.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JxlSignature ReadSignature(",
+    "end": "\n\n}  // namespace\n\nuint32_t JxlDecoderVersion",
+    "sha256": "70eaa27fed01fc95201e0e0c811ee30f479d7b898595febc3f155ea0ed83a0a4",
+    "output": "original_decoder_signature.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "static JxlDecoderStatus ParseBoxHeader(",
+    "end": "\n\n// This includes handling the codestream",
+    "sha256": "cdd1f9f65747e33502c5a3e7effcf97367be461e08f349370a7e9a957752542d",
+    "output": "original_decoder_box_header.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JxlDecoderStatus ConvertStatus(JxlDecoderStatus status)",
+    "end": "\nJxlSignature ReadSignature(",
+    "sha256": "1e33f7e94e08cc00332ac35214a68bbc6fba07982ee4c737b76e78562132033b",
+    "output": "original_decoder_input_status.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "  bool CanAddBuffer(size_t length) const {",
+    "end": "\n#if JPEGXL_ENABLE_BOXES",
+    "sha256": "a8a2f8b7d365600735dc2b96fc1ee1d9596c874c13b14b64add634e13fd14496",
+    "output": "original_decoder_input_buffer.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "  void AdvanceInput(size_t size) {",
+    "end": "\n  // Whether the decoder can use more codestream input",
+    "sha256": "5b4a9c20db52ea6ca18cec1478a8fe0f401842cd9e5d716a56be0e2e8884f6ba",
+    "output": "original_decoder_input_methods.inc"
+  },
+  {
+    "path": "lib/jxl/decode.cc",
+    "start": "JxlDecoderStatus JxlDecoderSetInput(JxlDecoder* dec,",
+    "end": "\n\nJxlDecoderStatus JxlDecoderSetJPEGBuffer(",
+    "sha256": "ec627f3681a7c65cd596cd3359d2eadba57aa3781dc7663321696daf458af455",
+    "output": "original_decoder_input_public.inc"
+  },
+  {
+    "path": "third_party/skcms/skcms.cc",
+    "start": "skcms_Matrix3x3 skcms_Matrix3x3_concat(",
+    "end": "\n\n#if defined(__clang__)",
+    "sha256": "8358a075cf4eee85a55fcbc6ff595adc7debaa0d05563984eac9faa49151699b",
+    "output": "original_skcms_concat.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "void AppendU32BE(uint32_t u32, std::vector<uint8_t>* bytes) {",
+    "end": "\n}  // namespace\n\nnamespace jxl {\nnamespace {\n\nvoid AppendTestBox",
+    "sha256": "d632c4a1c8631e10099613e2ff989771ca41cafafa41538b9cfeb0d76516a07f",
+    "output": "original_dt_constants.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "void AppendTestBox(",
+    "end": "    if (jxl::extras::CanDecode(jxl::extras::Codec::kJPG)) {\n",
+    "sha256": "2e18353ab9f5f86a673ea31d21c64796178d82e60533940702cf42d4f12e2d0e",
+    "output": "original_dt_codestream_head.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "      Bytes(jpeg_bytes).AppendTo(*params.jpeg_codestream);",
+    "end": "    } else {\n      ADD_FAILURE();",
+    "sha256": "b5505fa043ee793dd31b4f2b9d2ebe109f78e8fd6d67e2aa9c5aac6e0a1d1163",
+    "output": "original_dt_codestream_jpeg.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "  if (params.preview_mode) {\n",
+    "end": "\nJxlDecoderStatus ProcessInputIgnoreBoxes(",
+    "sha256": "47e3fbe75c69300cdcba3922d07933976e2aa307cc09b087918d3eaf463a91a0",
+    "output": "original_dt_codestream_tail.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "std::vector<uint8_t> GetTestHeader(size_t xsize",
+    "end": "\n\nTEST(DecodeTest, BasicInfoTest)",
+    "sha256": "21741818b48329998c0ec2fa696988f0569a4e9cbb37460dd9501ef998fcba8e",
+    "output": "original_dt_test_header.inc"
+  },
+  {
+    "path": "lib/jxl/decode_test.cc",
+    "start": "struct FramePositions {",
+    "end": "\n\nenum ExpectedFlushState",
+    "sha256": "03f683ea6620aa2b699544cef27c50d495bbf19ff800bf5d09cf936c1ccd968a",
+    "output": "original_dt_analyze.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "void CheckImpl(bool ok",
+    "end": "\n\n#if defined(TEST_DATA_PATH)",
+    "sha256": "5c56beeea99b64a4d11fca95c1703ccdd0c9221fd4bf6c8bf320b7b693866fe3",
+    "output": "original_check_impl.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "ColorEncoding ColorEncodingFromDescriptor(const",
+    "end": "\n\nnamespace {\nvoid CheckSameEncodings",
+    "sha256": "bda051ffcc83c6a3ae61da5c9ddb97d4b29f4f5f92355db799875dbb7ad165a6",
+    "output": "original_encoding_from_descriptor.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "std::vector<ColorEncodingDescriptor> AllEncodings() {",
+    "end": "\n\nstd::unique_ptr<jxl::CodecInOut> SomeTestImageToCodecInOut(",
+    "sha256": "b261f4184dd10941d66b29bbe49f4dbf58043dd42e7cfffb76d9de97969669b5",
+    "output": "original_all_encodings.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "namespace {  // For EncodeFile",
+    "end": "\n\nextras::JXLCompressParams CompressParamsForLossless() {",
+    "sha256": "7d6d060ce819195c3eecb0af5dd0ed7fd98d250f42ec91e951a7d22ba876a5f6",
+    "output": "original_encode_file.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "Status JpegDataToCodecInOut(",
+    "end": "\n\n}  // namespace test",
+    "sha256": "9fff3c290d1a0b45a4a599abff29938a68a174744e639777ee3c8f04a84c7e5e",
+    "output": "original_jpeg_data_to_codec_in_out.inc"
+  },
+  {
+    "path": "lib/jxl/test_image.cc",
+    "start": "std::vector<uint8_t> GetSomeTestImage(size_t xsize",
+    "end": "\n\nTestImage::TestImage() {",
+    "sha256": "e71c4d22d2b6fa07cdd33af3b3b0f235e1fc6413caa7ddf8c476ca4060be45e2",
+    "output": "original_some_test_image.inc"
+  },
+  {
+    "path": "lib/jxl/enc_gaborish_test.cc",
+    "start": "WeightsSymmetric3 GaborishKernel(",
+    "end": "\n\nvoid ConvolveGaborish(",
+    "sha256": "fda7c2b944f56533dd012a04ea1809d781dc2212137d80c676a1e8df392eae50",
+    "output": "original_gaborish_kernel.inc"
+  }
+]

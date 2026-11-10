@@ -1,0 +1,63 @@
+# Injected through CMAKE_PROJECT_libavif_INCLUDE. The vendored CMake remains
+# unchanged; replace its library implementation only after it defines targets.
+function(libavif_rs_record_consumer_maps directory)
+    get_property(targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(target IN LISTS targets)
+        get_target_property(kind ${target} TYPE)
+        if(kind STREQUAL "EXECUTABLE")
+            if(APPLE)
+                target_link_options(${target} PRIVATE "LINKER:-map,$<TARGET_FILE:${target}>.map")
+            else()
+                target_link_options(${target} PRIVATE "LINKER:-Map,$<TARGET_FILE:${target}>.map,--cref")
+            endif()
+        endif()
+    endforeach()
+    get_property(children DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
+    foreach(child IN LISTS children)
+        libavif_rs_record_consumer_maps("${child}")
+    endforeach()
+endfunction()
+
+function(libavif_rs_use_rust_library)
+    if(NOT EXISTS "${LIBAVIF_RS_ARCHIVE}")
+        message(FATAL_ERROR "Build the Rust archive first: ${LIBAVIF_RS_ARCHIVE}")
+    endif()
+    if(BUILD_SHARED_LIBS)
+        message(FATAL_ERROR "This parity harness currently requires a static build")
+    endif()
+    # CMake needs an object to retain the original library target and its usage
+    # requirements. This empty file defines no implementation or fallback.
+    file(WRITE "${CMAKE_BINARY_DIR}/rust_archive_anchor.c" "/* Rust archive linkage anchor; no C implementation. */\n")
+    set_property(TARGET avif_obj PROPERTY SOURCES "${CMAKE_BINARY_DIR}/rust_archive_anchor.c")
+    # The Rust archive contains workspace SharpYUV and dav1d translations.
+    # Remove their native libraries from build and install link requirements.
+    foreach(target avif_obj avif)
+        foreach(property LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+            get_target_property(libraries ${target} ${property})
+            if(libraries)
+                list(FILTER libraries EXCLUDE REGEX "sharpyuv|dav1d")
+                set_property(TARGET ${target} PROPERTY ${property} "${libraries}")
+            endif()
+        endforeach()
+    endforeach()
+    # Keep static runtime dependencies after the archive that references them.
+    add_library(libavif_rs_root STATIC IMPORTED GLOBAL)
+    set_target_properties(libavif_rs_root PROPERTIES IMPORTED_LOCATION "${LIBAVIF_RS_ARCHIVE}")
+    target_link_libraries(avif PRIVATE libavif_rs_root)
+    if(NOT APPLE)
+        # The selected original external engines must also follow the Rust
+        # archive whose translated adapters reference them. Mach-O linking
+        # resolves archives independently of order and is left unchanged.
+        get_target_property(object_libraries avif_obj LINK_LIBRARIES)
+        foreach(engine libgav1::libgav1 rav1e::rav1e SvtAv1Enc yuv::yuv)
+            if("$<BUILD_INTERFACE:${engine}>" IN_LIST object_libraries)
+                target_link_libraries(libavif_rs_root INTERFACE ${engine})
+            endif()
+        endforeach()
+    endif()
+    if(LIBAVIF_RS_AOM_IN_RUST)
+        libavif_rs_record_consumer_maps("${CMAKE_CURRENT_SOURCE_DIR}")
+    endif()
+    message(STATUS "libavif-rs: all avif_obj C implementations replaced by ${LIBAVIF_RS_ARCHIVE}")
+endfunction()
+cmake_language(DEFER CALL libavif_rs_use_rust_library)

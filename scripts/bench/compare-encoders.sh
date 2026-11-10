@@ -17,7 +17,7 @@ out=${1:?usage: compare-encoders.sh OUT_DIR [match|time|all]}
 phase=${2:-all}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 rav1e=$repo/target/release/ferrixel
-libavif=$repo/crates/ferrixel-libavif/target/release/ferrixel-libavif
+libavif=$repo/target/release/ferrixel-libavif
 qm=$repo/scripts/bench/quality-match/target/release/ferrixel-quality-match
 (cd "$repo" && cargo build --release --features cli --bin ferrixel >/dev/null)
 (cd "$repo/crates/ferrixel-libavif" && cargo build --release --features cli >/dev/null)

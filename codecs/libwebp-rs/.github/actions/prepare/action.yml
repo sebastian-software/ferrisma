@@ -1,0 +1,24 @@
+name: Prepare the port checks
+description: Initialize the pinned submodules and install the Rust toolchains.
+inputs:
+  msrv:
+    description: Also install the toolchain named by rust-version in Cargo.toml.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+  - name: Initialize the pinned upstream submodules
+    shell: bash
+    run: git submodule update --init upstream/libwebp upstream/libwebp-test-data
+    working-directory: codecs/libwebp-rs
+  - name: Install Rust toolchains
+    shell: bash
+    env:
+      MSRV: ${{ inputs.msrv }}
+    run: |
+      toolchains=(stable "$(sed -n 's/^channel = "\(.*\)"$/\1/p' ../../rust-toolchain.toml)")
+      if [ "$MSRV" = true ]; then
+        toolchains+=("$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)")
+      fi
+      rustup toolchain install "${toolchains[@]}" --profile minimal --component rustfmt --component clippy
+    working-directory: codecs/libwebp-rs

@@ -1,0 +1,97 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: AOM golden outputs against the C reference'
+'on':
+  pull_request:
+    paths:
+    - codecs/libavif-rs/crates/aom/golden/**
+    - codecs/libavif-rs/tools/check_aom_golden.py
+    - codecs/libavif-rs/tools/encode_still.c
+    - Cargo.toml
+    - Cargo.lock
+    - rust-toolchain.toml
+    - rustfmt.toml
+    - .github/workflows/avif-*.yml
+  push:
+    branches:
+    - main
+    paths:
+    - codecs/libavif-rs/crates/aom/golden/**
+    - codecs/libavif-rs/tools/check_aom_golden.py
+    - codecs/libavif-rs/tools/encode_still.c
+    - Cargo.toml
+    - Cargo.lock
+    - rust-toolchain.toml
+    - rustfmt.toml
+    - .github/workflows/avif-*.yml
+  schedule:
+  - cron: 41 2 * * *
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run on macOS ARM64
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  c-reference:
+    name: 'AVIF: C reference (${{ matrix.runner }})'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos) && '["ubuntu-24.04", "macos-26"]'
+          || '["ubuntu-24.04"]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      CC: ${{ startsWith(matrix.runner, 'macos-') && 'clang' || 'clang-16' }}
+      CXX: ${{ startsWith(matrix.runner, 'macos-') && 'clang++' || 'clang++-16' }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Prepare GNU Linux reference tools
+      if: matrix.runner == 'ubuntu-24.04'
+      run: |
+        test "$(uname -m)" = x86_64
+        sudo apt-get update
+        sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config python3-venv cmake libpng-dev libjpeg-dev libxml2-dev
+        echo CLANG_INCLUDE=/usr/lib/llvm-16/lib/clang/16/include >> "$GITHUB_ENV"
+    - name: Prepare macOS ARM64 reference tools
+      if: matrix.runner == 'macos-26'
+      run: |
+        test "$(uname -m)" = arm64
+        for tool in cmake ninja pkg-config libpng jpeg-turbo libxml2; do
+          brew list --formula "$tool" >/dev/null 2>&1 || brew install "$tool"
+        done
+        echo "PKG_CONFIG_PATH=$(brew --prefix libxml2)/lib/pkgconfig" >> "$GITHUB_ENV"
+        echo "CLANG_INCLUDE=$(clang -print-resource-dir)/include" >> "$GITHUB_ENV"
+    - name: Install Meson for the dav1d reference
+      run: |
+        python3 -m venv build/root-tools
+        build/root-tools/bin/python -m pip install meson==1.7.2
+        echo "$GITHUB_WORKSPACE/codecs/libavif-rs/build/root-tools/bin" >> "$GITHUB_PATH"
+    - name: Build the original C references of root parity validation
+      run: |
+        python3 tools/root_pipeline.py --phase references --profile release --variant default \
+          --tier smoke --jobs 4 --clang-include "$CLANG_INCLUDE"
+    - name: Compare C reference output with the golden record
+      run: |
+        python3 tools/check_aom_golden.py --implementation c \
+          --output "build/aom-golden-c-${{ startsWith(matrix.runner, 'macos-') && 'macos' || 'linux' }}.json"
+    - name: Preserve the C reference outputs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-golden-c-${{ startsWith(matrix.runner, 'macos-') && 'macos' || 'linux' }}
+        path: |
+          codecs/libavif-rs/build/aom-golden-c-*.json
+          codecs/libavif-rs/build/aom-native-release/reference-profile.json
+          codecs/libavif-rs/build/root-references-*/reference-profile.json
+        if-no-files-found: ignore
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

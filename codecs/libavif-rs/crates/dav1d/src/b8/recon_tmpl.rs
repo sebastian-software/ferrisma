@@ -1,0 +1,9938 @@
+/*
+ * Copyright © 2018-2021, VideoLAN and dav1d authors
+ * Copyright © 2018, Two Orioles, LLC
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+// Mechanically translated from upstream/dav1d/src/recon_tmpl.c.
+// C ABI, ownership, pointer validity, and bounds follow the original headers.
+extern "C" {
+    pub type __sFILEX;
+    fn memcpy(
+        __dst: *mut core::ffi::c_void,
+        __src: *const core::ffi::c_void,
+        __n: size_t,
+    ) -> *mut core::ffi::c_void;
+    fn memset(
+        __b: *mut core::ffi::c_void,
+        __c: core::ffi::c_int,
+        __len: size_t,
+    ) -> *mut core::ffi::c_void;
+    fn printf(_: *const core::ffi::c_char, ...) -> core::ffi::c_int;
+    static mut __stdoutp: *mut FILE;
+    fn fprintf(_: *mut FILE, _: *const core::ffi::c_char, ...) -> core::ffi::c_int;
+    fn llabs(_: core::ffi::c_longlong) -> core::ffi::c_longlong;
+    static dav1d_block_dimensions: [[uint8_t; 4]; 22];
+    static dav1d_txfm_dimensions: [TxfmInfo; 19];
+    static dav1d_txtp_from_uvmode: [uint8_t; 14];
+    static dav1d_tx_types_per_set: [uint8_t; 40];
+    static dav1d_filter_mode_to_y_mode: [uint8_t; 5];
+    static dav1d_lo_ctx_offsets: [[[uint8_t; 5]; 5]; 3];
+    static dav1d_skip_ctx: [[uint8_t; 5]; 5];
+    static dav1d_tx_type_class: [uint8_t; 17];
+    static dav1d_filter_2d: [[uint8_t; 4]; 4];
+    fn dav1d_msac_decode_symbol_adapt_c(
+        s: *mut MsacContext,
+        cdf: *mut uint16_t,
+        n_symbols: size_t,
+    ) -> core::ffi::c_uint;
+    fn dav1d_msac_decode_bool_adapt_c(
+        s: *mut MsacContext,
+        cdf: *mut uint16_t,
+    ) -> core::ffi::c_uint;
+    fn dav1d_msac_decode_bool_equi_c(s: *mut MsacContext) -> core::ffi::c_uint;
+    fn dav1d_msac_decode_hi_tok_c(
+        s: *mut MsacContext,
+        cdf: *mut uint16_t,
+    ) -> core::ffi::c_uint;
+    fn dav1d_cdef_brow_8bpc(
+        tc: *mut Dav1dTaskContext,
+        p: *const *mut pixel,
+        lflvl: *const Av1Filter,
+        by_start: core::ffi::c_int,
+        by_end: core::ffi::c_int,
+        sbrow_start: core::ffi::c_int,
+        sby: core::ffi::c_int,
+    );
+    static dav1d_memset_pow2: [dav1d_memset_pow2_fn; 6];
+    fn dav1d_prepare_intra_edges_8bpc(
+        x: core::ffi::c_int,
+        have_left: core::ffi::c_int,
+        y: core::ffi::c_int,
+        have_top: core::ffi::c_int,
+        w: core::ffi::c_int,
+        h: core::ffi::c_int,
+        edge_flags: EdgeFlags,
+        dst: *const pixel,
+        stride: ptrdiff_t,
+        prefilter_toplevel_sb_edge: *const pixel,
+        mode: IntraPredMode,
+        angle: *mut core::ffi::c_int,
+        tw: core::ffi::c_int,
+        th: core::ffi::c_int,
+        filter_edge: core::ffi::c_int,
+        topleft_out: *mut pixel,
+    ) -> IntraPredMode;
+    fn dav1d_loopfilter_sbrow_cols_8bpc(
+        f: *const Dav1dFrameContext,
+        p: *const *mut pixel,
+        lflvl: *mut Av1Filter,
+        sby: core::ffi::c_int,
+        start_of_tile_row: core::ffi::c_int,
+    );
+    fn dav1d_loopfilter_sbrow_rows_8bpc(
+        f: *const Dav1dFrameContext,
+        p: *const *mut pixel,
+        lflvl: *mut Av1Filter,
+        sby: core::ffi::c_int,
+    );
+    fn dav1d_copy_lpf_8bpc(
+        f: *mut Dav1dFrameContext,
+        src: *const *mut pixel,
+        sby: core::ffi::c_int,
+    );
+    fn dav1d_lr_sbrow_8bpc(
+        f: *mut Dav1dFrameContext,
+        dst: *const *mut pixel,
+        sby: core::ffi::c_int,
+    );
+    static dav1d_scans: [*const uint16_t; 19];
+    static mut dav1d_masks: Dav1dMasks;
+}
+pub type __builtin_va_list = *mut core::ffi::c_char;
+pub type __int64_t = i64;
+pub type __darwin_size_t = usize;
+pub type __darwin_va_list = __builtin_va_list;
+pub type __darwin_off_t = __int64_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct __darwin_pthread_handler_rec {
+    pub __routine: Option<unsafe extern "C" fn(*mut core::ffi::c_void) -> ()>,
+    pub __arg: *mut core::ffi::c_void,
+    pub __next: *mut __darwin_pthread_handler_rec,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct _opaque_pthread_cond_t {
+    pub __sig: core::ffi::c_long,
+    pub __opaque: [core::ffi::c_char; 40],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct _opaque_pthread_mutex_t {
+    pub __sig: core::ffi::c_long,
+    pub __opaque: [core::ffi::c_char; 56],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct _opaque_pthread_t {
+    pub __sig: core::ffi::c_long,
+    pub __cleanup_stack: *mut __darwin_pthread_handler_rec,
+    pub __opaque: [core::ffi::c_char; 8176],
+}
+pub type __darwin_pthread_cond_t = _opaque_pthread_cond_t;
+pub type __darwin_pthread_mutex_t = _opaque_pthread_mutex_t;
+pub type __darwin_pthread_t = *mut _opaque_pthread_t;
+pub type size_t = __darwin_size_t;
+pub type int8_t = i8;
+pub type int16_t = i16;
+pub type int32_t = i32;
+pub type int64_t = i64;
+pub type intptr_t = isize;
+pub type uintptr_t = usize;
+pub type va_list = __darwin_va_list;
+pub type fpos_t = __darwin_off_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct __sbuf {
+    pub _base: *mut core::ffi::c_uchar,
+    pub _size: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct __sFILE {
+    pub _p: *mut core::ffi::c_uchar,
+    pub _r: core::ffi::c_int,
+    pub _w: core::ffi::c_int,
+    pub _flags: core::ffi::c_short,
+    pub _file: core::ffi::c_short,
+    pub _bf: __sbuf,
+    pub _lbfsize: core::ffi::c_int,
+    pub _cookie: *mut core::ffi::c_void,
+    pub _close: Option<unsafe extern "C" fn(*mut core::ffi::c_void) -> core::ffi::c_int>,
+    pub _read: Option<
+        unsafe extern "C" fn(
+            *mut core::ffi::c_void,
+            *mut core::ffi::c_char,
+            core::ffi::c_int,
+        ) -> core::ffi::c_int,
+    >,
+    pub _seek: Option<
+        unsafe extern "C" fn(*mut core::ffi::c_void, fpos_t, core::ffi::c_int) -> fpos_t,
+    >,
+    pub _write: Option<
+        unsafe extern "C" fn(
+            *mut core::ffi::c_void,
+            *const core::ffi::c_char,
+            core::ffi::c_int,
+        ) -> core::ffi::c_int,
+    >,
+    pub _ub: __sbuf,
+    pub _extra: *mut __sFILEX,
+    pub _ur: core::ffi::c_int,
+    pub _ubuf: [core::ffi::c_uchar; 3],
+    pub _nbuf: [core::ffi::c_uchar; 1],
+    pub _lb: __sbuf,
+    pub _blksize: core::ffi::c_int,
+    pub _offset: fpos_t,
+}
+pub type FILE = libc::FILE;
+pub type ptrdiff_t = isize;
+pub type uint8_t = u8;
+pub type uint16_t = u16;
+pub type uint32_t = u32;
+pub type uint64_t = u64;
+pub type pixel = uint8_t;
+pub type coef = int16_t;
+pub type atomic_int = core::ffi::c_int;
+pub type atomic_uint = core::ffi::c_uint;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dUserData {
+    pub data: *const uint8_t,
+    pub ref_0: *mut Dav1dRef,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dRef {
+    pub data: *mut core::ffi::c_void,
+    pub const_data: *const core::ffi::c_void,
+    pub ref_cnt: atomic_int,
+    pub free_ref: core::ffi::c_int,
+    pub free_callback: Option<
+        unsafe extern "C" fn(*const uint8_t, *mut core::ffi::c_void) -> (),
+    >,
+    pub user_data: *mut core::ffi::c_void,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dDataProps {
+    pub timestamp: int64_t,
+    pub duration: int64_t,
+    pub offset: int64_t,
+    pub size: size_t,
+    pub user_data: Dav1dUserData,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dData {
+    pub data: *const uint8_t,
+    pub sz: size_t,
+    pub ref_0: *mut Dav1dRef,
+    pub m: Dav1dDataProps,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dFrameContext {
+    pub seq_hdr_ref: *mut Dav1dRef,
+    pub seq_hdr: *mut Dav1dSequenceHeader,
+    pub frame_hdr_ref: *mut Dav1dRef,
+    pub frame_hdr: *mut Dav1dFrameHeader,
+    pub refp: [Dav1dThreadPicture; 7],
+    pub cur: Dav1dPicture,
+    pub sr_cur: Dav1dThreadPicture,
+    pub mvs_ref: *mut Dav1dRef,
+    pub mvs: *mut refmvs_temporal_block,
+    pub ref_mvs: [*mut refmvs_temporal_block; 7],
+    pub ref_mvs_ref: [*mut Dav1dRef; 7],
+    pub cur_segmap_ref: *mut Dav1dRef,
+    pub prev_segmap_ref: *mut Dav1dRef,
+    pub cur_segmap: *mut uint8_t,
+    pub prev_segmap: *const uint8_t,
+    pub refpoc: [uint8_t; 7],
+    pub refrefpoc: [[uint8_t; 7]; 7],
+    pub gmv_warp_allowed: [uint8_t; 7],
+    pub in_cdf: CdfThreadContext,
+    pub out_cdf: CdfThreadContext,
+    pub tile: *mut Dav1dTileGroup,
+    pub n_tile_data_alloc: core::ffi::c_int,
+    pub n_tile_data: core::ffi::c_int,
+    pub svc: [[ScalableMotionParams; 2]; 7],
+    pub resize_step: [core::ffi::c_int; 2],
+    pub resize_start: [core::ffi::c_int; 2],
+    pub c: *const Dav1dContext,
+    pub ts: *mut Dav1dTileState,
+    pub n_ts: core::ffi::c_int,
+    pub dsp: *const Dav1dDSPContext,
+    pub bd_fn: C2RustUnnamed_27,
+    pub ipred_edge_sz: core::ffi::c_int,
+    pub ipred_edge: [*mut pixel; 3],
+    pub b4_stride: ptrdiff_t,
+    pub w4: core::ffi::c_int,
+    pub h4: core::ffi::c_int,
+    pub bw: core::ffi::c_int,
+    pub bh: core::ffi::c_int,
+    pub sb128w: core::ffi::c_int,
+    pub sb128h: core::ffi::c_int,
+    pub sbh: core::ffi::c_int,
+    pub sb_shift: core::ffi::c_int,
+    pub sb_step: core::ffi::c_int,
+    pub sr_sb128w: core::ffi::c_int,
+    pub dq: [[[uint16_t; 2]; 3]; 8],
+    pub qm: [[*const uint8_t; 3]; 19],
+    pub a: *mut BlockContext,
+    pub a_sz: core::ffi::c_int,
+    pub rf: refmvs_frame,
+    pub jnt_weights: [[uint8_t; 7]; 7],
+    pub bitdepth_max: core::ffi::c_int,
+    pub frame_thread: C2RustUnnamed_19,
+    pub lf: C2RustUnnamed_18,
+    pub task_thread: C2RustUnnamed,
+    pub tile_thread: FrameTileThreadData,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct FrameTileThreadData {
+    pub lowest_pixel_mem: *mut [[core::ffi::c_int; 2]; 7],
+    pub lowest_pixel_mem_sz: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed {
+    pub lock: pthread_mutex_t,
+    pub cond: pthread_cond_t,
+    pub ttd: *mut TaskThreadData,
+    pub tasks: *mut Dav1dTask,
+    pub tile_tasks: [*mut Dav1dTask; 2],
+    pub init_task: Dav1dTask,
+    pub num_tasks: core::ffi::c_int,
+    pub num_tile_tasks: core::ffi::c_int,
+    pub init_done: atomic_int,
+    pub done: [atomic_int; 2],
+    pub retval: core::ffi::c_int,
+    pub update_set: core::ffi::c_int,
+    pub error: atomic_int,
+    pub task_counter: atomic_int,
+    pub task_head: *mut Dav1dTask,
+    pub task_tail: *mut Dav1dTask,
+    pub task_cur_prev: *mut Dav1dTask,
+    pub pending_tasks: C2RustUnnamed_0,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_0 {
+    pub merge: atomic_int,
+    pub lock: pthread_mutex_t,
+    pub head: *mut Dav1dTask,
+    pub tail: *mut Dav1dTask,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dTask {
+    pub frame_idx: core::ffi::c_uint,
+    pub type_0: TaskType,
+    pub sby: core::ffi::c_int,
+    pub recon_progress: core::ffi::c_int,
+    pub deblock_progress: core::ffi::c_int,
+    pub deps_skip: core::ffi::c_int,
+    pub next: *mut Dav1dTask,
+}
+pub type TaskType = core::ffi::c_uint;
+pub const DAV1D_TASK_TYPE_FG_APPLY: TaskType = 12;
+pub const DAV1D_TASK_TYPE_FG_PREP: TaskType = 11;
+pub const DAV1D_TASK_TYPE_RECONSTRUCTION_PROGRESS: TaskType = 10;
+pub const DAV1D_TASK_TYPE_LOOP_RESTORATION: TaskType = 9;
+pub const DAV1D_TASK_TYPE_SUPER_RESOLUTION: TaskType = 8;
+pub const DAV1D_TASK_TYPE_CDEF: TaskType = 7;
+pub const DAV1D_TASK_TYPE_DEBLOCK_ROWS: TaskType = 6;
+pub const DAV1D_TASK_TYPE_DEBLOCK_COLS: TaskType = 5;
+pub const DAV1D_TASK_TYPE_TILE_RECONSTRUCTION: TaskType = 4;
+pub const DAV1D_TASK_TYPE_ENTROPY_PROGRESS: TaskType = 3;
+pub const DAV1D_TASK_TYPE_TILE_ENTROPY: TaskType = 2;
+pub const DAV1D_TASK_TYPE_INIT_CDF: TaskType = 1;
+pub const DAV1D_TASK_TYPE_INIT: TaskType = 0;
+pub type pthread_mutex_t = libc::pthread_mutex_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct TaskThreadData {
+    pub lock: pthread_mutex_t,
+    pub cond: pthread_cond_t,
+    pub first: atomic_uint,
+    pub cur: core::ffi::c_uint,
+    pub reset_task_cur: atomic_uint,
+    pub cond_signaled: atomic_int,
+    pub delayed_fg: C2RustUnnamed_1,
+    pub inited: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_1 {
+    pub exec: core::ffi::c_int,
+    pub finished: core::ffi::c_int,
+    pub cond: pthread_cond_t,
+    pub in_0: *const Dav1dPicture,
+    pub out: *mut Dav1dPicture,
+    pub type_0: TaskType,
+    pub progress: [atomic_int; 2],
+    pub c2rust_unnamed: C2RustUnnamed_2,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_2 {
+    pub c2rust_unnamed: C2RustUnnamed_4,
+    pub c2rust_unnamed_0: C2RustUnnamed_3,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_3 {
+    pub __dav1d_align_grain_lut_16bpc: [crate::platform::Align16; 0],
+
+    pub grain_lut_16bpc: [[[int16_t; 82]; 74]; 3],
+    pub __dav1d_align_scaling_16bpc: [crate::platform::Align64; 0],
+    pub scaling_16bpc: [[uint8_t; 4096]; 3],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_4 {
+    pub __dav1d_align_grain_lut_8bpc: [crate::platform::Align16; 0],
+
+    pub grain_lut_8bpc: [[[int8_t; 82]; 74]; 3],
+    pub __dav1d_align_scaling_8bpc: [crate::platform::Align64; 0],
+    pub scaling_8bpc: [[uint8_t; 256]; 3],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dPicture {
+    pub seq_hdr: *mut Dav1dSequenceHeader,
+    pub frame_hdr: *mut Dav1dFrameHeader,
+    pub data: [*mut core::ffi::c_void; 3],
+    pub stride: [ptrdiff_t; 2],
+    pub p: Dav1dPictureParameters,
+    pub m: Dav1dDataProps,
+    pub content_light: *mut Dav1dContentLightLevel,
+    pub mastering_display: *mut Dav1dMasteringDisplay,
+    pub itut_t35: *mut Dav1dITUTT35,
+    pub n_itut_t35: size_t,
+    pub reserved: [uintptr_t; 4],
+    pub frame_hdr_ref: *mut Dav1dRef,
+    pub seq_hdr_ref: *mut Dav1dRef,
+    pub content_light_ref: *mut Dav1dRef,
+    pub mastering_display_ref: *mut Dav1dRef,
+    pub itut_t35_ref: *mut Dav1dRef,
+    pub reserved_ref: [uintptr_t; 4],
+    pub ref_0: *mut Dav1dRef,
+    pub allocator_data: *mut core::ffi::c_void,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dITUTT35 {
+    pub country_code: uint8_t,
+    pub country_code_extension_byte: uint8_t,
+    pub payload_size: size_t,
+    pub payload: *mut uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dMasteringDisplay {
+    pub primaries: [[uint16_t; 2]; 3],
+    pub white_point: [uint16_t; 2],
+    pub max_luminance: uint32_t,
+    pub min_luminance: uint32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dContentLightLevel {
+    pub max_content_light_level: uint16_t,
+    pub max_frame_average_light_level: uint16_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dPictureParameters {
+    pub w: core::ffi::c_int,
+    pub h: core::ffi::c_int,
+    pub layout: Dav1dPixelLayout,
+    pub bpc: core::ffi::c_int,
+}
+pub type Dav1dPixelLayout = core::ffi::c_uint;
+pub const DAV1D_PIXEL_LAYOUT_I444: Dav1dPixelLayout = 3;
+pub const DAV1D_PIXEL_LAYOUT_I422: Dav1dPixelLayout = 2;
+pub const DAV1D_PIXEL_LAYOUT_I420: Dav1dPixelLayout = 1;
+pub const DAV1D_PIXEL_LAYOUT_I400: Dav1dPixelLayout = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dFrameHeader {
+    pub film_grain: C2RustUnnamed_17,
+    pub frame_type: Dav1dFrameType,
+    pub width: [core::ffi::c_int; 2],
+    pub height: core::ffi::c_int,
+    pub frame_offset: uint8_t,
+    pub temporal_id: uint8_t,
+    pub spatial_id: uint8_t,
+    pub show_existing_frame: uint8_t,
+    pub existing_frame_idx: uint8_t,
+    pub frame_id: uint32_t,
+    pub frame_presentation_delay: uint32_t,
+    pub show_frame: uint8_t,
+    pub showable_frame: uint8_t,
+    pub error_resilient_mode: uint8_t,
+    pub disable_cdf_update: uint8_t,
+    pub allow_screen_content_tools: uint8_t,
+    pub force_integer_mv: uint8_t,
+    pub frame_size_override: uint8_t,
+    pub primary_ref_frame: uint8_t,
+    pub buffer_removal_time_present: uint8_t,
+    pub operating_points: [Dav1dFrameHeaderOperatingPoint; 32],
+    pub refresh_frame_flags: uint8_t,
+    pub render_width: core::ffi::c_int,
+    pub render_height: core::ffi::c_int,
+    pub super_res: C2RustUnnamed_16,
+    pub have_render_size: uint8_t,
+    pub allow_intrabc: uint8_t,
+    pub frame_ref_short_signaling: uint8_t,
+    pub refidx: [int8_t; 7],
+    pub hp: uint8_t,
+    pub subpel_filter_mode: Dav1dFilterMode,
+    pub switchable_motion_mode: uint8_t,
+    pub use_ref_frame_mvs: uint8_t,
+    pub refresh_context: uint8_t,
+    pub tiling: C2RustUnnamed_15,
+    pub quant: C2RustUnnamed_14,
+    pub segmentation: C2RustUnnamed_13,
+    pub delta: C2RustUnnamed_10,
+    pub all_lossless: uint8_t,
+    pub loopfilter: C2RustUnnamed_9,
+    pub cdef: C2RustUnnamed_8,
+    pub restoration: C2RustUnnamed_7,
+    pub txfm_mode: Dav1dTxfmMode,
+    pub switchable_comp_refs: uint8_t,
+    pub skip_mode_allowed: uint8_t,
+    pub skip_mode_enabled: uint8_t,
+    pub skip_mode_refs: [int8_t; 2],
+    pub warp_motion: uint8_t,
+    pub reduced_txtp_set: uint8_t,
+    pub gmv: [Dav1dWarpedMotionParams; 7],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dWarpedMotionParams {
+    pub type_0: Dav1dWarpedMotionType,
+    pub matrix: [int32_t; 6],
+    pub u: C2RustUnnamed_5,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_5 {
+    pub p: C2RustUnnamed_6,
+    pub abcd: [int16_t; 4],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_6 {
+    pub alpha: int16_t,
+    pub beta: int16_t,
+    pub gamma: int16_t,
+    pub delta: int16_t,
+}
+pub type Dav1dWarpedMotionType = core::ffi::c_uint;
+pub const DAV1D_WM_TYPE_AFFINE: Dav1dWarpedMotionType = 3;
+pub const DAV1D_WM_TYPE_ROT_ZOOM: Dav1dWarpedMotionType = 2;
+pub const DAV1D_WM_TYPE_TRANSLATION: Dav1dWarpedMotionType = 1;
+pub const DAV1D_WM_TYPE_IDENTITY: Dav1dWarpedMotionType = 0;
+pub type Dav1dTxfmMode = core::ffi::c_uint;
+pub const DAV1D_N_TX_MODES: Dav1dTxfmMode = 3;
+pub const DAV1D_TX_SWITCHABLE: Dav1dTxfmMode = 2;
+pub const DAV1D_TX_LARGEST: Dav1dTxfmMode = 1;
+pub const DAV1D_TX_4X4_ONLY: Dav1dTxfmMode = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_7 {
+    pub type_0: [Dav1dRestorationType; 3],
+    pub unit_size: [uint8_t; 2],
+}
+pub type Dav1dRestorationType = core::ffi::c_uint;
+pub const DAV1D_RESTORATION_SGRPROJ: Dav1dRestorationType = 3;
+pub const DAV1D_RESTORATION_WIENER: Dav1dRestorationType = 2;
+pub const DAV1D_RESTORATION_SWITCHABLE: Dav1dRestorationType = 1;
+pub const DAV1D_RESTORATION_NONE: Dav1dRestorationType = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_8 {
+    pub damping: uint8_t,
+    pub n_bits: uint8_t,
+    pub y_strength: [uint8_t; 8],
+    pub uv_strength: [uint8_t; 8],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_9 {
+    pub level_y: [uint8_t; 2],
+    pub level_u: uint8_t,
+    pub level_v: uint8_t,
+    pub mode_ref_delta_enabled: uint8_t,
+    pub mode_ref_delta_update: uint8_t,
+    pub mode_ref_deltas: Dav1dLoopfilterModeRefDeltas,
+    pub sharpness: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dLoopfilterModeRefDeltas {
+    pub mode_delta: [int8_t; 2],
+    pub ref_delta: [int8_t; 8],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_10 {
+    pub q: C2RustUnnamed_12,
+    pub lf: C2RustUnnamed_11,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_11 {
+    pub present: uint8_t,
+    pub res_log2: uint8_t,
+    pub multi: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_12 {
+    pub present: uint8_t,
+    pub res_log2: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_13 {
+    pub enabled: uint8_t,
+    pub update_map: uint8_t,
+    pub temporal: uint8_t,
+    pub update_data: uint8_t,
+    pub seg_data: Dav1dSegmentationDataSet,
+    pub lossless: [uint8_t; 8],
+    pub qidx: [uint8_t; 8],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dSegmentationDataSet {
+    pub d: [Dav1dSegmentationData; 8],
+    pub preskip: uint8_t,
+    pub last_active_segid: int8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dSegmentationData {
+    pub delta_q: int16_t,
+    pub delta_lf_y_v: int8_t,
+    pub delta_lf_y_h: int8_t,
+    pub delta_lf_u: int8_t,
+    pub delta_lf_v: int8_t,
+    pub ref_0: int8_t,
+    pub skip: uint8_t,
+    pub globalmv: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_14 {
+    pub yac: uint8_t,
+    pub ydc_delta: int8_t,
+    pub udc_delta: int8_t,
+    pub uac_delta: int8_t,
+    pub vdc_delta: int8_t,
+    pub vac_delta: int8_t,
+    pub qm: uint8_t,
+    pub qm_y: uint8_t,
+    pub qm_u: uint8_t,
+    pub qm_v: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_15 {
+    pub uniform: uint8_t,
+    pub n_bytes: uint8_t,
+    pub min_log2_cols: uint8_t,
+    pub max_log2_cols: uint8_t,
+    pub log2_cols: uint8_t,
+    pub cols: uint8_t,
+    pub min_log2_rows: uint8_t,
+    pub max_log2_rows: uint8_t,
+    pub log2_rows: uint8_t,
+    pub rows: uint8_t,
+    pub col_start_sb: [uint16_t; 65],
+    pub row_start_sb: [uint16_t; 65],
+    pub update: uint16_t,
+}
+pub type Dav1dFilterMode = core::ffi::c_uint;
+pub const DAV1D_FILTER_SWITCHABLE: Dav1dFilterMode = 4;
+pub const DAV1D_N_FILTERS: Dav1dFilterMode = 4;
+pub const DAV1D_FILTER_BILINEAR: Dav1dFilterMode = 3;
+pub const DAV1D_N_SWITCHABLE_FILTERS: Dav1dFilterMode = 3;
+pub const DAV1D_FILTER_8TAP_SHARP: Dav1dFilterMode = 2;
+pub const DAV1D_FILTER_8TAP_SMOOTH: Dav1dFilterMode = 1;
+pub const DAV1D_FILTER_8TAP_REGULAR: Dav1dFilterMode = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_16 {
+    pub width_scale_denominator: uint8_t,
+    pub enabled: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dFrameHeaderOperatingPoint {
+    pub buffer_removal_time: uint32_t,
+}
+pub type Dav1dFrameType = core::ffi::c_uint;
+pub const DAV1D_FRAME_TYPE_SWITCH: Dav1dFrameType = 3;
+pub const DAV1D_FRAME_TYPE_INTRA: Dav1dFrameType = 2;
+pub const DAV1D_FRAME_TYPE_INTER: Dav1dFrameType = 1;
+pub const DAV1D_FRAME_TYPE_KEY: Dav1dFrameType = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_17 {
+    pub data: Dav1dFilmGrainData,
+    pub present: uint8_t,
+    pub update: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dFilmGrainData {
+    pub seed: core::ffi::c_uint,
+    pub num_y_points: core::ffi::c_int,
+    pub y_points: [[uint8_t; 2]; 14],
+    pub chroma_scaling_from_luma: core::ffi::c_int,
+    pub num_uv_points: [core::ffi::c_int; 2],
+    pub uv_points: [[[uint8_t; 2]; 10]; 2],
+    pub scaling_shift: core::ffi::c_int,
+    pub ar_coeff_lag: core::ffi::c_int,
+    pub ar_coeffs_y: [int8_t; 24],
+    pub ar_coeffs_uv: [[int8_t; 28]; 2],
+    pub ar_coeff_shift: uint64_t,
+    pub grain_scale_shift: core::ffi::c_int,
+    pub uv_mult: [core::ffi::c_int; 2],
+    pub uv_luma_mult: [core::ffi::c_int; 2],
+    pub uv_offset: [core::ffi::c_int; 2],
+    pub overlap_flag: core::ffi::c_int,
+    pub clip_to_restricted_range: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dSequenceHeader {
+    pub profile: uint8_t,
+    pub max_width: core::ffi::c_int,
+    pub max_height: core::ffi::c_int,
+    pub layout: Dav1dPixelLayout,
+    pub pri: Dav1dColorPrimaries,
+    pub trc: Dav1dTransferCharacteristics,
+    pub mtrx: Dav1dMatrixCoefficients,
+    pub chr: Dav1dChromaSamplePosition,
+    pub hbd: uint8_t,
+    pub color_range: uint8_t,
+    pub num_operating_points: uint8_t,
+    pub operating_points: [Dav1dSequenceHeaderOperatingPoint; 32],
+    pub still_picture: uint8_t,
+    pub reduced_still_picture_header: uint8_t,
+    pub timing_info_present: uint8_t,
+    pub num_units_in_tick: uint32_t,
+    pub time_scale: uint32_t,
+    pub equal_picture_interval: uint8_t,
+    pub num_ticks_per_picture: uint32_t,
+    pub decoder_model_info_present: uint8_t,
+    pub encoder_decoder_buffer_delay_length: uint8_t,
+    pub num_units_in_decoding_tick: uint32_t,
+    pub buffer_removal_delay_length: uint8_t,
+    pub frame_presentation_delay_length: uint8_t,
+    pub display_model_info_present: uint8_t,
+    pub width_n_bits: uint8_t,
+    pub height_n_bits: uint8_t,
+    pub frame_id_numbers_present: uint8_t,
+    pub delta_frame_id_n_bits: uint8_t,
+    pub frame_id_n_bits: uint8_t,
+    pub sb128: uint8_t,
+    pub filter_intra: uint8_t,
+    pub intra_edge_filter: uint8_t,
+    pub inter_intra: uint8_t,
+    pub masked_compound: uint8_t,
+    pub warped_motion: uint8_t,
+    pub dual_filter: uint8_t,
+    pub order_hint: uint8_t,
+    pub jnt_comp: uint8_t,
+    pub ref_frame_mvs: uint8_t,
+    pub screen_content_tools: Dav1dAdaptiveBoolean,
+    pub force_integer_mv: Dav1dAdaptiveBoolean,
+    pub order_hint_n_bits: uint8_t,
+    pub super_res: uint8_t,
+    pub cdef: uint8_t,
+    pub restoration: uint8_t,
+    pub ss_hor: uint8_t,
+    pub ss_ver: uint8_t,
+    pub monochrome: uint8_t,
+    pub color_description_present: uint8_t,
+    pub separate_uv_delta_q: uint8_t,
+    pub film_grain_present: uint8_t,
+    pub operating_parameter_info: [Dav1dSequenceHeaderOperatingParameterInfo; 32],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dSequenceHeaderOperatingParameterInfo {
+    pub decoder_buffer_delay: uint32_t,
+    pub encoder_buffer_delay: uint32_t,
+    pub low_delay_mode: uint8_t,
+}
+pub type Dav1dAdaptiveBoolean = core::ffi::c_uint;
+pub const DAV1D_ADAPTIVE: Dav1dAdaptiveBoolean = 2;
+pub const DAV1D_ON: Dav1dAdaptiveBoolean = 1;
+pub const DAV1D_OFF: Dav1dAdaptiveBoolean = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dSequenceHeaderOperatingPoint {
+    pub major_level: uint8_t,
+    pub minor_level: uint8_t,
+    pub initial_display_delay: uint8_t,
+    pub idc: uint16_t,
+    pub tier: uint8_t,
+    pub decoder_model_param_present: uint8_t,
+    pub display_model_param_present: uint8_t,
+}
+pub type Dav1dChromaSamplePosition = core::ffi::c_uint;
+pub const DAV1D_CHR_COLOCATED: Dav1dChromaSamplePosition = 2;
+pub const DAV1D_CHR_VERTICAL: Dav1dChromaSamplePosition = 1;
+pub const DAV1D_CHR_UNKNOWN: Dav1dChromaSamplePosition = 0;
+pub type Dav1dMatrixCoefficients = core::ffi::c_uint;
+pub const DAV1D_MC_RESERVED: Dav1dMatrixCoefficients = 255;
+pub const DAV1D_MC_ICTCP: Dav1dMatrixCoefficients = 14;
+pub const DAV1D_MC_CHROMAT_CL: Dav1dMatrixCoefficients = 13;
+pub const DAV1D_MC_CHROMAT_NCL: Dav1dMatrixCoefficients = 12;
+pub const DAV1D_MC_SMPTE2085: Dav1dMatrixCoefficients = 11;
+pub const DAV1D_MC_BT2020_CL: Dav1dMatrixCoefficients = 10;
+pub const DAV1D_MC_BT2020_NCL: Dav1dMatrixCoefficients = 9;
+pub const DAV1D_MC_SMPTE_YCGCO: Dav1dMatrixCoefficients = 8;
+pub const DAV1D_MC_SMPTE240: Dav1dMatrixCoefficients = 7;
+pub const DAV1D_MC_BT601: Dav1dMatrixCoefficients = 6;
+pub const DAV1D_MC_BT470BG: Dav1dMatrixCoefficients = 5;
+pub const DAV1D_MC_FCC: Dav1dMatrixCoefficients = 4;
+pub const DAV1D_MC_UNKNOWN: Dav1dMatrixCoefficients = 2;
+pub const DAV1D_MC_BT709: Dav1dMatrixCoefficients = 1;
+pub const DAV1D_MC_IDENTITY: Dav1dMatrixCoefficients = 0;
+pub type Dav1dTransferCharacteristics = core::ffi::c_uint;
+pub const DAV1D_TRC_RESERVED: Dav1dTransferCharacteristics = 255;
+pub const DAV1D_TRC_HLG: Dav1dTransferCharacteristics = 18;
+pub const DAV1D_TRC_SMPTE428: Dav1dTransferCharacteristics = 17;
+pub const DAV1D_TRC_SMPTE2084: Dav1dTransferCharacteristics = 16;
+pub const DAV1D_TRC_BT2020_12BIT: Dav1dTransferCharacteristics = 15;
+pub const DAV1D_TRC_BT2020_10BIT: Dav1dTransferCharacteristics = 14;
+pub const DAV1D_TRC_SRGB: Dav1dTransferCharacteristics = 13;
+pub const DAV1D_TRC_BT1361: Dav1dTransferCharacteristics = 12;
+pub const DAV1D_TRC_IEC61966: Dav1dTransferCharacteristics = 11;
+pub const DAV1D_TRC_LOG100_SQRT10: Dav1dTransferCharacteristics = 10;
+pub const DAV1D_TRC_LOG100: Dav1dTransferCharacteristics = 9;
+pub const DAV1D_TRC_LINEAR: Dav1dTransferCharacteristics = 8;
+pub const DAV1D_TRC_SMPTE240: Dav1dTransferCharacteristics = 7;
+pub const DAV1D_TRC_BT601: Dav1dTransferCharacteristics = 6;
+pub const DAV1D_TRC_BT470BG: Dav1dTransferCharacteristics = 5;
+pub const DAV1D_TRC_BT470M: Dav1dTransferCharacteristics = 4;
+pub const DAV1D_TRC_UNKNOWN: Dav1dTransferCharacteristics = 2;
+pub const DAV1D_TRC_BT709: Dav1dTransferCharacteristics = 1;
+pub type Dav1dColorPrimaries = core::ffi::c_uint;
+pub const DAV1D_COLOR_PRI_RESERVED: Dav1dColorPrimaries = 255;
+pub const DAV1D_COLOR_PRI_EBU3213: Dav1dColorPrimaries = 22;
+pub const DAV1D_COLOR_PRI_SMPTE432: Dav1dColorPrimaries = 12;
+pub const DAV1D_COLOR_PRI_SMPTE431: Dav1dColorPrimaries = 11;
+pub const DAV1D_COLOR_PRI_XYZ: Dav1dColorPrimaries = 10;
+pub const DAV1D_COLOR_PRI_BT2020: Dav1dColorPrimaries = 9;
+pub const DAV1D_COLOR_PRI_FILM: Dav1dColorPrimaries = 8;
+pub const DAV1D_COLOR_PRI_SMPTE240: Dav1dColorPrimaries = 7;
+pub const DAV1D_COLOR_PRI_BT601: Dav1dColorPrimaries = 6;
+pub const DAV1D_COLOR_PRI_BT470BG: Dav1dColorPrimaries = 5;
+pub const DAV1D_COLOR_PRI_BT470M: Dav1dColorPrimaries = 4;
+pub const DAV1D_COLOR_PRI_UNKNOWN: Dav1dColorPrimaries = 2;
+pub const DAV1D_COLOR_PRI_BT709: Dav1dColorPrimaries = 1;
+pub type pthread_cond_t = libc::pthread_cond_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_18 {
+    pub level: *mut [uint8_t; 4],
+    pub mask: *mut Av1Filter,
+    pub lr_mask: *mut Av1Restoration,
+    pub mask_sz: core::ffi::c_int,
+    pub lr_mask_sz: core::ffi::c_int,
+    pub cdef_buf_plane_sz: [core::ffi::c_int; 2],
+    pub cdef_buf_sbh: core::ffi::c_int,
+    pub lr_buf_plane_sz: [core::ffi::c_int; 2],
+    pub re_sz: core::ffi::c_int,
+    pub lim_lut: Av1FilterLUT,
+    pub __dav1d_align_lvl: [crate::platform::Align16; 0],
+    pub lvl: [[[[uint8_t; 2]; 8]; 4]; 8],
+    pub last_sharpness: core::ffi::c_int,
+    pub tx_lpf_right_edge: [*mut uint8_t; 2],
+    pub cdef_line_buf: *mut uint8_t,
+    pub lr_line_buf: *mut uint8_t,
+    pub cdef_line: [[*mut pixel; 3]; 2],
+    pub cdef_lpf_line: [*mut pixel; 3],
+    pub lr_lpf_line: [*mut pixel; 3],
+    pub start_of_tile_row: *mut uint8_t,
+    pub start_of_tile_row_sz: core::ffi::c_int,
+    pub need_cdef_lpf_copy: core::ffi::c_int,
+    pub p: [*mut pixel; 3],
+    pub sr_p: [*mut pixel; 3],
+    pub restore_planes: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Av1FilterLUT {
+    pub __dav1d_align_e: [crate::platform::Align16; 0],
+
+    pub e: [uint8_t; 64],
+    pub __dav1d_align_i: [crate::platform::Align16; 0],
+    pub i: [uint8_t; 64],
+    pub __dav1d_align_sharp: [crate::platform::Align16; 0],
+    pub sharp: [uint64_t; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Av1Restoration {
+    pub lr: [[Av1RestorationUnit; 4]; 3],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Av1RestorationUnit {
+    pub type_0: uint8_t,
+    pub filter_h: [int8_t; 3],
+    pub filter_v: [int8_t; 3],
+    pub sgr_weights: [int8_t; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Av1Filter {
+    pub filter_y: [[[[uint16_t; 2]; 3]; 32]; 2],
+    pub filter_uv: [[[[uint16_t; 2]; 2]; 32]; 2],
+    pub cdef_idx: [int8_t; 4],
+    pub noskip_mask: [[uint16_t; 2]; 16],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_19 {
+    pub next_tile_row: [core::ffi::c_int; 2],
+    pub entropy_progress: atomic_int,
+    pub deblock_progress: atomic_int,
+    pub frame_progress: *mut atomic_uint,
+    pub copy_lpf_progress: *mut atomic_uint,
+    pub b: *mut Av1Block,
+    pub cbi: *mut int16_t,
+    pub pal: *mut [[pixel; 8]; 3],
+    pub pal_idx: *mut uint8_t,
+    pub cf: *mut coef,
+    pub prog_sz: core::ffi::c_int,
+    pub cbi_sz: core::ffi::c_int,
+    pub pal_sz: core::ffi::c_int,
+    pub pal_idx_sz: core::ffi::c_int,
+    pub cf_sz: core::ffi::c_int,
+    pub tile_start_off: *mut core::ffi::c_uint,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Av1Block {
+    pub bl: uint8_t,
+    pub bs: uint8_t,
+    pub bp: uint8_t,
+    pub intra: uint8_t,
+    pub seg_id: uint8_t,
+    pub skip_mode: uint8_t,
+    pub skip: uint8_t,
+    pub uvtx: uint8_t,
+    pub c2rust_unnamed: C2RustUnnamed_20,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_20 {
+    pub c2rust_unnamed: C2RustUnnamed_26,
+    pub c2rust_unnamed_0: C2RustUnnamed_21,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_21 {
+    pub c2rust_unnamed: C2RustUnnamed_22,
+    pub comp_type: uint8_t,
+    pub inter_mode: uint8_t,
+    pub motion_mode: uint8_t,
+    pub drl_idx: uint8_t,
+    pub ref_0: [int8_t; 2],
+    pub max_ytx: uint8_t,
+    pub filter2d: uint8_t,
+    pub interintra_type: uint8_t,
+    pub tx_split0: uint8_t,
+    pub tx_split1: uint16_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_22 {
+    pub c2rust_unnamed: C2RustUnnamed_25,
+    pub c2rust_unnamed_0: C2RustUnnamed_23,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_23 {
+    pub mv2d: mv,
+    pub matrix: [int16_t; 4],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union mv {
+    pub c2rust_unnamed: C2RustUnnamed_24,
+    pub n: uint32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_24 {
+    pub y: int16_t,
+    pub x: int16_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_25 {
+    pub mv: [mv; 2],
+    pub wedge_idx: uint8_t,
+    pub mask_sign: uint8_t,
+    pub interintra_mode: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_26 {
+    pub y_mode: uint8_t,
+    pub uv_mode: uint8_t,
+    pub tx: uint8_t,
+    pub pal_sz: [uint8_t; 2],
+    pub y_angle: int8_t,
+    pub uv_angle: int8_t,
+    pub cfl_alpha: [int8_t; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct refmvs_frame {
+    pub frm_hdr: *const Dav1dFrameHeader,
+    pub iw4: core::ffi::c_int,
+    pub ih4: core::ffi::c_int,
+    pub iw8: core::ffi::c_int,
+    pub ih8: core::ffi::c_int,
+    pub sbsz: core::ffi::c_int,
+    pub use_ref_frame_mvs: core::ffi::c_int,
+    pub sign_bias: [uint8_t; 7],
+    pub mfmv_sign: [uint8_t; 7],
+    pub pocdiff: [int8_t; 7],
+    pub mfmv_ref: [uint8_t; 3],
+    pub mfmv_ref2cur: [int8_t; 3],
+    pub mfmv_ref2ref: [[uint8_t; 7]; 3],
+    pub n_mfmvs: core::ffi::c_int,
+    pub n_blocks: core::ffi::c_int,
+    pub rp: *mut refmvs_temporal_block,
+    pub rp_ref: *const *mut refmvs_temporal_block,
+    pub rp_proj: *mut refmvs_temporal_block,
+    pub rp_stride: ptrdiff_t,
+    pub r: *mut refmvs_block,
+    pub n_tile_threads: core::ffi::c_int,
+    pub n_frame_threads: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C, packed(4))]
+pub struct refmvs_block {
+    pub mv: refmvs_mvpair,
+    pub ref_0: refmvs_refpair,
+    pub bs: uint8_t,
+    pub mf: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union refmvs_refpair {
+    pub ref_0: [int8_t; 2],
+    pub pair: uint16_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union refmvs_mvpair {
+    pub mv: [mv; 2],
+    pub n: uint64_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C, packed)]
+pub struct refmvs_temporal_block {
+    pub mv: mv,
+    pub ref_0: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct BlockContext {
+    pub __dav1d_align_mode: [crate::platform::Align8; 0],
+
+    pub mode: [uint8_t; 32],
+    pub __dav1d_align_lcoef: [crate::platform::Align8; 0],
+    pub lcoef: [uint8_t; 32],
+    pub __dav1d_align_ccoef: [crate::platform::Align8; 0],
+    pub ccoef: [[uint8_t; 32]; 2],
+    pub __dav1d_align_seg_pred: [crate::platform::Align8; 0],
+    pub seg_pred: [uint8_t; 32],
+    pub __dav1d_align_skip: [crate::platform::Align8; 0],
+    pub skip: [uint8_t; 32],
+    pub __dav1d_align_skip_mode: [crate::platform::Align8; 0],
+    pub skip_mode: [uint8_t; 32],
+    pub __dav1d_align_intra: [crate::platform::Align8; 0],
+    pub intra: [uint8_t; 32],
+    pub __dav1d_align_comp_type: [crate::platform::Align8; 0],
+    pub comp_type: [uint8_t; 32],
+    pub __dav1d_align_ref_0: [crate::platform::Align8; 0],
+    pub ref_0: [[int8_t; 32]; 2],
+    pub __dav1d_align_filter: [crate::platform::Align8; 0],
+    pub filter: [[uint8_t; 32]; 2],
+    pub __dav1d_align_tx_intra: [crate::platform::Align8; 0],
+    pub tx_intra: [int8_t; 32],
+    pub __dav1d_align_tx: [crate::platform::Align8; 0],
+    pub tx: [int8_t; 32],
+    pub __dav1d_align_tx_lpf_y: [crate::platform::Align8; 0],
+    pub tx_lpf_y: [uint8_t; 32],
+    pub __dav1d_align_tx_lpf_uv: [crate::platform::Align8; 0],
+    pub tx_lpf_uv: [uint8_t; 32],
+    pub __dav1d_align_partition: [crate::platform::Align8; 0],
+    pub partition: [uint8_t; 16],
+    pub __dav1d_align_uvmode: [crate::platform::Align8; 0],
+    pub uvmode: [uint8_t; 32],
+    pub __dav1d_align_pal_sz: [crate::platform::Align8; 0],
+    pub pal_sz: [uint8_t; 32],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_27 {
+    pub recon_b_intra: recon_b_intra_fn,
+    pub recon_b_inter: recon_b_inter_fn,
+    pub filter_sbrow: filter_sbrow_fn,
+    pub filter_sbrow_deblock_cols: filter_sbrow_fn,
+    pub filter_sbrow_deblock_rows: filter_sbrow_fn,
+    pub filter_sbrow_cdef: Option<
+        unsafe extern "C" fn(*mut Dav1dTaskContext, core::ffi::c_int) -> (),
+    >,
+    pub filter_sbrow_resize: filter_sbrow_fn,
+    pub filter_sbrow_lr: filter_sbrow_fn,
+    pub backup_ipred_edge: backup_ipred_edge_fn,
+    pub read_coef_blocks: read_coef_blocks_fn,
+    pub copy_pal_block_y: copy_pal_block_fn,
+    pub copy_pal_block_uv: copy_pal_block_fn,
+    pub read_pal_plane: read_pal_plane_fn,
+    pub read_pal_uv: read_pal_uv_fn,
+}
+pub type read_pal_uv_fn = Option<
+    unsafe extern "C" fn(
+        *mut Dav1dTaskContext,
+        *mut Av1Block,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dTaskContext {
+    pub c: *const Dav1dContext,
+    pub f: *const Dav1dFrameContext,
+    pub ts: *mut Dav1dTileState,
+    pub bx: core::ffi::c_int,
+    pub by: core::ffi::c_int,
+    pub l: BlockContext,
+    pub a: *mut BlockContext,
+    pub rt: refmvs_tile,
+    pub c2rust_unnamed: C2RustUnnamed_43,
+    pub c2rust_unnamed_0: C2RustUnnamed_42,
+    pub pal_sz_uv: [[uint8_t; 32]; 2],
+    pub scratch: C2RustUnnamed_30,
+    pub warpmv: Dav1dWarpedMotionParams,
+    pub lf_mask: *mut Av1Filter,
+    pub top_pre_cdef_toggle: core::ffi::c_int,
+    pub cur_sb_cdef_idx_ptr: *mut int8_t,
+    pub tl_4x4_filter: Filter2d,
+    pub frame_thread: C2RustUnnamed_29,
+    pub task_thread: C2RustUnnamed_28,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_28 {
+    pub td: thread_data,
+    pub ttd: *mut TaskThreadData,
+    pub fttd: *mut FrameTileThreadData,
+    pub flushed: core::ffi::c_int,
+    pub die: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct thread_data {
+    pub thread: pthread_t,
+    pub cond: pthread_cond_t,
+    pub lock: pthread_mutex_t,
+    pub inited: core::ffi::c_int,
+}
+pub type pthread_t = libc::pthread_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_29 {
+    pub pass: core::ffi::c_int,
+}
+pub type Filter2d = core::ffi::c_uint;
+pub const N_2D_FILTERS: Filter2d = 10;
+pub const FILTER_2D_BILINEAR: Filter2d = 9;
+pub const FILTER_2D_8TAP_SMOOTH_SHARP: Filter2d = 8;
+pub const FILTER_2D_8TAP_SMOOTH: Filter2d = 7;
+pub const FILTER_2D_8TAP_SMOOTH_REGULAR: Filter2d = 6;
+pub const FILTER_2D_8TAP_SHARP: Filter2d = 5;
+pub const FILTER_2D_8TAP_SHARP_SMOOTH: Filter2d = 4;
+pub const FILTER_2D_8TAP_SHARP_REGULAR: Filter2d = 3;
+pub const FILTER_2D_8TAP_REGULAR_SHARP: Filter2d = 2;
+pub const FILTER_2D_8TAP_REGULAR_SMOOTH: Filter2d = 1;
+pub const FILTER_2D_8TAP_REGULAR: Filter2d = 0;
+#[derive(Copy, Clone)]
+#[repr(C, align(64))]
+pub union C2RustUnnamed_30 {
+    pub c2rust_unnamed: C2RustUnnamed_38,
+    pub c2rust_unnamed_0: C2RustUnnamed_31,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_31 {
+    pub c2rust_unnamed: C2RustUnnamed_36,
+    pub c2rust_unnamed_0: C2RustUnnamed_35,
+    pub pal_idx_y: [uint8_t; 2048],
+    pub pal_idx_uv: [uint8_t; 4096],
+    pub c2rust_unnamed_1: C2RustUnnamed_32,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_32 {
+    pub c2rust_unnamed: C2RustUnnamed_34,
+    pub c2rust_unnamed_0: C2RustUnnamed_33,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_33 {
+    pub interintra_16bpc: [uint16_t; 4096],
+    pub edge_16bpc: [uint16_t; 257],
+    pub __dav1d_align_pal_16bpc: [crate::platform::Align16; 0],
+    pub pal_16bpc: [[uint16_t; 8]; 3],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_34 {
+    pub interintra_8bpc: [uint8_t; 4096],
+    pub edge_8bpc: [uint8_t; 257],
+    pub __dav1d_align_pal_8bpc: [crate::platform::Align8; 0],
+    pub pal_8bpc: [[uint8_t; 8]; 3],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_35 {
+    pub ac: [int16_t; 1024],
+    pub txtp_map: [uint8_t; 1024],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_36 {
+    pub levels: [uint8_t; 1088],
+    pub c2rust_unnamed: C2RustUnnamed_37,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_37 {
+    pub pal_order: [[uint8_t; 8]; 64],
+    pub pal_ctx: [uint8_t; 64],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_38 {
+    pub c2rust_unnamed: C2RustUnnamed_40,
+    pub c2rust_unnamed_0: C2RustUnnamed_39,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_39 {
+    pub emu_edge_8bpc: [uint8_t; 84160],
+    pub emu_edge_16bpc: [uint16_t; 84160],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_40 {
+    pub lap_8bpc: [uint8_t; 4096],
+    pub lap_16bpc: [uint16_t; 4096],
+    pub c2rust_unnamed: C2RustUnnamed_41,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_41 {
+    pub compinter: [[int16_t; 16384]; 2],
+    pub seg_mask: [uint8_t; 16384],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_42 {
+    pub al_pal_8bpc: [[[[uint8_t; 8]; 3]; 32]; 2],
+    pub al_pal_16bpc: [[[[uint16_t; 8]; 3]; 32]; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C, align(64))]
+pub union C2RustUnnamed_43 {
+    pub cf_8bpc: [int16_t; 1024],
+    pub cf_16bpc: [int32_t; 1024],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct refmvs_tile {
+    pub rf: *const refmvs_frame,
+    pub r: [*mut refmvs_block; 37],
+    pub rp_proj: *mut refmvs_temporal_block,
+    pub tile_col: C2RustUnnamed_44,
+    pub tile_row: C2RustUnnamed_44,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_44 {
+    pub start: core::ffi::c_int,
+    pub end: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dTileState {
+    pub cdf: CdfContext,
+    pub msac: MsacContext,
+    pub tiling: C2RustUnnamed_47,
+    pub progress: [atomic_int; 2],
+    pub frame_thread: [C2RustUnnamed_46; 2],
+    pub lowest_pixel: *mut [[core::ffi::c_int; 2]; 7],
+    pub dqmem: [[[uint16_t; 2]; 3]; 8],
+    pub dq: *const [[uint16_t; 2]; 3],
+    pub last_qidx: core::ffi::c_int,
+    pub last_delta_lf: C2RustUnnamed_45,
+    pub __dav1d_align_lflvlmem: [crate::platform::Align16; 0],
+    pub lflvlmem: [[[[uint8_t; 2]; 8]; 4]; 8],
+    pub lflvl: *const [[[uint8_t; 2]; 8]; 4],
+    pub lr_ref: [*mut Av1RestorationUnit; 3],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_45 {
+    pub i8_0: [int8_t; 4],
+    pub u32_0: uint32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_46 {
+    pub pal_idx: *mut uint8_t,
+    pub cbi: *mut int16_t,
+    pub cf: *mut coef,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_47 {
+    pub col_start: core::ffi::c_int,
+    pub col_end: core::ffi::c_int,
+    pub row_start: core::ffi::c_int,
+    pub row_end: core::ffi::c_int,
+    pub col: core::ffi::c_int,
+    pub row: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct MsacContext {
+    pub buf_pos: *const uint8_t,
+    pub buf_end: *const uint8_t,
+    pub dif: ec_win,
+    pub rng: core::ffi::c_uint,
+    pub cnt: core::ffi::c_int,
+    pub allow_update_cdf: core::ffi::c_int,
+}
+pub type ec_win = size_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CdfContext {
+    pub coef: CdfCoefContext,
+    pub m: CdfModeContext,
+    pub mv: CdfMvContext,
+    pub __dav1d_align_kfym: [crate::platform::Align32; 0],
+    pub kfym: [[[uint16_t; 16]; 5]; 5],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CdfMvContext {
+    pub comp: [CdfMvComponent; 2],
+    pub __dav1d_align_joint: [crate::platform::Align8; 0],
+    pub joint: [uint16_t; 4],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CdfMvComponent {
+    pub __dav1d_align_classes: [crate::platform::Align32; 0],
+
+    pub classes: [uint16_t; 16],
+    pub __dav1d_align_sign: [crate::platform::Align4; 0],
+    pub sign: [uint16_t; 2],
+    pub __dav1d_align_class0: [crate::platform::Align4; 0],
+    pub class0: [uint16_t; 2],
+    pub __dav1d_align_class0_fp: [crate::platform::Align8; 0],
+    pub class0_fp: [[uint16_t; 4]; 2],
+    pub __dav1d_align_class0_hp: [crate::platform::Align4; 0],
+    pub class0_hp: [uint16_t; 2],
+    pub __dav1d_align_classN: [crate::platform::Align4; 0],
+    pub classN: [[uint16_t; 2]; 10],
+    pub __dav1d_align_classN_fp: [crate::platform::Align8; 0],
+    pub classN_fp: [uint16_t; 4],
+    pub __dav1d_align_classN_hp: [crate::platform::Align4; 0],
+    pub classN_hp: [uint16_t; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CdfModeContext {
+    pub __dav1d_align_uv_mode: [crate::platform::Align32; 0],
+
+    pub uv_mode: [[[uint16_t; 16]; 13]; 2],
+    pub __dav1d_align_partition: [crate::platform::Align32; 0],
+    pub partition: [[[uint16_t; 16]; 4]; 5],
+    pub __dav1d_align_cfl_alpha: [crate::platform::Align32; 0],
+    pub cfl_alpha: [[uint16_t; 16]; 6],
+    pub __dav1d_align_txtp_inter1: [crate::platform::Align32; 0],
+    pub txtp_inter1: [[uint16_t; 16]; 2],
+    pub __dav1d_align_txtp_inter2: [crate::platform::Align32; 0],
+    pub txtp_inter2: [uint16_t; 16],
+    pub __dav1d_align_txtp_intra1: [crate::platform::Align16; 0],
+    pub txtp_intra1: [[[uint16_t; 8]; 13]; 2],
+    pub __dav1d_align_txtp_intra2: [crate::platform::Align16; 0],
+    pub txtp_intra2: [[[uint16_t; 8]; 13]; 3],
+    pub __dav1d_align_cfl_sign: [crate::platform::Align16; 0],
+    pub cfl_sign: [uint16_t; 8],
+    pub __dav1d_align_angle_delta: [crate::platform::Align16; 0],
+    pub angle_delta: [[uint16_t; 8]; 8],
+    pub __dav1d_align_filter_intra: [crate::platform::Align16; 0],
+    pub filter_intra: [uint16_t; 8],
+    pub __dav1d_align_seg_id: [crate::platform::Align16; 0],
+    pub seg_id: [[uint16_t; 8]; 3],
+    pub __dav1d_align_pal_sz: [crate::platform::Align16; 0],
+    pub pal_sz: [[[uint16_t; 8]; 7]; 2],
+    pub __dav1d_align_color_map: [crate::platform::Align16; 0],
+    pub color_map: [[[[uint16_t; 8]; 5]; 7]; 2],
+    pub __dav1d_align_txsz: [crate::platform::Align8; 0],
+    pub txsz: [[[uint16_t; 4]; 3]; 4],
+    pub __dav1d_align_delta_q: [crate::platform::Align8; 0],
+    pub delta_q: [uint16_t; 4],
+    pub __dav1d_align_delta_lf: [crate::platform::Align8; 0],
+    pub delta_lf: [[uint16_t; 4]; 5],
+    pub __dav1d_align_restore_switchable: [crate::platform::Align8; 0],
+    pub restore_switchable: [uint16_t; 4],
+    pub __dav1d_align_restore_wiener: [crate::platform::Align4; 0],
+    pub restore_wiener: [uint16_t; 2],
+    pub __dav1d_align_restore_sgrproj: [crate::platform::Align4; 0],
+    pub restore_sgrproj: [uint16_t; 2],
+    pub __dav1d_align_txtp_inter3: [crate::platform::Align4; 0],
+    pub txtp_inter3: [[uint16_t; 2]; 4],
+    pub __dav1d_align_use_filter_intra: [crate::platform::Align4; 0],
+    pub use_filter_intra: [[uint16_t; 2]; 22],
+    pub __dav1d_align_txpart: [crate::platform::Align4; 0],
+    pub txpart: [[[uint16_t; 2]; 3]; 7],
+    pub __dav1d_align_skip: [crate::platform::Align4; 0],
+    pub skip: [[uint16_t; 2]; 3],
+    pub __dav1d_align_pal_y: [crate::platform::Align4; 0],
+    pub pal_y: [[[uint16_t; 2]; 3]; 7],
+    pub __dav1d_align_pal_uv: [crate::platform::Align4; 0],
+    pub pal_uv: [[uint16_t; 2]; 2],
+    pub __dav1d_align_intrabc: [crate::platform::Align4; 0],
+    pub intrabc: [uint16_t; 2],
+    pub __dav1d_align_y_mode: [crate::platform::Align32; 0],
+    pub y_mode: [[uint16_t; 16]; 4],
+    pub __dav1d_align_wedge_idx: [crate::platform::Align32; 0],
+    pub wedge_idx: [[uint16_t; 16]; 9],
+    pub __dav1d_align_comp_inter_mode: [crate::platform::Align16; 0],
+    pub comp_inter_mode: [[uint16_t; 8]; 8],
+    pub __dav1d_align_filter: [crate::platform::Align8; 0],
+    pub filter: [[[uint16_t; 4]; 8]; 2],
+    pub __dav1d_align_interintra_mode: [crate::platform::Align8; 0],
+    pub interintra_mode: [[uint16_t; 4]; 4],
+    pub __dav1d_align_motion_mode: [crate::platform::Align8; 0],
+    pub motion_mode: [[uint16_t; 4]; 22],
+    pub __dav1d_align_skip_mode: [crate::platform::Align4; 0],
+    pub skip_mode: [[uint16_t; 2]; 3],
+    pub __dav1d_align_newmv_mode: [crate::platform::Align4; 0],
+    pub newmv_mode: [[uint16_t; 2]; 6],
+    pub __dav1d_align_globalmv_mode: [crate::platform::Align4; 0],
+    pub globalmv_mode: [[uint16_t; 2]; 2],
+    pub __dav1d_align_refmv_mode: [crate::platform::Align4; 0],
+    pub refmv_mode: [[uint16_t; 2]; 6],
+    pub __dav1d_align_drl_bit: [crate::platform::Align4; 0],
+    pub drl_bit: [[uint16_t; 2]; 3],
+    pub __dav1d_align_intra: [crate::platform::Align4; 0],
+    pub intra: [[uint16_t; 2]; 4],
+    pub __dav1d_align_comp: [crate::platform::Align4; 0],
+    pub comp: [[uint16_t; 2]; 5],
+    pub __dav1d_align_comp_dir: [crate::platform::Align4; 0],
+    pub comp_dir: [[uint16_t; 2]; 5],
+    pub __dav1d_align_jnt_comp: [crate::platform::Align4; 0],
+    pub jnt_comp: [[uint16_t; 2]; 6],
+    pub __dav1d_align_mask_comp: [crate::platform::Align4; 0],
+    pub mask_comp: [[uint16_t; 2]; 6],
+    pub __dav1d_align_wedge_comp: [crate::platform::Align4; 0],
+    pub wedge_comp: [[uint16_t; 2]; 9],
+    pub __dav1d_align_ref_0: [crate::platform::Align4; 0],
+    pub ref_0: [[[uint16_t; 2]; 3]; 6],
+    pub __dav1d_align_comp_fwd_ref: [crate::platform::Align4; 0],
+    pub comp_fwd_ref: [[[uint16_t; 2]; 3]; 3],
+    pub __dav1d_align_comp_bwd_ref: [crate::platform::Align4; 0],
+    pub comp_bwd_ref: [[[uint16_t; 2]; 3]; 2],
+    pub __dav1d_align_comp_uni_ref: [crate::platform::Align4; 0],
+    pub comp_uni_ref: [[[uint16_t; 2]; 3]; 3],
+    pub __dav1d_align_seg_pred: [crate::platform::Align4; 0],
+    pub seg_pred: [[uint16_t; 2]; 3],
+    pub __dav1d_align_interintra: [crate::platform::Align4; 0],
+    pub interintra: [[uint16_t; 2]; 7],
+    pub __dav1d_align_interintra_wedge: [crate::platform::Align4; 0],
+    pub interintra_wedge: [[uint16_t; 2]; 7],
+    pub __dav1d_align_obmc: [crate::platform::Align4; 0],
+    pub obmc: [[uint16_t; 2]; 22],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CdfCoefContext {
+    pub __dav1d_align_eob_bin_16: [crate::platform::Align16; 0],
+
+    pub eob_bin_16: [[[uint16_t; 8]; 2]; 2],
+    pub __dav1d_align_eob_bin_32: [crate::platform::Align16; 0],
+    pub eob_bin_32: [[[uint16_t; 8]; 2]; 2],
+    pub __dav1d_align_eob_bin_64: [crate::platform::Align16; 0],
+    pub eob_bin_64: [[[uint16_t; 8]; 2]; 2],
+    pub __dav1d_align_eob_bin_128: [crate::platform::Align16; 0],
+    pub eob_bin_128: [[[uint16_t; 8]; 2]; 2],
+    pub __dav1d_align_eob_bin_256: [crate::platform::Align32; 0],
+    pub eob_bin_256: [[[uint16_t; 16]; 2]; 2],
+    pub __dav1d_align_eob_bin_512: [crate::platform::Align32; 0],
+    pub eob_bin_512: [[uint16_t; 16]; 2],
+    pub __dav1d_align_eob_bin_1024: [crate::platform::Align32; 0],
+    pub eob_bin_1024: [[uint16_t; 16]; 2],
+    pub __dav1d_align_eob_base_tok: [crate::platform::Align8; 0],
+    pub eob_base_tok: [[[[uint16_t; 4]; 4]; 2]; 5],
+    pub __dav1d_align_base_tok: [crate::platform::Align8; 0],
+    pub base_tok: [[[[uint16_t; 4]; 41]; 2]; 5],
+    pub __dav1d_align_br_tok: [crate::platform::Align8; 0],
+    pub br_tok: [[[[uint16_t; 4]; 21]; 2]; 4],
+    pub __dav1d_align_eob_hi_bit: [crate::platform::Align4; 0],
+    pub eob_hi_bit: [[[[uint16_t; 2]; 9]; 2]; 5],
+    pub __dav1d_align_skip: [crate::platform::Align4; 0],
+    pub skip: [[[uint16_t; 2]; 13]; 5],
+    pub __dav1d_align_dc_sign: [crate::platform::Align4; 0],
+    pub dc_sign: [[[uint16_t; 2]; 3]; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dContext {
+    pub fc: *mut Dav1dFrameContext,
+    pub n_fc: core::ffi::c_uint,
+    pub tc: *mut Dav1dTaskContext,
+    pub n_tc: core::ffi::c_uint,
+    pub tile: *mut Dav1dTileGroup,
+    pub n_tile_data_alloc: core::ffi::c_int,
+    pub n_tile_data: core::ffi::c_int,
+    pub n_tiles: core::ffi::c_int,
+    pub seq_hdr_pool: *mut Dav1dMemPool,
+    pub seq_hdr_ref: *mut Dav1dRef,
+    pub seq_hdr: *mut Dav1dSequenceHeader,
+    pub frame_hdr_pool: *mut Dav1dMemPool,
+    pub frame_hdr_ref: *mut Dav1dRef,
+    pub frame_hdr: *mut Dav1dFrameHeader,
+    pub content_light_ref: *mut Dav1dRef,
+    pub content_light: *mut Dav1dContentLightLevel,
+    pub mastering_display_ref: *mut Dav1dRef,
+    pub mastering_display: *mut Dav1dMasteringDisplay,
+    pub itut_t35_ref: *mut Dav1dRef,
+    pub itut_t35: *mut Dav1dITUTT35,
+    pub n_itut_t35: core::ffi::c_int,
+    pub in_0: Dav1dData,
+    pub out: Dav1dThreadPicture,
+    pub cache: Dav1dThreadPicture,
+    pub flush_mem: atomic_int,
+    pub flush: *mut atomic_int,
+    pub frame_thread: C2RustUnnamed_51,
+    pub task_thread: TaskThreadData,
+    pub segmap_pool: *mut Dav1dMemPool,
+    pub refmvs_pool: *mut Dav1dMemPool,
+    pub refs: [C2RustUnnamed_50; 8],
+    pub cdf_pool: *mut Dav1dMemPool,
+    pub cdf: [CdfThreadContext; 8],
+    pub dsp: [Dav1dDSPContext; 3],
+    pub pal_dsp: Dav1dPalDSPContext,
+    pub refmvs_dsp: Dav1dRefmvsDSPContext,
+    pub allocator: Dav1dPicAllocator,
+    pub apply_grain: core::ffi::c_int,
+    pub operating_point: core::ffi::c_int,
+    pub operating_point_idc: core::ffi::c_uint,
+    pub all_layers: core::ffi::c_int,
+    pub max_spatial_id: core::ffi::c_int,
+    pub frame_size_limit: core::ffi::c_uint,
+    pub strict_std_compliance: core::ffi::c_int,
+    pub output_invisible_frames: core::ffi::c_int,
+    pub inloop_filters: Dav1dInloopFilterType,
+    pub decode_frame_type: Dav1dDecodeFrameType,
+    pub drain: core::ffi::c_int,
+    pub frame_flags: PictureFlags,
+    pub event_flags: Dav1dEventFlags,
+    pub cached_error_props: Dav1dDataProps,
+    pub cached_error: core::ffi::c_int,
+    pub logger: Dav1dLogger,
+    pub picture_pool: *mut Dav1dMemPool,
+    pub pic_ctx_pool: *mut Dav1dMemPool,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dMemPool {
+    pub lock: pthread_mutex_t,
+    pub buf: *mut Dav1dMemPoolBuffer,
+    pub ref_cnt: core::ffi::c_int,
+    pub end: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dMemPoolBuffer {
+    pub next: *mut Dav1dMemPoolBuffer,
+    pub size: size_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dLogger {
+    pub cookie: *mut core::ffi::c_void,
+    pub callback: Option<
+        unsafe extern "C" fn(
+            *mut core::ffi::c_void,
+            *const core::ffi::c_char,
+            va_list,
+        ) -> (),
+    >,
+}
+pub type Dav1dEventFlags = core::ffi::c_uint;
+pub const DAV1D_EVENT_FLAG_NEW_OP_PARAMS_INFO: Dav1dEventFlags = 2;
+pub const DAV1D_EVENT_FLAG_NEW_SEQUENCE: Dav1dEventFlags = 1;
+pub type PictureFlags = core::ffi::c_uint;
+pub const PICTURE_FLAG_NEW_TEMPORAL_UNIT: PictureFlags = 4;
+pub const PICTURE_FLAG_NEW_OP_PARAMS_INFO: PictureFlags = 2;
+pub const PICTURE_FLAG_NEW_SEQUENCE: PictureFlags = 1;
+pub type Dav1dDecodeFrameType = core::ffi::c_uint;
+pub const DAV1D_DECODEFRAMETYPE_KEY: Dav1dDecodeFrameType = 3;
+pub const DAV1D_DECODEFRAMETYPE_INTRA: Dav1dDecodeFrameType = 2;
+pub const DAV1D_DECODEFRAMETYPE_REFERENCE: Dav1dDecodeFrameType = 1;
+pub const DAV1D_DECODEFRAMETYPE_ALL: Dav1dDecodeFrameType = 0;
+pub type Dav1dInloopFilterType = core::ffi::c_uint;
+pub const DAV1D_INLOOPFILTER_ALL: Dav1dInloopFilterType = 7;
+pub const DAV1D_INLOOPFILTER_RESTORATION: Dav1dInloopFilterType = 4;
+pub const DAV1D_INLOOPFILTER_CDEF: Dav1dInloopFilterType = 2;
+pub const DAV1D_INLOOPFILTER_DEBLOCK: Dav1dInloopFilterType = 1;
+pub const DAV1D_INLOOPFILTER_NONE: Dav1dInloopFilterType = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dPicAllocator {
+    pub cookie: *mut core::ffi::c_void,
+    pub alloc_picture_callback: Option<
+        unsafe extern "C" fn(
+            *mut Dav1dPicture,
+            *mut core::ffi::c_void,
+        ) -> core::ffi::c_int,
+    >,
+    pub release_picture_callback: Option<
+        unsafe extern "C" fn(*mut Dav1dPicture, *mut core::ffi::c_void) -> (),
+    >,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dRefmvsDSPContext {
+    pub load_tmvs: load_tmvs_fn,
+    pub save_tmvs: save_tmvs_fn,
+    pub splat_mv: splat_mv_fn,
+}
+pub type splat_mv_fn = Option<
+    unsafe extern "C" fn(
+        *mut *mut refmvs_block,
+        *const refmvs_block,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type save_tmvs_fn = Option<
+    unsafe extern "C" fn(
+        *mut refmvs_temporal_block,
+        ptrdiff_t,
+        *const *mut refmvs_block,
+        *const uint8_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type load_tmvs_fn = Option<
+    unsafe extern "C" fn(
+        *const refmvs_frame,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dPalDSPContext {
+    pub pal_idx_finish: pal_idx_finish_fn,
+}
+pub type pal_idx_finish_fn = Option<
+    unsafe extern "C" fn(
+        *mut uint8_t,
+        *const uint8_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dDSPContext {
+    pub fg: Dav1dFilmGrainDSPContext,
+    pub ipred: Dav1dIntraPredDSPContext,
+    pub mc: Dav1dMCDSPContext,
+    pub itx: Dav1dInvTxfmDSPContext,
+    pub lf: Dav1dLoopFilterDSPContext,
+    pub cdef: Dav1dCdefDSPContext,
+    pub lr: Dav1dLoopRestorationDSPContext,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dLoopRestorationDSPContext {
+    pub wiener: [looprestorationfilter_fn; 2],
+    pub sgr: [looprestorationfilter_fn; 3],
+}
+pub type looprestorationfilter_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        const_left_pixel_row,
+        *const pixel,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        *const LooprestorationParams,
+        LrEdgeFlags,
+    ) -> (),
+>;
+pub type LrEdgeFlags = core::ffi::c_uint;
+pub const LR_HAVE_BOTTOM: LrEdgeFlags = 8;
+pub const LR_HAVE_TOP: LrEdgeFlags = 4;
+pub const LR_HAVE_RIGHT: LrEdgeFlags = 2;
+pub const LR_HAVE_LEFT: LrEdgeFlags = 1;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union LooprestorationParams {
+    pub __dav1d_align_filter: [crate::platform::Align16; 0],
+
+    pub filter: [[int16_t; 8]; 2],
+    pub sgr: C2RustUnnamed_48,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_48 {
+    pub s0: uint32_t,
+    pub s1: uint32_t,
+    pub w0: int16_t,
+    pub w1: int16_t,
+}
+pub type const_left_pixel_row = *const [pixel; 4];
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dCdefDSPContext {
+    pub dir: cdef_dir_fn,
+    pub fb: [cdef_fn; 3],
+}
+pub type cdef_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        const_left_pixel_row_2px,
+        *const pixel,
+        *const pixel,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        CdefEdgeFlags,
+    ) -> (),
+>;
+pub type CdefEdgeFlags = core::ffi::c_uint;
+pub const CDEF_HAVE_BOTTOM: CdefEdgeFlags = 8;
+pub const CDEF_HAVE_TOP: CdefEdgeFlags = 4;
+pub const CDEF_HAVE_RIGHT: CdefEdgeFlags = 2;
+pub const CDEF_HAVE_LEFT: CdefEdgeFlags = 1;
+pub type const_left_pixel_row_2px = *const [pixel; 2];
+pub type cdef_dir_fn = Option<
+    unsafe extern "C" fn(
+        *const pixel,
+        ptrdiff_t,
+        *mut core::ffi::c_uint,
+    ) -> core::ffi::c_int,
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dLoopFilterDSPContext {
+    pub loop_filter_sb: [[loopfilter_sb_fn; 2]; 2],
+}
+pub type loopfilter_sb_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const uint32_t,
+        *const [uint8_t; 4],
+        ptrdiff_t,
+        *const Av1FilterLUT,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dInvTxfmDSPContext {
+    pub itxfm_add: [[itxfm_fn; 17]; 19],
+}
+pub type itxfm_fn = Option<
+    unsafe extern "C" fn(*mut pixel, ptrdiff_t, *mut coef, core::ffi::c_int) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dMCDSPContext {
+    pub mc: [mc_fn; 10],
+    pub mc_scaled: [mc_scaled_fn; 10],
+    pub mct: [mct_fn; 10],
+    pub mct_scaled: [mct_scaled_fn; 10],
+    pub avg: avg_fn,
+    pub w_avg: w_avg_fn,
+    pub mask: mask_fn,
+    pub w_mask: [w_mask_fn; 3],
+    pub blend: blend_fn,
+    pub blend_v: blend_dir_fn,
+    pub blend_h: blend_dir_fn,
+    pub warp8x8: warp8x8_fn,
+    pub warp8x8t: warp8x8t_fn,
+    pub emu_edge: emu_edge_fn,
+    pub resize: resize_fn,
+}
+pub type resize_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type emu_edge_fn = Option<
+    unsafe extern "C" fn(
+        intptr_t,
+        intptr_t,
+        intptr_t,
+        intptr_t,
+        intptr_t,
+        intptr_t,
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        ptrdiff_t,
+    ) -> (),
+>;
+pub type warp8x8t_fn = Option<
+    unsafe extern "C" fn(
+        *mut int16_t,
+        ptrdiff_t,
+        *const pixel,
+        ptrdiff_t,
+        *const int16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type warp8x8_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        ptrdiff_t,
+        *const int16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type blend_dir_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type blend_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        *const uint8_t,
+    ) -> (),
+>;
+pub type w_mask_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const int16_t,
+        *const int16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        *mut uint8_t,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type mask_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const int16_t,
+        *const int16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        *const uint8_t,
+    ) -> (),
+>;
+pub type w_avg_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const int16_t,
+        *const int16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type avg_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const int16_t,
+        *const int16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type mct_scaled_fn = Option<
+    unsafe extern "C" fn(
+        *mut int16_t,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type mct_fn = Option<
+    unsafe extern "C" fn(
+        *mut int16_t,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type mc_scaled_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type mc_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dIntraPredDSPContext {
+    pub intra_pred: [angular_ipred_fn; 14],
+    pub cfl_ac: [cfl_ac_fn; 3],
+    pub cfl_pred: [cfl_pred_fn; 6],
+    pub pal_pred: pal_pred_fn,
+}
+pub type pal_pred_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        *const uint8_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type cfl_pred_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        *const int16_t,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type cfl_ac_fn = Option<
+    unsafe extern "C" fn(
+        *mut int16_t,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type angular_ipred_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        ptrdiff_t,
+        *const pixel,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dFilmGrainDSPContext {
+    pub generate_grain_y: generate_grain_y_fn,
+    pub generate_grain_uv: [generate_grain_uv_fn; 3],
+    pub fgy_32x32xn: fgy_32x32xn_fn,
+    pub fguv_32x32xn: [fguv_32x32xn_fn; 3],
+}
+pub type fguv_32x32xn_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        *const pixel,
+        ptrdiff_t,
+        *const Dav1dFilmGrainData,
+        size_t,
+        *const uint8_t,
+        *const [entry; 82],
+        core::ffi::c_int,
+        core::ffi::c_int,
+        *const pixel,
+        ptrdiff_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type entry = int8_t;
+pub type fgy_32x32xn_fn = Option<
+    unsafe extern "C" fn(
+        *mut pixel,
+        *const pixel,
+        ptrdiff_t,
+        *const Dav1dFilmGrainData,
+        size_t,
+        *const uint8_t,
+        *const [entry; 82],
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type generate_grain_uv_fn = Option<
+    unsafe extern "C" fn(
+        *mut [entry; 82],
+        *const [entry; 82],
+        *const Dav1dFilmGrainData,
+        intptr_t,
+    ) -> (),
+>;
+pub type generate_grain_y_fn = Option<
+    unsafe extern "C" fn(*mut [entry; 82], *const Dav1dFilmGrainData) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CdfThreadContext {
+    pub ref_0: *mut Dav1dRef,
+    pub data: C2RustUnnamed_49,
+    pub progress: *mut atomic_uint,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_49 {
+    pub cdf: *mut CdfContext,
+    pub qcat: core::ffi::c_uint,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_50 {
+    pub p: Dav1dThreadPicture,
+    pub segmap: *mut Dav1dRef,
+    pub refmvs: *mut Dav1dRef,
+    pub refpoc: [uint8_t; 7],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dThreadPicture {
+    pub p: Dav1dPicture,
+    pub visible: core::ffi::c_int,
+    pub showable: core::ffi::c_int,
+    pub flags: PictureFlags,
+    pub progress: *mut atomic_uint,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_51 {
+    pub out_delayed: *mut Dav1dThreadPicture,
+    pub next: core::ffi::c_uint,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dTileGroup {
+    pub data: Dav1dData,
+    pub start: core::ffi::c_int,
+    pub end: core::ffi::c_int,
+}
+pub type read_pal_plane_fn = Option<
+    unsafe extern "C" fn(
+        *mut Dav1dTaskContext,
+        *mut Av1Block,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type copy_pal_block_fn = Option<
+    unsafe extern "C" fn(
+        *mut Dav1dTaskContext,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type read_coef_blocks_fn = Option<
+    unsafe extern "C" fn(*mut Dav1dTaskContext, BlockSize, *const Av1Block) -> (),
+>;
+pub type BlockSize = core::ffi::c_uint;
+pub const N_BS_SIZES: BlockSize = 22;
+pub const BS_4x4: BlockSize = 21;
+pub const BS_4x8: BlockSize = 20;
+pub const BS_4x16: BlockSize = 19;
+pub const BS_8x4: BlockSize = 18;
+pub const BS_8x8: BlockSize = 17;
+pub const BS_8x16: BlockSize = 16;
+pub const BS_8x32: BlockSize = 15;
+pub const BS_16x4: BlockSize = 14;
+pub const BS_16x8: BlockSize = 13;
+pub const BS_16x16: BlockSize = 12;
+pub const BS_16x32: BlockSize = 11;
+pub const BS_16x64: BlockSize = 10;
+pub const BS_32x8: BlockSize = 9;
+pub const BS_32x16: BlockSize = 8;
+pub const BS_32x32: BlockSize = 7;
+pub const BS_32x64: BlockSize = 6;
+pub const BS_64x16: BlockSize = 5;
+pub const BS_64x32: BlockSize = 4;
+pub const BS_64x64: BlockSize = 3;
+pub const BS_64x128: BlockSize = 2;
+pub const BS_128x64: BlockSize = 1;
+pub const BS_128x128: BlockSize = 0;
+pub type backup_ipred_edge_fn = Option<
+    unsafe extern "C" fn(*mut Dav1dTaskContext) -> (),
+>;
+pub type filter_sbrow_fn = Option<
+    unsafe extern "C" fn(*mut Dav1dFrameContext, core::ffi::c_int) -> (),
+>;
+pub type recon_b_inter_fn = Option<
+    unsafe extern "C" fn(
+        *mut Dav1dTaskContext,
+        BlockSize,
+        *const Av1Block,
+    ) -> core::ffi::c_int,
+>;
+pub type recon_b_intra_fn = Option<
+    unsafe extern "C" fn(
+        *mut Dav1dTaskContext,
+        BlockSize,
+        EdgeFlags,
+        *const Av1Block,
+    ) -> (),
+>;
+pub type EdgeFlags = core::ffi::c_uint;
+pub const EDGE_ALL_TR_AND_BL: EdgeFlags = 63;
+pub const EDGE_ALL_LEFT_HAS_BOTTOM: EdgeFlags = 56;
+pub const EDGE_ALL_TOP_HAS_RIGHT: EdgeFlags = 7;
+pub const EDGE_I420_LEFT_HAS_BOTTOM: EdgeFlags = 32;
+pub const EDGE_I422_LEFT_HAS_BOTTOM: EdgeFlags = 16;
+pub const EDGE_I444_LEFT_HAS_BOTTOM: EdgeFlags = 8;
+pub const EDGE_I420_TOP_HAS_RIGHT: EdgeFlags = 4;
+pub const EDGE_I422_TOP_HAS_RIGHT: EdgeFlags = 2;
+pub const EDGE_I444_TOP_HAS_RIGHT: EdgeFlags = 1;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct ScalableMotionParams {
+    pub scale: core::ffi::c_int,
+    pub step: core::ffi::c_int,
+}
+pub type TxfmSize = core::ffi::c_uint;
+pub const N_TX_SIZES: TxfmSize = 5;
+pub const TX_64X64: TxfmSize = 4;
+pub const TX_32X32: TxfmSize = 3;
+pub const TX_16X16: TxfmSize = 2;
+pub const TX_8X8: TxfmSize = 1;
+pub const TX_4X4: TxfmSize = 0;
+pub type RectTxfmSize = core::ffi::c_uint;
+pub const N_RECT_TX_SIZES: RectTxfmSize = 19;
+pub const RTX_64X16: RectTxfmSize = 18;
+pub const RTX_16X64: RectTxfmSize = 17;
+pub const RTX_32X8: RectTxfmSize = 16;
+pub const RTX_8X32: RectTxfmSize = 15;
+pub const RTX_16X4: RectTxfmSize = 14;
+pub const RTX_4X16: RectTxfmSize = 13;
+pub const RTX_64X32: RectTxfmSize = 12;
+pub const RTX_32X64: RectTxfmSize = 11;
+pub const RTX_32X16: RectTxfmSize = 10;
+pub const RTX_16X32: RectTxfmSize = 9;
+pub const RTX_16X8: RectTxfmSize = 8;
+pub const RTX_8X16: RectTxfmSize = 7;
+pub const RTX_8X4: RectTxfmSize = 6;
+pub const RTX_4X8: RectTxfmSize = 5;
+pub type TxfmType = core::ffi::c_uint;
+pub const N_TX_TYPES_PLUS_LL: TxfmType = 17;
+pub const WHT_WHT: TxfmType = 16;
+pub const N_TX_TYPES: TxfmType = 16;
+pub const H_FLIPADST: TxfmType = 15;
+pub const V_FLIPADST: TxfmType = 14;
+pub const H_ADST: TxfmType = 13;
+pub const V_ADST: TxfmType = 12;
+pub const H_DCT: TxfmType = 11;
+pub const V_DCT: TxfmType = 10;
+pub const IDTX: TxfmType = 9;
+pub const FLIPADST_ADST: TxfmType = 8;
+pub const ADST_FLIPADST: TxfmType = 7;
+pub const FLIPADST_FLIPADST: TxfmType = 6;
+pub const DCT_FLIPADST: TxfmType = 5;
+pub const FLIPADST_DCT: TxfmType = 4;
+pub const ADST_ADST: TxfmType = 3;
+pub const DCT_ADST: TxfmType = 2;
+pub const ADST_DCT: TxfmType = 1;
+pub const DCT_DCT: TxfmType = 0;
+pub type TxClass = core::ffi::c_uint;
+pub const TX_CLASS_V: TxClass = 2;
+pub const TX_CLASS_H: TxClass = 1;
+pub const TX_CLASS_2D: TxClass = 0;
+pub type IntraPredMode = core::ffi::c_uint;
+pub const FILTER_PRED: IntraPredMode = 13;
+pub const Z3_PRED: IntraPredMode = 8;
+pub const Z2_PRED: IntraPredMode = 7;
+pub const Z1_PRED: IntraPredMode = 6;
+pub const DC_128_PRED: IntraPredMode = 5;
+pub const TOP_DC_PRED: IntraPredMode = 4;
+pub const LEFT_DC_PRED: IntraPredMode = 3;
+pub const N_IMPL_INTRA_PRED_MODES: IntraPredMode = 14;
+pub const N_UV_INTRA_PRED_MODES: IntraPredMode = 14;
+pub const CFL_PRED: IntraPredMode = 13;
+pub const N_INTRA_PRED_MODES: IntraPredMode = 13;
+pub const PAETH_PRED: IntraPredMode = 12;
+pub const SMOOTH_H_PRED: IntraPredMode = 11;
+pub const SMOOTH_V_PRED: IntraPredMode = 10;
+pub const SMOOTH_PRED: IntraPredMode = 9;
+pub const VERT_LEFT_PRED: IntraPredMode = 8;
+pub const HOR_UP_PRED: IntraPredMode = 7;
+pub const HOR_DOWN_PRED: IntraPredMode = 6;
+pub const VERT_RIGHT_PRED: IntraPredMode = 5;
+pub const DIAG_DOWN_RIGHT_PRED: IntraPredMode = 4;
+pub const DIAG_DOWN_LEFT_PRED: IntraPredMode = 3;
+pub const HOR_PRED: IntraPredMode = 2;
+pub const VERT_PRED: IntraPredMode = 1;
+pub const DC_PRED: IntraPredMode = 0;
+pub type InterIntraPredMode = core::ffi::c_uint;
+pub const N_INTER_INTRA_PRED_MODES: InterIntraPredMode = 4;
+pub const II_SMOOTH_PRED: InterIntraPredMode = 3;
+pub const II_HOR_PRED: InterIntraPredMode = 2;
+pub const II_VERT_PRED: InterIntraPredMode = 1;
+pub const II_DC_PRED: InterIntraPredMode = 0;
+pub type InterPredMode = core::ffi::c_uint;
+pub const N_INTER_PRED_MODES: InterPredMode = 4;
+pub const NEWMV: InterPredMode = 3;
+pub const GLOBALMV: InterPredMode = 2;
+pub const NEARMV: InterPredMode = 1;
+pub const NEARESTMV: InterPredMode = 0;
+pub type CompInterPredMode = core::ffi::c_uint;
+pub const N_COMP_INTER_PRED_MODES: CompInterPredMode = 8;
+pub const NEWMV_NEWMV: CompInterPredMode = 7;
+pub const GLOBALMV_GLOBALMV: CompInterPredMode = 6;
+pub const NEWMV_NEARMV: CompInterPredMode = 5;
+pub const NEARMV_NEWMV: CompInterPredMode = 4;
+pub const NEWMV_NEARESTMV: CompInterPredMode = 3;
+pub const NEARESTMV_NEWMV: CompInterPredMode = 2;
+pub const NEARMV_NEARMV: CompInterPredMode = 1;
+pub const NEARESTMV_NEARESTMV: CompInterPredMode = 0;
+pub type CompInterType = core::ffi::c_uint;
+pub const COMP_INTER_WEDGE: CompInterType = 4;
+pub const COMP_INTER_SEG: CompInterType = 3;
+pub const COMP_INTER_AVG: CompInterType = 2;
+pub const COMP_INTER_WEIGHTED_AVG: CompInterType = 1;
+pub const COMP_INTER_NONE: CompInterType = 0;
+pub type InterIntraType = core::ffi::c_uint;
+pub const INTER_INTRA_WEDGE: InterIntraType = 2;
+pub const INTER_INTRA_BLEND: InterIntraType = 1;
+pub const INTER_INTRA_NONE: InterIntraType = 0;
+pub type MotionMode = core::ffi::c_uint;
+pub const MM_WARP: MotionMode = 2;
+pub const MM_OBMC: MotionMode = 1;
+pub const MM_TRANSLATION: MotionMode = 0;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct TxfmInfo {
+    pub w: uint8_t,
+    pub h: uint8_t,
+    pub lw: uint8_t,
+    pub lh: uint8_t,
+    pub min: uint8_t,
+    pub max: uint8_t,
+    pub sub: uint8_t,
+    pub ctx: uint8_t,
+}
+pub type dav1d_memset_pow2_fn = Option<
+    unsafe extern "C" fn(*mut core::ffi::c_void, core::ffi::c_int) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union alias64 {
+    pub u64_0: uint64_t,
+    pub u8_0: [uint8_t; 8],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union alias32 {
+    pub u32_0: uint32_t,
+    pub u8_0: [uint8_t; 4],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union alias16 {
+    pub u16_0: uint16_t,
+    pub u8_0: [uint8_t; 2],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union alias8 {
+    pub u8_0: uint8_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct C2RustUnnamed_52 {
+    pub wedge: [[uint16_t; 16]; 2],
+    pub ii: [uint16_t; 4],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Dav1dMasks {
+    pub offsets: [[C2RustUnnamed_52; 11]; 3],
+    pub __dav1d_align_wedge_444_32x32: [crate::platform::Align64; 0],
+    pub wedge_444_32x32: [uint8_t; 16384],
+    pub __dav1d_align_wedge_444_32x16: [crate::platform::Align64; 0],
+    pub wedge_444_32x16: [uint8_t; 8192],
+    pub __dav1d_align_wedge_444_32x8: [crate::platform::Align64; 0],
+    pub wedge_444_32x8: [uint8_t; 4096],
+    pub __dav1d_align_wedge_444_16x32: [crate::platform::Align64; 0],
+    pub wedge_444_16x32: [uint8_t; 8192],
+    pub __dav1d_align_wedge_444_16x16: [crate::platform::Align64; 0],
+    pub wedge_444_16x16: [uint8_t; 4096],
+    pub __dav1d_align_wedge_444_16x8: [crate::platform::Align64; 0],
+    pub wedge_444_16x8: [uint8_t; 2048],
+    pub __dav1d_align_wedge_444_8x32: [crate::platform::Align64; 0],
+    pub wedge_444_8x32: [uint8_t; 4096],
+    pub __dav1d_align_wedge_444_8x16: [crate::platform::Align64; 0],
+    pub wedge_444_8x16: [uint8_t; 2048],
+    pub __dav1d_align_wedge_444_8x8: [crate::platform::Align64; 0],
+    pub wedge_444_8x8: [uint8_t; 1024],
+    pub __dav1d_align_wedge_422_16x32: [crate::platform::Align64; 0],
+    pub wedge_422_16x32: [uint8_t; 16384],
+    pub __dav1d_align_wedge_422_16x16: [crate::platform::Align64; 0],
+    pub wedge_422_16x16: [uint8_t; 8192],
+    pub __dav1d_align_wedge_422_16x8: [crate::platform::Align64; 0],
+    pub wedge_422_16x8: [uint8_t; 4096],
+    pub __dav1d_align_wedge_422_8x32: [crate::platform::Align64; 0],
+    pub wedge_422_8x32: [uint8_t; 8192],
+    pub __dav1d_align_wedge_422_8x16: [crate::platform::Align64; 0],
+    pub wedge_422_8x16: [uint8_t; 4096],
+    pub __dav1d_align_wedge_422_8x8: [crate::platform::Align64; 0],
+    pub wedge_422_8x8: [uint8_t; 2048],
+    pub __dav1d_align_wedge_422_4x32: [crate::platform::Align64; 0],
+    pub wedge_422_4x32: [uint8_t; 4096],
+    pub __dav1d_align_wedge_422_4x16: [crate::platform::Align64; 0],
+    pub wedge_422_4x16: [uint8_t; 2048],
+    pub __dav1d_align_wedge_422_4x8: [crate::platform::Align64; 0],
+    pub wedge_422_4x8: [uint8_t; 1024],
+    pub __dav1d_align_wedge_420_16x16: [crate::platform::Align64; 0],
+    pub wedge_420_16x16: [uint8_t; 8192],
+    pub __dav1d_align_wedge_420_16x8: [crate::platform::Align64; 0],
+    pub wedge_420_16x8: [uint8_t; 4096],
+    pub __dav1d_align_wedge_420_16x4: [crate::platform::Align64; 0],
+    pub wedge_420_16x4: [uint8_t; 2048],
+    pub __dav1d_align_wedge_420_8x16: [crate::platform::Align64; 0],
+    pub wedge_420_8x16: [uint8_t; 4096],
+    pub __dav1d_align_wedge_420_8x8: [crate::platform::Align64; 0],
+    pub wedge_420_8x8: [uint8_t; 2048],
+    pub __dav1d_align_wedge_420_8x4: [crate::platform::Align64; 0],
+    pub wedge_420_8x4: [uint8_t; 1024],
+    pub __dav1d_align_wedge_420_4x16: [crate::platform::Align64; 0],
+    pub wedge_420_4x16: [uint8_t; 2048],
+    pub __dav1d_align_wedge_420_4x8: [crate::platform::Align64; 0],
+    pub wedge_420_4x8: [uint8_t; 1024],
+    pub __dav1d_align_wedge_420_4x4: [crate::platform::Align64; 0],
+    pub wedge_420_4x4: [uint8_t; 512],
+    pub __dav1d_align_ii_dc: [crate::platform::Align64; 0],
+    pub ii_dc: [uint8_t; 1024],
+    pub __dav1d_align_ii_nondc_32x32: [crate::platform::Align64; 0],
+    pub ii_nondc_32x32: [uint8_t; 3072],
+    pub __dav1d_align_ii_nondc_16x32: [crate::platform::Align64; 0],
+    pub ii_nondc_16x32: [uint8_t; 1536],
+    pub __dav1d_align_ii_nondc_16x16: [crate::platform::Align64; 0],
+    pub ii_nondc_16x16: [uint8_t; 768],
+    pub __dav1d_align_ii_nondc_8x32: [crate::platform::Align64; 0],
+    pub ii_nondc_8x32: [uint8_t; 768],
+    pub __dav1d_align_ii_nondc_8x16: [crate::platform::Align64; 0],
+    pub ii_nondc_8x16: [uint8_t; 384],
+    pub __dav1d_align_ii_nondc_8x8: [crate::platform::Align64; 0],
+    pub ii_nondc_8x8: [uint8_t; 192],
+    pub __dav1d_align_ii_nondc_4x16: [crate::platform::Align64; 0],
+    pub ii_nondc_4x16: [uint8_t; 192],
+    pub __dav1d_align_ii_nondc_4x8: [crate::platform::Align32; 0],
+    pub ii_nondc_4x8: [uint8_t; 96],
+    pub __dav1d_align_ii_nondc_4x4: [crate::platform::Align16; 0],
+    pub ii_nondc_4x4: [uint8_t; 48],
+}
+pub const BITDEPTH: core::ffi::c_int = 8 as core::ffi::c_int;
+pub const NULL: *mut core::ffi::c_void = 0 as *mut core::ffi::c_void;
+#[inline]
+unsafe extern "C" fn clz(mask: core::ffi::c_uint) -> core::ffi::c_int {
+    return mask.leading_zeros() as i32;
+}
+#[inline]
+unsafe extern "C" fn hex_fdump(
+    mut out: *mut FILE,
+    mut buf: *const pixel,
+    mut stride: ptrdiff_t,
+    mut w: core::ffi::c_int,
+    mut h: core::ffi::c_int,
+    mut what: *const core::ffi::c_char,
+) {
+    fprintf(out, b"%s\n\0" as *const u8 as *const core::ffi::c_char, what);
+    loop {
+        let fresh0 = h;
+        h = h - 1;
+        if !(fresh0 != 0) {
+            break;
+        }
+        let mut x: core::ffi::c_int = 0;
+        x = 0 as core::ffi::c_int;
+        while x < w {
+            fprintf(
+                out,
+                b" %02x\0" as *const u8 as *const core::ffi::c_char,
+                *buf.offset(x as isize) as core::ffi::c_int,
+            );
+            x += 1;
+        }
+        buf = buf.offset(stride as isize);
+        fprintf(out, b"\n\0" as *const u8 as *const core::ffi::c_char);
+    };
+}
+#[inline]
+unsafe extern "C" fn hex_dump(
+    mut buf: *const pixel,
+    mut stride: ptrdiff_t,
+    mut w: core::ffi::c_int,
+    mut h: core::ffi::c_int,
+    mut what: *const core::ffi::c_char,
+) {
+    hex_fdump(__stdoutp, buf, stride, w, h, what);
+}
+#[inline]
+unsafe extern "C" fn coef_dump(
+    mut buf: *const coef,
+    w: core::ffi::c_int,
+    h: core::ffi::c_int,
+    len: core::ffi::c_int,
+    mut what: *const core::ffi::c_char,
+) {
+    let mut y: core::ffi::c_int = 0;
+    printf(b"%s\n\0" as *const u8 as *const core::ffi::c_char, what);
+    y = 0 as core::ffi::c_int;
+    while y < h {
+        let mut x: core::ffi::c_int = 0;
+        x = 0 as core::ffi::c_int;
+        while x < w {
+            printf(
+                b" %*d\0" as *const u8 as *const core::ffi::c_char,
+                len,
+                *buf.offset(x as isize) as core::ffi::c_int,
+            );
+            x += 1;
+        }
+        buf = buf.offset(w as isize);
+        printf(b"\n\0" as *const u8 as *const core::ffi::c_char);
+        y += 1;
+    }
+}
+#[inline]
+unsafe extern "C" fn ac_dump(
+    mut buf: *const int16_t,
+    mut w: core::ffi::c_int,
+    mut h: core::ffi::c_int,
+    mut what: *const core::ffi::c_char,
+) {
+    printf(b"%s\n\0" as *const u8 as *const core::ffi::c_char, what);
+    loop {
+        let fresh1 = h;
+        h = h - 1;
+        if !(fresh1 != 0) {
+            break;
+        }
+        let mut x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while x < w {
+            printf(
+                b" %03d\0" as *const u8 as *const core::ffi::c_char,
+                *buf.offset(x as isize) as core::ffi::c_int,
+            );
+            x += 1;
+        }
+        buf = buf.offset(w as isize);
+        printf(b"\n\0" as *const u8 as *const core::ffi::c_char);
+    };
+}
+#[inline]
+unsafe extern "C" fn imax(a: core::ffi::c_int, b: core::ffi::c_int) -> core::ffi::c_int {
+    return if a > b { a } else { b };
+}
+#[inline]
+unsafe extern "C" fn imin(a: core::ffi::c_int, b: core::ffi::c_int) -> core::ffi::c_int {
+    return if a < b { a } else { b };
+}
+#[inline]
+unsafe extern "C" fn umin(
+    a: core::ffi::c_uint,
+    b: core::ffi::c_uint,
+) -> core::ffi::c_uint {
+    return if a < b { a } else { b };
+}
+#[inline]
+unsafe extern "C" fn iclip(
+    v: core::ffi::c_int,
+    min: core::ffi::c_int,
+    max: core::ffi::c_int,
+) -> core::ffi::c_int {
+    return if v < min { min } else if v > max { max } else { v };
+}
+#[inline]
+unsafe extern "C" fn apply_sign64(v: core::ffi::c_int, s: int64_t) -> core::ffi::c_int {
+    return if s < 0 as int64_t { -v } else { v };
+}
+#[inline]
+unsafe extern "C" fn ulog2(v: core::ffi::c_uint) -> core::ffi::c_int {
+    return 31 as core::ffi::c_int ^ clz(v);
+}
+#[inline]
+unsafe extern "C" fn get_uv_inter_txtp(
+    uvt_dim: *const TxfmInfo,
+    ytxtp: TxfmType,
+) -> TxfmType {
+    if (*uvt_dim).max as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+        return (if ytxtp as core::ffi::c_uint
+            == IDTX as core::ffi::c_int as core::ffi::c_uint
+        {
+            IDTX as core::ffi::c_int
+        } else {
+            DCT_DCT as core::ffi::c_int
+        }) as TxfmType;
+    }
+    if (*uvt_dim).min as core::ffi::c_int == TX_16X16 as core::ffi::c_int
+        && (1 as core::ffi::c_int) << ytxtp as core::ffi::c_uint
+            & ((1 as core::ffi::c_int) << H_FLIPADST as core::ffi::c_int
+                | (1 as core::ffi::c_int) << V_FLIPADST as core::ffi::c_int
+                | (1 as core::ffi::c_int) << H_ADST as core::ffi::c_int
+                | (1 as core::ffi::c_int) << V_ADST as core::ffi::c_int) != 0
+    {
+        return DCT_DCT;
+    }
+    return ytxtp;
+}
+#[inline]
+unsafe extern "C" fn dav1d_msac_decode_bools(
+    s: *mut MsacContext,
+    mut n: core::ffi::c_uint,
+) -> core::ffi::c_uint {
+    let mut v: core::ffi::c_uint = 0 as core::ffi::c_uint;
+    loop {
+        let fresh2 = n;
+        n = n.wrapping_sub(1);
+        if !(fresh2 != 0) {
+            break;
+        }
+        v = v << 1 as core::ffi::c_int | dav1d_msac_decode_bool_equi_c(s);
+    }
+    return v;
+}
+pub const DEBUG_B_PIXELS: core::ffi::c_int = 0 as core::ffi::c_int;
+#[inline]
+unsafe extern "C" fn dav1d_memset_likely_pow2(
+    ptr: *mut core::ffi::c_void,
+    value: core::ffi::c_int,
+    n: core::ffi::c_int,
+) {
+    if !(n >= 1 as core::ffi::c_int && n <= 32 as core::ffi::c_int) as core::ffi::c_int
+        as core::ffi::c_long != 0
+    {
+        crate::platform::assertion(
+            (::core::mem::transmute::<
+                [u8; 25],
+                [core::ffi::c_char; 25],
+            >(*b"dav1d_memset_likely_pow2\0"))
+                .as_ptr(),
+            b"ctx.h\0" as *const u8 as *const core::ffi::c_char,
+            45 as core::ffi::c_int,
+            b"n >= 1 && n <= 32\0" as *const u8 as *const core::ffi::c_char,
+        );
+    } else {};
+    if n & n - 1 as core::ffi::c_int == 0 as core::ffi::c_int {
+        (dav1d_memset_pow2[ulog2(n as core::ffi::c_uint) as usize])
+            .expect("non-null function pointer")(ptr, value);
+    } else {
+        memset(ptr, value, n as size_t);
+    };
+}
+pub const ANGLE_SMOOTH_EDGE_FLAG: core::ffi::c_int = 512 as core::ffi::c_int;
+#[inline]
+unsafe extern "C" fn sm_flag(
+    b: *const BlockContext,
+    idx: core::ffi::c_int,
+) -> core::ffi::c_int {
+    if (*b).intra[idx as usize] == 0 {
+        return 0 as core::ffi::c_int;
+    }
+    let m: IntraPredMode = (*b).mode[idx as usize] as IntraPredMode;
+    return if m as core::ffi::c_uint
+        == SMOOTH_PRED as core::ffi::c_int as core::ffi::c_uint
+        || m as core::ffi::c_uint
+            == SMOOTH_H_PRED as core::ffi::c_int as core::ffi::c_uint
+        || m as core::ffi::c_uint
+            == SMOOTH_V_PRED as core::ffi::c_int as core::ffi::c_uint
+    {
+        ANGLE_SMOOTH_EDGE_FLAG
+    } else {
+        0 as core::ffi::c_int
+    };
+}
+#[inline]
+unsafe extern "C" fn sm_uv_flag(
+    b: *const BlockContext,
+    idx: core::ffi::c_int,
+) -> core::ffi::c_int {
+    let m: IntraPredMode = (*b).uvmode[idx as usize] as IntraPredMode;
+    return if m as core::ffi::c_uint
+        == SMOOTH_PRED as core::ffi::c_int as core::ffi::c_uint
+        || m as core::ffi::c_uint
+            == SMOOTH_H_PRED as core::ffi::c_int as core::ffi::c_uint
+        || m as core::ffi::c_uint
+            == SMOOTH_V_PRED as core::ffi::c_int as core::ffi::c_uint
+    {
+        ANGLE_SMOOTH_EDGE_FLAG
+    } else {
+        0 as core::ffi::c_int
+    };
+}
+#[inline]
+unsafe extern "C" fn read_golomb(msac: *mut MsacContext) -> core::ffi::c_uint {
+    let mut len: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut val: core::ffi::c_uint = 1 as core::ffi::c_uint;
+    while dav1d_msac_decode_bool_equi_c(msac) == 0 && len < 32 as core::ffi::c_int {
+        len += 1;
+    }
+    loop {
+        let fresh5 = len;
+        len = len - 1;
+        if !(fresh5 != 0) {
+            break;
+        }
+        val = (val << 1 as core::ffi::c_int)
+            .wrapping_add(dav1d_msac_decode_bool_equi_c(msac));
+    }
+    return val.wrapping_sub(1 as core::ffi::c_uint);
+}
+#[inline]
+unsafe extern "C" fn get_skip_ctx(
+    t_dim: *const TxfmInfo,
+    bs: BlockSize,
+    a: *const uint8_t,
+    l: *const uint8_t,
+    chroma: core::ffi::c_int,
+    layout: Dav1dPixelLayout,
+) -> core::ffi::c_uint {
+    let b_dim: *const uint8_t = (dav1d_block_dimensions[bs as usize]).as_ptr();
+    if chroma != 0 {
+        let ss_ver: core::ffi::c_int = (layout as core::ffi::c_uint
+            == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let ss_hor: core::ffi::c_int = (layout as core::ffi::c_uint
+            != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let not_one_blk: core::ffi::c_int = (*b_dim
+            .offset(2 as core::ffi::c_int as isize) as core::ffi::c_int
+            - (*b_dim.offset(2 as core::ffi::c_int as isize) != 0 && ss_hor != 0)
+                as core::ffi::c_int > (*t_dim).lw as core::ffi::c_int
+            || *b_dim.offset(3 as core::ffi::c_int as isize) as core::ffi::c_int
+                - (*b_dim.offset(3 as core::ffi::c_int as isize) != 0 && ss_ver != 0)
+                    as core::ffi::c_int > (*t_dim).lh as core::ffi::c_int)
+            as core::ffi::c_int;
+        let mut ca: core::ffi::c_uint = 0;
+        let mut cl: core::ffi::c_uint = 0;
+        let mut current_block_4: u64;
+        match (*t_dim).lw as core::ffi::c_int {
+            0 => {
+                current_block_4 = 0;
+            }
+            1 => {
+                ca = (*(a as *const uint16_t) as core::ffi::c_int
+                    != 0x4040 as core::ffi::c_int) as core::ffi::c_int
+                    as core::ffi::c_uint;
+                current_block_4 = 1;
+            }
+            2 => {
+                ca = (*(a as *const uint32_t) != 0x40404040 as uint32_t)
+                    as core::ffi::c_int as core::ffi::c_uint;
+                current_block_4 = 1;
+            }
+            3 => {
+                ca = (*(a as *const uint64_t) != 0x4040404040404040 as uint64_t)
+                    as core::ffi::c_int as core::ffi::c_uint;
+                current_block_4 = 1;
+            }
+            _ => {
+                if (0 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long
+                    != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"get_skip_ctx\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        85 as core::ffi::c_int,
+                        b"0\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                current_block_4 = 0;
+            }
+        }
+        match current_block_4 {
+            0 => {
+                ca = (*a as core::ffi::c_int != 0x40 as core::ffi::c_int)
+                    as core::ffi::c_int as core::ffi::c_uint;
+            }
+            _ => {}
+        }
+        let mut current_block_10: u64;
+        match (*t_dim).lh as core::ffi::c_int {
+            0 => {
+                current_block_10 = 2;
+            }
+            1 => {
+                cl = (*(l as *const uint16_t) as core::ffi::c_int
+                    != 0x4040 as core::ffi::c_int) as core::ffi::c_int
+                    as core::ffi::c_uint;
+                current_block_10 = 3;
+            }
+            2 => {
+                cl = (*(l as *const uint32_t) != 0x40404040 as uint32_t)
+                    as core::ffi::c_int as core::ffi::c_uint;
+                current_block_10 = 3;
+            }
+            3 => {
+                cl = (*(l as *const uint64_t) != 0x4040404040404040 as uint64_t)
+                    as core::ffi::c_int as core::ffi::c_uint;
+                current_block_10 = 3;
+            }
+            _ => {
+                if (0 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long
+                    != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"get_skip_ctx\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        92 as core::ffi::c_int,
+                        b"0\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                current_block_10 = 2;
+            }
+        }
+        match current_block_10 {
+            2 => {
+                cl = (*l as core::ffi::c_int != 0x40 as core::ffi::c_int)
+                    as core::ffi::c_int as core::ffi::c_uint;
+            }
+            _ => {}
+        }
+        return ((7 as core::ffi::c_int + not_one_blk * 3 as core::ffi::c_int)
+            as core::ffi::c_uint)
+            .wrapping_add(ca)
+            .wrapping_add(cl);
+    } else if *b_dim.offset(2 as core::ffi::c_int as isize) as core::ffi::c_int
+        == (*t_dim).lw as core::ffi::c_int
+        && *b_dim.offset(3 as core::ffi::c_int as isize) as core::ffi::c_int
+            == (*t_dim).lh as core::ffi::c_int
+    {
+        return 0 as core::ffi::c_uint
+    } else {
+        let mut la: core::ffi::c_uint = 0;
+        let mut ll: core::ffi::c_uint = 0;
+        let mut current_block_71: u64;
+        match (*t_dim).lw as core::ffi::c_int {
+            0 => {
+                current_block_71 = 4;
+            }
+            1 => {
+                if TX_8X8 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_0: uint64_t = *(a as *const uint64_t);
+                    tmp_0
+                        |= *(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    la = (tmp_0 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_0 as core::ffi::c_uint;
+                } else {
+                    la = *(a as *const uint16_t) as core::ffi::c_uint;
+                }
+                if TX_8X8 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    la
+                        |= *(&*a.offset(::core::mem::size_of::<uint16_t>() as isize)
+                            as *const uint8_t as *const uint16_t) as core::ffi::c_uint;
+                }
+                if TX_8X8 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    la |= la >> 16 as core::ffi::c_int;
+                }
+                if TX_8X8 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    la |= la >> 8 as core::ffi::c_int;
+                }
+                current_block_71 = 5;
+            }
+            2 => {
+                if TX_16X16 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_1: uint64_t = *(a as *const uint64_t);
+                    tmp_1
+                        |= *(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    la = (tmp_1 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_1 as core::ffi::c_uint;
+                } else {
+                    la = *(a as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_16X16 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    la
+                        |= *(&*a.offset(::core::mem::size_of::<uint32_t>() as isize)
+                            as *const uint8_t as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_16X16 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    la |= la >> 16 as core::ffi::c_int;
+                }
+                if TX_16X16 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    la |= la >> 8 as core::ffi::c_int;
+                }
+                current_block_71 = 5;
+            }
+            3 => {
+                if TX_32X32 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_2: uint64_t = *(a as *const uint64_t);
+                    tmp_2
+                        |= *(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    la = (tmp_2 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_2 as core::ffi::c_uint;
+                } else {
+                    la = *(a as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_32X32 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    la
+                        |= *(&*a.offset(::core::mem::size_of::<uint32_t>() as isize)
+                            as *const uint8_t as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_32X32 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    la |= la >> 16 as core::ffi::c_int;
+                }
+                if TX_32X32 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    la |= la >> 8 as core::ffi::c_int;
+                }
+                current_block_71 = 5;
+            }
+            4 => {
+                if TX_64X64 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_3: uint64_t = *(a as *const uint64_t);
+                    tmp_3
+                        |= *(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    la = (tmp_3 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_3 as core::ffi::c_uint;
+                } else {
+                    la = *(a as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_64X64 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    la
+                        |= *(&*a.offset(::core::mem::size_of::<uint32_t>() as isize)
+                            as *const uint8_t as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_64X64 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    la |= la >> 16 as core::ffi::c_int;
+                }
+                if TX_64X64 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    la |= la >> 8 as core::ffi::c_int;
+                }
+                current_block_71 = 5;
+            }
+            _ => {
+                if (0 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long
+                    != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"get_skip_ctx\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        119 as core::ffi::c_int,
+                        b"0\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                current_block_71 = 4;
+            }
+        }
+        match current_block_71 {
+            4 => {
+                if TX_4X4 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp: uint64_t = *(a as *const uint64_t);
+                    tmp
+                        |= *(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    la = (tmp >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp as core::ffi::c_uint;
+                } else {
+                    la = *a as core::ffi::c_uint;
+                }
+                if TX_4X4 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    la
+                        |= *(&*a.offset(::core::mem::size_of::<uint8_t>() as isize)
+                            as *const uint8_t) as core::ffi::c_uint;
+                }
+                if TX_4X4 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    la |= la >> 16 as core::ffi::c_int;
+                }
+                if TX_4X4 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    la |= la >> 8 as core::ffi::c_int;
+                }
+            }
+            _ => {}
+        }
+        let mut current_block_128: u64;
+        match (*t_dim).lh as core::ffi::c_int {
+            0 => {
+                current_block_128 = 6;
+            }
+            1 => {
+                if TX_8X8 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_5: uint64_t = *(l as *const uint64_t);
+                    tmp_5
+                        |= *(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    ll = (tmp_5 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_5 as core::ffi::c_uint;
+                } else {
+                    ll = *(l as *const uint16_t) as core::ffi::c_uint;
+                }
+                if TX_8X8 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    ll
+                        |= *(&*l.offset(::core::mem::size_of::<uint16_t>() as isize)
+                            as *const uint8_t as *const uint16_t) as core::ffi::c_uint;
+                }
+                if TX_8X8 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    ll |= ll >> 16 as core::ffi::c_int;
+                }
+                if TX_8X8 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    ll |= ll >> 8 as core::ffi::c_int;
+                }
+                current_block_128 = 7;
+            }
+            2 => {
+                if TX_16X16 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_6: uint64_t = *(l as *const uint64_t);
+                    tmp_6
+                        |= *(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    ll = (tmp_6 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_6 as core::ffi::c_uint;
+                } else {
+                    ll = *(l as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_16X16 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    ll
+                        |= *(&*l.offset(::core::mem::size_of::<uint32_t>() as isize)
+                            as *const uint8_t as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_16X16 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    ll |= ll >> 16 as core::ffi::c_int;
+                }
+                if TX_16X16 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    ll |= ll >> 8 as core::ffi::c_int;
+                }
+                current_block_128 = 7;
+            }
+            3 => {
+                if TX_32X32 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_7: uint64_t = *(l as *const uint64_t);
+                    tmp_7
+                        |= *(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    ll = (tmp_7 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_7 as core::ffi::c_uint;
+                } else {
+                    ll = *(l as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_32X32 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    ll
+                        |= *(&*l.offset(::core::mem::size_of::<uint32_t>() as isize)
+                            as *const uint8_t as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_32X32 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    ll |= ll >> 16 as core::ffi::c_int;
+                }
+                if TX_32X32 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    ll |= ll >> 8 as core::ffi::c_int;
+                }
+                current_block_128 = 7;
+            }
+            4 => {
+                if TX_64X64 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_8: uint64_t = *(l as *const uint64_t);
+                    tmp_8
+                        |= *(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    ll = (tmp_8 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_8 as core::ffi::c_uint;
+                } else {
+                    ll = *(l as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_64X64 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    ll
+                        |= *(&*l.offset(::core::mem::size_of::<uint32_t>() as isize)
+                            as *const uint8_t as *const uint32_t) as core::ffi::c_uint;
+                }
+                if TX_64X64 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    ll |= ll >> 16 as core::ffi::c_int;
+                }
+                if TX_64X64 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    ll |= ll >> 8 as core::ffi::c_int;
+                }
+                current_block_128 = 7;
+            }
+            _ => {
+                if (0 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long
+                    != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"get_skip_ctx\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        127 as core::ffi::c_int,
+                        b"0\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                current_block_128 = 6;
+            }
+        }
+        match current_block_128 {
+            6 => {
+                if TX_4X4 as core::ffi::c_int == TX_64X64 as core::ffi::c_int {
+                    let mut tmp_4: uint64_t = *(l as *const uint64_t);
+                    tmp_4
+                        |= *(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                            as *const uint64_t);
+                    ll = (tmp_4 >> 32 as core::ffi::c_int) as core::ffi::c_uint
+                        | tmp_4 as core::ffi::c_uint;
+                } else {
+                    ll = *l as core::ffi::c_uint;
+                }
+                if TX_4X4 as core::ffi::c_int == TX_32X32 as core::ffi::c_int {
+                    ll
+                        |= *(&*l.offset(::core::mem::size_of::<uint8_t>() as isize)
+                            as *const uint8_t) as core::ffi::c_uint;
+                }
+                if TX_4X4 as core::ffi::c_int >= TX_16X16 as core::ffi::c_int {
+                    ll |= ll >> 16 as core::ffi::c_int;
+                }
+                if TX_4X4 as core::ffi::c_int >= TX_8X8 as core::ffi::c_int {
+                    ll |= ll >> 8 as core::ffi::c_int;
+                }
+            }
+            _ => {}
+        }
+        return dav1d_skip_ctx[umin(
+            la & 0x3f as core::ffi::c_uint,
+            4 as core::ffi::c_uint,
+        )
+            as usize][umin(ll & 0x3f as core::ffi::c_uint, 4 as core::ffi::c_uint)
+            as usize] as core::ffi::c_uint;
+    };
+}
+#[inline]
+unsafe extern "C" fn get_dc_sign_ctx(
+    tx: core::ffi::c_int,
+    a: *const uint8_t,
+    l: *const uint8_t,
+) -> core::ffi::c_uint {
+    let mut mask: uint64_t = 0xc0c0c0c0c0c0c0c0 as uint64_t;
+    let mut mul: uint64_t = 0x101010101010101 as uint64_t;
+    let mut s: core::ffi::c_int = 0;
+    let mut current_block_62: u64;
+    match tx {
+        0 => {
+            current_block_62 = 8;
+        }
+        1 => {
+            let mut t_0: uint32_t = *(a as *const uint16_t) as uint32_t
+                & mask as uint32_t;
+            t_0 = t_0
+                .wrapping_add(*(l as *const uint16_t) as uint32_t & mask as uint32_t);
+            t_0 = (t_0 as core::ffi::c_uint).wrapping_mul(0x4040404 as core::ffi::c_uint)
+                as uint32_t as uint32_t;
+            s = (t_0 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 2 as core::ffi::c_int - 2 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        2 => {
+            let mut t_1: uint32_t = (*(a as *const uint32_t) & mask as uint32_t)
+                >> 6 as core::ffi::c_int;
+            t_1 = t_1
+                .wrapping_add(
+                    (*(l as *const uint32_t) & mask as uint32_t) >> 6 as core::ffi::c_int,
+                );
+            t_1 = t_1.wrapping_mul(mul as uint32_t);
+            s = (t_1 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 4 as core::ffi::c_int - 4 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        3 => {
+            let mut t_2: uint64_t = (*(a as *const uint64_t) & mask)
+                >> 6 as core::ffi::c_int;
+            t_2 = t_2
+                .wrapping_add((*(l as *const uint64_t) & mask) >> 6 as core::ffi::c_int);
+            t_2 = t_2.wrapping_mul(mul);
+            s = (t_2 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 8 as core::ffi::c_int - 8 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        4 => {
+            let mut t_3: uint64_t = (*(&*a.offset(0 as core::ffi::c_int as isize)
+                as *const uint8_t as *const uint64_t) & mask) >> 6 as core::ffi::c_int;
+            t_3 = t_3
+                .wrapping_add(
+                    (*(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_3 = t_3
+                .wrapping_add(
+                    (*(&*l.offset(0 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_3 = t_3
+                .wrapping_add(
+                    (*(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_3 = t_3.wrapping_mul(mul);
+            s = (t_3 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 16 as core::ffi::c_int - 16 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        5 => {
+            let mut t_4: uint32_t = *a as uint32_t & mask as uint32_t;
+            t_4 = t_4
+                .wrapping_add(*(l as *const uint16_t) as uint32_t & mask as uint32_t);
+            t_4 = (t_4 as core::ffi::c_uint).wrapping_mul(0x4040404 as core::ffi::c_uint)
+                as uint32_t as uint32_t;
+            s = (t_4 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 1 as core::ffi::c_int - 2 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        6 => {
+            let mut t_5: uint32_t = *(a as *const uint16_t) as uint32_t
+                & mask as uint32_t;
+            t_5 = t_5.wrapping_add(*l as uint32_t & mask as uint32_t);
+            t_5 = (t_5 as core::ffi::c_uint).wrapping_mul(0x4040404 as core::ffi::c_uint)
+                as uint32_t as uint32_t;
+            s = (t_5 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 2 as core::ffi::c_int - 1 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        7 => {
+            let mut t_6: uint32_t = *(a as *const uint16_t) as uint32_t
+                & mask as uint32_t;
+            t_6 = t_6.wrapping_add(*(l as *const uint32_t) & mask as uint32_t);
+            t_6 = (t_6 >> 6 as core::ffi::c_int).wrapping_mul(mul as uint32_t);
+            s = (t_6 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 2 as core::ffi::c_int - 4 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        8 => {
+            let mut t_7: uint32_t = *(a as *const uint32_t) & mask as uint32_t;
+            t_7 = t_7
+                .wrapping_add(*(l as *const uint16_t) as uint32_t & mask as uint32_t);
+            t_7 = (t_7 >> 6 as core::ffi::c_int).wrapping_mul(mul as uint32_t);
+            s = (t_7 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 4 as core::ffi::c_int - 2 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        9 => {
+            let mut t_8: uint64_t = (*(a as *const uint32_t) & mask as uint32_t)
+                as uint64_t;
+            t_8 = t_8.wrapping_add(*(l as *const uint64_t) & mask);
+            t_8 = (t_8 >> 6 as core::ffi::c_int).wrapping_mul(mul);
+            s = (t_8 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 4 as core::ffi::c_int - 8 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        10 => {
+            let mut t_9: uint64_t = *(a as *const uint64_t) & mask;
+            t_9 = t_9
+                .wrapping_add((*(l as *const uint32_t) & mask as uint32_t) as uint64_t);
+            t_9 = (t_9 >> 6 as core::ffi::c_int).wrapping_mul(mul);
+            s = (t_9 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 8 as core::ffi::c_int - 4 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        11 => {
+            let mut t_10: uint64_t = (*(&*a.offset(0 as core::ffi::c_int as isize)
+                as *const uint8_t as *const uint64_t) & mask) >> 6 as core::ffi::c_int;
+            t_10 = t_10
+                .wrapping_add(
+                    (*(&*l.offset(0 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_10 = t_10
+                .wrapping_add(
+                    (*(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_10 = t_10.wrapping_mul(mul);
+            s = (t_10 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 8 as core::ffi::c_int - 16 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        12 => {
+            let mut t_11: uint64_t = (*(&*a.offset(0 as core::ffi::c_int as isize)
+                as *const uint8_t as *const uint64_t) & mask) >> 6 as core::ffi::c_int;
+            t_11 = t_11
+                .wrapping_add(
+                    (*(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_11 = t_11
+                .wrapping_add(
+                    (*(&*l.offset(0 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_11 = t_11.wrapping_mul(mul);
+            s = (t_11 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 16 as core::ffi::c_int - 8 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        13 => {
+            let mut t_12: uint32_t = *a as uint32_t & mask as uint32_t;
+            t_12 = t_12.wrapping_add(*(l as *const uint32_t) & mask as uint32_t);
+            t_12 = (t_12 >> 6 as core::ffi::c_int).wrapping_mul(mul as uint32_t);
+            s = (t_12 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 1 as core::ffi::c_int - 4 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        14 => {
+            let mut t_13: uint32_t = *(a as *const uint32_t) & mask as uint32_t;
+            t_13 = t_13.wrapping_add(*l as uint32_t & mask as uint32_t);
+            t_13 = (t_13 >> 6 as core::ffi::c_int).wrapping_mul(mul as uint32_t);
+            s = (t_13 >> 24 as core::ffi::c_int) as core::ffi::c_int
+                - 4 as core::ffi::c_int - 1 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        15 => {
+            let mut t_14: uint64_t = (*(a as *const uint16_t) as uint32_t
+                & mask as uint32_t) as uint64_t;
+            t_14 = t_14.wrapping_add(*(l as *const uint64_t) & mask);
+            t_14 = (t_14 >> 6 as core::ffi::c_int).wrapping_mul(mul);
+            s = (t_14 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 2 as core::ffi::c_int - 8 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        16 => {
+            let mut t_15: uint64_t = *(a as *const uint64_t) & mask;
+            t_15 = t_15
+                .wrapping_add(
+                    (*(l as *const uint16_t) as uint32_t & mask as uint32_t) as uint64_t,
+                );
+            t_15 = (t_15 >> 6 as core::ffi::c_int).wrapping_mul(mul);
+            s = (t_15 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 8 as core::ffi::c_int - 2 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        17 => {
+            let mut t_16: uint64_t = (*(a as *const uint32_t) & mask as uint32_t)
+                as uint64_t;
+            t_16 = t_16
+                .wrapping_add(
+                    *(&*l.offset(0 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask,
+                );
+            t_16 = (t_16 >> 6 as core::ffi::c_int)
+                .wrapping_add(
+                    (*(&*l.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_16 = t_16.wrapping_mul(mul);
+            s = (t_16 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 4 as core::ffi::c_int - 16 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        18 => {
+            let mut t_17: uint64_t = *(&*a.offset(0 as core::ffi::c_int as isize)
+                as *const uint8_t as *const uint64_t) & mask;
+            t_17 = t_17
+                .wrapping_add((*(l as *const uint32_t) & mask as uint32_t) as uint64_t);
+            t_17 = (t_17 >> 6 as core::ffi::c_int)
+                .wrapping_add(
+                    (*(&*a.offset(8 as core::ffi::c_int as isize) as *const uint8_t
+                        as *const uint64_t) & mask) >> 6 as core::ffi::c_int,
+                );
+            t_17 = t_17.wrapping_mul(mul);
+            s = (t_17 >> 56 as core::ffi::c_int) as core::ffi::c_int
+                - 16 as core::ffi::c_int - 4 as core::ffi::c_int;
+            current_block_62 = 9;
+        }
+        _ => {
+            if (0 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long != 0
+            {
+                crate::platform::assertion(
+                    (::core::mem::transmute::<
+                        [u8; 16],
+                        [core::ffi::c_char; 16],
+                    >(*b"get_dc_sign_ctx\0"))
+                        .as_ptr(),
+                    b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                    154 as core::ffi::c_int,
+                    b"0\0" as *const u8 as *const core::ffi::c_char,
+                );
+            } else {};
+            current_block_62 = 8;
+        }
+    }
+    match current_block_62 {
+        8 => {
+            let mut t: core::ffi::c_int = *a as core::ffi::c_int
+                >> 6 as core::ffi::c_int;
+            t += *l as core::ffi::c_int >> 6 as core::ffi::c_int;
+            s = t - 1 as core::ffi::c_int - 1 as core::ffi::c_int;
+        }
+        _ => {}
+    }
+    return ((s != 0 as core::ffi::c_int) as core::ffi::c_int
+        + (s > 0 as core::ffi::c_int) as core::ffi::c_int) as core::ffi::c_uint;
+}
+#[inline]
+unsafe extern "C" fn get_lo_ctx(
+    levels: *const uint8_t,
+    tx_class: TxClass,
+    hi_mag: *mut core::ffi::c_uint,
+    ctx_offsets: *const [uint8_t; 5],
+    x: core::ffi::c_uint,
+    y: core::ffi::c_uint,
+    stride: ptrdiff_t,
+) -> core::ffi::c_uint {
+    let mut mag: core::ffi::c_uint = (*levels
+        .offset((0 as ptrdiff_t * stride + 1 as ptrdiff_t) as isize) as core::ffi::c_int
+        + *levels.offset((1 as ptrdiff_t * stride + 0 as ptrdiff_t) as isize)
+            as core::ffi::c_int) as core::ffi::c_uint;
+    let mut offset: core::ffi::c_uint = 0;
+    if tx_class as core::ffi::c_uint
+        == TX_CLASS_2D as core::ffi::c_int as core::ffi::c_uint
+    {
+        mag = mag
+            .wrapping_add(
+                *levels.offset((1 as ptrdiff_t * stride + 1 as ptrdiff_t) as isize)
+                    as core::ffi::c_uint,
+            );
+        *hi_mag = mag;
+        mag = mag
+            .wrapping_add(
+                (*levels.offset((0 as ptrdiff_t * stride + 2 as ptrdiff_t) as isize)
+                    as core::ffi::c_int
+                    + *levels.offset((2 as ptrdiff_t * stride + 0 as ptrdiff_t) as isize)
+                        as core::ffi::c_int) as core::ffi::c_uint,
+            );
+        offset = (*ctx_offsets
+            .offset(
+                umin(y, 4 as core::ffi::c_uint) as isize,
+            ))[umin(x, 4 as core::ffi::c_uint) as usize] as core::ffi::c_uint;
+    } else {
+        mag = mag
+            .wrapping_add(
+                *levels.offset((0 as ptrdiff_t * stride + 2 as ptrdiff_t) as isize)
+                    as core::ffi::c_uint,
+            );
+        *hi_mag = mag;
+        mag = mag
+            .wrapping_add(
+                (*levels.offset((0 as ptrdiff_t * stride + 3 as ptrdiff_t) as isize)
+                    as core::ffi::c_int
+                    + *levels.offset((0 as ptrdiff_t * stride + 4 as ptrdiff_t) as isize)
+                        as core::ffi::c_int) as core::ffi::c_uint,
+            );
+        offset = (26 as core::ffi::c_uint)
+            .wrapping_add(
+                (if y > 1 as core::ffi::c_uint {
+                    10 as core::ffi::c_uint
+                } else {
+                    y.wrapping_mul(5 as core::ffi::c_uint)
+                }),
+            );
+    }
+    return offset
+        .wrapping_add(
+            (if mag > 512 as core::ffi::c_uint {
+                4 as core::ffi::c_uint
+            } else {
+                mag.wrapping_add(64 as core::ffi::c_uint) >> 7 as core::ffi::c_int
+            }),
+        );
+}
+unsafe extern "C" fn decode_coefs(
+    t: *mut Dav1dTaskContext,
+    a: *mut uint8_t,
+    l: *mut uint8_t,
+    tx: RectTxfmSize,
+    bs: BlockSize,
+    b: *const Av1Block,
+    intra: core::ffi::c_int,
+    plane: core::ffi::c_int,
+    mut cf: *mut coef,
+    txtp: *mut TxfmType,
+    mut res_ctx: *mut uint8_t,
+) -> core::ffi::c_int {
+    let mut dc_sign_ctx: core::ffi::c_int = 0;
+    let mut dc_sign_cdf: *mut uint16_t = 0 as *mut uint16_t;
+    let mut dc_sign: core::ffi::c_int = 0;
+    let mut dc_dq: core::ffi::c_int = 0;
+    let mut current_block: u64;
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let chroma: core::ffi::c_int = (plane != 0) as core::ffi::c_int;
+    let f: *const Dav1dFrameContext = (*t).f;
+    let lossless: core::ffi::c_int = (*(*f).frame_hdr)
+        .segmentation
+        .lossless[(*b).seg_id as usize] as core::ffi::c_int;
+    let t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions.as_ptr().offset(tx as isize)
+        as *const TxfmInfo;
+    let dbg: core::ffi::c_int = (0 as core::ffi::c_int != 0
+        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int == 2 as core::ffi::c_int
+        && (*t).by >= 0 as core::ffi::c_int && (*t).by < 4 as core::ffi::c_int
+        && (*t).bx >= 8 as core::ffi::c_int && (*t).bx < 12 as core::ffi::c_int
+        && plane != 0 && 0 as core::ffi::c_int != 0) as core::ffi::c_int;
+    if dbg != 0 {
+        printf(
+            b"Start: r=%d\n\0" as *const u8 as *const core::ffi::c_char,
+            (*ts).msac.rng,
+        );
+    }
+    let sctx: core::ffi::c_int = get_skip_ctx(t_dim, bs, a, l, chroma, (*f).cur.p.layout)
+        as core::ffi::c_int;
+    let all_skip: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+        &raw mut (*ts).msac,
+        ((*ts).cdf.coef.skip[(*t_dim).ctx as usize][sctx as usize]).as_mut_ptr(),
+    ) as core::ffi::c_int;
+    if dbg != 0 {
+        printf(
+            b"Post-non-zero[%d][%d][%d]: r=%d\n\0" as *const u8
+                as *const core::ffi::c_char,
+            (*t_dim).ctx as core::ffi::c_int,
+            sctx,
+            all_skip,
+            (*ts).msac.rng,
+        );
+    }
+    if all_skip != 0 {
+        *res_ctx = 0x40 as uint8_t;
+        *txtp = (lossless * WHT_WHT as core::ffi::c_int) as TxfmType;
+        return -(1 as core::ffi::c_int);
+    }
+    if lossless != 0 {
+        if !((*t_dim).max as core::ffi::c_int == TX_4X4 as core::ffi::c_int)
+            as core::ffi::c_int as core::ffi::c_long != 0
+        {
+            crate::platform::assertion(
+                (::core::mem::transmute::<
+                    [u8; 13],
+                    [core::ffi::c_char; 13],
+                >(*b"decode_coefs\0"))
+                    .as_ptr(),
+                b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                353 as core::ffi::c_int,
+                b"t_dim->max == TX_4X4\0" as *const u8 as *const core::ffi::c_char,
+            );
+        } else {};
+        *txtp = WHT_WHT;
+    } else if (*t_dim).max as core::ffi::c_int + intra >= TX_64X64 as core::ffi::c_int {
+        *txtp = DCT_DCT;
+    } else if chroma != 0 {
+        *txtp = (if intra != 0 {
+            dav1d_txtp_from_uvmode[(*b).c2rust_unnamed.c2rust_unnamed.uv_mode as usize]
+                as core::ffi::c_uint
+        } else {
+            get_uv_inter_txtp(t_dim, *txtp) as core::ffi::c_uint
+        }) as TxfmType;
+    } else if (*(*f).frame_hdr).segmentation.qidx[(*b).seg_id as usize] == 0 {
+        *txtp = DCT_DCT;
+    } else {
+        let mut idx: core::ffi::c_uint = 0;
+        if intra != 0 {
+            let y_mode_nofilt: IntraPredMode = (if (*b)
+                .c2rust_unnamed
+                .c2rust_unnamed
+                .y_mode as core::ffi::c_int == FILTER_PRED as core::ffi::c_int
+            {
+                dav1d_filter_mode_to_y_mode[(*b).c2rust_unnamed.c2rust_unnamed.y_angle
+                    as usize] as core::ffi::c_int
+            } else {
+                (*b).c2rust_unnamed.c2rust_unnamed.y_mode as core::ffi::c_int
+            }) as IntraPredMode;
+            if (*(*f).frame_hdr).reduced_txtp_set as core::ffi::c_int != 0
+                || (*t_dim).min as core::ffi::c_int == TX_16X16 as core::ffi::c_int
+            {
+                idx = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    ((*ts)
+                        .cdf
+                        .m
+                        .txtp_intra2[(*t_dim).min as usize][y_mode_nofilt as usize])
+                        .as_mut_ptr(),
+                    4 as size_t,
+                );
+                *txtp = dav1d_tx_types_per_set[idx.wrapping_add(0 as core::ffi::c_uint)
+                    as usize] as TxfmType;
+            } else {
+                idx = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    ((*ts)
+                        .cdf
+                        .m
+                        .txtp_intra1[(*t_dim).min as usize][y_mode_nofilt as usize])
+                        .as_mut_ptr(),
+                    6 as size_t,
+                );
+                *txtp = dav1d_tx_types_per_set[idx.wrapping_add(5 as core::ffi::c_uint)
+                    as usize] as TxfmType;
+            }
+            if dbg != 0 {
+                printf(
+                    b"Post-txtp-intra[%d->%d][%d][%d->%d]: r=%d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    tx as core::ffi::c_uint,
+                    (*t_dim).min as core::ffi::c_int,
+                    y_mode_nofilt as core::ffi::c_uint,
+                    idx,
+                    *txtp as core::ffi::c_uint,
+                    (*ts).msac.rng,
+                );
+            }
+        } else {
+            if (*(*f).frame_hdr).reduced_txtp_set as core::ffi::c_int != 0
+                || (*t_dim).max as core::ffi::c_int == TX_32X32 as core::ffi::c_int
+            {
+                idx = dav1d_msac_decode_bool_adapt_c(
+                    &raw mut (*ts).msac,
+                    ((*ts).cdf.m.txtp_inter3[(*t_dim).min as usize]).as_mut_ptr(),
+                );
+                *txtp = (idx.wrapping_sub(1 as core::ffi::c_uint)
+                    & IDTX as core::ffi::c_int as core::ffi::c_uint) as TxfmType;
+            } else if (*t_dim).min as core::ffi::c_int == TX_16X16 as core::ffi::c_int {
+                idx = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    ((*ts).cdf.m.txtp_inter2).as_mut_ptr(),
+                    11 as size_t,
+                );
+                *txtp = dav1d_tx_types_per_set[idx.wrapping_add(12 as core::ffi::c_uint)
+                    as usize] as TxfmType;
+            } else {
+                idx = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    ((*ts).cdf.m.txtp_inter1[(*t_dim).min as usize]).as_mut_ptr(),
+                    15 as size_t,
+                );
+                *txtp = dav1d_tx_types_per_set[idx.wrapping_add(24 as core::ffi::c_uint)
+                    as usize] as TxfmType;
+            }
+            if dbg != 0 {
+                printf(
+                    b"Post-txtp-inter[%d->%d][%d->%d]: r=%d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    tx as core::ffi::c_uint,
+                    (*t_dim).min as core::ffi::c_int,
+                    idx,
+                    *txtp as core::ffi::c_uint,
+                    (*ts).msac.rng,
+                );
+            }
+        }
+    }
+    let mut eob: core::ffi::c_int = 0;
+    let slw: core::ffi::c_int = imin(
+        (*t_dim).lw as core::ffi::c_int,
+        TX_32X32 as core::ffi::c_int,
+    ) as core::ffi::c_int;
+    let slh: core::ffi::c_int = imin(
+        (*t_dim).lh as core::ffi::c_int,
+        TX_32X32 as core::ffi::c_int,
+    ) as core::ffi::c_int;
+    let tx2dszctx: core::ffi::c_int = slw + slh;
+    let tx_class: TxClass = dav1d_tx_type_class[*txtp as usize] as TxClass;
+    let is_1d: core::ffi::c_int = (tx_class as core::ffi::c_uint
+        != TX_CLASS_2D as core::ffi::c_int as core::ffi::c_uint) as core::ffi::c_int;
+    match tx2dszctx {
+        0 => {
+            let eob_bin_cdf: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_16[chroma as usize][is_1d as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf,
+                (4 as core::ffi::c_int + 0 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        1 => {
+            let eob_bin_cdf_0: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_32[chroma as usize][is_1d as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf_0,
+                (4 as core::ffi::c_int + 1 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        2 => {
+            let eob_bin_cdf_1: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_64[chroma as usize][is_1d as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf_1,
+                (4 as core::ffi::c_int + 2 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        3 => {
+            let eob_bin_cdf_2: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_128[chroma as usize][is_1d as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf_2,
+                (4 as core::ffi::c_int + 3 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        4 => {
+            let eob_bin_cdf_3: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_256[chroma as usize][is_1d as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf_3,
+                (4 as core::ffi::c_int + 4 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        5 => {
+            let eob_bin_cdf_4: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_512[chroma as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf_4,
+                (4 as core::ffi::c_int + 5 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        6 => {
+            let eob_bin_cdf_5: *mut uint16_t = ((*ts)
+                .cdf
+                .coef
+                .eob_bin_1024[chroma as usize])
+                .as_mut_ptr();
+            eob = dav1d_msac_decode_symbol_adapt_c(
+                &raw mut (*ts).msac,
+                eob_bin_cdf_5,
+                (4 as core::ffi::c_int + 6 as core::ffi::c_int) as size_t,
+            ) as core::ffi::c_int;
+        }
+        _ => {}
+    }
+    if dbg != 0 {
+        printf(
+            b"Post-eob_bin_%d[%d][%d][%d]: r=%d\n\0" as *const u8
+                as *const core::ffi::c_char,
+            (16 as core::ffi::c_int) << tx2dszctx,
+            chroma,
+            is_1d,
+            eob,
+            (*ts).msac.rng,
+        );
+    }
+    if eob > 1 as core::ffi::c_int {
+        let eob_bin: core::ffi::c_int = eob - 2 as core::ffi::c_int;
+        let eob_hi_bit_cdf: *mut uint16_t = ((*ts)
+            .cdf
+            .coef
+            .eob_hi_bit[(*t_dim).ctx as usize][chroma as usize][eob_bin as usize])
+            .as_mut_ptr();
+        let eob_hi_bit: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+            &raw mut (*ts).msac,
+            eob_hi_bit_cdf,
+        ) as core::ffi::c_int;
+        if dbg != 0 {
+            printf(
+                b"Post-eob_hi_bit[%d][%d][%d][%d]: r=%d\n\0" as *const u8
+                    as *const core::ffi::c_char,
+                (*t_dim).ctx as core::ffi::c_int,
+                chroma,
+                eob_bin,
+                eob_hi_bit,
+                (*ts).msac.rng,
+            );
+        }
+        eob = (((eob_hi_bit | 2 as core::ffi::c_int) << eob_bin) as core::ffi::c_uint
+            | dav1d_msac_decode_bools(&raw mut (*ts).msac, eob_bin as core::ffi::c_uint))
+            as core::ffi::c_int;
+        if dbg != 0 {
+            printf(
+                b"Post-eob[%d]: r=%d\n\0" as *const u8 as *const core::ffi::c_char,
+                eob,
+                (*ts).msac.rng,
+            );
+        }
+    }
+    if !(eob >= 0 as core::ffi::c_int) as core::ffi::c_int as core::ffi::c_long != 0 {
+        crate::platform::assertion(
+            (::core::mem::transmute::<
+                [u8; 13],
+                [core::ffi::c_char; 13],
+            >(*b"decode_coefs\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            440 as core::ffi::c_int,
+            b"eob >= 0\0" as *const u8 as *const core::ffi::c_char,
+        );
+    } else {};
+    let eob_cdf: *mut [uint16_t; 4] = ((*ts)
+        .cdf
+        .coef
+        .eob_base_tok[(*t_dim).ctx as usize][chroma as usize])
+        .as_mut_ptr() as *mut [uint16_t; 4];
+    let hi_cdf: *mut [uint16_t; 4] = ((*ts)
+        .cdf
+        .coef
+        .br_tok[imin((*t_dim).ctx as core::ffi::c_int, 3 as core::ffi::c_int)
+        as usize][chroma as usize])
+        .as_mut_ptr() as *mut [uint16_t; 4];
+    let mut rc: core::ffi::c_uint = 0;
+    let mut dc_tok: core::ffi::c_uint = 0;
+    if eob != 0 {
+        let lo_cdf: *mut [uint16_t; 4] = ((*ts)
+            .cdf
+            .coef
+            .base_tok[(*t_dim).ctx as usize][chroma as usize])
+            .as_mut_ptr() as *mut [uint16_t; 4];
+        let levels: *mut uint8_t = ((*t).scratch.c2rust_unnamed_0.c2rust_unnamed.levels)
+            .as_mut_ptr();
+        let mut ctx: core::ffi::c_uint = (1 as core::ffi::c_int
+            + (eob > (2 as core::ffi::c_int) << tx2dszctx) as core::ffi::c_int
+            + (eob > (4 as core::ffi::c_int) << tx2dszctx) as core::ffi::c_int)
+            as core::ffi::c_uint;
+        let mut eob_tok: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+            &raw mut (*ts).msac,
+            (*eob_cdf.offset(ctx as isize)).as_mut_ptr(),
+            2 as size_t,
+        ) as core::ffi::c_int;
+        let mut tok: core::ffi::c_int = eob_tok + 1 as core::ffi::c_int;
+        let mut level_tok: core::ffi::c_int = tok * 0x41 as core::ffi::c_int;
+        let mut mag: core::ffi::c_uint = 0;
+        let mut scan: *const uint16_t = 0 as *const uint16_t;
+        match tx_class as core::ffi::c_uint {
+            0 => {
+                let nonsquare_tx: core::ffi::c_uint = (tx as core::ffi::c_uint
+                    >= RTX_4X8 as core::ffi::c_int as core::ffi::c_uint)
+                    as core::ffi::c_int as core::ffi::c_uint;
+                let lo_ctx_offsets: *const [uint8_t; 5] = (dav1d_lo_ctx_offsets[nonsquare_tx
+                    .wrapping_add(tx as core::ffi::c_uint & nonsquare_tx) as usize])
+                    .as_ptr() as *const [uint8_t; 5];
+                scan = dav1d_scans[tx as usize];
+                let stride: ptrdiff_t = ((4 as core::ffi::c_int) << slh) as ptrdiff_t;
+                let shift: core::ffi::c_uint = (slh + 2 as core::ffi::c_int)
+                    as core::ffi::c_uint;
+                let shift2: core::ffi::c_uint = 0 as core::ffi::c_uint;
+                let mask: core::ffi::c_uint = (((4 as core::ffi::c_int) << slh)
+                    - 1 as core::ffi::c_int) as core::ffi::c_uint;
+                memset(
+                    levels as *mut core::ffi::c_void,
+                    0 as core::ffi::c_int,
+                    (stride
+                        * (((4 as core::ffi::c_int) << slw) + 2 as core::ffi::c_int)
+                            as ptrdiff_t) as size_t,
+                );
+                let mut x: core::ffi::c_uint = 0;
+                let mut y: core::ffi::c_uint = 0;
+                let mut level: *mut uint8_t = 0 as *mut uint8_t;
+                if TX_CLASS_2D as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int {
+                    rc = *scan.offset(eob as isize) as core::ffi::c_uint;
+                    x = rc >> shift;
+                    y = rc & mask;
+                } else if TX_CLASS_2D as core::ffi::c_int
+                    == TX_CLASS_H as core::ffi::c_int
+                {
+                    x = eob as core::ffi::c_uint & mask;
+                    y = (eob >> shift) as core::ffi::c_uint;
+                    rc = eob as core::ffi::c_uint;
+                } else {
+                    x = eob as core::ffi::c_uint & mask;
+                    y = (eob >> shift) as core::ffi::c_uint;
+                    rc = x << shift2 | y;
+                }
+                if dbg != 0 {
+                    printf(
+                        b"Post-lo_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        (*t_dim).ctx as core::ffi::c_int,
+                        chroma,
+                        ctx,
+                        eob,
+                        rc,
+                        tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                if eob_tok == 2 as core::ffi::c_int {
+                    ctx = (if if TX_CLASS_2D as core::ffi::c_int
+                        == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        (x | y > 1 as core::ffi::c_uint) as core::ffi::c_int
+                    } else {
+                        (y != 0 as core::ffi::c_uint) as core::ffi::c_int
+                    } != 0
+                    {
+                        14 as core::ffi::c_int
+                    } else {
+                        7 as core::ffi::c_int
+                    }) as core::ffi::c_uint;
+                    tok = dav1d_msac_decode_hi_tok_c(
+                        &raw mut (*ts).msac,
+                        (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    ) as core::ffi::c_int;
+                    level_tok = tok + ((3 as core::ffi::c_int) << 6 as core::ffi::c_int);
+                    if dbg != 0 {
+                        printf(
+                            b"Post-hi_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            imin(
+                                (*t_dim).ctx as core::ffi::c_int,
+                                3 as core::ffi::c_int,
+                            ),
+                            chroma,
+                            ctx,
+                            eob,
+                            rc,
+                            tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                }
+                *cf.offset(rc as isize) = (tok << 11 as core::ffi::c_int) as coef;
+                if TX_CLASS_2D as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int {
+                    level = levels.offset(rc as isize);
+                } else {
+                    level = levels
+                        .offset((x as ptrdiff_t * stride) as isize)
+                        .offset(y as isize);
+                }
+                *level = level_tok as uint8_t;
+                let mut i: core::ffi::c_int = eob - 1 as core::ffi::c_int;
+                while i > 0 as core::ffi::c_int {
+                    let mut rc_i: core::ffi::c_uint = 0;
+                    if TX_CLASS_2D as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        rc_i = *scan.offset(i as isize) as core::ffi::c_uint;
+                        x = rc_i >> shift;
+                        y = rc_i & mask;
+                    } else if TX_CLASS_2D as core::ffi::c_int
+                        == TX_CLASS_H as core::ffi::c_int
+                    {
+                        x = i as core::ffi::c_uint & mask;
+                        y = (i >> shift) as core::ffi::c_uint;
+                        rc_i = i as core::ffi::c_uint;
+                    } else {
+                        x = i as core::ffi::c_uint & mask;
+                        y = (i >> shift) as core::ffi::c_uint;
+                        rc_i = x << shift2 | y;
+                    }
+                    if !(x < 32 as core::ffi::c_uint && y < 32 as core::ffi::c_uint)
+                        as core::ffi::c_int as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 13],
+                                [core::ffi::c_char; 13],
+                            >(*b"decode_coefs\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            559 as core::ffi::c_int,
+                            b"x < 32 && y < 32\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    } else {};
+                    if TX_CLASS_2D as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        level = levels.offset(rc_i as isize);
+                    } else {
+                        level = levels
+                            .offset((x as ptrdiff_t * stride) as isize)
+                            .offset(y as isize);
+                    }
+                    ctx = get_lo_ctx(
+                        level,
+                        TX_CLASS_2D,
+                        &raw mut mag,
+                        lo_ctx_offsets,
+                        x,
+                        y,
+                        stride,
+                    );
+                    if TX_CLASS_2D as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        y |= x;
+                    }
+                    tok = dav1d_msac_decode_symbol_adapt_c(
+                        &raw mut (*ts).msac,
+                        (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
+                        3 as size_t,
+                    ) as core::ffi::c_int;
+                    if dbg != 0 {
+                        printf(
+                            b"Post-lo_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            (*t_dim).ctx as core::ffi::c_int,
+                            chroma,
+                            ctx,
+                            i,
+                            rc_i,
+                            tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                    if tok == 3 as core::ffi::c_int {
+                        mag &= 63 as core::ffi::c_uint;
+                        ctx = ((if y
+                            > (TX_CLASS_2D as core::ffi::c_int
+                                == TX_CLASS_2D as core::ffi::c_int) as core::ffi::c_int
+                                as core::ffi::c_uint
+                        {
+                            14 as core::ffi::c_int
+                        } else {
+                            7 as core::ffi::c_int
+                        }) as core::ffi::c_uint)
+                            .wrapping_add(
+                                (if mag > 12 as core::ffi::c_uint {
+                                    6 as core::ffi::c_uint
+                                } else {
+                                    mag.wrapping_add(1 as core::ffi::c_uint)
+                                        >> 1 as core::ffi::c_int
+                                }),
+                            );
+                        tok = dav1d_msac_decode_hi_tok_c(
+                            &raw mut (*ts).msac,
+                            (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                        ) as core::ffi::c_int;
+                        if dbg != 0 {
+                            printf(
+                                b"Post-hi_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                imin(
+                                    (*t_dim).ctx as core::ffi::c_int,
+                                    3 as core::ffi::c_int,
+                                ),
+                                chroma,
+                                ctx,
+                                i,
+                                rc_i,
+                                tok,
+                                (*ts).msac.rng,
+                            );
+                        }
+                        *level = (tok
+                            + ((3 as core::ffi::c_int) << 6 as core::ffi::c_int))
+                            as uint8_t;
+                        *cf.offset(rc_i as isize) = ((tok << 11 as core::ffi::c_int)
+                            as core::ffi::c_uint | rc) as coef;
+                        rc = rc_i;
+                    } else {
+                        tok *= 0x17ff41 as core::ffi::c_int;
+                        *level = tok as uint8_t;
+                        tok = ((tok >> 9 as core::ffi::c_int) as core::ffi::c_uint
+                            & rc.wrapping_add(!(0x7ff as core::ffi::c_uint)))
+                            as core::ffi::c_int;
+                        if tok != 0 {
+                            rc = rc_i;
+                        }
+                        *cf.offset(rc_i as isize) = tok as coef;
+                    }
+                    i -= 1;
+                }
+                ctx = if TX_CLASS_2D as core::ffi::c_int
+                    == TX_CLASS_2D as core::ffi::c_int
+                {
+                    0 as core::ffi::c_uint
+                } else {
+                    get_lo_ctx(
+                        levels,
+                        TX_CLASS_2D,
+                        &raw mut mag,
+                        lo_ctx_offsets,
+                        0 as core::ffi::c_uint,
+                        0 as core::ffi::c_uint,
+                        stride,
+                    )
+                };
+                dc_tok = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    3 as size_t,
+                );
+                if dbg != 0 {
+                    printf(
+                        b"Post-dc_lo_tok[%d][%d][%d][%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        (*t_dim).ctx as core::ffi::c_int,
+                        chroma,
+                        ctx,
+                        dc_tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                if dc_tok == 3 as core::ffi::c_uint {
+                    if TX_CLASS_2D as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        mag = (*levels
+                            .offset((0 as ptrdiff_t * stride + 1 as ptrdiff_t) as isize)
+                            as core::ffi::c_int
+                            + *levels
+                                .offset((1 as ptrdiff_t * stride + 0 as ptrdiff_t) as isize)
+                                as core::ffi::c_int
+                            + *levels
+                                .offset((1 as ptrdiff_t * stride + 1 as ptrdiff_t) as isize)
+                                as core::ffi::c_int) as core::ffi::c_uint;
+                    }
+                    mag &= 63 as core::ffi::c_uint;
+                    ctx = if mag > 12 as core::ffi::c_uint {
+                        6 as core::ffi::c_uint
+                    } else {
+                        mag.wrapping_add(1 as core::ffi::c_uint) >> 1 as core::ffi::c_int
+                    };
+                    dc_tok = dav1d_msac_decode_hi_tok_c(
+                        &raw mut (*ts).msac,
+                        (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    );
+                    if dbg != 0 {
+                        printf(
+                            b"Post-dc_hi_tok[%d][%d][0][%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            imin(
+                                (*t_dim).ctx as core::ffi::c_int,
+                                3 as core::ffi::c_int,
+                            ),
+                            chroma,
+                            dc_tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                }
+            }
+            1 => {
+                let lo_ctx_offsets_0: *const [uint8_t; 5] = 0 as *const [uint8_t; 5];
+                let stride_0: ptrdiff_t = 16 as ptrdiff_t;
+                let shift_0: core::ffi::c_uint = (slh + 2 as core::ffi::c_int)
+                    as core::ffi::c_uint;
+                let shift2_0: core::ffi::c_uint = 0 as core::ffi::c_uint;
+                let mask_0: core::ffi::c_uint = (((4 as core::ffi::c_int) << slh)
+                    - 1 as core::ffi::c_int) as core::ffi::c_uint;
+                memset(
+                    levels as *mut core::ffi::c_void,
+                    0 as core::ffi::c_int,
+                    (stride_0
+                        * (((4 as core::ffi::c_int) << slh) + 2 as core::ffi::c_int)
+                            as ptrdiff_t) as size_t,
+                );
+                let mut x_0: core::ffi::c_uint = 0;
+                let mut y_0: core::ffi::c_uint = 0;
+                let mut level_0: *mut uint8_t = 0 as *mut uint8_t;
+                if TX_CLASS_H as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int {
+                    rc = *scan.offset(eob as isize) as core::ffi::c_uint;
+                    x_0 = rc >> shift_0;
+                    y_0 = rc & mask_0;
+                } else if TX_CLASS_H as core::ffi::c_int
+                    == TX_CLASS_H as core::ffi::c_int
+                {
+                    x_0 = eob as core::ffi::c_uint & mask_0;
+                    y_0 = (eob >> shift_0) as core::ffi::c_uint;
+                    rc = eob as core::ffi::c_uint;
+                } else {
+                    x_0 = eob as core::ffi::c_uint & mask_0;
+                    y_0 = (eob >> shift_0) as core::ffi::c_uint;
+                    rc = x_0 << shift2_0 | y_0;
+                }
+                if dbg != 0 {
+                    printf(
+                        b"Post-lo_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        (*t_dim).ctx as core::ffi::c_int,
+                        chroma,
+                        ctx,
+                        eob,
+                        rc,
+                        tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                if eob_tok == 2 as core::ffi::c_int {
+                    ctx = (if if TX_CLASS_H as core::ffi::c_int
+                        == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        (x_0 | y_0 > 1 as core::ffi::c_uint) as core::ffi::c_int
+                    } else {
+                        (y_0 != 0 as core::ffi::c_uint) as core::ffi::c_int
+                    } != 0
+                    {
+                        14 as core::ffi::c_int
+                    } else {
+                        7 as core::ffi::c_int
+                    }) as core::ffi::c_uint;
+                    tok = dav1d_msac_decode_hi_tok_c(
+                        &raw mut (*ts).msac,
+                        (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    ) as core::ffi::c_int;
+                    level_tok = tok + ((3 as core::ffi::c_int) << 6 as core::ffi::c_int);
+                    if dbg != 0 {
+                        printf(
+                            b"Post-hi_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            imin(
+                                (*t_dim).ctx as core::ffi::c_int,
+                                3 as core::ffi::c_int,
+                            ),
+                            chroma,
+                            ctx,
+                            eob,
+                            rc,
+                            tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                }
+                *cf.offset(rc as isize) = (tok << 11 as core::ffi::c_int) as coef;
+                if TX_CLASS_H as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int {
+                    level_0 = levels.offset(rc as isize);
+                } else {
+                    level_0 = levels
+                        .offset((x_0 as ptrdiff_t * stride_0) as isize)
+                        .offset(y_0 as isize);
+                }
+                *level_0 = level_tok as uint8_t;
+                let mut i_0: core::ffi::c_int = eob - 1 as core::ffi::c_int;
+                while i_0 > 0 as core::ffi::c_int {
+                    let mut rc_i_0: core::ffi::c_uint = 0;
+                    if TX_CLASS_H as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        rc_i_0 = *scan.offset(i_0 as isize) as core::ffi::c_uint;
+                        x_0 = rc_i_0 >> shift_0;
+                        y_0 = rc_i_0 & mask_0;
+                    } else if TX_CLASS_H as core::ffi::c_int
+                        == TX_CLASS_H as core::ffi::c_int
+                    {
+                        x_0 = i_0 as core::ffi::c_uint & mask_0;
+                        y_0 = (i_0 >> shift_0) as core::ffi::c_uint;
+                        rc_i_0 = i_0 as core::ffi::c_uint;
+                    } else {
+                        x_0 = i_0 as core::ffi::c_uint & mask_0;
+                        y_0 = (i_0 >> shift_0) as core::ffi::c_uint;
+                        rc_i_0 = x_0 << shift2_0 | y_0;
+                    }
+                    if !(x_0 < 32 as core::ffi::c_uint && y_0 < 32 as core::ffi::c_uint)
+                        as core::ffi::c_int as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 13],
+                                [core::ffi::c_char; 13],
+                            >(*b"decode_coefs\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            567 as core::ffi::c_int,
+                            b"x < 32 && y < 32\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    } else {};
+                    if TX_CLASS_H as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        level_0 = levels.offset(rc_i_0 as isize);
+                    } else {
+                        level_0 = levels
+                            .offset((x_0 as ptrdiff_t * stride_0) as isize)
+                            .offset(y_0 as isize);
+                    }
+                    ctx = get_lo_ctx(
+                        level_0,
+                        TX_CLASS_H,
+                        &raw mut mag,
+                        lo_ctx_offsets_0,
+                        x_0,
+                        y_0,
+                        stride_0,
+                    );
+                    if TX_CLASS_H as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        y_0 |= x_0;
+                    }
+                    tok = dav1d_msac_decode_symbol_adapt_c(
+                        &raw mut (*ts).msac,
+                        (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
+                        3 as size_t,
+                    ) as core::ffi::c_int;
+                    if dbg != 0 {
+                        printf(
+                            b"Post-lo_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            (*t_dim).ctx as core::ffi::c_int,
+                            chroma,
+                            ctx,
+                            i_0,
+                            rc_i_0,
+                            tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                    if tok == 3 as core::ffi::c_int {
+                        mag &= 63 as core::ffi::c_uint;
+                        ctx = ((if y_0
+                            > (TX_CLASS_H as core::ffi::c_int
+                                == TX_CLASS_2D as core::ffi::c_int) as core::ffi::c_int
+                                as core::ffi::c_uint
+                        {
+                            14 as core::ffi::c_int
+                        } else {
+                            7 as core::ffi::c_int
+                        }) as core::ffi::c_uint)
+                            .wrapping_add(
+                                (if mag > 12 as core::ffi::c_uint {
+                                    6 as core::ffi::c_uint
+                                } else {
+                                    mag.wrapping_add(1 as core::ffi::c_uint)
+                                        >> 1 as core::ffi::c_int
+                                }),
+                            );
+                        tok = dav1d_msac_decode_hi_tok_c(
+                            &raw mut (*ts).msac,
+                            (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                        ) as core::ffi::c_int;
+                        if dbg != 0 {
+                            printf(
+                                b"Post-hi_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                imin(
+                                    (*t_dim).ctx as core::ffi::c_int,
+                                    3 as core::ffi::c_int,
+                                ),
+                                chroma,
+                                ctx,
+                                i_0,
+                                rc_i_0,
+                                tok,
+                                (*ts).msac.rng,
+                            );
+                        }
+                        *level_0 = (tok
+                            + ((3 as core::ffi::c_int) << 6 as core::ffi::c_int))
+                            as uint8_t;
+                        *cf.offset(rc_i_0 as isize) = ((tok << 11 as core::ffi::c_int)
+                            as core::ffi::c_uint | rc) as coef;
+                        rc = rc_i_0;
+                    } else {
+                        tok *= 0x17ff41 as core::ffi::c_int;
+                        *level_0 = tok as uint8_t;
+                        tok = ((tok >> 9 as core::ffi::c_int) as core::ffi::c_uint
+                            & rc.wrapping_add(!(0x7ff as core::ffi::c_uint)))
+                            as core::ffi::c_int;
+                        if tok != 0 {
+                            rc = rc_i_0;
+                        }
+                        *cf.offset(rc_i_0 as isize) = tok as coef;
+                    }
+                    i_0 -= 1;
+                }
+                ctx = if TX_CLASS_H as core::ffi::c_int
+                    == TX_CLASS_2D as core::ffi::c_int
+                {
+                    0 as core::ffi::c_uint
+                } else {
+                    get_lo_ctx(
+                        levels,
+                        TX_CLASS_H,
+                        &raw mut mag,
+                        lo_ctx_offsets_0,
+                        0 as core::ffi::c_uint,
+                        0 as core::ffi::c_uint,
+                        stride_0,
+                    )
+                };
+                dc_tok = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    3 as size_t,
+                );
+                if dbg != 0 {
+                    printf(
+                        b"Post-dc_lo_tok[%d][%d][%d][%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        (*t_dim).ctx as core::ffi::c_int,
+                        chroma,
+                        ctx,
+                        dc_tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                if dc_tok == 3 as core::ffi::c_uint {
+                    if TX_CLASS_H as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        mag = (*levels
+                            .offset(
+                                (0 as ptrdiff_t * stride_0 + 1 as ptrdiff_t) as isize,
+                            ) as core::ffi::c_int
+                            + *levels
+                                .offset(
+                                    (1 as ptrdiff_t * stride_0 + 0 as ptrdiff_t) as isize,
+                                ) as core::ffi::c_int
+                            + *levels
+                                .offset(
+                                    (1 as ptrdiff_t * stride_0 + 1 as ptrdiff_t) as isize,
+                                ) as core::ffi::c_int) as core::ffi::c_uint;
+                    }
+                    mag &= 63 as core::ffi::c_uint;
+                    ctx = if mag > 12 as core::ffi::c_uint {
+                        6 as core::ffi::c_uint
+                    } else {
+                        mag.wrapping_add(1 as core::ffi::c_uint) >> 1 as core::ffi::c_int
+                    };
+                    dc_tok = dav1d_msac_decode_hi_tok_c(
+                        &raw mut (*ts).msac,
+                        (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    );
+                    if dbg != 0 {
+                        printf(
+                            b"Post-dc_hi_tok[%d][%d][0][%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            imin(
+                                (*t_dim).ctx as core::ffi::c_int,
+                                3 as core::ffi::c_int,
+                            ),
+                            chroma,
+                            dc_tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                }
+            }
+            2 => {
+                let lo_ctx_offsets_1: *const [uint8_t; 5] = 0 as *const [uint8_t; 5];
+                let stride_1: ptrdiff_t = 16 as ptrdiff_t;
+                let shift_1: core::ffi::c_uint = (slw + 2 as core::ffi::c_int)
+                    as core::ffi::c_uint;
+                let shift2_1: core::ffi::c_uint = (slh + 2 as core::ffi::c_int)
+                    as core::ffi::c_uint;
+                let mask_1: core::ffi::c_uint = (((4 as core::ffi::c_int) << slw)
+                    - 1 as core::ffi::c_int) as core::ffi::c_uint;
+                memset(
+                    levels as *mut core::ffi::c_void,
+                    0 as core::ffi::c_int,
+                    (stride_1
+                        * (((4 as core::ffi::c_int) << slw) + 2 as core::ffi::c_int)
+                            as ptrdiff_t) as size_t,
+                );
+                let mut x_1: core::ffi::c_uint = 0;
+                let mut y_1: core::ffi::c_uint = 0;
+                let mut level_1: *mut uint8_t = 0 as *mut uint8_t;
+                if TX_CLASS_V as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int {
+                    rc = *scan.offset(eob as isize) as core::ffi::c_uint;
+                    x_1 = rc >> shift_1;
+                    y_1 = rc & mask_1;
+                } else if TX_CLASS_V as core::ffi::c_int
+                    == TX_CLASS_H as core::ffi::c_int
+                {
+                    x_1 = eob as core::ffi::c_uint & mask_1;
+                    y_1 = (eob >> shift_1) as core::ffi::c_uint;
+                    rc = eob as core::ffi::c_uint;
+                } else {
+                    x_1 = eob as core::ffi::c_uint & mask_1;
+                    y_1 = (eob >> shift_1) as core::ffi::c_uint;
+                    rc = x_1 << shift2_1 | y_1;
+                }
+                if dbg != 0 {
+                    printf(
+                        b"Post-lo_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        (*t_dim).ctx as core::ffi::c_int,
+                        chroma,
+                        ctx,
+                        eob,
+                        rc,
+                        tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                if eob_tok == 2 as core::ffi::c_int {
+                    ctx = (if if TX_CLASS_V as core::ffi::c_int
+                        == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        (x_1 | y_1 > 1 as core::ffi::c_uint) as core::ffi::c_int
+                    } else {
+                        (y_1 != 0 as core::ffi::c_uint) as core::ffi::c_int
+                    } != 0
+                    {
+                        14 as core::ffi::c_int
+                    } else {
+                        7 as core::ffi::c_int
+                    }) as core::ffi::c_uint;
+                    tok = dav1d_msac_decode_hi_tok_c(
+                        &raw mut (*ts).msac,
+                        (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    ) as core::ffi::c_int;
+                    level_tok = tok + ((3 as core::ffi::c_int) << 6 as core::ffi::c_int);
+                    if dbg != 0 {
+                        printf(
+                            b"Post-hi_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            imin(
+                                (*t_dim).ctx as core::ffi::c_int,
+                                3 as core::ffi::c_int,
+                            ),
+                            chroma,
+                            ctx,
+                            eob,
+                            rc,
+                            tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                }
+                *cf.offset(rc as isize) = (tok << 11 as core::ffi::c_int) as coef;
+                if TX_CLASS_V as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int {
+                    level_1 = levels.offset(rc as isize);
+                } else {
+                    level_1 = levels
+                        .offset((x_1 as ptrdiff_t * stride_1) as isize)
+                        .offset(y_1 as isize);
+                }
+                *level_1 = level_tok as uint8_t;
+                let mut i_1: core::ffi::c_int = eob - 1 as core::ffi::c_int;
+                while i_1 > 0 as core::ffi::c_int {
+                    let mut rc_i_1: core::ffi::c_uint = 0;
+                    if TX_CLASS_V as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        rc_i_1 = *scan.offset(i_1 as isize) as core::ffi::c_uint;
+                        x_1 = rc_i_1 >> shift_1;
+                        y_1 = rc_i_1 & mask_1;
+                    } else if TX_CLASS_V as core::ffi::c_int
+                        == TX_CLASS_H as core::ffi::c_int
+                    {
+                        x_1 = i_1 as core::ffi::c_uint & mask_1;
+                        y_1 = (i_1 >> shift_1) as core::ffi::c_uint;
+                        rc_i_1 = i_1 as core::ffi::c_uint;
+                    } else {
+                        x_1 = i_1 as core::ffi::c_uint & mask_1;
+                        y_1 = (i_1 >> shift_1) as core::ffi::c_uint;
+                        rc_i_1 = x_1 << shift2_1 | y_1;
+                    }
+                    if !(x_1 < 32 as core::ffi::c_uint && y_1 < 32 as core::ffi::c_uint)
+                        as core::ffi::c_int as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 13],
+                                [core::ffi::c_char; 13],
+                            >(*b"decode_coefs\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            575 as core::ffi::c_int,
+                            b"x < 32 && y < 32\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    } else {};
+                    if TX_CLASS_V as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        level_1 = levels.offset(rc_i_1 as isize);
+                    } else {
+                        level_1 = levels
+                            .offset((x_1 as ptrdiff_t * stride_1) as isize)
+                            .offset(y_1 as isize);
+                    }
+                    ctx = get_lo_ctx(
+                        level_1,
+                        TX_CLASS_V,
+                        &raw mut mag,
+                        lo_ctx_offsets_1,
+                        x_1,
+                        y_1,
+                        stride_1,
+                    );
+                    if TX_CLASS_V as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        y_1 |= x_1;
+                    }
+                    tok = dav1d_msac_decode_symbol_adapt_c(
+                        &raw mut (*ts).msac,
+                        (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
+                        3 as size_t,
+                    ) as core::ffi::c_int;
+                    if dbg != 0 {
+                        printf(
+                            b"Post-lo_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            (*t_dim).ctx as core::ffi::c_int,
+                            chroma,
+                            ctx,
+                            i_1,
+                            rc_i_1,
+                            tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                    if tok == 3 as core::ffi::c_int {
+                        mag &= 63 as core::ffi::c_uint;
+                        ctx = ((if y_1
+                            > (TX_CLASS_V as core::ffi::c_int
+                                == TX_CLASS_2D as core::ffi::c_int) as core::ffi::c_int
+                                as core::ffi::c_uint
+                        {
+                            14 as core::ffi::c_int
+                        } else {
+                            7 as core::ffi::c_int
+                        }) as core::ffi::c_uint)
+                            .wrapping_add(
+                                (if mag > 12 as core::ffi::c_uint {
+                                    6 as core::ffi::c_uint
+                                } else {
+                                    mag.wrapping_add(1 as core::ffi::c_uint)
+                                        >> 1 as core::ffi::c_int
+                                }),
+                            );
+                        tok = dav1d_msac_decode_hi_tok_c(
+                            &raw mut (*ts).msac,
+                            (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                        ) as core::ffi::c_int;
+                        if dbg != 0 {
+                            printf(
+                                b"Post-hi_tok[%d][%d][%d][%d=%d=%d]: r=%d\n\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                imin(
+                                    (*t_dim).ctx as core::ffi::c_int,
+                                    3 as core::ffi::c_int,
+                                ),
+                                chroma,
+                                ctx,
+                                i_1,
+                                rc_i_1,
+                                tok,
+                                (*ts).msac.rng,
+                            );
+                        }
+                        *level_1 = (tok
+                            + ((3 as core::ffi::c_int) << 6 as core::ffi::c_int))
+                            as uint8_t;
+                        *cf.offset(rc_i_1 as isize) = ((tok << 11 as core::ffi::c_int)
+                            as core::ffi::c_uint | rc) as coef;
+                        rc = rc_i_1;
+                    } else {
+                        tok *= 0x17ff41 as core::ffi::c_int;
+                        *level_1 = tok as uint8_t;
+                        tok = ((tok >> 9 as core::ffi::c_int) as core::ffi::c_uint
+                            & rc.wrapping_add(!(0x7ff as core::ffi::c_uint)))
+                            as core::ffi::c_int;
+                        if tok != 0 {
+                            rc = rc_i_1;
+                        }
+                        *cf.offset(rc_i_1 as isize) = tok as coef;
+                    }
+                    i_1 -= 1;
+                }
+                ctx = if TX_CLASS_V as core::ffi::c_int
+                    == TX_CLASS_2D as core::ffi::c_int
+                {
+                    0 as core::ffi::c_uint
+                } else {
+                    get_lo_ctx(
+                        levels,
+                        TX_CLASS_V,
+                        &raw mut mag,
+                        lo_ctx_offsets_1,
+                        0 as core::ffi::c_uint,
+                        0 as core::ffi::c_uint,
+                        stride_1,
+                    )
+                };
+                dc_tok = dav1d_msac_decode_symbol_adapt_c(
+                    &raw mut (*ts).msac,
+                    (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    3 as size_t,
+                );
+                if dbg != 0 {
+                    printf(
+                        b"Post-dc_lo_tok[%d][%d][%d][%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        (*t_dim).ctx as core::ffi::c_int,
+                        chroma,
+                        ctx,
+                        dc_tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                if dc_tok == 3 as core::ffi::c_uint {
+                    if TX_CLASS_V as core::ffi::c_int == TX_CLASS_2D as core::ffi::c_int
+                    {
+                        mag = (*levels
+                            .offset(
+                                (0 as ptrdiff_t * stride_1 + 1 as ptrdiff_t) as isize,
+                            ) as core::ffi::c_int
+                            + *levels
+                                .offset(
+                                    (1 as ptrdiff_t * stride_1 + 0 as ptrdiff_t) as isize,
+                                ) as core::ffi::c_int
+                            + *levels
+                                .offset(
+                                    (1 as ptrdiff_t * stride_1 + 1 as ptrdiff_t) as isize,
+                                ) as core::ffi::c_int) as core::ffi::c_uint;
+                    }
+                    mag &= 63 as core::ffi::c_uint;
+                    ctx = if mag > 12 as core::ffi::c_uint {
+                        6 as core::ffi::c_uint
+                    } else {
+                        mag.wrapping_add(1 as core::ffi::c_uint) >> 1 as core::ffi::c_int
+                    };
+                    dc_tok = dav1d_msac_decode_hi_tok_c(
+                        &raw mut (*ts).msac,
+                        (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
+                    );
+                    if dbg != 0 {
+                        printf(
+                            b"Post-dc_hi_tok[%d][%d][0][%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            imin(
+                                (*t_dim).ctx as core::ffi::c_int,
+                                3 as core::ffi::c_int,
+                            ),
+                            chroma,
+                            dc_tok,
+                            (*ts).msac.rng,
+                        );
+                    }
+                }
+            }
+            _ => {
+                if (0 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long
+                    != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"decode_coefs\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        578 as core::ffi::c_int,
+                        b"0\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+            }
+        }
+    } else {
+        let mut tok_br: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+            &raw mut (*ts).msac,
+            (*eob_cdf.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
+            2 as size_t,
+        ) as core::ffi::c_int;
+        dc_tok = (1 as core::ffi::c_int + tok_br) as core::ffi::c_uint;
+        if dbg != 0 {
+            printf(
+                b"Post-dc_lo_tok[%d][%d][%d][%d]: r=%d\n\0" as *const u8
+                    as *const core::ffi::c_char,
+                (*t_dim).ctx as core::ffi::c_int,
+                chroma,
+                0 as core::ffi::c_int,
+                dc_tok,
+                (*ts).msac.rng,
+            );
+        }
+        if tok_br == 2 as core::ffi::c_int {
+            dc_tok = dav1d_msac_decode_hi_tok_c(
+                &raw mut (*ts).msac,
+                (*hi_cdf.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
+            );
+            if dbg != 0 {
+                printf(
+                    b"Post-dc_hi_tok[%d][%d][0][%d]: r=%d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    imin((*t_dim).ctx as core::ffi::c_int, 3 as core::ffi::c_int),
+                    chroma,
+                    dc_tok,
+                    (*ts).msac.rng,
+                );
+            }
+        }
+        rc = 0 as core::ffi::c_uint;
+    }
+    let dq_tbl: *const uint16_t = ((*((*ts).dq)
+        .offset((*b).seg_id as isize))[plane as usize])
+        .as_ptr();
+    let qm_tbl: *const uint8_t = if (*txtp as core::ffi::c_uint)
+        < IDTX as core::ffi::c_int as core::ffi::c_uint
+    {
+        (*f).qm[tx as usize][plane as usize]
+    } else {
+        0 as *const uint8_t
+    };
+    let dq_shift: core::ffi::c_int = imax(
+        0 as core::ffi::c_int,
+        (*t_dim).ctx as core::ffi::c_int - 2 as core::ffi::c_int,
+    ) as core::ffi::c_int;
+    let cf_max: core::ffi::c_int = !(!(127 as core::ffi::c_uint)
+        << (if BITDEPTH == 8 as core::ffi::c_int {
+            8 as core::ffi::c_int
+        } else {
+            (*f).cur.p.bpc
+        })) as core::ffi::c_int;
+    let mut cul_level: core::ffi::c_uint = 0;
+    let mut dc_sign_level: core::ffi::c_uint = 0;
+    if dc_tok == 0 {
+        cul_level = 0 as core::ffi::c_uint;
+        dc_sign_level = ((1 as core::ffi::c_int) << 6 as core::ffi::c_int)
+            as core::ffi::c_uint;
+        if !qm_tbl.is_null() {
+            current_block = 10;
+        } else {
+            current_block = 11;
+        }
+    } else {
+        dc_sign_ctx = get_dc_sign_ctx(tx as core::ffi::c_int, a, l) as core::ffi::c_int;
+        dc_sign_cdf = ((*ts).cdf.coef.dc_sign[chroma as usize][dc_sign_ctx as usize])
+            .as_mut_ptr();
+        dc_sign = dav1d_msac_decode_bool_adapt_c(&raw mut (*ts).msac, dc_sign_cdf)
+            as core::ffi::c_int;
+        if dbg != 0 {
+            printf(
+                b"Post-dc_sign[%d][%d][%d]: r=%d\n\0" as *const u8
+                    as *const core::ffi::c_char,
+                chroma,
+                dc_sign_ctx,
+                dc_sign,
+                (*ts).msac.rng,
+            );
+        }
+        dc_dq = *dq_tbl.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int;
+        dc_sign_level = (dc_sign - 1 as core::ffi::c_int
+            & (2 as core::ffi::c_int) << 6 as core::ffi::c_int) as core::ffi::c_uint;
+        if !qm_tbl.is_null() {
+            dc_dq = dc_dq
+                * *qm_tbl.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                + 16 as core::ffi::c_int >> 5 as core::ffi::c_int;
+            if dc_tok == 15 as core::ffi::c_uint {
+                dc_tok = (read_golomb(&raw mut (*ts).msac))
+                    .wrapping_add(15 as core::ffi::c_uint);
+                if dbg != 0 {
+                    printf(
+                        b"Post-dc_residual[%d->%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        dc_tok.wrapping_sub(15 as core::ffi::c_uint),
+                        dc_tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                dc_tok &= 0xfffff as core::ffi::c_uint;
+                dc_dq = ((dc_dq as core::ffi::c_uint).wrapping_mul(dc_tok)
+                    & 0xffffff as core::ffi::c_uint) as core::ffi::c_int;
+            } else {
+                dc_dq = (dc_dq as core::ffi::c_uint).wrapping_mul(dc_tok)
+                    as core::ffi::c_int as core::ffi::c_int;
+                if !(dc_dq <= 0xffffff as core::ffi::c_int) as core::ffi::c_int
+                    as core::ffi::c_long != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"decode_coefs\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        632 as core::ffi::c_int,
+                        b"dc_dq <= 0xffffff\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+            }
+            cul_level = dc_tok;
+            dc_dq >>= dq_shift;
+            dc_dq = umin(
+                dc_dq as core::ffi::c_uint,
+                (cf_max + dc_sign) as core::ffi::c_uint,
+            ) as core::ffi::c_int;
+            *cf.offset(0 as core::ffi::c_int as isize) = (if dc_sign != 0 {
+                -dc_dq
+            } else {
+                dc_dq
+            }) as coef;
+            if rc != 0 {
+                current_block = 10;
+            } else {
+                current_block = 12;
+            }
+        } else {
+            if dc_tok == 15 as core::ffi::c_uint {
+                dc_tok = (read_golomb(&raw mut (*ts).msac))
+                    .wrapping_add(15 as core::ffi::c_uint);
+                if dbg != 0 {
+                    printf(
+                        b"Post-dc_residual[%d->%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        dc_tok.wrapping_sub(15 as core::ffi::c_uint),
+                        dc_tok,
+                        (*ts).msac.rng,
+                    );
+                }
+                dc_tok &= 0xfffff as core::ffi::c_uint;
+                dc_dq = (((dc_dq as core::ffi::c_uint).wrapping_mul(dc_tok)
+                    & 0xffffff as core::ffi::c_uint) >> dq_shift) as core::ffi::c_int;
+                dc_dq = umin(
+                    dc_dq as core::ffi::c_uint,
+                    (cf_max + dc_sign) as core::ffi::c_uint,
+                ) as core::ffi::c_int;
+            } else {
+                dc_dq = ((dc_dq as core::ffi::c_uint).wrapping_mul(dc_tok) >> dq_shift)
+                    as core::ffi::c_int;
+                if !(dc_dq <= cf_max) as core::ffi::c_int as core::ffi::c_long != 0 {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 13],
+                            [core::ffi::c_char; 13],
+                        >(*b"decode_coefs\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        683 as core::ffi::c_int,
+                        b"dc_dq <= cf_max\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+            }
+            cul_level = dc_tok;
+            *cf.offset(0 as core::ffi::c_int as isize) = (if dc_sign != 0 {
+                -dc_dq
+            } else {
+                dc_dq
+            }) as coef;
+            if rc != 0 {
+                current_block = 11;
+            } else {
+                current_block = 12;
+            }
+        }
+    }
+    match current_block {
+        10 => {
+            let ac_dq: core::ffi::c_uint = *dq_tbl.offset(1 as core::ffi::c_int as isize)
+                as core::ffi::c_uint;
+            loop {
+                let sign: core::ffi::c_int = dav1d_msac_decode_bool_equi_c(
+                    &raw mut (*ts).msac,
+                ) as core::ffi::c_int;
+                if dbg != 0 {
+                    printf(
+                        b"Post-sign[%d=%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        rc,
+                        sign,
+                        (*ts).msac.rng,
+                    );
+                }
+                let rc_tok: core::ffi::c_uint = *cf.offset(rc as isize)
+                    as core::ffi::c_uint;
+                let mut tok_0: core::ffi::c_uint = 0;
+                let mut dq: core::ffi::c_uint = ac_dq
+                    .wrapping_mul(*qm_tbl.offset(rc as isize) as core::ffi::c_uint)
+                    .wrapping_add(16 as core::ffi::c_uint) >> 5 as core::ffi::c_int;
+                let mut dq_sat: core::ffi::c_int = 0;
+                if rc_tok
+                    >= ((15 as core::ffi::c_int) << 11 as core::ffi::c_int)
+                        as core::ffi::c_uint
+                {
+                    tok_0 = (read_golomb(&raw mut (*ts).msac))
+                        .wrapping_add(15 as core::ffi::c_uint);
+                    if dbg != 0 {
+                        printf(
+                            b"Post-residual[%d=%d->%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            rc,
+                            tok_0.wrapping_sub(15 as core::ffi::c_uint),
+                            tok_0,
+                            (*ts).msac.rng,
+                        );
+                    }
+                    tok_0 &= 0xfffff as core::ffi::c_uint;
+                    dq = dq.wrapping_mul(tok_0) & 0xffffff as core::ffi::c_uint;
+                } else {
+                    tok_0 = rc_tok >> 11 as core::ffi::c_int;
+                    dq = dq.wrapping_mul(tok_0);
+                    if !(dq <= 0xffffff as core::ffi::c_uint) as core::ffi::c_int
+                        as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 13],
+                                [core::ffi::c_char; 13],
+                            >(*b"decode_coefs\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            660 as core::ffi::c_int,
+                            b"dq <= 0xffffff\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                    } else {};
+                }
+                cul_level = cul_level.wrapping_add(tok_0);
+                dq >>= dq_shift;
+                dq_sat = umin(dq, (cf_max + sign) as core::ffi::c_uint)
+                    as core::ffi::c_int;
+                *cf.offset(rc as isize) = (if sign != 0 { -dq_sat } else { dq_sat })
+                    as coef;
+                rc = rc_tok & 0x3ff as core::ffi::c_uint;
+                if !(rc != 0) {
+                    break;
+                }
+            }
+        }
+        11 => {
+            let ac_dq_0: core::ffi::c_uint = *dq_tbl
+                .offset(1 as core::ffi::c_int as isize) as core::ffi::c_uint;
+            loop {
+                let sign_0: core::ffi::c_int = dav1d_msac_decode_bool_equi_c(
+                    &raw mut (*ts).msac,
+                ) as core::ffi::c_int;
+                if dbg != 0 {
+                    printf(
+                        b"Post-sign[%d=%d]: r=%d\n\0" as *const u8
+                            as *const core::ffi::c_char,
+                        rc,
+                        sign_0,
+                        (*ts).msac.rng,
+                    );
+                }
+                let rc_tok_0: core::ffi::c_uint = *cf.offset(rc as isize)
+                    as core::ffi::c_uint;
+                let mut tok_1: core::ffi::c_uint = 0;
+                let mut dq_0: core::ffi::c_int = 0;
+                if rc_tok_0
+                    >= ((15 as core::ffi::c_int) << 11 as core::ffi::c_int)
+                        as core::ffi::c_uint
+                {
+                    tok_1 = (read_golomb(&raw mut (*ts).msac))
+                        .wrapping_add(15 as core::ffi::c_uint);
+                    if dbg != 0 {
+                        printf(
+                            b"Post-residual[%d=%d->%d]: r=%d\n\0" as *const u8
+                                as *const core::ffi::c_char,
+                            rc,
+                            tok_1.wrapping_sub(15 as core::ffi::c_uint),
+                            tok_1,
+                            (*ts).msac.rng,
+                        );
+                    }
+                    tok_1 &= 0xfffff as core::ffi::c_uint;
+                    dq_0 = ((ac_dq_0.wrapping_mul(tok_1) & 0xffffff as core::ffi::c_uint)
+                        >> dq_shift) as core::ffi::c_int;
+                    dq_0 = umin(
+                        dq_0 as core::ffi::c_uint,
+                        (cf_max + sign_0) as core::ffi::c_uint,
+                    ) as core::ffi::c_int;
+                } else {
+                    tok_1 = rc_tok_0 >> 11 as core::ffi::c_int;
+                    dq_0 = (ac_dq_0.wrapping_mul(tok_1) >> dq_shift) as core::ffi::c_int;
+                    if !(dq_0 <= cf_max) as core::ffi::c_int as core::ffi::c_long != 0 {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 13],
+                                [core::ffi::c_char; 13],
+                            >(*b"decode_coefs\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            715 as core::ffi::c_int,
+                            b"dq <= cf_max\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                    } else {};
+                }
+                cul_level = cul_level.wrapping_add(tok_1);
+                *cf.offset(rc as isize) = (if sign_0 != 0 { -dq_0 } else { dq_0 })
+                    as coef;
+                rc = rc_tok_0 & 0x3ff as core::ffi::c_uint;
+                if !(rc != 0) {
+                    break;
+                }
+            }
+        }
+        _ => {}
+    }
+    *res_ctx = (umin(cul_level, 63 as core::ffi::c_uint) | dc_sign_level) as uint8_t;
+    return eob;
+}
+unsafe extern "C" fn read_coef_tree(
+    t: *mut Dav1dTaskContext,
+    bs: BlockSize,
+    b: *const Av1Block,
+    ytx: RectTxfmSize,
+    depth: core::ffi::c_int,
+    tx_split: *const uint16_t,
+    x_off: core::ffi::c_int,
+    y_off: core::ffi::c_int,
+    mut dst: *mut pixel,
+) {
+    let f: *const Dav1dFrameContext = (*t).f;
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let dsp: *const Dav1dDSPContext = (*f).dsp;
+    let t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions.as_ptr().offset(ytx as isize)
+        as *const TxfmInfo;
+    let txw: core::ffi::c_int = (*t_dim).w as core::ffi::c_int;
+    let txh: core::ffi::c_int = (*t_dim).h as core::ffi::c_int;
+    if depth < 2 as core::ffi::c_int
+        && *tx_split.offset(depth as isize) as core::ffi::c_int != 0
+        && *tx_split.offset(depth as isize) as core::ffi::c_int
+            & (1 as core::ffi::c_int) << y_off * 4 as core::ffi::c_int + x_off != 0
+    {
+        let sub: RectTxfmSize = (*t_dim).sub as RectTxfmSize;
+        let sub_t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions
+            .as_ptr()
+            .offset(sub as isize) as *const TxfmInfo;
+        let txsw: core::ffi::c_int = (*sub_t_dim).w as core::ffi::c_int;
+        let txsh: core::ffi::c_int = (*sub_t_dim).h as core::ffi::c_int;
+        read_coef_tree(
+            t,
+            bs,
+            b,
+            sub,
+            depth + 1 as core::ffi::c_int,
+            tx_split,
+            x_off * 2 as core::ffi::c_int + 0 as core::ffi::c_int,
+            y_off * 2 as core::ffi::c_int + 0 as core::ffi::c_int,
+            dst,
+        );
+        (*t).bx += txsw;
+        if txw >= txh && (*t).bx < (*f).bw {
+            read_coef_tree(
+                t,
+                bs,
+                b,
+                sub,
+                depth + 1 as core::ffi::c_int,
+                tx_split,
+                x_off * 2 as core::ffi::c_int + 1 as core::ffi::c_int,
+                y_off * 2 as core::ffi::c_int + 0 as core::ffi::c_int,
+                if !dst.is_null() {
+                    &raw mut *dst.offset((4 as core::ffi::c_int * txsw) as isize)
+                } else {
+                    0 as *mut pixel
+                },
+            );
+        }
+        (*t).bx -= txsw;
+        (*t).by += txsh;
+        if txh >= txw && (*t).by < (*f).bh {
+            if !dst.is_null() {
+                dst = dst
+                    .offset(
+                        ((4 as core::ffi::c_int * txsh) as ptrdiff_t
+                            * (*f).cur.stride[0 as core::ffi::c_int as usize]) as isize,
+                    );
+            }
+            read_coef_tree(
+                t,
+                bs,
+                b,
+                sub,
+                depth + 1 as core::ffi::c_int,
+                tx_split,
+                x_off * 2 as core::ffi::c_int + 0 as core::ffi::c_int,
+                y_off * 2 as core::ffi::c_int + 1 as core::ffi::c_int,
+                dst,
+            );
+            (*t).bx += txsw;
+            if txw >= txh && (*t).bx < (*f).bw {
+                read_coef_tree(
+                    t,
+                    bs,
+                    b,
+                    sub,
+                    depth + 1 as core::ffi::c_int,
+                    tx_split,
+                    x_off * 2 as core::ffi::c_int + 1 as core::ffi::c_int,
+                    y_off * 2 as core::ffi::c_int + 1 as core::ffi::c_int,
+                    if !dst.is_null() {
+                        &raw mut *dst.offset((4 as core::ffi::c_int * txsw) as isize)
+                    } else {
+                        0 as *mut pixel
+                    },
+                );
+            }
+            (*t).bx -= txsw;
+        }
+        (*t).by -= txsh;
+    } else {
+        let bx4: core::ffi::c_int = (*t).bx & 31 as core::ffi::c_int;
+        let by4: core::ffi::c_int = (*t).by & 31 as core::ffi::c_int;
+        let mut txtp: TxfmType = DCT_DCT;
+        let mut cf_ctx: uint8_t = 0;
+        let mut eob: core::ffi::c_int = 0;
+        let mut cf: *mut coef = 0 as *mut coef;
+        if (*t).frame_thread.pass != 0 {
+            let p: core::ffi::c_int = (*t).frame_thread.pass & 1 as core::ffi::c_int;
+            if ((*ts).frame_thread[p as usize].cf).is_null() as core::ffi::c_int
+                as core::ffi::c_long != 0
+            {
+                crate::platform::assertion(
+                    (::core::mem::transmute::<
+                        [u8; 15],
+                        [core::ffi::c_char; 15],
+                    >(*b"read_coef_tree\0"))
+                        .as_ptr(),
+                    b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                    781 as core::ffi::c_int,
+                    b"ts->frame_thread[p].cf\0" as *const u8 as *const core::ffi::c_char,
+                );
+            } else {};
+            cf = (*ts).frame_thread[p as usize].cf;
+            (*ts).frame_thread[p as usize].cf = ((*ts).frame_thread[p as usize].cf)
+                .offset(
+                    (imin((*t_dim).w as core::ffi::c_int, 8 as core::ffi::c_int)
+                        * imin((*t_dim).h as core::ffi::c_int, 8 as core::ffi::c_int)
+                        * 16 as core::ffi::c_int) as isize,
+                );
+        } else {
+            cf = ((*t).c2rust_unnamed.cf_8bpc).as_mut_ptr() as *mut coef;
+        }
+        if (*t).frame_thread.pass != 2 as core::ffi::c_int {
+            eob = decode_coefs(
+                t,
+                &raw mut *((*(*t).a).lcoef).as_mut_ptr().offset(bx4 as isize),
+                &raw mut *((*t).l.lcoef).as_mut_ptr().offset(by4 as isize),
+                ytx,
+                bs,
+                b,
+                0 as core::ffi::c_int,
+                0 as core::ffi::c_int,
+                cf,
+                &raw mut txtp,
+                &raw mut cf_ctx,
+            );
+            if 0 as core::ffi::c_int != 0
+                && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                    == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                && (*t).by < 4 as core::ffi::c_int && (*t).bx >= 8 as core::ffi::c_int
+                && (*t).bx < 12 as core::ffi::c_int
+            {
+                printf(
+                    b"Post-y-cf-blk[tx=%d,txtp=%d,eob=%d]: r=%d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    ytx as core::ffi::c_uint,
+                    txtp as core::ffi::c_uint,
+                    eob,
+                    (*ts).msac.rng,
+                );
+            }
+            dav1d_memset_likely_pow2(
+                &raw mut *((*(*t).a).lcoef).as_mut_ptr().offset(bx4 as isize) as *mut uint8_t
+                    as *mut core::ffi::c_void,
+                cf_ctx as core::ffi::c_int,
+                imin(txw, (*f).bw - (*t).bx),
+            );
+            dav1d_memset_likely_pow2(
+                &raw mut *((*t).l.lcoef).as_mut_ptr().offset(by4 as isize) as *mut uint8_t
+                    as *mut core::ffi::c_void,
+                cf_ctx as core::ffi::c_int,
+                imin(txh, (*f).bh - (*t).by),
+            );
+            let mut txtp_map: *mut uint8_t = &raw mut *((*t)
+                .scratch
+                .c2rust_unnamed_0
+                .c2rust_unnamed_0
+                .txtp_map)
+                .as_mut_ptr()
+                .offset((by4 * 32 as core::ffi::c_int + bx4) as isize) as *mut uint8_t;
+            match (*t_dim).lw as core::ffi::c_int {
+                0 => {
+                    let mut y: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while y < txh {
+                        (*(&raw mut *txtp_map.offset(0 as core::ffi::c_int as isize)
+                            as *mut uint8_t as *mut alias8))
+                            .u8_0 = (txtp as core::ffi::c_uint)
+                            .wrapping_mul(0x1 as core::ffi::c_uint) as uint8_t;
+                        txtp_map = txtp_map.offset(32 as core::ffi::c_int as isize);
+                        y += 1;
+                    }
+                }
+                1 => {
+                    let mut y_0: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while y_0 < txh {
+                        (*(&raw mut *txtp_map.offset(0 as core::ffi::c_int as isize)
+                            as *mut uint8_t as *mut alias16))
+                            .u16_0 = (txtp as core::ffi::c_uint)
+                            .wrapping_mul(0x101 as core::ffi::c_uint) as uint16_t;
+                        txtp_map = txtp_map.offset(32 as core::ffi::c_int as isize);
+                        y_0 += 1;
+                    }
+                }
+                2 => {
+                    let mut y_1: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while y_1 < txh {
+                        (*(&raw mut *txtp_map.offset(0 as core::ffi::c_int as isize)
+                            as *mut uint8_t as *mut alias32))
+                            .u32_0 = (txtp as core::ffi::c_uint)
+                            .wrapping_mul(0x1010101 as core::ffi::c_uint) as uint32_t;
+                        txtp_map = txtp_map.offset(32 as core::ffi::c_int as isize);
+                        y_1 += 1;
+                    }
+                }
+                3 => {
+                    let mut y_2: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while y_2 < txh {
+                        (*(&raw mut *txtp_map.offset(0 as core::ffi::c_int as isize)
+                            as *mut uint8_t as *mut alias64))
+                            .u64_0 = (txtp as core::ffi::c_ulonglong)
+                            .wrapping_mul(0x101010101010101 as core::ffi::c_ulonglong)
+                            as uint64_t;
+                        txtp_map = txtp_map.offset(32 as core::ffi::c_int as isize);
+                        y_2 += 1;
+                    }
+                }
+                4 => {
+                    let mut y_3: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while y_3 < txh {
+                        memset(
+                            &raw mut *txtp_map.offset(0 as core::ffi::c_int as isize)
+                                as *mut uint8_t as *mut core::ffi::c_void,
+                            txtp as core::ffi::c_int,
+                            16 as size_t,
+                        );
+                        txtp_map = txtp_map.offset(32 as core::ffi::c_int as isize);
+                        y_3 += 1;
+                    }
+                }
+                _ => {
+                    if (0 as core::ffi::c_int == 0) as core::ffi::c_int
+                        as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 15],
+                                [core::ffi::c_char; 15],
+                            >(*b"read_coef_tree\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            801 as core::ffi::c_int,
+                            b"0\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                    } else {};
+                }
+            }
+            if (*t).frame_thread.pass == 1 as core::ffi::c_int {
+                let fresh7 = (*ts).frame_thread[1 as core::ffi::c_int as usize].cbi;
+                (*ts).frame_thread[1 as core::ffi::c_int as usize].cbi = ((*ts)
+                    .frame_thread[1 as core::ffi::c_int as usize]
+                    .cbi)
+                    .offset(1);
+                *fresh7 = ((eob * ((1 as core::ffi::c_int) << 5 as core::ffi::c_int))
+                    as core::ffi::c_uint)
+                    .wrapping_add(txtp as core::ffi::c_uint) as int16_t;
+            }
+        } else {
+            let fresh8 = (*ts).frame_thread[0 as core::ffi::c_int as usize].cbi;
+            (*ts).frame_thread[0 as core::ffi::c_int as usize].cbi = ((*ts)
+                .frame_thread[0 as core::ffi::c_int as usize]
+                .cbi)
+                .offset(1);
+            let cbi: core::ffi::c_int = *fresh8 as core::ffi::c_int;
+            eob = cbi >> 5 as core::ffi::c_int;
+            txtp = (cbi & 0x1f as core::ffi::c_int) as TxfmType;
+        }
+        if (*t).frame_thread.pass & 1 as core::ffi::c_int == 0 {
+            if dst.is_null() as core::ffi::c_int as core::ffi::c_long != 0 {
+                crate::platform::assertion(
+                    (::core::mem::transmute::<
+                        [u8; 15],
+                        [core::ffi::c_char; 15],
+                    >(*b"read_coef_tree\0"))
+                        .as_ptr(),
+                    b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                    811 as core::ffi::c_int,
+                    b"dst\0" as *const u8 as *const core::ffi::c_char,
+                );
+            } else {};
+            if eob >= 0 as core::ffi::c_int {
+                if 0 as core::ffi::c_int != 0
+                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                    && (*t).by < 4 as core::ffi::c_int
+                    && (*t).bx >= 8 as core::ffi::c_int
+                    && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                {
+                    coef_dump(
+                        cf,
+                        imin((*t_dim).h as core::ffi::c_int, 8 as core::ffi::c_int)
+                            * 4 as core::ffi::c_int,
+                        imin((*t_dim).w as core::ffi::c_int, 8 as core::ffi::c_int)
+                            * 4 as core::ffi::c_int,
+                        3 as core::ffi::c_int,
+                        b"dq\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                }
+                ((*dsp).itx.itxfm_add[ytx as usize][txtp as usize])
+                    .expect(
+                        "non-null function pointer",
+                    )(dst, (*f).cur.stride[0 as core::ffi::c_int as usize], cf, eob);
+                if 0 as core::ffi::c_int != 0
+                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                    && (*t).by < 4 as core::ffi::c_int
+                    && (*t).bx >= 8 as core::ffi::c_int
+                    && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                {
+                    hex_dump(
+                        dst,
+                        (*f).cur.stride[0 as core::ffi::c_int as usize],
+                        (*t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                        (*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                        b"recon\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                }
+            }
+        }
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_read_coef_blocks_8bpc(
+    t: *mut Dav1dTaskContext,
+    bs: BlockSize,
+    b: *const Av1Block,
+) {
+    let f: *const Dav1dFrameContext = (*t).f;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let ss_hor: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let bx4: core::ffi::c_int = (*t).bx & 31 as core::ffi::c_int;
+    let by4: core::ffi::c_int = (*t).by & 31 as core::ffi::c_int;
+    let cbx4: core::ffi::c_int = bx4 >> ss_hor;
+    let cby4: core::ffi::c_int = by4 >> ss_ver;
+    let b_dim: *const uint8_t = (dav1d_block_dimensions[bs as usize]).as_ptr();
+    let bw4: core::ffi::c_int = *b_dim.offset(0 as core::ffi::c_int as isize)
+        as core::ffi::c_int;
+    let bh4: core::ffi::c_int = *b_dim.offset(1 as core::ffi::c_int as isize)
+        as core::ffi::c_int;
+    let cbw4: core::ffi::c_int = bw4 + ss_hor >> ss_hor;
+    let cbh4: core::ffi::c_int = bh4 + ss_ver >> ss_ver;
+    let has_chroma: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I400 as core::ffi::c_int as core::ffi::c_uint
+        && (bw4 > ss_hor || (*t).bx & 1 as core::ffi::c_int != 0)
+        && (bh4 > ss_ver || (*t).by & 1 as core::ffi::c_int != 0)) as core::ffi::c_int;
+    if (*b).skip != 0 {
+        let a: *mut BlockContext = (*t).a;
+        (dav1d_memset_pow2[*b_dim.offset(2 as core::ffi::c_int as isize) as usize])
+            .expect(
+                "non-null function pointer",
+            )(
+            &raw mut *((*a).lcoef).as_mut_ptr().offset(bx4 as isize) as *mut uint8_t
+                as *mut core::ffi::c_void,
+            0x40 as core::ffi::c_int,
+        );
+        (dav1d_memset_pow2[*b_dim.offset(3 as core::ffi::c_int as isize) as usize])
+            .expect(
+                "non-null function pointer",
+            )(
+            &raw mut *((*t).l.lcoef).as_mut_ptr().offset(by4 as isize) as *mut uint8_t
+                as *mut core::ffi::c_void,
+            0x40 as core::ffi::c_int,
+        );
+        if has_chroma != 0 {
+            let mut memset_cw: dav1d_memset_pow2_fn = dav1d_memset_pow2[ulog2(
+                cbw4 as core::ffi::c_uint,
+            ) as usize];
+            let mut memset_ch: dav1d_memset_pow2_fn = dav1d_memset_pow2[ulog2(
+                cbh4 as core::ffi::c_uint,
+            ) as usize];
+            memset_cw
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*a).ccoef).as_mut_ptr().offset(0 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cbx4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+            memset_cw
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*a).ccoef).as_mut_ptr().offset(1 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cbx4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+            memset_ch
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*t).l.ccoef)
+                    .as_mut_ptr()
+                    .offset(0 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cby4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+            memset_ch
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*t).l.ccoef)
+                    .as_mut_ptr()
+                    .offset(1 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cby4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+        }
+        return;
+    }
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let w4: core::ffi::c_int = imin(bw4, (*f).bw - (*t).bx) as core::ffi::c_int;
+    let h4: core::ffi::c_int = imin(bh4, (*f).bh - (*t).by) as core::ffi::c_int;
+    let cw4: core::ffi::c_int = w4 + ss_hor >> ss_hor;
+    let ch4: core::ffi::c_int = h4 + ss_ver >> ss_ver;
+    if !((*t).frame_thread.pass == 1 as core::ffi::c_int) as core::ffi::c_int
+        as core::ffi::c_long != 0
+    {
+        crate::platform::assertion(
+            (::core::mem::transmute::<
+                [u8; 28],
+                [core::ffi::c_char; 28],
+            >(*b"dav1d_read_coef_blocks_8bpc\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            857 as core::ffi::c_int,
+            b"t->frame_thread.pass == 1\0" as *const u8 as *const core::ffi::c_char,
+        );
+    } else {};
+    if ((*b).skip != 0) as core::ffi::c_int as core::ffi::c_long != 0 {
+        crate::platform::assertion(
+            (::core::mem::transmute::<
+                [u8; 28],
+                [core::ffi::c_char; 28],
+            >(*b"dav1d_read_coef_blocks_8bpc\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            858 as core::ffi::c_int,
+            b"!b->skip\0" as *const u8 as *const core::ffi::c_char,
+        );
+    } else {};
+    let uv_t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions
+        .as_ptr()
+        .offset((*b).uvtx as isize) as *const TxfmInfo;
+    let t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions
+        .as_ptr()
+        .offset(
+            (if (*b).intra as core::ffi::c_int != 0 {
+                (*b).c2rust_unnamed.c2rust_unnamed.tx as core::ffi::c_int
+            } else {
+                (*b).c2rust_unnamed.c2rust_unnamed_0.max_ytx as core::ffi::c_int
+            }) as isize,
+        ) as *const TxfmInfo;
+    let tx_split: [uint16_t; 2] = [
+        (*b).c2rust_unnamed.c2rust_unnamed_0.tx_split0 as uint16_t,
+        (*b).c2rust_unnamed.c2rust_unnamed_0.tx_split1,
+    ];
+    let mut init_y: core::ffi::c_int = 0 as core::ffi::c_int;
+    while init_y < h4 {
+        let sub_h4: core::ffi::c_int = imin(h4, 16 as core::ffi::c_int + init_y)
+            as core::ffi::c_int;
+        let mut init_x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while init_x < w4 {
+            let sub_w4: core::ffi::c_int = imin(w4, init_x + 16 as core::ffi::c_int)
+                as core::ffi::c_int;
+            let mut y_off: core::ffi::c_int = (init_y != 0) as core::ffi::c_int;
+            let mut y: core::ffi::c_int = 0;
+            let mut x: core::ffi::c_int = 0;
+            y = init_y;
+            (*t).by += init_y;
+            while y < sub_h4 {
+                let mut x_off: core::ffi::c_int = (init_x != 0) as core::ffi::c_int;
+                x = init_x;
+                (*t).bx += init_x;
+                while x < sub_w4 {
+                    if (*b).intra == 0 {
+                        read_coef_tree(
+                            t,
+                            bs,
+                            b,
+                            (*b).c2rust_unnamed.c2rust_unnamed_0.max_ytx as RectTxfmSize,
+                            0 as core::ffi::c_int,
+                            tx_split.as_ptr(),
+                            x_off,
+                            y_off,
+                            0 as *mut pixel,
+                        );
+                    } else {
+                        let mut cf_ctx: uint8_t = 0x40 as uint8_t;
+                        let mut txtp: TxfmType = DCT_DCT;
+                        let eob: core::ffi::c_int = decode_coefs(
+                            t,
+                            &raw mut *((*(*t).a).lcoef)
+                                .as_mut_ptr()
+                                .offset((bx4 + x) as isize),
+                            &raw mut *((*t).l.lcoef).as_mut_ptr().offset((by4 + y) as isize),
+                            (*b).c2rust_unnamed.c2rust_unnamed.tx as RectTxfmSize,
+                            bs,
+                            b,
+                            1 as core::ffi::c_int,
+                            0 as core::ffi::c_int,
+                            (*ts).frame_thread[1 as core::ffi::c_int as usize].cf,
+                            &raw mut txtp,
+                            &raw mut cf_ctx,
+                        ) as core::ffi::c_int;
+                        if 0 as core::ffi::c_int != 0
+                            && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                            && (*t).by < 4 as core::ffi::c_int
+                            && (*t).bx >= 8 as core::ffi::c_int
+                            && (*t).bx < 12 as core::ffi::c_int
+                        {
+                            printf(
+                                b"Post-y-cf-blk[tx=%d,txtp=%d,eob=%d]: r=%d\n\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                                (*b).c2rust_unnamed.c2rust_unnamed.tx as core::ffi::c_int,
+                                txtp as core::ffi::c_uint,
+                                eob,
+                                (*ts).msac.rng,
+                            );
+                        }
+                        let fresh9 = (*ts)
+                            .frame_thread[1 as core::ffi::c_int as usize]
+                            .cbi;
+                        (*ts).frame_thread[1 as core::ffi::c_int as usize].cbi = ((*ts)
+                            .frame_thread[1 as core::ffi::c_int as usize]
+                            .cbi)
+                            .offset(1);
+                        *fresh9 = ((eob
+                            * ((1 as core::ffi::c_int) << 5 as core::ffi::c_int))
+                            as core::ffi::c_uint)
+                            .wrapping_add(txtp as core::ffi::c_uint) as int16_t;
+                        (*ts).frame_thread[1 as core::ffi::c_int as usize].cf = ((*ts)
+                            .frame_thread[1 as core::ffi::c_int as usize]
+                            .cf)
+                            .offset(
+                                (imin((*t_dim).w as core::ffi::c_int, 8 as core::ffi::c_int)
+                                    * imin(
+                                        (*t_dim).h as core::ffi::c_int,
+                                        8 as core::ffi::c_int,
+                                    ) * 16 as core::ffi::c_int) as isize,
+                            );
+                        dav1d_memset_likely_pow2(
+                            &raw mut *((*(*t).a).lcoef)
+                                .as_mut_ptr()
+                                .offset((bx4 + x) as isize) as *mut uint8_t
+                                as *mut core::ffi::c_void,
+                            cf_ctx as core::ffi::c_int,
+                            imin((*t_dim).w as core::ffi::c_int, (*f).bw - (*t).bx),
+                        );
+                        dav1d_memset_likely_pow2(
+                            &raw mut *((*t).l.lcoef).as_mut_ptr().offset((by4 + y) as isize)
+                                as *mut uint8_t as *mut core::ffi::c_void,
+                            cf_ctx as core::ffi::c_int,
+                            imin((*t_dim).h as core::ffi::c_int, (*f).bh - (*t).by),
+                        );
+                    }
+                    x += (*t_dim).w as core::ffi::c_int;
+                    (*t).bx += (*t_dim).w as core::ffi::c_int;
+                    x_off += 1;
+                }
+                (*t).bx -= x;
+                y += (*t_dim).h as core::ffi::c_int;
+                (*t).by += (*t_dim).h as core::ffi::c_int;
+                y_off += 1;
+            }
+            (*t).by -= y;
+            if !(has_chroma == 0) {
+                let sub_ch4: core::ffi::c_int = imin(
+                    ch4,
+                    init_y + 16 as core::ffi::c_int >> ss_ver,
+                ) as core::ffi::c_int;
+                let sub_cw4: core::ffi::c_int = imin(
+                    cw4,
+                    init_x + 16 as core::ffi::c_int >> ss_hor,
+                ) as core::ffi::c_int;
+                let mut pl: core::ffi::c_int = 0 as core::ffi::c_int;
+                while pl < 2 as core::ffi::c_int {
+                    y = init_y >> ss_ver;
+                    (*t).by += init_y;
+                    while y < sub_ch4 {
+                        x = init_x >> ss_hor;
+                        (*t).bx += init_x;
+                        while x < sub_cw4 {
+                            let mut cf_ctx_0: uint8_t = 0x40 as uint8_t;
+                            let mut txtp_0: TxfmType = DCT_DCT;
+                            if (*b).intra == 0 {
+                                txtp_0 = (*t)
+                                    .scratch
+                                    .c2rust_unnamed_0
+                                    .c2rust_unnamed_0
+                                    .txtp_map[((by4 + (y << ss_ver)) * 32 as core::ffi::c_int
+                                    + bx4 + (x << ss_hor)) as usize] as TxfmType;
+                            }
+                            let eob_0: core::ffi::c_int = decode_coefs(
+                                t,
+                                &raw mut *(*((*(*t).a).ccoef).as_mut_ptr().offset(pl as isize))
+                                    .as_mut_ptr()
+                                    .offset((cbx4 + x) as isize),
+                                &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl as isize))
+                                    .as_mut_ptr()
+                                    .offset((cby4 + y) as isize),
+                                (*b).uvtx as RectTxfmSize,
+                                bs,
+                                b,
+                                (*b).intra as core::ffi::c_int,
+                                1 as core::ffi::c_int + pl,
+                                (*ts).frame_thread[1 as core::ffi::c_int as usize].cf,
+                                &raw mut txtp_0,
+                                &raw mut cf_ctx_0,
+                            ) as core::ffi::c_int;
+                            if 0 as core::ffi::c_int != 0
+                                && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                    == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                && (*t).by < 4 as core::ffi::c_int
+                                && (*t).bx >= 8 as core::ffi::c_int
+                                && (*t).bx < 12 as core::ffi::c_int
+                            {
+                                printf(
+                                    b"Post-uv-cf-blk[pl=%d,tx=%d,txtp=%d,eob=%d]: r=%d\n\0"
+                                        as *const u8 as *const core::ffi::c_char,
+                                    pl,
+                                    (*b).uvtx as core::ffi::c_int,
+                                    txtp_0 as core::ffi::c_uint,
+                                    eob_0,
+                                    (*ts).msac.rng,
+                                );
+                            }
+                            let fresh10 = (*ts)
+                                .frame_thread[1 as core::ffi::c_int as usize]
+                                .cbi;
+                            (*ts).frame_thread[1 as core::ffi::c_int as usize].cbi = ((*ts)
+                                .frame_thread[1 as core::ffi::c_int as usize]
+                                .cbi)
+                                .offset(1);
+                            *fresh10 = ((eob_0
+                                * ((1 as core::ffi::c_int) << 5 as core::ffi::c_int))
+                                as core::ffi::c_uint)
+                                .wrapping_add(txtp_0 as core::ffi::c_uint) as int16_t;
+                            (*ts).frame_thread[1 as core::ffi::c_int as usize].cf = ((*ts)
+                                .frame_thread[1 as core::ffi::c_int as usize]
+                                .cf)
+                                .offset(
+                                    ((*uv_t_dim).w as core::ffi::c_int
+                                        * (*uv_t_dim).h as core::ffi::c_int
+                                        * 16 as core::ffi::c_int) as isize,
+                                );
+                            let mut ctw: core::ffi::c_int = imin(
+                                (*uv_t_dim).w as core::ffi::c_int,
+                                (*f).bw - (*t).bx + ss_hor >> ss_hor,
+                            );
+                            let mut cth: core::ffi::c_int = imin(
+                                (*uv_t_dim).h as core::ffi::c_int,
+                                (*f).bh - (*t).by + ss_ver >> ss_ver,
+                            );
+                            dav1d_memset_likely_pow2(
+                                &raw mut *(*((*(*t).a).ccoef).as_mut_ptr().offset(pl as isize))
+                                    .as_mut_ptr()
+                                    .offset((cbx4 + x) as isize) as *mut uint8_t
+                                    as *mut core::ffi::c_void,
+                                cf_ctx_0 as core::ffi::c_int,
+                                ctw,
+                            );
+                            dav1d_memset_likely_pow2(
+                                &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl as isize))
+                                    .as_mut_ptr()
+                                    .offset((cby4 + y) as isize) as *mut uint8_t
+                                    as *mut core::ffi::c_void,
+                                cf_ctx_0 as core::ffi::c_int,
+                                cth,
+                            );
+                            x += (*uv_t_dim).w as core::ffi::c_int;
+                            (*t).bx += ((*uv_t_dim).w as core::ffi::c_int) << ss_hor;
+                        }
+                        (*t).bx -= x << ss_hor;
+                        y += (*uv_t_dim).h as core::ffi::c_int;
+                        (*t).by += ((*uv_t_dim).h as core::ffi::c_int) << ss_ver;
+                    }
+                    (*t).by -= y << ss_ver;
+                    pl += 1;
+                }
+            }
+            init_x += 16 as core::ffi::c_int;
+        }
+        init_y += 16 as core::ffi::c_int;
+    }
+}
+unsafe extern "C" fn mc(
+    t: *mut Dav1dTaskContext,
+    dst8: *mut pixel,
+    dst16: *mut int16_t,
+    dst_stride: ptrdiff_t,
+    bw4: core::ffi::c_int,
+    bh4: core::ffi::c_int,
+    bx: core::ffi::c_int,
+    by: core::ffi::c_int,
+    pl: core::ffi::c_int,
+    mv: mv,
+    refp: *const Dav1dThreadPicture,
+    refidx: core::ffi::c_int,
+    filter_2d: Filter2d,
+) -> core::ffi::c_int {
+    if ((dst8 != 0 as *mut core::ffi::c_void as *mut pixel) as core::ffi::c_int
+        ^ (dst16 != 0 as *mut core::ffi::c_void as *mut int16_t) as core::ffi::c_int
+        == 0) as core::ffi::c_int as core::ffi::c_long != 0
+    {
+        crate::platform::assertion(
+            (::core::mem::transmute::<[u8; 3], [core::ffi::c_char; 3]>(*b"mc\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            945 as core::ffi::c_int,
+            b"(dst8 != NULL) ^ (dst16 != NULL)\0" as *const u8
+                as *const core::ffi::c_char,
+        );
+    } else {};
+    let f: *const Dav1dFrameContext = (*t).f;
+    let ss_ver: core::ffi::c_int = (pl != 0
+        && (*f).cur.p.layout as core::ffi::c_uint
+            == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let ss_hor: core::ffi::c_int = (pl != 0
+        && (*f).cur.p.layout as core::ffi::c_uint
+            != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let h_mul: core::ffi::c_int = 4 as core::ffi::c_int >> ss_hor;
+    let v_mul: core::ffi::c_int = 4 as core::ffi::c_int >> ss_ver;
+    let mvx: core::ffi::c_int = mv.c2rust_unnamed.x as core::ffi::c_int;
+    let mvy: core::ffi::c_int = mv.c2rust_unnamed.y as core::ffi::c_int;
+    let mx: core::ffi::c_int = mvx
+        & 15 as core::ffi::c_int >> (ss_hor == 0) as core::ffi::c_int;
+    let my: core::ffi::c_int = mvy
+        & 15 as core::ffi::c_int >> (ss_ver == 0) as core::ffi::c_int;
+    let mut ref_stride: ptrdiff_t = (*refp)
+        .p
+        .stride[(pl != 0) as core::ffi::c_int as usize];
+    let mut ref_0: *const pixel = 0 as *const pixel;
+    if (*refp).p.p.w == (*f).cur.p.w && (*refp).p.p.h == (*f).cur.p.h {
+        let dx: core::ffi::c_int = bx * h_mul + (mvx >> 3 as core::ffi::c_int + ss_hor);
+        let dy: core::ffi::c_int = by * v_mul + (mvy >> 3 as core::ffi::c_int + ss_ver);
+        let mut w: core::ffi::c_int = 0;
+        let mut h: core::ffi::c_int = 0;
+        if (*refp).p.data[0 as core::ffi::c_int as usize]
+            != (*f).cur.data[0 as core::ffi::c_int as usize]
+        {
+            w = (*f).cur.p.w + ss_hor >> ss_hor;
+            h = (*f).cur.p.h + ss_ver >> ss_ver;
+        } else {
+            w = (*f).bw * 4 as core::ffi::c_int >> ss_hor;
+            h = (*f).bh * 4 as core::ffi::c_int >> ss_ver;
+        }
+        if dx < (mx != 0) as core::ffi::c_int * 3 as core::ffi::c_int
+            || dy < (my != 0) as core::ffi::c_int * 3 as core::ffi::c_int
+            || dx + bw4 * h_mul + (mx != 0) as core::ffi::c_int * 4 as core::ffi::c_int
+                > w
+            || dy + bh4 * v_mul + (my != 0) as core::ffi::c_int * 4 as core::ffi::c_int
+                > h
+        {
+            let emu_edge_buf: *mut pixel = ((*t)
+                .scratch
+                .c2rust_unnamed
+                .c2rust_unnamed_0
+                .emu_edge_8bpc)
+                .as_mut_ptr() as *mut pixel;
+            ((*(*f).dsp).mc.emu_edge)
+                .expect(
+                    "non-null function pointer",
+                )(
+                (bw4 * h_mul + (mx != 0) as core::ffi::c_int * 7 as core::ffi::c_int)
+                    as intptr_t,
+                (bh4 * v_mul + (my != 0) as core::ffi::c_int * 7 as core::ffi::c_int)
+                    as intptr_t,
+                w as intptr_t,
+                h as intptr_t,
+                (dx - (mx != 0) as core::ffi::c_int * 3 as core::ffi::c_int) as intptr_t,
+                (dy - (my != 0) as core::ffi::c_int * 3 as core::ffi::c_int) as intptr_t,
+                emu_edge_buf,
+                (192 as usize).wrapping_mul(::core::mem::size_of::<pixel>() as usize)
+                    as ptrdiff_t,
+                (*refp).p.data[pl as usize] as *const pixel,
+                ref_stride,
+            );
+            ref_0 = &raw mut *emu_edge_buf
+                .offset(
+                    (192 as core::ffi::c_int * (my != 0) as core::ffi::c_int
+                        * 3 as core::ffi::c_int
+                        + (mx != 0) as core::ffi::c_int * 3 as core::ffi::c_int) as isize,
+                ) as *mut pixel;
+            ref_stride = (192 as usize)
+                .wrapping_mul(::core::mem::size_of::<pixel>() as usize) as ptrdiff_t;
+        } else {
+            ref_0 = ((*refp).p.data[pl as usize] as *mut pixel)
+                .offset((ref_stride * dy as ptrdiff_t) as isize)
+                .offset(dx as isize);
+        }
+        if !dst8.is_null() {
+            ((*(*f).dsp).mc.mc[filter_2d as usize])
+                .expect(
+                    "non-null function pointer",
+                )(
+                dst8,
+                dst_stride,
+                ref_0,
+                ref_stride,
+                bw4 * h_mul,
+                bh4 * v_mul,
+                mx << (ss_hor == 0) as core::ffi::c_int,
+                my << (ss_ver == 0) as core::ffi::c_int,
+            );
+        } else {
+            ((*(*f).dsp).mc.mct[filter_2d as usize])
+                .expect(
+                    "non-null function pointer",
+                )(
+                dst16,
+                ref_0,
+                ref_stride,
+                bw4 * h_mul,
+                bh4 * v_mul,
+                mx << (ss_hor == 0) as core::ffi::c_int,
+                my << (ss_ver == 0) as core::ffi::c_int,
+            );
+        }
+    } else {
+        if !(refp != &(*f).sr_cur as *const Dav1dThreadPicture) as core::ffi::c_int
+            as core::ffi::c_long != 0
+        {
+            crate::platform::assertion(
+                (::core::mem::transmute::<[u8; 3], [core::ffi::c_char; 3]>(*b"mc\0"))
+                    .as_ptr(),
+                b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                992 as core::ffi::c_int,
+                b"refp != &f->sr_cur\0" as *const u8 as *const core::ffi::c_char,
+            );
+        } else {};
+        let orig_pos_y: core::ffi::c_int = (by * v_mul << 4 as core::ffi::c_int)
+            + mvy * ((1 as core::ffi::c_int) << (ss_ver == 0) as core::ffi::c_int);
+        let orig_pos_x: core::ffi::c_int = (bx * h_mul << 4 as core::ffi::c_int)
+            + mvx * ((1 as core::ffi::c_int) << (ss_hor == 0) as core::ffi::c_int);
+        let mut pos_y: core::ffi::c_int = 0;
+        let mut pos_x: core::ffi::c_int = 0;
+        let tmp: int64_t = orig_pos_x as int64_t
+            * (*f).svc[refidx as usize][0 as core::ffi::c_int as usize].scale as int64_t
+            + (((*f).svc[refidx as usize][0 as core::ffi::c_int as usize].scale
+                - 0x4000 as core::ffi::c_int) * 8 as core::ffi::c_int) as int64_t;
+        pos_x = apply_sign64(
+            (llabs(tmp as core::ffi::c_longlong) + 128 as core::ffi::c_longlong
+                >> 8 as core::ffi::c_int) as core::ffi::c_int,
+            tmp,
+        ) + 32 as core::ffi::c_int;
+        let tmp_0: int64_t = orig_pos_y as int64_t
+            * (*f).svc[refidx as usize][1 as core::ffi::c_int as usize].scale as int64_t
+            + (((*f).svc[refidx as usize][1 as core::ffi::c_int as usize].scale
+                - 0x4000 as core::ffi::c_int) * 8 as core::ffi::c_int) as int64_t;
+        pos_y = apply_sign64(
+            (llabs(tmp_0 as core::ffi::c_longlong) + 128 as core::ffi::c_longlong
+                >> 8 as core::ffi::c_int) as core::ffi::c_int,
+            tmp_0,
+        ) + 32 as core::ffi::c_int;
+        let left: core::ffi::c_int = pos_x >> 10 as core::ffi::c_int;
+        let top: core::ffi::c_int = pos_y >> 10 as core::ffi::c_int;
+        let right: core::ffi::c_int = (pos_x
+            + (bw4 * h_mul - 1 as core::ffi::c_int)
+                * (*f).svc[refidx as usize][0 as core::ffi::c_int as usize].step
+            >> 10 as core::ffi::c_int) + 1 as core::ffi::c_int;
+        let bottom: core::ffi::c_int = (pos_y
+            + (bh4 * v_mul - 1 as core::ffi::c_int)
+                * (*f).svc[refidx as usize][1 as core::ffi::c_int as usize].step
+            >> 10 as core::ffi::c_int) + 1 as core::ffi::c_int;
+        if 0 as core::ffi::c_int != 0
+            && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+            && (*t).by < 4 as core::ffi::c_int && (*t).bx >= 8 as core::ffi::c_int
+            && (*t).bx < 12 as core::ffi::c_int
+        {
+            printf(
+                b"Off %dx%d [%d,%d,%d], size %dx%d [%d,%d]\n\0" as *const u8
+                    as *const core::ffi::c_char,
+                left,
+                top,
+                orig_pos_x,
+                (*f).svc[refidx as usize][0 as core::ffi::c_int as usize].scale,
+                refidx,
+                right - left,
+                bottom - top,
+                (*f).svc[refidx as usize][0 as core::ffi::c_int as usize].step,
+                (*f).svc[refidx as usize][1 as core::ffi::c_int as usize].step,
+            );
+        }
+        let w_0: core::ffi::c_int = (*refp).p.p.w + ss_hor >> ss_hor;
+        let h_0: core::ffi::c_int = (*refp).p.p.h + ss_ver >> ss_ver;
+        if left < 3 as core::ffi::c_int || top < 3 as core::ffi::c_int
+            || right + 4 as core::ffi::c_int > w_0
+            || bottom + 4 as core::ffi::c_int > h_0
+        {
+            let emu_edge_buf_0: *mut pixel = ((*t)
+                .scratch
+                .c2rust_unnamed
+                .c2rust_unnamed_0
+                .emu_edge_8bpc)
+                .as_mut_ptr() as *mut pixel;
+            ((*(*f).dsp).mc.emu_edge)
+                .expect(
+                    "non-null function pointer",
+                )(
+                (right - left + 7 as core::ffi::c_int) as intptr_t,
+                (bottom - top + 7 as core::ffi::c_int) as intptr_t,
+                w_0 as intptr_t,
+                h_0 as intptr_t,
+                (left - 3 as core::ffi::c_int) as intptr_t,
+                (top - 3 as core::ffi::c_int) as intptr_t,
+                emu_edge_buf_0,
+                (320 as usize).wrapping_mul(::core::mem::size_of::<pixel>() as usize)
+                    as ptrdiff_t,
+                (*refp).p.data[pl as usize] as *const pixel,
+                ref_stride,
+            );
+            ref_0 = &raw mut *emu_edge_buf_0
+                .offset(
+                    (320 as core::ffi::c_int * 3 as core::ffi::c_int
+                        + 3 as core::ffi::c_int) as isize,
+                ) as *mut pixel;
+            ref_stride = (320 as usize)
+                .wrapping_mul(::core::mem::size_of::<pixel>() as usize) as ptrdiff_t;
+            if 0 as core::ffi::c_int != 0
+                && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                    == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                && (*t).by < 4 as core::ffi::c_int && (*t).bx >= 8 as core::ffi::c_int
+                && (*t).bx < 12 as core::ffi::c_int
+            {
+                printf(b"Emu\n\0" as *const u8 as *const core::ffi::c_char);
+            }
+        } else {
+            ref_0 = ((*refp).p.data[pl as usize] as *mut pixel)
+                .offset((ref_stride * top as ptrdiff_t) as isize)
+                .offset(left as isize);
+        }
+        if !dst8.is_null() {
+            ((*(*f).dsp).mc.mc_scaled[filter_2d as usize])
+                .expect(
+                    "non-null function pointer",
+                )(
+                dst8,
+                dst_stride,
+                ref_0,
+                ref_stride,
+                bw4 * h_mul,
+                bh4 * v_mul,
+                pos_x & 0x3ff as core::ffi::c_int,
+                pos_y & 0x3ff as core::ffi::c_int,
+                (*f).svc[refidx as usize][0 as core::ffi::c_int as usize].step,
+                (*f).svc[refidx as usize][1 as core::ffi::c_int as usize].step,
+            );
+        } else {
+            ((*(*f).dsp).mc.mct_scaled[filter_2d as usize])
+                .expect(
+                    "non-null function pointer",
+                )(
+                dst16,
+                ref_0,
+                ref_stride,
+                bw4 * h_mul,
+                bh4 * v_mul,
+                pos_x & 0x3ff as core::ffi::c_int,
+                pos_y & 0x3ff as core::ffi::c_int,
+                (*f).svc[refidx as usize][0 as core::ffi::c_int as usize].step,
+                (*f).svc[refidx as usize][1 as core::ffi::c_int as usize].step,
+            );
+        }
+    }
+    return 0 as core::ffi::c_int;
+}
+unsafe extern "C" fn obmc(
+    t: *mut Dav1dTaskContext,
+    dst: *mut pixel,
+    dst_stride: ptrdiff_t,
+    b_dim: *const uint8_t,
+    pl: core::ffi::c_int,
+    bx4: core::ffi::c_int,
+    by4: core::ffi::c_int,
+    w4: core::ffi::c_int,
+    h4: core::ffi::c_int,
+) -> core::ffi::c_int {
+    if !((*t).bx & 1 as core::ffi::c_int == 0 && (*t).by & 1 as core::ffi::c_int == 0)
+        as core::ffi::c_int as core::ffi::c_long != 0
+    {
+        crate::platform::assertion(
+            (::core::mem::transmute::<[u8; 5], [core::ffi::c_char; 5]>(*b"obmc\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            1057 as core::ffi::c_int,
+            b"!(t->bx & 1) && !(t->by & 1)\0" as *const u8 as *const core::ffi::c_char,
+        );
+    } else {};
+    let f: *const Dav1dFrameContext = (*t).f;
+    let mut r: *mut *mut refmvs_block = &raw mut *((*t).rt.r)
+        .as_mut_ptr()
+        .offset((((*t).by & 31 as core::ffi::c_int) + 5 as core::ffi::c_int) as isize)
+        as *mut *mut refmvs_block;
+    let lap: *mut pixel = ((*t).scratch.c2rust_unnamed.c2rust_unnamed.lap_8bpc)
+        .as_mut_ptr() as *mut pixel;
+    let ss_ver: core::ffi::c_int = (pl != 0
+        && (*f).cur.p.layout as core::ffi::c_uint
+            == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let ss_hor: core::ffi::c_int = (pl != 0
+        && (*f).cur.p.layout as core::ffi::c_uint
+            != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let h_mul: core::ffi::c_int = 4 as core::ffi::c_int >> ss_hor;
+    let v_mul: core::ffi::c_int = 4 as core::ffi::c_int >> ss_ver;
+    let mut res: core::ffi::c_int = 0;
+    if (*t).by > (*(*t).ts).tiling.row_start
+        && (pl == 0
+            || *b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int * h_mul
+                + *b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
+                    * v_mul >= 16 as core::ffi::c_int)
+    {
+        let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+        let mut x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while x < w4
+            && i
+                < imin(
+                    *b_dim.offset(2 as core::ffi::c_int as isize) as core::ffi::c_int,
+                    4 as core::ffi::c_int,
+                )
+        {
+            let a_r: *const refmvs_block = &raw mut *(*r
+                .offset(-(1 as core::ffi::c_int) as isize))
+                .offset(((*t).bx + x + 1 as core::ffi::c_int) as isize)
+                as *mut refmvs_block;
+            let a_b_dim: *const uint8_t = (dav1d_block_dimensions[(*a_r).bs as usize])
+                .as_ptr();
+            let step4: core::ffi::c_int = iclip(
+                *a_b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int,
+                2 as core::ffi::c_int,
+                16 as core::ffi::c_int,
+            ) as core::ffi::c_int;
+            if (*a_r).ref_0.ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                > 0 as core::ffi::c_int
+            {
+                let ow4: core::ffi::c_int = imin(
+                    step4,
+                    *b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int,
+                ) as core::ffi::c_int;
+                let oh4: core::ffi::c_int = imin(
+                    *b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int,
+                    16 as core::ffi::c_int,
+                ) as core::ffi::c_int >> 1 as core::ffi::c_int;
+                res = mc(
+                    t,
+                    lap,
+                    0 as *mut int16_t,
+                    ((ow4 * h_mul) as usize)
+                        .wrapping_mul(::core::mem::size_of::<pixel>() as usize)
+                        as ptrdiff_t,
+                    ow4,
+                    oh4 * 3 as core::ffi::c_int + 3 as core::ffi::c_int
+                        >> 2 as core::ffi::c_int,
+                    (*t).bx + x,
+                    (*t).by,
+                    pl,
+                    (*a_r).mv.mv[0 as core::ffi::c_int as usize],
+                    &*((*f).refp)
+                        .as_ptr()
+                        .offset(
+                            (*((*a_r).ref_0.ref_0)
+                                .as_ptr()
+                                .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                                - 1 as core::ffi::c_int) as isize,
+                        ),
+                    (*a_r).ref_0.ref_0[0 as core::ffi::c_int as usize]
+                        as core::ffi::c_int - 1 as core::ffi::c_int,
+                    dav1d_filter_2d[(*(*t).a)
+                        .filter[1 as core::ffi::c_int
+                        as usize][(bx4 + x + 1 as core::ffi::c_int) as usize]
+                        as usize][(*(*t).a)
+                        .filter[0 as core::ffi::c_int
+                        as usize][(bx4 + x + 1 as core::ffi::c_int) as usize] as usize]
+                        as Filter2d,
+                );
+                if res != 0 {
+                    return res;
+                }
+                ((*(*f).dsp).mc.blend_h)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    &raw mut *dst.offset((x * h_mul) as isize),
+                    dst_stride,
+                    lap,
+                    h_mul * ow4,
+                    v_mul * oh4,
+                );
+                i += 1;
+            }
+            x += step4;
+        }
+    }
+    if (*t).bx > (*(*t).ts).tiling.col_start {
+        let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
+        let mut y: core::ffi::c_int = 0 as core::ffi::c_int;
+        while y < h4
+            && i_0
+                < imin(
+                    *b_dim.offset(3 as core::ffi::c_int as isize) as core::ffi::c_int,
+                    4 as core::ffi::c_int,
+                )
+        {
+            let l_r: *const refmvs_block = &raw mut *(*r
+                .offset((y + 1 as core::ffi::c_int) as isize))
+                .offset(((*t).bx - 1 as core::ffi::c_int) as isize) as *mut refmvs_block;
+            let l_b_dim: *const uint8_t = (dav1d_block_dimensions[(*l_r).bs as usize])
+                .as_ptr();
+            let step4_0: core::ffi::c_int = iclip(
+                *l_b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int,
+                2 as core::ffi::c_int,
+                16 as core::ffi::c_int,
+            ) as core::ffi::c_int;
+            if (*l_r).ref_0.ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                > 0 as core::ffi::c_int
+            {
+                let ow4_0: core::ffi::c_int = imin(
+                    *b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int,
+                    16 as core::ffi::c_int,
+                ) as core::ffi::c_int >> 1 as core::ffi::c_int;
+                let oh4_0: core::ffi::c_int = imin(
+                    step4_0,
+                    *b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int,
+                ) as core::ffi::c_int;
+                res = mc(
+                    t,
+                    lap,
+                    0 as *mut int16_t,
+                    ((h_mul * ow4_0) as usize)
+                        .wrapping_mul(::core::mem::size_of::<pixel>() as usize)
+                        as ptrdiff_t,
+                    ow4_0,
+                    oh4_0,
+                    (*t).bx,
+                    (*t).by + y,
+                    pl,
+                    (*l_r).mv.mv[0 as core::ffi::c_int as usize],
+                    &*((*f).refp)
+                        .as_ptr()
+                        .offset(
+                            (*((*l_r).ref_0.ref_0)
+                                .as_ptr()
+                                .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                                - 1 as core::ffi::c_int) as isize,
+                        ),
+                    (*l_r).ref_0.ref_0[0 as core::ffi::c_int as usize]
+                        as core::ffi::c_int - 1 as core::ffi::c_int,
+                    dav1d_filter_2d[(*t)
+                        .l
+                        .filter[1 as core::ffi::c_int
+                        as usize][(by4 + y + 1 as core::ffi::c_int) as usize]
+                        as usize][(*t)
+                        .l
+                        .filter[0 as core::ffi::c_int
+                        as usize][(by4 + y + 1 as core::ffi::c_int) as usize] as usize]
+                        as Filter2d,
+                );
+                if res != 0 {
+                    return res;
+                }
+                ((*(*f).dsp).mc.blend_v)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    &raw mut *dst.offset(((y * v_mul) as ptrdiff_t * dst_stride) as isize),
+                    dst_stride,
+                    lap,
+                    h_mul * ow4_0,
+                    v_mul * oh4_0,
+                );
+                i_0 += 1;
+            }
+            y += step4_0;
+        }
+    }
+    return 0 as core::ffi::c_int;
+}
+unsafe extern "C" fn warp_affine(
+    t: *mut Dav1dTaskContext,
+    mut dst8: *mut pixel,
+    mut dst16: *mut int16_t,
+    dstride: ptrdiff_t,
+    b_dim: *const uint8_t,
+    pl: core::ffi::c_int,
+    refp: *const Dav1dThreadPicture,
+    wmp: *const Dav1dWarpedMotionParams,
+) -> core::ffi::c_int {
+    if ((dst8 != 0 as *mut core::ffi::c_void as *mut pixel) as core::ffi::c_int
+        ^ (dst16 != 0 as *mut core::ffi::c_void as *mut int16_t) as core::ffi::c_int
+        == 0) as core::ffi::c_int as core::ffi::c_long != 0
+    {
+        crate::platform::assertion(
+            (::core::mem::transmute::<
+                [u8; 12],
+                [core::ffi::c_char; 12],
+            >(*b"warp_affine\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            1121 as core::ffi::c_int,
+            b"(dst8 != NULL) ^ (dst16 != NULL)\0" as *const u8
+                as *const core::ffi::c_char,
+        );
+    } else {};
+    let f: *const Dav1dFrameContext = (*t).f;
+    let dsp: *const Dav1dDSPContext = (*f).dsp;
+    let ss_ver: core::ffi::c_int = (pl != 0
+        && (*f).cur.p.layout as core::ffi::c_uint
+            == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let ss_hor: core::ffi::c_int = (pl != 0
+        && (*f).cur.p.layout as core::ffi::c_uint
+            != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let h_mul: core::ffi::c_int = 4 as core::ffi::c_int >> ss_hor;
+    let v_mul: core::ffi::c_int = 4 as core::ffi::c_int >> ss_ver;
+    if !(*b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int * h_mul
+        & 7 as core::ffi::c_int == 0
+        && *b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int * v_mul
+            & 7 as core::ffi::c_int == 0) as core::ffi::c_int as core::ffi::c_long != 0
+    {
+        crate::platform::assertion(
+            (::core::mem::transmute::<
+                [u8; 12],
+                [core::ffi::c_char; 12],
+            >(*b"warp_affine\0"))
+                .as_ptr(),
+            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+            1127 as core::ffi::c_int,
+            b"!((b_dim[0] * h_mul) & 7) && !((b_dim[1] * v_mul) & 7)\0" as *const u8
+                as *const core::ffi::c_char,
+        );
+    } else {};
+    let mat: *const int32_t = ((*wmp).matrix).as_ptr();
+    let width: core::ffi::c_int = (*refp).p.p.w + ss_hor >> ss_hor;
+    let height: core::ffi::c_int = (*refp).p.p.h + ss_ver >> ss_ver;
+    let mut y: core::ffi::c_int = 0 as core::ffi::c_int;
+    while y < *b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int * v_mul {
+        let src_y: core::ffi::c_int = (*t).by * 4 as core::ffi::c_int
+            + ((y + 4 as core::ffi::c_int) << ss_ver);
+        let mat3_y: int64_t = *mat.offset(3 as core::ffi::c_int as isize) as int64_t
+            * src_y as int64_t + *mat.offset(0 as core::ffi::c_int as isize) as int64_t;
+        let mat5_y: int64_t = *mat.offset(5 as core::ffi::c_int as isize) as int64_t
+            * src_y as int64_t + *mat.offset(1 as core::ffi::c_int as isize) as int64_t;
+        let mut x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while x
+            < *b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int * h_mul
+        {
+            let src_x: core::ffi::c_int = (*t).bx * 4 as core::ffi::c_int
+                + ((x + 4 as core::ffi::c_int) << ss_hor);
+            let mvx: int64_t = *mat.offset(2 as core::ffi::c_int as isize) as int64_t
+                * src_x as int64_t + mat3_y >> ss_hor;
+            let mvy: int64_t = *mat.offset(4 as core::ffi::c_int as isize) as int64_t
+                * src_x as int64_t + mat5_y >> ss_ver;
+            let dx: core::ffi::c_int = (mvx >> 16 as core::ffi::c_int)
+                as core::ffi::c_int - 4 as core::ffi::c_int;
+            let mx: core::ffi::c_int = (mvx as core::ffi::c_int
+                & 0xffff as core::ffi::c_int)
+                - (*wmp).u.p.alpha as core::ffi::c_int * 4 as core::ffi::c_int
+                - (*wmp).u.p.beta as core::ffi::c_int * 7 as core::ffi::c_int
+                & !(0x3f as core::ffi::c_int);
+            let dy: core::ffi::c_int = (mvy >> 16 as core::ffi::c_int)
+                as core::ffi::c_int - 4 as core::ffi::c_int;
+            let my: core::ffi::c_int = (mvy as core::ffi::c_int
+                & 0xffff as core::ffi::c_int)
+                - (*wmp).u.p.gamma as core::ffi::c_int * 4 as core::ffi::c_int
+                - (*wmp).u.p.delta as core::ffi::c_int * 4 as core::ffi::c_int
+                & !(0x3f as core::ffi::c_int);
+            let mut ref_ptr: *const pixel = 0 as *const pixel;
+            let mut ref_stride: ptrdiff_t = (*refp)
+                .p
+                .stride[(pl != 0) as core::ffi::c_int as usize];
+            if dx < 3 as core::ffi::c_int
+                || dx + 8 as core::ffi::c_int + 4 as core::ffi::c_int > width
+                || dy < 3 as core::ffi::c_int
+                || dy + 8 as core::ffi::c_int + 4 as core::ffi::c_int > height
+            {
+                let emu_edge_buf: *mut pixel = ((*t)
+                    .scratch
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .emu_edge_8bpc)
+                    .as_mut_ptr() as *mut pixel;
+                ((*(*f).dsp).mc.emu_edge)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    15 as intptr_t,
+                    15 as intptr_t,
+                    width as intptr_t,
+                    height as intptr_t,
+                    (dx - 3 as core::ffi::c_int) as intptr_t,
+                    (dy - 3 as core::ffi::c_int) as intptr_t,
+                    emu_edge_buf,
+                    (32 as usize).wrapping_mul(::core::mem::size_of::<pixel>() as usize)
+                        as ptrdiff_t,
+                    (*refp).p.data[pl as usize] as *const pixel,
+                    ref_stride,
+                );
+                ref_ptr = &raw mut *emu_edge_buf
+                    .offset(
+                        (32 as core::ffi::c_int * 3 as core::ffi::c_int
+                            + 3 as core::ffi::c_int) as isize,
+                    ) as *mut pixel;
+                ref_stride = (32 as usize)
+                    .wrapping_mul(::core::mem::size_of::<pixel>() as usize) as ptrdiff_t;
+            } else {
+                ref_ptr = ((*refp).p.data[pl as usize] as *mut pixel)
+                    .offset((ref_stride * dy as ptrdiff_t) as isize)
+                    .offset(dx as isize);
+            }
+            if !dst16.is_null() {
+                ((*dsp).mc.warp8x8t)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    &raw mut *dst16.offset(x as isize),
+                    dstride,
+                    ref_ptr,
+                    ref_stride,
+                    ((*wmp).u.abcd).as_ptr(),
+                    mx,
+                    my,
+                );
+            } else {
+                ((*dsp).mc.warp8x8)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    &raw mut *dst8.offset(x as isize),
+                    dstride,
+                    ref_ptr,
+                    ref_stride,
+                    ((*wmp).u.abcd).as_ptr(),
+                    mx,
+                    my,
+                );
+            }
+            x += 8 as core::ffi::c_int;
+        }
+        if !dst8.is_null() {
+            dst8 = dst8.offset((8 as ptrdiff_t * dstride) as isize);
+        } else {
+            dst16 = dst16.offset((8 as ptrdiff_t * dstride) as isize);
+        }
+        y += 8 as core::ffi::c_int;
+    }
+    return 0 as core::ffi::c_int;
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_recon_b_intra_8bpc(
+    t: *mut Dav1dTaskContext,
+    bs: BlockSize,
+    intra_edge_flags: EdgeFlags,
+    b: *const Av1Block,
+) {
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let f: *const Dav1dFrameContext = (*t).f;
+    let dsp: *const Dav1dDSPContext = (*f).dsp;
+    let bx4: core::ffi::c_int = (*t).bx & 31 as core::ffi::c_int;
+    let by4: core::ffi::c_int = (*t).by & 31 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let ss_hor: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let cbx4: core::ffi::c_int = bx4 >> ss_hor;
+    let cby4: core::ffi::c_int = by4 >> ss_ver;
+    let b_dim: *const uint8_t = (dav1d_block_dimensions[bs as usize]).as_ptr();
+    let bw4: core::ffi::c_int = *b_dim.offset(0 as core::ffi::c_int as isize)
+        as core::ffi::c_int;
+    let bh4: core::ffi::c_int = *b_dim.offset(1 as core::ffi::c_int as isize)
+        as core::ffi::c_int;
+    let w4: core::ffi::c_int = imin(bw4, (*f).bw - (*t).bx) as core::ffi::c_int;
+    let h4: core::ffi::c_int = imin(bh4, (*f).bh - (*t).by) as core::ffi::c_int;
+    let cw4: core::ffi::c_int = w4 + ss_hor >> ss_hor;
+    let ch4: core::ffi::c_int = h4 + ss_ver >> ss_ver;
+    let has_chroma: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I400 as core::ffi::c_int as core::ffi::c_uint
+        && (bw4 > ss_hor || (*t).bx & 1 as core::ffi::c_int != 0)
+        && (bh4 > ss_ver || (*t).by & 1 as core::ffi::c_int != 0)) as core::ffi::c_int;
+    let t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions
+        .as_ptr()
+        .offset((*b).c2rust_unnamed.c2rust_unnamed.tx as isize) as *const TxfmInfo;
+    let uv_t_dim: *const TxfmInfo = &*dav1d_txfm_dimensions
+        .as_ptr()
+        .offset((*b).uvtx as isize) as *const TxfmInfo;
+    let edge: *mut pixel = ((*t)
+        .scratch
+        .c2rust_unnamed_0
+        .c2rust_unnamed_1
+        .c2rust_unnamed
+        .edge_8bpc)
+        .as_mut_ptr()
+        .offset(128 as core::ffi::c_int as isize);
+    let cbw4: core::ffi::c_int = bw4 + ss_hor >> ss_hor;
+    let cbh4: core::ffi::c_int = bh4 + ss_ver >> ss_ver;
+    let intra_edge_filter_flag: core::ffi::c_int = ((*(*f).seq_hdr).intra_edge_filter
+        as core::ffi::c_int) << 10 as core::ffi::c_int;
+    let mut init_y: core::ffi::c_int = 0 as core::ffi::c_int;
+    while init_y < h4 {
+        let sub_h4: core::ffi::c_int = imin(h4, 16 as core::ffi::c_int + init_y)
+            as core::ffi::c_int;
+        let sub_ch4: core::ffi::c_int = imin(
+            ch4,
+            init_y + 16 as core::ffi::c_int >> ss_ver,
+        ) as core::ffi::c_int;
+        let mut init_x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while init_x < w4 {
+            if (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[0 as core::ffi::c_int as usize]
+                != 0
+            {
+                let mut dst: *mut pixel = ((*f).cur.data[0 as core::ffi::c_int as usize]
+                    as *mut pixel)
+                    .offset(
+                        (4 as ptrdiff_t
+                            * ((*t).by as ptrdiff_t
+                                * (*f).cur.stride[0 as core::ffi::c_int as usize]
+                                + (*t).bx as ptrdiff_t)) as isize,
+                    );
+                let mut pal_idx: *const uint8_t = 0 as *const uint8_t;
+                if (*t).frame_thread.pass != 0 {
+                    let p: core::ffi::c_int = (*t).frame_thread.pass
+                        & 1 as core::ffi::c_int;
+                    if ((*ts).frame_thread[p as usize].pal_idx).is_null()
+                        as core::ffi::c_int as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 25],
+                                [core::ffi::c_char; 25],
+                            >(*b"dav1d_recon_b_intra_8bpc\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            1213 as core::ffi::c_int,
+                            b"ts->frame_thread[p].pal_idx\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    } else {};
+                    pal_idx = (*ts).frame_thread[p as usize].pal_idx;
+                    (*ts).frame_thread[p as usize].pal_idx = ((*ts)
+                        .frame_thread[p as usize]
+                        .pal_idx)
+                        .offset((bw4 * bh4 * 8 as core::ffi::c_int) as isize);
+                } else {
+                    pal_idx = ((*t).scratch.c2rust_unnamed_0.pal_idx_y).as_mut_ptr();
+                }
+                let pal: *const pixel = if (*t).frame_thread.pass != 0 {
+                    ((*((*f).frame_thread.pal)
+                        .offset(
+                            ((((*t).by >> 1 as core::ffi::c_int)
+                                + ((*t).bx & 1 as core::ffi::c_int)) as ptrdiff_t
+                                * ((*f).b4_stride >> 1 as core::ffi::c_int)
+                                + (((*t).bx >> 1 as core::ffi::c_int)
+                                    + ((*t).by & 1 as core::ffi::c_int)) as ptrdiff_t) as isize,
+                        ))[0 as core::ffi::c_int as usize])
+                        .as_mut_ptr() as *mut uint8_t
+                } else {
+                    ((*t)
+                        .scratch
+                        .c2rust_unnamed_0
+                        .c2rust_unnamed_1
+                        .c2rust_unnamed
+                        .pal_8bpc[0 as core::ffi::c_int as usize])
+                        .as_mut_ptr()
+                };
+                ((*(*f).dsp).ipred.pal_pred)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    dst,
+                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                    pal,
+                    pal_idx,
+                    bw4 * 4 as core::ffi::c_int,
+                    bh4 * 4 as core::ffi::c_int,
+                );
+                if 0 as core::ffi::c_int != 0
+                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                    && (*t).by < 4 as core::ffi::c_int
+                    && (*t).bx >= 8 as core::ffi::c_int
+                    && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                {
+                    hex_dump(
+                        dst,
+                        (*f).cur.stride[0 as core::ffi::c_int as usize],
+                        bw4 * 4 as core::ffi::c_int,
+                        bh4 * 4 as core::ffi::c_int,
+                        b"y-pal-pred\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                }
+            }
+            let intra_flags: core::ffi::c_int = sm_flag((*t).a, bx4) as core::ffi::c_int
+                | sm_flag(&raw mut (*t).l, by4) as core::ffi::c_int | intra_edge_filter_flag;
+            let sb_has_tr: core::ffi::c_int = (if (init_x + 16 as core::ffi::c_int) < w4
+            {
+                1 as core::ffi::c_uint
+            } else if init_y != 0 {
+                0 as core::ffi::c_uint
+            } else {
+                intra_edge_flags as core::ffi::c_uint
+                    & EDGE_I444_TOP_HAS_RIGHT as core::ffi::c_int as core::ffi::c_uint
+            }) as core::ffi::c_int;
+            let sb_has_bl: core::ffi::c_int = (if init_x != 0 {
+                0 as core::ffi::c_uint
+            } else if (init_y + 16 as core::ffi::c_int) < h4 {
+                1 as core::ffi::c_uint
+            } else {
+                intra_edge_flags as core::ffi::c_uint
+                    & EDGE_I444_LEFT_HAS_BOTTOM as core::ffi::c_int as core::ffi::c_uint
+            }) as core::ffi::c_int;
+            let mut y: core::ffi::c_int = 0;
+            let mut x: core::ffi::c_int = 0;
+            let sub_w4: core::ffi::c_int = imin(w4, init_x + 16 as core::ffi::c_int)
+                as core::ffi::c_int;
+            y = init_y;
+            (*t).by += init_y;
+            while y < sub_h4 {
+                let mut dst_0: *mut pixel = ((*f)
+                    .cur
+                    .data[0 as core::ffi::c_int as usize] as *mut pixel)
+                    .offset(
+                        (4 as ptrdiff_t
+                            * ((*t).by as ptrdiff_t
+                                * (*f).cur.stride[0 as core::ffi::c_int as usize]
+                                + (*t).bx as ptrdiff_t + init_x as ptrdiff_t)) as isize,
+                    );
+                x = init_x;
+                (*t).bx += init_x;
+                while x < sub_w4 {
+                    let mut angle: core::ffi::c_int = 0;
+                    let mut edge_flags: EdgeFlags = 0 as EdgeFlags;
+                    let mut top_sb_edge: *const pixel = 0 as *const pixel;
+                    let mut m: IntraPredMode = DC_PRED;
+                    if !((*b)
+                        .c2rust_unnamed
+                        .c2rust_unnamed
+                        .pal_sz[0 as core::ffi::c_int as usize] != 0)
+                    {
+                        angle = (*b).c2rust_unnamed.c2rust_unnamed.y_angle
+                            as core::ffi::c_int;
+                        edge_flags = ((if (y > init_y || sb_has_tr == 0)
+                            && x + (*t_dim).w as core::ffi::c_int >= sub_w4
+                        {
+                            0 as core::ffi::c_int
+                        } else {
+                            EDGE_I444_TOP_HAS_RIGHT as core::ffi::c_int
+                        })
+                            | (if x > init_x
+                                || sb_has_bl == 0
+                                    && y + (*t_dim).h as core::ffi::c_int >= sub_h4
+                            {
+                                0 as core::ffi::c_int
+                            } else {
+                                EDGE_I444_LEFT_HAS_BOTTOM as core::ffi::c_int
+                            })) as EdgeFlags;
+                        top_sb_edge = 0 as *const pixel;
+                        if (*t).by & (*f).sb_step - 1 as core::ffi::c_int == 0 {
+                            top_sb_edge = (*f)
+                                .ipred_edge[0 as core::ffi::c_int as usize];
+                            let sby: core::ffi::c_int = (*t).by >> (*f).sb_shift;
+                            top_sb_edge = top_sb_edge
+                                .offset(
+                                    ((*f).sb128w * 128 as core::ffi::c_int
+                                        * (sby - 1 as core::ffi::c_int)) as isize,
+                                );
+                        }
+                        m = dav1d_prepare_intra_edges_8bpc(
+                            (*t).bx,
+                            ((*t).bx > (*ts).tiling.col_start) as core::ffi::c_int,
+                            (*t).by,
+                            ((*t).by > (*ts).tiling.row_start) as core::ffi::c_int,
+                            (*ts).tiling.col_end,
+                            (*ts).tiling.row_end,
+                            edge_flags,
+                            dst_0,
+                            (*f).cur.stride[0 as core::ffi::c_int as usize],
+                            top_sb_edge,
+                            (*b).c2rust_unnamed.c2rust_unnamed.y_mode as IntraPredMode,
+                            &raw mut angle,
+                            (*t_dim).w as core::ffi::c_int,
+                            (*t_dim).h as core::ffi::c_int,
+                            (*(*f).seq_hdr).intra_edge_filter as core::ffi::c_int,
+                            edge,
+                        ) as IntraPredMode;
+                        ((*dsp).ipred.intra_pred[m as usize])
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            dst_0,
+                            (*f).cur.stride[0 as core::ffi::c_int as usize],
+                            edge,
+                            (*t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                            (*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                            angle | intra_flags,
+                            4 as core::ffi::c_int * (*f).bw
+                                - 4 as core::ffi::c_int * (*t).bx,
+                            4 as core::ffi::c_int * (*f).bh
+                                - 4 as core::ffi::c_int * (*t).by,
+                        );
+                        if 0 as core::ffi::c_int != 0
+                            && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                            && (*t).by < 4 as core::ffi::c_int
+                            && (*t).bx >= 8 as core::ffi::c_int
+                            && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                        {
+                            hex_dump(
+                                edge
+                                    .offset(
+                                        -(((*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int)
+                                            as isize),
+                                    ),
+                                ((*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int)
+                                    as ptrdiff_t,
+                                (*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                2 as core::ffi::c_int,
+                                b"l\0" as *const u8 as *const core::ffi::c_char,
+                            );
+                            hex_dump(
+                                edge,
+                                0 as ptrdiff_t,
+                                1 as core::ffi::c_int,
+                                1 as core::ffi::c_int,
+                                b"tl\0" as *const u8 as *const core::ffi::c_char,
+                            );
+                            hex_dump(
+                                edge.offset(1 as core::ffi::c_int as isize),
+                                ((*t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int)
+                                    as ptrdiff_t,
+                                (*t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                2 as core::ffi::c_int,
+                                b"t\0" as *const u8 as *const core::ffi::c_char,
+                            );
+                            hex_dump(
+                                dst_0,
+                                (*f).cur.stride[0 as core::ffi::c_int as usize],
+                                (*t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                (*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                b"y-intra-pred\0" as *const u8 as *const core::ffi::c_char,
+                            );
+                        }
+                    }
+                    if (*b).skip == 0 {
+                        let mut cf: *mut coef = 0 as *mut coef;
+                        let mut eob: core::ffi::c_int = 0;
+                        let mut txtp: TxfmType = DCT_DCT;
+                        if (*t).frame_thread.pass != 0 {
+                            let p_0: core::ffi::c_int = (*t).frame_thread.pass
+                                & 1 as core::ffi::c_int;
+                            let fresh3 = (*ts).frame_thread[p_0 as usize].cbi;
+                            (*ts).frame_thread[p_0 as usize].cbi = ((*ts)
+                                .frame_thread[p_0 as usize]
+                                .cbi)
+                                .offset(1);
+                            let cbi: core::ffi::c_int = *fresh3 as core::ffi::c_int;
+                            cf = (*ts).frame_thread[p_0 as usize].cf;
+                            (*ts).frame_thread[p_0 as usize].cf = ((*ts)
+                                .frame_thread[p_0 as usize]
+                                .cf)
+                                .offset(
+                                    (imin((*t_dim).w as core::ffi::c_int, 8 as core::ffi::c_int)
+                                        * imin(
+                                            (*t_dim).h as core::ffi::c_int,
+                                            8 as core::ffi::c_int,
+                                        ) * 16 as core::ffi::c_int) as isize,
+                                );
+                            eob = cbi >> 5 as core::ffi::c_int;
+                            txtp = (cbi & 0x1f as core::ffi::c_int) as TxfmType;
+                        } else {
+                            let mut cf_ctx: uint8_t = 0;
+                            cf = ((*t).c2rust_unnamed.cf_8bpc).as_mut_ptr() as *mut coef;
+                            eob = decode_coefs(
+                                t,
+                                &raw mut *((*(*t).a).lcoef)
+                                    .as_mut_ptr()
+                                    .offset((bx4 + x) as isize),
+                                &raw mut *((*t).l.lcoef)
+                                    .as_mut_ptr()
+                                    .offset((by4 + y) as isize),
+                                (*b).c2rust_unnamed.c2rust_unnamed.tx as RectTxfmSize,
+                                bs,
+                                b,
+                                1 as core::ffi::c_int,
+                                0 as core::ffi::c_int,
+                                cf,
+                                &raw mut txtp,
+                                &raw mut cf_ctx,
+                            );
+                            if 0 as core::ffi::c_int != 0
+                                && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                    == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                && (*t).by < 4 as core::ffi::c_int
+                                && (*t).bx >= 8 as core::ffi::c_int
+                                && (*t).bx < 12 as core::ffi::c_int
+                            {
+                                printf(
+                                    b"Post-y-cf-blk[tx=%d,txtp=%d,eob=%d]: r=%d\n\0"
+                                        as *const u8 as *const core::ffi::c_char,
+                                    (*b).c2rust_unnamed.c2rust_unnamed.tx as core::ffi::c_int,
+                                    txtp as core::ffi::c_uint,
+                                    eob,
+                                    (*ts).msac.rng,
+                                );
+                            }
+                            dav1d_memset_likely_pow2(
+                                &raw mut *((*(*t).a).lcoef)
+                                    .as_mut_ptr()
+                                    .offset((bx4 + x) as isize) as *mut uint8_t
+                                    as *mut core::ffi::c_void,
+                                cf_ctx as core::ffi::c_int,
+                                imin((*t_dim).w as core::ffi::c_int, (*f).bw - (*t).bx),
+                            );
+                            dav1d_memset_likely_pow2(
+                                &raw mut *((*t).l.lcoef).as_mut_ptr().offset((by4 + y) as isize)
+                                    as *mut uint8_t as *mut core::ffi::c_void,
+                                cf_ctx as core::ffi::c_int,
+                                imin((*t_dim).h as core::ffi::c_int, (*f).bh - (*t).by),
+                            );
+                        }
+                        if eob >= 0 as core::ffi::c_int {
+                            if 0 as core::ffi::c_int != 0
+                                && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                    == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                && (*t).by < 4 as core::ffi::c_int
+                                && (*t).bx >= 8 as core::ffi::c_int
+                                && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                            {
+                                coef_dump(
+                                    cf,
+                                    imin((*t_dim).h as core::ffi::c_int, 8 as core::ffi::c_int)
+                                        * 4 as core::ffi::c_int,
+                                    imin((*t_dim).w as core::ffi::c_int, 8 as core::ffi::c_int)
+                                        * 4 as core::ffi::c_int,
+                                    3 as core::ffi::c_int,
+                                    b"dq\0" as *const u8 as *const core::ffi::c_char,
+                                );
+                            }
+                            ((*dsp)
+                                .itx
+                                .itxfm_add[(*b).c2rust_unnamed.c2rust_unnamed.tx
+                                as usize][txtp as usize])
+                                .expect(
+                                    "non-null function pointer",
+                                )(
+                                dst_0,
+                                (*f).cur.stride[0 as core::ffi::c_int as usize],
+                                cf,
+                                eob,
+                            );
+                            if 0 as core::ffi::c_int != 0
+                                && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                    == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                && (*t).by < 4 as core::ffi::c_int
+                                && (*t).bx >= 8 as core::ffi::c_int
+                                && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                            {
+                                hex_dump(
+                                    dst_0,
+                                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                                    (*t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                    (*t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                    b"recon\0" as *const u8 as *const core::ffi::c_char,
+                                );
+                            }
+                        }
+                    } else if (*t).frame_thread.pass == 0 {
+                        (dav1d_memset_pow2[(*t_dim).lw as usize])
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            &raw mut *((*(*t).a).lcoef)
+                                .as_mut_ptr()
+                                .offset((bx4 + x) as isize) as *mut uint8_t
+                                as *mut core::ffi::c_void,
+                            0x40 as core::ffi::c_int,
+                        );
+                        (dav1d_memset_pow2[(*t_dim).lh as usize])
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            &raw mut *((*t).l.lcoef).as_mut_ptr().offset((by4 + y) as isize)
+                                as *mut uint8_t as *mut core::ffi::c_void,
+                            0x40 as core::ffi::c_int,
+                        );
+                    }
+                    dst_0 = dst_0
+                        .offset(
+                            (4 as core::ffi::c_int * (*t_dim).w as core::ffi::c_int)
+                                as isize,
+                        );
+                    x += (*t_dim).w as core::ffi::c_int;
+                    (*t).bx += (*t_dim).w as core::ffi::c_int;
+                }
+                (*t).bx -= x;
+                y += (*t_dim).h as core::ffi::c_int;
+                (*t).by += (*t_dim).h as core::ffi::c_int;
+            }
+            (*t).by -= y;
+            if !(has_chroma == 0) {
+                let stride: ptrdiff_t = (*f).cur.stride[1 as core::ffi::c_int as usize];
+                if (*b).c2rust_unnamed.c2rust_unnamed.uv_mode as core::ffi::c_int
+                    == CFL_PRED as core::ffi::c_int
+                {
+                    if !(init_x == 0 && init_y == 0) as core::ffi::c_int
+                        as core::ffi::c_long != 0
+                    {
+                        crate::platform::assertion(
+                            (::core::mem::transmute::<
+                                [u8; 25],
+                                [core::ffi::c_char; 25],
+                            >(*b"dav1d_recon_b_intra_8bpc\0"))
+                                .as_ptr(),
+                            b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                            1343 as core::ffi::c_int,
+                            b"!init_x && !init_y\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    } else {};
+                    let ac: *mut int16_t = ((*t)
+                        .scratch
+                        .c2rust_unnamed_0
+                        .c2rust_unnamed_0
+                        .ac)
+                        .as_mut_ptr();
+                    let mut y_src: *mut pixel = ((*f)
+                        .cur
+                        .data[0 as core::ffi::c_int as usize] as *mut pixel)
+                        .offset((4 as core::ffi::c_int * ((*t).bx & !ss_hor)) as isize)
+                        .offset(
+                            ((4 as core::ffi::c_int * ((*t).by & !ss_ver)) as ptrdiff_t
+                                * (*f).cur.stride[0 as core::ffi::c_int as usize]) as isize,
+                        );
+                    let uv_off: ptrdiff_t = 4 as ptrdiff_t
+                        * (((*t).bx >> ss_hor) as ptrdiff_t
+                            + ((*t).by >> ss_ver) as ptrdiff_t * stride);
+                    let uv_dst: [*mut pixel; 2] = [
+                        ((*f).cur.data[1 as core::ffi::c_int as usize] as *mut pixel)
+                            .offset(uv_off as isize),
+                        ((*f).cur.data[2 as core::ffi::c_int as usize] as *mut pixel)
+                            .offset(uv_off as isize),
+                    ];
+                    let furthest_r: core::ffi::c_int = (cw4 << ss_hor)
+                        + (*t_dim).w as core::ffi::c_int - 1 as core::ffi::c_int
+                        & !((*t_dim).w as core::ffi::c_int - 1 as core::ffi::c_int);
+                    let furthest_b: core::ffi::c_int = (ch4 << ss_ver)
+                        + (*t_dim).h as core::ffi::c_int - 1 as core::ffi::c_int
+                        & !((*t_dim).h as core::ffi::c_int - 1 as core::ffi::c_int);
+                    ((*dsp)
+                        .ipred
+                        .cfl_ac[((*f).cur.p.layout as core::ffi::c_uint)
+                        .wrapping_sub(1 as core::ffi::c_uint) as usize])
+                        .expect(
+                            "non-null function pointer",
+                        )(
+                        ac,
+                        y_src,
+                        (*f).cur.stride[0 as core::ffi::c_int as usize],
+                        cbw4 - (furthest_r >> ss_hor),
+                        cbh4 - (furthest_b >> ss_ver),
+                        cbw4 * 4 as core::ffi::c_int,
+                        cbh4 * 4 as core::ffi::c_int,
+                    );
+                    let mut pl: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl < 2 as core::ffi::c_int {
+                        if !((*b).c2rust_unnamed.c2rust_unnamed.cfl_alpha[pl as usize]
+                            == 0)
+                        {
+                            let mut angle_0: core::ffi::c_int = 0 as core::ffi::c_int;
+                            let mut top_sb_edge_0: *const pixel = 0 as *const pixel;
+                            if (*t).by & !ss_ver & (*f).sb_step - 1 as core::ffi::c_int
+                                == 0
+                            {
+                                top_sb_edge_0 = (*f)
+                                    .ipred_edge[(pl + 1 as core::ffi::c_int) as usize];
+                                let sby_0: core::ffi::c_int = (*t).by >> (*f).sb_shift;
+                                top_sb_edge_0 = top_sb_edge_0
+                                    .offset(
+                                        ((*f).sb128w * 128 as core::ffi::c_int
+                                            * (sby_0 - 1 as core::ffi::c_int)) as isize,
+                                    );
+                            }
+                            let xpos: core::ffi::c_int = (*t).bx >> ss_hor;
+                            let ypos: core::ffi::c_int = (*t).by >> ss_ver;
+                            let xstart: core::ffi::c_int = (*ts).tiling.col_start
+                                >> ss_hor;
+                            let ystart: core::ffi::c_int = (*ts).tiling.row_start
+                                >> ss_ver;
+                            let m_0: IntraPredMode = dav1d_prepare_intra_edges_8bpc(
+                                xpos,
+                                (xpos > xstart) as core::ffi::c_int,
+                                ypos,
+                                (ypos > ystart) as core::ffi::c_int,
+                                (*ts).tiling.col_end >> ss_hor,
+                                (*ts).tiling.row_end >> ss_ver,
+                                0 as EdgeFlags,
+                                uv_dst[pl as usize],
+                                stride,
+                                top_sb_edge_0,
+                                DC_PRED,
+                                &raw mut angle_0,
+                                (*uv_t_dim).w as core::ffi::c_int,
+                                (*uv_t_dim).h as core::ffi::c_int,
+                                0 as core::ffi::c_int,
+                                edge,
+                            ) as IntraPredMode;
+                            ((*dsp).ipred.cfl_pred[m_0 as usize])
+                                .expect(
+                                    "non-null function pointer",
+                                )(
+                                uv_dst[pl as usize],
+                                stride,
+                                edge,
+                                (*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                (*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                ac,
+                                (*b).c2rust_unnamed.c2rust_unnamed.cfl_alpha[pl as usize]
+                                    as core::ffi::c_int,
+                            );
+                        }
+                        pl += 1;
+                    }
+                    if 0 as core::ffi::c_int != 0
+                        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                            == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                        && (*t).by < 4 as core::ffi::c_int
+                        && (*t).bx >= 8 as core::ffi::c_int
+                        && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                    {
+                        ac_dump(
+                            ac,
+                            4 as core::ffi::c_int * cbw4,
+                            4 as core::ffi::c_int * cbh4,
+                            b"ac\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                        hex_dump(
+                            uv_dst[0 as core::ffi::c_int as usize],
+                            stride,
+                            cbw4 * 4 as core::ffi::c_int,
+                            cbh4 * 4 as core::ffi::c_int,
+                            b"u-cfl-pred\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                        hex_dump(
+                            uv_dst[1 as core::ffi::c_int as usize],
+                            stride,
+                            cbw4 * 4 as core::ffi::c_int,
+                            cbh4 * 4 as core::ffi::c_int,
+                            b"v-cfl-pred\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                    }
+                } else if (*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed
+                    .pal_sz[1 as core::ffi::c_int as usize] != 0
+                {
+                    let uv_dstoff: ptrdiff_t = 4 as ptrdiff_t
+                        * (((*t).bx >> ss_hor) as ptrdiff_t
+                            + ((*t).by >> ss_ver) as ptrdiff_t
+                                * (*f).cur.stride[1 as core::ffi::c_int as usize]);
+                    let mut pal_0: *const [pixel; 8] = 0 as *const [pixel; 8];
+                    let mut pal_idx_0: *const uint8_t = 0 as *const uint8_t;
+                    if (*t).frame_thread.pass != 0 {
+                        let p_1: core::ffi::c_int = (*t).frame_thread.pass
+                            & 1 as core::ffi::c_int;
+                        if ((*ts).frame_thread[p_1 as usize].pal_idx).is_null()
+                            as core::ffi::c_int as core::ffi::c_long != 0
+                        {
+                            crate::platform::assertion(
+                                (::core::mem::transmute::<
+                                    [u8; 25],
+                                    [core::ffi::c_char; 25],
+                                >(*b"dav1d_recon_b_intra_8bpc\0"))
+                                    .as_ptr(),
+                                b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                                1400 as core::ffi::c_int,
+                                b"ts->frame_thread[p].pal_idx\0" as *const u8
+                                    as *const core::ffi::c_char,
+                            );
+                        } else {};
+                        pal_0 = (*((*f).frame_thread.pal)
+                            .offset(
+                                ((((*t).by >> 1 as core::ffi::c_int)
+                                    + ((*t).bx & 1 as core::ffi::c_int)) as ptrdiff_t
+                                    * ((*f).b4_stride >> 1 as core::ffi::c_int)
+                                    + (((*t).bx >> 1 as core::ffi::c_int)
+                                        + ((*t).by & 1 as core::ffi::c_int)) as ptrdiff_t) as isize,
+                            ))
+                            .as_mut_ptr() as *const [pixel; 8];
+                        pal_idx_0 = (*ts).frame_thread[p_1 as usize].pal_idx;
+                        (*ts).frame_thread[p_1 as usize].pal_idx = ((*ts)
+                            .frame_thread[p_1 as usize]
+                            .pal_idx)
+                            .offset((cbw4 * cbh4 * 8 as core::ffi::c_int) as isize);
+                    } else {
+                        pal_0 = ((*t)
+                            .scratch
+                            .c2rust_unnamed_0
+                            .c2rust_unnamed_1
+                            .c2rust_unnamed
+                            .pal_8bpc)
+                            .as_mut_ptr() as *const [pixel; 8];
+                        pal_idx_0 = ((*t).scratch.c2rust_unnamed_0.pal_idx_uv)
+                            .as_mut_ptr();
+                    }
+                    ((*(*f).dsp).ipred.pal_pred)
+                        .expect(
+                            "non-null function pointer",
+                        )(
+                        ((*f).cur.data[1 as core::ffi::c_int as usize] as *mut pixel)
+                            .offset(uv_dstoff as isize),
+                        (*f).cur.stride[1 as core::ffi::c_int as usize],
+                        (*pal_0.offset(1 as core::ffi::c_int as isize)).as_ptr(),
+                        pal_idx_0,
+                        cbw4 * 4 as core::ffi::c_int,
+                        cbh4 * 4 as core::ffi::c_int,
+                    );
+                    ((*(*f).dsp).ipred.pal_pred)
+                        .expect(
+                            "non-null function pointer",
+                        )(
+                        ((*f).cur.data[2 as core::ffi::c_int as usize] as *mut pixel)
+                            .offset(uv_dstoff as isize),
+                        (*f).cur.stride[1 as core::ffi::c_int as usize],
+                        (*pal_0.offset(2 as core::ffi::c_int as isize)).as_ptr(),
+                        pal_idx_0,
+                        cbw4 * 4 as core::ffi::c_int,
+                        cbh4 * 4 as core::ffi::c_int,
+                    );
+                    if 0 as core::ffi::c_int != 0
+                        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                            == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                        && (*t).by < 4 as core::ffi::c_int
+                        && (*t).bx >= 8 as core::ffi::c_int
+                        && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                    {
+                        hex_dump(
+                            ((*f).cur.data[1 as core::ffi::c_int as usize] as *mut pixel)
+                                .offset(uv_dstoff as isize),
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            cbw4 * 4 as core::ffi::c_int,
+                            cbh4 * 4 as core::ffi::c_int,
+                            b"u-pal-pred\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                        hex_dump(
+                            ((*f).cur.data[2 as core::ffi::c_int as usize] as *mut pixel)
+                                .offset(uv_dstoff as isize),
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            cbw4 * 4 as core::ffi::c_int,
+                            cbh4 * 4 as core::ffi::c_int,
+                            b"v-pal-pred\0" as *const u8 as *const core::ffi::c_char,
+                        );
+                    }
+                }
+                let sm_uv_fl: core::ffi::c_int = sm_uv_flag((*t).a, cbx4)
+                    as core::ffi::c_int
+                    | sm_uv_flag(&raw mut (*t).l, cby4) as core::ffi::c_int;
+                let uv_sb_has_tr: core::ffi::c_int = (if init_x + 16 as core::ffi::c_int
+                    >> ss_hor < cw4
+                {
+                    1 as core::ffi::c_uint
+                } else if init_y != 0 {
+                    0 as core::ffi::c_uint
+                } else {
+                    intra_edge_flags as core::ffi::c_uint
+                        & (EDGE_I420_TOP_HAS_RIGHT as core::ffi::c_int
+                            >> ((*f).cur.p.layout as core::ffi::c_uint)
+                                .wrapping_sub(1 as core::ffi::c_uint)) as core::ffi::c_uint
+                }) as core::ffi::c_int;
+                let uv_sb_has_bl: core::ffi::c_int = (if init_x != 0 {
+                    0 as core::ffi::c_uint
+                } else if init_y + 16 as core::ffi::c_int >> ss_ver < ch4 {
+                    1 as core::ffi::c_uint
+                } else {
+                    intra_edge_flags as core::ffi::c_uint
+                        & (EDGE_I420_LEFT_HAS_BOTTOM as core::ffi::c_int
+                            >> ((*f).cur.p.layout as core::ffi::c_uint)
+                                .wrapping_sub(1 as core::ffi::c_uint)) as core::ffi::c_uint
+                }) as core::ffi::c_int;
+                let sub_cw4: core::ffi::c_int = imin(
+                    cw4,
+                    init_x + 16 as core::ffi::c_int >> ss_hor,
+                ) as core::ffi::c_int;
+                let mut pl_0: core::ffi::c_int = 0 as core::ffi::c_int;
+                while pl_0 < 2 as core::ffi::c_int {
+                    y = init_y >> ss_ver;
+                    (*t).by += init_y;
+                    while y < sub_ch4 {
+                        let mut dst_1: *mut pixel = ((*f)
+                            .cur
+                            .data[(1 as core::ffi::c_int + pl_0) as usize] as *mut pixel)
+                            .offset(
+                                (4 as ptrdiff_t
+                                    * (((*t).by >> ss_ver) as ptrdiff_t * stride
+                                        + ((*t).bx + init_x >> ss_hor) as ptrdiff_t)) as isize,
+                            );
+                        x = init_x >> ss_hor;
+                        (*t).bx += init_x;
+                        while x < sub_cw4 {
+                            let mut angle_1: core::ffi::c_int = 0;
+                            let mut edge_flags_0: EdgeFlags = 0 as EdgeFlags;
+                            let mut top_sb_edge_1: *const pixel = 0 as *const pixel;
+                            let mut uv_mode: IntraPredMode = DC_PRED;
+                            let mut xpos_0: core::ffi::c_int = 0;
+                            let mut ypos_0: core::ffi::c_int = 0;
+                            let mut xstart_0: core::ffi::c_int = 0;
+                            let mut ystart_0: core::ffi::c_int = 0;
+                            let mut m_1: IntraPredMode = DC_PRED;
+                            if !((*b).c2rust_unnamed.c2rust_unnamed.uv_mode
+                                as core::ffi::c_int == CFL_PRED as core::ffi::c_int
+                                && (*b)
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed
+                                    .cfl_alpha[pl_0 as usize] as core::ffi::c_int != 0
+                                || (*b)
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed
+                                    .pal_sz[1 as core::ffi::c_int as usize] as core::ffi::c_int
+                                    != 0)
+                            {
+                                angle_1 = (*b).c2rust_unnamed.c2rust_unnamed.uv_angle
+                                    as core::ffi::c_int;
+                                edge_flags_0 = ((if (y > init_y >> ss_ver
+                                    || uv_sb_has_tr == 0)
+                                    && x + (*uv_t_dim).w as core::ffi::c_int >= sub_cw4
+                                {
+                                    0 as core::ffi::c_int
+                                } else {
+                                    EDGE_I444_TOP_HAS_RIGHT as core::ffi::c_int
+                                })
+                                    | (if x > init_x >> ss_hor
+                                        || uv_sb_has_bl == 0
+                                            && y + (*uv_t_dim).h as core::ffi::c_int >= sub_ch4
+                                    {
+                                        0 as core::ffi::c_int
+                                    } else {
+                                        EDGE_I444_LEFT_HAS_BOTTOM as core::ffi::c_int
+                                    })) as EdgeFlags;
+                                top_sb_edge_1 = 0 as *const pixel;
+                                if (*t).by & !ss_ver & (*f).sb_step - 1 as core::ffi::c_int
+                                    == 0
+                                {
+                                    top_sb_edge_1 = (*f)
+                                        .ipred_edge[(1 as core::ffi::c_int + pl_0) as usize];
+                                    let sby_1: core::ffi::c_int = (*t).by >> (*f).sb_shift;
+                                    top_sb_edge_1 = top_sb_edge_1
+                                        .offset(
+                                            ((*f).sb128w * 128 as core::ffi::c_int
+                                                * (sby_1 - 1 as core::ffi::c_int)) as isize,
+                                        );
+                                }
+                                uv_mode = (if (*b).c2rust_unnamed.c2rust_unnamed.uv_mode
+                                    as core::ffi::c_int == CFL_PRED as core::ffi::c_int
+                                {
+                                    DC_PRED as core::ffi::c_int
+                                } else {
+                                    (*b).c2rust_unnamed.c2rust_unnamed.uv_mode
+                                        as core::ffi::c_int
+                                }) as IntraPredMode;
+                                xpos_0 = (*t).bx >> ss_hor;
+                                ypos_0 = (*t).by >> ss_ver;
+                                xstart_0 = (*ts).tiling.col_start >> ss_hor;
+                                ystart_0 = (*ts).tiling.row_start >> ss_ver;
+                                m_1 = dav1d_prepare_intra_edges_8bpc(
+                                    xpos_0,
+                                    (xpos_0 > xstart_0) as core::ffi::c_int,
+                                    ypos_0,
+                                    (ypos_0 > ystart_0) as core::ffi::c_int,
+                                    (*ts).tiling.col_end >> ss_hor,
+                                    (*ts).tiling.row_end >> ss_ver,
+                                    edge_flags_0,
+                                    dst_1,
+                                    stride,
+                                    top_sb_edge_1,
+                                    uv_mode,
+                                    &raw mut angle_1,
+                                    (*uv_t_dim).w as core::ffi::c_int,
+                                    (*uv_t_dim).h as core::ffi::c_int,
+                                    (*(*f).seq_hdr).intra_edge_filter as core::ffi::c_int,
+                                    edge,
+                                ) as IntraPredMode;
+                                angle_1 |= intra_edge_filter_flag;
+                                ((*dsp).ipred.intra_pred[m_1 as usize])
+                                    .expect(
+                                        "non-null function pointer",
+                                    )(
+                                    dst_1,
+                                    stride,
+                                    edge,
+                                    (*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                    (*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                    angle_1 | sm_uv_fl,
+                                    4 as core::ffi::c_int * (*f).bw + ss_hor
+                                        - 4 as core::ffi::c_int * ((*t).bx & !ss_hor) >> ss_hor,
+                                    4 as core::ffi::c_int * (*f).bh + ss_ver
+                                        - 4 as core::ffi::c_int * ((*t).by & !ss_ver) >> ss_ver,
+                                );
+                                if 0 as core::ffi::c_int != 0
+                                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                    && (*t).by < 4 as core::ffi::c_int
+                                    && (*t).bx >= 8 as core::ffi::c_int
+                                    && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                                {
+                                    hex_dump(
+                                        edge
+                                            .offset(
+                                                -(((*uv_t_dim).h as core::ffi::c_int
+                                                    * 4 as core::ffi::c_int) as isize),
+                                            ),
+                                        ((*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int)
+                                            as ptrdiff_t,
+                                        (*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        2 as core::ffi::c_int,
+                                        b"l\0" as *const u8 as *const core::ffi::c_char,
+                                    );
+                                    hex_dump(
+                                        edge,
+                                        0 as ptrdiff_t,
+                                        1 as core::ffi::c_int,
+                                        1 as core::ffi::c_int,
+                                        b"tl\0" as *const u8 as *const core::ffi::c_char,
+                                    );
+                                    hex_dump(
+                                        edge.offset(1 as core::ffi::c_int as isize),
+                                        ((*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int)
+                                            as ptrdiff_t,
+                                        (*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        2 as core::ffi::c_int,
+                                        b"t\0" as *const u8 as *const core::ffi::c_char,
+                                    );
+                                    hex_dump(
+                                        dst_1,
+                                        stride,
+                                        (*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        (*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        if pl_0 != 0 {
+                                            b"v-intra-pred\0" as *const u8 as *const core::ffi::c_char
+                                        } else {
+                                            b"u-intra-pred\0" as *const u8 as *const core::ffi::c_char
+                                        },
+                                    );
+                                }
+                            }
+                            if (*b).skip == 0 {
+                                let mut txtp_0: TxfmType = DCT_DCT;
+                                let mut eob_0: core::ffi::c_int = 0;
+                                let mut cf_0: *mut coef = 0 as *mut coef;
+                                if (*t).frame_thread.pass != 0 {
+                                    let p_2: core::ffi::c_int = (*t).frame_thread.pass
+                                        & 1 as core::ffi::c_int;
+                                    let fresh4 = (*ts).frame_thread[p_2 as usize].cbi;
+                                    (*ts).frame_thread[p_2 as usize].cbi = ((*ts)
+                                        .frame_thread[p_2 as usize]
+                                        .cbi)
+                                        .offset(1);
+                                    let cbi_0: core::ffi::c_int = *fresh4 as core::ffi::c_int;
+                                    cf_0 = (*ts).frame_thread[p_2 as usize].cf;
+                                    (*ts).frame_thread[p_2 as usize].cf = ((*ts)
+                                        .frame_thread[p_2 as usize]
+                                        .cf)
+                                        .offset(
+                                            ((*uv_t_dim).w as core::ffi::c_int
+                                                * (*uv_t_dim).h as core::ffi::c_int
+                                                * 16 as core::ffi::c_int) as isize,
+                                        );
+                                    eob_0 = cbi_0 >> 5 as core::ffi::c_int;
+                                    txtp_0 = (cbi_0 & 0x1f as core::ffi::c_int) as TxfmType;
+                                } else {
+                                    let mut cf_ctx_0: uint8_t = 0;
+                                    cf_0 = ((*t).c2rust_unnamed.cf_8bpc).as_mut_ptr()
+                                        as *mut coef;
+                                    eob_0 = decode_coefs(
+                                        t,
+                                        &raw mut *(*((*(*t).a).ccoef)
+                                            .as_mut_ptr()
+                                            .offset(pl_0 as isize))
+                                            .as_mut_ptr()
+                                            .offset((cbx4 + x) as isize),
+                                        &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl_0 as isize))
+                                            .as_mut_ptr()
+                                            .offset((cby4 + y) as isize),
+                                        (*b).uvtx as RectTxfmSize,
+                                        bs,
+                                        b,
+                                        1 as core::ffi::c_int,
+                                        1 as core::ffi::c_int + pl_0,
+                                        cf_0,
+                                        &raw mut txtp_0,
+                                        &raw mut cf_ctx_0,
+                                    );
+                                    if 0 as core::ffi::c_int != 0
+                                        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                            == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                        && (*t).by < 4 as core::ffi::c_int
+                                        && (*t).bx >= 8 as core::ffi::c_int
+                                        && (*t).bx < 12 as core::ffi::c_int
+                                    {
+                                        printf(
+                                            b"Post-uv-cf-blk[pl=%d,tx=%d,txtp=%d,eob=%d]: r=%d [x=%d,cbx4=%d]\n\0"
+                                                as *const u8 as *const core::ffi::c_char,
+                                            pl_0,
+                                            (*b).uvtx as core::ffi::c_int,
+                                            txtp_0 as core::ffi::c_uint,
+                                            eob_0,
+                                            (*ts).msac.rng,
+                                            x,
+                                            cbx4,
+                                        );
+                                    }
+                                    let mut ctw: core::ffi::c_int = imin(
+                                        (*uv_t_dim).w as core::ffi::c_int,
+                                        (*f).bw - (*t).bx + ss_hor >> ss_hor,
+                                    );
+                                    let mut cth: core::ffi::c_int = imin(
+                                        (*uv_t_dim).h as core::ffi::c_int,
+                                        (*f).bh - (*t).by + ss_ver >> ss_ver,
+                                    );
+                                    dav1d_memset_likely_pow2(
+                                        &raw mut *(*((*(*t).a).ccoef)
+                                            .as_mut_ptr()
+                                            .offset(pl_0 as isize))
+                                            .as_mut_ptr()
+                                            .offset((cbx4 + x) as isize) as *mut uint8_t
+                                            as *mut core::ffi::c_void,
+                                        cf_ctx_0 as core::ffi::c_int,
+                                        ctw,
+                                    );
+                                    dav1d_memset_likely_pow2(
+                                        &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl_0 as isize))
+                                            .as_mut_ptr()
+                                            .offset((cby4 + y) as isize) as *mut uint8_t
+                                            as *mut core::ffi::c_void,
+                                        cf_ctx_0 as core::ffi::c_int,
+                                        cth,
+                                    );
+                                }
+                                if eob_0 >= 0 as core::ffi::c_int {
+                                    if 0 as core::ffi::c_int != 0
+                                        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                            == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                        && (*t).by < 4 as core::ffi::c_int
+                                        && (*t).bx >= 8 as core::ffi::c_int
+                                        && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                                    {
+                                        coef_dump(
+                                            cf_0,
+                                            (*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                            (*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                            3 as core::ffi::c_int,
+                                            b"dq\0" as *const u8 as *const core::ffi::c_char,
+                                        );
+                                    }
+                                    ((*dsp).itx.itxfm_add[(*b).uvtx as usize][txtp_0 as usize])
+                                        .expect(
+                                            "non-null function pointer",
+                                        )(dst_1, stride, cf_0, eob_0);
+                                    if 0 as core::ffi::c_int != 0
+                                        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                            == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                        && (*t).by < 4 as core::ffi::c_int
+                                        && (*t).bx >= 8 as core::ffi::c_int
+                                        && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                                    {
+                                        hex_dump(
+                                            dst_1,
+                                            stride,
+                                            (*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                            (*uv_t_dim).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                            b"recon\0" as *const u8 as *const core::ffi::c_char,
+                                        );
+                                    }
+                                }
+                            } else if (*t).frame_thread.pass == 0 {
+                                (dav1d_memset_pow2[(*uv_t_dim).lw as usize])
+                                    .expect(
+                                        "non-null function pointer",
+                                    )(
+                                    &raw mut *(*((*(*t).a).ccoef)
+                                        .as_mut_ptr()
+                                        .offset(pl_0 as isize))
+                                        .as_mut_ptr()
+                                        .offset((cbx4 + x) as isize) as *mut uint8_t
+                                        as *mut core::ffi::c_void,
+                                    0x40 as core::ffi::c_int,
+                                );
+                                (dav1d_memset_pow2[(*uv_t_dim).lh as usize])
+                                    .expect(
+                                        "non-null function pointer",
+                                    )(
+                                    &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl_0 as isize))
+                                        .as_mut_ptr()
+                                        .offset((cby4 + y) as isize) as *mut uint8_t
+                                        as *mut core::ffi::c_void,
+                                    0x40 as core::ffi::c_int,
+                                );
+                            }
+                            dst_1 = dst_1
+                                .offset(
+                                    ((*uv_t_dim).w as core::ffi::c_int * 4 as core::ffi::c_int)
+                                        as isize,
+                                );
+                            x += (*uv_t_dim).w as core::ffi::c_int;
+                            (*t).bx += ((*uv_t_dim).w as core::ffi::c_int) << ss_hor;
+                        }
+                        (*t).bx -= x << ss_hor;
+                        y += (*uv_t_dim).h as core::ffi::c_int;
+                        (*t).by += ((*uv_t_dim).h as core::ffi::c_int) << ss_ver;
+                    }
+                    (*t).by -= y << ss_ver;
+                    pl_0 += 1;
+                }
+            }
+            init_x += 16 as core::ffi::c_int;
+        }
+        init_y += 16 as core::ffi::c_int;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_recon_b_inter_8bpc(
+    t: *mut Dav1dTaskContext,
+    bs: BlockSize,
+    b: *const Av1Block,
+) -> core::ffi::c_int {
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let f: *const Dav1dFrameContext = (*t).f;
+    let dsp: *const Dav1dDSPContext = (*f).dsp;
+    let bx4: core::ffi::c_int = (*t).bx & 31 as core::ffi::c_int;
+    let by4: core::ffi::c_int = (*t).by & 31 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let ss_hor: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let cbx4: core::ffi::c_int = bx4 >> ss_hor;
+    let cby4: core::ffi::c_int = by4 >> ss_ver;
+    let b_dim: *const uint8_t = (dav1d_block_dimensions[bs as usize]).as_ptr();
+    let bw4: core::ffi::c_int = *b_dim.offset(0 as core::ffi::c_int as isize)
+        as core::ffi::c_int;
+    let bh4: core::ffi::c_int = *b_dim.offset(1 as core::ffi::c_int as isize)
+        as core::ffi::c_int;
+    let w4: core::ffi::c_int = imin(bw4, (*f).bw - (*t).bx) as core::ffi::c_int;
+    let h4: core::ffi::c_int = imin(bh4, (*f).bh - (*t).by) as core::ffi::c_int;
+    let has_chroma: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I400 as core::ffi::c_int as core::ffi::c_uint
+        && (bw4 > ss_hor || (*t).bx & 1 as core::ffi::c_int != 0)
+        && (bh4 > ss_ver || (*t).by & 1 as core::ffi::c_int != 0)) as core::ffi::c_int;
+    let chr_layout_idx: core::ffi::c_int = (if (*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I400 as core::ffi::c_int as core::ffi::c_uint
+    {
+        0 as core::ffi::c_uint
+    } else {
+        (DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+            .wrapping_sub((*f).cur.p.layout as core::ffi::c_uint)
+    }) as core::ffi::c_int;
+    let mut res: core::ffi::c_int = 0;
+    let cbh4: core::ffi::c_int = bh4 + ss_ver >> ss_ver;
+    let cbw4: core::ffi::c_int = bw4 + ss_hor >> ss_hor;
+    let mut dst: *mut pixel = ((*f).cur.data[0 as core::ffi::c_int as usize]
+        as *mut pixel)
+        .offset(
+            (4 as ptrdiff_t
+                * ((*t).by as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize]
+                    + (*t).bx as ptrdiff_t)) as isize,
+        );
+    let uvdstoff: ptrdiff_t = 4 as ptrdiff_t
+        * (((*t).bx >> ss_hor) as ptrdiff_t
+            + ((*t).by >> ss_ver) as ptrdiff_t
+                * (*f).cur.stride[1 as core::ffi::c_int as usize]);
+    if (*(*f).frame_hdr).frame_type as core::ffi::c_uint & 1 as core::ffi::c_uint == 0 {
+        if ((*(*f).frame_hdr).super_res.enabled != 0) as core::ffi::c_int
+            as core::ffi::c_long != 0
+        {
+            crate::platform::assertion(
+                (::core::mem::transmute::<
+                    [u8; 25],
+                    [core::ffi::c_char; 25],
+                >(*b"dav1d_recon_b_inter_8bpc\0"))
+                    .as_ptr(),
+                b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                1585 as core::ffi::c_int,
+                b"!f->frame_hdr->super_res.enabled\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        } else {};
+        res = mc(
+            t,
+            dst,
+            0 as *mut int16_t,
+            (*f).cur.stride[0 as core::ffi::c_int as usize],
+            bw4,
+            bh4,
+            (*t).bx,
+            (*t).by,
+            0 as core::ffi::c_int,
+            (*b)
+                .c2rust_unnamed
+                .c2rust_unnamed_0
+                .c2rust_unnamed
+                .c2rust_unnamed
+                .mv[0 as core::ffi::c_int as usize],
+            &(*f).sr_cur,
+            0 as core::ffi::c_int,
+            FILTER_2D_BILINEAR,
+        );
+        if res != 0 {
+            return res;
+        }
+        if has_chroma != 0 {
+            let mut pl: core::ffi::c_int = 1 as core::ffi::c_int;
+            while pl < 3 as core::ffi::c_int {
+                res = mc(
+                    t,
+                    ((*f).cur.data[pl as usize] as *mut pixel).offset(uvdstoff as isize),
+                    0 as *mut int16_t,
+                    (*f).cur.stride[1 as core::ffi::c_int as usize],
+                    bw4 << (bw4 == ss_hor) as core::ffi::c_int,
+                    bh4 << (bh4 == ss_ver) as core::ffi::c_int,
+                    (*t).bx & !ss_hor,
+                    (*t).by & !ss_ver,
+                    pl,
+                    (*b)
+                        .c2rust_unnamed
+                        .c2rust_unnamed_0
+                        .c2rust_unnamed
+                        .c2rust_unnamed
+                        .mv[0 as core::ffi::c_int as usize],
+                    &(*f).sr_cur,
+                    0 as core::ffi::c_int,
+                    FILTER_2D_BILINEAR,
+                );
+                if res != 0 {
+                    return res;
+                }
+                pl += 1;
+            }
+        }
+    } else if (*b).c2rust_unnamed.c2rust_unnamed_0.comp_type as core::ffi::c_int
+        == COMP_INTER_NONE as core::ffi::c_int
+    {
+        let mut is_sub8x8: core::ffi::c_int = 0;
+        let mut r: *const *mut refmvs_block = 0 as *const *mut refmvs_block;
+        let refp: *const Dav1dThreadPicture = &*((*f).refp)
+            .as_ptr()
+            .offset(
+                *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                    .as_ptr()
+                    .offset(0 as core::ffi::c_int as isize) as isize,
+            ) as *const Dav1dThreadPicture;
+        let filter_2d: Filter2d = (*b).c2rust_unnamed.c2rust_unnamed_0.filter2d
+            as Filter2d;
+        if imin(bw4, bh4) > 1 as core::ffi::c_int
+            && ((*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode as core::ffi::c_int
+                == GLOBALMV as core::ffi::c_int
+                && (*f)
+                    .gmv_warp_allowed[(*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .ref_0[0 as core::ffi::c_int as usize] as usize] as core::ffi::c_int
+                    != 0
+                || (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode as core::ffi::c_int
+                    == MM_WARP as core::ffi::c_int
+                    && (*t).warpmv.type_0 as core::ffi::c_uint
+                        > DAV1D_WM_TYPE_TRANSLATION as core::ffi::c_int
+                            as core::ffi::c_uint)
+        {
+            res = warp_affine(
+                t,
+                dst,
+                0 as *mut int16_t,
+                (*f).cur.stride[0 as core::ffi::c_int as usize],
+                b_dim,
+                0 as core::ffi::c_int,
+                refp,
+                if (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode as core::ffi::c_int
+                    == MM_WARP as core::ffi::c_int
+                {
+                    &raw mut (*t).warpmv
+                } else {
+                    &raw mut *((*(*f).frame_hdr).gmv)
+                        .as_mut_ptr()
+                        .offset(
+                            *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                                .as_ptr()
+                                .offset(0 as core::ffi::c_int as isize) as isize,
+                        )
+                },
+            );
+            if res != 0 {
+                return res;
+            }
+        } else {
+            res = mc(
+                t,
+                dst,
+                0 as *mut int16_t,
+                (*f).cur.stride[0 as core::ffi::c_int as usize],
+                bw4,
+                bh4,
+                (*t).bx,
+                (*t).by,
+                0 as core::ffi::c_int,
+                (*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .c2rust_unnamed
+                    .c2rust_unnamed
+                    .mv[0 as core::ffi::c_int as usize],
+                refp,
+                (*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int,
+                filter_2d,
+            );
+            if res != 0 {
+                return res;
+            }
+            if (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode as core::ffi::c_int
+                == MM_OBMC as core::ffi::c_int
+            {
+                res = obmc(
+                    t,
+                    dst,
+                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                    b_dim,
+                    0 as core::ffi::c_int,
+                    bx4,
+                    by4,
+                    w4,
+                    h4,
+                );
+                if res != 0 {
+                    return res;
+                }
+            }
+        }
+        if (*b).c2rust_unnamed.c2rust_unnamed_0.interintra_type != 0 {
+            let tl_edge: *mut pixel = ((*t)
+                .scratch
+                .c2rust_unnamed_0
+                .c2rust_unnamed_1
+                .c2rust_unnamed
+                .edge_8bpc)
+                .as_mut_ptr()
+                .offset(32 as core::ffi::c_int as isize);
+            let mut m: IntraPredMode = (if (*b)
+                .c2rust_unnamed
+                .c2rust_unnamed_0
+                .c2rust_unnamed
+                .c2rust_unnamed
+                .interintra_mode as core::ffi::c_int
+                == II_SMOOTH_PRED as core::ffi::c_int
+            {
+                SMOOTH_PRED as core::ffi::c_int
+            } else {
+                (*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .c2rust_unnamed
+                    .c2rust_unnamed
+                    .interintra_mode as core::ffi::c_int
+            }) as IntraPredMode;
+            let tmp: *mut pixel = ((*t)
+                .scratch
+                .c2rust_unnamed_0
+                .c2rust_unnamed_1
+                .c2rust_unnamed
+                .interintra_8bpc)
+                .as_mut_ptr() as *mut pixel;
+            let mut angle: core::ffi::c_int = 0 as core::ffi::c_int;
+            let mut top_sb_edge: *const pixel = 0 as *const pixel;
+            if (*t).by & (*f).sb_step - 1 as core::ffi::c_int == 0 {
+                top_sb_edge = (*f).ipred_edge[0 as core::ffi::c_int as usize];
+                let sby: core::ffi::c_int = (*t).by >> (*f).sb_shift;
+                top_sb_edge = top_sb_edge
+                    .offset(
+                        ((*f).sb128w * 128 as core::ffi::c_int
+                            * (sby - 1 as core::ffi::c_int)) as isize,
+                    );
+            }
+            m = dav1d_prepare_intra_edges_8bpc(
+                (*t).bx,
+                ((*t).bx > (*ts).tiling.col_start) as core::ffi::c_int,
+                (*t).by,
+                ((*t).by > (*ts).tiling.row_start) as core::ffi::c_int,
+                (*ts).tiling.col_end,
+                (*ts).tiling.row_end,
+                0 as EdgeFlags,
+                dst,
+                (*f).cur.stride[0 as core::ffi::c_int as usize],
+                top_sb_edge,
+                m,
+                &raw mut angle,
+                bw4,
+                bh4,
+                0 as core::ffi::c_int,
+                tl_edge,
+            );
+            ((*dsp).ipred.intra_pred[m as usize])
+                .expect(
+                    "non-null function pointer",
+                )(
+                tmp,
+                ((4 as core::ffi::c_int * bw4) as usize)
+                    .wrapping_mul(::core::mem::size_of::<pixel>() as usize) as ptrdiff_t,
+                tl_edge,
+                bw4 * 4 as core::ffi::c_int,
+                bh4 * 4 as core::ffi::c_int,
+                0 as core::ffi::c_int,
+                0 as core::ffi::c_int,
+                0 as core::ffi::c_int,
+            );
+            ((*dsp).mc.blend)
+                .expect(
+                    "non-null function pointer",
+                )(
+                dst,
+                (*f).cur.stride[0 as core::ffi::c_int as usize],
+                tmp,
+                bw4 * 4 as core::ffi::c_int,
+                bh4 * 4 as core::ffi::c_int,
+                (&raw mut dav1d_masks as *mut Dav1dMasks as uintptr_t)
+                    .wrapping_add(
+                        ((if (*b).c2rust_unnamed.c2rust_unnamed_0.interintra_type
+                            as core::ffi::c_int == INTER_INTRA_BLEND as core::ffi::c_int
+                        {
+                            dav1d_masks
+                                .offsets[0 as core::ffi::c_int
+                                    as usize][(bs as core::ffi::c_uint)
+                                    .wrapping_sub(
+                                        BS_32x32 as core::ffi::c_int as core::ffi::c_uint,
+                                    ) as usize]
+                                .ii[(*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .interintra_mode as usize] as core::ffi::c_int
+                        } else {
+                            dav1d_masks
+                                .offsets[0 as core::ffi::c_int
+                                    as usize][(bs as core::ffi::c_uint)
+                                    .wrapping_sub(
+                                        BS_32x32 as core::ffi::c_int as core::ffi::c_uint,
+                                    ) as usize]
+                                .wedge[0 as core::ffi::c_int
+                                as usize][(*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .wedge_idx as usize] as core::ffi::c_int
+                        }) as uintptr_t)
+                            .wrapping_mul(8 as uintptr_t),
+                    ) as *const uint8_t,
+            );
+        }
+        if !(has_chroma == 0) {
+            is_sub8x8 = (bw4 == ss_hor || bh4 == ss_ver) as core::ffi::c_int;
+            r = 0 as *const *mut refmvs_block;
+            if is_sub8x8 != 0 {
+                if !(ss_hor == 1 as core::ffi::c_int) as core::ffi::c_int
+                    as core::ffi::c_long != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 25],
+                            [core::ffi::c_char; 25],
+                        >(*b"dav1d_recon_b_inter_8bpc\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        1648 as core::ffi::c_int,
+                        b"ss_hor == 1\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                r = &raw mut *((*t).rt.r)
+                    .as_mut_ptr()
+                    .offset(
+                        (((*t).by & 31 as core::ffi::c_int) + 5 as core::ffi::c_int)
+                            as isize,
+                    ) as *mut *mut refmvs_block;
+                if bw4 == 1 as core::ffi::c_int {
+                    is_sub8x8
+                        &= ((*(*r.offset(0 as core::ffi::c_int as isize))
+                            .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                            .ref_0
+                            .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                            > 0 as core::ffi::c_int) as core::ffi::c_int;
+                }
+                if bh4 == ss_ver {
+                    is_sub8x8
+                        &= ((*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                            .offset((*t).bx as isize))
+                            .ref_0
+                            .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                            > 0 as core::ffi::c_int) as core::ffi::c_int;
+                }
+                if bw4 == 1 as core::ffi::c_int && bh4 == ss_ver {
+                    is_sub8x8
+                        &= ((*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                            .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                            .ref_0
+                            .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                            > 0 as core::ffi::c_int) as core::ffi::c_int;
+                }
+            }
+            if is_sub8x8 != 0 {
+                if !(ss_hor == 1 as core::ffi::c_int) as core::ffi::c_int
+                    as core::ffi::c_long != 0
+                {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 25],
+                            [core::ffi::c_char; 25],
+                        >(*b"dav1d_recon_b_inter_8bpc\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        1658 as core::ffi::c_int,
+                        b"ss_hor == 1\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                let mut h_off: ptrdiff_t = 0 as ptrdiff_t;
+                let mut v_off: ptrdiff_t = 0 as ptrdiff_t;
+                if bw4 == 1 as core::ffi::c_int && bh4 == ss_ver {
+                    let mut pl_0: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl_0 < 2 as core::ffi::c_int {
+                        res = mc(
+                            t,
+                            ((*f).cur.data[(1 as core::ffi::c_int + pl_0) as usize]
+                                as *mut pixel)
+                                .offset(uvdstoff as isize),
+                            0 as *mut int16_t,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            bw4,
+                            bh4,
+                            (*t).bx - 1 as core::ffi::c_int,
+                            (*t).by - 1 as core::ffi::c_int,
+                            1 as core::ffi::c_int + pl_0,
+                            (*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                                .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                                .mv
+                                .mv[0 as core::ffi::c_int as usize],
+                            &*((*f).refp)
+                                .as_ptr()
+                                .offset(
+                                    (*((*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                                        .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                                        .ref_0
+                                        .ref_0)
+                                        .as_mut_ptr()
+                                        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                                        - 1 as core::ffi::c_int) as isize,
+                                ),
+                            (*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                                .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                                .ref_0
+                                .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                                - 1 as core::ffi::c_int,
+                            (if (*t).frame_thread.pass != 2 as core::ffi::c_int {
+                                (*t).tl_4x4_filter as core::ffi::c_uint
+                            } else {
+                                (*((*f).frame_thread.b)
+                                    .offset(
+                                        (((*t).by - 1 as core::ffi::c_int) as ptrdiff_t
+                                            * (*f).b4_stride + (*t).bx as ptrdiff_t - 1 as ptrdiff_t)
+                                            as isize,
+                                    ))
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed_0
+                                    .filter2d as core::ffi::c_uint
+                            }) as Filter2d,
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                        pl_0 += 1;
+                    }
+                    v_off = 2 as ptrdiff_t
+                        * (*f).cur.stride[1 as core::ffi::c_int as usize];
+                    h_off = 2 as ptrdiff_t;
+                }
+                if bw4 == 1 as core::ffi::c_int {
+                    let left_filter_2d: Filter2d = dav1d_filter_2d[(*t)
+                        .l
+                        .filter[1 as core::ffi::c_int as usize][by4 as usize]
+                        as usize][(*t)
+                        .l
+                        .filter[0 as core::ffi::c_int as usize][by4 as usize] as usize]
+                        as Filter2d;
+                    let mut pl_1: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl_1 < 2 as core::ffi::c_int {
+                        res = mc(
+                            t,
+                            ((*f).cur.data[(1 as core::ffi::c_int + pl_1) as usize]
+                                as *mut pixel)
+                                .offset(uvdstoff as isize)
+                                .offset(v_off as isize),
+                            0 as *mut int16_t,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            bw4,
+                            bh4,
+                            (*t).bx - 1 as core::ffi::c_int,
+                            (*t).by,
+                            1 as core::ffi::c_int + pl_1,
+                            (*(*r.offset(0 as core::ffi::c_int as isize))
+                                .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                                .mv
+                                .mv[0 as core::ffi::c_int as usize],
+                            &*((*f).refp)
+                                .as_ptr()
+                                .offset(
+                                    (*((*(*r.offset(0 as core::ffi::c_int as isize))
+                                        .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                                        .ref_0
+                                        .ref_0)
+                                        .as_mut_ptr()
+                                        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                                        - 1 as core::ffi::c_int) as isize,
+                                ),
+                            (*(*r.offset(0 as core::ffi::c_int as isize))
+                                .offset(((*t).bx - 1 as core::ffi::c_int) as isize))
+                                .ref_0
+                                .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                                - 1 as core::ffi::c_int,
+                            (if (*t).frame_thread.pass != 2 as core::ffi::c_int {
+                                left_filter_2d as core::ffi::c_uint
+                            } else {
+                                (*((*f).frame_thread.b)
+                                    .offset(
+                                        ((*t).by as ptrdiff_t * (*f).b4_stride
+                                            + (*t).bx as ptrdiff_t - 1 as ptrdiff_t) as isize,
+                                    ))
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed_0
+                                    .filter2d as core::ffi::c_uint
+                            }) as Filter2d,
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                        pl_1 += 1;
+                    }
+                    h_off = 2 as ptrdiff_t;
+                }
+                if bh4 == ss_ver {
+                    let top_filter_2d: Filter2d = dav1d_filter_2d[(*(*t).a)
+                        .filter[1 as core::ffi::c_int as usize][bx4 as usize]
+                        as usize][(*(*t).a)
+                        .filter[0 as core::ffi::c_int as usize][bx4 as usize] as usize]
+                        as Filter2d;
+                    let mut pl_2: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl_2 < 2 as core::ffi::c_int {
+                        res = mc(
+                            t,
+                            ((*f).cur.data[(1 as core::ffi::c_int + pl_2) as usize]
+                                as *mut pixel)
+                                .offset(uvdstoff as isize)
+                                .offset(h_off as isize),
+                            0 as *mut int16_t,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            bw4,
+                            bh4,
+                            (*t).bx,
+                            (*t).by - 1 as core::ffi::c_int,
+                            1 as core::ffi::c_int + pl_2,
+                            (*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                                .offset((*t).bx as isize))
+                                .mv
+                                .mv[0 as core::ffi::c_int as usize],
+                            &*((*f).refp)
+                                .as_ptr()
+                                .offset(
+                                    (*((*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                                        .offset((*t).bx as isize))
+                                        .ref_0
+                                        .ref_0)
+                                        .as_mut_ptr()
+                                        .offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                                        - 1 as core::ffi::c_int) as isize,
+                                ),
+                            (*(*r.offset(-(1 as core::ffi::c_int) as isize))
+                                .offset((*t).bx as isize))
+                                .ref_0
+                                .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int
+                                - 1 as core::ffi::c_int,
+                            (if (*t).frame_thread.pass != 2 as core::ffi::c_int {
+                                top_filter_2d as core::ffi::c_uint
+                            } else {
+                                (*((*f).frame_thread.b)
+                                    .offset(
+                                        (((*t).by - 1 as core::ffi::c_int) as ptrdiff_t
+                                            * (*f).b4_stride + (*t).bx as ptrdiff_t) as isize,
+                                    ))
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed_0
+                                    .filter2d as core::ffi::c_uint
+                            }) as Filter2d,
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                        pl_2 += 1;
+                    }
+                    v_off = 2 as ptrdiff_t
+                        * (*f).cur.stride[1 as core::ffi::c_int as usize];
+                }
+                let mut pl_3: core::ffi::c_int = 0 as core::ffi::c_int;
+                while pl_3 < 2 as core::ffi::c_int {
+                    res = mc(
+                        t,
+                        ((*f).cur.data[(1 as core::ffi::c_int + pl_3) as usize]
+                            as *mut pixel)
+                            .offset(uvdstoff as isize)
+                            .offset(h_off as isize)
+                            .offset(v_off as isize),
+                        0 as *mut int16_t,
+                        (*f).cur.stride[1 as core::ffi::c_int as usize],
+                        bw4,
+                        bh4,
+                        (*t).bx,
+                        (*t).by,
+                        1 as core::ffi::c_int + pl_3,
+                        (*b)
+                            .c2rust_unnamed
+                            .c2rust_unnamed_0
+                            .c2rust_unnamed
+                            .c2rust_unnamed
+                            .mv[0 as core::ffi::c_int as usize],
+                        refp,
+                        (*b)
+                            .c2rust_unnamed
+                            .c2rust_unnamed_0
+                            .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int,
+                        filter_2d,
+                    );
+                    if res != 0 {
+                        return res;
+                    }
+                    pl_3 += 1;
+                }
+            } else {
+                if imin(cbw4, cbh4) > 1 as core::ffi::c_int
+                    && ((*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode
+                        as core::ffi::c_int == GLOBALMV as core::ffi::c_int
+                        && (*f)
+                            .gmv_warp_allowed[(*b)
+                            .c2rust_unnamed
+                            .c2rust_unnamed_0
+                            .ref_0[0 as core::ffi::c_int as usize] as usize]
+                            as core::ffi::c_int != 0
+                        || (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode
+                            as core::ffi::c_int == MM_WARP as core::ffi::c_int
+                            && (*t).warpmv.type_0 as core::ffi::c_uint
+                                > DAV1D_WM_TYPE_TRANSLATION as core::ffi::c_int
+                                    as core::ffi::c_uint)
+                {
+                    let mut pl_4: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl_4 < 2 as core::ffi::c_int {
+                        res = warp_affine(
+                            t,
+                            ((*f).cur.data[(1 as core::ffi::c_int + pl_4) as usize]
+                                as *mut pixel)
+                                .offset(uvdstoff as isize),
+                            0 as *mut int16_t,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            b_dim,
+                            1 as core::ffi::c_int + pl_4,
+                            refp,
+                            if (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode
+                                as core::ffi::c_int == MM_WARP as core::ffi::c_int
+                            {
+                                &raw mut (*t).warpmv
+                            } else {
+                                &raw mut *((*(*f).frame_hdr).gmv)
+                                    .as_mut_ptr()
+                                    .offset(
+                                        *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                                            .as_ptr()
+                                            .offset(0 as core::ffi::c_int as isize) as isize,
+                                    )
+                            },
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                        pl_4 += 1;
+                    }
+                } else {
+                    let mut pl_5: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl_5 < 2 as core::ffi::c_int {
+                        res = mc(
+                            t,
+                            ((*f).cur.data[(1 as core::ffi::c_int + pl_5) as usize]
+                                as *mut pixel)
+                                .offset(uvdstoff as isize),
+                            0 as *mut int16_t,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            bw4 << (bw4 == ss_hor) as core::ffi::c_int,
+                            bh4 << (bh4 == ss_ver) as core::ffi::c_int,
+                            (*t).bx & !ss_hor,
+                            (*t).by & !ss_ver,
+                            1 as core::ffi::c_int + pl_5,
+                            (*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mv[0 as core::ffi::c_int as usize],
+                            refp,
+                            (*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .ref_0[0 as core::ffi::c_int as usize] as core::ffi::c_int,
+                            filter_2d,
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                        if (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode
+                            as core::ffi::c_int == MM_OBMC as core::ffi::c_int
+                        {
+                            res = obmc(
+                                t,
+                                ((*f).cur.data[(1 as core::ffi::c_int + pl_5) as usize]
+                                    as *mut pixel)
+                                    .offset(uvdstoff as isize),
+                                (*f).cur.stride[1 as core::ffi::c_int as usize],
+                                b_dim,
+                                1 as core::ffi::c_int + pl_5,
+                                bx4,
+                                by4,
+                                w4,
+                                h4,
+                            );
+                            if res != 0 {
+                                return res;
+                            }
+                        }
+                        pl_5 += 1;
+                    }
+                }
+                if (*b).c2rust_unnamed.c2rust_unnamed_0.interintra_type != 0 {
+                    let ii_mask: *const uint8_t = (&raw mut dav1d_masks as *mut Dav1dMasks
+                        as uintptr_t)
+                        .wrapping_add(
+                            ((if (*b).c2rust_unnamed.c2rust_unnamed_0.interintra_type
+                                as core::ffi::c_int == INTER_INTRA_BLEND as core::ffi::c_int
+                            {
+                                dav1d_masks
+                                    .offsets[chr_layout_idx
+                                        as usize][(bs as core::ffi::c_uint)
+                                        .wrapping_sub(
+                                            BS_32x32 as core::ffi::c_int as core::ffi::c_uint,
+                                        ) as usize]
+                                    .ii[(*b)
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed_0
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed
+                                    .interintra_mode as usize] as core::ffi::c_int
+                            } else {
+                                dav1d_masks
+                                    .offsets[chr_layout_idx
+                                        as usize][(bs as core::ffi::c_uint)
+                                        .wrapping_sub(
+                                            BS_32x32 as core::ffi::c_int as core::ffi::c_uint,
+                                        ) as usize]
+                                    .wedge[0 as core::ffi::c_int
+                                    as usize][(*b)
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed_0
+                                    .c2rust_unnamed
+                                    .c2rust_unnamed
+                                    .wedge_idx as usize] as core::ffi::c_int
+                            }) as uintptr_t)
+                                .wrapping_mul(8 as uintptr_t),
+                        ) as *const uint8_t;
+                    let mut pl_6: core::ffi::c_int = 0 as core::ffi::c_int;
+                    while pl_6 < 2 as core::ffi::c_int {
+                        let tmp_0: *mut pixel = ((*t)
+                            .scratch
+                            .c2rust_unnamed_0
+                            .c2rust_unnamed_1
+                            .c2rust_unnamed
+                            .interintra_8bpc)
+                            .as_mut_ptr() as *mut pixel;
+                        let tl_edge_0: *mut pixel = ((*t)
+                            .scratch
+                            .c2rust_unnamed_0
+                            .c2rust_unnamed_1
+                            .c2rust_unnamed
+                            .edge_8bpc)
+                            .as_mut_ptr()
+                            .offset(32 as core::ffi::c_int as isize);
+                        let mut m_0: IntraPredMode = (if (*b)
+                            .c2rust_unnamed
+                            .c2rust_unnamed_0
+                            .c2rust_unnamed
+                            .c2rust_unnamed
+                            .interintra_mode as core::ffi::c_int
+                            == II_SMOOTH_PRED as core::ffi::c_int
+                        {
+                            SMOOTH_PRED as core::ffi::c_int
+                        } else {
+                            (*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .interintra_mode as core::ffi::c_int
+                        }) as IntraPredMode;
+                        let mut angle_0: core::ffi::c_int = 0 as core::ffi::c_int;
+                        let uvdst: *mut pixel = ((*f)
+                            .cur
+                            .data[(1 as core::ffi::c_int + pl_6) as usize] as *mut pixel)
+                            .offset(uvdstoff as isize);
+                        let mut top_sb_edge_0: *const pixel = 0 as *const pixel;
+                        if (*t).by & (*f).sb_step - 1 as core::ffi::c_int == 0 {
+                            top_sb_edge_0 = (*f)
+                                .ipred_edge[(pl_6 + 1 as core::ffi::c_int) as usize];
+                            let sby_0: core::ffi::c_int = (*t).by >> (*f).sb_shift;
+                            top_sb_edge_0 = top_sb_edge_0
+                                .offset(
+                                    ((*f).sb128w * 128 as core::ffi::c_int
+                                        * (sby_0 - 1 as core::ffi::c_int)) as isize,
+                                );
+                        }
+                        m_0 = dav1d_prepare_intra_edges_8bpc(
+                            (*t).bx >> ss_hor,
+                            ((*t).bx >> ss_hor > (*ts).tiling.col_start >> ss_hor)
+                                as core::ffi::c_int,
+                            (*t).by >> ss_ver,
+                            ((*t).by >> ss_ver > (*ts).tiling.row_start >> ss_ver)
+                                as core::ffi::c_int,
+                            (*ts).tiling.col_end >> ss_hor,
+                            (*ts).tiling.row_end >> ss_ver,
+                            0 as EdgeFlags,
+                            uvdst,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            top_sb_edge_0,
+                            m_0,
+                            &raw mut angle_0,
+                            cbw4,
+                            cbh4,
+                            0 as core::ffi::c_int,
+                            tl_edge_0,
+                        );
+                        ((*dsp).ipred.intra_pred[m_0 as usize])
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            tmp_0,
+                            ((cbw4 * 4 as core::ffi::c_int) as usize)
+                                .wrapping_mul(::core::mem::size_of::<pixel>() as usize)
+                                as ptrdiff_t,
+                            tl_edge_0,
+                            cbw4 * 4 as core::ffi::c_int,
+                            cbh4 * 4 as core::ffi::c_int,
+                            0 as core::ffi::c_int,
+                            0 as core::ffi::c_int,
+                            0 as core::ffi::c_int,
+                        );
+                        ((*dsp).mc.blend)
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            uvdst,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            tmp_0,
+                            cbw4 * 4 as core::ffi::c_int,
+                            cbh4 * 4 as core::ffi::c_int,
+                            ii_mask,
+                        );
+                        pl_6 += 1;
+                    }
+                }
+            }
+        }
+        (*t).tl_4x4_filter = filter_2d;
+    } else {
+        let filter_2d_0: Filter2d = (*b).c2rust_unnamed.c2rust_unnamed_0.filter2d
+            as Filter2d;
+        let mut tmp_1: *mut [int16_t; 16384] = ((*t)
+            .scratch
+            .c2rust_unnamed
+            .c2rust_unnamed
+            .c2rust_unnamed
+            .compinter)
+            .as_mut_ptr() as *mut [int16_t; 16384];
+        let mut jnt_weight: core::ffi::c_int = 0;
+        let seg_mask: *mut uint8_t = ((*t)
+            .scratch
+            .c2rust_unnamed
+            .c2rust_unnamed
+            .c2rust_unnamed
+            .seg_mask)
+            .as_mut_ptr();
+        let mut mask: *const uint8_t = 0 as *const uint8_t;
+        let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+        while i < 2 as core::ffi::c_int {
+            let refp_0: *const Dav1dThreadPicture = &*((*f).refp)
+                .as_ptr()
+                .offset(
+                    *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                        .as_ptr()
+                        .offset(i as isize) as isize,
+                ) as *const Dav1dThreadPicture;
+            if (*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode as core::ffi::c_int
+                == GLOBALMV_GLOBALMV as core::ffi::c_int
+                && (*f)
+                    .gmv_warp_allowed[(*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .ref_0[i as usize] as usize] as core::ffi::c_int != 0
+            {
+                res = warp_affine(
+                    t,
+                    0 as *mut pixel,
+                    (*tmp_1.offset(i as isize)).as_mut_ptr(),
+                    (bw4 * 4 as core::ffi::c_int) as ptrdiff_t,
+                    b_dim,
+                    0 as core::ffi::c_int,
+                    refp_0,
+                    &raw mut *((*(*f).frame_hdr).gmv)
+                        .as_mut_ptr()
+                        .offset(
+                            *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                                .as_ptr()
+                                .offset(i as isize) as isize,
+                        ),
+                );
+                if res != 0 {
+                    return res;
+                }
+            } else {
+                res = mc(
+                    t,
+                    0 as *mut pixel,
+                    (*tmp_1.offset(i as isize)).as_mut_ptr(),
+                    0 as ptrdiff_t,
+                    bw4,
+                    bh4,
+                    (*t).bx,
+                    (*t).by,
+                    0 as core::ffi::c_int,
+                    (*b)
+                        .c2rust_unnamed
+                        .c2rust_unnamed_0
+                        .c2rust_unnamed
+                        .c2rust_unnamed
+                        .mv[i as usize],
+                    refp_0,
+                    (*b).c2rust_unnamed.c2rust_unnamed_0.ref_0[i as usize]
+                        as core::ffi::c_int,
+                    filter_2d_0,
+                );
+                if res != 0 {
+                    return res;
+                }
+            }
+            i += 1;
+        }
+        match (*b).c2rust_unnamed.c2rust_unnamed_0.comp_type as core::ffi::c_int {
+            2 => {
+                ((*dsp).mc.avg)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    dst,
+                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                    (*tmp_1.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
+                    (*tmp_1.offset(1 as core::ffi::c_int as isize)).as_mut_ptr(),
+                    bw4 * 4 as core::ffi::c_int,
+                    bh4 * 4 as core::ffi::c_int,
+                );
+            }
+            1 => {
+                jnt_weight = (*f)
+                    .jnt_weights[(*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .ref_0[0 as core::ffi::c_int as usize]
+                    as usize][(*b)
+                    .c2rust_unnamed
+                    .c2rust_unnamed_0
+                    .ref_0[1 as core::ffi::c_int as usize] as usize] as core::ffi::c_int;
+                ((*dsp).mc.w_avg)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    dst,
+                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                    (*tmp_1.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
+                    (*tmp_1.offset(1 as core::ffi::c_int as isize)).as_mut_ptr(),
+                    bw4 * 4 as core::ffi::c_int,
+                    bh4 * 4 as core::ffi::c_int,
+                    jnt_weight,
+                );
+            }
+            3 => {
+                ((*dsp).mc.w_mask[chr_layout_idx as usize])
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    dst,
+                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                    (*tmp_1
+                        .offset(
+                            (*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mask_sign as isize,
+                        ))
+                        .as_mut_ptr(),
+                    (*tmp_1
+                        .offset(
+                            ((*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mask_sign == 0) as core::ffi::c_int as isize,
+                        ))
+                        .as_mut_ptr(),
+                    bw4 * 4 as core::ffi::c_int,
+                    bh4 * 4 as core::ffi::c_int,
+                    seg_mask,
+                    (*b)
+                        .c2rust_unnamed
+                        .c2rust_unnamed_0
+                        .c2rust_unnamed
+                        .c2rust_unnamed
+                        .mask_sign as core::ffi::c_int,
+                );
+                mask = seg_mask;
+            }
+            4 => {
+                mask = (&raw mut dav1d_masks as *mut Dav1dMasks as uintptr_t)
+                    .wrapping_add(
+                        (dav1d_masks
+                            .offsets[0 as core::ffi::c_int
+                                as usize][(bs as core::ffi::c_uint)
+                                .wrapping_sub(
+                                    BS_32x32 as core::ffi::c_int as core::ffi::c_uint,
+                                ) as usize]
+                            .wedge[0 as core::ffi::c_int
+                            as usize][(*b)
+                            .c2rust_unnamed
+                            .c2rust_unnamed_0
+                            .c2rust_unnamed
+                            .c2rust_unnamed
+                            .wedge_idx as usize] as uintptr_t)
+                            .wrapping_mul(8 as uintptr_t),
+                    ) as *const uint8_t;
+                ((*dsp).mc.mask)
+                    .expect(
+                        "non-null function pointer",
+                    )(
+                    dst,
+                    (*f).cur.stride[0 as core::ffi::c_int as usize],
+                    (*tmp_1
+                        .offset(
+                            (*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mask_sign as isize,
+                        ))
+                        .as_mut_ptr(),
+                    (*tmp_1
+                        .offset(
+                            ((*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mask_sign == 0) as core::ffi::c_int as isize,
+                        ))
+                        .as_mut_ptr(),
+                    bw4 * 4 as core::ffi::c_int,
+                    bh4 * 4 as core::ffi::c_int,
+                    mask,
+                );
+                if has_chroma != 0 {
+                    mask = (&raw mut dav1d_masks as *mut Dav1dMasks as uintptr_t)
+                        .wrapping_add(
+                            (dav1d_masks
+                                .offsets[chr_layout_idx
+                                    as usize][(bs as core::ffi::c_uint)
+                                    .wrapping_sub(
+                                        BS_32x32 as core::ffi::c_int as core::ffi::c_uint,
+                                    ) as usize]
+                                .wedge[(*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mask_sign
+                                as usize][(*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .wedge_idx as usize] as uintptr_t)
+                                .wrapping_mul(8 as uintptr_t),
+                        ) as *const uint8_t;
+                }
+            }
+            _ => {}
+        }
+        if has_chroma != 0 {
+            let mut pl_7: core::ffi::c_int = 0 as core::ffi::c_int;
+            while pl_7 < 2 as core::ffi::c_int {
+                let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
+                while i_0 < 2 as core::ffi::c_int {
+                    let refp_1: *const Dav1dThreadPicture = &*((*f).refp)
+                        .as_ptr()
+                        .offset(
+                            *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                                .as_ptr()
+                                .offset(i_0 as isize) as isize,
+                        ) as *const Dav1dThreadPicture;
+                    if (*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode
+                        as core::ffi::c_int == GLOBALMV_GLOBALMV as core::ffi::c_int
+                        && imin(cbw4, cbh4) > 1 as core::ffi::c_int
+                        && (*f)
+                            .gmv_warp_allowed[(*b)
+                            .c2rust_unnamed
+                            .c2rust_unnamed_0
+                            .ref_0[i_0 as usize] as usize] as core::ffi::c_int != 0
+                    {
+                        res = warp_affine(
+                            t,
+                            0 as *mut pixel,
+                            (*tmp_1.offset(i_0 as isize)).as_mut_ptr(),
+                            (bw4 * 4 as core::ffi::c_int >> ss_hor) as ptrdiff_t,
+                            b_dim,
+                            1 as core::ffi::c_int + pl_7,
+                            refp_1,
+                            &raw mut *((*(*f).frame_hdr).gmv)
+                                .as_mut_ptr()
+                                .offset(
+                                    *((*b).c2rust_unnamed.c2rust_unnamed_0.ref_0)
+                                        .as_ptr()
+                                        .offset(i_0 as isize) as isize,
+                                ),
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                    } else {
+                        res = mc(
+                            t,
+                            0 as *mut pixel,
+                            (*tmp_1.offset(i_0 as isize)).as_mut_ptr(),
+                            0 as ptrdiff_t,
+                            bw4,
+                            bh4,
+                            (*t).bx,
+                            (*t).by,
+                            1 as core::ffi::c_int + pl_7,
+                            (*b)
+                                .c2rust_unnamed
+                                .c2rust_unnamed_0
+                                .c2rust_unnamed
+                                .c2rust_unnamed
+                                .mv[i_0 as usize],
+                            refp_1,
+                            (*b).c2rust_unnamed.c2rust_unnamed_0.ref_0[i_0 as usize]
+                                as core::ffi::c_int,
+                            filter_2d_0,
+                        );
+                        if res != 0 {
+                            return res;
+                        }
+                    }
+                    i_0 += 1;
+                }
+                let uvdst_0: *mut pixel = ((*f)
+                    .cur
+                    .data[(1 as core::ffi::c_int + pl_7) as usize] as *mut pixel)
+                    .offset(uvdstoff as isize);
+                match (*b).c2rust_unnamed.c2rust_unnamed_0.comp_type as core::ffi::c_int
+                {
+                    2 => {
+                        ((*dsp).mc.avg)
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            uvdst_0,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            (*tmp_1.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
+                            (*tmp_1.offset(1 as core::ffi::c_int as isize)).as_mut_ptr(),
+                            bw4 * 4 as core::ffi::c_int >> ss_hor,
+                            bh4 * 4 as core::ffi::c_int >> ss_ver,
+                        );
+                    }
+                    1 => {
+                        ((*dsp).mc.w_avg)
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            uvdst_0,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            (*tmp_1.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
+                            (*tmp_1.offset(1 as core::ffi::c_int as isize)).as_mut_ptr(),
+                            bw4 * 4 as core::ffi::c_int >> ss_hor,
+                            bh4 * 4 as core::ffi::c_int >> ss_ver,
+                            jnt_weight,
+                        );
+                    }
+                    4 | 3 => {
+                        ((*dsp).mc.mask)
+                            .expect(
+                                "non-null function pointer",
+                            )(
+                            uvdst_0,
+                            (*f).cur.stride[1 as core::ffi::c_int as usize],
+                            (*tmp_1
+                                .offset(
+                                    (*b)
+                                        .c2rust_unnamed
+                                        .c2rust_unnamed_0
+                                        .c2rust_unnamed
+                                        .c2rust_unnamed
+                                        .mask_sign as isize,
+                                ))
+                                .as_mut_ptr(),
+                            (*tmp_1
+                                .offset(
+                                    ((*b)
+                                        .c2rust_unnamed
+                                        .c2rust_unnamed_0
+                                        .c2rust_unnamed
+                                        .c2rust_unnamed
+                                        .mask_sign == 0) as core::ffi::c_int as isize,
+                                ))
+                                .as_mut_ptr(),
+                            bw4 * 4 as core::ffi::c_int >> ss_hor,
+                            bh4 * 4 as core::ffi::c_int >> ss_ver,
+                            mask,
+                        );
+                    }
+                    _ => {}
+                }
+                pl_7 += 1;
+            }
+        }
+    }
+    if 0 as core::ffi::c_int != 0
+        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int == 2 as core::ffi::c_int
+        && (*t).by >= 0 as core::ffi::c_int && (*t).by < 4 as core::ffi::c_int
+        && (*t).bx >= 8 as core::ffi::c_int && (*t).bx < 12 as core::ffi::c_int
+        && DEBUG_B_PIXELS != 0
+    {
+        hex_dump(
+            dst,
+            (*f).cur.stride[0 as core::ffi::c_int as usize],
+            *b_dim.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int
+                * 4 as core::ffi::c_int,
+            *b_dim.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int
+                * 4 as core::ffi::c_int,
+            b"y-pred\0" as *const u8 as *const core::ffi::c_char,
+        );
+        if has_chroma != 0 {
+            hex_dump(
+                &raw mut *(*((*f).cur.data).as_ptr().offset(1 as core::ffi::c_int as isize)
+                    as *mut pixel)
+                    .offset(uvdstoff as isize),
+                (*f).cur.stride[1 as core::ffi::c_int as usize],
+                cbw4 * 4 as core::ffi::c_int,
+                cbh4 * 4 as core::ffi::c_int,
+                b"u-pred\0" as *const u8 as *const core::ffi::c_char,
+            );
+            hex_dump(
+                &raw mut *(*((*f).cur.data).as_ptr().offset(2 as core::ffi::c_int as isize)
+                    as *mut pixel)
+                    .offset(uvdstoff as isize),
+                (*f).cur.stride[1 as core::ffi::c_int as usize],
+                cbw4 * 4 as core::ffi::c_int,
+                cbh4 * 4 as core::ffi::c_int,
+                b"v-pred\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
+    }
+    let cw4: core::ffi::c_int = w4 + ss_hor >> ss_hor;
+    let ch4: core::ffi::c_int = h4 + ss_ver >> ss_ver;
+    if (*b).skip != 0 {
+        let a: *mut BlockContext = (*t).a;
+        (dav1d_memset_pow2[*b_dim.offset(2 as core::ffi::c_int as isize) as usize])
+            .expect(
+                "non-null function pointer",
+            )(
+            &raw mut *((*a).lcoef).as_mut_ptr().offset(bx4 as isize) as *mut uint8_t
+                as *mut core::ffi::c_void,
+            0x40 as core::ffi::c_int,
+        );
+        (dav1d_memset_pow2[*b_dim.offset(3 as core::ffi::c_int as isize) as usize])
+            .expect(
+                "non-null function pointer",
+            )(
+            &raw mut *((*t).l.lcoef).as_mut_ptr().offset(by4 as isize) as *mut uint8_t
+                as *mut core::ffi::c_void,
+            0x40 as core::ffi::c_int,
+        );
+        if has_chroma != 0 {
+            let mut memset_cw: dav1d_memset_pow2_fn = dav1d_memset_pow2[ulog2(
+                cbw4 as core::ffi::c_uint,
+            ) as usize];
+            let mut memset_ch: dav1d_memset_pow2_fn = dav1d_memset_pow2[ulog2(
+                cbh4 as core::ffi::c_uint,
+            ) as usize];
+            memset_cw
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*a).ccoef).as_mut_ptr().offset(0 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cbx4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+            memset_cw
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*a).ccoef).as_mut_ptr().offset(1 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cbx4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+            memset_ch
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*t).l.ccoef)
+                    .as_mut_ptr()
+                    .offset(0 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cby4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+            memset_ch
+                .expect(
+                    "non-null function pointer",
+                )(
+                &raw mut *(*((*t).l.ccoef)
+                    .as_mut_ptr()
+                    .offset(1 as core::ffi::c_int as isize))
+                    .as_mut_ptr()
+                    .offset(cby4 as isize) as *mut uint8_t as *mut core::ffi::c_void,
+                0x40 as core::ffi::c_int,
+            );
+        }
+        return 0 as core::ffi::c_int;
+    }
+    let uvtx: *const TxfmInfo = &*dav1d_txfm_dimensions
+        .as_ptr()
+        .offset((*b).uvtx as isize) as *const TxfmInfo;
+    let ytx: *const TxfmInfo = &*dav1d_txfm_dimensions
+        .as_ptr()
+        .offset((*b).c2rust_unnamed.c2rust_unnamed_0.max_ytx as isize)
+        as *const TxfmInfo;
+    let tx_split: [uint16_t; 2] = [
+        (*b).c2rust_unnamed.c2rust_unnamed_0.tx_split0 as uint16_t,
+        (*b).c2rust_unnamed.c2rust_unnamed_0.tx_split1,
+    ];
+    let mut init_y: core::ffi::c_int = 0 as core::ffi::c_int;
+    while init_y < bh4 {
+        let mut init_x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while init_x < bw4 {
+            let mut y_off: core::ffi::c_int = (init_y != 0) as core::ffi::c_int;
+            let mut y: core::ffi::c_int = 0;
+            dst = dst
+                .offset(
+                    ((*f).cur.stride[0 as core::ffi::c_int as usize] * 4 as ptrdiff_t
+                        * init_y as ptrdiff_t) as isize,
+                );
+            y = init_y;
+            (*t).by += init_y;
+            while y < imin(h4, init_y + 16 as core::ffi::c_int) {
+                let mut x: core::ffi::c_int = 0;
+                let mut x_off: core::ffi::c_int = (init_x != 0) as core::ffi::c_int;
+                x = init_x;
+                (*t).bx += init_x;
+                while x < imin(w4, init_x + 16 as core::ffi::c_int) {
+                    read_coef_tree(
+                        t,
+                        bs,
+                        b,
+                        (*b).c2rust_unnamed.c2rust_unnamed_0.max_ytx as RectTxfmSize,
+                        0 as core::ffi::c_int,
+                        tx_split.as_ptr(),
+                        x_off,
+                        y_off,
+                        &raw mut *dst.offset((x * 4 as core::ffi::c_int) as isize),
+                    );
+                    (*t).bx += (*ytx).w as core::ffi::c_int;
+                    x += (*ytx).w as core::ffi::c_int;
+                    x_off += 1;
+                }
+                dst = dst
+                    .offset(
+                        ((*f).cur.stride[0 as core::ffi::c_int as usize] * 4 as ptrdiff_t
+                            * (*ytx).h as ptrdiff_t) as isize,
+                    );
+                (*t).bx -= x;
+                (*t).by += (*ytx).h as core::ffi::c_int;
+                y += (*ytx).h as core::ffi::c_int;
+                y_off += 1;
+            }
+            dst = dst
+                .offset(
+                    -(((*f).cur.stride[0 as core::ffi::c_int as usize] * 4 as ptrdiff_t
+                        * y as ptrdiff_t) as isize),
+                );
+            (*t).by -= y;
+            if has_chroma != 0 {
+                let mut pl_8: core::ffi::c_int = 0 as core::ffi::c_int;
+                while pl_8 < 2 as core::ffi::c_int {
+                    let mut uvdst_1: *mut pixel = ((*f)
+                        .cur
+                        .data[(1 as core::ffi::c_int + pl_8) as usize] as *mut pixel)
+                        .offset(uvdstoff as isize)
+                        .offset(
+                            ((*f).cur.stride[1 as core::ffi::c_int as usize]
+                                * init_y as ptrdiff_t * 4 as ptrdiff_t >> ss_ver) as isize,
+                        );
+                    y = init_y >> ss_ver;
+                    (*t).by += init_y;
+                    while y < imin(ch4, init_y + 16 as core::ffi::c_int >> ss_ver) {
+                        let mut x_0: core::ffi::c_int = 0;
+                        x_0 = init_x >> ss_hor;
+                        (*t).bx += init_x;
+                        while x_0 < imin(cw4, init_x + 16 as core::ffi::c_int >> ss_hor)
+                        {
+                            let mut cf: *mut coef = 0 as *mut coef;
+                            let mut eob: core::ffi::c_int = 0;
+                            let mut txtp: TxfmType = DCT_DCT;
+                            if (*t).frame_thread.pass != 0 {
+                                let p: core::ffi::c_int = (*t).frame_thread.pass
+                                    & 1 as core::ffi::c_int;
+                                let fresh6 = (*ts).frame_thread[p as usize].cbi;
+                                (*ts).frame_thread[p as usize].cbi = ((*ts)
+                                    .frame_thread[p as usize]
+                                    .cbi)
+                                    .offset(1);
+                                let cbi: core::ffi::c_int = *fresh6 as core::ffi::c_int;
+                                cf = (*ts).frame_thread[p as usize].cf;
+                                (*ts).frame_thread[p as usize].cf = ((*ts)
+                                    .frame_thread[p as usize]
+                                    .cf)
+                                    .offset(
+                                        ((*uvtx).w as core::ffi::c_int
+                                            * (*uvtx).h as core::ffi::c_int * 16 as core::ffi::c_int)
+                                            as isize,
+                                    );
+                                eob = cbi >> 5 as core::ffi::c_int;
+                                txtp = (cbi & 0x1f as core::ffi::c_int) as TxfmType;
+                            } else {
+                                let mut cf_ctx: uint8_t = 0;
+                                cf = ((*t).c2rust_unnamed.cf_8bpc).as_mut_ptr()
+                                    as *mut coef;
+                                txtp = (*t)
+                                    .scratch
+                                    .c2rust_unnamed_0
+                                    .c2rust_unnamed_0
+                                    .txtp_map[((by4 + (y << ss_ver)) * 32 as core::ffi::c_int
+                                    + bx4 + (x_0 << ss_hor)) as usize] as TxfmType;
+                                eob = decode_coefs(
+                                    t,
+                                    &raw mut *(*((*(*t).a).ccoef)
+                                        .as_mut_ptr()
+                                        .offset(pl_8 as isize))
+                                        .as_mut_ptr()
+                                        .offset((cbx4 + x_0) as isize),
+                                    &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl_8 as isize))
+                                        .as_mut_ptr()
+                                        .offset((cby4 + y) as isize),
+                                    (*b).uvtx as RectTxfmSize,
+                                    bs,
+                                    b,
+                                    0 as core::ffi::c_int,
+                                    1 as core::ffi::c_int + pl_8,
+                                    cf,
+                                    &raw mut txtp,
+                                    &raw mut cf_ctx,
+                                );
+                                if 0 as core::ffi::c_int != 0
+                                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                    && (*t).by < 4 as core::ffi::c_int
+                                    && (*t).bx >= 8 as core::ffi::c_int
+                                    && (*t).bx < 12 as core::ffi::c_int
+                                {
+                                    printf(
+                                        b"Post-uv-cf-blk[pl=%d,tx=%d,txtp=%d,eob=%d]: r=%d\n\0"
+                                            as *const u8 as *const core::ffi::c_char,
+                                        pl_8,
+                                        (*b).uvtx as core::ffi::c_int,
+                                        txtp as core::ffi::c_uint,
+                                        eob,
+                                        (*ts).msac.rng,
+                                    );
+                                }
+                                let mut ctw: core::ffi::c_int = imin(
+                                    (*uvtx).w as core::ffi::c_int,
+                                    (*f).bw - (*t).bx + ss_hor >> ss_hor,
+                                );
+                                let mut cth: core::ffi::c_int = imin(
+                                    (*uvtx).h as core::ffi::c_int,
+                                    (*f).bh - (*t).by + ss_ver >> ss_ver,
+                                );
+                                dav1d_memset_likely_pow2(
+                                    &raw mut *(*((*(*t).a).ccoef)
+                                        .as_mut_ptr()
+                                        .offset(pl_8 as isize))
+                                        .as_mut_ptr()
+                                        .offset((cbx4 + x_0) as isize) as *mut uint8_t
+                                        as *mut core::ffi::c_void,
+                                    cf_ctx as core::ffi::c_int,
+                                    ctw,
+                                );
+                                dav1d_memset_likely_pow2(
+                                    &raw mut *(*((*t).l.ccoef).as_mut_ptr().offset(pl_8 as isize))
+                                        .as_mut_ptr()
+                                        .offset((cby4 + y) as isize) as *mut uint8_t
+                                        as *mut core::ffi::c_void,
+                                    cf_ctx as core::ffi::c_int,
+                                    cth,
+                                );
+                            }
+                            if eob >= 0 as core::ffi::c_int {
+                                if 0 as core::ffi::c_int != 0
+                                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                    && (*t).by < 4 as core::ffi::c_int
+                                    && (*t).bx >= 8 as core::ffi::c_int
+                                    && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                                {
+                                    coef_dump(
+                                        cf,
+                                        (*uvtx).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        (*uvtx).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        3 as core::ffi::c_int,
+                                        b"dq\0" as *const u8 as *const core::ffi::c_char,
+                                    );
+                                }
+                                ((*dsp).itx.itxfm_add[(*b).uvtx as usize][txtp as usize])
+                                    .expect(
+                                        "non-null function pointer",
+                                    )(
+                                    &raw mut *uvdst_1
+                                        .offset((4 as core::ffi::c_int * x_0) as isize),
+                                    (*f).cur.stride[1 as core::ffi::c_int as usize],
+                                    cf,
+                                    eob,
+                                );
+                                if 0 as core::ffi::c_int != 0
+                                    && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
+                                        == 2 as core::ffi::c_int && (*t).by >= 0 as core::ffi::c_int
+                                    && (*t).by < 4 as core::ffi::c_int
+                                    && (*t).bx >= 8 as core::ffi::c_int
+                                    && (*t).bx < 12 as core::ffi::c_int && DEBUG_B_PIXELS != 0
+                                {
+                                    hex_dump(
+                                        &raw mut *uvdst_1
+                                            .offset((4 as core::ffi::c_int * x_0) as isize),
+                                        (*f).cur.stride[1 as core::ffi::c_int as usize],
+                                        (*uvtx).w as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        (*uvtx).h as core::ffi::c_int * 4 as core::ffi::c_int,
+                                        b"recon\0" as *const u8 as *const core::ffi::c_char,
+                                    );
+                                }
+                            }
+                            (*t).bx += ((*uvtx).w as core::ffi::c_int) << ss_hor;
+                            x_0 += (*uvtx).w as core::ffi::c_int;
+                        }
+                        uvdst_1 = uvdst_1
+                            .offset(
+                                ((*f).cur.stride[1 as core::ffi::c_int as usize]
+                                    * 4 as ptrdiff_t * (*uvtx).h as ptrdiff_t) as isize,
+                            );
+                        (*t).bx -= x_0 << ss_hor;
+                        (*t).by += ((*uvtx).h as core::ffi::c_int) << ss_ver;
+                        y += (*uvtx).h as core::ffi::c_int;
+                    }
+                    (*t).by -= y << ss_ver;
+                    pl_8 += 1;
+                }
+            }
+            init_x += 16 as core::ffi::c_int;
+        }
+        init_y += 16 as core::ffi::c_int;
+    }
+    return 0 as core::ffi::c_int;
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_filter_sbrow_deblock_cols_8bpc(
+    f: *mut Dav1dFrameContext,
+    sby: core::ffi::c_int,
+) {
+    if (*(*f).c).inloop_filters as core::ffi::c_uint
+        & DAV1D_INLOOPFILTER_DEBLOCK as core::ffi::c_int as core::ffi::c_uint == 0
+        || (*(*f).frame_hdr).loopfilter.level_y[0 as core::ffi::c_int as usize] == 0
+            && (*(*f).frame_hdr).loopfilter.level_y[1 as core::ffi::c_int as usize] == 0
+    {
+        return;
+    }
+    let y: core::ffi::c_int = sby * (*f).sb_step * 4 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let p: [*mut pixel; 3] = [
+        ((*f).lf.p[0 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize])
+                    as isize,
+            ),
+        ((*f).lf.p[1 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+        ((*f).lf.p[2 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+    ];
+    let mut mask: *mut Av1Filter = ((*f).lf.mask)
+        .offset(
+            ((sby >> ((*(*f).seq_hdr).sb128 == 0) as core::ffi::c_int) * (*f).sb128w)
+                as isize,
+        );
+    dav1d_loopfilter_sbrow_cols_8bpc(
+        f,
+        p.as_ptr(),
+        mask,
+        sby,
+        *((*f).lf.start_of_tile_row).offset(sby as isize) as core::ffi::c_int,
+    );
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_filter_sbrow_deblock_rows_8bpc(
+    f: *mut Dav1dFrameContext,
+    sby: core::ffi::c_int,
+) {
+    let y: core::ffi::c_int = sby * (*f).sb_step * 4 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let p: [*mut pixel; 3] = [
+        ((*f).lf.p[0 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize])
+                    as isize,
+            ),
+        ((*f).lf.p[1 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+        ((*f).lf.p[2 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+    ];
+    let mut mask: *mut Av1Filter = ((*f).lf.mask)
+        .offset(
+            ((sby >> ((*(*f).seq_hdr).sb128 == 0) as core::ffi::c_int) * (*f).sb128w)
+                as isize,
+        );
+    if (*(*f).c).inloop_filters as core::ffi::c_uint
+        & DAV1D_INLOOPFILTER_DEBLOCK as core::ffi::c_int as core::ffi::c_uint != 0
+        && ((*(*f).frame_hdr).loopfilter.level_y[0 as core::ffi::c_int as usize]
+            as core::ffi::c_int != 0
+            || (*(*f).frame_hdr).loopfilter.level_y[1 as core::ffi::c_int as usize]
+                as core::ffi::c_int != 0)
+    {
+        dav1d_loopfilter_sbrow_rows_8bpc(f, p.as_ptr(), mask, sby);
+    }
+    if (*(*f).seq_hdr).cdef as core::ffi::c_int != 0 || (*f).lf.restore_planes != 0 {
+        dav1d_copy_lpf_8bpc(f, p.as_ptr(), sby);
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_filter_sbrow_cdef_8bpc(
+    tc: *mut Dav1dTaskContext,
+    sby: core::ffi::c_int,
+) {
+    let f: *const Dav1dFrameContext = (*tc).f;
+    if (*(*f).c).inloop_filters as core::ffi::c_uint
+        & DAV1D_INLOOPFILTER_CDEF as core::ffi::c_int as core::ffi::c_uint == 0
+    {
+        return;
+    }
+    let sbsz: core::ffi::c_int = (*f).sb_step;
+    let y: core::ffi::c_int = sby * sbsz * 4 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let p: [*mut pixel; 3] = [
+        ((*f).lf.p[0 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize])
+                    as isize,
+            ),
+        ((*f).lf.p[1 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+        ((*f).lf.p[2 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+    ];
+    let mut prev_mask: *mut Av1Filter = ((*f).lf.mask)
+        .offset(
+            ((sby - 1 as core::ffi::c_int
+                >> ((*(*f).seq_hdr).sb128 == 0) as core::ffi::c_int) * (*f).sb128w)
+                as isize,
+        );
+    let mut mask: *mut Av1Filter = ((*f).lf.mask)
+        .offset(
+            ((sby >> ((*(*f).seq_hdr).sb128 == 0) as core::ffi::c_int) * (*f).sb128w)
+                as isize,
+        );
+    let start: core::ffi::c_int = sby * sbsz;
+    if sby != 0 {
+        let ss_ver_0: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+            == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let mut p_up: [*mut pixel; 3] = [
+            (p[0 as core::ffi::c_int as usize])
+                .offset(
+                    -((8 as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize])
+                        as isize),
+                ),
+            (p[1 as core::ffi::c_int as usize])
+                .offset(
+                    -((8 as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                        >> ss_ver_0) as isize),
+                ),
+            (p[2 as core::ffi::c_int as usize])
+                .offset(
+                    -((8 as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                        >> ss_ver_0) as isize),
+                ),
+        ];
+        dav1d_cdef_brow_8bpc(
+            tc,
+            p_up.as_mut_ptr() as *const *mut pixel,
+            prev_mask,
+            start - 2 as core::ffi::c_int,
+            start,
+            1 as core::ffi::c_int,
+            sby,
+        );
+    }
+    let n_blks: core::ffi::c_int = sbsz
+        - 2 as core::ffi::c_int
+            * ((sby + 1 as core::ffi::c_int) < (*f).sbh) as core::ffi::c_int;
+    let end: core::ffi::c_int = imin(start + n_blks, (*f).bh) as core::ffi::c_int;
+    dav1d_cdef_brow_8bpc(tc, p.as_ptr(), mask, start, end, 0 as core::ffi::c_int, sby);
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_filter_sbrow_resize_8bpc(
+    f: *mut Dav1dFrameContext,
+    sby: core::ffi::c_int,
+) {
+    let sbsz: core::ffi::c_int = (*f).sb_step;
+    let y: core::ffi::c_int = sby * sbsz * 4 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let p: [*const pixel; 3] = [
+        ((*f).lf.p[0 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize])
+                    as isize,
+            ) as *const pixel,
+        ((*f).lf.p[1 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ) as *const pixel,
+        ((*f).lf.p[2 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).cur.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ) as *const pixel,
+    ];
+    let sr_p: [*mut pixel; 3] = [
+        ((*f).lf.sr_p[0 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).sr_cur.p.stride[0 as core::ffi::c_int as usize])
+                    as isize,
+            ),
+        ((*f).lf.sr_p[1 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).sr_cur.p.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+        ((*f).lf.sr_p[2 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).sr_cur.p.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+    ];
+    let has_chroma: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I400 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let mut pl: core::ffi::c_int = 0 as core::ffi::c_int;
+    while pl < 1 as core::ffi::c_int + 2 as core::ffi::c_int * has_chroma {
+        let ss_ver_0: core::ffi::c_int = (pl != 0
+            && (*f).cur.p.layout as core::ffi::c_uint
+                == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let h_start: core::ffi::c_int = 8 as core::ffi::c_int
+            * (sby != 0) as core::ffi::c_int >> ss_ver_0;
+        let dst_stride: ptrdiff_t = (*f)
+            .sr_cur
+            .p
+            .stride[(pl != 0) as core::ffi::c_int as usize];
+        let mut dst: *mut pixel = (sr_p[pl as usize])
+            .offset(-((h_start as ptrdiff_t * dst_stride) as isize));
+        let src_stride: ptrdiff_t = (*f)
+            .cur
+            .stride[(pl != 0) as core::ffi::c_int as usize];
+        let mut src: *const pixel = (p[pl as usize])
+            .offset(-((h_start as ptrdiff_t * src_stride) as isize));
+        let h_end: core::ffi::c_int = 4 as core::ffi::c_int
+            * (sbsz
+                - 2 as core::ffi::c_int
+                    * ((sby + 1 as core::ffi::c_int) < (*f).sbh) as core::ffi::c_int)
+            >> ss_ver_0;
+        let ss_hor: core::ffi::c_int = (pl != 0
+            && (*f).cur.p.layout as core::ffi::c_uint
+                != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let dst_w: core::ffi::c_int = (*f).sr_cur.p.p.w + ss_hor >> ss_hor;
+        let src_w: core::ffi::c_int = 4 as core::ffi::c_int * (*f).bw + ss_hor >> ss_hor;
+        let img_h: core::ffi::c_int = (*f).cur.p.h - sbsz * 4 as core::ffi::c_int * sby
+            + ss_ver_0 >> ss_ver_0;
+        ((*(*f).dsp).mc.resize)
+            .expect(
+                "non-null function pointer",
+            )(
+            dst,
+            dst_stride,
+            src,
+            src_stride,
+            dst_w,
+            imin(img_h, h_end) + h_start,
+            src_w,
+            (*f).resize_step[(pl != 0) as core::ffi::c_int as usize],
+            (*f).resize_start[(pl != 0) as core::ffi::c_int as usize],
+        );
+        pl += 1;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_filter_sbrow_lr_8bpc(
+    f: *mut Dav1dFrameContext,
+    sby: core::ffi::c_int,
+) {
+    if (*(*f).c).inloop_filters as core::ffi::c_uint
+        & DAV1D_INLOOPFILTER_RESTORATION as core::ffi::c_int as core::ffi::c_uint == 0
+    {
+        return;
+    }
+    let y: core::ffi::c_int = sby * (*f).sb_step * 4 as core::ffi::c_int;
+    let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+        == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+        as core::ffi::c_int;
+    let sr_p: [*mut pixel; 3] = [
+        ((*f).lf.sr_p[0 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).sr_cur.p.stride[0 as core::ffi::c_int as usize])
+                    as isize,
+            ),
+        ((*f).lf.sr_p[1 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).sr_cur.p.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+        ((*f).lf.sr_p[2 as core::ffi::c_int as usize])
+            .offset(
+                (y as ptrdiff_t * (*f).sr_cur.p.stride[1 as core::ffi::c_int as usize]
+                    >> ss_ver) as isize,
+            ),
+    ];
+    dav1d_lr_sbrow_8bpc(f, sr_p.as_ptr(), sby);
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_filter_sbrow_8bpc(
+    f: *mut Dav1dFrameContext,
+    sby: core::ffi::c_int,
+) {
+    dav1d_filter_sbrow_deblock_cols_8bpc(f, sby);
+    dav1d_filter_sbrow_deblock_rows_8bpc(f, sby);
+    if (*(*f).seq_hdr).cdef != 0 {
+        dav1d_filter_sbrow_cdef_8bpc((*(*f).c).tc, sby);
+    }
+    if (*(*f).frame_hdr).width[0 as core::ffi::c_int as usize]
+        != (*(*f).frame_hdr).width[1 as core::ffi::c_int as usize]
+    {
+        dav1d_filter_sbrow_resize_8bpc(f, sby);
+    }
+    if (*f).lf.restore_planes != 0 {
+        dav1d_filter_sbrow_lr_8bpc(f, sby);
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_backup_ipred_edge_8bpc(t: *mut Dav1dTaskContext) {
+    let f: *const Dav1dFrameContext = (*t).f;
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let sby: core::ffi::c_int = (*t).by >> (*f).sb_shift;
+    let sby_off: core::ffi::c_int = (*f).sb128w * 128 as core::ffi::c_int * sby;
+    let x_off: core::ffi::c_int = (*ts).tiling.col_start;
+    let y: *const pixel = ((*f).cur.data[0 as core::ffi::c_int as usize] as *const pixel)
+        .offset((x_off * 4 as core::ffi::c_int) as isize)
+        .offset(
+            ((((*t).by + (*f).sb_step) * 4 as core::ffi::c_int - 1 as core::ffi::c_int)
+                as ptrdiff_t * (*f).cur.stride[0 as core::ffi::c_int as usize]) as isize,
+        );
+    memcpy(
+        &raw mut *(*((*f).ipred_edge).as_ptr().offset(0 as core::ffi::c_int as isize))
+            .offset((sby_off + x_off * 4 as core::ffi::c_int) as isize) as *mut pixel
+            as *mut core::ffi::c_void,
+        y as *const core::ffi::c_void,
+        (4 as core::ffi::c_int * ((*ts).tiling.col_end - x_off)) as size_t,
+    );
+    if (*f).cur.p.layout as core::ffi::c_uint
+        != DAV1D_PIXEL_LAYOUT_I400 as core::ffi::c_int as core::ffi::c_uint
+    {
+        let ss_ver: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+            == DAV1D_PIXEL_LAYOUT_I420 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let ss_hor: core::ffi::c_int = ((*f).cur.p.layout as core::ffi::c_uint
+            != DAV1D_PIXEL_LAYOUT_I444 as core::ffi::c_int as core::ffi::c_uint)
+            as core::ffi::c_int;
+        let uv_off: ptrdiff_t = (x_off * 4 as core::ffi::c_int >> ss_hor) as ptrdiff_t
+            + ((((*t).by + (*f).sb_step) * 4 as core::ffi::c_int >> ss_ver)
+                - 1 as core::ffi::c_int) as ptrdiff_t
+                * (*f).cur.stride[1 as core::ffi::c_int as usize];
+        let mut pl: core::ffi::c_int = 1 as core::ffi::c_int;
+        while pl <= 2 as core::ffi::c_int {
+            memcpy(
+                &raw mut *(*((*f).ipred_edge).as_ptr().offset(pl as isize))
+                    .offset(
+                        (sby_off + (x_off * 4 as core::ffi::c_int >> ss_hor)) as isize,
+                    ) as *mut pixel as *mut core::ffi::c_void,
+                &*(*((*f).cur.data).as_ptr().offset(pl as isize) as *const pixel)
+                    .offset(uv_off as isize) as *const pixel as *const core::ffi::c_void,
+                (4 as core::ffi::c_int * ((*ts).tiling.col_end - x_off) >> ss_hor)
+                    as size_t,
+            );
+            pl += 1;
+        }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_copy_pal_block_y_8bpc(
+    t: *mut Dav1dTaskContext,
+    bx4: core::ffi::c_int,
+    by4: core::ffi::c_int,
+    bw4: core::ffi::c_int,
+    bh4: core::ffi::c_int,
+) {
+    let f: *const Dav1dFrameContext = (*t).f;
+    let pal: *mut pixel = if (*t).frame_thread.pass != 0 {
+        ((*((*f).frame_thread.pal)
+            .offset(
+                ((((*t).by >> 1 as core::ffi::c_int) + ((*t).bx & 1 as core::ffi::c_int))
+                    as ptrdiff_t * ((*f).b4_stride >> 1 as core::ffi::c_int)
+                    + (((*t).bx >> 1 as core::ffi::c_int)
+                        + ((*t).by & 1 as core::ffi::c_int)) as ptrdiff_t) as isize,
+            ))[0 as core::ffi::c_int as usize])
+            .as_mut_ptr()
+    } else {
+        ((*t)
+            .scratch
+            .c2rust_unnamed_0
+            .c2rust_unnamed_1
+            .c2rust_unnamed
+            .pal_8bpc[0 as core::ffi::c_int as usize])
+            .as_mut_ptr() as *mut pixel
+    };
+    let mut x: core::ffi::c_int = 0 as core::ffi::c_int;
+    while x < bw4 {
+        memcpy(
+            ((*t)
+                .c2rust_unnamed_0
+                .al_pal_8bpc[0 as core::ffi::c_int
+                as usize][(bx4 + x) as usize][0 as core::ffi::c_int as usize])
+                .as_mut_ptr() as *mut core::ffi::c_void,
+            pal as *const core::ffi::c_void,
+            (8 as size_t).wrapping_mul(::core::mem::size_of::<pixel>() as size_t),
+        );
+        x += 1;
+    }
+    let mut y: core::ffi::c_int = 0 as core::ffi::c_int;
+    while y < bh4 {
+        memcpy(
+            ((*t)
+                .c2rust_unnamed_0
+                .al_pal_8bpc[1 as core::ffi::c_int
+                as usize][(by4 + y) as usize][0 as core::ffi::c_int as usize])
+                .as_mut_ptr() as *mut core::ffi::c_void,
+            pal as *const core::ffi::c_void,
+            (8 as size_t).wrapping_mul(::core::mem::size_of::<pixel>() as size_t),
+        );
+        y += 1;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_copy_pal_block_uv_8bpc(
+    t: *mut Dav1dTaskContext,
+    bx4: core::ffi::c_int,
+    by4: core::ffi::c_int,
+    bw4: core::ffi::c_int,
+    bh4: core::ffi::c_int,
+) {
+    let f: *const Dav1dFrameContext = (*t).f;
+    let pal: *const [pixel; 8] = (if (*t).frame_thread.pass != 0 {
+        (*((*f).frame_thread.pal)
+            .offset(
+                ((((*t).by >> 1 as core::ffi::c_int) + ((*t).bx & 1 as core::ffi::c_int))
+                    as ptrdiff_t * ((*f).b4_stride >> 1 as core::ffi::c_int)
+                    + (((*t).bx >> 1 as core::ffi::c_int)
+                        + ((*t).by & 1 as core::ffi::c_int)) as ptrdiff_t) as isize,
+            ))
+            .as_mut_ptr() as *mut [uint8_t; 8]
+    } else {
+        ((*t).scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed.pal_8bpc)
+            .as_mut_ptr()
+    }) as *const [pixel; 8];
+    let mut pl: core::ffi::c_int = 1 as core::ffi::c_int;
+    while pl <= 2 as core::ffi::c_int {
+        let mut x: core::ffi::c_int = 0 as core::ffi::c_int;
+        while x < bw4 {
+            memcpy(
+                ((*t)
+                    .c2rust_unnamed_0
+                    .al_pal_8bpc[0 as core::ffi::c_int
+                    as usize][(bx4 + x) as usize][pl as usize])
+                    .as_mut_ptr() as *mut core::ffi::c_void,
+                (*pal.offset(pl as isize)).as_ptr() as *const core::ffi::c_void,
+                (8 as size_t).wrapping_mul(::core::mem::size_of::<pixel>() as size_t),
+            );
+            x += 1;
+        }
+        let mut y: core::ffi::c_int = 0 as core::ffi::c_int;
+        while y < bh4 {
+            memcpy(
+                ((*t)
+                    .c2rust_unnamed_0
+                    .al_pal_8bpc[1 as core::ffi::c_int
+                    as usize][(by4 + y) as usize][pl as usize])
+                    .as_mut_ptr() as *mut core::ffi::c_void,
+                (*pal.offset(pl as isize)).as_ptr() as *const core::ffi::c_void,
+                (8 as size_t).wrapping_mul(::core::mem::size_of::<pixel>() as size_t),
+            );
+            y += 1;
+        }
+        pl += 1;
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_read_pal_plane_8bpc(
+    t: *mut Dav1dTaskContext,
+    b: *mut Av1Block,
+    pl: core::ffi::c_int,
+    sz_ctx: core::ffi::c_int,
+    bx4: core::ffi::c_int,
+    by4: core::ffi::c_int,
+) {
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let f: *const Dav1dFrameContext = (*t).f;
+    (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[pl as usize] = (dav1d_msac_decode_symbol_adapt_c(
+        &raw mut (*ts).msac,
+        ((*ts).cdf.m.pal_sz[pl as usize][sz_ctx as usize]).as_mut_ptr(),
+        6 as size_t,
+    ))
+        .wrapping_add(2 as core::ffi::c_uint) as uint8_t;
+    let pal_sz: core::ffi::c_int = (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[pl as usize]
+        as core::ffi::c_int;
+    let mut cache: [pixel; 16] = [0; 16];
+    let mut used_cache: [pixel; 8] = [0; 8];
+    let mut l_cache: core::ffi::c_int = if pl != 0 {
+        (*t).pal_sz_uv[1 as core::ffi::c_int as usize][by4 as usize] as core::ffi::c_int
+    } else {
+        (*t).l.pal_sz[by4 as usize] as core::ffi::c_int
+    };
+    let mut n_cache: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut a_cache: core::ffi::c_int = if by4 & 15 as core::ffi::c_int != 0 {
+        if pl != 0 {
+            (*t).pal_sz_uv[0 as core::ffi::c_int as usize][bx4 as usize]
+                as core::ffi::c_int
+        } else {
+            (*(*t).a).pal_sz[bx4 as usize] as core::ffi::c_int
+        }
+    } else {
+        0 as core::ffi::c_int
+    };
+    let mut l: *const pixel = ((*t)
+        .c2rust_unnamed_0
+        .al_pal_8bpc[1 as core::ffi::c_int as usize][by4 as usize][pl as usize])
+        .as_mut_ptr();
+    let mut a: *const pixel = ((*t)
+        .c2rust_unnamed_0
+        .al_pal_8bpc[0 as core::ffi::c_int as usize][bx4 as usize][pl as usize])
+        .as_mut_ptr();
+    while l_cache != 0 && a_cache != 0 {
+        if (*l as core::ffi::c_int) < *a as core::ffi::c_int {
+            if n_cache == 0
+                || cache[(n_cache - 1 as core::ffi::c_int) as usize] as core::ffi::c_int
+                    != *l as core::ffi::c_int
+            {
+                let fresh11 = n_cache;
+                n_cache = n_cache + 1;
+                cache[fresh11 as usize] = *l;
+            }
+            l = l.offset(1);
+            l_cache -= 1;
+        } else {
+            if *a as core::ffi::c_int == *l as core::ffi::c_int {
+                l = l.offset(1);
+                l_cache -= 1;
+            }
+            if n_cache == 0
+                || cache[(n_cache - 1 as core::ffi::c_int) as usize] as core::ffi::c_int
+                    != *a as core::ffi::c_int
+            {
+                let fresh12 = n_cache;
+                n_cache = n_cache + 1;
+                cache[fresh12 as usize] = *a;
+            }
+            a = a.offset(1);
+            a_cache -= 1;
+        }
+    }
+    if l_cache != 0 {
+        loop {
+            if n_cache == 0
+                || cache[(n_cache - 1 as core::ffi::c_int) as usize] as core::ffi::c_int
+                    != *l as core::ffi::c_int
+            {
+                let fresh13 = n_cache;
+                n_cache = n_cache + 1;
+                cache[fresh13 as usize] = *l;
+            }
+            l = l.offset(1);
+            l_cache -= 1;
+            if !(l_cache > 0 as core::ffi::c_int) {
+                break;
+            }
+        }
+    } else if a_cache != 0 {
+        loop {
+            if n_cache == 0
+                || cache[(n_cache - 1 as core::ffi::c_int) as usize] as core::ffi::c_int
+                    != *a as core::ffi::c_int
+            {
+                let fresh14 = n_cache;
+                n_cache = n_cache + 1;
+                cache[fresh14 as usize] = *a;
+            }
+            a = a.offset(1);
+            a_cache -= 1;
+            if !(a_cache > 0 as core::ffi::c_int) {
+                break;
+            }
+        }
+    }
+    let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
+    let mut n: core::ffi::c_int = 0 as core::ffi::c_int;
+    while n < n_cache && i < pal_sz {
+        if dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+            let fresh15 = i;
+            i = i + 1;
+            used_cache[fresh15 as usize] = cache[n as usize];
+        }
+        n += 1;
+    }
+    let n_used_cache: core::ffi::c_int = i;
+    let pal: *mut pixel = if (*t).frame_thread.pass != 0 {
+        ((*((*f).frame_thread.pal)
+            .offset(
+                ((((*t).by >> 1 as core::ffi::c_int) + ((*t).bx & 1 as core::ffi::c_int))
+                    as ptrdiff_t * ((*f).b4_stride >> 1 as core::ffi::c_int)
+                    + (((*t).bx >> 1 as core::ffi::c_int)
+                        + ((*t).by & 1 as core::ffi::c_int)) as ptrdiff_t) as isize,
+            ))[pl as usize])
+            .as_mut_ptr()
+    } else {
+        ((*t)
+            .scratch
+            .c2rust_unnamed_0
+            .c2rust_unnamed_1
+            .c2rust_unnamed
+            .pal_8bpc[pl as usize])
+            .as_mut_ptr() as *mut pixel
+    };
+    if i < pal_sz {
+        let bpc: core::ffi::c_int = if BITDEPTH == 8 as core::ffi::c_int {
+            8 as core::ffi::c_int
+        } else {
+            (*f).cur.p.bpc
+        };
+        let fresh16 = i;
+        i = i + 1;
+        let fresh17 = &raw mut *pal.offset(fresh16 as isize);
+        *fresh17 = dav1d_msac_decode_bools(&raw mut (*ts).msac, bpc as core::ffi::c_uint)
+            as pixel;
+        let mut prev: core::ffi::c_int = *fresh17 as core::ffi::c_int;
+        if i < pal_sz {
+            let mut bits: core::ffi::c_int = ((bpc - 3 as core::ffi::c_int)
+                as core::ffi::c_uint)
+                .wrapping_add(
+                    dav1d_msac_decode_bools(&raw mut (*ts).msac, 2 as core::ffi::c_uint),
+                ) as core::ffi::c_int;
+            let max: core::ffi::c_int = ((1 as core::ffi::c_int) << bpc)
+                - 1 as core::ffi::c_int;
+            loop {
+                let delta: core::ffi::c_int = dav1d_msac_decode_bools(
+                    &raw mut (*ts).msac,
+                    bits as core::ffi::c_uint,
+                ) as core::ffi::c_int;
+                let fresh18 = i;
+                i = i + 1;
+                let fresh19 = &raw mut *pal.offset(fresh18 as isize);
+                *fresh19 = imin(prev + delta + (pl == 0) as core::ffi::c_int, max)
+                    as pixel;
+                prev = *fresh19 as core::ffi::c_int;
+                if prev + (pl == 0) as core::ffi::c_int >= max {
+                    while i < pal_sz {
+                        *pal.offset(i as isize) = max as pixel;
+                        i += 1;
+                    }
+                    break;
+                } else {
+                    bits = imin(
+                        bits,
+                        1 as core::ffi::c_int
+                            + ulog2(
+                                (max - prev - (pl == 0) as core::ffi::c_int)
+                                    as core::ffi::c_uint,
+                            ),
+                    );
+                    if !(i < pal_sz) {
+                        break;
+                    }
+                }
+            }
+        }
+        let mut n_0: core::ffi::c_int = 0 as core::ffi::c_int;
+        let mut m: core::ffi::c_int = n_used_cache;
+        i = 0 as core::ffi::c_int;
+        while i < pal_sz {
+            if n_0 < n_used_cache
+                && (m >= pal_sz
+                    || used_cache[n_0 as usize] as core::ffi::c_int
+                        <= *pal.offset(m as isize) as core::ffi::c_int)
+            {
+                let fresh20 = n_0;
+                n_0 = n_0 + 1;
+                *pal.offset(i as isize) = used_cache[fresh20 as usize];
+            } else {
+                if !(m < pal_sz) as core::ffi::c_int as core::ffi::c_long != 0 {
+                    crate::platform::assertion(
+                        (::core::mem::transmute::<
+                            [u8; 26],
+                            [core::ffi::c_char; 26],
+                        >(*b"dav1d_read_pal_plane_8bpc\0"))
+                            .as_ptr(),
+                        b"recon_tmpl.c\0" as *const u8 as *const core::ffi::c_char,
+                        2258 as core::ffi::c_int,
+                        b"m < pal_sz\0" as *const u8 as *const core::ffi::c_char,
+                    );
+                } else {};
+                let fresh21 = m;
+                m = m + 1;
+                *pal.offset(i as isize) = *pal.offset(fresh21 as isize);
+            }
+            i += 1;
+        }
+    } else {
+        memcpy(
+            pal as *mut core::ffi::c_void,
+            used_cache.as_mut_ptr() as *const core::ffi::c_void,
+            (n_used_cache as size_t)
+                .wrapping_mul(::core::mem::size_of::<pixel>() as size_t),
+        );
+    }
+    if 0 as core::ffi::c_int != 0
+        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int == 2 as core::ffi::c_int
+        && (*t).by >= 0 as core::ffi::c_int && (*t).by < 4 as core::ffi::c_int
+        && (*t).bx >= 8 as core::ffi::c_int && (*t).bx < 12 as core::ffi::c_int
+    {
+        printf(
+            b"Post-pal[pl=%d,sz=%d,cache_size=%d,used_cache=%d]: r=%d, cache=\0"
+                as *const u8 as *const core::ffi::c_char,
+            pl,
+            pal_sz,
+            n_cache,
+            n_used_cache,
+            (*ts).msac.rng,
+        );
+        let mut n_1: core::ffi::c_int = 0 as core::ffi::c_int;
+        while n_1 < n_cache {
+            printf(
+                b"%c%02x\0" as *const u8 as *const core::ffi::c_char,
+                if n_1 != 0 { ' ' as i32 } else { '[' as i32 },
+                cache[n_1 as usize] as core::ffi::c_int,
+            );
+            n_1 += 1;
+        }
+        printf(
+            b"%s, pal=\0" as *const u8 as *const core::ffi::c_char,
+            if n_cache != 0 {
+                b"]\0" as *const u8 as *const core::ffi::c_char
+            } else {
+                b"[]\0" as *const u8 as *const core::ffi::c_char
+            },
+        );
+        let mut n_2: core::ffi::c_int = 0 as core::ffi::c_int;
+        while n_2 < pal_sz {
+            printf(
+                b"%c%02x\0" as *const u8 as *const core::ffi::c_char,
+                if n_2 != 0 { ' ' as i32 } else { '[' as i32 },
+                *pal.offset(n_2 as isize) as core::ffi::c_int,
+            );
+            n_2 += 1;
+        }
+        printf(b"]\n\0" as *const u8 as *const core::ffi::c_char);
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_read_pal_uv_8bpc(
+    t: *mut Dav1dTaskContext,
+    b: *mut Av1Block,
+    sz_ctx: core::ffi::c_int,
+    bx4: core::ffi::c_int,
+    by4: core::ffi::c_int,
+) {
+    dav1d_read_pal_plane_8bpc(t, b, 1 as core::ffi::c_int, sz_ctx, bx4, by4);
+    let ts: *mut Dav1dTileState = (*t).ts;
+    let f: *const Dav1dFrameContext = (*t).f;
+    let pal: *mut pixel = if (*t).frame_thread.pass != 0 {
+        ((*((*f).frame_thread.pal)
+            .offset(
+                ((((*t).by >> 1 as core::ffi::c_int) + ((*t).bx & 1 as core::ffi::c_int))
+                    as ptrdiff_t * ((*f).b4_stride >> 1 as core::ffi::c_int)
+                    + (((*t).bx >> 1 as core::ffi::c_int)
+                        + ((*t).by & 1 as core::ffi::c_int)) as ptrdiff_t) as isize,
+            ))[2 as core::ffi::c_int as usize])
+            .as_mut_ptr()
+    } else {
+        ((*t)
+            .scratch
+            .c2rust_unnamed_0
+            .c2rust_unnamed_1
+            .c2rust_unnamed
+            .pal_8bpc[2 as core::ffi::c_int as usize])
+            .as_mut_ptr() as *mut pixel
+    };
+    let bpc: core::ffi::c_int = if BITDEPTH == 8 as core::ffi::c_int {
+        8 as core::ffi::c_int
+    } else {
+        (*f).cur.p.bpc
+    };
+    if dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+        let bits: core::ffi::c_int = ((bpc - 4 as core::ffi::c_int) as core::ffi::c_uint)
+            .wrapping_add(
+                dav1d_msac_decode_bools(&raw mut (*ts).msac, 2 as core::ffi::c_uint),
+            ) as core::ffi::c_int;
+        let fresh22 = &raw mut *pal.offset(0 as core::ffi::c_int as isize);
+        *fresh22 = dav1d_msac_decode_bools(&raw mut (*ts).msac, bpc as core::ffi::c_uint)
+            as pixel;
+        let mut prev: core::ffi::c_int = *fresh22 as core::ffi::c_int;
+        let max: core::ffi::c_int = ((1 as core::ffi::c_int) << bpc)
+            - 1 as core::ffi::c_int;
+        let mut i: core::ffi::c_int = 1 as core::ffi::c_int;
+        while i
+            < (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[1 as core::ffi::c_int as usize]
+                as core::ffi::c_int
+        {
+            let mut delta: core::ffi::c_int = dav1d_msac_decode_bools(
+                &raw mut (*ts).msac,
+                bits as core::ffi::c_uint,
+            ) as core::ffi::c_int;
+            if delta != 0 && dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+                delta = -delta;
+            }
+            let fresh23 = &raw mut *pal.offset(i as isize);
+            *fresh23 = (prev + delta & max) as pixel;
+            prev = *fresh23 as core::ffi::c_int;
+            i += 1;
+        }
+    } else {
+        let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
+        while i_0
+            < (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[1 as core::ffi::c_int as usize]
+                as core::ffi::c_int
+        {
+            *pal.offset(i_0 as isize) = dav1d_msac_decode_bools(
+                &raw mut (*ts).msac,
+                bpc as core::ffi::c_uint,
+            ) as pixel;
+            i_0 += 1;
+        }
+    }
+    if 0 as core::ffi::c_int != 0
+        && (*(*f).frame_hdr).frame_offset as core::ffi::c_int == 2 as core::ffi::c_int
+        && (*t).by >= 0 as core::ffi::c_int && (*t).by < 4 as core::ffi::c_int
+        && (*t).bx >= 8 as core::ffi::c_int && (*t).bx < 12 as core::ffi::c_int
+    {
+        printf(
+            b"Post-pal[pl=2]: r=%d \0" as *const u8 as *const core::ffi::c_char,
+            (*ts).msac.rng,
+        );
+        let mut n: core::ffi::c_int = 0 as core::ffi::c_int;
+        while n
+            < (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[1 as core::ffi::c_int as usize]
+                as core::ffi::c_int
+        {
+            printf(
+                b"%c%02x\0" as *const u8 as *const core::ffi::c_char,
+                if n != 0 { ' ' as i32 } else { '[' as i32 },
+                *pal.offset(n as isize) as core::ffi::c_int,
+            );
+            n += 1;
+        }
+        printf(b"]\n\0" as *const u8 as *const core::ffi::c_char);
+    }
+}

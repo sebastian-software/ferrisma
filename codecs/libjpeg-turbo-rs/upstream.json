@@ -1,0 +1,8 @@
+{
+  "libjpeg-turbo": {
+    "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+    "revision": "7b4993786d856cbccabfc0ed2f923ba000e326cc",
+    "tag": "3.2.1",
+    "path": "upstream/libjpeg-turbo"
+  }
+}

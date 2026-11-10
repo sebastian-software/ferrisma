@@ -1,0 +1,100 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Generate native Linux dav1d profiles'
+'on':
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Verify committed profiles or generate replacements
+        type: choice
+        options:
+        - verify
+        - generate
+        default: verify
+permissions:
+  contents: read
+jobs:
+  translate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CC: clang-16
+      CXX: clang++-16
+      LLVM_CONFIG_PATH: /usr/bin/llvm-config-16
+      LIBCLANG_PATH: /usr/lib/llvm-16/lib
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the pinned translation toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev nasm ninja-build pkg-config python3-venv cmake
+        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup toolchain install 1.80.1 --profile minimal
+        cargo +1.80.1 install c2rust --version 0.21.0 --locked
+        python3 -m venv build/dav1d-tools
+        build/dav1d-tools/bin/python -m pip install meson==1.7.2
+    - name: Verify original source and test inputs
+      run: |
+        python3 tools/import_dav1d.py --fetch
+        python3 tools/verify_upstream.py
+        python3 tools/generate_licenses.py --check
+    - name: Build both original portable profiles
+      run: |
+        python3 tools/build_dav1d.py --debug
+        python3 tools/build_dav1d.py
+    - name: Reproduce both complete native Linux source profiles
+      env:
+        RUST_BACKTRACE: '1'
+      run: |
+        if [ "${{ inputs.mode }}" = generate ]; then
+          python3 tools/transpile_dav1d.py
+          python3 tools/transpile_dav1d.py --release
+        fi
+        python3 tools/transpile_dav1d.py --check
+        python3 tools/transpile_dav1d.py --release --check
+    - name: Compile both generated profiles and exercise original DSP bodies
+      env:
+        RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      run: |
+        python3 tools/build_dav1d_consumers.py
+        python3 tools/build_dav1d_consumers.py --debug
+        python3 tools/check_dav1d_api.py
+        python3 tools/check_dav1d_api.py --debug
+        python3 - <<'PY'
+        import json, os, subprocess
+        from pathlib import Path
+        for profile in ['release', 'debug']:
+            tests = json.loads(Path(f'build/dav1d-rust-{profile}/original-tests.json').read_text())
+            test = next(test for test in tests if test['name'] == 'av1-1-b8-23-film_grain-50')
+            environment = os.environ.copy()
+            environment.update(test['env'])
+            subprocess.run(test['cmd'], cwd=test['workdir'], env=environment,
+                           check=True, timeout=test['timeout'] * 4)
+        PY
+        python3 tools/check_dav1d_dsp.py
+        python3 tools/check_dav1d_dsp.py --debug
+        python3 tools/check_dav1d_faults.py
+        python3 tools/check_dav1d_faults.py --debug
+    - name: Preserve generated source and reference configuration
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: dav1d-linux-generated
+        path: |
+          codecs/libavif-rs/crates/dav1d/src/linux/
+          codecs/libavif-rs/crates/dav1d/src/modules-linux*.rs
+          codecs/libavif-rs/crates/dav1d/TRANSLATION-linux*.json
+          codecs/libavif-rs/build/dav1d-translate/linux/
+          codecs/libavif-rs/build/dav1d-generated/linux/
+          codecs/libavif-rs/build/dav1d-reference-*/reference-profile.json
+          codecs/libavif-rs/build/dav1d-reference-*/config.h
+          codecs/libavif-rs/build/dav1d-reference-*/compile_commands.json
+          codecs/libavif-rs/build/dav1d-api-*/summary.json
+          codecs/libavif-rs/build/dav1d-dsp-*/inventory.json
+          codecs/libavif-rs/build/dav1d-dsp-*/results.log
+          codecs/libavif-rs/build/dav1d-faults-*/summary.json
+    name: 'AVIF: translate'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

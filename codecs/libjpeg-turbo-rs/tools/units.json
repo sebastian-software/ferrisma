@@ -1,0 +1,1061 @@
+{
+  "comment": "Every upstream file under upstream/libjpeg-turbo/src and the decoder's SIMD directories (expanded_directories), its Rust module and owning work package, or the reason it is not translated. Fixed by WP0; tools/units.py verifies it against the pinned upstream and src/. A header whose name matches a C file shares that file's module, and the headers of simd/ share simd/jsimd.c's; any other in-scope file has a module of its own name. The 8-bit wrappers in src/wrapper/ select the instantiation that the modules translate. own_modules lists the modules that translate no upstream file.",
+  "upstream_version": "libjpeg-turbo 3.2.1",
+  "packages": {
+    "1": "Common infrastructure",
+    "2": "Input and markers",
+    "3": "Entropy decoding",
+    "4": "Coefficients and IDCT",
+    "5": "Upsampling, color, buffers",
+    "6": "Control and API",
+    "8": "Safe Rust API for Ferrixel",
+    "9": "NEON SIMD",
+    "10": "x86-64 SIMD"
+  },
+  "own_modules": [
+    {
+      "module": "src/decode.rs",
+      "package": "8",
+      "purpose": "the safe decoding API over the translated libjpeg API (ADR 0006); not a translation"
+    },
+    {
+      "module": "src/neon.rs",
+      "package": "9",
+      "purpose": "the Neon loads and stores over arrays that the kernels call (ADR 0007); not a translation"
+    },
+    {
+      "module": "src/x86.rs",
+      "package": "10",
+      "purpose": "the SSE2 and AVX loads and stores over arrays that the x86-64 kernels call (ADR 0008); not a translation"
+    }
+  ],
+  "categories": {
+    "encoder": "compression is not translated (ADR 0001)",
+    "transcoding": "transcoding is not translated (ADR 0001)",
+    "lossless": "lossless JPEG is not translated (ADR 0001)",
+    "quantization": "color quantization is not translated (ADR 0001)",
+    "rgb565": "RGB565 output is not translated (ADR 0001)",
+    "turbojpeg": "the TurboJPEG API is not translated (ADR 0001)",
+    "program": "an upstream program or its helpers: a consumer and test input, not a translation unit (ADR 0001, ADR 0002)",
+    "build": "build or packaging input with no decoder behavior",
+    "macro": "a translation-time header whose macros resolve in place; see ADR 0005",
+    "profiling": "WITH_PROFILE instrumentation, off in the reference configuration",
+    "precision": "12- and 16-bit instantiations are not translated; the modules are the 8-bit instantiation (ADR 0001)",
+    "other-simd": "SIMD extensions for an architecture that the port does not target (ADR 0004)"
+  },
+  "modules": [
+    {
+      "module": "src/jconfig.rs",
+      "upstream": [
+        "src/jconfig.h.in"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jmorecfg.rs",
+      "upstream": [
+        "src/jmorecfg.h"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jpeglib.rs",
+      "upstream": [
+        "src/jpeglib.h"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jpegint.rs",
+      "upstream": [
+        "src/jpegint.h"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jerror.rs",
+      "upstream": [
+        "src/jerror.h",
+        "src/jerror.c"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jversion.rs",
+      "upstream": [
+        "src/jversion.h.in"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jcomapi.rs",
+      "upstream": [
+        "src/jcomapi.c"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jutils.rs",
+      "upstream": [
+        "src/jutils.c"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jmemsys.rs",
+      "upstream": [
+        "src/jmemsys.h"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jmemmgr.rs",
+      "upstream": [
+        "src/jmemmgr.c"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jmemnobs.rs",
+      "upstream": [
+        "src/jmemnobs.c"
+      ],
+      "package": "1"
+    },
+    {
+      "module": "src/jdapimin.rs",
+      "upstream": [
+        "src/jdapimin.c"
+      ],
+      "package": "2"
+    },
+    {
+      "module": "src/jdatasrc.rs",
+      "upstream": [
+        "src/jdatasrc.c"
+      ],
+      "package": "2",
+      "not_translated": {
+        "items": [
+          "init_source",
+          "fill_input_buffer",
+          "jpeg_stdio_src"
+        ],
+        "reason": "the stdio source is out of scope; only `jpeg_mem_src` is translated (ADR 0001)"
+      }
+    },
+    {
+      "module": "src/jdinput.rs",
+      "upstream": [
+        "src/jdinput.c"
+      ],
+      "package": "2"
+    },
+    {
+      "module": "src/jdmarker.rs",
+      "upstream": [
+        "src/jdmarker.c"
+      ],
+      "package": "2"
+    },
+    {
+      "module": "src/jdicc.rs",
+      "upstream": [
+        "src/jdicc.c"
+      ],
+      "package": "2"
+    },
+    {
+      "module": "src/jdhuff.rs",
+      "upstream": [
+        "src/jdhuff.h",
+        "src/jdhuff.c"
+      ],
+      "package": "3"
+    },
+    {
+      "module": "src/jstdhuff.rs",
+      "upstream": [
+        "src/jstdhuff.c"
+      ],
+      "package": "3"
+    },
+    {
+      "module": "src/jdphuff.rs",
+      "upstream": [
+        "src/jdphuff.c"
+      ],
+      "package": "3"
+    },
+    {
+      "module": "src/jaricom.rs",
+      "upstream": [
+        "src/jaricom.c"
+      ],
+      "package": "3"
+    },
+    {
+      "module": "src/jdarith.rs",
+      "upstream": [
+        "src/jdarith.c"
+      ],
+      "package": "3"
+    },
+    {
+      "module": "src/jdcoefct.rs",
+      "upstream": [
+        "src/jdcoefct.h",
+        "src/jdcoefct.c"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jdct.rs",
+      "upstream": [
+        "src/jdct.h"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jddctmgr.rs",
+      "upstream": [
+        "src/jddctmgr.c"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jidctint.rs",
+      "upstream": [
+        "src/jidctint.c"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jidctfst.rs",
+      "upstream": [
+        "src/jidctfst.c"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jidctflt.rs",
+      "upstream": [
+        "src/jidctflt.c"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jidctred.rs",
+      "upstream": [
+        "src/jidctred.c"
+      ],
+      "package": "4"
+    },
+    {
+      "module": "src/jdsample.rs",
+      "upstream": [
+        "src/jdsample.h",
+        "src/jdsample.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdmerge.rs",
+      "upstream": [
+        "src/jdmerge.h",
+        "src/jdmerge.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdmrgext.rs",
+      "upstream": [
+        "src/jdmrgext.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdcolor.rs",
+      "upstream": [
+        "src/jdcolor.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdcolext.rs",
+      "upstream": [
+        "src/jdcolext.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdpostct.rs",
+      "upstream": [
+        "src/jdpostct.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdmainct.rs",
+      "upstream": [
+        "src/jdmainct.h",
+        "src/jdmainct.c"
+      ],
+      "package": "5"
+    },
+    {
+      "module": "src/jdmaster.rs",
+      "upstream": [
+        "src/jdmaster.h",
+        "src/jdmaster.c"
+      ],
+      "package": "6"
+    },
+    {
+      "module": "src/jdapistd.rs",
+      "upstream": [
+        "src/jdapistd.c"
+      ],
+      "package": "6"
+    },
+    {
+      "module": "src/jsimd.rs",
+      "upstream": [
+        "simd/jsimd.c",
+        "simd/jsimd.h",
+        "simd/jsimdconst.h",
+        "simd/jsimddct.h",
+        "simd/jsimdint.h"
+      ],
+      "package": "9",
+      "not_translated": {
+        "items": [
+          "jsimd_set_rgb_ycc",
+          "jsimd_set_rgb_gray",
+          "jsimd_color_convert",
+          "jsimd_set_h2v1_downsample",
+          "jsimd_h2v1_downsample",
+          "jsimd_set_h2v2_downsample",
+          "jsimd_h2v2_downsample",
+          "jsimd_set_convsamp",
+          "jsimd_set_convsamp_float",
+          "jsimd_set_fdct_islow",
+          "jsimd_set_fdct_ifast",
+          "jsimd_set_fdct_float",
+          "jsimd_set_quantize",
+          "jsimd_set_quantize_float",
+          "jsimd_set_huff_encode_one_block",
+          "jsimd_set_encode_mcu_AC_first_prepare",
+          "jsimd_set_encode_mcu_AC_refine_prepare",
+          "jsimd_set_ycc_rgb565"
+        ],
+        "reason": "they serve the encoder or RGB565 output, which are not translated (ADR 0001), and so do their declarations in the headers; only the AArch64 and x86-64 branches of the decoder's entry points are translated (ADR 0007, ADR 0008)"
+      }
+    },
+    {
+      "module": "src/jsimdcpu.rs",
+      "upstream": [
+        "simd/arm/aarch64/jsimdcpu.c",
+        "simd/x86_64/jsimdcpu.asm"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdcolor_neon.rs",
+      "upstream": [
+        "simd/arm/jdcolor-neon.c"
+      ],
+      "package": "9",
+      "not_translated": {
+        "items": [
+          "jsimd_ycc_rgb565_convert_neon"
+        ],
+        "reason": "RGB565 output is not translated (ADR 0001)"
+      }
+    },
+    {
+      "module": "src/jdcolext_neon.rs",
+      "upstream": [
+        "simd/arm/jdcolext-neon.c"
+      ],
+      "package": "9",
+      "not_translated": {
+        "items": [
+          "rgb565"
+        ],
+        "reason": "its RGB565 branch serves RGB565 output, which is not translated (ADR 0001)"
+      }
+    },
+    {
+      "module": "src/jdmerge_neon.rs",
+      "upstream": [
+        "simd/arm/jdmerge-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdmrgext_neon.rs",
+      "upstream": [
+        "simd/arm/jdmrgext-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdsample_neon.rs",
+      "upstream": [
+        "simd/arm/jdsample-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jidctint_neon.rs",
+      "upstream": [
+        "simd/arm/jidctint-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jidctfst_neon.rs",
+      "upstream": [
+        "simd/arm/jidctfst-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jidctred_neon.rs",
+      "upstream": [
+        "simd/arm/jidctred-neon.c"
+      ],
+      "package": "9"
+    },
+    {
+      "module": "src/jdcolext_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolext-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdcolext_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolext-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdcolor_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolor-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdcolor_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdcolor-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmerge_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdmerge-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmerge_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdmerge-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmrgext_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdmrgext-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdmrgext_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdmrgext-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdsample_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jdsample-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jdsample_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jdsample-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctflt_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctflt-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctfst_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctfst-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctint_avx2.rs",
+      "upstream": [
+        "simd/x86_64/jidctint-avx2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctint_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctint-sse2.asm"
+      ],
+      "package": "10"
+    },
+    {
+      "module": "src/jidctred_sse2.rs",
+      "upstream": [
+        "simd/x86_64/jidctred-sse2.asm"
+      ],
+      "package": "10"
+    }
+  ],
+  "excluded": [
+    {
+      "upstream": "src/bmpsizetest.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/cderror.h",
+      "category": "program"
+    },
+    {
+      "upstream": "src/cdjpeg.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/cdjpeg.h",
+      "category": "program"
+    },
+    {
+      "upstream": "src/cjpeg.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/cmyk.h",
+      "category": "program"
+    },
+    {
+      "upstream": "src/djpeg.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/example.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/jcapimin.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcapistd.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcarith.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jccoefct.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jccolext.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jccolor.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcdctmgr.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcdiffct.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jchuff.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jchuff.h",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcicc.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcinit.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jclhuff.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jclossls.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcmainct.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcmarker.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcmaster.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcmaster.h",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jconfig.txt",
+      "category": "build"
+    },
+    {
+      "upstream": "src/jconfigint.h.in",
+      "category": "build"
+    },
+    {
+      "upstream": "src/jcparam.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcphuff.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcprepct.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcsample.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jcstest.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/jctrans.c",
+      "category": "transcoding"
+    },
+    {
+      "upstream": "src/jdatadst-tj.c",
+      "category": "turbojpeg"
+    },
+    {
+      "upstream": "src/jdatadst.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jdatasrc-tj.c",
+      "category": "turbojpeg"
+    },
+    {
+      "upstream": "src/jdcol565.c",
+      "category": "rgb565"
+    },
+    {
+      "upstream": "src/jddiffct.c",
+      "category": "lossless"
+    },
+    {
+      "upstream": "src/jdlhuff.c",
+      "category": "lossless"
+    },
+    {
+      "upstream": "src/jdlossls.c",
+      "category": "lossless"
+    },
+    {
+      "upstream": "src/jdmrg565.c",
+      "category": "rgb565"
+    },
+    {
+      "upstream": "src/jdtrans.c",
+      "category": "transcoding"
+    },
+    {
+      "upstream": "src/jfdctflt.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jfdctfst.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jfdctint.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jinclude.h",
+      "category": "macro"
+    },
+    {
+      "upstream": "src/jlossls.h",
+      "category": "lossless"
+    },
+    {
+      "upstream": "src/jpeg_nbits.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jpeg_nbits.h",
+      "category": "encoder"
+    },
+    {
+      "upstream": "src/jpegapicomp.h",
+      "category": "macro"
+    },
+    {
+      "upstream": "src/jpegtran.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/jquant1.c",
+      "category": "quantization"
+    },
+    {
+      "upstream": "src/jquant2.c",
+      "category": "quantization"
+    },
+    {
+      "upstream": "src/jsamplecomp.h",
+      "category": "macro"
+    },
+    {
+      "upstream": "src/libjpeg.map.in",
+      "category": "build"
+    },
+    {
+      "upstream": "src/md5/",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdbmp.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdcolmap.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdgif.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdjpgcom.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdpng.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdppm.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdswitch.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/rdtarga.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/spng/",
+      "category": "program"
+    },
+    {
+      "upstream": "src/strtest.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/tjbench.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/tjcomp.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/tjdecomp.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/tjtran.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/tjunittest.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/tjutil.c",
+      "category": "profiling"
+    },
+    {
+      "upstream": "src/tjutil.h",
+      "category": "profiling"
+    },
+    {
+      "upstream": "src/transupp.c",
+      "category": "transcoding"
+    },
+    {
+      "upstream": "src/transupp.h",
+      "category": "transcoding"
+    },
+    {
+      "upstream": "src/turbojpeg-mapfile",
+      "category": "turbojpeg"
+    },
+    {
+      "upstream": "src/turbojpeg-mp.c",
+      "category": "turbojpeg"
+    },
+    {
+      "upstream": "src/turbojpeg.c",
+      "category": "turbojpeg"
+    },
+    {
+      "upstream": "src/turbojpeg.h",
+      "category": "turbojpeg"
+    },
+    {
+      "upstream": "src/wrapper/",
+      "category": "precision"
+    },
+    {
+      "upstream": "src/wrbmp.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/wrgif.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/wrjpgcom.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/wrpng.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/wrppm.c",
+      "category": "program"
+    },
+    {
+      "upstream": "src/wrtarga.c",
+      "category": "program"
+    },
+    {
+      "upstream": "simd/CMakeLists.txt",
+      "category": "build"
+    },
+    {
+      "upstream": "simd/README.md",
+      "category": "build"
+    },
+    {
+      "upstream": "simd/common/",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/i386/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/mips64/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/nasm/",
+      "category": "macro"
+    },
+    {
+      "upstream": "simd/powerpc/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/riscv64/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/simdcoverage.c",
+      "category": "program"
+    },
+    {
+      "upstream": "simd/arm/aarch32/",
+      "category": "other-simd"
+    },
+    {
+      "upstream": "simd/arm/align.h",
+      "category": "macro"
+    },
+    {
+      "upstream": "simd/arm/jccolor-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcgray-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcgryext-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jchuff.h",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcphuff-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jcsample-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jfdctfst-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jfdctint-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/jquanti-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/neon-compat.h.in",
+      "category": "macro"
+    },
+    {
+      "upstream": "simd/arm/aarch64/jccolext-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/arm/aarch64/jchuff-neon.c",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolext-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolext-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolor-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jccolor-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgray-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgray-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgryext-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcgryext-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jchuff-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcphuff-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcsample-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jcsample-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctflt-sse.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctfst-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctint-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jfdctint-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jquantf-sse2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jquanti-avx2.asm",
+      "category": "encoder"
+    },
+    {
+      "upstream": "simd/x86_64/jquanti-sse2.asm",
+      "category": "encoder"
+    }
+  ],
+  "expanded_directories": [
+    "simd/",
+    "simd/arm/",
+    "simd/arm/aarch64/",
+    "simd/x86_64/"
+  ]
+}

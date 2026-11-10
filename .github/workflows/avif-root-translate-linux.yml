@@ -1,0 +1,222 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Native root profiles'
+'on':
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Native host; cross-compilation is not acceptance
+        type: choice
+        options:
+        - ubuntu-24.04
+        - macos-26
+        default: ubuntu-24.04
+      profile:
+        description: Original C preprocessing and Rust compilation profile
+        type: choice
+        options:
+        - both
+        - release
+        - debug
+        default: both
+      variant:
+        description: Original container configuration and optional external engines to generate
+        type: choice
+        options:
+        - default
+        - mini
+        - extended-pixi
+        - mini-extended-pixi
+        - libgav1-rav1e-svt-libyuv
+        - mini-extended-pixi-libgav1-rav1e-svt-libyuv
+        default: default
+      tier:
+        description: Preparation only, bounded original smoke suite, or complete original root suite
+        type: choice
+        options:
+        - prepare
+        - smoke
+        - regression
+        - full
+        default: prepare
+      sanitizer:
+        description: Separately instrumented original C/Rust consumers; requires release and full
+        type: choice
+        options:
+        - none
+        - address
+        default: none
+      package:
+        description: Link consumers to the isolated generated profile or to the production libavif package
+        type: choice
+        options:
+        - profile
+        - production
+        default: profile
+  workflow_call:
+    inputs:
+      runner:
+        type: string
+        default: ubuntu-24.04
+      profile:
+        type: string
+        default: release
+      variant:
+        type: string
+        default: default
+      tier:
+        type: string
+        default: smoke
+      sanitizer:
+        type: string
+        default: none
+      package:
+        type: string
+        default: profile
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 300
+    env:
+      CC: ${{ startsWith(inputs.runner, 'macos-') && 'clang' || 'clang-16' }}
+      CXX: ${{ startsWith(inputs.runner, 'macos-') && 'clang++' || 'clang++-16' }}
+      RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      CARGO_BUILD_JOBS: '2'
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Prepare native GNU Linux translation tools
+      if: inputs.runner == 'ubuntu-24.04'
+      run: |
+        test "$(uname -m)" = x86_64
+        sudo apt-get update
+        sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config python3-venv cmake libpng-dev libjpeg-dev libxml2-dev nasm libssl-dev
+        echo LLVM_CONFIG_PATH=/usr/bin/llvm-config-16 >> "$GITHUB_ENV"
+        echo LIBCLANG_PATH=/usr/lib/llvm-16/lib >> "$GITHUB_ENV"
+        echo CLANG_INCLUDE=/usr/lib/llvm-16/lib/clang/16/include >> "$GITHUB_ENV"
+    - name: Prepare native macOS ARM64 translation tools
+      if: inputs.runner == 'macos-26'
+      run: |
+        test "$(uname -m)" = arm64
+        for root_tool in llvm@16 cmake ninja pkg-config libpng jpeg-turbo libxml2; do
+          brew list --formula "$root_tool" >/dev/null 2>&1 || brew install "$root_tool"
+        done
+        root_llvm_prefix="$(brew --prefix llvm@16)"
+        "$root_llvm_prefix/bin/llvm-config" --version | grep -x 16.0.6
+        echo "LLVM_CONFIG_PATH=$root_llvm_prefix/bin/llvm-config" >> "$GITHUB_ENV"
+        echo "LIBCLANG_PATH=$root_llvm_prefix/lib" >> "$GITHUB_ENV"
+        echo "C2RUST_LIBRARY_PATH=$root_llvm_prefix/lib:$(brew --prefix)/lib" >> "$GITHUB_ENV"
+        echo "CLANG_INCLUDE=$root_llvm_prefix/lib/clang/16/include" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=$(brew --prefix libxml2)/lib/pkgconfig" >> "$GITHUB_ENV"
+    - name: Install pinned translation and reference prerequisites
+      run: |
+        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup toolchain install 1.80.1 --profile minimal
+        cargo +1.80.1 install c2rust --version 0.21.0 --locked
+        python3 -m venv build/root-tools
+        build/root-tools/bin/python -m pip install meson==1.7.2
+        echo "$GITHUB_WORKSPACE/codecs/libavif-rs/build/root-tools/bin" >> "$GITHUB_PATH"
+    - name: Verify source, provenance, and artifact guards
+      run: |
+        python3 tools/verify_upstream.py --tracked
+        python3 tools/check_translation.py
+        python3 tools/generate_licenses.py --check
+        python3 tests/ports/root_profile_test.py
+        python3 tests/ports/root_link_order_test.py
+        python3 tests/ports/root_assertions_test.py
+        python3 tests/ports/root_case_outcomes_test.py
+        python3 tests/ports/root_production_test.py
+        python3 tools/update_production_selection.py --check
+        cargo fetch --locked
+    - name: Build complete pinned original root references
+      env:
+        REQUESTED_PROFILE: ${{ inputs.profile }}
+        REQUESTED_VARIANT: ${{ inputs.variant }}
+        REQUESTED_TIER: ${{ inputs.tier }}
+        REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+        REQUESTED_PACKAGE: ${{ inputs.package }}
+      run: |
+        python3 tools/root_pipeline.py --phase references --profile "$REQUESTED_PROFILE" \
+          --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+          --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
+    - name: Generate and typecheck native root source profiles
+      env:
+        REQUESTED_PROFILE: ${{ inputs.profile }}
+        REQUESTED_VARIANT: ${{ inputs.variant }}
+        REQUESTED_TIER: ${{ inputs.tier }}
+        REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+        REQUESTED_PACKAGE: ${{ inputs.package }}
+      run: |
+        python3 tools/root_pipeline.py --phase generate --profile "$REQUESTED_PROFILE" \
+          --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+          --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
+    - name: Build unchanged original consumers against native Rust profiles
+      if: inputs.tier != 'prepare'
+      env:
+        REQUESTED_PROFILE: ${{ inputs.profile }}
+        REQUESTED_VARIANT: ${{ inputs.variant }}
+        REQUESTED_TIER: ${{ inputs.tier }}
+        REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+        REQUESTED_PACKAGE: ${{ inputs.package }}
+      run: |
+        python3 tools/root_pipeline.py --phase consumers --profile "$REQUESTED_PROFILE" \
+          --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+          --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
+    - name: Run original C/Rust suites, ABI, ownership, and strict bytes
+      if: inputs.tier != 'prepare'
+      env:
+        REQUESTED_PROFILE: ${{ inputs.profile }}
+        REQUESTED_VARIANT: ${{ inputs.variant }}
+        REQUESTED_TIER: ${{ inputs.tier }}
+        REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
+        REQUESTED_PACKAGE: ${{ inputs.package }}
+      run: |
+        python3 tools/root_pipeline.py --phase validate --profile "$REQUESTED_PROFILE" \
+          --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
+          --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
+    - name: Preserve generated source, exact C configuration, and typecheck evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: root-${{ startsWith(inputs.runner, 'macos-') && 'macos' || 'linux' }}-${{ inputs.package == 'production'
+          && 'production-' || '' }}${{ inputs.tier }}-${{ inputs.profile }}-${{ inputs.variant }}${{ inputs.sanitizer
+          != 'none' && format('-{0}', inputs.sanitizer) || '' }}
+        path: |
+          codecs/libavif-rs/src/profiles/
+          codecs/libavif-rs/translations/root-*.json
+          codecs/libavif-rs/build/root-translate-*/
+          codecs/libavif-rs/build/root-c-*/CMakeCache.txt
+          codecs/libavif-rs/build/root-c-*/compile_commands.json
+          codecs/libavif-rs/build/root-c-*/Testing/Temporary/
+          codecs/libavif-rs/build/root-c-*-results.xml
+          codecs/libavif-rs/build/root-rust-*/CMakeCache.txt
+          codecs/libavif-rs/build/root-rust-*/compile_commands.json
+          codecs/libavif-rs/build/root-rust-*/Testing/Temporary/
+          codecs/libavif-rs/build/root-rust-*-results.xml
+          codecs/libavif-rs/build/root-rust-*/aom-root-linkage.json
+          codecs/libavif-rs/build/root-rust-*/**/*.map
+          codecs/libavif-rs/build/root-rust-*/root-validation/
+          codecs/libavif-rs/build/root-rust-*/production-package.json
+          codecs/libavif-rs/build/abi-*/summary.json
+          codecs/libavif-rs/build/root-references-*/reference-profile.json
+          codecs/libavif-rs/build/root-references-*/dav1d/meson-logs/
+          codecs/libavif-rs/build/root-references-*/dav1d/config.h
+          codecs/libavif-rs/build/root-references-*/dav1d/compile_commands.json
+          codecs/libavif-rs/build/root-references-*/sharpyuv/CMakeCache.txt
+          codecs/libavif-rs/build/root-references-*/sharpyuv/CMakeFiles/CMakeConfigureLog.yaml
+          codecs/libavif-rs/build/root-references-*/sharpyuv/compile_commands.json
+          codecs/libavif-rs/build/root-references-*/sharpyuv/src/webp/config.h
+          codecs/libavif-rs/build/root-references-*/sharpyuv/scalar-macros.txt
+          codecs/libavif-rs/build/root-typecheck-*/summary.json
+          codecs/libavif-rs/build/aom-native-*/reference-profile.json
+          codecs/libavif-rs/build/aom-root-asan-reference-*/build.json
+          codecs/libavif-rs/build/deps/optional-engines.json
+          codecs/libavif-rs/build/deps/pkgconfig/
+        if-no-files-found: error
+        retention-days: 30
+    name: 'AVIF: generate'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

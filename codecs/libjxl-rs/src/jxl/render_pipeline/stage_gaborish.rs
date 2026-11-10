@@ -1,0 +1,149 @@
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license in LICENSE.
+//! Complete one-lane GaborishStage and factory from stage_gaborish.{h,cc}.
+//! Existing owner-relative row descriptors replace source pointers. Scalar
+//! Highway loads/stores have one lane, so rounding the left extra span retains
+//! its original value. SIMD specializations remain a separate boundary.
+use super::render_pipeline_stage::{
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+};
+use crate::jxl::base::float::mul_add_f32;
+use crate::jxl::base::status::Status;
+use crate::jxl::loop_filter::LoopFilter;
+
+// Copyright 2019 Google LLC
+// Copyright (c) The Highway Project Authors. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// Use of this derived helper code is governed by Highway's offered BSD
+// alternative in licenses/HIGHWAY-BSD-3-Clause.txt.
+// Used Add/operator*/MulAdd from hwy/ops/scalar-inl.h. Keep the original
+// scalar operator boundaries in the dedicated reference TU.
+// Inlining may commute operands with different NaN payloads. Highway's float
+// multiplication explicitly promotes both operands to double before narrowing;
+// promotion also quiets signaling NaNs before the product chooses its payload.
+#[inline(never)]
+fn add(a: f32, b: f32) -> f32 {
+    a + b
+}
+#[inline(never)]
+fn promote(a: f32) -> f64 {
+    f64::from(a)
+}
+#[inline(never)]
+fn multiply_and_demote(a: f64, b: f64) -> f32 {
+    (a * b) as f32
+}
+fn mul(a: f32, b: f32) -> f32 {
+    multiply_and_demote(promote(a), promote(b))
+}
+
+// The pinned x86 plain constructor object multiplies reciprocal first; its
+// instrumented third weight keeps that order too. This is ordinary binary32
+// arithmetic, separate from Highway's explicitly widened pixel multiplication.
+#[cfg(target_arch = "x86_64")]
+#[inline(never)]
+fn normalize_mul(reciprocal: f32, weight: f32) -> f32 {
+    reciprocal * weight
+}
+
+pub struct GaborishStage {
+    weights: [f32; 9],
+}
+impl GaborishStage {
+    fn new(lf: &LoopFilter) -> Self {
+        let mut weights = [
+            1.0,
+            lf.gab_x_weight1,
+            lf.gab_x_weight2,
+            1.0,
+            lf.gab_y_weight1,
+            lf.gab_y_weight2,
+            1.0,
+            lf.gab_b_weight1,
+            lf.gab_b_weight2,
+        ];
+        for c in 0..3 {
+            // Ordinary source arithmetic contracts at this site on AArch64.
+            // This is distinct from Highway's unfused pixel MulAdd below.
+            let div = mul_add_f32(
+                4.0,
+                add(weights[3 * c + 1], weights[3 * c + 2]),
+                weights[3 * c],
+            );
+            let mul = 1.0 / div;
+            #[cfg(target_arch = "x86_64")]
+            {
+                weights[3 * c] = normalize_mul(mul, weights[3 * c]);
+                weights[3 * c + 1] = normalize_mul(mul, weights[3 * c + 1]);
+                weights[3 * c + 2] = normalize_mul(mul, weights[3 * c + 2]);
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            {
+                weights[3 * c] *= mul;
+                weights[3 * c + 1] *= mul;
+                weights[3 * c + 2] *= mul;
+            }
+        }
+        Self { weights }
+    }
+}
+impl RenderPipelineStage for GaborishStage {
+    fn settings(&self) -> Settings {
+        Settings::symmetric_border_only(1)
+    }
+    fn process_row(
+        &mut self,
+        input: &RowInfo,
+        output: &RowInfo,
+        buffers: &mut RowBuffers<'_>,
+        left: usize,
+        right: usize,
+        width: usize,
+        _x: usize,
+        _y: usize,
+        _thread: usize,
+    ) -> Status {
+        let x_start = -(left as isize);
+        let x_end = width.wrapping_add(right) as isize;
+        for c in 0..3 {
+            let row_t = self.get_input_row(input, c, -1);
+            let row_m = self.get_input_row(input, c, 0);
+            let row_b = self.get_input_row(input, c, 1);
+            let row_out = self.get_output_row(output, c, 0);
+            let w0 = self.weights[3 * c];
+            let w1 = self.weights[3 * c + 1];
+            let w2 = self.weights[3 * c + 2];
+            for x in x_start..x_end {
+                let t = buffers.row(row_t.offset(x))[0];
+                let tl = buffers.row(row_t.offset(x - 1))[0];
+                let tr = buffers.row(row_t.offset(x + 1))[0];
+                let m = buffers.row(row_m.offset(x))[0];
+                let l = buffers.row(row_m.offset(x - 1))[0];
+                let r = buffers.row(row_m.offset(x + 1))[0];
+                let b = buffers.row(row_b.offset(x))[0];
+                let bl = buffers.row(row_b.offset(x - 1))[0];
+                let br = buffers.row(row_b.offset(x + 1))[0];
+                let sum0 = m;
+                let sum1 = add(add(l, r), add(t, b));
+                let sum2 = add(add(tl, tr), add(bl, br));
+                // Literal original MulAdd(sum2,w2,MulAdd(sum1,w1,Mul(sum0,w0))).
+                // Each scalar multiply and add retains its own rounding.
+                let pixels = add(mul(sum2, w2), add(mul(sum1, w1), mul(sum0, w0)));
+                buffers.row_mut(row_out.offset(x))[0] = pixels;
+            }
+        }
+        Ok(())
+    }
+    fn get_channel_mode(&self, c: usize) -> Mode {
+        if c < 3 { Mode::InOut } else { Mode::Ignored }
+    }
+    fn get_name(&self) -> &str {
+        "Gab"
+    }
+}
+pub fn get_gaborish_stage(lf: &LoopFilter) -> Option<Box<dyn RenderPipelineStage>> {
+    if !lf.gab {
+        return None;
+    }
+    Some(Box::new(GaborishStage::new(lf)))
+}

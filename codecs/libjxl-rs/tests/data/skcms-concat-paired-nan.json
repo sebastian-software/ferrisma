@@ -1,0 +1,47 @@
+{
+  "source_revision": "96d9171c94b937a1b5f0293de7309ac16311b722",
+  "input_requests": 432,
+  "input_sha256": "abe933eacb24b124bb0880b52db798a1046cb787c4559cb0a69f11d46a31e364",
+  "arm_capture_sha256": "941ccaf2a1ef4bd329800608420edf57e01e679ed803a08b163cb583efeefef6",
+  "arm_capture_layout": "432 consecutive matrices of nine row-major little-endian u32 binary32 words",
+  "capture_platform": "macOS-27.0.1-arm64-arm-64bit",
+  "scope": "Defined paired quiet/signaling NaN products at all 27 output-cell/term positions. Actual source captures; no Rust-derived expected output.",
+  "source_graphs": {
+    "oracle": {
+      "original_optimization": [
+        "-O3",
+        "-DNDEBUG"
+      ],
+      "nonrecovering_instrumentation": [],
+      "source_archive_sha256": "5cf5a6422c877a83f09194170d808ea861e7822589963fc00a0ce5fbb65ba674",
+      "source_object_sha256": "145515ed4af76209565c575278dfa56d1a2df1e9f6d0a8d34f2193eb96601d75",
+      "oracle_binary_sha256": "e1931516be2deb545749a5403f7ab15272f1e1c143567606426e6adcec60fe71",
+      "original_source_command_sha256": "c11088a552734aa09c91d8d7e3b24d01418169a85e92428d09cd01810d573f3c",
+      "source_object_assembly_sha256": "796d777c3dd54a28991a94767bfc64c5886d8e6bc03f71630ec966e0b3af537b",
+      "live_concat_address": 4297987248,
+      "live_concat_archive": "libjxl_cms.a",
+      "live_concat_member": "skcms.cc.o",
+      "complete_diagnostic_observations_sha256": "d39a797eae4a7d9f7d9f500d7d206c13e71dfb19952f52e052f71b8244da6af8"
+    },
+    "oracle-asan": {
+      "original_optimization": [
+        "-O3",
+        "-DNDEBUG"
+      ],
+      "nonrecovering_instrumentation": [
+        "-fsanitize=address,undefined",
+        "-fno-sanitize-recover=all"
+      ],
+      "source_archive_sha256": "ada3849681c9b3cc0d99db60ef527c37e852463c674837fbe3efa0ce8f8284a3",
+      "source_object_sha256": "cbf2971a35af5973a46aea7026b5f68d4df0a2a7b83ac46618df36f5bc7718fc",
+      "oracle_binary_sha256": "b67b28d5b2225600fd0ffc0cbb846e2e00b21ab5d9da8b6823e35ccab216e0de",
+      "original_source_command_sha256": "ef33eea3541265630633bc9b805f2e9a913e6d58b0a6d007c47d65c5f3fba48e",
+      "source_object_assembly_sha256": "abef78fa9e691a94e12598d7c8ec2fc4a0b805e8dcdc03b35068ef6c1158b5cb",
+      "live_concat_address": 4305554620,
+      "live_concat_archive": "libjxl_cms.a",
+      "live_concat_member": "skcms.cc.o",
+      "complete_diagnostic_observations_sha256": "d39a797eae4a7d9f7d9f500d7d206c13e71dfb19952f52e052f71b8244da6af8"
+    }
+  },
+  "complete_diagnostic_report_sha256": "482aa4cb9c455d3faca0558a499a7fd1636c6e9ac952349c3848c62e4d7fe884"
+}

@@ -1,0 +1,262 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Generate native Linux libaom profiles'
+'on':
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Generate, reproduce, compile, generate macro subjects, or check DSP additions
+        type: choice
+        options:
+        - generate
+        - verify
+        - compile
+        - macros
+        - dsp
+        - oracles
+        default: generate
+      oracle_suite:
+        description: Original DSP family for mode=oracles; all runs every reviewed family
+        type: choice
+        options:
+        - all
+        - scaled-convolution
+        - blend-mask-1d
+        - blend-mask-d16
+        - variance-mse-sum
+        - satd
+        - warp-affine
+        default: all
+permissions:
+  contents: read
+jobs:
+  translate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      CC: clang-16
+      CXX: clang++-16
+      LLVM_CONFIG_PATH: /usr/bin/llvm-config-16
+      LIBCLANG_PATH: /usr/lib/llvm-16/lib
+      RUSTUP_TOOLCHAIN: nightly-2026-09-07
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Install the pinned translation toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config cmake
+        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup toolchain install 1.80.1 --profile minimal
+        if [ "${{ inputs.mode }}" != compile ] && [ "${{ inputs.mode }}" != dsp ] && [ "${{ inputs.mode }}" != oracles ]; then
+          cargo +1.80.1 install c2rust --version 0.21.0 --locked
+        fi
+    - name: Verify source and translation contracts
+      run: |
+        python3 tools/verify_upstream.py --tracked
+        python3 tools/generate_licenses.py --check
+        python3 tests/ports/aom_jumps_test.py
+        python3 tools/review_aom_header_roles.py --check
+        python3 tools/check_translation.py
+    - name: Check committed Rust types before building original consumers
+      if: inputs.mode != 'generate'
+      env:
+        RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      run: |
+        cargo check -p libavif-aom --locked
+        cargo check -p libavif-aom --locked --release
+        cargo run -p libavif-aom --example raw_api --locked
+    - name: Build both original portable profiles
+      run: |
+        python3 tools/build_aom.py --debug
+        python3 tools/build_aom.py
+        python3 tools/review_aom_scalar_roles.py --check
+    - name: Translate both complete native Linux source profiles
+      if: inputs.mode == 'generate' || inputs.mode == 'verify'
+      env:
+        RUST_BACKTRACE: '1'
+      run: |
+        if [ "${{ inputs.mode }}" = generate ]; then
+          python3 tools/transpile_aom.py
+          python3 tools/transpile_aom.py --release
+          python3 tools/transpile_aom_macros.py
+          python3 tools/transpile_aom_macros.py --release
+        else
+          python3 tools/transpile_aom.py --check
+          python3 tools/transpile_aom.py --release --check
+          python3 tools/transpile_aom_macros.py --check
+          python3 tools/transpile_aom_macros.py --release --check
+        fi
+    - name: Generate optional original macro subjects
+      if: inputs.mode == 'macros'
+      run: |
+        python3 tools/transpile_aom_macros.py
+        python3 tools/transpile_aom_macros.py --release
+    - name: Compile both generated profiles and compare public codec output
+      id: consumers
+      if: inputs.mode != 'macros' && inputs.mode != 'dsp' && inputs.mode != 'oracles'
+      env:
+        RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      run: |
+        python3 tools/check_translation.py
+        python3 tools/build_aom_consumers.py --debug --only aomenc --only aomdec --only test_libaom
+        python3 tools/build_aom_consumers.py --only aomenc --only aomdec --only test_libaom
+        python3 tools/check_aom_roundtrip.py --debug
+        python3 tools/check_aom_roundtrip.py
+        python3 tools/check_aom_unaligned_input.py --debug
+        python3 tools/check_aom_unaligned_input.py
+        python3 tools/check_aom_cli.py --debug
+        python3 tools/check_aom_cli.py
+        cargo test -p libavif-aom --locked
+        cargo run -p libavif-aom --example raw_api --locked
+        cargo run -p libavif-aom --example raw_api --locked --release
+        python3 tools/check_aom_linkage.py --debug
+        python3 tools/check_aom_linkage.py
+        python3 tools/check_aom_inlines.py --debug
+        python3 tools/check_aom_inlines.py
+        python3 tools/check_aom_macros.py --debug
+        python3 tools/check_aom_macros.py
+        python3 tools/check_aom_oracles.py --debug
+        python3 tools/check_aom_oracles.py
+        python3 tools/check_aom_oracles.py --debug --suite softmax
+        python3 tools/check_aom_oracles.py --suite softmax
+        python3 tools/check_aom_oracles.py --debug --suite intrabc
+        python3 tools/check_aom_oracles.py --suite intrabc
+        python3 tools/check_aom_oracles.py --debug --suite kmeans
+        python3 tools/check_aom_oracles.py --suite kmeans
+        python3 tools/check_aom_oracles.py --debug --suite nn-predict
+        python3 tools/check_aom_oracles.py --suite nn-predict
+    - name: Compare original 2D and compound convolution reference roles
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        python3 tools/check_aom_oracles.py --debug --suite convolution-2d
+        python3 tools/check_aom_oracles.py --suite convolution-2d
+        python3 tools/check_aom_oracles.py --debug --suite compound
+        python3 tools/check_aom_oracles.py --suite compound
+    - name: Compare supplementary scalar directional prediction
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        python3 tools/check_aom_oracles.py --debug --suite directional-prediction
+        python3 tools/check_aom_oracles.py --suite directional-prediction
+    - name: Compare original scaling, mask, and affine warp references
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        for aom_suite in scaled-convolution blend-mask-1d blend-mask-d16 variance-mse-sum satd warp-affine; do
+          python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
+          python3 tools/check_aom_oracles.py --suite "$aom_suite"
+        done
+    - name: Compare supplementary scalar rounding and cubic interpolation
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        python3 tools/check_aom_oracles.py --debug --suite round-shift-array
+        python3 tools/check_aom_oracles.py --suite round-shift-array
+        python3 tools/check_aom_oracles.py --debug --suite cubic-rd
+        python3 tools/check_aom_oracles.py --suite cubic-rd
+    - name: Compare supplementary scalar optical flow with its original fixture
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        python3 tools/fetch_aom_test_data.py --jobs 1 --only bus_352x288_420_f20_b8.yuv
+        python3 tools/check_aom_oracles.py --debug --suite optical-flow
+        python3 tools/check_aom_oracles.py --suite optical-flow
+    - name: Check only the supplementary scalar DSP additions
+      if: inputs.mode == 'dsp'
+      run: |
+        cargo build -p libavif-aom --locked
+        cargo build -p libavif-aom --locked --release
+        python3 tools/fetch_aom_test_data.py --jobs 1 --only bus_352x288_420_f20_b8.yuv
+        for aom_suite in kmeans nn-predict directional-prediction round-shift-array cubic-rd optical-flow; do
+          python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
+          python3 tools/check_aom_oracles.py --suite "$aom_suite"
+        done
+    - name: Check only the added original DSP oracle bindings
+      if: inputs.mode == 'oracles'
+      env:
+        AOM_ORACLE_SUITE: ${{ inputs.oracle_suite }}
+      run: |
+        cargo build -p libavif-aom --locked
+        cargo build -p libavif-aom --locked --release
+        for aom_suite in scaled-convolution blend-mask-1d blend-mask-d16 variance-mse-sum satd warp-affine; do
+          if [ "$AOM_ORACLE_SUITE" != all ] && [ "$AOM_ORACLE_SUITE" != "$aom_suite" ]; then continue; fi
+          python3 tools/check_aom_oracles.py --debug --suite "$aom_suite"
+          python3 tools/check_aom_oracles.py --suite "$aom_suite"
+        done
+    - name: Compare single-allocation failures
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        python3 tools/check_aom_faults.py --debug
+        python3 tools/check_aom_faults.py
+    - name: Compare worker-creation failures
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        python3 tools/check_aom_faults.py --debug --thread-failures
+        python3 tools/check_aom_faults.py --thread-failures
+    - name: Preserve focused original API and error registrations
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      run: |
+        filter='AomImageTest.*:AomLeb128.*:DecodeAPI.*:EncodeAPI.Invalid*:FilmGrainTableIOTest.*:FilmGrainTableTest.*:MetadataTest.*:KeyValAPI/*.*:EncodeAPI.SizeAlignOverflow'
+        python3 tools/run_aom_tests.py --debug --jobs 1 --shards 1 --filter "$filter"
+        python3 tools/run_aom_tests.py --debug --rust --jobs 1 --shards 1 --filter "$filter"
+        python3 tools/run_aom_tests.py --jobs 1 --shards 1 --filter "$filter"
+        python3 tools/run_aom_tests.py --rust --jobs 1 --shards 1 --filter "$filter"
+    - name: Compare named record layouts in both profiles
+      if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
+      env:
+        RUSTUP_TOOLCHAIN: nightly-2026-09-07
+      run: |
+        python3 tools/check_aom_abi.py
+        python3 tools/check_aom_abi.py --release
+    - name: Preserve generated source and scoped pilot evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: aom-linux-generated
+        path: |
+          codecs/libavif-rs/crates/aom/src/linux/
+          codecs/libavif-rs/crates/aom/src/modules-linux-*.rs
+          codecs/libavif-rs/crates/aom/src/api-linux-*.rs
+          codecs/libavif-rs/crates/aom/TRANSLATION-linux-*.json
+          codecs/libavif-rs/crates/aom/reference/linux/
+          codecs/libavif-rs/crates/aom/src/macros-linux-*.rs
+          codecs/libavif-rs/translations/aom-macros-linux-*.json
+          codecs/libavif-rs/build/aom-macro-translate/*/transpile.log
+          codecs/libavif-rs/build/aom-translate/*/transpile.log
+          codecs/libavif-rs/build/aom-translate/*/expected/
+          codecs/libavif-rs/build/aom-generated/
+          codecs/libavif-rs/build/aom-native-*/reference-profile.json
+          codecs/libavif-rs/build/aom-native-*/library-compile-commands.json
+          codecs/libavif-rs/build/aom-native-*/test_*-inventory.json
+          codecs/libavif-rs/build/aom-rust-*/linkage.json
+          codecs/libavif-rs/build/aom-rust-*/symbol-audit.json
+          codecs/libavif-rs/build/aom-native-*/tests-focused-*/summary.json
+          codecs/libavif-rs/build/aom-rust-*/tests-focused-*/summary.json
+          codecs/libavif-rs/build/aom-abi-*/summary.json
+          codecs/libavif-rs/build/aom-cli-*/summary.json
+          codecs/libavif-rs/build/aom-cli-*/*-encode.log
+          codecs/libavif-rs/build/aom-cli-*/*-decode.log
+          codecs/libavif-rs/build/aom-roundtrip-*/summary.json
+          codecs/libavif-rs/build/aom-unaligned-input-*/summary.json
+          codecs/libavif-rs/build/aom-inlines-*/summary.json
+          codecs/libavif-rs/build/aom-macro-tests-*/summary.json
+          codecs/libavif-rs/build/aom-macro-tests-*/*.log
+          codecs/libavif-rs/build/aom-macro-tests-*/*.xml
+          codecs/libavif-rs/build/aom-reference-*/summary.json
+          codecs/libavif-rs/build/aom-oracles-*/summary.json
+          codecs/libavif-rs/build/aom-oracles-*/*.log
+          codecs/libavif-rs/build/aom-oracles-*/*.xml
+          codecs/libavif-rs/build/deps/aom-test-data/verified-subset-*.json
+          codecs/libavif-rs/build/aom-faults-*/summary.json
+          codecs/libavif-rs/build/aom-faults-*/failure.log
+          codecs/libavif-rs/build/aom-faults-*/mismatch.json
+          codecs/libavif-rs/build/aom-thread-faults-*/summary.json
+          codecs/libavif-rs/build/aom-thread-faults-*/failure.log
+          codecs/libavif-rs/build/aom-thread-faults-*/mismatch.json
+          codecs/libavif-rs/build/aom-native-*/tests-focused-*/*.log
+          codecs/libavif-rs/build/aom-native-*/tests-focused-*/*.xml
+          codecs/libavif-rs/build/aom-native-*/tests-focused-*/shard-*.json
+          codecs/libavif-rs/build/aom-rust-*/tests-focused-*/*.log
+          codecs/libavif-rs/build/aom-rust-*/tests-focused-*/*.xml
+          codecs/libavif-rs/build/aom-rust-*/tests-focused-*/shard-*.json
+    name: 'AVIF: translate'
+    defaults:
+      run:
+        working-directory: codecs/libavif-rs

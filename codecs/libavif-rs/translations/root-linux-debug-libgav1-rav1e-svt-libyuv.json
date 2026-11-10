@@ -1,0 +1,278 @@
+{
+  "translator": "c2rust 0.21.0",
+  "translator_version_output": "transpile 0.21.0",
+  "llvm": "16.0.6",
+  "clang_stdarg_sha256": "aca105a80df66bb43f7f149e7b6dd719c20160ad2fea6069ebb6c23e28a0fc79",
+  "generation_target": "x86_64-unknown-linux-gnu",
+  "preprocessing_profile": "debug",
+  "variant": "libgav1-rav1e-svt-libyuv",
+  "original_translation_units": 26,
+  "units": [
+    {
+      "source": "upstream/libavif/src/alpha.c",
+      "source_sha256": "17178aef49f93aebb010cecad255579ed4aa58d886ee6c9bbb96d2b7d90eb41c",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/alpha.rs",
+      "raw_sha256": "46d26f8334fa51c02514a6d808b78a038a7d57066338936c39e93a43d94588fa",
+      "rust_sha256": "b48c10055991b36568de23ddcdacefae8221a9f5174d8983c2d0665919fb3318",
+      "corrections": {
+        "glibc-assert-single-evaluation": 3
+      }
+    },
+    {
+      "source": "upstream/libavif/src/avif.c",
+      "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/avif.rs",
+      "raw_sha256": "90b8ff08cf95c000f0f7800c897be4ab320e285bdde5acd7dbc4ae7e7603297c",
+      "rust_sha256": "11c69805d85e9ad587da8a7485c46e0c4926a23085a06b23455ad669b4b2f7eb",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "static-raw-address": 1,
+        "codec-feature-guards": 3,
+        "glibc-assert-single-evaluation": 5
+      }
+    },
+    {
+      "source": "upstream/libavif/src/colr.c",
+      "source_sha256": "7f0d673a7957d35950162defa7f97f5dc0876a003532107ca99b095084d4a08c",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/colr.rs",
+      "raw_sha256": "121dff9d5d391406dd93319de9df58d17f01554e7c24265c25e5a3f3e84bbe1b",
+      "rust_sha256": "5a7837f5f8c3d06925fbc9405eba67b20a64146a0c7704291df704fcfed95c0e",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "static-raw-address": 3
+      }
+    },
+    {
+      "source": "upstream/libavif/src/colrconvert.c",
+      "source_sha256": "a0782fe19c4acdaf677e364e52ea6db27fd41638e0de557aab3a55bb9f280e57",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/colrconvert.rs",
+      "raw_sha256": "1ec6aa563dbb8323ad446b47d18b811672242b4a809629ff82e2c0ba7da40886",
+      "rust_sha256": "ff7c5978f05c65d73ec7431f335a1738d64df8d2dcef198986b4cf446b727268",
+      "corrections": {
+        "static-raw-address": 3
+      }
+    },
+    {
+      "source": "upstream/libavif/src/diag.c",
+      "source_sha256": "03b4bb027668435c30e8eb737ee12ce661d148586d238a42f766b3ce890e7604",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/diag.rs",
+      "raw_sha256": "5f0c25e8b2b60f3ff69930c03b957a1f9a061fe2806b8646ca4a883003d433fc",
+      "rust_sha256": "185f160d02c7ac93d4302d3ad00706a27b737c87a4da74ffa4722c3b87ae069a",
+      "corrections": {
+        "variadic-abi": 1,
+        "current-rust-variadic-list": 2
+      }
+    },
+    {
+      "source": "upstream/libavif/src/exif.c",
+      "source_sha256": "05ad7782f2acbeac78a97f3d7f3aef4078c61629edef4df6f85130feeac8cbfa",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/exif.rs",
+      "raw_sha256": "9ab2b2c6f1aa73e22be6fafab9a4cced790cd05ed42053b21468ad46343e8699",
+      "rust_sha256": "4c32ea6118218091f9d350afe460cde967634edfe8df89d0eb401225e0da147f",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/gainmap.c",
+      "source_sha256": "8ffa5e626df0ea80fc99ab54d54c9a68b338b2f6e28e4a8fee97781e3711209e",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/gainmap.rs",
+      "raw_sha256": "4f8529a54d44d52e826a1a137266b588626667d0bdf2891ea26a41ddf72dab57",
+      "rust_sha256": "0b8ca31c2d0ae0671af6ae530c377ca6dfa5131f3189153f724887aa5dc9493c",
+      "corrections": {
+        "canonical-cfg-labels": 8,
+        "glibc-assert-single-evaluation": 1
+      }
+    },
+    {
+      "source": "upstream/libavif/src/io.c",
+      "source_sha256": "b0e08b3c6e683fce6dd13afff60a860909b19fc9ace9ebe659e2eee9b2ee78df",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/io.rs",
+      "raw_sha256": "20fdc436080b460965b9b337c83745e8694f34b7d9921a91f16b351c6be36b1e",
+      "rust_sha256": "f5e649ffb5e0de71b03714b014fa1dd38c1b6fed14044b5ad94d349d83d02e47",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/mem.c",
+      "source_sha256": "416b32415219b3753a30d3d8e68904587e396f996d1f4459ea31af86faab073a",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/mem.rs",
+      "raw_sha256": "adf21d112ff013ecc7e88d51a7dd7bb1e516210a06e384b9507469eafda418b9",
+      "rust_sha256": "eeed9d135a340646bc4a0750f6b33d33a74530c2ae91ee47cb26509f2dc401a5",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/obu.c",
+      "source_sha256": "cea86df7eb48d591cf85acbe94d4409950a514941a5d35fccc1ca549f2c1e03f",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/obu.rs",
+      "raw_sha256": "81231b28049e1381946e16f12bec37469825f5f5b3d694a901a2af7bc5c852a6",
+      "rust_sha256": "18a42df60c48b53c2f817c2e83d0db5e0d04f643b4de6ffd4aa03b8fce71b3ba",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/properties.c",
+      "source_sha256": "35cda729a6d430bfd2a656684ea38e5c8903834fe45af81c20f1db3394265f8b",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/properties.rs",
+      "raw_sha256": "4a973c0fa5a3a7b4c2b7709df9a4823e9c840cf98692252eebc21ed43b2391e4",
+      "rust_sha256": "4878c9818cd04252094b64bf45668c4266f6c22e15742d12e13fd6aec2937d7d",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "static-raw-address": 1
+      }
+    },
+    {
+      "source": "upstream/libavif/src/rawdata.c",
+      "source_sha256": "0bfd2b38a5f1e653abe5f91c9a287788618307763b9c63fa9f8e263dd666316c",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/rawdata.rs",
+      "raw_sha256": "bd7393f4a3379c634e33a21a645b7806e1dc2a4a43514f00ee8996f020bf5319",
+      "rust_sha256": "e6e88e282b5497e0ae4f791fa9609b7cd74e6211811466386ab4c46c315f42bb",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/read.c",
+      "source_sha256": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/read.rs",
+      "raw_sha256": "afe861e3c2fc2f730d92531fa25c6f22713622777f35640340bda5d15266818a",
+      "rust_sha256": "e56e131bc8728f88956166b287552c46bfeab9a4785767cb6efc37fe835d042d",
+      "corrections": {
+        "canonical-cfg-labels": 4,
+        "static-raw-address": 1,
+        "glibc-assert-single-evaluation": 58
+      }
+    },
+    {
+      "source": "upstream/libavif/src/reformat.c",
+      "source_sha256": "e5e6a62a0a53f4e5eeb8866c6b40e7d9cfb71d52dcb649626d8de2a12779f581",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/reformat.rs",
+      "raw_sha256": "bd9eaddf97ee18d5385df65c8c8d83210b0b526798e12bf48f0c179083d93d23",
+      "rust_sha256": "058146292ea0d287a7970d1410dc5f4a6ee7674d4180a2c2c542563de965ba39",
+      "corrections": {
+        "glibc-assert-single-evaluation": 12
+      }
+    },
+    {
+      "source": "upstream/libavif/src/reformat_libsharpyuv.c",
+      "source_sha256": "00b49fb1a03f3164d31ba656d4285d37f04ef6082ad99bfebaeb463377028d06",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/reformat_libsharpyuv.rs",
+      "raw_sha256": "0d8ac7adf60c8cb9b5571321a7b1ba475faa80da2dfb5587359ec310eb184fa0",
+      "rust_sha256": "eb7eb04522c17ffaaa2bf4a8d896bdc598a5a4b99347a5b82ee926777a59a6e3",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/reformat_libyuv.c",
+      "source_sha256": "b7fe62ad4356eb68b2fefc7af5276a85d98ca2b84d2a833b69fae531e3c7b187",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/reformat_libyuv.rs",
+      "raw_sha256": "8d7b99211e0f8ddf7282ee2e7c46b0c35e0914b8007e0bd9168bb1ff14d17649",
+      "rust_sha256": "e12e925caceb3ad730309c9341d73a743c5118cf232a5b13357b49c7251bcddc",
+      "corrections": {
+        "glibc-assert-single-evaluation": 4
+      }
+    },
+    {
+      "source": "upstream/libavif/src/sampletransform.c",
+      "source_sha256": "bd54548be80cfa963f2e5240f858c0a1f421ad4558de36c35b01ba94c6f8e599",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/sampletransform.rs",
+      "raw_sha256": "e89c7a29c111534b6d2e850cebbb9de55fff5b98e82a8aab3206a0e949be8ac7",
+      "rust_sha256": "59fe23a9e01d022b0c4def00ec2a835ad55a3917c59999de8d6b55ed85712ec0",
+      "corrections": {
+        "glibc-assert-single-evaluation": 30
+      }
+    },
+    {
+      "source": "upstream/libavif/src/scale.c",
+      "source_sha256": "6e968d8edaa3815ed2ecc329a5d65f3ae56820a4a39adfd371486d7b9aecb47b",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/scale.rs",
+      "raw_sha256": "d9745d6d7bfc528372125b1de9e0add1689e4de6a28b0e69b6b2d81f9db72201",
+      "rust_sha256": "e6e4d954775a4115203e0b32a0905ce31344f43347c9f54fac36967cd06092c2",
+      "corrections": {
+        "canonical-cfg-labels": 3
+      }
+    },
+    {
+      "source": "upstream/libavif/src/stream.c",
+      "source_sha256": "23bc43bc6b5fcd7fc8dd8f50ea6418cdd028a3d6f088ea785ee90ba735947505",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/stream.rs",
+      "raw_sha256": "0679d0a3469382330804f018ce8eae4cd3f51c17079d4921b33514759c5db3a7",
+      "rust_sha256": "5091b3b8649243561895583397f625cdcaa37b949e7513158e096bd0d741bd63",
+      "corrections": {
+        "glibc-assert-single-evaluation": 23
+      }
+    },
+    {
+      "source": "upstream/libavif/src/utils.c",
+      "source_sha256": "e7b542c1365b5ecdac49dfeed6ba40e17a4f0e7edf532dd653d367dde82d1970",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/utils.rs",
+      "raw_sha256": "beb3d3af68c1b22c747a610533b75e63c91d19ca83a410dbe4076dc1eff7494f",
+      "rust_sha256": "702e76ae13e76661b0f31bb5ef59b388a9763f0c2590819d0c985e63cc209c3a",
+      "corrections": {
+        "glibc-assert-single-evaluation": 3
+      }
+    },
+    {
+      "source": "upstream/libavif/src/write.c",
+      "source_sha256": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/write.rs",
+      "raw_sha256": "7fffa5344825bfa27f08ffbd9a18b78f000f09889b3ce8c592306f06cc7b241b",
+      "rust_sha256": "c179733cfbb84238071c08b9c053ddf8e0428c8895cb1657f124ea7360ff97f9",
+      "corrections": {
+        "canonical-cfg-labels": 4,
+        "static-raw-address": 13,
+        "glibc-assert-single-evaluation": 55
+      }
+    },
+    {
+      "source": "upstream/libavif/src/codec_dav1d.c",
+      "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/codec_dav1d.rs",
+      "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
+      "rust_sha256": "e490ca062279f8fde09f46c038ffeabe1033c4464a63d2e7418c37c6a235d0a3",
+      "corrections": {
+        "current-rust-variadic-list": 1
+      }
+    },
+    {
+      "source": "upstream/libavif/src/codec_libgav1.c",
+      "source_sha256": "1cdd17b24d5d175cd610e6c2e93317bb3254ba73dda679b4fe7716904df41e0b",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/codec_libgav1.rs",
+      "raw_sha256": "3167bad61ec5bd937437676b9b0e89589a8e0338ae59b8f109ec51d45264ce1c",
+      "rust_sha256": "b095a5d27f425b385379b88d6539a1cc2951b83437ed32959a81007adc64d0a6",
+      "corrections": {}
+    },
+    {
+      "source": "upstream/libavif/src/codec_rav1e.c",
+      "source_sha256": "2b932404aac34300ca2bc71cad10ad8eec2bd2b13f6e8ff506d27b6c89267fde",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/codec_rav1e.rs",
+      "raw_sha256": "8af21dc6236ccbb8535f818d75d87427dbdb8548165716068e6d8f80678a218e",
+      "rust_sha256": "79beb05bc64ac05d41d1cb2e9becd283d454e84fac040452565a5de69222ad8c",
+      "corrections": {
+        "canonical-cfg-labels": 9
+      }
+    },
+    {
+      "source": "upstream/libavif/src/codec_svt.c",
+      "source_sha256": "6ee4fc1058372950652b0f161eab8b179a1b76576af22cfbd17b7458bd05c120",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/codec_svt.rs",
+      "raw_sha256": "d7bc87ec166ef9e79f06b7093a78860886911adcaf9bbd79f902dfcc5182948e",
+      "rust_sha256": "e11dc6c5b4be56856d9e85d5d7f104945f9b1df99a0c6ef4f9a9b81e11169abb",
+      "corrections": {
+        "canonical-cfg-labels": 4
+      }
+    },
+    {
+      "source": "upstream/libavif/src/codec_aom.c",
+      "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
+      "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/codec_aom.rs",
+      "raw_sha256": "7d4a0fbaeac33196c1f75aa6441bfd9e43ff94249007e49462546d5fdfd6b108",
+      "rust_sha256": "4bb8be8987ed0fd97df610e3e0128a6d2de67496c49d0a41df01a44993b9417b",
+      "corrections": {
+        "loader-array-sanitizer-layout": 1,
+        "static-raw-address": 2,
+        "glibc-assert-single-evaluation": 2
+      }
+    }
+  ],
+  "libyuv_translation_overlay_sha256": "a46a17e4eed90097148736fb3ee2ef7e780aa588305771fba46d6a04a44779fb",
+  "selector": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/modules.rs",
+  "selector_sha256": "40d171ac603f3f205532e6ba70a286e701f63e9e751246a1dc4659d34c5288f7",
+  "original_compile_commands_sha256": "8b5d293c5c33aee47162b9c3a0135968182c5018ac961eed952522f0c23c6357",
+  "original_cmake_cache_sha256": "8f6c8104fc3c72980816271295f4949eaffcdce4c258b7ae5c357024a510cbe6",
+  "original_tests_executed": false,
+  "native_acceptance_claimed": false
+}

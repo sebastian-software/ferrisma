@@ -1,0 +1,4 @@
+# C2Rust output is verified by translation hashes, not rewritten by rustfmt.
+# The common pinned nightly supports scoped ignores (ADR-0026).
+unstable_features = true
+ignore = ["codecs/libavif-rs"]

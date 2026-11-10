@@ -1,0 +1,27 @@
+[package]
+name = "libavif-rs"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "Mechanical Rust port of the pinned libavif implementation"
+publish = false
+
+[lib]
+name = "avif"
+crate-type = ["staticlib", "rlib", "cdylib"]
+
+[dependencies]
+libc = "=0.2.191"
+sharpyuv = { package = "libavif-sharpyuv", path = "crates/sharpyuv" }
+dav1d = { package = "libavif-dav1d", path = "crates/dav1d" }
+aom = { package = "libavif-aom", path = "crates/aom" }
+
+[features]
+default = []
+mini = []
+extended-pixi = []
+libgav1 = []
+rav1e = []
+svt = []
+libyuv = []
+avm = []

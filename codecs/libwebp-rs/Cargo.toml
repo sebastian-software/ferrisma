@@ -1,0 +1,29 @@
+[package]
+name = "libwebp-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "BSD-3-Clause"
+description = "A mechanical Rust port of libwebp, the WebP reference implementation"
+publish = false
+
+[lib]
+name = "webp"
+# The rlib serves Rust callers and the tests. The static and dynamic libraries
+# will export the C ABI of the public headers (src/abi, ADR 0004) for the
+# unmodified upstream tools. Building them compiles and links no C.
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[features]
+# The SIMD variants of src/dsp and src/sharpyuv (SSE2, SSE4.1, AVX2 on x86 and
+# x86-64, NEON on AArch64) are compiled only with this feature and selected at
+# run time (ADR 0008). Without it (--no-default-features) the library is the
+# scalar translation that the reference oracle corresponds to.
+default = ["simd"]
+simd = []
+
+# The C oracle is a set of probe executables used by differential tests, never
+# a dependency of the library (ADR 0002). Without this feature a test that needs
+# the oracle skips with a message when LIBWEBP_ORACLE_DIR is unset; with it, the
+# test fails instead. tools/check.py --oracle builds the oracle and enables it.
+oracle = []

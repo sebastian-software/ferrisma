@@ -15,9 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Activate the root toolchain and components
+        run: rustup show active-toolchain
       - name: Install AV1 assembler for optional rav1d backend
         run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - name: Format
@@ -27,13 +26,13 @@ jobs:
       - name: Kernel throughput per level (informational)
         run: cargo run --release -p ferrixel-kernels --example bench
       - name: Test core and kernels without codecs
-        run: cargo test --workspace --all-targets
+        run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
       - name: Test with optional codecs
-        run: cargo test --workspace --all-targets --all-features
+        run: cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
       - name: Lint core without codecs
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets -- -D warnings
       - name: Lint with optional codecs
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features -- -D warnings
       - name: Check individually enabled features
         run: |
           for feature in jpeg-read jpeg-xl-read avif-read avif-write icc cli; do
@@ -59,27 +58,26 @@ jobs:
       - name: Install AV1 assembler
         run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - name: Check all feature combinations on declared MSRV
-        run: cargo check --workspace --all-features
+        run: cargo +1.98.0 check -p ferrixel -p ferrixel-kernels --all-features
 
   # NEON kernels on Linux Arm (and SVE2 detection where the runner has it).
   kernels-arm:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      - name: Activate the root toolchain and components
+        run: rustup show active-toolchain
       - name: Report SIMD kernel levels exercised on this runner
         run: cargo run -p ferrixel-kernels --example detect
       - name: Kernel throughput per level (informational)
         run: cargo run --release -p ferrixel-kernels --example bench
       - name: Test core and kernels without codecs
-        run: cargo test --workspace --all-targets
+        run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
       - name: Lint kernels
         run: cargo clippy -p ferrixel-kernels --all-targets -- -D warnings
 
-  # libavif-rs encoder adapter (ADR-0024): outside the workspace, on the
-  # nightly that libavif-rs pins. libavif-rs builds on aarch64 macOS and
+  # libavif-rs encoder adapter (ADRs 0024 and 0026), in the shared workspace.
+  # The root toolchain pins its required nightly. libavif-rs builds on aarch64 macOS and
   # x86-64 GNU Linux; its AOM is built without VMAF tuning, so no native
   # libraries are needed.
   libavif-backend:
@@ -94,7 +92,7 @@ jobs:
       - name: Format
         run: cargo fmt --check
       - name: Lint
-        run: cargo clippy --release --all-features --all-targets --locked -- -D warnings
+        run: cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings
       - name: Test (decodes with libavif-rs's own decoder)
         run: cargo test --release --all-features --locked
 
@@ -111,6 +109,6 @@ jobs:
       - name: Install the pinned nightly from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       - name: Lint
-        run: cargo clippy --release --all-features --all-targets --locked -- -D warnings
+        run: cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings
       - name: Test (decodes with libavif-rs's own decoder)
         run: cargo test --release --all-features --locked

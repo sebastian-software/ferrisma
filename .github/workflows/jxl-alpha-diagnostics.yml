@@ -1,0 +1,56 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'JXL: Alpha reference diagnostics'
+'on':
+  workflow_dispatch: null
+  push:
+    branches:
+    - feat/decoder-patches
+    paths:
+    - codecs/libjxl-rs/tools/alpha_diagnostics.py
+    - Cargo.toml
+    - Cargo.lock
+    - rust-toolchain.toml
+    - rustfmt.toml
+    - .github/workflows/jxl-*.yml
+permissions:
+  contents: read
+jobs:
+  original-alpha:
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize the pinned reference and dependencies
+      run: |
+        git submodule update --init --depth 1 upstream/libjxl
+        git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
+    - name: Install the Rust input-generator toolchain
+      run: rustup toolchain install stable --profile minimal
+    - name: Install the Linux reference standard library
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libc++-dev libc++abi-dev
+    - name: Build unchanged original graphs
+      run: |
+        cmake -S tools/oracle -B target/oracle -DCMAKE_BUILD_TYPE=Release -DORACLE_SANITIZERS=OFF
+        cmake --build target/oracle --target jxl_oracle --parallel 2
+        cmake -S tools/oracle -B target/oracle-asan -DCMAKE_BUILD_TYPE=Release -DORACLE_SANITIZERS=ON
+        cmake --build target/oracle-asan --target jxl_oracle --parallel 2
+    - name: Compare default source graphs and isolated candidates
+      run: python3 tools/alpha_diagnostics.py
+    - name: Preserve exact original observations and compile evidence
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-alpha-candidate-diagnostics-Linux
+        path: codecs/libjxl-rs/target/alpha-diagnostics.json
+        if-no-files-found: error
+        retention-days: 7
+    name: 'JXL: original-alpha'
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs

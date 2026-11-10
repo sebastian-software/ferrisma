@@ -1,0 +1,96 @@
+# Codec checks share the workspace and keep their original oracle tiers.
+name: 'AVIF: Root platform validation'
+'on':
+  push:
+    branches:
+    - main
+  pull_request: null
+  schedule:
+  - cron: 17 2 * * *
+  workflow_dispatch: null
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  linux-pr:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      profile: release
+      variant: default
+      tier: smoke
+      package: production
+    name: 'AVIF: linux-pr'
+  linux-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini
+        - extended-pixi
+        - mini-extended-pixi
+        - libgav1-rav1e-svt-libyuv
+        - mini-extended-pixi-libgav1-rav1e-svt-libyuv
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      profile: both
+      variant: ${{ matrix.variant }}
+      tier: full
+      package: production
+    name: 'AVIF: linux-nightly'
+  linux-asan-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini
+        - extended-pixi
+        - mini-extended-pixi
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      profile: release
+      variant: ${{ matrix.variant }}
+      tier: full
+      sanitizer: address
+    name: 'AVIF: linux-asan-nightly'
+  macos-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini-extended-pixi
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      runner: macos-26
+      profile: both
+      variant: ${{ matrix.variant }}
+      tier: full
+    name: 'AVIF: macos-nightly'
+  macos-production-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant:
+        - default
+        - mini-extended-pixi
+    uses: ./.github/workflows/avif-root-translate-linux.yml
+    with:
+      runner: macos-26
+      profile: release
+      variant: ${{ matrix.variant }}
+      tier: full
+      package: production
+    name: 'AVIF: macos-production-nightly'

@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/sebastian-software/libjxl-rs",
+  "revision": "b3bf80f4d35520e42fa5990e4161f9f9d5e27c45",
+  "tree": "65ce07a742b27d3dbc1f0cbd5e393b7e484ae235",
+  "imported_on": "2026-11-10",
+  "scope": "Tracked source including open pull requests; original commit history and upstream gitlinks are retained.",
+  "main_revision": "7c1934c844de07c869415f1a61ab36c0c95d60b3",
+  "pull_requests": [
+    61
+  ]
+}

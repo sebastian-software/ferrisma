@@ -1,0 +1,146 @@
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license in LICENSE.
+// Observe original classes and the actual complete ComputeEncodingData caller.
+#include "lib/jxl/chroma_from_luma.h"
+#include "lib/jxl/quantizer.h"
+#include "lib/jxl/enc_fields.h"
+#include "jxl/decode.h"
+float EFReadFloat(std::istringstream&);
+void SSCorr(const jxl::ColorCorrelation& c) {
+  std::cout<<" C "<<c.color_factor_<<' '<<SCBits<uint32_t>(c.color_scale_)<<' '<<SCBits<uint32_t>(c.GetColorFactor())
+    <<' '<<SCBits<uint32_t>(c.GetBaseCorrelationX())<<' '<<SCBits<uint32_t>(c.GetBaseCorrelationB())<<' '<<c.GetYToXDC()<<' '<<c.GetYToBDC()<<' '<<c.IsJPEGCompatible();
+  for(size_t i=0;i<4;++i)std::cout<<' '<<SCBits<uint32_t>(c.DCFactors()[i]);
+}
+void SSQuant(const jxl::Quantizer& q,const jxl::DequantMatrices& d,size_t slots) {
+  std::cout<<" Q "<<q.global_scale_<<' '<<q.quant_dc_<<' '<<SCBits<uint32_t>(q.Scale())<<' '<<SCBits<uint32_t>(q.InvGlobalScale())<<' '<<SCBits<uint32_t>(q.inv_quant_dc());
+  for(size_t c=0;c<slots;++c)std::cout<<' '<<SCBits<uint32_t>(q.MulDC()[c])<<' '<<SCBits<uint32_t>(q.InvMulDC()[c]);
+  for(float value:q.zero_bias_)std::cout<<' '<<SCBits<uint32_t>(value);
+  for(size_t c=0;c<3;++c)std::cout<<' '<<SCBits<uint32_t>(q.GetDcStep(c))<<' '<<SCBits<uint32_t>(q.GetInvDcStep(c));
+  for(int n:{0,1,-1,64,INT32_MIN,INT32_MAX})std::cout<<' '<<SCBits<uint32_t>(q.inv_quant_ac(n));
+}
+template<class T> void SSPlane(const jxl::Plane<T>& p,bool samples) {
+  std::cout<<" P "<<p.xsize()<<' '<<p.ysize()<<' '<<p.bytes_per_row()<<' '<<(p.memory_manager()!=nullptr);
+  if(samples)for(size_t y=0;y<p.ysize();++y)for(size_t x=0;x<p.xsize();++x)std::cout<<' '<<+p.Row(y)[x];
+}
+jxl::Status EFComputeThunderFrame(const jxl::CompressParams&,const jxl::CodecMetadata&,jxl::JxlEncoderChunkedFrameAdapter&,jxl::FrameHeader&,jxl::ModularFrameEncoder&,jxl::PassesEncoderState&,std::vector<std::unique_ptr<jxl::BitWriter>>&,jxl::AuxOut*);
+jxl::Status EFThunderOneShot(JxlMemoryManager*,const jxl::CompressParams&,const jxl::CodecMetadata&,jxl::JxlEncoderChunkedFrameAdapter&,std::vector<uint8_t>&,jxl::AuxOut*);
+void SSDecodeImage(const std::vector<uint8_t>& bytes, const JxlPixelFormat& format) {
+  auto* decoder = JxlDecoderCreate(nullptr);
+  if (!decoder) throw std::runtime_error("image decoder allocation");
+  JxlBasicInfo info = {};
+  std::vector<uint8_t> pixels;
+  if (JxlDecoderSubscribeEvents(decoder,JXL_DEC_BASIC_INFO|JXL_DEC_FULL_IMAGE)!=JXL_DEC_SUCCESS ||
+      JxlDecoderSetInput(decoder,bytes.data(),bytes.size())!=JXL_DEC_SUCCESS)
+    throw std::runtime_error("image decoder setup");
+  JxlDecoderCloseInput(decoder);
+  JxlDecoderStatus status;
+  for (;;) {
+    status=JxlDecoderProcessInput(decoder);
+    if (status==JXL_DEC_BASIC_INFO) {
+      if(JxlDecoderGetBasicInfo(decoder,&info)!=JXL_DEC_SUCCESS)throw std::runtime_error("image decoder metadata");
+    } else if(status==JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+      size_t size;
+      if(JxlDecoderImageOutBufferSize(decoder,&format,&size)!=JXL_DEC_SUCCESS)throw std::runtime_error("image decoder size");
+      pixels.resize(size);
+      if(JxlDecoderSetImageOutBuffer(decoder,&format,pixels.data(),pixels.size())!=JXL_DEC_SUCCESS)throw std::runtime_error("image decoder output");
+    } else if(status!=JXL_DEC_FULL_IMAGE) break;
+  }
+  std::cout<<" D "<<int(status)<<' '<<info.xsize<<' '<<info.ysize<<' '<<info.bits_per_sample<<' '<<info.num_color_channels<<' '<<Hex(jxl::Bytes(pixels.data(),pixels.size()));
+  JxlDecoderDestroy(decoder);
+}
+bool SSImageCommand(std::istringstream& in,JxlMemoryManager* mm,bool alpha=false,bool planar=false) {
+  size_t w,h;bool gray,has_aux;unsigned depth;std::string hex,supplied_hex;
+  in>>w>>h>>gray>>depth>>has_aux>>hex>>supplied_hex;
+  jxl::CodecMetadata metadata;if(!metadata.size.Set(w,h))throw std::runtime_error("image metadata");
+  metadata.m.SetUintSamples(depth);metadata.m.xyb_encoded=false;
+  if(alpha)metadata.m.SetAlphaBits(depth,false);
+  if(!metadata.m.color_encoding.SetSRGB(gray?jxl::ColorSpace::kGray:jxl::ColorSpace::kRGB,jxl::RenderingIntent::kRelative))throw std::runtime_error("image color");
+  jxl::CompressParams p;p.cms={};p.debug_image_opaque=nullptr;p.speed_tier=jxl::SpeedTier::kThunder;p.level=10;p.buffering=0;p.SetLossless();if(!EFParamsPostInit(&p))throw std::runtime_error("image params");
+  auto data=Unhex(hex);jxl::JxlEncoderChunkedFrameAdapter input(w,h,alpha?1:0);
+  JxlPixelFormat format{(gray?1u:3u)+(alpha?1u:0u),depth==8?JXL_TYPE_UINT8:JXL_TYPE_UINT16,JXL_NATIVE_ENDIAN,0};
+  jxl::AuxOut aux;AuxSeed(aux,7);auto* aux_ptr=has_aux?&aux:nullptr;
+  std::vector<uint8_t> bytes;
+  jxl::Status status=false;
+  // Fixture input layout only: both cases call the real original adapter and
+  // complete encoder. The planar case reaches opaque-fill then extra-copy.
+  std::vector<uint8_t> color,extra;
+  bool bound;
+  if(planar) {
+    size_t sample=depth/8, channels=format.num_channels;
+    for(size_t i=0;i<data.size();i+=channels*sample) {
+      color.insert(color.end(),data.begin()+i,data.begin()+i+(channels-1)*sample);
+      extra.insert(extra.end(),data.begin()+i+(channels-1)*sample,data.begin()+i+channels*sample);
+    }
+    auto color_format=format;--color_format.num_channels;
+    auto extra_format=format;extra_format.num_channels=1;
+    bound=input.SetFromBuffer(0,color.data(),color.size(),color_format) &&
+          input.SetFromBuffer(1,extra.data(),extra.size(),extra_format);
+  } else {
+    bound=input.SetFromBuffer(0,data.data(),data.size(),format);
+  }
+  if(bound) {
+    jxl::BitWriter writer(mm);
+    status=jxl::WriteCodestreamHeaders(&metadata,&writer,aux_ptr);
+    if(status)status=writer.WithMaxBits(8,jxl::LayerType::Header,aux_ptr,[&]{writer.ZeroPadToByte();return true;});
+    if(status) {
+      auto header=std::move(writer).TakeBytes();bytes.assign(header.begin(),header.end());
+      std::vector<uint8_t> frame;status=EFThunderOneShot(mm,p,metadata,input,frame,aux_ptr);
+      if(status)bytes.insert(bytes.end(),frame.begin(),frame.end());else bytes.clear();
+    }
+  }
+  std::cout<<int(status.code())<<' '<<Hex(jxl::Bytes(bytes.data(),bytes.size()));AuxObservation(aux);
+  if(status){SSDecodeImage(bytes,format);SSDecodeImage(Unhex(supplied_hex),format);}
+  return true;
+}
+#include "frame_owners.inc"
+bool SharedPrimitivesCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm) {
+  if(command=="ss-owners"){SSOwners(in,mm);return true;}
+  if(command=="ss-acimage"){unsigned kind;in>>kind;if(kind==0)SSAcImage<int16_t>(in,mm);else SSAcImage<int32_t>(in,mm);return true;}
+  if(command=="ss-image")return SSImageCommand(in,mm);
+  if(command=="ss-image-alpha")return SSImageCommand(in,mm,true);
+  if(command=="ss-image-alpha-planar")return SSImageCommand(in,mm,true,true);
+  if(command=="ss-quant") {
+    bool def,custom,clear;int dc,global;in>>def>>dc>>global>>custom>>clear;float first[3],second[3];for(float& v:first)v=EFReadFloat(in);for(float& v:second)v=EFReadFloat(in);
+    jxl::DequantMatrices d;if(custom)d.SetDCQuant(first);
+    auto q=def?std::make_unique<jxl::Quantizer>(d):std::make_unique<jxl::Quantizer>(d,dc,global);
+    if(clear)q->ClearDCMul();SSQuant(*q,d,clear?4:3);
+    d.SetDCQuant(second);SSQuant(*q,d,clear?4:3);
+    q->RecomputeFromGlobalScale();SSQuant(*q,d,clear?4:3);return true;
+  }
+  if(command=="ss-corr") {
+    uint32_t factor;int x,b,probe,jpeg;size_t prefix;std::string hex;in>>factor>>x>>b>>probe>>jpeg>>prefix>>hex;
+    jxl::ColorCorrelation c;SSCorr(c);c.SetColorFactor(factor);SSCorr(c);c.SetYToXDC(x);SSCorr(c);c.SetYToBDC(b);SSCorr(c);
+    std::cout<<" R "<<SCBits<uint32_t>(c.YtoXRatio(probe))<<' '<<SCBits<uint32_t>(c.YtoBRatio(probe))<<' '<<jxl::ColorCorrelation::RatioJPEG(jpeg);
+    auto bytes=Unhex(hex);std::vector<uint8_t> storage(8+bytes.size()+8);std::copy(bytes.begin(),bytes.end(),storage.begin()+8);jxl::BitReader reader(jxl::Bytes(storage.data()+8,bytes.size()));reader.ReadBits(prefix);auto status=c.DecodeDC(&reader);size_t consumed=reader.TotalBitsConsumed();auto closed=reader.Close();
+    std::cout<<" D "<<static_cast<int>(status.code())<<' '<<consumed<<' '<<static_cast<int>(closed.code());SSCorr(c);return true;
+  }
+  if(command=="ss-map") {
+    bool def,xyb;size_t w,h,prefix;std::string hex;in>>def>>w>>h>>xyb>>prefix>>hex;jxl::ColorCorrelationMap c;
+    if(!def) {auto result=jxl::ColorCorrelationMap::Create(mm,w,h,xyb);std::cout<<static_cast<int>(result.status().code());if(!result.ok())return true;c=std::move(result).value_();}else std::cout<<0;
+    SSPlane(c.ytox_map,true);SSPlane(c.ytob_map,true);SSCorr(c.base());
+    auto bytes=Unhex(hex);std::vector<uint8_t> storage(8+bytes.size()+8);std::copy(bytes.begin(),bytes.end(),storage.begin()+8);jxl::BitReader reader(jxl::Bytes(storage.data()+8,bytes.size()));reader.ReadBits(prefix);auto status=c.DecodeDC(&reader);auto bits=reader.TotalBitsConsumed();auto closed=reader.Close();
+    std::cout<<" D "<<static_cast<int>(status.code())<<' '<<bits<<' '<<static_cast<int>(closed.code());SSCorr(c.base());return true;
+  }
+  if(command=="ss-acs") {
+    bool def,move;size_t w,h,rx,ry,rw,rh;int mode;uint32_t kind;in>>def>>w>>h>>mode>>rx>>ry>>rw>>rh>>kind>>move;jxl::AcStrategyImage c;
+    if(!def) {auto result=jxl::AcStrategyImage::Create(mm,w,h);std::cout<<static_cast<int>(result.status().code());if(!result.ok())return true;c=std::move(result).value_();c.FillInvalid();if(mode==1)c.FillDCT8();if(mode==2)c.FillDCT8(jxl::Rect(rx,ry,rw,rh));}
+    else std::cout<<0;
+    if(move){auto moved=std::move(c);c=std::move(moved);}
+    std::cout<<' '<<c.CountBlocks(static_cast<jxl::AcStrategyType>(kind));SSPlane(c.layers_,true);
+    for(size_t y=0;y<c.ysize();++y)for(size_t x=0;x<c.xsize();++x)std::cout<<' '<<c.IsValid(x,y);return true;
+  }
+  if(command!="ss-frame")return false;
+  size_t w,h;bool gray,null,has_aux,copy;unsigned depth;std::string hex;in>>w>>h>>gray>>depth>>null>>has_aux>>copy>>hex;
+  jxl::CodecMetadata metadata;if(!metadata.size.Set(w,h))throw std::runtime_error("shared frame metadata");metadata.m.SetUintSamples(depth);metadata.m.xyb_encoded=false;
+  if(!metadata.m.color_encoding.SetSRGB(gray?jxl::ColorSpace::kGray:jxl::ColorSpace::kRGB,jxl::RenderingIntent::kRelative))throw std::runtime_error("shared frame color");
+  jxl::CompressParams p;p.cms={};p.debug_image_opaque=nullptr;p.speed_tier=jxl::SpeedTier::kThunder;p.level=10;p.buffering=0;p.SetLossless();if(!EFParamsPostInit(&p))throw std::runtime_error("shared frame params");
+  jxl::PassesEncoderState state(mm);jxl::FrameHeader header(&metadata);if(!EFPrepareLosslessThunder(p,&state.progressive_splitter,&header))throw std::runtime_error("shared frame header");
+  auto made=jxl::ModularFrameEncoder::Create(mm,header,p,false);if(!made.ok())throw std::runtime_error("shared frame modular");auto modular=std::move(made).value_();
+  auto data=Unhex(hex);jxl::JxlEncoderChunkedFrameAdapter input(w,h,0);JxlPixelFormat f{gray?1u:3u,depth==8?JXL_TYPE_UINT8:JXL_TYPE_UINT16,JXL_NATIVE_ENDIAN,0};if(!input.SetFromBuffer(0,null?nullptr:data.data(),data.size(),f))throw std::runtime_error("shared frame buffer");if(copy)input.CopyBuffers();
+  jxl::AuxOut aux;AuxSeed(aux,7);std::vector<std::unique_ptr<jxl::BitWriter>> codes;auto status=EFComputeThunderFrame(p,metadata,input,header,*modular,state,codes,has_aux?&aux:nullptr);
+  std::cout<<static_cast<int>(status.code())<<' '<<header.flags<<' '<<state.shared.coeff_order_size;
+  SSPlane(state.shared.ac_strategy.layers_,false);SSPlane(state.shared.raw_quant_field,false);SSPlane(state.shared.epf_sharpness,false);SSPlane(state.shared.cmap.ytox_map,true);SSPlane(state.shared.cmap.ytob_map,true);SSCorr(state.shared.cmap.base());SSPlane(state.shared.quant_dc,false);for(size_t c=0;c<3;++c)SSPlane(state.shared.dc_storage.Plane(c),false);
+  SSQuant(state.shared.quantizer,state.shared.matrices,3);MFSGroupCodes(codes,mm);AuxObservation(aux);
+  jxl::AuxOut full_aux;AuxSeed(full_aux,7);std::vector<uint8_t> frame;auto full=EFThunderOneShot(mm,p,metadata,input,frame,has_aux?&full_aux:nullptr);
+  std::cout<<" F "<<static_cast<int>(full.code())<<' '<<Hex(jxl::Bytes(frame.data(),frame.size()));AuxObservation(full_aux);return true;
+}

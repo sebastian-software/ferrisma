@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/sebastian-software/libwebp-rs",
+  "revision": "81bded128666a1111da28b55f91147c02d2722ef",
+  "tree": "d3a32c61a0cdc4aef535c037cd3907e0b7ee7bd3",
+  "imported_on": "2026-11-10",
+  "scope": "Tracked source including open pull requests; original commit history and upstream gitlinks are retained.",
+  "main_revision": "07134f96848e1215510b642bc59b89fd2f423782",
+  "pull_requests": [
+    41,
+    40,
+    42,
+    44,
+    2
+  ]
+}

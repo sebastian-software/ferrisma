@@ -1,6 +1,6 @@
 # libwebp port plan (5 November 2026)
 
-**Status:** Plan. Nothing has been ported and the repository does not exist yet. This document scopes a third sister port, libwebp-rs, next to [libavif-rs](https://github.com/sebastian-software/libavif-rs) and [libjxl-rs](https://github.com/sebastian-software/libjxl-rs). It records the upstream pin, the method to confirm, the phase order with the exact source units, the parity gates and the Ferrixel adoption step. Line counts are non-blank, non-comment lines of libwebp 1.6.0 and describe size, not effort. See [the codec evaluation](2026-11-05-jpeg-and-webp-codec-evaluation.md) for why libwebp was chosen.
+**Status:** Plan. Nothing has been ported and the repository does not exist yet. This document scopes a third sister port, libwebp-rs, next to [libavif-rs](../../codecs/libavif-rs) and [libjxl-rs](../../codecs/libjxl-rs). It records the upstream pin, the method to confirm, the phase order with the exact source units, the parity gates and the Ferrixel adoption step. Line counts are non-blank, non-comment lines of libwebp 1.6.0 and describe size, not effort. See [the codec evaluation](2026-11-05-jpeg-and-webp-codec-evaluation.md) for why libwebp was chosen.
 
 ## Goal
 

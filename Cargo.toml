@@ -1,6 +1,55 @@
 [workspace]
-# The engine (root package) and its audited SIMD kernels (ADR-0020).
-members = [".", "crates/ferrixel-kernels"]
+# One source and dependency graph; codec verification stays scoped (ADR-0026).
+members = [
+    ".",
+    "crates/ferrixel-kernels",
+    "crates/ferrixel-libavif",
+    "codecs/libjpeg-turbo-rs",
+    "codecs/libwebp-rs",
+    "codecs/libjxl-rs",
+    "codecs/libavif-rs",
+    "codecs/libavif-rs/crates/aom",
+    "codecs/libavif-rs/crates/dav1d",
+    "codecs/libavif-rs/crates/sharpyuv",
+]
+default-members = [".", "crates/ferrixel-kernels"]
+resolver = "3"
+exclude = ["codecs/libwebp-rs/fuzz"]
+
+# AOM maps nonlocal C errors to typed Rust unwinding (codec ADR 0036).
+[profile.dev]
+panic = "unwind"
+[profile.release]
+panic = "unwind"
+
+# Optimized verification retains the assertions and arithmetic checks of dev.
+[profile.checked]
+inherits = "release"
+debug-assertions = true
+overflow-checks = true
+
+# The generated C2Rust packages express C wrapping arithmetic through ordinary
+# Rust operators. Preserve their established numeric contract only in these
+# packages; the engine and the other ports keep overflow checks (ADR-0026).
+[profile.dev.package.libavif-rs]
+overflow-checks = false
+[profile.dev.package.libavif-aom]
+overflow-checks = false
+[profile.dev.package.libavif-dav1d]
+overflow-checks = false
+[profile.dev.package.libavif-sharpyuv]
+overflow-checks = false
+[profile.checked.package.libavif-rs]
+overflow-checks = false
+[profile.checked.package.libavif-aom]
+overflow-checks = false
+[profile.checked.package.libavif-dav1d]
+overflow-checks = false
+[profile.checked.package.libavif-sharpyuv]
+overflow-checks = false
+
+[profile.release.package.ferrixel-libavif]
+debug = "line-tables-only"
 
 [package]
 name = "ferrixel"

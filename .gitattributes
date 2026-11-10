@@ -1,0 +1,8 @@
+# Byte-pinned references and generated translation fixtures keep upstream text.
+# Their hashes, rather than whitespace normalization, are the acceptance gate.
+codecs/libavif-rs/upstream/** -text -whitespace
+codecs/libavif-rs/crates/*/LICENSES/** -text -whitespace
+codecs/libavif-rs/crates/aom/reference/**/generated/** -text -whitespace
+codecs/libavif-rs/crates/aom/src/*/*/generated/** -text -whitespace
+codecs/libjxl-rs/tests/data/decode-test/LICENSE-testdata-CC-BY-4.0.txt -text -whitespace
+codecs/libjxl-rs/tools/captures/box_content_decoder.tsv -text -whitespace

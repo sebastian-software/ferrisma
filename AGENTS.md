@@ -28,3 +28,10 @@ cargo clippy --all-targets -- -D warnings
 ## Before expanding scope
 
 Add or amend an ADR with its problem, alternatives, evidence, trade-offs and re-evaluation trigger. For any optimization, include a reproducible benchmark, peak-memory observation, and image-quality/correctness checks. Update the ADR index and architecture sketch accordingly.
+
+## Shared codec workspace
+
+- Read [codec development](docs/codecs.md) and [ADR-0026](docs/adr/0026-codecs-in-one-repository-and-workspace.md) before changing workspace configuration or imported ports.
+- Root default members are the engine and kernels. Run component verification through `python3 scripts/check-codecs.py`; preserve each port's scoped oracle and provenance gates.
+- Do not run `--all-features` across the entire workspace: the interim AVIF reader and libavif adapter have conflicting C symbols. Test the engine and adapter separately.
+- Keep generated AVIF source hashes intact. Root profiles preserve its existing arithmetic semantics; do not broaden those exceptions.

@@ -1,6 +1,6 @@
 # ferrixel-libavif
 
-[libavif-rs](https://github.com/sebastian-software/libavif-rs), the mechanical Rust port of libavif with its Rust AOM encoder, as an output encoder for Ferrixel ([ADR-0024](../../docs/adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
+[libavif-rs](../../codecs/libavif-rs), the mechanical Rust port of libavif with its Rust AOM encoder, as an output encoder for Ferrixel ([ADR-0024](../../docs/adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
 
 ```rust
 use ferrixel::pipeline::{ImageFormat, TransformOptions, transcode_with};
@@ -19,13 +19,13 @@ cargo run --release --features cli -- input.jpg output.avif 1600 1067 --assume-s
 
 ## Requirements and limits
 
-- **Toolchain:** the nightly that libavif-rs pins (`rust-toolchain.toml` here). This crate is not a member of the Ferrixel workspace, so the core stays on stable.
+- **Toolchain:** the root workspace pins the nightly required by libavif-rs. The adapter uses the local codec package and root lockfile; the engine retains explicit stable/MSRV checks (ADR-0026).
 - **Platforms:** aarch64 macOS and x86-64 GNU Linux, the targets libavif-rs validates.
-- **No native libraries.** libavif-rs builds its AOM without VMAF tuning ([libavif-rs ADR 0057](https://github.com/sebastian-software/libavif-rs/blob/main/docs/adr/0057-translate-libaom-without-vmaf-tuning.md)), so libvmaf, pkg-config and a C++ runtime are no longer needed. AOM rejects VMAF tuning modes, which Ferrixel never selects.
+- **No native libraries.** libavif-rs builds its AOM without VMAF tuning ([libavif-rs ADR 0057](../../codecs/libavif-rs/docs/adr/0057-translate-libaom-without-vmaf-tuning.md)), so libvmaf, pkg-config and a C++ runtime are no longer needed. AOM rejects VMAF tuning modes, which Ferrixel never selects.
 - **No AVIF input in the same binary.** Ferrixel's `avif-read` decodes with rav1d, which exports the same `dav1d_*` C symbols as libavif-rs's dav1d port; linking both is undefined behavior. The `cli` feature therefore enables JPEG and JPEG XL input only, and the tests decode with libavif-rs's own decoder.
 - **Memory:** the backend materializes one RGBA frame and libavif's YUV(A) planes, reported as `encoder_output_frame_bytes`; AOM's own memory is opaque (`opaque_encoder_memory`).
 - **`unsafe`:** all calls into libavif's C ABI live in `src/lib.rs`, each with its safety argument; every libavif object is owned by a guard that frees it.
 
 ## Licenses
 
-libavif-rs is BSD-2-Clause; its AOM port is `BSD-2-Clause AND BSD-3-Clause AND MIT` and keeps libaom's patent grant (`crates/aom/LICENSES/PATENTS`); its dav1d port is BSD-2-Clause and its SharpYUV port BSD-3-Clause. libvmaf is BSD-2-Clause-Patent. This crate is not covered by Ferrixel's `scripts/audit-licenses.py`, which screens the workspace lockfile.
+libavif-rs is BSD-2-Clause; its AOM port is `BSD-2-Clause AND BSD-3-Clause AND MIT` and keeps libaom's patent grant (`crates/aom/LICENSES/PATENTS`); its dav1d port is BSD-2-Clause and its SharpYUV port BSD-3-Clause. This crate is not covered by Ferrixel's `scripts/audit-licenses.py`, which screens the engine's reachable dependency graph. Codec notice and provenance checks remain separate.

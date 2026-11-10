@@ -60,6 +60,13 @@ A graph node describes the image it produces, not an eagerly allocated pixel arr
 
 ## Development
 
+Ferrixel and the JPEG, WebP, JPEG XL and AVIF ports now live in one Cargo
+workspace. See [codec development](docs/codecs.md) for source setup, scoped
+oracle checks, independent release policy and the imported PR revisions.
+The root pins the nightly required by generated AVIF code; the engine keeps
+its stable/MSRV checks. Root default members are the engine and kernels.
+
+
 ### Experimental M1 CLI
 
 The optional CLI is built with Cargo's `cli` feature, which enables JPEG, JPEG XL, AVIF and ICC adapters. The core remains independently compilable without codecs.
