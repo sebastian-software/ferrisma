@@ -393,12 +393,27 @@ fn transform_one_fits(block: &[i16]) -> bool {
     (0..4).all(|i| fits(tmp[i + 4]) && fits(tmp[i + 12]))
 }
 
+/// Whether the block's coefficients stay within `[-2048, 2047]`, where the
+/// inverse transforms that the dispatch selects equal C's: with `simd` on
+/// 64-bit ARM these are upstream's NEON transforms, which saturate in 16-bit
+/// lanes and differ from `TransformOne_C` outside that range, the input range
+/// that `TransformOne_C`'s own comment assumes ("assuming an input in
+/// [-2048, 2047] interval") and that encoded streams stay in (WP20, decided on
+/// issue #28). The scalar build accepts every block, so it still runs every
+/// mutated stream against the reference oracle.
+fn transform_matches_c(block: &[i16]) -> bool {
+    !cfg!(all(feature = "simd", target_arch = "aarch64"))
+        || block.iter().all(|&c| (-2048..=2047).contains(&c))
+}
+
 /// Whether C's `TransformOne` stays within `int` on every block that the stream
-/// codes. A mutated stream can code coefficients for which its second pass
-/// overflows, which C does not define (PORTING rule 8); the test does not issue
-/// those. The check parses every macroblock with the translation's public
-/// parser, which needs no reconstruction, and checks every block, whichever
-/// transform its coefficients select.
+/// codes, and, with `simd` on 64-bit ARM, whether every block stays within the
+/// range where the selected transforms equal C's (`transform_matches_c`). A
+/// mutated stream can code coefficients for which its second pass overflows,
+/// which C does not define (PORTING rule 8); the test does not issue those. The
+/// check parses every macroblock with the translation's public parser, which
+/// needs no reconstruction, and checks every block, whichever transform its
+/// coefficients select.
 fn coefficients_in_range(data: &[u8]) -> bool {
     let mut dec = vp8_new();
     let mut io = VP8Io::default();
@@ -420,7 +435,11 @@ fn coefficients_in_range(data: &[u8]) -> bool {
         while dec.mb_x < dec.mb_w {
             let ok = vp8_decode_mb(&mut dec, token_br, data);
             let block = &dec.mb_data[dec.mb_x as usize];
-            if !block.coeffs.chunks(16).all(transform_one_fits) {
+            if !block
+                .coeffs
+                .chunks(16)
+                .all(|block| transform_one_fits(block) && transform_matches_c(block))
+            {
                 return false;
             }
             if !ok {

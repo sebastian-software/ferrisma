@@ -253,12 +253,26 @@ pub fn set_residual_coeffs_c<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
 /// `GetResidualCost_C`).
 #[must_use]
 pub fn vp8_get_residual_cost(ctx0: i32, res: &VP8Residual<'_>) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        // `VP8EncDspCostInit` selects the NEON variant by the query alone.
+        if crate::dsp::cpu::features().query_neon {
+            return crate::dsp::cost_neon::get_residual_cost(ctx0, res);
+        }
+    }
     get_residual_cost_c(ctx0, res)
 }
 
 // upstream: src/dsp/cost.c VP8SetResidualCoeffs
 /// C: the `VP8SetResidualCoeffs` pointer, `SetResidualCoeffs_C`.
 pub fn vp8_set_residual_coeffs<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        // `VP8EncDspCostInit` selects the NEON variant by the query alone.
+        if crate::dsp::cpu::features().query_neon {
+            return crate::dsp::cost_neon::set_residual_coeffs(coeffs, res);
+        }
+    }
     set_residual_coeffs_c(coeffs, res);
 }
 

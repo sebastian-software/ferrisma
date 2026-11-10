@@ -129,7 +129,7 @@ fn do_gradient_filter_c(input: &[u8], width: i32, height: i32, stride: i32, out:
 }
 
 // upstream: src/dsp/filters.c HorizontalFilter_C
-fn horizontal_filter_c(
+pub fn horizontal_filter_c(
     data: &[u8],
     width: i32,
     height: i32,
@@ -140,12 +140,24 @@ fn horizontal_filter_c(
 }
 
 // upstream: src/dsp/filters.c VerticalFilter_C
-fn vertical_filter_c(data: &[u8], width: i32, height: i32, stride: i32, filtered_data: &mut [u8]) {
+pub fn vertical_filter_c(
+    data: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    filtered_data: &mut [u8],
+) {
     do_vertical_filter_c(data, width, height, stride, filtered_data);
 }
 
 // upstream: src/dsp/filters.c GradientFilter_C
-fn gradient_filter_c(data: &[u8], width: i32, height: i32, stride: i32, filtered_data: &mut [u8]) {
+pub fn gradient_filter_c(
+    data: &[u8],
+    width: i32,
+    height: i32,
+    stride: i32,
+    filtered_data: &mut [u8],
+) {
     do_gradient_filter_c(data, width, height, stride, filtered_data);
 }
 
@@ -160,7 +172,7 @@ fn none_unfilter_c(_prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i3
     clippy::similar_names,
     reason = "the C names prev and pred of the reconstruction"
 )]
-fn horizontal_unfilter_c(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
+pub fn horizontal_unfilter_c(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
     let width = usize::try_from(width).unwrap_or(0);
     let mut pred = prev.map_or(0, |prev| prev[0]);
     for i in 0..width {
@@ -170,7 +182,7 @@ fn horizontal_unfilter_c(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], widt
 }
 
 // upstream: src/dsp/filters.c VerticalUnfilter_C
-fn vertical_unfilter_c(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
+pub fn vertical_unfilter_c(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
     match prev {
         None => horizontal_unfilter_c(None, input, out, width),
         Some(prev) => {
@@ -273,6 +285,12 @@ pub fn webp_filters(
             }
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        if let Some(filter_fn) = crate::dsp::filters_neon::filters(filter) {
+            return filter_fn(data, width, height, stride, filtered_data);
+        }
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -312,6 +330,12 @@ pub fn webp_unfilters(
                 }
                 _ => {}
             }
+        }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        if let Some(unfilter_fn) = crate::dsp::filters_neon::unfilters(filter) {
+            return unfilter_fn(prev, input, out, width);
         }
     }
     #[allow(

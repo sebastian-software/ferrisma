@@ -33,7 +33,12 @@
 //! Work package: WP4 (pixel ops).
 //!
 //! `VP8GetCPUInfo` is a query, not a function pointer (ADR 0003). On x86 it
-//! answers for the running CPU as `x86CPUInfo` does. Elsewhere the reference
+//! answers for the running CPU as `x86CPUInfo` does. On 64-bit ARM with the
+//! `simd` feature it answers `kNEON` as `armCPUInfo` does in upstream's NEON
+//! build (WP20, ADR 0008): upstream defines `WEBP_HAVE_NEON` there, assigns
+//! `armCPUInfo`, and without `WEBP_HAVE_NEON_RTCD`, which only 32-bit ARM
+//! builds use for their `/proc/cpuinfo` test, the query reports NEON and
+//! nothing else. Elsewhere, and in the scalar build, the reference
 //! configuration leaves the pointer NULL, and the query answers `false`.
 //! The `WEBP_DSP_INIT` guards of `cpu.h` have no counterpart: they protect
 //! pointer assignments, which ADR 0003 omits. The compile-time macros of
@@ -206,10 +211,33 @@ pub fn vp8_get_cpu_info(feature: CPUFeature) -> bool {
     x86cpu_info(feature)
 }
 
+// upstream: src/dsp/cpu.c armCPUInfo
+/// The ARM query of upstream's NEON build: NEON is reported, every other
+/// feature is not. `WEBP_HAVE_NEON_RTCD`, the run-time test of 32-bit ARM
+/// Linux builds, is not defined for 64-bit ARM.
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+fn arm_cpu_info(feature: CPUFeature) -> bool {
+    feature == CPUFeature::kNEON
+}
+
+// upstream: src/dsp/cpu.c VP8GetCPUInfo
+/// Reports whether the running CPU supports `feature`. On 64-bit ARM with the
+/// `simd` feature the answer is `armCPUInfo`'s: NEON only, as in upstream's
+/// NEON build (ADR 0008).
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+#[must_use]
+pub fn vp8_get_cpu_info(feature: CPUFeature) -> bool {
+    arm_cpu_info(feature)
+}
+
 // upstream: src/dsp/cpu.c VP8GetCPUInfo
 /// Reports whether the running CPU supports `feature`. Without an x86 query,
 /// the reference configuration's NULL pointer reports no feature.
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(not(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(feature = "simd", target_arch = "aarch64")
+)))]
 #[must_use]
 pub fn vp8_get_cpu_info(_feature: CPUFeature) -> bool {
     false
@@ -248,6 +276,11 @@ pub struct Features {
     pub avx2: bool,
     /// NEON, always on 64-bit ARM.
     pub neon: bool,
+    /// `VP8GetCPUInfo(kNEON)`, `false` for a `NULL` pointer. `VP8EncDspCostInit`
+    /// (`cost.c`) is the one `Init` function that selects its NEON variants by
+    /// the query alone, without `WEBP_NEON_OMIT_C_CODE`, so `-noasm` turns them
+    /// off; every other selection uses [`Features::neon`] (WP20, ADR 0008).
+    pub query_neon: bool,
 }
 
 impl Features {
@@ -258,6 +291,7 @@ impl Features {
     const AVX: u32 = 1 << 4;
     const AVX2: u32 = 1 << 5;
     const NEON: u32 = 1 << 6;
+    const QUERY_NEON: u32 = 1 << 7;
     /// Marks a computed record in the cache word.
     const VALID: u32 = 1 << 31;
 
@@ -271,6 +305,7 @@ impl Features {
             (self.avx, Self::AVX),
             (self.avx2, Self::AVX2),
             (self.neon, Self::NEON),
+            (self.query_neon, Self::QUERY_NEON),
         ] {
             if flag {
                 bits |= bit;
@@ -288,6 +323,7 @@ impl Features {
             avx: bits & Self::AVX != 0,
             avx2: bits & Self::AVX2 != 0,
             neon: bits & Self::NEON != 0,
+            query_neon: bits & Self::QUERY_NEON != 0,
         }
     }
 }
@@ -334,5 +370,6 @@ fn compute_features() -> Features {
         avx: query(CPUFeature::kAVX),
         avx2: query(CPUFeature::kAVX2),
         neon: cfg!(target_arch = "aarch64"),
+        query_neon: query(CPUFeature::kNEON),
     }
 }

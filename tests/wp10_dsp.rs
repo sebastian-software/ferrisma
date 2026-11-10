@@ -16,11 +16,11 @@ use std::fmt::Write as _;
 use oracle::Oracle;
 use webp::dsp::dsp::{BPS, MAX_COEFF_THRESH, VP8Histogram};
 use webp::dsp::enc::{
-    vp8_collect_histogram, vp8_copy4x4, vp8_copy16x8, vp8_enc_pred_chroma8, vp8_enc_pred_luma4,
-    vp8_enc_pred_luma16, vp8_enc_quantize_block, vp8_enc_quantize_block_wht,
-    vp8_enc_quantize2_blocks, vp8_mean16x4, vp8_set_histogram_data, vp8f_transform,
-    vp8f_transform_wht, vp8f_transform2, vp8i_transform, vp8sse4x4, vp8sse8x8, vp8sse16x8,
-    vp8sse16x16, vp8t_disto4x4, vp8t_disto16x16,
+    disto4x4_c, disto16x16_c, i_transform_c, vp8_collect_histogram, vp8_copy4x4, vp8_copy16x8,
+    vp8_enc_pred_chroma8, vp8_enc_pred_luma4, vp8_enc_pred_luma16, vp8_enc_quantize_block,
+    vp8_enc_quantize_block_wht, vp8_enc_quantize2_blocks, vp8_mean16x4, vp8_set_histogram_data,
+    vp8f_transform, vp8f_transform_wht, vp8f_transform2, vp8sse4x4, vp8sse8x8, vp8sse16x8,
+    vp8sse16x16,
 };
 use webp::dsp::quant::{is_flat, is_flat_source16};
 use webp::enc::vp8i_enc::{PRED_SIZE_ENC, VP8Matrix};
@@ -114,8 +114,14 @@ impl Record {
                 i16s(&mut r, &out);
             }
             OP_ITRANSFORM => {
+                // The C translation `ITransform_C`, which the case verifies:
+                // with `simd` on 64-bit ARM the dispatch selects upstream's
+                // NEON kernel, which saturates at 16 bits and differs from C
+                // for the coefficients above about 5,000 in magnitude that
+                // these records contain and the encoder never passes (WP20;
+                // `tests/wp20_enc.rs` covers the NEON kernel).
                 let mut d = self.d.clone();
-                vp8i_transform(&self.a, &self.input, &mut d, self.p[0] != 0);
+                i_transform_c(&self.a, &self.input, &mut d, self.p[0] != 0);
                 bytes(&mut r, &d[..4 * BPS_U]);
             }
             OP_SSE => {
@@ -125,8 +131,14 @@ impl Record {
                 i32s(&mut r, vp8sse4x4(&self.a, &self.b));
             }
             OP_TDISTO => {
-                i32s(&mut r, vp8t_disto4x4(&self.a, &self.b, &self.w));
-                i32s(&mut r, vp8t_disto16x16(&self.a, &self.b, &self.w));
+                // The C translations `Disto4x4_C` and `Disto16x16_C`, which
+                // the case verifies: with `simd` on 64-bit ARM the dispatch
+                // selects upstream's NEON kernels, which sum in transposed
+                // order and equal C only for the symmetric weights that
+                // `VP8TDisto4x4` documents and the encoder passes, not for
+                // these random ones (WP20; `tests/wp20_enc.rs` covers them).
+                i32s(&mut r, disto4x4_c(&self.a, &self.b, &self.w));
+                i32s(&mut r, disto16x16_c(&self.a, &self.b, &self.w));
             }
             OP_MEAN16X4 => {
                 let mut dc = [0_u32; 4];

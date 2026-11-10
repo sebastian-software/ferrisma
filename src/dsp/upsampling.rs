@@ -152,7 +152,7 @@ fn upsample_line_pair(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleRgbaLinePair_C
-fn upsample_rgba_line_pair_c(
+pub fn upsample_rgba_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -181,7 +181,7 @@ fn upsample_rgba_line_pair_c(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleBgraLinePair_C
-fn upsample_bgra_line_pair_c(
+pub fn upsample_bgra_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -210,7 +210,7 @@ fn upsample_bgra_line_pair_c(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleArgbLinePair_C
-fn upsample_argb_line_pair_c(
+pub fn upsample_argb_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -239,7 +239,7 @@ fn upsample_argb_line_pair_c(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleRgbLinePair_C
-fn upsample_rgb_line_pair_c(
+pub fn upsample_rgb_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -270,7 +270,7 @@ fn upsample_rgb_line_pair_c(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleBgrLinePair_C
-fn upsample_bgr_line_pair_c(
+pub fn upsample_bgr_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -301,7 +301,7 @@ fn upsample_bgr_line_pair_c(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleRgba4444LinePair_C
-fn upsample_rgba4444_line_pair_c(
+pub fn upsample_rgba4444_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -332,7 +332,7 @@ fn upsample_rgba4444_line_pair_c(
     reason = "the parameters of WebPUpsampleLinePairFunc"
 )]
 // upstream: src/dsp/upsampling.c UpsampleRgb565LinePair_C
-fn upsample_rgb565_line_pair_c(
+pub fn upsample_rgb565_line_pair_c(
     top_y: &[u8],
     bottom: Option<(&[u8], &mut [u8])>,
     top_u: &[u8],
@@ -459,6 +459,12 @@ pub fn webp_upsamplers(
             }
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        if let Some(upsampler) = crate::dsp::upsampling_neon::upsamplers(mode) {
+            return upsampler(top_y, bottom, top_u, top_v, cur_u, cur_v, top_dst, len);
+        }
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -498,6 +504,12 @@ pub fn webp_get_line_pair_converter(alpha_is_last: bool) -> WebPUpsampleLinePair
     } else {
         WEBP_CSP_MODE::MODE_ARGB
     };
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        if let Some(upsampler) = crate::dsp::upsampling_neon::upsamplers(mode) {
+            return upsampler;
+        }
+    }
     WEBP_UPSAMPLERS[mode.0 as usize].expect("the ARGB and BGRA upsamplers exist")
 }
 

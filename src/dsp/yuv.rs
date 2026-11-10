@@ -448,7 +448,11 @@ pub fn webp_samplers(mode: WEBP_CSP_MODE, y: &[u8], u: &[u8], v: &[u8], dst: &mu
     reason = "the masked channels of an ARGB value are below 2^31"
 )]
 // upstream: src/dsp/yuv.c ConvertARGBToY_C
-fn convert_argb_to_y_c(argb: &[u32], y: &mut [u8], width: i32) {
+/// # Panics
+///
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
+pub fn convert_argb_to_y_c(argb: &[u32], y: &mut [u8], width: i32) {
     let width = usize::try_from(width).expect("the width is not negative");
     for i in 0..width {
         let p = argb[i];
@@ -525,7 +529,11 @@ pub fn webp_convert_argb_to_uv_c(
 }
 
 // upstream: src/dsp/yuv.c ConvertRGB24ToY_C
-fn convert_rgb24_to_y_c(rgb: &[u8], y: &mut [u8], width: i32) {
+/// # Panics
+///
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
+pub fn convert_rgb24_to_y_c(rgb: &[u8], y: &mut [u8], width: i32) {
     let width = usize::try_from(width).expect("the width is not negative");
     for i in 0..width {
         let px = &rgb[3 * i..3 * i + 3];
@@ -539,7 +547,11 @@ fn convert_rgb24_to_y_c(rgb: &[u8], y: &mut [u8], width: i32) {
 }
 
 // upstream: src/dsp/yuv.c ConvertBGR24ToY_C
-fn convert_bgr24_to_y_c(bgr: &[u8], y: &mut [u8], width: i32) {
+/// # Panics
+///
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
+pub fn convert_bgr24_to_y_c(bgr: &[u8], y: &mut [u8], width: i32) {
     let width = usize::try_from(width).expect("the width is not negative");
     for i in 0..width {
         let px = &bgr[3 * i..3 * i + 3];
@@ -589,6 +601,10 @@ pub fn webp_convert_argb_to_y(argb: &[u32], y: &mut [u8], width: i32) {
             return crate::dsp::yuv_sse2::convert_argb_to_y(argb, y, width);
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::yuv_neon::convert_argb_to_y(argb, y, width);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -615,6 +631,10 @@ pub fn webp_convert_argb_to_uv(
             return crate::dsp::yuv_sse2::convert_argb_to_uv(argb, u, v, src_width, do_store);
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::yuv_neon::convert_argb_to_uv(argb, u, v, src_width, do_store);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -634,6 +654,10 @@ pub fn webp_convert_rgb24_to_y(rgb: &[u8], y: &mut [u8], width: i32) {
         if features.sse2 {
             return crate::dsp::yuv_sse2::convert_rgb24_to_y(rgb, y, width);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::yuv_neon::convert_rgb24_to_y(rgb, y, width);
     }
     #[allow(
         unreachable_code,
@@ -655,6 +679,10 @@ pub fn webp_convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
             return crate::dsp::yuv_sse2::convert_bgr24_to_y(bgr, y, width);
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::yuv_neon::convert_bgr24_to_y(bgr, y, width);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -664,6 +692,8 @@ pub fn webp_convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
 
 // upstream: src/dsp/yuv.c WebPConvertRGBA32ToUV
 // The dispatch to `WebPConvertRGBA32ToUV_C`, as for `WebPConvertARGBToY`.
+/// With `simd` on 64-bit ARM, sums of 32768 or more follow upstream's NEON
+/// kernel, not the C function (`src/dsp/yuv_neon.rs`, checks not applicable 2).
 pub fn webp_convert_rgba32_to_uv(rgb: &[u16], u: &mut [u8], v: &mut [u8], width: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -674,6 +704,10 @@ pub fn webp_convert_rgba32_to_uv(rgb: &[u16], u: &mut [u8], v: &mut [u8], width:
         if features.sse2 {
             return crate::dsp::yuv_sse2::convert_rgba32_to_uv(rgb, u, v, width);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::yuv_neon::convert_rgba32_to_uv(rgb, u, v, width);
     }
     #[allow(
         unreachable_code,

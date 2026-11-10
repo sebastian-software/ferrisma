@@ -1513,12 +1513,30 @@ pub fn vp8l_predictors_sub_c(
 // upstream: src/dsp/lossless_enc.c VP8LSubtractGreenFromBlueAndRed
 #[inline]
 pub fn vp8l_subtract_green_from_blue_and_red(argb_data: &mut [u32], num_pixels: i32) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_enc_neon::subtract_green_from_blue_and_red(
+            argb_data, num_pixels,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_subtract_green_from_blue_and_red_c(argb_data, num_pixels);
 }
 
 // upstream: src/dsp/lossless_enc.c VP8LTransformColor
 #[inline]
 pub fn vp8l_transform_color(m: &VP8LMultipliers, data: &mut [u32], num_pixels: i32) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_enc_neon::transform_color(m, data, num_pixels);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_transform_color_c(m, data, num_pixels);
 }
 

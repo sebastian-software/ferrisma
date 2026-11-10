@@ -10,22 +10,18 @@
 //! upstream's SSE2 and SSE4.1 converters differ from the C function from 32768
 //! up (`_mm_madd_epi16` reads them as negative); its callers pass at most 1020.
 //! The reference oracle has no SIMD code, so that comparison selects the C
-//! translation through `VP8GetCPUInfo = NULL`, as `-noasm` does, and restores
-//! the pointer after each case (ADR 0008; `src/dsp/yuv_sse2.rs`).
+//! translation directly on every architecture (ADR 0008;
+//! `src/dsp/yuv_sse2.rs`, `src/dsp/yuv_neon.rs`).
 
 #[path = "support/oracle.rs"]
 mod oracle;
 
-use core::ptr;
-use std::sync::atomic::Ordering;
-
 use oracle::Oracle;
-use webp::abi::decode::VP8_GET_CPU_INFO;
 use webp::dsp::yuv::{
     YUV_HALF, vp8_yuv_to_argb, vp8_yuv_to_bgr, vp8_yuv_to_bgra, vp8_yuv_to_rgb, vp8_yuv_to_rgb565,
     vp8_yuv_to_rgba, vp8_yuv_to_rgba4444, vp8rgb_to_u, vp8rgb_to_v, vp8rgb_to_y, vp8yuv_to_b,
     vp8yuv_to_g, vp8yuv_to_r, webp_convert_argb_to_uv, webp_convert_argb_to_y,
-    webp_convert_bgr24_to_y, webp_convert_rgb24_to_y, webp_convert_rgba32_to_uv,
+    webp_convert_bgr24_to_y, webp_convert_rgb24_to_y, webp_convert_rgba32_to_uv_c,
     webp_sampler_process_plane, webp_samplers,
 };
 use webp::webp::decode::WEBP_CSP_MODE;
@@ -221,16 +217,19 @@ fn rgb_y_case(script: &mut Script, rng: &mut Rng, width: usize, bgr: bool) {
     script.push(&command, field("y", &y));
 }
 
+/// The case calls the C translation `WebPConvertRGBA32ToUV_C`, which it
+/// verifies against the C oracle, rather than the dispatch function: with
+/// `simd` on 64-bit ARM the dispatch selects upstream's NEON kernel, which
+/// reads its 16-bit lanes as signed and differs from the C function for the
+/// sums of 32768 or more that these random words contain and the encoder
+/// never passes (WP20; `tests/wp20_yuv.rs` covers the NEON kernel).
 fn rgba_uv_case(script: &mut Script, rng: &mut Rng, width: usize) {
     let rgb = rng.words16(4 * width);
     let command = format!("rgba_uv {width} {}", words16_arg(&rgb));
     let mut u = vec![SENTINEL; width];
     let mut v = vec![SENTINEL; width];
-    // The C translation, as `-noasm` selects it: the samples leave the domain of
-    // upstream's SIMD converters (see the module documentation).
-    let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
-    webp_convert_rgba32_to_uv(&rgb, &mut u, &mut v, i32::try_from(width).expect("int"));
-    VP8_GET_CPU_INFO.store(previous, Ordering::Release);
+    // Call the C translation directly: samples leave the SIMD converter domain.
+    webp_convert_rgba32_to_uv_c(&rgb, &mut u, &mut v, i32::try_from(width).expect("int"));
     let expected = field("u", &u) + &field("v", &v);
     script.push(&command, expected);
 }

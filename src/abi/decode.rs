@@ -84,6 +84,16 @@
 //! 2. **Input that overlaps caller output memory**, and overlapping planes
 //!    passed to `WebPDecodeYUVInto` or `WebPINewYUVA`: the C ABI rejects them
 //!    (`# Deviations from upstream`, item 2).
+//!
+//! # The CPU query
+//!
+//! `VP8GetCPUInfo` points at the translation's `x86CPUInfo` on x86, and, with
+//! the `simd` feature on 64-bit ARM, at its `armCPUInfo`, which answers `kNEON`
+//! as upstream's NEON build installs it (WP20, ADR 0008). Elsewhere, and in the
+//! scalar build on 64-bit ARM, it is `NULL`, as in the reference
+//! configuration. The tools' `-noasm` stores `NULL`, which turns off every
+//! selection that consults the query; the NEON variants that upstream
+//! compiles in unconditionally stay selected.
 
 use core::ffi::{c_int, c_void};
 use core::mem::ManuallyDrop;
@@ -631,9 +641,28 @@ extern "C" fn x86_cpu_info(feature: CPUFeature) -> c_int {
 #[unsafe(export_name = "VP8GetCPUInfo")]
 pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(x86_cpu_info as *mut c_void);
 
+/// `VP8GetCPUInfo` as C calls it in the NEON build (C: `armCPUInfo`).
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+extern "C" fn arm_cpu_info(feature: CPUFeature) -> c_int {
+    c_int::from(crate::dsp::cpu::vp8_get_cpu_info(feature))
+}
+
 // upstream: src/dsp/cpu.c VP8GetCPUInfo
-/// See the x86 definition: `NULL` without an x86 query.
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+/// See the x86 definition. With the `simd` feature on 64-bit ARM the pointer
+/// is `armCPUInfo`, as in upstream's NEON build, which answers `kNEON`
+/// (WP20, ADR 0008); the tools' `-noasm` sets it to `NULL`.
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+#[unsafe(export_name = "VP8GetCPUInfo")]
+pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(arm_cpu_info as *mut c_void);
+
+// upstream: src/dsp/cpu.c VP8GetCPUInfo
+/// See the x86 definition: `NULL` without an x86 query, and in the scalar
+/// build on 64-bit ARM, as in the reference configuration.
+#[cfg(not(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(feature = "simd", target_arch = "aarch64")
+)))]
 #[unsafe(export_name = "VP8GetCPUInfo")]
 pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
 
@@ -648,6 +677,10 @@ pub(crate) fn cpu_query_token() -> u32 {
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if pointer == x86_cpu_info as *mut c_void {
+        return 1;
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    if pointer == arm_cpu_info as *mut c_void {
         return 1;
     }
     let address = u64::try_from(pointer.addr()).unwrap_or(u64::MAX);
@@ -669,6 +702,10 @@ pub(crate) fn cpu_feature_query(feature: CPUFeature) -> Option<bool> {
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if pointer == x86_cpu_info as *mut c_void {
+        return Some(crate::dsp::cpu::vp8_get_cpu_info(feature));
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    if pointer == arm_cpu_info as *mut c_void {
         return Some(crate::dsp::cpu::vp8_get_cpu_info(feature));
     }
     // SAFETY: a non-null pointer that a caller stored in `VP8GetCPUInfo`, which

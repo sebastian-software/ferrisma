@@ -157,7 +157,7 @@ fn transform_one_c(input: &[i16], dst: &mut [u8]) {
 
 // upstream: src/dsp/dec.c TransformAC3_C
 /// Simplified transform when only `in[0]`, `in[1]` and `in[4]` are non-zero.
-fn transform_ac3_c(input: &[i16], dst: &mut [u8]) {
+pub fn transform_ac3_c(input: &[i16], dst: &mut [u8]) {
     let a = i32::from(input[0]) + 4;
     let c4 = webp_transform_ac3_mul2(i32::from(input[4]));
     let d4 = webp_transform_ac3_mul1(i32::from(input[4]));
@@ -171,7 +171,7 @@ fn transform_ac3_c(input: &[i16], dst: &mut [u8]) {
 
 // upstream: src/dsp/dec.c TransformTwo_C
 /// One block, or two side by side when `do_two` is set.
-fn transform_two_c(input: &[i16], dst: &mut [u8], do_two: bool) {
+pub fn transform_two_c(input: &[i16], dst: &mut [u8], do_two: bool) {
     transform_one_c(input, dst);
     if do_two {
         transform_one_c(&input[16..], &mut dst[4..]);
@@ -185,7 +185,7 @@ fn transform_uv_c(input: &[i16], dst: &mut [u8]) {
 }
 
 // upstream: src/dsp/dec.c TransformDC_C
-fn transform_dc_c(input: &[i16], dst: &mut [u8]) {
+pub fn transform_dc_c(input: &[i16], dst: &mut [u8]) {
     let dc = i32::from(input[0]) + 4;
     for j in 0..4 {
         for i in 0..4 {
@@ -216,7 +216,7 @@ fn transform_dcuv_c(input: &[i16], dst: &mut [u8]) {
 // upstream: src/dsp/dec.c TransformWHT_C
 /// Inverse Walsh-Hadamard transform of the 16 DC coefficients into the DC
 /// position of each of the 16 blocks of `out`.
-fn transform_wht_c(input: &[i16], out: &mut [i16]) {
+pub fn transform_wht_c(input: &[i16], out: &mut [i16]) {
     let mut tmp = [0i32; 16];
     for i in 0..4 {
         let a0 = i32::from(input[i]) + i32::from(input[12 + i]);
@@ -260,6 +260,9 @@ pub type VP8DecIdct = fn(&[i16], &mut [u8]);
 // upstream: src/dsp/dec.c VP8Transform
 /// Inverse transform of one block, or two when `do_two` is set, added to `dst`
 /// (C: the `VP8Transform` pointer, `TransformTwo_C`).
+/// With `simd` on 64-bit ARM, coefficients outside `[-2048, 2047]` follow
+/// upstream's NEON transform, not the C function (`src/dsp/dec_neon.rs`,
+/// checks not applicable 6).
 pub fn vp8_transform(input: &[i16], dst: &mut [u8], do_two: bool) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -267,6 +270,10 @@ pub fn vp8_transform(input: &[i16], dst: &mut [u8], do_two: bool) {
         if features.sse2 {
             return crate::dsp::dec_sse2::transform(input, dst, do_two);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::transform_two(input, dst, do_two);
     }
     #[allow(
         unreachable_code,
@@ -278,13 +285,27 @@ pub fn vp8_transform(input: &[i16], dst: &mut [u8], do_two: bool) {
 // upstream: src/dsp/dec.c VP8TransformAC3
 /// Inverse transform when only `in[0]`, `in[1]` and `in[4]` are non-zero (C:
 /// the `VP8TransformAC3` pointer, `TransformAC3_C`).
+/// With `simd` on 64-bit ARM, coefficients outside `[-2048, 2047]` follow
+/// upstream's NEON transform, not the C function (`src/dsp/dec_neon.rs`,
+/// checks not applicable 6).
 pub fn vp8_transform_ac3(input: &[i16], dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::transform_ac3(input, dst);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     transform_ac3_c(input, dst);
 }
 
 // upstream: src/dsp/dec.c VP8TransformUV
 /// Inverse transform of the four blocks of one chroma plane (C: the
 /// `VP8TransformUV` pointer, `TransformUV_C`).
+/// With `simd` on 64-bit ARM, coefficients outside `[-2048, 2047]` follow
+/// upstream's NEON transform, not the C function (`src/dsp/dec_neon.rs`,
+/// checks not applicable 6).
 pub fn vp8_transform_uv(input: &[i16], dst: &mut [u8]) {
     transform_uv_c(input, dst);
 }
@@ -293,6 +314,14 @@ pub fn vp8_transform_uv(input: &[i16], dst: &mut [u8]) {
 /// Inverse transform of a block with only a DC coefficient (C: the
 /// `VP8TransformDC` pointer, `TransformDC_C`).
 pub fn vp8_transform_dc(input: &[i16], dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::transform_dc(input, dst);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     transform_dc_c(input, dst);
 }
 
@@ -307,6 +336,14 @@ pub fn vp8_transform_dcuv(input: &[i16], dst: &mut [u8]) {
 /// Inverse Walsh-Hadamard transform (C: the `VP8TransformWHT` pointer,
 /// `TransformWHT_C`).
 pub fn vp8_transform_wht(input: &[i16], out: &mut [i16]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::transform_wht(input, out);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     transform_wht_c(input, out);
 }
 
@@ -335,17 +372,17 @@ fn true_motion(buf: &mut [u8], dst: usize, size: usize) {
 }
 
 // upstream: src/dsp/dec.c TM4_C
-fn tm4_c(buf: &mut [u8], dst: usize) {
+pub fn tm4_c(buf: &mut [u8], dst: usize) {
     true_motion(buf, dst, 4);
 }
 
 // upstream: src/dsp/dec.c TM8uv_C
-fn tm8uv_c(buf: &mut [u8], dst: usize) {
+pub fn tm8uv_c(buf: &mut [u8], dst: usize) {
     true_motion(buf, dst, 8);
 }
 
 // upstream: src/dsp/dec.c TM16_C
-fn tm16_c(buf: &mut [u8], dst: usize) {
+pub fn tm16_c(buf: &mut [u8], dst: usize) {
     true_motion(buf, dst, 16);
 }
 
@@ -354,7 +391,7 @@ fn tm16_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c VE16_C
 /// Vertical prediction.
-fn ve16_c(buf: &mut [u8], dst: usize) {
+pub fn ve16_c(buf: &mut [u8], dst: usize) {
     for j in 0..16 {
         buf.copy_within(dst - BPS_U..dst - BPS_U + 16, dst + j * BPS_U);
     }
@@ -362,7 +399,7 @@ fn ve16_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c HE16_C
 /// Horizontal prediction.
-fn he16_c(buf: &mut [u8], dst: usize) {
+pub fn he16_c(buf: &mut [u8], dst: usize) {
     let mut row = dst;
     for _ in 0..16 {
         let left = buf[row - 1];
@@ -386,7 +423,7 @@ fn put16(v: i32, buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC16_C
 /// DC prediction.
-fn dc16_c(buf: &mut [u8], dst: usize) {
+pub fn dc16_c(buf: &mut [u8], dst: usize) {
     let mut dc = 16;
     for j in 0..16 {
         dc += i32::from(buf[dst - 1 + j * BPS_U]) + i32::from(buf[dst + j - BPS_U]);
@@ -396,7 +433,7 @@ fn dc16_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC16NoTop_C
 /// DC with top samples not available.
-fn dc16_no_top_c(buf: &mut [u8], dst: usize) {
+pub fn dc16_no_top_c(buf: &mut [u8], dst: usize) {
     let mut dc = 8;
     for j in 0..16 {
         dc += i32::from(buf[dst - 1 + j * BPS_U]);
@@ -406,7 +443,7 @@ fn dc16_no_top_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC16NoLeft_C
 /// DC with left samples not available.
-fn dc16_no_left_c(buf: &mut [u8], dst: usize) {
+pub fn dc16_no_left_c(buf: &mut [u8], dst: usize) {
     let mut dc = 8;
     for i in 0..16 {
         dc += i32::from(buf[dst + i - BPS_U]);
@@ -416,7 +453,7 @@ fn dc16_no_left_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC16NoTopLeft_C
 /// DC with no top and left samples.
-fn dc16_no_top_left_c(buf: &mut [u8], dst: usize) {
+pub fn dc16_no_top_left_c(buf: &mut [u8], dst: usize) {
     put16(0x80, buf, dst);
 }
 
@@ -436,6 +473,20 @@ static VP8_PRED_LUMA16: [VP8PredFunc; 7] = [
     dc16_no_top_c,
     dc16_no_left_c,
     dc16_no_top_left_c,
+];
+
+// upstream: src/dsp/dec_neon.c VP8DspInitNEON (the VP8PredLuma16 entries)
+/// `VP8PredLuma16` after `VP8DspInitNEON`, which replaces every entry and
+/// which `VP8DspInit` calls unconditionally on 64-bit ARM.
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+static VP8_PRED_LUMA16_NEON: [VP8PredFunc; 7] = [
+    crate::dsp::dec_neon::dc16_top_left,
+    crate::dsp::dec_neon::tm16,
+    crate::dsp::dec_neon::ve16,
+    crate::dsp::dec_neon::he16,
+    crate::dsp::dec_neon::dc16_no_top,
+    crate::dsp::dec_neon::dc16_no_left,
+    crate::dsp::dec_neon::dc16_no_top_left,
 ];
 
 // upstream: src/dsp/dec.c VP8PredLuma16
@@ -465,6 +516,10 @@ pub fn vp8_pred_luma16(mode: i32, buf: &mut [u8], dst: usize) {
                 _ => {}
             }
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return VP8_PRED_LUMA16_NEON[usize::try_from(mode).expect("a non-negative mode")](buf, dst);
     }
     #[allow(
         unreachable_code,
@@ -498,7 +553,7 @@ fn avg2(a: i32, b: i32) -> u8 {
 
 // upstream: src/dsp/dec.c VE4_C
 /// Vertical prediction.
-fn ve4_c(buf: &mut [u8], dst: usize) {
+pub fn ve4_c(buf: &mut [u8], dst: usize) {
     let top = dst - BPS_U;
     let t = |k: usize| i32::from(buf[top - 1 + k]);
     let vals = [
@@ -539,7 +594,7 @@ fn he4_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC4_C
 /// DC prediction.
-fn dc4_c(buf: &mut [u8], dst: usize) {
+pub fn dc4_c(buf: &mut [u8], dst: usize) {
     let mut dc: u32 = 4;
     for i in 0..4 {
         dc += u32::from(buf[dst + i - BPS_U]) + u32::from(buf[dst - 1 + i * BPS_U]);
@@ -559,7 +614,7 @@ fn dc4_c(buf: &mut [u8], dst: usize) {
 // upstream: src/dsp/dec.c RD4_C
 /// Down-right prediction.
 #[expect(clippy::many_single_char_names, reason = "the C sample names")]
-fn rd4_c(buf: &mut [u8], dst: usize) {
+pub fn rd4_c(buf: &mut [u8], dst: usize) {
     let i = i32::from(buf[dst - 1]);
     let j = i32::from(buf[dst - 1 + BPS_U]);
     let k = i32::from(buf[dst - 1 + 2 * BPS_U]);
@@ -586,7 +641,7 @@ fn rd4_c(buf: &mut [u8], dst: usize) {
 // upstream: src/dsp/dec.c LD4_C
 /// Down-left prediction.
 #[expect(clippy::many_single_char_names, reason = "the C sample names")]
-fn ld4_c(buf: &mut [u8], dst: usize) {
+pub fn ld4_c(buf: &mut [u8], dst: usize) {
     let a = i32::from(buf[dst - BPS_U]);
     let b = i32::from(buf[dst + 1 - BPS_U]);
     let c = i32::from(buf[dst + 2 - BPS_U]);
@@ -728,6 +783,24 @@ static VP8_PRED_LUMA4: [VP8PredFunc; 10] = [
     dc4_c, tm4_c, ve4_c, he4_c, rd4_c, vr4_c, ld4_c, vl4_c, hd4_c, hu4_c,
 ];
 
+// upstream: src/dsp/dec_neon.c VP8DspInitNEON (the VP8PredLuma4 entries)
+/// `VP8PredLuma4` after `VP8DspInitNEON`, which replaces the entries 0, 1,
+/// 2, 4 and 6 and which `VP8DspInit` calls unconditionally on 64-bit ARM;
+/// the other entries stay the C functions.
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+static VP8_PRED_LUMA4_NEON: [VP8PredFunc; 10] = [
+    crate::dsp::dec_neon::dc4,
+    crate::dsp::dec_neon::tm4,
+    crate::dsp::dec_neon::ve4,
+    he4_c,
+    crate::dsp::dec_neon::rd4,
+    vr4_c,
+    crate::dsp::dec_neon::ld4,
+    vl4_c,
+    hd4_c,
+    hu4_c,
+];
+
 // upstream: src/dsp/dec.c VP8PredLuma4
 /// Predicts the 4x4 luma block at `dst` with mode `mode` (C:
 /// `VP8PredLuma4[mode](dst)`).
@@ -752,6 +825,10 @@ pub fn vp8_pred_luma4(mode: i32, buf: &mut [u8], dst: usize) {
             }
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return VP8_PRED_LUMA4_NEON[usize::try_from(mode).expect("a non-negative mode")](buf, dst);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -764,7 +841,7 @@ pub fn vp8_pred_luma4(mode: i32, buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c VE8uv_C
 /// Vertical prediction.
-fn ve8uv_c(buf: &mut [u8], dst: usize) {
+pub fn ve8uv_c(buf: &mut [u8], dst: usize) {
     for j in 0..8 {
         buf.copy_within(dst - BPS_U..dst - BPS_U + 8, dst + j * BPS_U);
     }
@@ -772,7 +849,7 @@ fn ve8uv_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c HE8uv_C
 /// Horizontal prediction.
-fn he8uv_c(buf: &mut [u8], dst: usize) {
+pub fn he8uv_c(buf: &mut [u8], dst: usize) {
     let mut row = dst;
     for _ in 0..8 {
         let left = buf[row - 1];
@@ -802,7 +879,7 @@ fn to_u8(v: i32) -> u8 {
 
 // upstream: src/dsp/dec.c DC8uv_C
 /// DC prediction.
-fn dc8uv_c(buf: &mut [u8], dst: usize) {
+pub fn dc8uv_c(buf: &mut [u8], dst: usize) {
     let mut dc0 = 8;
     for i in 0..8 {
         dc0 += i32::from(buf[dst + i - BPS_U]) + i32::from(buf[dst - 1 + i * BPS_U]);
@@ -812,7 +889,7 @@ fn dc8uv_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC8uvNoLeft_C
 /// DC with no left samples.
-fn dc8uv_no_left_c(buf: &mut [u8], dst: usize) {
+pub fn dc8uv_no_left_c(buf: &mut [u8], dst: usize) {
     let mut dc0 = 4;
     for i in 0..8 {
         dc0 += i32::from(buf[dst + i - BPS_U]);
@@ -822,7 +899,7 @@ fn dc8uv_no_left_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC8uvNoTop_C
 /// DC with no top samples.
-fn dc8uv_no_top_c(buf: &mut [u8], dst: usize) {
+pub fn dc8uv_no_top_c(buf: &mut [u8], dst: usize) {
     let mut dc0 = 4;
     for i in 0..8 {
         dc0 += i32::from(buf[dst - 1 + i * BPS_U]);
@@ -832,7 +909,7 @@ fn dc8uv_no_top_c(buf: &mut [u8], dst: usize) {
 
 // upstream: src/dsp/dec.c DC8uvNoTopLeft_C
 /// DC with nothing.
-fn dc8uv_no_top_left_c(buf: &mut [u8], dst: usize) {
+pub fn dc8uv_no_top_left_c(buf: &mut [u8], dst: usize) {
     put8x8uv(0x80, buf, dst);
 }
 
@@ -847,6 +924,20 @@ static VP8_PRED_CHROMA8: [VP8PredFunc; 7] = [
     dc8uv_no_top_c,
     dc8uv_no_left_c,
     dc8uv_no_top_left_c,
+];
+
+// upstream: src/dsp/dec_neon.c VP8DspInitNEON (the VP8PredChroma8 entries)
+/// `VP8PredChroma8` after `VP8DspInitNEON`, which replaces every entry and
+/// which `VP8DspInit` calls unconditionally on 64-bit ARM.
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+static VP8_PRED_CHROMA8_NEON: [VP8PredFunc; 7] = [
+    crate::dsp::dec_neon::dc8uv,
+    crate::dsp::dec_neon::tm8uv,
+    crate::dsp::dec_neon::ve8uv,
+    crate::dsp::dec_neon::he8uv,
+    crate::dsp::dec_neon::dc8uv_no_top,
+    crate::dsp::dec_neon::dc8uv_no_left,
+    crate::dsp::dec_neon::dc8uv_no_top_left,
 ];
 
 // upstream: src/dsp/dec.c VP8PredChroma8
@@ -872,6 +963,12 @@ pub fn vp8_pred_chroma8(mode: i32, buf: &mut [u8], dst: usize) {
                 _ => {}
             }
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return VP8_PRED_CHROMA8_NEON[usize::try_from(mode).expect("a non-negative mode")](
+            buf, dst,
+        );
     }
     #[allow(
         unreachable_code,
@@ -985,7 +1082,7 @@ fn needs_filter2_c(p: &[u8], pos: usize, step: i32, t: i32, it: i32) -> bool {
 // Simple In-loop filtering (Paragraph 15.2)
 
 // upstream: src/dsp/dec.c SimpleVFilter16_C
-fn simple_v_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub fn simple_v_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     let thresh2 = 2 * thresh + 1;
     for i in 0..16 {
         if needs_filter_c(p, pos + i, stride, thresh2) {
@@ -995,7 +1092,7 @@ fn simple_v_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 // upstream: src/dsp/dec.c SimpleHFilter16_C
-fn simple_h_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub fn simple_h_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     let thresh2 = 2 * thresh + 1;
     for i in 0..16 {
         let row = at(pos, i * stride);
@@ -1006,7 +1103,7 @@ fn simple_h_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 // upstream: src/dsp/dec.c SimpleVFilter16i_C
-fn simple_v_filter16i_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub fn simple_v_filter16i_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     let mut pos = pos;
     for _ in 0..3 {
         pos = at(pos, 4 * stride);
@@ -1015,7 +1112,7 @@ fn simple_v_filter16i_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 // upstream: src/dsp/dec.c SimpleHFilter16i_C
-fn simple_h_filter16i_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub fn simple_h_filter16i_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     let mut pos = pos;
     for _ in 0..3 {
         pos += 4;
@@ -1084,18 +1181,32 @@ fn filter_loop24_c(
 
 // upstream: src/dsp/dec.c VFilter16_C
 /// On macroblock edges.
-fn v_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_thresh: i32) {
+pub fn v_filter16_c(
+    p: &mut [u8],
+    pos: usize,
+    stride: i32,
+    thresh: i32,
+    ithresh: i32,
+    hev_thresh: i32,
+) {
     filter_loop26_c(p, pos, stride, 1, 16, thresh, ithresh, hev_thresh);
 }
 
 // upstream: src/dsp/dec.c HFilter16_C
-fn h_filter16_c(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_thresh: i32) {
+pub fn h_filter16_c(
+    p: &mut [u8],
+    pos: usize,
+    stride: i32,
+    thresh: i32,
+    ithresh: i32,
+    hev_thresh: i32,
+) {
     filter_loop26_c(p, pos, 1, stride, 16, thresh, ithresh, hev_thresh);
 }
 
 // upstream: src/dsp/dec.c VFilter16i_C
 /// On three inner edges.
-fn v_filter16i_c(
+pub fn v_filter16i_c(
     p: &mut [u8],
     pos: usize,
     stride: i32,
@@ -1111,7 +1222,7 @@ fn v_filter16i_c(
 }
 
 // upstream: src/dsp/dec.c HFilter16i_C
-fn h_filter16i_c(
+pub fn h_filter16i_c(
     p: &mut [u8],
     pos: usize,
     stride: i32,
@@ -1132,7 +1243,7 @@ fn h_filter16i_c(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-fn v_filter8_c(
+pub fn v_filter8_c(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1151,7 +1262,7 @@ fn v_filter8_c(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-fn h_filter8_c(
+pub fn h_filter8_c(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1170,7 +1281,7 @@ fn h_filter8_c(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-fn v_filter8i_c(
+pub fn v_filter8i_c(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1207,7 +1318,7 @@ fn v_filter8i_c(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-fn h_filter8i_c(
+pub fn h_filter8i_c(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1257,6 +1368,8 @@ pub type VP8ChromaFilterFunc = fn(&mut [u8], usize, &mut [u8], usize, i32, i32, 
 
 // upstream: src/dsp/dec.c VP8VFilter16
 /// Filters the horizontal macroblock edge above `pos` (C: `VFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_t: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -1264,6 +1377,10 @@ pub fn vp8v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh
         if features.sse2 {
             return crate::dsp::dec_sse2::v_filter16(p, pos, stride, thresh, ithresh, hev_t);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::v_filter16(p, pos, stride, thresh, ithresh, hev_t);
     }
     #[allow(
         unreachable_code,
@@ -1274,6 +1391,8 @@ pub fn vp8v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh
 
 // upstream: src/dsp/dec.c VP8HFilter16
 /// Filters the vertical macroblock edge left of `pos` (C: `HFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_t: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -1281,6 +1400,10 @@ pub fn vp8h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh
         if features.sse2 {
             return crate::dsp::dec_sse2::h_filter16(p, pos, stride, thresh, ithresh, hev_t);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::h_filter16(p, pos, stride, thresh, ithresh, hev_t);
     }
     #[allow(
         unreachable_code,
@@ -1291,6 +1414,8 @@ pub fn vp8h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh
 
 // upstream: src/dsp/dec.c VP8VFilter8
 /// Chroma variant of [`vp8v_filter16`] (C: `VFilter8_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1314,6 +1439,10 @@ pub fn vp8v_filter8(
             );
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::v_filter8(u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -1323,6 +1452,8 @@ pub fn vp8v_filter8(
 
 // upstream: src/dsp/dec.c VP8HFilter8
 /// Chroma variant of [`vp8h_filter16`] (C: `HFilter8_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1346,6 +1477,10 @@ pub fn vp8h_filter8(
             );
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::h_filter8(u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -1355,6 +1490,8 @@ pub fn vp8h_filter8(
 
 // upstream: src/dsp/dec.c VP8VFilter16i
 /// Filters the three inner horizontal edges (C: `VFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8v_filter16i(
     p: &mut [u8],
     pos: usize,
@@ -1370,6 +1507,10 @@ pub fn vp8v_filter16i(
             return crate::dsp::dec_sse2::v_filter16i(p, pos, stride, thresh, ithresh, hev_t);
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::v_filter16i(p, pos, stride, thresh, ithresh, hev_t);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -1379,6 +1520,8 @@ pub fn vp8v_filter16i(
 
 // upstream: src/dsp/dec.c VP8HFilter16i
 /// Filters the three inner vertical edges (C: `HFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8h_filter16i(
     p: &mut [u8],
     pos: usize,
@@ -1394,6 +1537,10 @@ pub fn vp8h_filter16i(
             return crate::dsp::dec_sse2::h_filter16i(p, pos, stride, thresh, ithresh, hev_t);
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::h_filter16i(p, pos, stride, thresh, ithresh, hev_t);
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -1403,6 +1550,8 @@ pub fn vp8h_filter16i(
 
 // upstream: src/dsp/dec.c VP8VFilter8i
 /// Chroma variant of [`vp8v_filter16i`] (C: `VFilter8i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1426,6 +1575,12 @@ pub fn vp8v_filter8i(
             );
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::v_filter8i(
+            u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t,
+        );
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -1435,6 +1590,8 @@ pub fn vp8v_filter8i(
 
 // upstream: src/dsp/dec.c VP8HFilter8i
 /// Chroma variant of [`vp8h_filter16i`] (C: `HFilter8i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1458,6 +1615,12 @@ pub fn vp8h_filter8i(
             );
         }
     }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::h_filter8i(
+            u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t,
+        );
+    }
     #[allow(
         unreachable_code,
         reason = "the C path is reached only without a SIMD variant"
@@ -1467,6 +1630,8 @@ pub fn vp8h_filter8i(
 
 // upstream: src/dsp/dec.c VP8SimpleVFilter16
 /// Simple filter of the horizontal macroblock edge (C: `SimpleVFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -1474,6 +1639,10 @@ pub fn vp8_simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32)
         if features.sse2 {
             return crate::dsp::dec_sse2::simple_v_filter16(p, pos, stride, thresh);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::simple_v_filter16(p, pos, stride, thresh);
     }
     #[allow(
         unreachable_code,
@@ -1484,6 +1653,8 @@ pub fn vp8_simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32)
 
 // upstream: src/dsp/dec.c VP8SimpleHFilter16
 /// Simple filter of the vertical macroblock edge (C: `SimpleHFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -1491,6 +1662,10 @@ pub fn vp8_simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32)
         if features.sse2 {
             return crate::dsp::dec_sse2::simple_h_filter16(p, pos, stride, thresh);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::simple_h_filter16(p, pos, stride, thresh);
     }
     #[allow(
         unreachable_code,
@@ -1501,6 +1676,8 @@ pub fn vp8_simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32)
 
 // upstream: src/dsp/dec.c VP8SimpleVFilter16i
 /// Simple filter of the three inner horizontal edges (C: `SimpleVFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -1508,6 +1685,10 @@ pub fn vp8_simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32
         if features.sse2 {
             return crate::dsp::dec_sse2::simple_v_filter16i(p, pos, stride, thresh);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::simple_v_filter16i(p, pos, stride, thresh);
     }
     #[allow(
         unreachable_code,
@@ -1518,6 +1699,8 @@ pub fn vp8_simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32
 
 // upstream: src/dsp/dec.c VP8SimpleHFilter16i
 /// Simple filter of the three inner vertical edges (C: `SimpleHFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_h_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -1525,6 +1708,10 @@ pub fn vp8_simple_h_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32
         if features.sse2 {
             return crate::dsp::dec_sse2::simple_h_filter16i(p, pos, stride, thresh);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::dec_neon::simple_h_filter16i(p, pos, stride, thresh);
     }
     #[allow(
         unreachable_code,
