@@ -236,6 +236,47 @@ pub fn webp_filters(
     stride: i32,
     filtered_data: &mut [u8],
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            use crate::dsp::filters_sse2;
+            match filter {
+                WEBP_FILTER_TYPE::WEBP_FILTER_HORIZONTAL => {
+                    return filters_sse2::horizontal_filter(
+                        data,
+                        width,
+                        height,
+                        stride,
+                        filtered_data,
+                    );
+                }
+                WEBP_FILTER_TYPE::WEBP_FILTER_VERTICAL => {
+                    return filters_sse2::vertical_filter(
+                        data,
+                        width,
+                        height,
+                        stride,
+                        filtered_data,
+                    );
+                }
+                WEBP_FILTER_TYPE::WEBP_FILTER_GRADIENT => {
+                    return filters_sse2::gradient_filter(
+                        data,
+                        width,
+                        height,
+                        stride,
+                        filtered_data,
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     let filter_fn =
         WEBP_FILTERS[filter.0 as usize].expect("WEBP_FILTER_NONE has no filter function");
     filter_fn(data, width, height, stride, filtered_data);
@@ -254,6 +295,29 @@ pub fn webp_unfilters(
     out: &mut [u8],
     width: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            use crate::dsp::filters_sse2;
+            match filter {
+                WEBP_FILTER_TYPE::WEBP_FILTER_HORIZONTAL => {
+                    return filters_sse2::horizontal_unfilter(prev, input, out, width);
+                }
+                WEBP_FILTER_TYPE::WEBP_FILTER_VERTICAL => {
+                    return filters_sse2::vertical_unfilter(prev, input, out, width);
+                }
+                WEBP_FILTER_TYPE::WEBP_FILTER_GRADIENT => {
+                    return filters_sse2::gradient_unfilter(prev, input, out, width);
+                }
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     let unfilter_fn =
         WEBP_UNFILTERS[filter.0 as usize].expect("every filter has an unfilter function");
     unfilter_fn(prev, input, out, width);
