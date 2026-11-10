@@ -7,8 +7,9 @@
 //! output was written (C writes `NULL` on failure and leaves it untouched when
 //! the configuration fails), and the bytes. Negative strides and `NULL`
 //! arguments exist only at the C ABI (`tests/wp13_abi.rs`). Excluded
-//! (undefined behavior in C, `docs/status/wp9.md`): `WebPEncodeLosslessRGBA`
-//! on rows whose starts are not aligned for `uint32_t`.
+//! (undefined behavior in C, item 1 of `# Excluded undefined behavior` in
+//! `tests/wp13_abi.rs`): `WebPEncodeLosslessRGBA` on rows whose starts are not
+//! aligned for `uint32_t`.
 
 #[path = "support/oracle.rs"]
 mod oracle;

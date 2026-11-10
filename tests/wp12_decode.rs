@@ -19,6 +19,14 @@
 //! `lossless_big_random_alpha.webp`, 2048 by 2048) take minutes per decoding in
 //! a debug build; they get the features, one default decoding and the
 //! simple API, and the upstream scripts cover them through `dwebp`.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`NULL` pointers** exist only at the C ABI (PORTING rule 8); every
+//!    `NULL` case of `decode.h` is compared there
+//!    (`abi_answers_null_and_invalid_arguments_as_c` in `tests/wp12_abi.rs`).
 
 #[path = "support/oracle.rs"]
 mod oracle;

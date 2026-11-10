@@ -89,7 +89,97 @@
 //! functions return 0 or do nothing. Packed input rows with a negative stride
 //! (the importers and the simple API) are copied into rows with a positive
 //! stride first, which hold the same bytes; rows with a positive stride are lent
-//! as they are. `docs/status/wp13.md` records these cases.
+//! as they are. See `# Deviations from upstream`, item 2.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **C ABI pictures per call.** The library's blocks (`memory_`,
+//!    `memory_argb_`) are copied into the translation's storage for each call
+//!    and back afterwards (one copy of the picture per call; the copy reserves
+//!    fallibly, and a refused reservation fails the call with
+//!    `VP8_ENC_ERROR_OUT_OF_MEMORY` where the function records errors). Caller
+//!    planes are lent only where C's path reads or writes them, with the extent
+//!    that their dimensions and strides address,
+//!    `(height - 1) * stride + width` samples: as `PlaneStorage::External` to a
+//!    call that writes them and as `PlaneStorage::Shared` to one that only
+//!    reads them (`WebPPictureCopy`'s source, `Distortion`, the input of a
+//!    conversion), so that a source and a reference may share memory.
+//!    `WebPPictureHasTransparency` lends only the alpha plane of a YUV picture
+//!    or the ARGB plane of an ARGB picture; when that plane lies in the
+//!    picture's own block, the whole block is copied, which reads samples that
+//!    C does not touch (the Y, U and V planes, which this module initialized)
+//!    and can fail when the host refuses the copy (the call then returns 0).
+//!    `WebPPictureView` only computes addresses: it lends each plane as an
+//!    empty region with the plane at a large offset, so that the translation's
+//!    offsets give C's pointer arithmetic for any stride. Calls that do not
+//!    touch a storage (`WebPPictureAlloc`, `Free`, the importers, a
+//!    conversion's output, the storage that `use_argb` does not select) lend
+//!    nothing there. `WebPEncode` lends the planes of C's path: the YUVA planes
+//!    for a lossy encoding of a YUV picture (written by the cleanup and
+//!    `show_compressed`), the ARGB plane for a lossy encoding that converts it,
+//!    the ARGB plane for a lossless encoding (written when transparent pixels
+//!    are replaced) or the YUVA planes when it is `NULL` and C converts them,
+//!    and nothing when the configuration or the picture fails C's validation.
+//!    It never reads the caller's `*stats` or `extra_info`, which may be
+//!    uninitialized (`cwebp` passes an uninitialized `WebPAuxStats` and a
+//!    `WebPMalloc`ed map): the translation gets zeroed copies. The statistics
+//!    go back to `*stats` once `WebPValidateConfig`, `WebPValidatePicture` and
+//!    the dimension limit have passed, where C resets and fills them; when this
+//!    module then refuses the picture (a rejected layout, a refused copy of its
+//!    block), the zeroed statistics go back, as C has reset them at that point.
+//!    The map goes back to `extra_info` whenever the lossy path ran: after a
+//!    user abort or a write failure inside the encoder loop, the filled prefix
+//!    is C's (C fills the map one macroblock at a time, `StoreSideInfo` in
+//!    `VP8EncLoop` and `VP8EncTokenLoop`) and the unfilled entries are zero
+//!    where C leaves the caller's bytes untouched; after a lossy failure before
+//!    the encoder loop (a failed conversion, a failed `InitVP8Encoder`) the
+//!    whole map is zero where C leaves it untouched. A lossless encoding writes
+//!    the map back only on success, where C zeroes it (`VP8LEncodeImage`); a
+//!    failed validation writes nothing, as in C. The encode probe zeroes the
+//!    map before the call, so the ABI test compares every case byte for byte,
+//!    the failed lossy encodings with a partly filled map included. A C
+//!    callback that reads `picture->stats`, `extra_info` or another picture
+//!    field during the encoding sees the values from before the call; no
+//!    upstream callback reads them (ADR 0003, "Concrete callback forms"). The
+//!    callbacks receive the caller's picture pointer.
+//! 2. **C ABI rejects** a plane that a call reads or writes when it has a
+//!    negative stride over more than one row (Rust cannot lend memory before
+//!    the pointer), planes that a writing call would write and that overlap,
+//!    and such an ARGB plane when it is not aligned for `uint32_t`: Rust cannot
+//!    lend those slices (as `src/abi/decode.rs` does,
+//!    `# Deviations from upstream`, item 2). Planes that the call does not
+//!    touch are never checked (the unselected storage, any plane for
+//!    `WebPPictureView`, the luma and chroma planes for
+//!    `WebPPictureHasTransparency`, the planes outside C's path in
+//!    `WebPEncode`; `abi_accepts_the_layouts_that_c_never_reads` covers
+//!    misaligned pointers with negative strides there, and upside-down planes
+//!    for views). Functions that record errors return 0 with
+//!    `VP8_ENC_ERROR_INVALID_CONFIGURATION`; `WebPPictureCopy`, `Distortion`
+//!    and `HasTransparency` return 0; `WebPCleanupTransparentArea` and
+//!    `WebPBlendAlpha` do nothing. Packed input rows with a negative stride
+//!    (the importers, the simple API) are copied into rows with a positive
+//!    stride, which hold the same bytes, so C's results stay; the copy reserves
+//!    fallibly, and a refused reservation fails the import with
+//!    `VP8_ENC_ERROR_OUT_OF_MEMORY` (the simple API returns 0). Rows with a
+//!    positive stride are lent as they are. Rows of a picture without width are
+//!    passed with the stride 0, since `Import` reads none of them.
+//! 3. **`WebPPictureIsView`** passes C's `memory_` and `memory_argb_` to the
+//!    translation as the ownership of the storage, which is what the
+//!    translation reads. A picture whose `memory_` is set while its planes
+//!    point elsewhere converts as caller memory in the other functions (they
+//!    never read `memory_` apart from releasing it, which the ABI does as C
+//!    does).
+//! 4. **`WebPMemoryWrite` in the C ABI** gives the translation a copy of the
+//!    written bytes and copies the new ones back, or the whole buffer into a
+//!    new block of the translation's capacity when it grows (one copy of the
+//!    written bytes per call). The copy reserves fallibly; a refused
+//!    reservation returns 0, as C does when its buffer cannot grow, but it can
+//!    also happen when C would not have needed to grow the buffer.
+//! 5. **`WebPPictureDistortion` in the C ABI** writes `result` only on success;
+//!    C writes the channels it measured before an allocation failure.
 
 use core::ffi::{c_int, c_void};
 use core::mem::{MaybeUninit, offset_of, size_of};
@@ -393,7 +483,7 @@ fn address_storage<'a, T>(planes: &[(*mut u8, Option<usize>)]) -> StorageParts<'
 /// or `memory_argb_`): a copy of the block. `None` when `memory` is not a block
 /// of this module or a plane lies outside it. The size comes from the `BLOCKS`
 /// registry, which relies on C releasing the block only through this module
-/// (`docs/status/wp13.md`, deviation 16).
+/// (see `# Pictures` in the module documentation).
 ///
 /// # Safety
 ///

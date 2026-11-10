@@ -16,7 +16,17 @@
 //!   resizing, cropping, blending, sharp YUV, threads, distortion reports), on
 //!   the inputs up to 1 MB. With `-alpha_method 0` the reports are compared up
 //!   to the lossless-alpha statistics, which C reads uninitialized
-//!   (`docs/status/wp10.md`, undefined behavior 1).
+//!   (`tests/wp13_encode.rs`, `# Excluded undefined behavior`, item 1).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Input formats.** The oracle on the development host reads PNG (libpng)
+//!    but not TIFF; the tools test selects the inputs that the oracle's `cwebp`
+//!    reads, so a host without libpng runs the script on the other files. The
+//!    encoder matrix reads `grid.pam` and `peak.pam`, the pictures of
+//!    `grid.png` and `peak.png`.
 
 #[path = "support/oracle.rs"]
 mod oracle;

@@ -3,6 +3,17 @@
 //! produces for them, in the probe's format.
 //!
 //! Include it with `#[path = "wp12_support/mod.rs"] mod wp12_support;`.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Uninitialized library memory.** C allocates output buffers with
+//!    `malloc`; Rust initializes every allocation (ADR 0003). The tests digest
+//!    library memory only after a complete decoding, and during incremental
+//!    decoding only the luma (and RGB) rows up to `last_y`: with rescaling, the
+//!    U, V and alpha rows lag behind and are uninitialized in C. Caller memory
+//!    is filled with a pattern and digested whole, including guard bytes.
 
 #![allow(
     dead_code,

@@ -26,10 +26,32 @@
 //! a pointer to no bytes, as in C. The
 //! member of the `u` union that C reads is the one that the colorspace selects;
 //! a Rust buffer whose `u` holds the other member describes no valid plane, and
-//! `CheckDecBuffer` rejects it (`docs/status/wp12.md`, deviations).
+//! `CheckDecBuffer` rejects it (`# Deviations from upstream`, item 2).
 //!
 //! C's `is_external_memory >= 2`, slow external memory, is the buffer's
 //! `slow_memory` flag (ADR 0003, amended 2026-11-07).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Freeing.** `WebPFreeDecBuffer` drops library memory;
+//!    `WebPInitDecBuffer` and `WebPInitDecoderConfig` drop the old storage,
+//!    where C zeroes the structure without freeing it.
+//! 2. **Mismatched union member.** A Rust buffer whose `u` holds the member
+//!    that the colorspace does not select reads as a zeroed member (ADR 0003),
+//!    so `CheckDecBuffer` rejects it and the incremental getters write zeros,
+//!    as C does for its zeroed union before allocation. C would reinterpret
+//!    arbitrary bytes of the other member; only Rust callers can build such a
+//!    buffer, and the C ABI reads the member that the colorspace selects.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`WebPGrabDecBuffer`** has no caller in libwebp v1.6.0 and is not
+//!    exported (`webpi_dec.h` is internal); it is translated and not compared.
 
 use crate::dec::webp_dec::webp_check_crop_dimensions;
 use crate::utils::rescaler_utils::webp_rescaler_get_scaled_dimensions;
@@ -417,8 +439,8 @@ pub fn webp_copy_dec_buffer<'s>(src: &'s WebPDecBuffer<'_>, dst: &mut WebPDecBuf
 /// order). `dst` receives the storage of `src`. In C, `src` keeps pointers to
 /// the memory, now marked external; safe Rust cannot keep a second view of
 /// memory that `dst` owns or borrows mutably, so `src` keeps its plane
-/// descriptions with an empty storage of the same kind (`docs/status/wp12.md`,
-/// deviations). C accepts `NULL` buffers, which exist only at the C ABI.
+/// descriptions with an empty storage of the same kind. C accepts `NULL`
+/// buffers, which exist only at the C ABI.
 pub fn webp_grab_dec_buffer<'a>(src: &mut WebPDecBuffer<'a>, dst: &mut WebPDecBuffer<'a>) {
     dst.colorspace = src.colorspace;
     dst.width = src.width;

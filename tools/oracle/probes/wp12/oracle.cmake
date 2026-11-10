@@ -1,8 +1,8 @@
 # WP12 consumer build: upstream's dwebp, webpinfo and imageio, unmodified,
-# linked against the Rust static library instead of libwebp (ADR 0004,
-# docs/status/wp12.md). tools/build_oracle.py --rust-lib builds the library
-# and passes LIBWEBP_RS_STATICLIB and LIBWEBP_RS_NATIVE_LIBS; without them
-# nothing is added.
+# linked against the Rust static library instead of libwebp (ADR 0004).
+# tools/build_oracle.py --rust-lib builds the library and passes
+# LIBWEBP_RS_STATICLIB and LIBWEBP_RS_NATIVE_LIBS; without them nothing is
+# added.
 #
 # The executables and helper libraries take the sources, include directories
 # and compile definitions of upstream's own targets, so the build compiles

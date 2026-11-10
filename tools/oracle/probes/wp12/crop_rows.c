@@ -14,7 +14,7 @@
 //         out (output rows: last_out_row).
 //
 // OPTIONS is as in decode.c. tests/wp12_crop_rows.rs compares the Rust
-// translation and records the numbers in docs/status/wp12.md.
+// translation and holds the table of numbers in its documentation.
 
 #include <stdio.h>
 #include <stdlib.h>

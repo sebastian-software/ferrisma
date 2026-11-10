@@ -20,6 +20,58 @@
 //! Exception: WP9 translates `WebPEncodingSetError` and `WebPReportProgress` from `src/enc/webp_enc.c`, because the picture functions and the VP8L encoder report errors and progress through them.
 //!
 //! Exception: WP13 translates `WebPEncode`, `GetPSNR`, `FinalizePSNR` and `StoreStats` from `src/enc/webp_enc.c`, because `WebPEncode` joins picture conversion, the VP8, VP8L and alpha encoders and the statistics.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Views in `webp_encode`.** A view (`PlaneStorage::Shared`) cannot be
+//!    written. Where `WebPEncode` writes into the picture's planes (the
+//!    transparent-area cleanup unless `exact`, `show_compressed`, the
+//!    replacement of transparent pixels before a lossless encoding), the view
+//!    first gets its own copy of the planes, with the same strides and samples
+//!    (`own_shared_yuva`, `own_shared_argb`), so the encoding is
+//!    byte-identical; C writes through the view into the source picture, which
+//!    the translation leaves untouched. The copy reserves fallibly and records
+//!    `VP8_ENC_ERROR_OUT_OF_MEMORY` when the host refuses, an allocation that C
+//!    does not make. The C ABI lends caller memory exclusively, never as a
+//!    view, so C callers see C's writes.
+//! 2. **Encoder context per call.** The encoder functions take
+//!    `config: &WebPConfig` and `pic: &mut WebPPicture` where C reads
+//!    `enc->config` and `enc->pic`: `init_vp8_encoder(config, picture)`,
+//!    `vp8_enc_analyze`, `vp8_enc_loop`, `vp8_enc_token_loop`
+//!    (`enc, config, pic`), `vp8_enc_write(enc, pic)`,
+//!    `vp8_enc_init_alpha(enc, pic)`, `vp8_enc_start_alpha(enc, config, pic)`,
+//!    `vp8_enc_finish_alpha(enc, pic)`, `vp8_enc_delete_alpha(enc, pic)` and
+//!    `delete_vp8_encoder(enc, pic)`, which needs the picture because the alpha
+//!    worker's results reach it at `Sync`. The iterator functions take the
+//!    encoder (`&VP8Encoder` or `&mut`), the picture or the configuration that
+//!    they read in C; `VP8IteratorProgress` takes the picture and the encoder's
+//!    `percent`, the two things C's
+//!    `WebPReportProgress(enc->pic, percent, &enc->percent)` touches.
+//! 3. **Return types (ADR 0003, errors).** Functions whose every failure
+//!    records an error return `Result` with the recorded code:
+//!    `InitVP8Encoder`, `VP8EncAnalyze`, `VP8EncLoop`, `VP8EncTokenLoop`,
+//!    `VP8EncWrite`, `VP8IteratorProgress`, `PreLoopInitialize`,
+//!    `PostLoopFinalize`, `PutWebPHeaders`, `EmitPartitionsSize`,
+//!    `GeneratePartition0`. Functions with a failure that records no code stay
+//!    `bool`: `VP8EncStartAlpha`, `VP8EncFinishAlpha`, `VP8EncDeleteAlpha`,
+//!    `DeleteVP8Encoder`, `StatLoop`, `RecordTokens`, `VP8EmitTokens`, and the
+//!    alpha helpers. `VP8Decimate` returns whether the macroblock is skipped as
+//!    `bool`.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point.** `log10` in `GetPSNR`, the float conversion of
+//!    `FinalizePSNR`, the dithering amplitude of `WebPEncode` and every float
+//!    of the statistics are compared bit for bit on the development host
+//!    (ARM64, Apple clang, `-ffp-contract=off`); equality on other hosts is
+//!    recorded, not assumed (PORTING).
+//! 2. **`NULL` arguments.** `DeleteVP8Encoder(NULL)` and the other `NULL` cases
+//!    exist only at the C ABI (PORTING rule 8).
 
 use crate::dec::common_dec::B_DC_PRED;
 use crate::enc::alpha_enc::{vp8_enc_delete_alpha, vp8_enc_init_alpha};
@@ -498,7 +550,7 @@ fn rebased(plane: Option<PlaneOffset>, bases: &[usize]) -> Option<PlaneOffset> {
 /// copy of the Y, U, V and A planes before `WebPEncode` writes into them, where C
 /// writes through the view into the source picture. The copy keeps the strides
 /// and the samples, so the encoding is the same; the source stays untouched
-/// (`docs/status/wp13.md`, deviation 1).
+/// (`# Deviations from upstream`, item 1, in the module documentation).
 fn own_shared_yuva(pic: &mut WebPPicture<'_>) -> Result<(), WebPEncodingError> {
     let PlaneStorage::Shared(regions) = &pic.yuva else {
         return Ok(());

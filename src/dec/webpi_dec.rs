@@ -18,6 +18,15 @@
 //! Work package: WP12 (decoder integration).
 //!
 //! Exception: WP7 translates `WebPDecParams`, `OutputFunc`, `OutputAlphaFunc` and `OutputRowFunc` from `src/dec/webpi_dec.h`, because `VP8LDecodeImage` reads `WebPDecParams` through `io->opaque`.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`WebPHeaderStructure`** holds the input as a slice and `alpha_data` as
+//!    a position in it; after a successful parse, `have_all_data` is false, as
+//!    C's `*headers = hdrs` leaves it.
 
 // The items below are WP7's exception in this module (`tools/units.json`):
 // `WebPDecParams` and its three output function types. ADR 0003 ("Decoding

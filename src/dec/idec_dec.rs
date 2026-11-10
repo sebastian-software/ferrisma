@@ -36,7 +36,50 @@
 //! buffer (`user_output`). For slow external memory the caller's buffer is
 //! `final_output` until `FinishDecoding` copies the samples into it; C then
 //! copies the caller's buffer structure into its own `output`, which here
-//! becomes `params.output = user_output` (`docs/status/wp12.md`).
+//! becomes `params.output = user_output` (see `# Deviations from upstream`,
+//! item 1).
+//!
+//! # Representation
+//!
+//! 1. **Incremental decoder.** `WebPIDecoder<'a, 'b>` keeps `io`, `params`, the
+//!    decoder (`enum` of a boxed `VP8Decoder` and `VP8LDecoder`), `mem` and its
+//!    own output buffer as plain fields. `'a` is what the caller lends for the
+//!    decoder's life (the options and output buffer of a `WebPDecoderConfig`,
+//!    the output buffer of `WebPINewDecoder`, the hooks of `WebPISetIOHooks`);
+//!    `'b` is the caller memory that an output buffer borrows. C's
+//!    `params.output` is the caller's buffer (`user_output`) or the decoder's
+//!    own. Two lifetimes are needed because a mutable borrow is invariant: one
+//!    lifetime would keep the configuration borrowed for its whole existence.
+//!    Dropping the decoder is `WebPIDelete`.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **The slow copy of the incremental decoder.** After `FinishDecoding`
+//!    copies into the caller's buffer, C copies the caller's buffer structure
+//!    into its own `output` (`*output = *idec->final_output`), which
+//!    `params.output` points at. Safe Rust cannot hold a second view of the
+//!    caller's memory, so `params.output` becomes the caller's buffer, which
+//!    has the same contents; the C ABI returns C's copy of the structure from
+//!    `WebPIDecodedArea`, as C does. In the C ABI the decoder's own block stays
+//!    allocated until `WebPIDelete` (C frees it at the copy).
+//! 2. **Allocation sizes.** `CopyParts0Data` tests `WebPSafeMalloc(1, size)` as
+//!    `size` elements of one byte (the same outcome). `NewDecoder`, `VP8New`
+//!    and `VP8LNew` cannot fail; a refused host allocation of a fixed-size
+//!    object aborts.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`WebPIAppend` of zero bytes before any data**: C asserts
+//!    `mem->buf != NULL` and calls `memcpy` with a `NULL` destination.
+//! 2. **`WebPISetIOHooks` with a lossless image**: C's `VP8LDecodeImage` reads
+//!    the caller's user data as `WebPDecParams`; Rust uses the decoder's
+//!    parameters (ADR 0003).
 
 use crate::dec::buffer_dec::{
     is_null_plane, webp_allocate_dec_buffer, webp_avoid_slow_memory, webp_copy_dec_buffer_pixels,
@@ -389,7 +432,7 @@ fn do_remap(idec: &mut WebPIDecoder<'_, '_>, offset: isize) {
                 // partition, `mem.start` follows the reader, which can be past its
                 // limit near the end of the input. The buffer reset below
                 // replaces both, so only the position moves here, which keeps
-                // the positions non-negative (`docs/status/wp12.md`).
+                // the positions non-negative.
                 let last = &mut dec.parts[last_part];
                 if last.has_buf {
                     last.buf = add_offset(last.buf, offset);
@@ -1029,7 +1072,8 @@ fn decode_vp8l_header(idec: &mut WebPIDecoder<'_, '_>, input: &[u8]) -> Result<(
 // upstream: src/dec/idec_dec.c DecodeVP8LData
 /// `VP8LDecodeImage` takes the decoder's parameters and output buffer. C reads
 /// the parameters through `io->opaque`, which is the caller's user data after
-/// `WebPISetIOHooks`: undefined, and excluded (`docs/status/wp12.md`).
+/// `WebPISetIOHooks`: undefined, and excluded (`# Excluded undefined behavior`,
+/// item 2, in the module documentation).
 fn decode_vp8l_data(idec: &mut WebPIDecoder<'_, '_>, input: &[u8]) -> Result<(), VP8StatusCode> {
     let curr_size = mem_data_size(&idec.mem);
     debug_assert!(idec.is_lossless);
@@ -1675,8 +1719,9 @@ pub fn webp_i_dec_get_yuva<'s>(
 /// `teardown` and `user_data`, ADR 0003). Returns false when the decoding has
 /// gone past the headers. In C, a lossless image then makes `VP8LDecodeImage`
 /// read the user data as `WebPDecParams`, which is undefined; here it uses the
-/// decoder's parameters (`docs/status/wp12.md`). C returns 0 for a `NULL`
-/// decoder, which exists only at the C ABI.
+/// decoder's parameters (`# Excluded undefined behavior`, item 2, in the module
+/// documentation). C returns 0 for a `NULL` decoder, which exists only at the C
+/// ABI.
 #[must_use]
 pub fn webp_i_set_io_hooks<'a>(
     idec: &mut WebPIDecoder<'a, '_>,

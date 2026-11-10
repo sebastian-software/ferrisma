@@ -1,5 +1,5 @@
 # WP13 consumer build: upstream's cwebp, unmodified, linked against the Rust
-# static library instead of libwebp (ADR 0004, docs/status/wp13.md), and the
+# static library instead of libwebp (ADR 0004), and the
 # WP13 probes that use only the public API linked against it as well. It reuses
 # WP12's libwebp_rs target and wp12_consumer() (probes/wp12/oracle.cmake),
 # which tools/oracle/CMakeLists.txt includes first; without

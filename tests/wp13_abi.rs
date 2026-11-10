@@ -4,15 +4,29 @@
 //! `tools/oracle/probes/wp13/oracle.cmake`) read the same input, and the outputs
 //! must be identical, byte for byte.
 //!
-//! Excluded (undefined behavior in C): RGBA rows imported into an ARGB picture
-//! whose starts are not aligned for `uint32_t` (`docs/status/wp9.md`). Excluded
-//! (a failed C assertion): `WebPPlaneDistortion` with `x_step` other than 1 on
-//! an empty plane, which calls `WebPSafeMalloc` with a size of 0.
-//!
 //! - `encode`: the whole encoder matrix of `tests/wp13_encode.rs`
 //!   (`support/wp13_matrix.rs`) through `WebPEncode`, with library memory,
 //!   caller memory and views (whose source the C ABI writes through, as C
 //!   does), `WebPMemoryWriter` and custom writers, progress hooks and aborts.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`WebPPictureImportRGBA` into an ARGB picture with misaligned rows**
+//!    (and `WebPEncodeLosslessRGBA`, which uses it): `VP8LConvertBGRAToRGBA`
+//!    loads the rows as `uint32_t`, which is undefined when a row start is not
+//!    4-byte aligned; the asan-ubsan oracle reports it. The ABI and simple API
+//!    tests generate no such rows.
+//! 2. **`WebPPlaneDistortion` with an `x_step` other than 1 on an empty plane**
+//!    calls `WebPSafeMalloc` with a size of 0, which fails
+//!    `assert(nmemb * size > 0)` in the debug oracle; the ABI test does not
+//!    generate it. The release oracle and the translation both go on.
+//! 3. **Uninitialized samples** are not compared: the planes that
+//!    `WebPPictureAlloc` allocates hold `malloc` memory in C (the asan-ubsan
+//!    oracle fills it with a pattern) and zeros in the translation, so the api
+//!    probe prints only which planes exist after `alloc`.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -62,7 +76,8 @@ fn run_encode(test: &str, cases: impl FnOnce(&Oracle) -> Vec<Case>) {
     assert_eq!(outputs.len(), cases.len(), "{test}: one output per record");
     let encoded = outputs.iter().filter(|f| f.get("ret") == Some("1")).count();
     // Failed encodings with an extra_info map whose prefix C filled (the map
-    // starts as zeros, deviation 3).
+    // starts as zeros; `src/abi/encode.rs`, `# Deviations from upstream`,
+    // item 1).
     let partial = cases
         .iter()
         .zip(&outputs)
