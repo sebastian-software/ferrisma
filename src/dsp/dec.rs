@@ -231,6 +231,17 @@ pub type VP8DecIdct = fn(&[i16], &mut [u8]);
 /// Inverse transform of one block, or two when `do_two` is set, added to `dst`
 /// (C: the `VP8Transform` pointer, `TransformTwo_C`).
 pub fn vp8_transform(input: &[i16], dst: &mut [u8], do_two: bool) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::transform(input, dst, do_two);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     transform_two_c(input, dst, do_two);
 }
 
@@ -406,6 +417,29 @@ static VP8_PRED_LUMA16: [VP8PredFunc; 7] = [
 /// Panics for a mode outside `[0, NUM_B_DC_MODES)`, where C indexes outside its
 /// table, and when the block or its top and left samples lie outside `buf`.
 pub fn vp8_pred_luma16(mode: i32, buf: &mut [u8], dst: usize) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && mode == 3 {
+            return crate::dsp::dec_sse41::he16(buf, dst);
+        }
+        if features.sse2 {
+            match mode {
+                0 => return crate::dsp::dec_sse2::dc16(buf, dst),
+                1 => return crate::dsp::dec_sse2::tm16(buf, dst),
+                2 => return crate::dsp::dec_sse2::ve16(buf, dst),
+                3 => return crate::dsp::dec_sse2::he16(buf, dst),
+                4 => return crate::dsp::dec_sse2::dc16_no_top(buf, dst),
+                5 => return crate::dsp::dec_sse2::dc16_no_left(buf, dst),
+                6 => return crate::dsp::dec_sse2::dc16_no_top_left(buf, dst),
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     VP8_PRED_LUMA16[usize::try_from(mode).expect("a non-negative mode")](buf, dst);
 }
 
@@ -673,6 +707,25 @@ static VP8_PRED_LUMA4: [VP8PredFunc; 10] = [
 /// Panics for a mode outside `[0, NUM_BMODES)`, where C indexes outside its
 /// table, and when the block or its top and left samples lie outside `buf`.
 pub fn vp8_pred_luma4(mode: i32, buf: &mut [u8], dst: usize) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            match mode {
+                1 => return crate::dsp::dec_sse2::tm4(buf, dst),
+                2 => return crate::dsp::dec_sse2::ve4(buf, dst),
+                4 => return crate::dsp::dec_sse2::rd4(buf, dst),
+                5 => return crate::dsp::dec_sse2::vr4(buf, dst),
+                6 => return crate::dsp::dec_sse2::ld4(buf, dst),
+                7 => return crate::dsp::dec_sse2::vl4(buf, dst),
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     VP8_PRED_LUMA4[usize::try_from(mode).expect("a non-negative mode")](buf, dst);
 }
 
@@ -775,6 +828,25 @@ static VP8_PRED_CHROMA8: [VP8PredFunc; 7] = [
 /// Panics for a mode outside `[0, NUM_B_DC_MODES)`, where C indexes outside its
 /// table, and when the block or its top and left samples lie outside `buf`.
 pub fn vp8_pred_chroma8(mode: i32, buf: &mut [u8], dst: usize) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            match mode {
+                0 => return crate::dsp::dec_sse2::dc8uv(buf, dst),
+                1 => return crate::dsp::dec_sse2::tm8uv(buf, dst),
+                2 => return crate::dsp::dec_sse2::ve8uv(buf, dst),
+                4 => return crate::dsp::dec_sse2::dc8uv_no_top(buf, dst),
+                5 => return crate::dsp::dec_sse2::dc8uv_no_left(buf, dst),
+                6 => return crate::dsp::dec_sse2::dc8uv_no_top_left(buf, dst),
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     VP8_PRED_CHROMA8[usize::try_from(mode).expect("a non-negative mode")](buf, dst);
 }
 
@@ -1156,12 +1228,34 @@ pub type VP8ChromaFilterFunc = fn(&mut [u8], usize, &mut [u8], usize, i32, i32, 
 // upstream: src/dsp/dec.c VP8VFilter16
 /// Filters the horizontal macroblock edge above `pos` (C: `VFilter16_C`).
 pub fn vp8v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_t: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::v_filter16(p, pos, stride, thresh, ithresh, hev_t);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     v_filter16_c(p, pos, stride, thresh, ithresh, hev_t);
 }
 
 // upstream: src/dsp/dec.c VP8HFilter16
 /// Filters the vertical macroblock edge left of `pos` (C: `HFilter16_C`).
 pub fn vp8h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_t: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::h_filter16(p, pos, stride, thresh, ithresh, hev_t);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     h_filter16_c(p, pos, stride, thresh, ithresh, hev_t);
 }
 
@@ -1181,6 +1275,19 @@ pub fn vp8v_filter8(
     ithresh: i32,
     hev_t: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::v_filter8(
+                u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     v_filter8_c(u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t);
 }
 
@@ -1200,6 +1307,19 @@ pub fn vp8h_filter8(
     ithresh: i32,
     hev_t: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::h_filter8(
+                u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     h_filter8_c(u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t);
 }
 
@@ -1213,6 +1333,17 @@ pub fn vp8v_filter16i(
     ithresh: i32,
     hev_t: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::v_filter16i(p, pos, stride, thresh, ithresh, hev_t);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     v_filter16i_c(p, pos, stride, thresh, ithresh, hev_t);
 }
 
@@ -1226,6 +1357,17 @@ pub fn vp8h_filter16i(
     ithresh: i32,
     hev_t: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::h_filter16i(p, pos, stride, thresh, ithresh, hev_t);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     h_filter16i_c(p, pos, stride, thresh, ithresh, hev_t);
 }
 
@@ -1245,6 +1387,19 @@ pub fn vp8v_filter8i(
     ithresh: i32,
     hev_t: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::v_filter8i(
+                u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     v_filter8i_c(u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t);
 }
 
@@ -1264,30 +1419,87 @@ pub fn vp8h_filter8i(
     ithresh: i32,
     hev_t: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::h_filter8i(
+                u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     h_filter8i_c(u, u_pos, v, v_pos, stride, thresh, ithresh, hev_t);
 }
 
 // upstream: src/dsp/dec.c VP8SimpleVFilter16
 /// Simple filter of the horizontal macroblock edge (C: `SimpleVFilter16_C`).
 pub fn vp8_simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::simple_v_filter16(p, pos, stride, thresh);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     simple_v_filter16_c(p, pos, stride, thresh);
 }
 
 // upstream: src/dsp/dec.c VP8SimpleHFilter16
 /// Simple filter of the vertical macroblock edge (C: `SimpleHFilter16_C`).
 pub fn vp8_simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::simple_h_filter16(p, pos, stride, thresh);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     simple_h_filter16_c(p, pos, stride, thresh);
 }
 
 // upstream: src/dsp/dec.c VP8SimpleVFilter16i
 /// Simple filter of the three inner horizontal edges (C: `SimpleVFilter16i_C`).
 pub fn vp8_simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::simple_v_filter16i(p, pos, stride, thresh);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     simple_v_filter16i_c(p, pos, stride, thresh);
 }
 
 // upstream: src/dsp/dec.c VP8SimpleHFilter16i
 /// Simple filter of the three inner vertical edges (C: `SimpleHFilter16i_C`).
 pub fn vp8_simple_h_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::dec_sse2::simple_h_filter16i(p, pos, stride, thresh);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     simple_h_filter16i_c(p, pos, stride, thresh);
 }
 
