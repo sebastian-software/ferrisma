@@ -121,24 +121,40 @@
 //!
 //! # Notes for WP20
 //!
-//! WP18 added an x86 block to these dispatch functions of `src/dsp/dec.rs`:
-//! `vp8_transform`, `vp8v_filter16`, `vp8h_filter16`, `vp8v_filter8`,
-//! `vp8h_filter8`, `vp8v_filter16i`, `vp8h_filter16i`, `vp8v_filter8i`,
-//! `vp8h_filter8i`, `vp8_simple_v_filter16`, `vp8_simple_h_filter16`,
-//! `vp8_simple_v_filter16i`, `vp8_simple_h_filter16i`, `vp8_pred_luma4`,
-//! `vp8_pred_luma16` and `vp8_pred_chroma8` (with `dec_sse41.rs` for
-//! `VP8PredLuma16[3]`). The other portable modules have x86 blocks in:
-//! `src/dsp/upsampling.rs` (`webp_upsamplers`, `webp_yuv444_converters`),
-//! `src/dsp/yuv.rs` (`webp_samplers`, `webp_convert_argb_to_y`,
-//! `webp_convert_argb_to_uv`, `webp_convert_rgb24_to_y`,
-//! `webp_convert_bgr24_to_y`, `webp_convert_rgba32_to_uv`),
-//! `src/dsp/alpha_processing.rs`, `src/dsp/filters.rs`,
-//! `src/dsp/rescaler.rs` and `src/dsp/lossless.rs`; each module's SIMD
-//! files list their dispatch functions in their documentation. Each x86
-//! block stands first in its function, in the layout of the WP18 brief;
-//! put the `AArch64` block after it and keep the C call last with its
-//! `unreachable_code` allowance. A predictor table selects per mode inside
-//! the x86 block with a `match` that falls through to the table.
+//! WP18 added an x86 block to these dispatch functions, which the NEON
+//! blocks join:
+//!
+//! - `src/dsp/dec.rs`: `vp8_transform`, `vp8v_filter16`, `vp8h_filter16`,
+//!   `vp8v_filter8`, `vp8h_filter8`, `vp8v_filter16i`, `vp8h_filter16i`,
+//!   `vp8v_filter8i`, `vp8h_filter8i`, `vp8_simple_v_filter16`,
+//!   `vp8_simple_h_filter16`, `vp8_simple_v_filter16i`,
+//!   `vp8_simple_h_filter16i`, `vp8_pred_luma4`, `vp8_pred_luma16` and
+//!   `vp8_pred_chroma8`;
+//! - `src/dsp/upsampling.rs`: `webp_upsamplers`,
+//!   `webp_get_line_pair_converter` and `webp_yuv444_converters`;
+//! - `src/dsp/yuv.rs`: `webp_samplers`, `webp_convert_argb_to_y`,
+//!   `webp_convert_argb_to_uv`, `webp_convert_rgb24_to_y`,
+//!   `webp_convert_bgr24_to_y` and `webp_convert_rgba32_to_uv`;
+//! - `src/dsp/alpha_processing.rs`: `webp_mult_argb_row`, `webp_mult_row`,
+//!   `webp_apply_alpha_multiply`, `webp_dispatch_alpha`,
+//!   `webp_dispatch_alpha_to_green`, `webp_extract_alpha`,
+//!   `webp_extract_green`, `webp_has_alpha8b`, `webp_has_alpha32b` and
+//!   `webp_alpha_replace`;
+//! - `src/dsp/filters.rs`: `webp_filters` and `webp_unfilters`;
+//! - `src/dsp/rescaler.rs`: `webp_rescaler_import_row_expand`,
+//!   `webp_rescaler_import_row_shrink`, `webp_rescaler_export_row_expand`
+//!   and `webp_rescaler_export_row_shrink`;
+//! - `src/dsp/lossless.rs`: `vp8l_predictors`, `vp8l_predictors_add`,
+//!   `vp8l_add_green_to_blue_and_red`, `vp8l_transform_color_inverse` and
+//!   the five `vp8l_convert_bgra_to_*` converters.
+//!
+//! Each x86 block stands first in its function, in the layout of the WP18
+//! brief; put the `AArch64` block after it and keep the C call last with its
+//! `unreachable_code` allowance. A table (predictors, samplers, upsamplers,
+//! filters) selects per entry inside the x86 block with a `match` that falls
+//! through to the table. The entry points are `pub(crate)` (decided on issue
+//! #26). Tests select a level through the `VP8GetCPUInfo` pointer
+//! (`tests/wp18_support/mod.rs`), which cannot switch NEON off.
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86 as arch;
