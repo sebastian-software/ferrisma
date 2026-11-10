@@ -17,11 +17,11 @@ use std::fmt::Write as _;
 
 use oracle::Oracle;
 use webp::dsp::dec::{
-    vp8_dither_combine8x8, vp8_pred_chroma8, vp8_pred_luma4, vp8_pred_luma16,
-    vp8_simple_h_filter16, vp8_simple_h_filter16i, vp8_simple_v_filter16, vp8_simple_v_filter16i,
-    vp8_transform, vp8_transform_ac3, vp8_transform_dc, vp8_transform_dcuv, vp8_transform_uv,
-    vp8_transform_wht, vp8h_filter8, vp8h_filter8i, vp8h_filter16, vp8h_filter16i, vp8v_filter8,
-    vp8v_filter8i, vp8v_filter16, vp8v_filter16i,
+    h_filter8_c, h_filter8i_c, h_filter16_c, h_filter16i_c, simple_h_filter16_c,
+    simple_h_filter16i_c, simple_v_filter16_c, simple_v_filter16i_c, v_filter8_c, v_filter8i_c,
+    v_filter16_c, v_filter16i_c, vp8_dither_combine8x8, vp8_pred_chroma8, vp8_pred_luma4,
+    vp8_pred_luma16, vp8_transform, vp8_transform_ac3, vp8_transform_dc, vp8_transform_dcuv,
+    vp8_transform_uv, vp8_transform_wht,
 };
 use webp::dsp::dec_clip_tables::{VP8KABS0, VP8KCLIP1, VP8KSCLIP1, VP8KSCLIP2};
 use wp6_support::{Rng, compare, hex, int16_bytes, token};
@@ -206,6 +206,13 @@ fn threshold(rng: &mut Rng) -> i32 {
     }
 }
 
+/// The filter records call the C translations (`SimpleVFilter16_C` and the
+/// others), which they verify against the C oracle, rather than the dispatch
+/// functions: with `simd` on 64-bit ARM the dispatch selects upstream's NEON
+/// filters, which convert the thresholds to `uint8_t` and differ from the C
+/// functions for the thresholds above 254 that `threshold` draws and the
+/// decoder never passes (at most 193). `tests/wp20_dec.rs` covers the NEON
+/// filters over the thresholds 0 to 254 (WP20, decided on issue #28).
 fn filters(script: &mut Script, rng: &mut Rng) {
     for name in ["v16", "h16", "v16i", "h16i"] {
         for _ in 0..300 {
@@ -221,10 +228,10 @@ fn filters(script: &mut Script, rng: &mut Rng) {
             .unwrap();
             let s = stride as i32;
             match name {
-                "v16" => vp8_simple_v_filter16(&mut buf, pos, s, thresh),
-                "h16" => vp8_simple_h_filter16(&mut buf, pos, s, thresh),
-                "v16i" => vp8_simple_v_filter16i(&mut buf, pos, s, thresh),
-                _ => vp8_simple_h_filter16i(&mut buf, pos, s, thresh),
+                "v16" => simple_v_filter16_c(&mut buf, pos, s, thresh),
+                "h16" => simple_h_filter16_c(&mut buf, pos, s, thresh),
+                "v16i" => simple_v_filter16i_c(&mut buf, pos, s, thresh),
+                _ => simple_h_filter16i_c(&mut buf, pos, s, thresh),
             }
             script.line("buf", &buf);
             script.cases += 1;
@@ -244,10 +251,10 @@ fn filters(script: &mut Script, rng: &mut Rng) {
             .unwrap();
             let s = stride as i32;
             match name {
-                "v16" => vp8v_filter16(&mut buf, pos, s, thresh, ithresh, hev),
-                "h16" => vp8h_filter16(&mut buf, pos, s, thresh, ithresh, hev),
-                "v16i" => vp8v_filter16i(&mut buf, pos, s, thresh, ithresh, hev),
-                _ => vp8h_filter16i(&mut buf, pos, s, thresh, ithresh, hev),
+                "v16" => v_filter16_c(&mut buf, pos, s, thresh, ithresh, hev),
+                "h16" => h_filter16_c(&mut buf, pos, s, thresh, ithresh, hev),
+                "v16i" => v_filter16i_c(&mut buf, pos, s, thresh, ithresh, hev),
+                _ => h_filter16i_c(&mut buf, pos, s, thresh, ithresh, hev),
             }
             script.line("buf", &buf);
             script.cases += 1;
@@ -272,10 +279,10 @@ fn filters(script: &mut Script, rng: &mut Rng) {
             .unwrap();
             let s = stride as i32;
             match name {
-                "v8" => vp8v_filter8(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
-                "h8" => vp8h_filter8(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
-                "v8i" => vp8v_filter8i(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
-                _ => vp8h_filter8i(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                "v8" => v_filter8_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                "h8" => h_filter8_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                "v8i" => v_filter8i_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                _ => h_filter8i_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
             }
             script.line("u", &u);
             script.line("v", &v);
