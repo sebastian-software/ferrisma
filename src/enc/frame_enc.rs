@@ -17,6 +17,24 @@
 //!
 //! Work package: WP10 (VP8 encoder core).
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`StatLoop` stops early for methods 0 to 2 with one segment.**
+//!    `RefineUsingDistortion` never sets the header cost `rd->H`, so
+//!    `OneStatPass` returns a partition-0 size of 0, which `StatLoop` treats as
+//!    a failure: it returns before `FinalizeSkipProba`, `FinalizeTokenProbas`
+//!    and `VP8CalculateLevelCosts`, and `VP8EncLoop` ignores the result. The
+//!    skip probability stays unused and the token probabilities stay the
+//!    defaults. With two segments the segment header cost is positive and the
+//!    loop runs to its end. The test
+//!    `large_and_edge_pictures_match_the_c_encoder` in `tests/wp10_encode.rs`
+//!    covers both.
+//! 2. **An abort during `StatLoop` does not stop `VP8EncLoop`**, which ignores
+//!    `StatLoop`'s result and aborts at its own next progress report.
+//!
 //! # Excluded undefined behavior
 //!
 //! Inputs that are undefined behavior (or assertion failures) in C and are

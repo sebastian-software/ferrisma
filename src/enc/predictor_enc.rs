@@ -23,6 +23,17 @@
 //! Only the `WEBP_NEAR_LOSSLESS == 1` branches are translated, as the
 //! reference configuration enables near-lossless.
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`VP8LResidualImage` returns 0 without recording an error** when its
+//!    modes cannot be allocated, and `EncodeStreamHook` (`src/enc/vp8l_enc.rs`)
+//!    then returns success because it tests only `picture->error_code`;
+//!    `VP8LEncodeImage` goes on to write the partial stream. The Rust code
+//!    keeps this (not reachable in the tests).
+//!
 //! # Excluded undefined behavior
 //!
 //! Inputs that are undefined behavior (or assertion failures) in C and are

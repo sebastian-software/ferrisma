@@ -44,6 +44,14 @@
 //! 2. **Allocation helpers.** `ApplyFiltersAndEncode` and the alpha copy: see
 //!    `src/enc/analysis_enc.rs`, `# Deviations from upstream`, item 2.
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **The alpha job adds its size to `pic->stats->coded_size`**, which
+//!    `StoreStats` (`src/enc/webp_enc.rs`) overwrites with `enc->coded_size`.
+//!
 //! # Excluded undefined behavior
 //!
 //! Inputs that are undefined behavior (or assertion failures) in C and are

@@ -259,7 +259,9 @@ fn chunk_search_next_in_list(chunks: &[WebPChunk<'_>], start: usize, tag: u32) -
 
 // upstream: src/mux/muxinternal.c ChunkSearchList
 /// Search for nth chunk with given `tag` in the chunk list. `nth = 0` means
-/// "last of the list".
+/// "last of the list". The check of a missing nth chunk (`nth > 0 && iter > 0`)
+/// is equivalent to dropping it for every caller: they pass 1, where `iter` is 0
+/// after the loop.
 #[must_use]
 pub fn chunk_search_list<'c, 'a>(
     first: &'c [WebPChunk<'a>],

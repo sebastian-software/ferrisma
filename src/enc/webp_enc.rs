@@ -61,6 +61,18 @@
 //!    alpha helpers. `VP8Decimate` returns whether the macroblock is skipped as
 //!    `bool`.
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`WebPEncode` does not report 100 percent itself** (the encoders do, or
+//!    not), and it resets `error_code` before it validates.
+//! 2. **With `exact` off, `WebPEncode` cleans the transparent area** of a YUV
+//!    picture (lossy) or replaces transparent ARGB pixels by 0 (lossless) in
+//!    the caller's planes, which the caller sees afterwards (the `pic=` and
+//!    `caller=` digests of `tests/wp13_encode.rs`).
+//!
 //! # Checks not applicable
 //!
 //! These checks do not apply, or cannot be made, with the reason:

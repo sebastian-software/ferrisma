@@ -117,5 +117,8 @@ and on manual dispatch:
   the differential tests against `release` and `asan-ubsan` (and the scalar
   build against `release` on Linux), and the baseline for each variant.
 
+LeakSanitizer does not run on macOS, so the Linux `asan-ubsan` job is the first
+leak check of new probes; the probes free what they allocate.
+
 The `Checks passed` job is the single required status check. A local result does
 not imply that the hosted jobs have run.

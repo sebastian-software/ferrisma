@@ -559,7 +559,9 @@ fn blend_pixel_row_premult(src: &mut [u8], dst: &[u8], num_pixels: i32) {
 // upstream: src/demux/anim_decode.c FindBlendRangeAtRow
 /// Returns two ranges (`<left, width>` pairs) at row `canvas_y` that belong to
 /// `src` but not `dst`, as `(left1, width1, left2, width2)`. A range is empty if
-/// its width is 0 (C writes the four values through pointers).
+/// its width is 0 (C writes the four values through pointers). Changing `>` to
+/// `>=` in `src_max_x > dst_max_x` is an equivalent mutation: equal right edges
+/// give a range of width 0 either way.
 fn find_blend_range_at_row(
     src: &IteratorFields,
     dst: &IteratorFields,

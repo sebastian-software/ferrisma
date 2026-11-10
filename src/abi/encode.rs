@@ -180,6 +180,33 @@
 //!    also happen when C would not have needed to grow the buffer.
 //! 5. **`WebPPictureDistortion` in the C ABI** writes `result` only on success;
 //!    C writes the channels it measured before an allocation failure.
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`WebPPictureAlloc(NULL)` and `WebPPictureInitInternal(NULL, version)`
+//!    return 1**; `WebPPictureCopy(pic, pic)` returns 1 without copying.
+//! 2. **`WebPMemoryWriterInit` does not release the previous buffer.**
+//! 3. **`WebPConfigPreset` with an invalid quality writes the configuration and
+//!    returns 0**, so the simple API returns 0 without writing `*output`; every
+//!    other failure writes `NULL`.
+//!
+//! # Use by the mux ABI
+//!
+//! `Mode`, `with_picture` and `progress_closure` are crate-visible for
+//! `src/abi/mux.rs`:
+//!
+//! 1. `WebPAnimEncoderAdd` converts the caller's frame for one call exactly as
+//!    `WebPEncode` does: the ARGB plane (or, without `use_argb`, the YUVA
+//!    planes that `WebPPictureYUVAToARGB` reads) is lent, the results are
+//!    written back (the error code and, after a conversion, the new ARGB
+//!    block), and the frame's C progress hook is wrapped as a closure.
+//! 2. `with_picture` is the function around `picture_to_rust` and
+//!    `picture_to_c` that every encode ABI entry point uses, so
+//!    `src/abi/mux.rs` needs nothing else; `picture_to_rust`, `picture_to_c`,
+//!    `Converted`, `Refused` and `set_error` stay private.
 
 use core::ffi::{c_int, c_void};
 use core::mem::{MaybeUninit, offset_of, size_of};

@@ -22,6 +22,16 @@
 //!
 //! Work package: WP10 (VP8 encoder core).
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`VP8RecordCoeffTokens` records the second token of category 5 with the
+//!    probability index `base_id + 10` and the statistics slot 9.**
+//! 2. **`VP8EstimateTokenSize` passes the bit as `token & (1 << 15)`** to
+//!    `VP8BitCost`, which only tests it for zero.
+//!
 //! # Checks not applicable
 //!
 //! These checks do not apply, or cannot be made, with the reason:

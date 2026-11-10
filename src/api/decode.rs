@@ -76,6 +76,10 @@
 //!   `ICCP` chunk and no orientation besides an `EXIF` chunk. [`Container`]
 //!   returns the raw payloads and parses neither; without a profile, readers
 //!   assume sRGB.
+//! - **Animation.** Full canvases after blending and disposal, premultiplied
+//!   blending in the premultiplied modes, a transparent black start, the
+//!   background color reported and not applied, timestamps as end times in
+//!   milliseconds.
 //!
 //! # Cropping
 //!
@@ -138,6 +142,24 @@
 //! 10. **The canvas of a failed frame** is not exposed: the borrow of the
 //!     previous frame ends at the next call (see the deviation on the canvas
 //!     after a failure in `src/demux/anim_decode.rs`).
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **A whole-image decoding of a truncated file returns libwebp's status:**
+//!    `BitstreamError` when the file ends before the image's dimensions (C maps
+//!    the features' `NOT_ENOUGH_DATA`), and the decoder's `NotEnoughData` or
+//!    `BitstreamError` later; caller memory then holds the rows decoded so far.
+//! 2. **The incremental getters follow libwebp's pointer and stride:** while a
+//!    flipped decoding runs, row 0 is the bottom row of the output and the
+//!    stride is negative; once complete, the stride is positive. With a scale,
+//!    chroma and alpha rows lag behind the luma rows.
+//! 3. **After a failed incremental step** every later step returns
+//!    `BitstreamError`.
+//! 4. **A still image through the animation decoder** is one frame with
+//!    timestamp 0, loop count 1 and background `0xFFFFFFFF`.
 //!
 //! # Checks not applicable
 //!

@@ -68,6 +68,18 @@
 //!    bytes for both values. `WebPConfigInit` does not write it either
 //!    (`src/webp/encode.rs`).
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **The side picture's error code reaches the picture only when the main
+//!    context succeeded**, as C's `if (picture->error_code == VP8_ENC_OK)`
+//!    decides.
+//! 2. **`EncodeStreamHook` returns success when `VP8LResidualImage` fails to
+//!    allocate its modes**; item 1 of `# Upstream behavior preserved` in
+//!    `src/enc/predictor_enc.rs` has the full text.
+//!
 //! # Excluded undefined behavior
 //!
 //! Inputs that are undefined behavior (or assertion failures) in C and are

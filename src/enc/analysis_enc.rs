@@ -42,6 +42,14 @@
 //!    the alpha copy apply `WebPSafeMalloc`'s size test and reserve fallibly;
 //!    the buffers are zeroed where C leaves them uninitialized, and every
 //!    element is written before it is read.
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`ResetAllMBInfo` ignores the result of `WebPReportProgress`**: an abort
+//!    is recorded on the picture, and `VP8EncAnalyze` succeeds.
 
 use crate::dec::common_dec::NUM_MB_SEGMENTS;
 use crate::dsp::dsp::{BPS, VP8Histogram};

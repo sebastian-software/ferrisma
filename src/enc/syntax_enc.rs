@@ -16,6 +16,14 @@
 //! Translation of `src/enc/syntax_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **`GeneratePartition0` measures its first position on the zeroed writer**
+//!    before `VP8BitWriterInit`, which counts 8 bits.
 
 use crate::dec::common_dec::{MAX_NUM_PARTITIONS, NUM_MB_SEGMENTS};
 use crate::enc::tree_enc::{vp8_code_intra_modes, vp8_write_probas};

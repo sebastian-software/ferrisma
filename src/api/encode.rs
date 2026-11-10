@@ -102,6 +102,25 @@
 //!    not expose on success.
 //! 10. **Callbacks** receive no picture (ADR 0003, as in the translation).
 //!
+//! # Upstream behavior preserved
+//!
+//! Behavior of the C code that a reader might take for a defect, which the
+//! translation keeps:
+//!
+//! 1. **The encoder writes into the picture's planes unless `exact`:** the Y, U
+//!    and V samples under fully transparent 8 by 8 blocks (lossy), every
+//!    transparent ARGB pixel to 0 (lossless), and with `show_compressed` the
+//!    decoded samples. A second encoding of a picture sees these writes and the
+//!    planes of the first encoding's conversion.
+//! 2. **A lossy encoding of ARGB samples converts with sharp YUV or dithering**
+//!    when configured; an import into YUVA converts at once without them.
+//! 3. **`WebPConfigLosslessPreset` overrides `lossless`, `method` and
+//!    `quality`.**
+//! 4. **libwebp ignores the progress hook's answer** at the end of an analysis
+//!    without segments and during the statistics pass of lossy methods 0 to 2;
+//!    the documentation of `Encoder::progress` tells a cancelling hook to keep
+//!    returning `false`.
+//!
 //! # Checks not applicable
 //!
 //! These checks do not apply, or cannot be made, with the reason:

@@ -70,6 +70,26 @@
 //!    and `VP8LNew` cannot fail; a refused host allocation of a fixed-size
 //!    object aborts.
 //!
+//! # Calling the VP8 decoder
+//!
+//! How `WebPIDecoder` drives the VP8 decoder:
+//!
+//! 1. `WebPIDecoder` keeps `io`, `params`, `dec`, `mem` and the output side by
+//!    side and passes disjoint borrows: `vp8_enter_critical(dec, io, hooks)`,
+//!    `vp8_init_frame(dec, io, alpha_data)`, then per row
+//!    `vp8_parse_intra_mode_row`, `vp8_decode_mb(dec, token_br, data)` for each
+//!    macroblock, `vp8_init_scanline` and `vp8_process_row(dec, io, alpha_data,
+//!    hooks)`, and `vp8_exit_critical`.
+//! 2. The same `data` and `alpha_data` must reach every call of one decoding;
+//!    `alpha_data` is the bytes in `mem`, so `DoRemap` needs no alpha update (C
+//!    moves `dec->alpha_data`), and `NeedCompressedAlpha` tests
+//!    `alpha_data.is_some()` and `!dec.is_alpha_decoded`.
+//! 3. `DoRemap` remaps `dec.br` and `dec.parts` with index deltas (the bit
+//!    readers store positions). `RestoreContext` copies `dec.br` and
+//!    `dec.parts[token_br]` field by field (the bit reader has no `Clone`).
+//! 4. `VP8Clear` before an `End` with a pending row is never needed: call
+//!    `vp8_exit_critical` first, as `IDecError` does.
+//!
 //! # Excluded undefined behavior
 //!
 //! Inputs that are undefined behavior (or assertion failures) in C and are

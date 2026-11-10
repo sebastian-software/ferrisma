@@ -13,6 +13,12 @@
 //! truncated at and around every partition boundary. The test compares the
 //! header state, the io, every `put()` (position, size and the visible Y, U, V
 //! and alpha rows), the teardown, the result, the status and its message.
+//!
+//! Mutation check: one mutation of the Rust code is equivalent on the vectors,
+//! `data.dither >= MIN_DITHER_AMP` as `>`. A block dithered with amplitude 4
+//! changes no sample (the deltas are -2 to 1, and `(delta + 8) >> 4` is 0) and
+//! only advances the generator, which shows only when a block with a larger
+//! amplitude follows, and no vector has such a pair.
 
 #[path = "support/oracle.rs"]
 mod oracle;
