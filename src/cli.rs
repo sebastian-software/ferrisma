@@ -3,6 +3,7 @@
 //! this crate (ADR-0024) can ship the same command with their backend.
 
 use std::error::Error;
+use std::io::{self, Read};
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -10,6 +11,21 @@ use crate::pipeline::{
     ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, KernelLevel,
     ResizeFilter, TransformOptions, WorkingPrecision, transcode, transcode_with,
 };
+
+// Bound the stream itself: file metadata can be absent or change after opening.
+fn read_input(mut reader: impl Read, limit: usize) -> io::Result<Vec<u8>> {
+    let mut data = Vec::new();
+    reader.by_ref().take(limit as u64).read_to_end(&mut data)?;
+    let mut sentinel = [0];
+    match reader.read_exact(&mut sentinel) {
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(data),
+        Err(error) => Err(error),
+        Ok(()) => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("compressed input exceeds the {limit}-byte limit; increase --max-input-mb"),
+        )),
+    }
+}
 
 fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
     let extension = path
@@ -120,7 +136,7 @@ pub fn run(
         apply_option(&mut options, option)?;
     }
     let format = parse_format(input_path)?;
-    let data = std::fs::read(input_path)?;
+    let data = read_input(std::fs::File::open(input_path)?, options.max_input_bytes)?;
     let output = match backend {
         None => transcode(&data, format, options)?,
         Some(backend) => transcode_with(&data, format, options, backend)?,
@@ -173,4 +189,41 @@ pub fn run(
         );
     }
     Ok(ExitCode::SUCCESS)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_input;
+    use std::io::{self, Cursor, Read};
+
+    #[test]
+    fn accepts_input_at_the_limit_and_rejects_one_byte_more() {
+        assert_eq!(read_input(Cursor::new(b"abc"), 3).unwrap(), b"abc");
+        let error = read_input(Cursor::new(b"abcd"), 3).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("--max-input-mb"));
+        assert_eq!(read_input(Cursor::new(b""), 0).unwrap(), [] as [u8; 0]);
+        assert!(read_input(Cursor::new(b"a"), 0).is_err());
+    }
+
+    #[test]
+    fn bounds_streams_without_metadata_to_the_limit_plus_one_byte() {
+        let mut reader = io::repeat(42).take(1_000_000);
+        assert!(read_input(&mut reader, 3).is_err());
+        assert_eq!(reader.limit(), 999_996);
+    }
+
+    #[test]
+    fn propagates_read_errors() {
+        struct Broken;
+        impl Read for Broken {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                Err(io::Error::other("failed input"))
+            }
+        }
+        assert_eq!(
+            read_input(Broken, 3).unwrap_err().kind(),
+            io::ErrorKind::Other
+        );
+    }
 }
