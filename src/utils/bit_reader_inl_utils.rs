@@ -24,6 +24,32 @@
 //! the bit-trace tool are removed, as in the reference configuration (BITTRACE 0).
 //! The sanitizer attributes (`WEBP_UBSAN_IGNORE_*`) have no counterpart: the
 //! wrapping operations below state the unsigned wraparound that they permit.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Probabilities and signed reads.** `prob` is an `i32` as in C. Its
+//!    unsigned conversion wraps, as C's, so a negative probability gives the
+//!    same result. `VP8PutSignedBits` (`src/utils/bit_writer_utils.rs`) takes
+//!    the magnitude with `unsigned_abs`, which defines the case of `INT_MIN`,
+//!    where C negates an `int` and is undefined.
+//!
+//! The return types of `VP8GetBit`, `VP8GetSigned` and `VP8GetBitAlt` are
+//! explained in `src/utils/bit_writer_utils.rs`, `# Deviations from upstream`
+//! (item 2).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. The MIPS32 branch of `VP8LoadNewBytes` (`WEBP_USE_MIPS32`) is excluded
+//!    with the MIPS sources (`tools/units.json`). Its unaligned load gives the
+//!    same value as the `memcpy` path that is translated.
+//! 2. The big-endian branch of `VP8LoadNewBytes` is not separately compiled or
+//!    tested. The translated formula, the big-endian value of the bytes read,
+//!    gives the same bits on every byte order, and the host is little-endian.
 
 use crate::utils::bit_reader_utils::{
     BITS, VP8_LOG2_RANGE, VP8_NEW_RANGE, VP8BitReader, bit_t, range_t, vp8_load_final_bytes,

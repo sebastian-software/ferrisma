@@ -38,6 +38,35 @@
 //! tie and the order is the ascending order of the values, which any sort
 //! gives. A palette with repeated colors is outside the contract of
 //! `PrepareMapToPalette` and is not compared.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Pictures in the palette code.** The ARGB plane is read through
+//!    `WebPPicture::argb` and `argb_storage` (ADR 0003, buffers and planes).
+//!    Row `y` starts at `offset + y * argb_stride`, computed per row, so a
+//!    negative stride never forms the position past the last row that the C
+//!    pointer increment forms. `CoOccurrenceFindMax` returns `(c1, c2)` instead
+//!    of writing two out-parameters; the `best_sum` pointer of the modified
+//!    Zeng sort is an index. `PaletteSort`, `PaletteSortModifiedZeng` and
+//!    `CoOccurrenceBuild` return `bool`.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `SearchColorNoIdx` with a color that is not in the palette (C loops
+//!    forever), and `PrepareMapToPalette` with repeated colors (C asserts in
+//!    its comparator).
+//! 2. `PaletteSort` with `kUnusedPalette`, `kPaletteSortingNum` or another
+//!    value (C asserts and returns 0; Rust debug-asserts and returns `false`),
+//!    and `kModifiedZeng` on a picture with one color but a palette of two or
+//!    more, where `CoOccurrenceFindMax` asserts `c1 != c2`. The signed `delta`
+//!    sums of the modified Zeng sort overflow only for co-occurrence counts
+//!    beyond the test pictures.
 
 use crate::dsp::lossless_common::vp8l_sub_pixels;
 use crate::utils::color_cache_utils::vp8l_hash_pix;

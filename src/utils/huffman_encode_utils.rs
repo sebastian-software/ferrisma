@@ -35,6 +35,31 @@
 //! Representation: `HuffmanTreeCode` owns its code lengths and codes. The C
 //! encoder carves both arrays of every code from one allocation; ADR 0003
 //! lets the Rust caller check that total and allocate separate buffers.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`HuffmanTreeCode` owns its arrays.** `code_lengths: Vec<u8>` and
+//!    `codes: Vec<u16>` replace the two pointers. The encoder carves both
+//!    arrays of every code from one allocation (`GetHuffBitLengthsAndCodes` in
+//!    `src/enc/vp8l_enc.c`); ADR 0003 lets the Rust caller check that total and
+//!    allocate separate buffers. `StoreFullHuffmanCode` builds its 19-entry
+//!    code the same way. `src/enc/vp8l_enc.rs` consumes this form.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `OptimizeHuffmanForRle` with counts of 2^31 or more: the conversion to
+//!    `int` is implementation-defined and `abs(a - b)` can overflow. The
+//!    histograms stay below 2^26.
+//! 2. `GenerateOptimalTree` with stale code lengths above the depth limit for
+//!    unused symbols, which never satisfy the limit (C loops forever), or with
+//!    more used symbols than `1 << (limit - 1)` (C asserts). The encoder starts
+//!    from zeros.
 
 use core::cmp::Ordering;
 

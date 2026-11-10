@@ -16,6 +16,16 @@
 //! `malloc(0)` returns. Those requests are excluded from the comparison in every
 //! variant, and `zero_size_requests_are_recorded_for_rust_only` records the Rust
 //! decision for them.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. Host refusal of a reservation. Rust reserves the same number of bytes as
+//!    C only when the element size matches the C `size` argument; the cases use
+//!    `[u8; N]` for `N` = 0, 1, 2, 4 and 8. The one exception, `(4096, 16)`,
+//!    reserves 4,096 bytes in Rust against 65,536 in C, which the host cannot
+//!    refuse here.
 
 #[path = "support/oracle.rs"]
 mod oracle;

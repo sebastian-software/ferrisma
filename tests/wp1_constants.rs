@@ -5,6 +5,25 @@
 //!
 //! Each expectation is written with the C name, in the order the probe prints it,
 //! so that a mismatch names the constant.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. Layout of the `repr(C)` mirrors of the structs with pointers or Rust-only
+//!    plane types: `WebPRGBABuffer`, `WebPYUVABuffer`, `WebPDecBuffer`,
+//!    `WebPDecoderConfig`, `WebPPicture`, `WebPMemoryWriter`, `WebPData`, and
+//!    the iterators `WebPIterator` and `WebPChunkIterator`. ADR 0004 gives the
+//!    mirrors to the modules in `src/abi`, whose layout tests
+//!    (`tests/wp12_abi_layout.rs` to `tests/wp15_abi_layout.rs`) compare them
+//!    with the C compiler. This test has no C-visible behavior of these types
+//!    to compare with, except through `WebPData` and `WebPCopyPixels`, which
+//!    `tests/wp1_webp_data.rs` and `tests/wp1_copy_pixels.rs` compare.
+//! 2. Behavior of the buffers and the writer as a whole: `WebPInitDecBuffer`
+//!    and `WebPFreeDecBuffer`, `WebPPictureAlloc`, `WebPPictureImport*` and the
+//!    picture's conversions, and `WebPMemoryWrite` with its writer closure. No
+//!    function of the modules that the `tests/wp1_*.rs` files compare operates
+//!    on them.
 
 #[path = "support/oracle.rs"]
 mod oracle;

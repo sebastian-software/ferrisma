@@ -51,6 +51,71 @@
 //!   `VP8LSubtractGreenFromBlueAndRed_C`, the collectors, the entropy and cost
 //!   functions, `VP8LBundleColorMap_C`, `VP8LPredictorsSub`, `VP8LEncDspInit`
 //!   and their pointers) are defined in `src/dsp/lossless_enc.c` (WP11).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **One buffer for the decoder transforms.** The inverse transforms read
+//!    and write one pixel buffer: input and output may be the same rows, and
+//!    the predictors read the row above and the pixel to the left of the
+//!    output. `VP8LInverseTransform`, the batch predictors,
+//!    `VP8LAddGreenToBlueAndRed`, `VP8LTransformColorInverse` and
+//!    `VP8LMapColor32b` therefore take the buffer once (`data`) with the C
+//!    pointers as positions (ADR 0003, pointers), so every access happens at
+//!    the C index and in the C order whatever the overlap. The unfilters of
+//!    `src/dsp/filters.rs` copy the input instead (see the deviations of that
+//!    module); here the predictors read output written by the same call (the
+//!    top-right pixel of the last column is the first pixel of the current
+//!    row), which a copy would not reproduce. The decoder
+//!    (`src/dec/vp8l_dec.rs`) keeps `pixels` and `argb_cache` in one buffer, as
+//!    the C allocation does, or passes the buffer that holds both. The 8-bit
+//!    alpha path and the converters take distinct slices, as their callers have
+//!    distinct buffers.
+//! 2. **Predictor signatures.** A one-pixel predictor takes
+//!    `(left, left_pos, top, top_pos)`, where `left[left_pos]` is `*left` and
+//!    `top[top_pos + k]` is `top[k]` for `k` in -1 to 1.
+//!    `VP8LPredictorAddSubFunc` is the decoder's form,
+//!    `(data, in, upper, num_pixels, out)`. `VP8LPredictorsSub`
+//!    (`src/dsp/lossless_enc.rs`) reads its input and the row above from one
+//!    buffer and writes residuals into another, so its dispatch function has
+//!    its own signature, as the function-pointer deviation of `src/dsp/dsp.rs`
+//!    allows.
+//! 3. **Converters keep their element types.** `VP8LConvertFromBGRA` and the
+//!    converters take `&[u32]` and write `&mut [u8]`, as the C pointers are
+//!    typed (the untyped-sample-buffer rule of ADR 0003 covers only `void*`),
+//!    as `WebPMultARGBRows` (`src/dsp/alpha_processing.rs`) keeps `&mut [u32]`.
+//!    `src/enc/picture_csp_enc.c` casts an RGBA byte buffer to `uint32_t*` for
+//!    `VP8LConvertBGRAToRGBA`; `src/enc/picture_csp_enc.rs` builds the `u32`
+//!    samples from the RGBA bytes in native byte order, which is what the C
+//!    cast reads. A mode without a conversion debug-asserts and writes nothing,
+//!    where C asserts.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8LInverseTransform` with `row_start >= row_end` or `row_end > ysize`
+//!    (C asserts), and with input and output rows that overlap without being
+//!    equal. The batch predictors take a `WEBP_RESTRICT` output, so only the
+//!    two layouts the decoder uses, equal or disjoint, have a defined result;
+//!    both are tested.
+//! 2. `VP8LConvertFromBGRA` with `MODE_YUV`, `MODE_YUVA` or `MODE_LAST` (C
+//!    asserts).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Big-endian hosts.** `is_big_endian` is the target's byte order, and
+//!    `CopyOrSwap` keeps both branches. The host is little-endian, so the tests
+//!    compare the little-endian branches only.
+//! 2. **Compiler plumbing.** `WEBP_INLINE`, `LOCAL_INLINE` (a workaround for
+//!    GCC 4.9 on ARM), `WEBP_RESTRICT`, `WEBP_NODISCARD` (`#[must_use]`) and
+//!    `WEBP_UBSAN_IGNORE_UNSIGNED_OVERFLOW` (the wrapping operations) have no
+//!    other counterpart.
 
 use crate::dec::vp8li_dec::VP8LTransform;
 use crate::dsp::alpha_processing::{webp_apply_alpha_multiply, webp_apply_alpha_multiply4444};

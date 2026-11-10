@@ -42,6 +42,24 @@
 //! - `WebPLog2FloorC` and `WebPLogTable8bit` are the fallback of `BitsLog2Floor`
 //!   and `BitsCtz`, which GCC and Clang never compile; they use the builtins.
 //! - The `PRINT_MEM_INFO` bookkeeping is off in the reference configuration.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `BitsLog2Floor(0)` and `BitsCtz(0)`. The C builtins are undefined for
+//!    zero. The Rust `bits_ctz(0)` returns 32, the value of the portable
+//!    fallback, and `bits_log2_floor(0)` debug-asserts. Neither is compared.
+//! 2. `WebPSafeMalloc` and `WebPSafeCalloc` with a zero count or a zero size.
+//!    The C functions assert `nmemb * size > 0` on the accepted path
+//!    (`utils.c`, lines 200 and 210), so the C decision is undefined: the debug
+//!    oracle aborts, and the other variants return whatever `malloc(0)`
+//!    returns. These requests are excluded from the comparison in every
+//!    variant, and the probe exits with status 2 on a zero value.
+//!    `zero_size_requests_are_recorded_for_rust_only` (`tests/wp1_alloc.rs`)
+//!    records the Rust decision, which accepts them. A product that wraps in 64
+//!    bits fails the size test before the assertion, so it stays compared.
 
 use crate::webp::encode::WebPPicture;
 

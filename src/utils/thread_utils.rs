@@ -41,6 +41,17 @@
 //! one `Condvar`. The job (hook and two data values) moves to the thread at
 //! `launch` and comes back at `sync` or `end`; while the worker is working, the
 //! caller has no access to the data, which the borrow checker enforces.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Worker allocation.** The shared synchronization object is allocated in
+//!    `WebPWorker::init` (C: `Init`) rather than in `Reset`, so a failed
+//!    allocation cannot make `Reset` return `false`. A failed spawn still does:
+//!    `Reset` returns `false` and the status stays `NOT_OK`, as ADR 0003
+//!    requires.
 
 use std::cmp::Ordering;
 use std::panic::{self, AssertUnwindSafe};

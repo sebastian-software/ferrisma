@@ -24,6 +24,17 @@
 //! closures that own their context, which replaces `custom_ptr` and `user_data`.
 //! The inline initializers `WebPConfigInit`, `WebPConfigPreset` and
 //! `WebPPictureInit` are WP9's (exceptions in `tools/units.json`).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Shared storage per plane group.** The Y, U, V and A planes of a picture
+//!    share `yuva`, and its ARGB plane has `argb_storage`. A picture therefore
+//!    holds either owned or borrowed planes per group, and a mixed picture
+//!    cannot be represented. C allows a mix, which the library's own allocation
+//!    never creates.
 
 use crate::webp::types::{PlaneOffset, PlaneStorage};
 

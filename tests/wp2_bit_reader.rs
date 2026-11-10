@@ -16,6 +16,10 @@
 //! streams. Each stream is read past its end, and it is moved inside its buffer at
 //! random points, so `VP8RemapBitReader` is compared with the C pointer arithmetic.
 //! A reader that has no buffer receives remaps that must not change it.
+//!
+//! The test moves the input inside one allocation only, so that the C pointer
+//! difference and the index delta are the same number (see
+//! `src/utils/bit_reader_utils.rs`, `# Deviations from upstream`, item 2).
 
 #[path = "support/oracle.rs"]
 mod oracle;

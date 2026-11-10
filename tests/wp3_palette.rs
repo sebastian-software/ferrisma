@@ -9,8 +9,9 @@
 //! and pictures with one color.
 //!
 //! The sorts see distinct colors only, so the order of the C `qsort` is the
-//! ascending order (PORTING rule 8, `docs/status/wp3.md`). `kModifiedZeng` needs
-//! two colors in the picture, as its C assertion `c1 != c2` does.
+//! ascending order (PORTING rule 8, the `Sorting` paragraph in the
+//! documentation of `src/utils/palette.rs`). `kModifiedZeng` needs two colors
+//! in the picture, as its C assertion `c1 != c2` does.
 
 #[path = "support/oracle.rs"]
 mod oracle;

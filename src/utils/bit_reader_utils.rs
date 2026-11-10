@@ -45,6 +45,58 @@
 //!
 //! The bit-trace tool (`BITTRACE`) is off in the reference configuration, so the
 //! labels of the reader functions are removed, as the header's macros do.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Public fields.** The fields of the four structs (`VP8BitReader`,
+//!    `VP8LBitReader`, `VP8BitWriter` and `VP8LBitWriter`) are `pub`, as the C
+//!    structs are public in their headers, so that the tests can read the
+//!    state. The C field `buf_end` is stored as `VP8BitReader::buf_end`,
+//!    because it no longer comes from a slice length; `VP8LBitReader::len` is
+//!    stored for the same reason.
+//! 2. **Remap by an index delta.** `VP8RemapBitReader` adds a signed offset to
+//!    the positions. The owner passes the index delta of its bytes, not the
+//!    pointer difference of two allocations, which C's caller computes. Both
+//!    sides of the remap test move the input inside one allocation, so that the
+//!    C pointer difference and the index delta are the same number. The test
+//!    does not move the input to a second allocation, because a pointer
+//!    difference between two allocations contains the distance of their bases,
+//!    which an index delta does not.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8). The
+//! asan-ubsan oracle found these, and the generators keep the tests away from
+//! them:
+//!
+//! 1. `VP8LBitReaderSetBuffer` with a length shorter than the reader's position
+//!    is a parameter error (the comment of the function says so), and
+//!    upstream's own debug assertion in `VP8LIsEndOfStream` fires there. The
+//!    Rust debug assertion mirrors it. The tests substitute `fill` for such a
+//!    call.
+//! 2. `VP8LDoFillBitWindow` requires `bit_pos >= VP8L_WBITS` (debug assertion).
+//!    The tests call it only there.
+//! 3. `VP8LReadBits` with a negative count indexes `kBitMask` out of range. The
+//!    Rust index panics in every profile, after the debug assertion; C reads
+//!    outside the table. No test issues it.
+//! 4. `VP8RemapBitReader` with a position that would become negative is outside
+//!    the contract of the owner (the pointer would leave its allocation). The
+//!    Rust version panics; no test issues it.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. Layout of `repr(C)` mirrors. None of the four structs is exported by a
+//!    public header; the C declarations are internal to `bit_reader_utils.h`
+//!    and `bit_writer_utils.h`. ADR 0004 gives no ABI mirror to them.
+//! 2. The other `BITS` values of the header (8, 16, 32 and 48) are selected by
+//!    no target that upstream names, so they are not translated. `bit_t` and
+//!    `lbit_t` follow the two selected values.
 
 use crate::utils::bit_reader_inl_utils::{LBIT_BYTES, vp8_get_bit, vp8_load_new_bytes};
 use crate::utils::endian_inl_utils::h_to_le32;

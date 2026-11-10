@@ -8,6 +8,14 @@
 //! adds to is read back from the job when the worker is not working, and the
 //! job keeps the counter between runs. The C probe shares one counter variable,
 //! and each trace prints the same fields in the same order.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. `Reset` while the worker is `WORK` and the hook fails. In C the status is
+//!    read without the lock, so the result depends on timing. The success
+//!    variant is compared; the failure variant is not.
 
 #[path = "support/oracle.rs"]
 mod oracle;

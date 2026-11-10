@@ -16,6 +16,15 @@
 //! Translation of `src/webp/format_constants.h` from libwebp v1.6.0.
 //!
 //! Work package: WP1 (types, memory, workers).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`MKFOURCC` and `WEBP_ALIGN`.** `MKFOURCC` takes `u8` characters;
+//!    `WEBP_ALIGN` (`src/utils/utils.rs`) takes the address as a `usize`. Rust
+//!    code keeps no raw pointers outside the C ABI.
 
 // upstream: src/webp/format_constants.h MKFOURCC
 /// Packs four tag characters into a chunk identifier, first character lowest.
