@@ -80,7 +80,7 @@
 //!    gamma tables and stores the CPU-information function. In Rust the
 //!    dispatch functions are direct calls (ADR 0003), the tables are `LazyLock`
 //!    statics computed on first use. The ported SIMD dispatch (ADR 0008)
-//!    selects kernels independently of SharpYUV C initialization; the public
+//!    selects kernels independently of `SharpYUV` C initialization; the public
 //!    Rust API does not implement its callback override.
 //! 2. **Negative strides and steps.** Rows and pixels are addressed with a
 //!    checked signed sum from the origin, so a flipped plane works as in C when
