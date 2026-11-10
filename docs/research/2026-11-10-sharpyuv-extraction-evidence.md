@@ -17,6 +17,11 @@ The new cases use the public WebP safe function and AVIF C ABI function.
 All 16 signed-layout outputs also match fixed FNV-64 hashes from the pinned
 SharpYUV 0.4.2 C reference. The small C probe is retained at
 [`extraction_boundaries.c`](../../codecs/libavif-rs/tests/sharpyuv/extraction_boundaries.c).
+The probes allocate guard storage before and after the logical rows so the
+imported implementation's final, unused pointer advances remain within their
+allocations. This tests the declared layouts; it does not establish an ABI
+contract for minimally sized, unpadded caller arrays. That pointer arithmetic
+needs a separate safety review before extraction.
 
 Existing independent evidence remains necessary: the AVIF C oracle's 1,271
 API/corpus groups include callback reinitialization and concurrent cold
@@ -34,7 +39,7 @@ cargo fmt --all --check
 cargo test -p libavif-sharpyuv --test cross_port --profile checked --locked
 cargo test -p libavif-sharpyuv --test cross_port --release --locked
 python3 codecs/libavif-rs/tools/build_sharpyuv.py
-cc -std=c11 -O2 -I codecs/libavif-rs/upstream/libwebp \
+cc -std=c11 -O2 -Wall -Wextra -Werror -I codecs/libavif-rs/upstream/libwebp \
   codecs/libavif-rs/tests/sharpyuv/extraction_boundaries.c \
   -L codecs/libavif-rs/build/sharpyuv-reference -lsharpyuv \
   -Wl,-rpath,"$PWD/codecs/libavif-rs/build/sharpyuv-reference" \
