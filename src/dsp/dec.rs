@@ -30,8 +30,36 @@
 //! pointer from which the code also reads backwards, such as the predictors'
 //! `dst[-1]` and `dst[-BPS]` or the filters' `p[-2 * step]`, is a slice and the
 //! position of the pointer in it (ADR 0003, "Pointers"). A position outside the
-//! slice panics, where C would read or write outside the buffer (WP4,
-//! deviation 6).
+//! slice panics, where C would read or write outside the buffer (item 2 of
+//! `# Deviations from upstream` in `src/dsp/dsp.rs`).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Coefficients that overflow `TransformOne`.** Its second pass multiplies
+//!    the first-pass values by 35468 in `int`; a bitstream can code
+//!    coefficients for which that overflows (the comment in `dec.c` assumes
+//!    inputs in `[-2048, 2047]`). The DSP test keeps coefficients within
+//!    ±15000, and the decode test screens each mutated stream: it parses every
+//!    macroblock with the translation's public parser and simulates
+//!    `TransformOne`'s arithmetic on every block in 64 bits. With an earlier
+//!    seed the screen excluded one mutation, and the asan-ubsan oracle
+//!    confirmed the overflow there (`signed integer overflow: 62027 * 35468`);
+//!    with the final seed it excludes none. The Rust code panics on such input
+//!    in the dev and `checked` profiles and wraps in release.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **SIMD and NEON variants** (`dec_sse2.c`, `dec_sse41.c`, `dec_neon.c`)
+//!    belong to the SIMD modules (ADR 0008). `WEBP_NEON_OMIT_C_CODE` is 0, so
+//!    every `_C` function is compiled.
+//! 2. **Big-endian hosts.** `HE4_C` stores a byte replicated four times, which
+//!    has the same bytes in both orders; no other function in this module
+//!    depends on byte order.
 
 use crate::dsp::dec_clip_tables::{VP8KABS0, VP8KCLIP1, VP8KSCLIP1, VP8KSCLIP2};
 use crate::dsp::dsp::{

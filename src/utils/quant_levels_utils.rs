@@ -32,6 +32,25 @@
 //! Translation of `src/utils/quant_levels_utils.c` and `src/utils/quant_levels_utils.h` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`QuantizeLevels` and `WebPDequantizeLevels`.** A NULL plane is `None`,
+//!    and a NULL `sse` is `None`. The early returns leave `sse` and the plane
+//!    unchanged, as in C. The conversions of the rounded centroids to `uint8_t`
+//!    and of the error to `uint64_t` are in range for every valid input.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point.** `QuantizeLevels` and the SSIM functions
+//!    (`src/dsp/ssim.rs`) are compared bit for bit on the development host
+//!    (arm64, Apple clang, `-ffp-contract=off`). Equality on other hosts is
+//!    recorded, not assumed (`docs/PORTING.md`).
 
 // upstream: src/utils/quant_levels_utils.c NUM_SYMBOLS
 /// The number of symbols of an 8-bit plane.

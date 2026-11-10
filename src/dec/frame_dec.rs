@@ -37,8 +37,87 @@
 //!   failed `put()` is recorded in a sticky flag of the decoder, which the later
 //!   `Sync`s report as C's `had_error` does.
 //! - In the threaded path the rotation of the top samples runs before that
-//!   `put()`; their regions are disjoint (`docs/status/wp6.md`). The
-//!   single-threaded path keeps C's order.
+//!   `put()`; their regions are disjoint (see `# Deviations from upstream`,
+//!   item 1). The single-threaded path keeps C's order.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Threaded row work (ADR 0003, "Threads").** `VP8RowJob` is the worker's
+//!    data and lives in the worker, which is its home also without a thread;
+//!    `VP8New` sets it with the hook once (C sets the hook in
+//!    `InitThreadContext`). It holds the thread context, the cache rows,
+//!    `yuv_b`, `yuv_t`, `dithering_rg` and copies of `mt_method`,
+//!    `filter_type`, `dither`, `mb_w`, `mb_h`, `tl_mb_x`, `br_mb_x`, `br_mb_y`,
+//!    `num_caches` and the cache strides, refreshed before each row. `intra_t`
+//!    and `intra_l` are parse state on the calling thread; the worker mutates
+//!    `yuv_t`. The hook runs `FinishRow` without its `put()` branch; that
+//!    branch (the alpha rows, the crop and `put()`) runs on the calling thread
+//!    at the next `Sync` with the thread context's copy of the io. Outputs,
+//!    status codes, the order of hook calls and the point where a failure
+//!    surfaces are C's; the overlap of the alpha decoding and `put()` with the
+//!    next row's parsing is lost. `WebPWorker` cannot set `had_error` from
+//!    outside, so a failed `put()` sets `put_error` on the decoder, which the
+//!    later `Sync`s report as `had_error` does until `InitThreadContext` resets
+//!    the worker. In the threaded path the rotation of the top samples runs in
+//!    the job, before the `put()` that C runs first: with filtering there are 3
+//!    cache rows, the rotation happens only for cache row 2 and copies rows
+//!    `48-e..48` to `-e..0` (e = 2 or 8), while the `put()` of that row reads
+//!    `32-e..48-e`; without filtering e = 0. The single-threaded path keeps C's
+//!    order, where the regions overlap. The alpha decoding's `VP8SetError` runs
+//!    on the calling thread (C: on the worker, before the `Sync` that reports
+//!    it).
+//! 2. **`mt_method == 1`** gives the thread context its own macroblock data and
+//!    swaps it with the parser's, as `mt_method == 2` does; C shares one buffer
+//!    between them (item 1 of `# Excluded undefined behavior`). In the
+//!    single-threaded path the decoder's `mb_data` and `f_info` move into the
+//!    thread context for the row, where C points both at the same memory.
+//! 3. **Frame memory (ADR 0003, "Allocation limits").** `AllocateMemory`
+//!    applies the size test of C's total, alignment slack included, when C
+//!    would allocate, then allocates the parts separately and zeroed:
+//!    `intra_t`, `mb_info` (`mb_w + 1` entries, index 0 is C's `mb_info[-1]`),
+//!    `f_info`, `mb_data`, the alpha part, and the job's `yuv_t`, `yuv_b`, the
+//!    thread context's halves and the three cache planes with their extra rows.
+//!    C reuses its block when it is large enough; every part that C does not
+//!    initialize is written before it is read, so fresh parts decode the same.
+//!    `mem_size` keeps C's size for that decision. The C sizes of the element
+//!    types are `C_SIZE` constants (`VP8MBData` 800, `VP8TopSamples` 32,
+//!    `VP8FInfo` 4, `VP8MB` 2).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`mt_method == 1` with dithering.** `VP8GetThreadMethod` returns only 0
+//!    or 2. With 1, C dithers on the worker from `ctx->mb_data`, which is
+//!    `dec->mb_data` while the parser overwrites it: a data race. The test runs
+//!    `mt_method` 1 only without dithering (item 2 of
+//!    `# Deviations from upstream`).
+//! 2. **A second `VP8Decode` on a decoder whose alpha is decoded.**
+//!    `AllocateMemory` points `alpha_plane` at the alpha part of the reused
+//!    `dec->mem`, and with `is_alpha_decoded` set, `VP8DecompressAlphaRows`
+//!    returns rows of it that were never written. The Rust frame memory is
+//!    zeroed (`VP8AlphaPlane` in `src/dec/vp8i_dec.rs`).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Host refusals of an allocation.** The size tests of `WebPSafeMalloc`
+//!    are applied with the C totals, but a refusal by the host of an accepted
+//!    size cannot be provoked here; the Rust code returns
+//!    `VP8_STATUS_OUT_OF_MEMORY` where C does. `VP8New` and `ALPHNew` allocate
+//!    fixed-size objects, whose size test always passes; a refused host
+//!    allocation aborts.
+//! 2. **Thread start failure.** `WebPWorker::reset` fails only when the host
+//!    cannot start a thread; `InitThreadContext`'s `VP8_STATUS_OUT_OF_MEMORY`
+//!    path is translated but not provoked.
+//! 3. **Floating point.** `VP8InitRandom(&dec->dithering_rg, 1.0f)` belongs to
+//!    `src/utils/random_utils.rs`; no function in this module computes in
+//!    floating point.
 
 use crate::dec::alpha_dec::vp8_decompress_alpha_rows;
 use crate::dec::common_dec::{
@@ -945,7 +1024,8 @@ pub fn vp8_process_row(
             ctx.mb_y = *mb_y;
             ctx.filter_row = filter_row;
             // swap macroblock data; for mt_method 1 too, where C shares one
-            // buffer between the parser and the worker (docs/status/wp6.md).
+            // buffer between the parser and the worker (item 2 of `# Deviations
+            // from upstream` in the module documentation).
             std::mem::swap(&mut ctx.mb_data, mb_data);
             if *mt_method != 2 {
                 // perform reconstruction directly in main thread
@@ -1134,7 +1214,7 @@ fn init_thread_context(dec: &mut VP8Decoder) -> bool {
 /// bitstream size. Only for lossy decoding. C also takes the
 /// `WebPHeaderStructure`, which it reads only in
 /// `assert(headers == NULL || !headers->is_lossless)`; the type is WP12's, and
-/// its caller keeps the assertion (`docs/status/wp6.md`).
+/// its caller keeps the assertion.
 #[must_use]
 pub fn vp8_get_thread_method(options: Option<&WebPDecoderOptions>, width: i32, height: i32) -> i32 {
     let Some(options) = options else {

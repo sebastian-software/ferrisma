@@ -12,8 +12,9 @@
 //! That read is undefined in C; the Rust translation zeroes the scratch. The
 //! probe was also run with `MallocScribble=1`, which fills new allocations with
 //! 0xaa, and the output did not change over 400 random planes; the cases here
-//! are compared as the C build prints them, and the status page records the
-//! finding.
+//! are compared as the C build prints them. The finding is recorded in the
+//! `# Deviations from upstream` section of
+//! `src/utils/quant_levels_dec_utils.rs`.
 
 #[path = "support/oracle.rs"]
 mod oracle;

@@ -41,6 +41,27 @@
 //! and byte-order macros) become `cfg` or are not compiled in the reference
 //! configuration, which defines no SIMD, uses no sanitizer and is
 //! little-endian.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **x86 query on an arm64 host.** `x86cpu_info`, `check_slow_model` and the
+//!    x86 branch of `vp8_get_cpu_info` are compiled only on x86 targets. On an
+//!    arm64 host the x86 test `slow_model_table_matches_the_c_helper` and the
+//!    x86 answers of `cpu_query_matches_the_c_query` are not run. They are
+//!    type-checked for `x86_64-unknown-linux-gnu` with Clippy, and they run on
+//!    the Linux x86-64 CI host (ADR 0002).
+//! 2. **Platform queries.** `AndroidCPUInfo`, `armCPUInfo`, `wasmCPUInfo` and
+//!    `mipsCPUInfo` (`cpu.c`) are selected only by macros the reference
+//!    configuration does not define.
+//! 3. **`WEBP_DSP_INIT`, `WEBP_DSP_INIT_FUNC` and `WEBP_DSP_INIT_STUB`** are
+//!    the once-only guards around the `Init` functions and the stubs that
+//!    expose a symbol per module. No counterpart is needed (ADR 0003).
+//! 4. **Preprocessor and sanitizer macros** (`LOCAL_GCC_*`, `LOCAL_CLANG_*`,
+//!    `WEBP_NEON_*`, `WEBP_TSAN_IGNORE_FUNCTION`, `WEBP_UBSAN_*`, `WEBP_MSAN`,
+//!    `WEBP_OFFSET_PTR`, `WEBP_RESTRICT`, `__has_builtin`): compiler and
+//!    sanitizer plumbing that Rust expresses with `cfg` or has no need for.
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86::__cpuid_count;

@@ -50,6 +50,22 @@
 //! Translation of `src/dsp/yuv.c` and `src/dsp/yuv.h` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Tables filled by `Init`.** `WebPSamplers`, `WebPUpsamplers`,
+//!    `WebPYUV444Converters`, `WebPFilters` and `WebPUnfilters` are static
+//!    arrays of the portable functions, indexed through functions that take the
+//!    mode or the filter first (ADR 0003). The entries that C leaves NULL (the
+//!    YUV modes, and the filter `WEBP_FILTER_NONE` for the forward filter)
+//!    panic when called, where C calls NULL. The caller never reaches them in
+//!    the library.
+//! 2. **`WebPSamplerProcessPlane`** takes the row function as a generic `Fn`. C
+//!    passes `WebPSamplers[mode]`; `io_dec.c` does the same, so the Rust caller
+//!    passes a closure that calls `webp_samplers`.
 
 use crate::webp::decode::WEBP_CSP_MODE;
 

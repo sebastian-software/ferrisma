@@ -16,6 +16,20 @@
 //! Translation of `src/dsp/upsampling.c` from libwebp v1.6.0.
 //!
 //! Work package: WP4 (pixel ops).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`WebPGetLinePairConverter`** returns the function pointer of the table,
+//!    `WebPUpsampleLinePairFunc`. The C caller `picture_csp_enc.c` calls the
+//!    returned function, so a getter that returns a function type is the
+//!    faithful form.
+//! 2. **Bottom row of a line pair.** C passes `bottom_y` and `bottom_dst`,
+//!    which are NULL together in use. The Rust form takes one
+//!    `Option<(&[u8], &mut [u8])>`. C also allows `bottom_dst` without
+//!    `bottom_y`, where it is not written; the Rust callers pass `None` there.
 
 use crate::dsp::yuv::{
     vp8_yuv_to_argb, vp8_yuv_to_bgr, vp8_yuv_to_bgra, vp8_yuv_to_rgb, vp8_yuv_to_rgb565,

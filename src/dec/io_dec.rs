@@ -26,8 +26,47 @@
 //! is defined and `WEBP_REDUCE_SIZE` is not in the reference configuration, so
 //! the fancy upsampler and the rescaling paths are translated; `WEBP_SWAP_16BIT_CSP`
 //! is 0. The WP4 helpers that take a stride accept only non-negative strides
-//! (WP4, deviation 6); where C passes the negative stride of a flipped output
-//! buffer, they are called one row at a time with C's row arithmetic.
+//! (item 2 of `# Deviations from upstream` in `src/dsp/dsp.rs`); where C passes
+//! the negative stride of a flipped output buffer, they are called one row at a
+//! time with C's row arithmetic.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Flipped output in `io_dec.c`.** The helpers of `src/dsp` that take a
+//!    stride accept only non-negative strides (item 2 of
+//!    `# Deviations from upstream` in `src/dsp/dsp.rs`). Where C passes the
+//!    negative stride of a flipped buffer to `WebPDispatchAlpha`,
+//!    `WebPApplyAlphaMultiply`, `WebPApplyAlphaMultiply4444`, `WebPMultRows` or
+//!    `WebPSamplerProcessPlane`, `io_dec.rs` calls them one row at a time with
+//!    C's row arithmetic. Row positions are computed per row from the plane's
+//!    offset, so no position is formed past the last row. The rescalers receive
+//!    the plane's first row as `dst_pos` and the signed stride. In
+//!    `EmitRescaledAlphaYUV`, C reads the alpha rows from the output while it
+//!    writes the luma rows; the planes may share one region here, so the alpha
+//!    rows are copied first.
+//! 2. **`WebPInitCustomIo`** returns `CustomIo`, which borrows the parameters
+//!    and the output buffer and implements `VP8IoHooks`; `VP8Io` has no hook
+//!    fields, so `io` is left as it is. `ALPHInit`'s
+//!    `WebPInitCustomIo(NULL, io)` has nothing to set. `p->memory` holds only
+//!    what C carves besides the rescalers: the fancy upsampler's rows, or the
+//!    RGB rescalers' output rows (the rescalers own their work rows and point
+//!    at their row through `dst_pos`). The size test applies to C's total,
+//!    rescaler structs and alignment included. `CustomTeardown` drops the
+//!    rescalers with the memory, where C leaves their pointers dangling.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Output buffers smaller than the output, overlapping planes, or a
+//!    `WebPDecBufferPlanes` variant that does not match the colorspace**, as in
+//!    item 3 of `# Excluded undefined behavior` in `src/dec/vp8l_dec.rs`; and a
+//!    YUVA output without an A plane while the picture has alpha, which C
+//!    writes through `NULL`.
 
 use crate::dec::vp8_dec::{VP8Io, VP8IoHooks, VP8IoRows};
 use crate::dec::webp_dec::webp_io_init_from_options;

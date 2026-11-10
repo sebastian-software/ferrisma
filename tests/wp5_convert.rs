@@ -16,6 +16,34 @@
 //! included. The output starts as 0xA5 bytes, as the probe's does. The last 64
 //! groups run with negative row strides and pixel steps (ADR 0003), which the
 //! inventory does not contain.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **NULL arguments.** The C inventory passes NULL to
+//!    `SharpYuvOptionsInitInternal` and to `SharpYuvConvertWithOptions` for
+//!    each of the six pointer arguments. The Rust API takes references, so NULL
+//!    is not representable (PORTING rule 8). No SharpYUV C ABI is planned
+//!    (ADR 0004), so these cases are not applicable to the safe API. A future
+//!    SharpYUV ABI must run them. The probes still run them on the C side and
+//!    require the result 0 (`csp.c` and `convert.c` exit nonzero otherwise);
+//!    they are not printed.
+//! 2. **`SharpYuvInit`, the CPU-information pointer and the repeated callback
+//!    initialization.** The inventory's three calls with a callback and its
+//!    `SharpYuvInit(NULL)` call depend on `SharpYuvInit`, which stays absent
+//!    (item 1 of `# Representation` in `src/sharpyuv/sharpyuv.rs`).
+//!    `SharpYuvGetCPUInfo` is translated in `src/sharpyuv/sharpyuv_cpu.rs`.
+//! 3. **Allocation failure.** The inventory injects failures into the seven
+//!    conversion allocations. The library has no test-only allocator
+//!    (ADR 0003), so the `try_reserve_exact` failure path, which returns
+//!    `false`, is not tested.
+//! 4. **Input immutability.** The input planes are `&[u8]`, so the library
+//!    cannot write them. The probe checks that its input buffer is unchanged
+//!    and exits nonzero otherwise; the guard bytes of every output plane are
+//!    checked the same way.
+//! 5. **Thread sanitizer.** Not run. The concurrent cold conversions pass in
+//!    the normal build and under the asan-ubsan oracle.
 
 #[path = "support/oracle.rs"]
 mod oracle;

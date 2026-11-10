@@ -13,7 +13,8 @@
 //      (rgb, yuv, transfer, matrix, layout, width, height, seed).
 //   4. reject-I: 15 calls with one argument replaced by a value the C function
 //      rejects. The six NULL-pointer rejections are not printed: the Rust API takes
-//      references, so NULL exists only at the C ABI (docs/status/wp5.md).
+//      references, so NULL exists only at the C ABI (tests/wp5_convert.rs,
+//      "Checks not applicable", item 1).
 //   5. flipped-I: 64 seeded conversions whose input rows, input pixels and output
 //      rows may run backwards (negative strides and steps, as ADR 0003 allows). The
 //      origin is then the last row or pixel, and the logical image is the same.
@@ -369,7 +370,8 @@ int main(int argc, char* argv[]) {
   }
 
   // The six NULL-pointer rejections of the inventory, not printed: each must
-  // return 0 (the Rust API has no NULL; see docs/status/wp5.md).
+  // return 0 (the Rust API has no NULL; see tests/wp5_convert.rs, "Checks not
+  // applicable", item 1).
   for (i = 0; i < 6; ++i) {
     static const int kNullIndex[6] = {0, 1, 2, 6, 8, 10};
     Case c = {10, 10, 13, 0, 0, 3, 3, 111, 1, kNullIndex[i], 0};

@@ -23,7 +23,7 @@
 //! allocated (`frame_dec.c`, `AllocateMemory`). The data that `FinishRow` and,
 //! for `mt_method == 2`, `ReconstructRow` mutate on the worker thread is
 //! [`VP8RowJob`], which moves into the worker at `Launch` and returns at `Sync`
-//! (ADR 0003, "Threads"; `docs/status/wp6.md` describes the split). The
+//! (ADR 0003, "Threads"; `src/dec/frame_dec.rs` describes the split). The
 //! functions that this header declares are translated where C defines them.
 
 use crate::dec::alphai_dec::ALPHDecoder;
