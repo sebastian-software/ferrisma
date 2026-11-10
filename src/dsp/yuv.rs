@@ -597,6 +597,8 @@ pub fn webp_convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
 
 // upstream: src/dsp/yuv.c WebPConvertRGBA32ToUV
 // The dispatch to `WebPConvertRGBA32ToUV_C`, as for `WebPConvertARGBToY`.
+/// With `simd` on 64-bit ARM, sums of 32768 or more follow upstream's NEON
+/// kernel, not the C function (`src/dsp/yuv_neon.rs`, checks not applicable 2).
 pub fn webp_convert_rgba32_to_uv(rgb: &[u16], u: &mut [u8], v: &mut [u8], width: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {

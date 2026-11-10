@@ -52,9 +52,10 @@
 //!    8 to 14. Larger values, which the converter never produces, can wrap in
 //!    a lane where C computes in `int`: `tests/wp5_dsp.rs` draws chroma from
 //!    `-16384..16384` also at the bit depth 10, where
-//!    `SharpYuvFilterRow16_NEON` overflows its 16-bit sums, so against the
-//!    reference oracle that test differs with `simd` on; against the
-//!    `release-simd` oracle it gives upstream's NEON bytes.
+//!    `SharpYuvFilterRow16_NEON` overflows its 16-bit sums; against the
+//!    `release-simd` oracle the Rust kernel gave upstream's NEON bytes for
+//!    them, and since the dispatch selects the kernel, that test verifies the
+//!    C translation directly (the pattern decided on issue #28).
 
 use core::arch::aarch64::{
     vabsq_s16, vaddl_s16, vaddq_s16, vaddq_s32, vaddw_s16, vcombine_u16, vdupq_n_s16, vdupq_n_u16,

@@ -146,6 +146,9 @@ pub fn sharp_yuv_update_rgb(src: &[i16], r#ref: &[i16], dst: &mut [i16], len: i3
 }
 
 // upstream: sharpyuv/sharpyuv_dsp.h SharpYuvFilterRow
+/// With `simd` on 64-bit ARM, chroma values beyond the converter's bit depth
+/// follow upstream's NEON kernel, not the C function
+/// (`src/sharpyuv/sharpyuv_neon.rs`, checks not applicable 1).
 pub fn sharp_yuv_filter_row(
     a: &[i16],
     b: &[i16],

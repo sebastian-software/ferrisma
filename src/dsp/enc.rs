@@ -986,7 +986,9 @@ pub fn vp8_collect_histogram(
 // upstream: src/dsp/enc.c VP8ITransform
 /// Does one of two inverse transforms. If `do_two` is set, the transforms will
 /// be done for (ref, in, dst) and (ref + 4, in + 16, dst + 4) (C: the
-/// `VP8ITransform` pointer).
+/// `VP8ITransform` pointer). With `simd` on 64-bit ARM, coefficients above
+/// about 5,000 in magnitude follow upstream's NEON kernel, not the C function
+/// (`src/dsp/enc_neon.rs`, checks not applicable 9).
 pub fn vp8i_transform(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -1126,7 +1128,9 @@ pub fn vp8sse4x4(a: &[u8], b: &[u8]) -> i32 {
 }
 
 // upstream: src/dsp/enc.c VP8TDisto4x4
-/// The weights contain a row-major 4 by 4 symmetric matrix.
+/// The weights contain a row-major 4 by 4 symmetric matrix. With `simd` on
+/// 64-bit ARM, weights that are not symmetric follow upstream's NEON kernel,
+/// not the C function (`src/dsp/enc_neon.rs`, checks not applicable 8).
 #[must_use]
 pub fn vp8t_disto4x4(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
@@ -1141,6 +1145,9 @@ pub fn vp8t_disto4x4(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
 }
 
 // upstream: src/dsp/enc.c VP8TDisto16x16
+/// With `simd` on 64-bit ARM, weights that are not symmetric follow
+/// upstream's NEON kernel, not the C function (`src/dsp/enc_neon.rs`, checks
+/// not applicable 8).
 #[must_use]
 pub fn vp8t_disto16x16(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]

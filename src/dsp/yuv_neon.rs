@@ -59,9 +59,11 @@
 //!    samples after the gamma mapping of `picture_csp_enc.c`, at most 1020,
 //!    and below 32768 the kernel equals the C function: every product and
 //!    sum fits its lane, and the saturating narrowing clips as `VP8ClipUV`
-//!    does. `tests/wp20_yuv.rs` compares the two over that whole range;
-//!    against the `release-simd` oracle, whose probe passes random 16-bit
-//!    values, `tests/wp4_yuv.rs` gives upstream's NEON bytes.
+//!    does. `tests/wp20_yuv.rs` compares the two over that whole range, and
+//!    the `release-simd` oracle, whose WP4 probe passes random 16-bit values,
+//!    the full one: there the Rust kernel gave upstream's NEON bytes. Since
+//!    the dispatch selects the kernel, `tests/wp4_yuv.rs` verifies the C
+//!    translation directly (decided on issue #28).
 
 use core::arch::aarch64::{
     int16x4_t, int16x8_t, uint8x8_t, uint16x8_t, vaddq_s16, vaddq_u16, vcombine_s16, vcombine_u16,

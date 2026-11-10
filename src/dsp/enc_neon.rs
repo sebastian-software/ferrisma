@@ -101,6 +101,25 @@
 //! 6. **`WEBP_RESTRICT`** has no counterpart: the slices cannot alias.
 //! 7. **The assertion of `Quantize_NEON`** (`QFIX == 17`) tests a constant;
 //!    it is a compile-time assertion.
+//! 8. **Parity of `Disto4x4_NEON` and `Disto16x16_NEON` for weights that are
+//!    not symmetric.** The kernels sum the weighted coefficients in
+//!    transposed order, which `VP8TDisto4x4` permits by documenting `w` as a
+//!    symmetric 4 by 4 matrix; the encoder passes `kWeightY` and
+//!    `kWeightTrellis`, both symmetric, and for them the kernels equal the C
+//!    functions (`tests/wp20_enc.rs`). For other weights upstream's kernels,
+//!    and the translation, differ from C; `tests/wp10_dsp.rs`, whose records
+//!    draw random weights, verifies the C translations directly (decided on
+//!    issue #28).
+//! 9. **Parity of `ITransform_NEON` for coefficients above about 5,000 in
+//!    magnitude.** The kernel computes in saturating 16-bit lanes where C
+//!    computes in `int`, so the two differ once an intermediate sum
+//!    saturates; the encoder's dequantized coefficients stay below about
+//!    2,300, and the parity test covers magnitudes up to 4,096.
+//!    `tests/wp10_dsp.rs`, whose records reach 15,000, verifies the C
+//!    translation directly.
+//! 10. **`IsFlat_NEON` with no block and a negative threshold** answers
+//!     `thresh >= 0`, false, where `IsFlat_C` answers true; the encoder
+//!     passes 1, 8 or 16 blocks and the thresholds 0, 2 and 3.
 
 use core::arch::aarch64::{
     int16x4_t, int16x4x4_t, int16x8_t, int16x8x2_t, int16x8x4_t, int32x2_t, int32x4x4_t, uint8x8_t,
