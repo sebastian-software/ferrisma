@@ -15,6 +15,9 @@
 //! decoder over its own buffer with the same options equals; `WebPINewRGB`,
 //! `WebPINewYUVA`, `WebPINewYUV` and `WebPINewDecoder` set no options and are
 //! replayed with `Config::new(mode)`.
+//!
+//! The two largest vectors are left out, as in `tests/wp12_incremental.rs`
+//! (see `tests/wp16_decode.rs`).
 
 #[path = "support/oracle.rs"]
 mod oracle;

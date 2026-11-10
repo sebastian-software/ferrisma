@@ -14,9 +14,9 @@
 //! output for X rows built from the same pixels, with random fourth bytes, is
 //! compared with C's output for the RGB and BGR commands.
 //!
-//! Excluded (undefined behavior in C, `docs/status/wp9.md`):
-//! `WebPEncodeLosslessRGBA` on rows whose starts are not aligned for
-//! `uint32_t`.
+//! Excluded (undefined behavior in C, see `# Excluded undefined behavior` in
+//! `src/enc/picture_csp_enc.rs`): `WebPEncodeLosslessRGBA` on rows whose
+//! starts are not aligned for `uint32_t`.
 
 #[path = "support/oracle.rs"]
 mod oracle;

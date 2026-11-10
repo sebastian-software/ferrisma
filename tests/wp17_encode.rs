@@ -25,6 +25,9 @@
 //! `VP8_ENC_ERROR_INVALID_CONFIGURATION`); the test prints C's code for them
 //! and so checks that the observable state (no callback, untouched
 //! statistics) is C's.
+//!
+//! Floating point results (PSNR) are compared bit for bit on the host that
+//! runs the test; equality on other hosts is not assumed.
 
 #[path = "support/oracle.rs"]
 mod oracle;
