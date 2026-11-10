@@ -31,9 +31,53 @@ pub struct Case {
 /// Builds the cases of one module.
 pub type Cases = fn() -> Vec<Case>;
 
+#[cfg(target_arch = "aarch64")]
+mod alpha_processing_neon;
+#[cfg(target_arch = "aarch64")]
+mod cost_neon;
+#[cfg(target_arch = "aarch64")]
+mod dec_neon;
+#[cfg(target_arch = "aarch64")]
+mod enc_neon;
+#[cfg(target_arch = "aarch64")]
+mod filters_neon;
+#[cfg(target_arch = "aarch64")]
+mod lossless_enc_neon;
+#[cfg(target_arch = "aarch64")]
+mod lossless_neon;
+#[cfg(target_arch = "aarch64")]
+mod sharpyuv_neon;
+#[cfg(target_arch = "aarch64")]
+mod upsampling_neon;
+#[cfg(target_arch = "aarch64")]
+mod yuv_neon;
+
 /// The registered modules: a name to select on the command line and the
-/// function that builds its cases. The SIMD packages add their entries here.
-const MODULES: &[(&str, Cases)] = &[];
+/// function that builds its cases. The SIMD packages add their entries here;
+/// WP20's NEON modules (named after their `src/dsp` module) run on 64-bit ARM,
+/// with the C rows only in the scalar build.
+const MODULES: &[(&str, Cases)] = &[
+    #[cfg(target_arch = "aarch64")]
+    ("alpha_processing_neon", alpha_processing_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("cost_neon", cost_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("dec_neon", dec_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("enc_neon", enc_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("filters_neon", filters_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("lossless_enc_neon", lossless_enc_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("lossless_neon", lossless_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("sharpyuv_neon", sharpyuv_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("upsampling_neon", upsampling_neon::cases),
+    #[cfg(target_arch = "aarch64")]
+    ("yuv_neon", yuv_neon::cases),
+];
 
 /// Calls per measurement.
 const CALLS: u32 = 2_000;
