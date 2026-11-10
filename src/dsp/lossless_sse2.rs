@@ -852,7 +852,7 @@ pub(crate) fn add_green_to_blue_and_red(
 // upstream: src/dsp/lossless_sse2.c CST
 /// sign-extended multiplying constants, pre-shifted by 5.
 #[inline]
-pub(crate) fn cst(x: u8) -> i32 {
+fn cst(x: u8) -> i32 {
     i32::from((u16::from(x) << 8).cast_signed()) >> 5 // sign-extend
 }
 

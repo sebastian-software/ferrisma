@@ -723,6 +723,11 @@ pub fn vp8l_transform_color_inverse(
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_sse41::transform_color_inverse(
+                m, data, src_pos, num_pixels, dst_pos,
+            );
+        }
         if features.sse2 {
             return crate::dsp::lossless_sse2::transform_color_inverse(
                 m, data, src_pos, num_pixels, dst_pos,
@@ -1096,6 +1101,9 @@ pub fn vp8l_convert_bgra_to_rgb(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_sse41::convert_bgra_to_rgb(src, num_pixels, dst);
+        }
         if features.sse2 {
             return crate::dsp::lossless_sse2::convert_bgra_to_rgb(src, num_pixels, dst);
         }
@@ -1172,6 +1180,9 @@ pub fn vp8l_convert_bgra_to_bgr(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_sse41::convert_bgra_to_bgr(src, num_pixels, dst);
+        }
         if features.sse2 {
             return crate::dsp::lossless_sse2::convert_bgra_to_bgr(src, num_pixels, dst);
         }
