@@ -9,7 +9,7 @@ mod oracle;
 
 use oracle::{Fields, Oracle};
 use webp::sharpyuv::sharpyuv_dsp::{
-    sharp_yuv_filter_row, sharp_yuv_update_rgb, sharp_yuv_update_y,
+    sharp_yuv_filter_row_c, sharp_yuv_update_rgb, sharp_yuv_update_y,
 };
 
 const CASES: u64 = 200;
@@ -120,7 +120,12 @@ fn dispatch_functions_match_the_c_functions() {
             .map(|_| rng.sample(bit_depth))
             .collect();
         let mut out = vec![0_u16; 2 * MAX_LEN + 2];
-        sharp_yuv_filter_row(&a, &b, len, &best_y, &mut out, bit_depth);
+        // The C translation `SharpYuvFilterRow_C`, which the case verifies:
+        // with `simd` on 64-bit ARM the dispatch selects upstream's NEON
+        // kernel, whose 16-bit filter (bit depth 10) wraps for chroma values
+        // of this magnitude, which `SharpYuvConvert` never produces (WP20;
+        // `tests/wp20_sharpyuv.rs` covers the NEON kernel).
+        sharp_yuv_filter_row_c(&a, &b, len, &best_y, &mut out, bit_depth);
         expected = expected
             .with("group", format!("filter-row-{case}"))
             .hex("out", &hex_u16(&out));
