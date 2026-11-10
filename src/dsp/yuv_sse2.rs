@@ -64,18 +64,8 @@
 //!
 //! # Excluded undefined behavior
 //!
-//! 1. **`WebPConvertRGBA32ToUV` inputs from 32768 up.** `ConvertRGBA32ToUV_SSE2`
-//!    multiplies the `uint16_t` samples in signed 16-bit lanes
-//!    (`_mm_madd_epi16`), which read a value from 32768 up as negative, where
-//!    `WebPConvertRGBA32ToUV_C` computes in `int`; upstream's SSE2 and C
-//!    outputs differ there. This is upstream's divergence, not undefined
-//!    behavior: the port reproduces upstream's SSE2 arithmetic, and the WP4
-//!    differential test passes against the `release-simd` oracle. Its callers
-//!    (`picture_csp_enc.c`) pass sums of at most four pixels, 0 to 1020, so
-//!    the parity tests draw values up to 32767 only, where SSE2 and C agree.
-//!    Every other function gives the bytes of the C function it replaces for
-//!    every input (`yuv.h` defines the C conversions to emulate these 16-bit
-//!    lanes, `MultHi` for `_mm_mulhi_epu16`).
+//! None: the functions read and write only the bytes of their slices, and
+//! their arithmetic is defined in every lane.
 //!
 //! # Checks not applicable
 //!
@@ -89,6 +79,21 @@
 //! 3. **Differential probe.** The parity tests compare each function with the
 //!    C translation it replaces (`tests/wp18_yuv.rs`); the diagnostic
 //!    `release-simd` oracle runs the WP4 probes against upstream's SSE2.
+//! 4. **Comparison with the reference oracle outside the shared domain.**
+//!    `ConvertRGBA32ToUV_SSE2` (`webp_convert_rgba32_to_uv`) multiplies the
+//!    `uint16_t` samples in signed 16-bit lanes (`_mm_madd_epi16`), which read
+//!    a value from 32768 up as negative, where `WebPConvertRGBA32ToUV_C`
+//!    computes in `int`; upstream's SSE2 and C outputs differ there. Its
+//!    callers (`picture_csp_enc.c`) pass sums of at most four pixels, 0 to
+//!    1020, and the parity tests draw values up to 32767, where SSE2 and C
+//!    agree. Outside that domain the port computes what upstream's SSE2 build
+//!    computes: `tests/wp4_yuv.rs`, whose `rgba_uv` cases draw full-range
+//!    samples, matched the `release-simd` oracle with the SIMD converters
+//!    selected; its comparison with the reference oracle selects the C
+//!    translation for exactly those cases through `VP8GetCPUInfo = NULL`, as
+//!    `-noasm` does (ADR 0008). Every other function gives the bytes of the C
+//!    function it replaces for every input (`yuv.h` defines the C conversions
+//!    to emulate these 16-bit lanes, `MultHi` for `_mm_mulhi_epu16`).
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86 as arch;

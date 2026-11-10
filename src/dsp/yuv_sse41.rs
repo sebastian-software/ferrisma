@@ -58,11 +58,8 @@
 //!
 //! # Excluded undefined behavior
 //!
-//! 1. **`WebPConvertRGBA32ToUV` inputs from 32768 up**, as in `yuv_sse2.rs`
-//!    (exclusion 1): `ConvertRGBA32ToUV_SSE41` reads them as negative 16-bit
-//!    values where the C function computes in `int`, which is upstream's
-//!    divergence; the parity tests draw values up to 32767. Every other
-//!    function gives the bytes of the C function for every input.
+//! None: the functions read and write only the bytes of their slices, and
+//! their arithmetic is defined in every lane.
 //!
 //! # Checks not applicable
 //!
@@ -72,6 +69,13 @@
 //! 2. **Differential probe.** The parity tests compare each function with the
 //!    C translation it replaces (`tests/wp18_yuv.rs`); the diagnostic
 //!    `release-simd` oracle runs the WP4 probes against upstream's SSE4.1.
+//! 3. **Comparison with the reference oracle outside the shared domain.**
+//!    `ConvertRGBA32ToUV_SSE41` reads `WebPConvertRGBA32ToUV` samples from
+//!    32768 up as negative 16-bit values where the C function computes in
+//!    `int`, as in `yuv_sse2.rs` (check 4), which records the domain, the
+//!    parity tests' range and the WP4 test that selects the C translation
+//!    outside it. Every other function gives the bytes of the C function for
+//!    every input.
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86 as arch;
