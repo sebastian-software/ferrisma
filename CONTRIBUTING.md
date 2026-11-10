@@ -41,4 +41,4 @@ Unless explicitly stated otherwise, contributions intentionally submitted to Fer
 
 ## Codec changes
 
-Follow [the shared codec development guide](docs/codecs.md). Use one branch for a codec change and its Ferrixel integration. Keep the codec-local porting and oracle contracts, and run its scoped checks through `scripts/check-codecs.py`.
+Follow [the shared codec development guide](docs/codecs.md). Use one branch for a codec change and its Ferrixel integration. Keep the codec-local porting and oracle contracts, and run its scoped fast loop, for example `cargo xtask codecs --codec webp --stage pr`.

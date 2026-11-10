@@ -4,6 +4,8 @@
 - Created: 2026-10-31
 - Updated: 2026-11-10
 
+> **2026-11-10 amendment:** [Ferrixel ADR-0027](../../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) supersedes the ordinary PR C++ oracle and full local macOS check on every ported-code change. The rationale and evidence below remain historical; deep validation and platform acceptance still apply under that decision.
+
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
 separate oracle executable and compare its observations with Rust.

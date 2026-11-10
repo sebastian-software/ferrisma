@@ -1,114 +1,177 @@
 name: CI
-
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
-
+permissions:
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  rust:
-    runs-on: ubuntu-latest
+  affected:
+    runs-on: ubuntu-24.04
+    outputs:
+      engine: ${{ steps.scope.outputs.engine }}
+      kernels: ${{ steps.scope.outputs.kernels }}
+      adapter: ${{ steps.scope.outputs.adapter }}
+      workspace: ${{ steps.scope.outputs.workspace }}
+      has-codecs: ${{ steps.scope.outputs.has-codecs }}
+      matrix: ${{ steps.scope.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Activate the root toolchain and components
-        run: rustup show active-toolchain
-      - name: Install AV1 assembler for optional rav1d backend
-        run: sudo apt-get update -qq && sudo apt-get install -y nasm
-      - name: Format
-        run: cargo fmt --all --check
-      - name: Report SIMD kernel levels exercised on this runner
-        run: cargo run -p ferrixel-kernels --example detect
-      - name: Kernel throughput per level (informational)
-        run: cargo run --release -p ferrixel-kernels --example bench
-      - name: Test core and kernels without codecs
-        run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
-      - name: Test with optional codecs
-        run: cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
-      - name: Lint core without codecs
-        run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets -- -D warnings
-      - name: Lint with optional codecs
-        run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features -- -D warnings
-      - name: Check individually enabled features
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: cargo fetch --locked
+      - id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT: ${{ github.event_name }}
+          PUSH_BASE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
         run: |
+          if [ "$EVENT" = pull_request ]; then
+            cargo xtask affected --base "$BASE" --head "$HEAD" --output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = push ] && [ -n "$PUSH_BASE" ] && ! [[ "$PUSH_BASE" =~ ^0+$ ]]; then
+            cargo xtask affected --base "$PUSH_BASE" --head "$PUSH_HEAD" --output "$GITHUB_OUTPUT"
+          else
+            cargo xtask affected --all --output "$GITHUB_OUTPUT"
+          fi
+  rust:
+    needs: affected
+    if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: sudo apt-get update -qq && sudo apt-get install -y nasm
+      - run: cargo fetch --locked
+      - run: cargo fmt --all --check
+      - run: cargo test -p ferrixel-xtask --locked
+      - run: cargo clippy -p ferrixel-xtask --all-targets --locked -- -D warnings
+      - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
+      - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
+      - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets -- -D warnings
+      - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features -- -D warnings
+      - run: |
           for feature in jpeg-read jpeg-xl-read avif-read avif-write icc cli; do
             cargo check --no-default-features --features "$feature"
           done
-      - name: Verify license metadata expression policy
-        run: python3 scripts/test_audit_licenses.py
-      - name: Screen transitive license metadata
-        run: python3 scripts/audit-licenses.py
-      - name: Attach the resolved dependency inventory
-        if: always()
+      - run: python3 scripts/test_audit_licenses.py && python3 scripts/audit-licenses.py
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: m1-license-metadata
           path: target/m1-license-inventory.csv
           if-no-files-found: ignore
-
   minimum-rust:
-    runs-on: ubuntu-latest
+    needs: affected
+    if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true'
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@1.98.0
-      - name: Install AV1 assembler
-        run: sudo apt-get update -qq && sudo apt-get install -y nasm
-      - name: Check all feature combinations on declared MSRV
-        run: cargo +1.98.0 check -p ferrixel -p ferrixel-kernels --all-features
-
-  # NEON kernels on Linux Arm (and SVE2 detection where the runner has it).
+      - run: sudo apt-get update -qq && sudo apt-get install -y nasm
+      - run: cargo +1.98.0 fetch --locked
+      - run: cargo +1.98.0 check -p ferrixel -p ferrixel-kernels --all-features --locked
+      - run: cargo +1.98.0 check -p ferrixel-xtask --all-targets --locked
   kernels-arm:
+    needs: affected
+    if: needs.affected.outputs.kernels == 'true' || needs.affected.outputs.engine == 'true'
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
-      - name: Activate the root toolchain and components
-        run: rustup show active-toolchain
-      - name: Report SIMD kernel levels exercised on this runner
-        run: cargo run -p ferrixel-kernels --example detect
-      - name: Kernel throughput per level (informational)
-        run: cargo run --release -p ferrixel-kernels --example bench
-      - name: Test core and kernels without codecs
-        run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
-      - name: Lint kernels
-        run: cargo clippy -p ferrixel-kernels --all-targets -- -D warnings
-
-  # libavif-rs encoder adapter (ADRs 0024 and 0026), in the shared workspace.
-  # The root toolchain pins its required nightly. libavif-rs builds on aarch64 macOS and
-  # x86-64 GNU Linux; its AOM is built without VMAF tuning, so no native
-  # libraries are needed.
-  libavif-backend:
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: crates/ferrixel-libavif
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install the pinned nightly from rust-toolchain.toml
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Format
-        run: cargo fmt --check
-      - name: Lint
-        run: cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings
-      - name: Test (decodes with libavif-rs's own decoder)
-        run: cargo test --release --all-features --locked
-
-  # The same adapter on x86-64 GNU Linux.
-  libavif-backend-linux:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: cargo fetch --locked
+      - run: cargo run -p ferrixel-kernels --example detect
+      - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
+      - run: cargo clippy -p ferrixel-kernels --all-targets -- -D warnings
+  workspace:
+    needs: affected
+    if: needs.affected.outputs.workspace == 'true' || needs.affected.outputs.adapter == 'true'
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: crates/ferrixel-libavif
     steps:
-      - uses: actions/checkout@v4
-      - name: Install build tools
-        run: sudo apt-get update -qq && sudo apt-get install -y ninja-build pkg-config nasm
-      - name: Install the pinned nightly from rust-toolchain.toml
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Lint
-        run: cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings
-      - name: Test (decodes with libavif-rs's own decoder)
-        run: cargo test --release --all-features --locked
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: sudo apt-get update -qq && sudo apt-get install -y ninja-build pkg-config nasm
+      - run: cargo fetch --locked
+      - run: cargo check --workspace --all-targets --locked
+      - run: cargo test -p libavif-sharpyuv --test cross_port --profile checked --locked
+      - run: cargo test -p libavif-sharpyuv --test cross_port --release --locked
+      - working-directory: crates/ferrixel-libavif
+        run: |
+          cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings
+          cargo test --release --all-features --locked
+      - working-directory: codecs/libavif-rs
+        run: |
+          python3 tools/verify_upstream.py --tracked
+          python3 tools/check_translation.py
+          python3 tools/generate_licenses.py --check
+          python3 -m unittest discover -s tests/ports -p '*_test.py'
+  codecs:
+    needs: affected
+    if: needs.affected.outputs.has-codecs == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.affected.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # Separate cache namespaces keep architectures and codec feature sets isolated.
+      - name: Restore codec build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: target
+          key: codec-pr-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.codec }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'codecs/libjxl-rs/.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            codec-pr-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.codec }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'codecs/libjxl-rs/.cargo/config.toml') }}-
+      - name: Initialize pinned codec references
+        env:
+          CODEC: ${{ matrix.codec }}
+        run: |
+          case "$CODEC" in
+            jpeg) git submodule update --init codecs/libjpeg-turbo-rs/upstream/libjpeg-turbo ;;
+            webp) git submodule update --init codecs/libwebp-rs/upstream/libwebp codecs/libwebp-rs/upstream/libwebp-test-data ;;
+            jxl)
+              git submodule update --init --depth 1 codecs/libjxl-rs/upstream/libjxl
+              git -C codecs/libjxl-rs/upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
+              ;;
+            avif) ;;
+            *) exit 1 ;;
+          esac
+      - run: cargo fetch --locked
+      - run: rustup toolchain install stable --profile minimal --component clippy
+      - run: rustup toolchain install 1.95 --profile minimal
+      - env:
+          CODEC: ${{ matrix.codec }}
+          ARCH: ${{ runner.arch }}
+        run: |
+          if [ "$ARCH" = ARM64 ]; then
+            cargo xtask codecs --codec "$CODEC" --stage pr --tests-only
+          else
+            cargo xtask codecs --codec "$CODEC" --stage pr
+          fi
+  checks-passed:
+    name: Checks passed
+    if: always()
+    needs: [affected, rust, minimum-rust, kernels-arm, workspace, codecs]
+    runs-on: ubuntu-24.04
+    env:
+      DETECTOR: ${{ needs.affected.result }}
+      CORE: ${{ needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true' }}
+      WORKSPACE: ${{ needs.affected.outputs.workspace == 'true' || needs.affected.outputs.adapter == 'true' }}
+      CODECS: ${{ needs.affected.outputs.has-codecs }}
+      RUST: ${{ needs.rust.result }}
+      MSRV: ${{ needs.minimum-rust.result }}
+      ARM: ${{ needs.kernels-arm.result }}
+      INTEGRATION: ${{ needs.workspace.result }}
+      CODEC_RESULT: ${{ needs.codecs.result }}
+    steps:
+      - run: |
+          [ "$DETECTOR" = success ] || exit 1
+          check() { if [ "$1" = true ]; then [ "$2" = success ]; else [ "$2" = skipped ]; fi; }
+          check "$CORE" "$RUST" && check "$CORE" "$MSRV" && check "$CORE" "$ARM" && check "$WORKSPACE" "$INTEGRATION" && check "$CODECS" "$CODEC_RESULT"

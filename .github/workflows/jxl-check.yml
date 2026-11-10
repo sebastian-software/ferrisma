@@ -1,13 +1,13 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'JXL: Checks'
 'on':
-  pull_request: null
-  push:
-    branches:
-    - main
-  schedule:
-  - cron: 17 2 * * *
   workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run the hosted macOS jobs of the deep gate
+        type: boolean
+        default: false
+  workflow_call:
     inputs:
       macos:
         description: Also run the hosted macOS jobs of the deep gate
@@ -16,7 +16,7 @@ name: 'JXL: Checks'
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: jxl-check-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   CC: clang
@@ -29,8 +29,9 @@ jobs:
     name: 'JXL: Static checks (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
-        os: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.macos))
+        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos)
           && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -51,10 +52,11 @@ jobs:
       && matrix.oracle == ''ordinary'' && 2 || 4 }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
-        os: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.macos))
+        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos)
           && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
-        oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ordinary",
+        oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos) && '["ordinary",
           "sanitized"]' || '["ordinary"]') }}
         shard:
         - 1
@@ -124,9 +126,10 @@ jobs:
         working-directory: codecs/libjxl-rs
   audit:
     name: 'JXL: Audit (${{ matrix.os }}, ${{ matrix.group }})'
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos) && '["ubuntu-latest", "macos-latest"]'
           || '["ubuntu-latest"]') }}
@@ -337,9 +340,7 @@ jobs:
         RESULTS: ${{ join(needs.*.result, ' ') }}
       run: |
         echo "Job results: $RESULTS"
-        case " $RESULTS " in
-          *" failure "*|*" cancelled "*) exit 1 ;;
-        esac
+        for result in $RESULTS; do [ "$result" = success ] || exit 1; done
   report:
     name: 'JXL: Report the nightly failure'
     if: always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result,

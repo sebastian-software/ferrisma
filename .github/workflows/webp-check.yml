@@ -1,17 +1,12 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'WEBP: Checks'
 'on':
-  pull_request: null
-  push:
-    branches:
-    - main
-  schedule:
-  - cron: 41 3 * * *
   workflow_dispatch: null
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: webp-check-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   CARGO_TERM_COLOR: always
@@ -24,6 +19,7 @@ jobs:
     name: 'WEBP: Checks (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - ubuntu-latest
@@ -60,6 +56,7 @@ jobs:
     name: 'WEBP: Oracle (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - ubuntu-latest

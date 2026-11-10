@@ -141,5 +141,7 @@ unsafe boundaries remain distinct; membership does not select new pipeline
 backends. The root owns the lockfile, development toolchain, profiles and active
 CI workflows. Component checks retain their independent C/C++ references,
 upstream pins and comparison rules, with a common entry point in
-`scripts/check-codecs.py`. See [codec development](codecs.md) for supported
+`cargo xtask codecs`. See [codec development](codecs.md) for supported
 feature combinations, reference setup, and independent publication.
+
+[ADR-0027](adr/0027-tiered-validation-and-rust-test-orchestration.md) defines scoped PR validation and deeper scheduled and manual reference checks. Rust owns the shared orchestration; existing Python oracle harnesses remain until evidence-preserving ports replace them.

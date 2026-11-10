@@ -29,6 +29,7 @@ git -C codecs/libjxl-rs/upstream/libjxl submodule update --init \
   third_party/highway third_party/brotli third_party/skcms
 rustup show active-toolchain
 rustup toolchain install stable --profile minimal --component clippy
+rustup toolchain install 1.95 --profile minimal
 cargo fetch --locked
 ```
 
@@ -44,27 +45,32 @@ The engine still builds on stable Rust 1.98 and the handwritten ports on Rust 1.
 ## Checks
 
 Root default members are the engine and kernels. This keeps the ordinary
-contributor loop bounded and preserves a stable-compatible engine. All ten
-packages participate in `cargo check --workspace --all-targets` on the AVIF
+contributor loop bounded and preserves a stable-compatible engine. All 11 members (ten engine, adapter, and codec packages plus `xtask`) participate in `cargo check --workspace --all-targets` on the AVIF
 port's supported native hosts (macOS ARM64 and GNU Linux x86-64).
 
 ```sh
 cargo fmt --all --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
-python3 scripts/check-codecs.py --stage static
-python3 scripts/check-codecs.py --codec webp --stage oracle
+cargo xtask codecs --codec webp --stage pr
+# Deep local differential checks, when needed:
+cargo xtask codecs --codec webp --stage oracle
 cargo test -p ferrixel-libavif --release --all-features
 ```
 
-The shared runner preserves each component's oracle protocol and working
-directory. `--stage test` runs the component's established Rust profiles; JXL's
-tests always require its C++ oracle. `--stage oracle` requires the JPEG/WebP
-references and executes the JXL differential suite. AVIF's local oracle tier
-runs SharpYUV parity, the cross-port SharpYUV comparison, and AOM golden outputs;
-the complete original AVIF/dav1d/AOM suites, sanitizer runs, and native platform
-checks remain in the `avif-*` workflows. A bounded local run does not establish
-their acceptance.
+The `pr` stage is the contributor fast loop for one codec. On JPEG, WebP,
+and JXL it initializes no references itself: the setup above supplies pinned
+upstream sources for the existing static provenance and MSRV checks, then Rust
+runs checked tests against retained fixtures. These checks do not build a live
+C/C++ oracle. AVIF also checks its tracked provenance, retained AOM goldens,
+and SharpYUV cross-port cases. The shared runner preserves component oracle
+protocols and working directories.
+[ADR-0027](adr/0027-tiered-validation-and-rust-test-orchestration.md) defines
+scoped PR checks, retained reference fixtures, and nightly or manual deep runs.
+Live differential checks require their C/C++ references and fail if missing.
+A bounded local run does not establish full codec or platform acceptance.
+Existing Python oracle harnesses remain until their incremental replacements
+preserve and compare protocol, fixtures, provenance, and error behavior.
 
 Do not use workspace-wide `--all-features`: the interim `avif-read` backend and
 the libavif adapter export conflicting `dav1d_*` symbols. Engine all-feature
@@ -80,7 +86,7 @@ its translation manifests verify source hashes.
 Each codec's `IMPORT.json` identifies its main revision, integrated revision,
 source tree, and included pull requests. Original commits and authors are kept
 in Git history. Codec-local ADRs and porting contracts continue to govern their
-implementation; ADR-0026 supersedes only repository/workspace/tool placement.
+implementation; ADR-0026 supersedes repository/workspace/tool placement; ADR-0027 supersedes the specified validation cadence.
 The upstream revision and golden expectations do not change during relocation.
 
 To review migration edits separately from the imported source, compare the

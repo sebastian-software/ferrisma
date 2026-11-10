@@ -1,12 +1,6 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'AVIF: Portable dav1d'
 'on':
-  push:
-    branches:
-    - main
-  pull_request: null
-  schedule:
-  - cron: 47 2 * * *
   workflow_dispatch:
     inputs:
       runner:
@@ -24,15 +18,26 @@ name: 'AVIF: Portable dav1d'
         - full
         - smoke
         default: full
+  workflow_call:
+    inputs:
+      runner:
+        description: Native targets to execute
+        type: string
+        default: all
+      tier:
+        description: Bounded API checks or the complete original corpus
+        type: string
+        default: full
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: avif-dav1d-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   parity:
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include: |-
           ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
@@ -43,7 +48,7 @@ jobs:
     timeout-minutes: 60
     env:
       CARGO_BUILD_JOBS: '2'
-      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.tier == 'full')
         && 'full' || 'smoke') }}
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803

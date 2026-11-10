@@ -1,12 +1,6 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'AVIF: Portable SharpYUV'
 'on':
-  push:
-    branches:
-    - main
-  pull_request: null
-  schedule:
-  - cron: 47 2 * * *
   workflow_dispatch:
     inputs:
       runner:
@@ -24,15 +18,26 @@ name: 'AVIF: Portable SharpYUV'
         - full
         - smoke
         default: full
+  workflow_call:
+    inputs:
+      runner:
+        description: Native targets to execute
+        type: string
+        default: all
+      tier:
+        description: Bounded API checks or the complete original corpus
+        type: string
+        default: full
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: avif-sharpyuv-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   parity:
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include: |-
           ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
@@ -43,7 +48,7 @@ jobs:
     timeout-minutes: 40
     env:
       CARGO_BUILD_JOBS: '2'
-      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.tier == 'full')
         && 'full' || 'smoke') }}
       FUZZTEST_PRNG_SEED: OffQXb8u5_vZtH4-7wgVOLu_HNAhPIbLz7CFF13u3nk
     steps:

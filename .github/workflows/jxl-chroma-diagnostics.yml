@@ -2,16 +2,6 @@
 name: 'JXL: Chroma reference diagnostics'
 'on':
   workflow_dispatch: null
-  push:
-    branches:
-    - feat/decoder-chroma
-    paths:
-    - codecs/libjxl-rs/tools/chroma_reference.py
-    - Cargo.toml
-    - Cargo.lock
-    - rust-toolchain.toml
-    - rustfmt.toml
-    - .github/workflows/jxl-*.yml
 permissions:
   contents: read
 jobs:

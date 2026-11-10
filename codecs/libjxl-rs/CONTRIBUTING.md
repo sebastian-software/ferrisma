@@ -200,12 +200,9 @@ gh workflow run check.yml --ref <branch> -f macos=true  # also hosted macOS
 
 A local result does not imply that those hosted jobs have run.
 
-Hosted macOS jobs do not gate pull requests during development (ADR 0002).
-Instead, run the full `python3 tools/check.py` on macOS ARM64 before merging a
-change to ported code, add `--sanitizers` when the change touches an oracle, a
-sanitizer setting, or audit inputs, and state the command and result in the
-pull request. A release or a macOS acceptance claim needs a complete hosted
-macOS deep gate on the exact revision.
+[Ferrixel ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md)
+now governs PR and deep validation cadence. A release or a macOS acceptance
+claim still needs relevant native evidence for the exact revision.
 
 The minimum supported Rust version trails stable by about four releases, or
 about six months. Raise it deliberately at regular intervals in its own change:

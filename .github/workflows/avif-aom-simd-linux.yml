@@ -1,37 +1,17 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'AVIF: AOM x86 SIMD validation'
 'on':
-  pull_request:
-    paths:
-    - codecs/libavif-rs/crates/aom/**
-    - codecs/libavif-rs/src/**
-    - codecs/libavif-rs/examples/encode_still.rs
-    - codecs/libavif-rs/Cargo.toml
-    - codecs/libavif-rs/tools/check_aom_simd_identity.py
-    - codecs/libavif-rs/tools/check_aom_golden.py
-    - Cargo.toml
-    - Cargo.lock
-    - rust-toolchain.toml
-    - rustfmt.toml
-    - .github/workflows/avif-*.yml
-  push:
-    branches:
-    - main
-    paths:
-    - codecs/libavif-rs/crates/aom/**
-    - codecs/libavif-rs/src/**
-    - codecs/libavif-rs/examples/encode_still.rs
-    - codecs/libavif-rs/Cargo.toml
-    - codecs/libavif-rs/tools/check_aom_simd_identity.py
-    - codecs/libavif-rs/tools/check_aom_golden.py
-    - Cargo.toml
-    - Cargo.lock
-    - rust-toolchain.toml
-    - rustfmt.toml
-    - .github/workflows/avif-*.yml
-  schedule:
-  - cron: 23 2 * * *
   workflow_dispatch:
+    inputs:
+      measure:
+        description: Also measure encoder time with each RTCD selection
+        type: boolean
+        default: false
+      debug:
+        description: Also run the kernel tests unoptimized in the Debug profile (about 40 minutes)
+        type: boolean
+        default: false
+  workflow_call:
     inputs:
       measure:
         description: Also measure encoder time with each RTCD selection
@@ -44,7 +24,7 @@ name: 'AVIF: AOM x86 SIMD validation'
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: avif-aom-simd-linux-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   CARGO_TERM_COLOR: never
@@ -55,6 +35,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         profile:
         - release

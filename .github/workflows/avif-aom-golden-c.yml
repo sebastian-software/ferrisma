@@ -1,31 +1,13 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'AVIF: AOM golden outputs against the C reference'
 'on':
-  pull_request:
-    paths:
-    - codecs/libavif-rs/crates/aom/golden/**
-    - codecs/libavif-rs/tools/check_aom_golden.py
-    - codecs/libavif-rs/tools/encode_still.c
-    - Cargo.toml
-    - Cargo.lock
-    - rust-toolchain.toml
-    - rustfmt.toml
-    - .github/workflows/avif-*.yml
-  push:
-    branches:
-    - main
-    paths:
-    - codecs/libavif-rs/crates/aom/golden/**
-    - codecs/libavif-rs/tools/check_aom_golden.py
-    - codecs/libavif-rs/tools/encode_still.c
-    - Cargo.toml
-    - Cargo.lock
-    - rust-toolchain.toml
-    - rustfmt.toml
-    - .github/workflows/avif-*.yml
-  schedule:
-  - cron: 41 2 * * *
   workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run on macOS ARM64
+        type: boolean
+        default: true
+  workflow_call:
     inputs:
       macos:
         description: Also run on macOS ARM64
@@ -34,13 +16,14 @@ name: 'AVIF: AOM golden outputs against the C reference'
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: avif-aom-golden-c-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   c-reference:
     name: 'AVIF: C reference (${{ matrix.runner }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         runner: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos) && '["ubuntu-24.04", "macos-26"]'
           || '["ubuntu-24.04"]') }}

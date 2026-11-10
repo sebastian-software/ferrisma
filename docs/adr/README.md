@@ -43,6 +43,8 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0025](0025-codec-selection-reference-conformance-and-image-scope.md) | Codec selection: reference implementation or proven conformance, ports reduced to the still-image scope, deviations and removals only after measurement, mechanical oracle for later optimization; JPEG decode before encode | Accepted |
 | [0026](0026-codecs-in-one-repository-and-workspace.md) | One repository and Cargo workspace for the engine, adapter and four codec ports; imported PRs, common verification entry point and early SharpYUV consolidation review | Accepted |
 
+| [0027](0027-tiered-validation-and-rust-test-orchestration.md) | Scoped PR checks, deep validation cadence and Rust orchestration | Accepted |
+
 ## Changing an ADR
 
 Edit the original if refining or correcting the same decision; update **Last reviewed** and append the key change to the amendment log. Write a new ADR when fundamentally replacing a decision or choosing a materially different direction, and cross-link `Supersedes`/`Superseded by`. Significant changes should include a small experiment or empirical motivation.

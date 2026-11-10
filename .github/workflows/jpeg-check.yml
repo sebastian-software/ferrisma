@@ -1,15 +1,12 @@
 # Codec checks share the workspace and keep their original oracle tiers.
 name: 'JPEG: Checks'
 'on':
-  pull_request: null
-  push:
-    branches:
-    - main
   workflow_dispatch: null
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: jpeg-check-${{ github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   CARGO_TERM_COLOR: always
@@ -22,6 +19,7 @@ jobs:
     name: 'JPEG: Checks (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - ubuntu-latest
@@ -46,6 +44,7 @@ jobs:
     name: 'JPEG: MSRV (Rust 1.95, ${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - ubuntu-latest
@@ -55,6 +54,8 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
+    - name: Fetch shared dependencies
+      run: cargo fetch --locked
     - name: Build and test with the rust-version toolchain
       run: |
         rustup toolchain install 1.95 --profile minimal
@@ -66,6 +67,7 @@ jobs:
     name: 'JPEG: Oracle (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - ubuntu-latest
@@ -114,6 +116,7 @@ jobs:
     name: 'JPEG: SIMD oracle (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - macos-latest
@@ -164,6 +167,7 @@ jobs:
     name: 'JPEG: Bench (${{ matrix.os }})'
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os:
         - ubuntu-latest
@@ -211,6 +215,4 @@ jobs:
         RESULTS: ${{ join(needs.*.result, ' ') }}
       run: |
         echo "Job results: $RESULTS"
-        case " $RESULTS " in
-          *" failure "*|*" cancelled "*|*" skipped "*) exit 1 ;;
-        esac
+        for result in $RESULTS; do [ "$result" = success ] || exit 1; done

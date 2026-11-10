@@ -4,6 +4,7 @@ members = [
     ".",
     "crates/ferrixel-kernels",
     "crates/ferrixel-libavif",
+    "tools/xtask",
     "codecs/libjpeg-turbo-rs",
     "codecs/libwebp-rs",
     "codecs/libjxl-rs",
