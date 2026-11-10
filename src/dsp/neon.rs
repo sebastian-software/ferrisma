@@ -86,10 +86,6 @@ use core::arch::aarch64::{
     clippy::similar_names,
     reason = "the C names row01, row23, row0h, row2l and the like"
 )]
-#[expect(
-    dead_code,
-    reason = "the callers in dec_neon.rs and enc_neon.rs are translated next"
-)]
 pub(crate) fn transpose4x4_neon(rows: int32x4x4_t) -> int32x4x4_t {
     let mut row01 = uint64x2x2_t(vreinterpretq_u64_s32(rows.0), vreinterpretq_u64_s32(rows.1));
     let mut row23 = uint64x2x2_t(vreinterpretq_u64_s32(rows.2), vreinterpretq_u64_s32(rows.3));
@@ -275,4 +271,23 @@ pub fn vst1q_s8_words(dst: &mut [u32], value: core::arch::aarch64::int8x16_t) {
     // SAFETY: the 4 words of `dst` (checked by the slice above) are the 16
     // bytes that the store writes; a byte pointer needs no alignment.
     unsafe { core::arch::aarch64::vst1q_s8(dst.as_mut_ptr().cast::<i8>(), value) }
+}
+
+//------------------------------------------------------------------------------
+// Helpers first used by enc_neon.rs
+
+load! {
+    vld1_u8_x2: [u8; 16] -> uint8x8x2_t;
+    vld1q_u8_x4: [u8; 64] -> uint8x16x4_t;
+    vld4_dup_u8: [u8; 4] -> uint8x8x4_t;
+}
+
+/// `vst1_u8` to the bytes of the first 4 halfwords of `dst`, as C casts an
+/// `int16_t*` to `uint8_t*` for the store.
+#[inline]
+pub fn vst1_u8_halfwords(dst: &mut [i16], value: uint8x8_t) {
+    let dst = &mut dst[..4];
+    // SAFETY: the 4 halfwords of `dst` (checked by the slice above) are the 8
+    // bytes that the store writes; a byte pointer needs no alignment.
+    unsafe { core::arch::aarch64::vst1_u8(dst.as_mut_ptr().cast::<u8>(), value) }
 }

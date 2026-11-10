@@ -116,7 +116,7 @@ pub fn vp8_set_histogram_data(
     clippy::cast_sign_loss,
     reason = "the block offsets and clipped values are non-negative"
 )]
-fn collect_histogram_c(
+pub fn collect_histogram_c(
     ref_: &[u8],
     pred: &[u8],
     start_block: i32,
@@ -206,7 +206,7 @@ fn i_transform_one(ref_: &[u8], input: &[i16], dst: &mut [u8]) {
 }
 
 // upstream: src/dsp/enc.c ITransform_C
-fn i_transform_c(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) {
+pub fn i_transform_c(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) {
     i_transform_one(ref_, input, dst);
     if do_two {
         i_transform_one(&ref_[4..], &input[16..], &mut dst[4..]);
@@ -218,7 +218,7 @@ fn i_transform_c(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) {
     clippy::cast_possible_truncation,
     reason = "C stores the 12-bit coefficients into int16_t"
 )]
-fn f_transform_c(src: &[u8], ref_: &[u8], out: &mut [i16]) {
+pub fn f_transform_c(src: &[u8], ref_: &[u8], out: &mut [i16]) {
     let mut tmp = [0_i32; 16];
     for i in 0..4 {
         let s = &src[i * BPS_U..];
@@ -259,7 +259,7 @@ fn f_transform2_c(src: &[u8], ref_: &[u8], out: &mut [i16]) {
     clippy::cast_possible_truncation,
     reason = "C stores the 15-bit coefficients into int16_t"
 )]
-fn f_transform_wht_c(input: &[i16], out: &mut [i16]) {
+pub fn f_transform_wht_c(input: &[i16], out: &mut [i16]) {
     // input is 12b signed
     let mut tmp = [0_i32; 16];
     for i in 0..4 {
@@ -427,7 +427,7 @@ fn intra_chroma_preds_c(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]>) 
 // luma 16x16 prediction (paragraph 12.3)
 
 // upstream: src/dsp/enc.c Intra16Preds_C
-fn intra16_preds_c(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]>) {
+pub fn intra16_preds_c(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]>) {
     dc_mode(&mut dst[at(I16DC16)..], left, top, 16, 16, 5);
     vertical_pred(&mut dst[at(I16VE16)..], top, 16);
     horizontal_pred(&mut dst[at(I16HE16)..], left, 16);
@@ -753,7 +753,7 @@ fn tm4(dst: &mut [u8], top: &[u8], p: usize) {
 /// Left samples are `top[-5 .. -2]`, `top_left` is `top[-1]`, top are located
 /// at `top[0..3]`, and top right is `top[4..7]`. `top` is the boundary buffer and `p`
 /// the position of `top[0]` in it.
-fn intra4_preds_c(dst: &mut [u8], top: &[u8], p: usize) {
+pub fn intra4_preds_c(dst: &mut [u8], top: &[u8], p: usize) {
     dc4(&mut dst[at(I4DC4)..], top, p);
     tm4(&mut dst[at(I4TM4)..], top, p);
     ve4(&mut dst[at(I4VE4)..], top, p);
@@ -782,19 +782,23 @@ fn get_sse(a: &[u8], b: &[u8], w: usize, h: usize) -> i32 {
 }
 
 // upstream: src/dsp/enc.c SSE16x16_C
-fn sse16x16_c(a: &[u8], b: &[u8]) -> i32 {
+#[must_use]
+pub fn sse16x16_c(a: &[u8], b: &[u8]) -> i32 {
     get_sse(a, b, 16, 16)
 }
 // upstream: src/dsp/enc.c SSE16x8_C
-fn sse16x8_c(a: &[u8], b: &[u8]) -> i32 {
+#[must_use]
+pub fn sse16x8_c(a: &[u8], b: &[u8]) -> i32 {
     get_sse(a, b, 16, 8)
 }
 // upstream: src/dsp/enc.c SSE8x8_C
-fn sse8x8_c(a: &[u8], b: &[u8]) -> i32 {
+#[must_use]
+pub fn sse8x8_c(a: &[u8], b: &[u8]) -> i32 {
     get_sse(a, b, 8, 8)
 }
 // upstream: src/dsp/enc.c SSE4x4_C
-fn sse4x4_c(a: &[u8], b: &[u8]) -> i32 {
+#[must_use]
+pub fn sse4x4_c(a: &[u8], b: &[u8]) -> i32 {
     get_sse(a, b, 4, 4)
 }
 
@@ -856,14 +860,16 @@ fn t_transform(input: &[u8], w: &[u16; 16]) -> i32 {
 }
 
 // upstream: src/dsp/enc.c Disto4x4_C
-fn disto4x4_c(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
+#[must_use]
+pub fn disto4x4_c(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
     let sum1 = t_transform(a, w);
     let sum2 = t_transform(b, w);
     (sum2 - sum1).abs() >> 5
 }
 
 // upstream: src/dsp/enc.c Disto16x16_C
-fn disto16x16_c(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
+#[must_use]
+pub fn disto16x16_c(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
     let mut d = 0;
     for y in (0..16 * BPS_U).step_by(4 * BPS_U) {
         for x in (0..16).step_by(4) {
@@ -888,7 +894,7 @@ static ZIGZAG: [u8; 16] = [0, 1, 4, 8, 5, 2, 3, 6, 9, 12, 13, 10, 7, 11, 14, 15]
     clippy::cast_possible_wrap,
     reason = "C converts between int, int16_t and uint32_t at these points"
 )]
-fn quantize_block_c(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+pub fn quantize_block_c(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
     let mut last = -1;
     for n in 0..16 {
         let j = usize::from(ZIGZAG[n]);
@@ -923,7 +929,7 @@ fn quantize_block_c(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 
 }
 
 // upstream: src/dsp/enc.c Quantize2Blocks_C
-fn quantize2_blocks_c(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+pub fn quantize2_blocks_c(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
     let mut nz = vp8_enc_quantize_block(&mut input[..16], &mut out[..16], mtx);
     nz |= vp8_enc_quantize_block(&mut input[16..32], &mut out[16..32], mtx) << 1;
     nz
@@ -966,6 +972,14 @@ pub fn vp8_collect_histogram(
     end_block: i32,
     histo: &mut VP8Histogram,
 ) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::collect_histogram(ref_, pred, start_block, end_block, histo);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     collect_histogram_c(ref_, pred, start_block, end_block, histo);
 }
 
@@ -974,12 +988,28 @@ pub fn vp8_collect_histogram(
 /// be done for (ref, in, dst) and (ref + 4, in + 16, dst + 4) (C: the
 /// `VP8ITransform` pointer).
 pub fn vp8i_transform(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::i_transform(ref_, input, dst, do_two);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     i_transform_c(ref_, input, dst, do_two);
 }
 
 // upstream: src/dsp/enc.c VP8FTransform
 /// C: the `VP8FTransform` pointer.
 pub fn vp8f_transform(src: &[u8], ref_: &[u8], out: &mut [i16]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::f_transform(src, ref_, out);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     f_transform_c(src, ref_, out);
 }
 
@@ -992,6 +1022,14 @@ pub fn vp8f_transform2(src: &[u8], ref_: &[u8], out: &mut [i16]) {
 // upstream: src/dsp/enc.c VP8FTransformWHT
 /// C: the `VP8FTransformWHT` pointer.
 pub fn vp8f_transform_wht(input: &[i16], out: &mut [i16]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::f_transform_wht(input, out);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     f_transform_wht_c(input, out);
 }
 
@@ -999,6 +1037,14 @@ pub fn vp8f_transform_wht(input: &[i16], out: &mut [i16]) {
 /// The ten intra4 predictions of the block whose boundary `top[0]` is at
 /// position `top_pos` of `top` (C: the `VP8EncPredLuma4` pointer).
 pub fn vp8_enc_pred_luma4(dst: &mut [u8], top: &[u8], top_pos: usize) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::intra4_preds(dst, top, top_pos);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     intra4_preds_c(dst, top, top_pos);
 }
 
@@ -1006,6 +1052,14 @@ pub fn vp8_enc_pred_luma4(dst: &mut [u8], top: &[u8], top_pos: usize) {
 /// The four intra16 predictions; `left` and `top` are `None` where C passes
 /// `NULL` (C: the `VP8EncPredLuma16` pointer).
 pub fn vp8_enc_pred_luma16(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]>) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::intra16_preds(dst, left, top);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     intra16_preds_c(dst, left, top);
 }
 
@@ -1018,24 +1072,56 @@ pub fn vp8_enc_pred_chroma8(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8
 // upstream: src/dsp/enc.c VP8SSE16x16
 #[must_use]
 pub fn vp8sse16x16(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::sse16x16(a, b);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sse16x16_c(a, b)
 }
 
 // upstream: src/dsp/enc.c VP8SSE16x8
 #[must_use]
 pub fn vp8sse16x8(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::sse16x8(a, b);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sse16x8_c(a, b)
 }
 
 // upstream: src/dsp/enc.c VP8SSE8x8
 #[must_use]
 pub fn vp8sse8x8(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::sse8x8(a, b);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sse8x8_c(a, b)
 }
 
 // upstream: src/dsp/enc.c VP8SSE4x4
 #[must_use]
 pub fn vp8sse4x4(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::sse4x4(a, b);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sse4x4_c(a, b)
 }
 
@@ -1043,12 +1129,28 @@ pub fn vp8sse4x4(a: &[u8], b: &[u8]) -> i32 {
 /// The weights contain a row-major 4 by 4 symmetric matrix.
 #[must_use]
 pub fn vp8t_disto4x4(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::disto4x4(a, b, w);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     disto4x4_c(a, b, w)
 }
 
 // upstream: src/dsp/enc.c VP8TDisto16x16
 #[must_use]
 pub fn vp8t_disto16x16(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::disto16x16(a, b, w);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     disto16x16_c(a, b, w)
 }
 
@@ -1062,18 +1164,42 @@ pub fn vp8_mean16x4(ref_: &[u8], dc: &mut [u32]) {
 // upstream: src/dsp/enc.c VP8EncQuantizeBlock
 /// Quantizes one block (C: the `VP8EncQuantizeBlock` pointer).
 pub fn vp8_enc_quantize_block(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::quantize_block(input, out, mtx);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     quantize_block_c(input, out, mtx)
 }
 
 // upstream: src/dsp/enc.c VP8EncQuantize2Blocks
 /// Same as `VP8EncQuantizeBlock`, but quantizes two consecutive blocks.
 pub fn vp8_enc_quantize2_blocks(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::quantize2_blocks(input, out, mtx);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     quantize2_blocks_c(input, out, mtx)
 }
 
 // upstream: src/dsp/enc.c VP8EncQuantizeBlockWHT
 /// Specific to 2nd transform; C assigns `QuantizeBlock_C` too.
 pub fn vp8_enc_quantize_block_wht(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::quantize_block(input, out, mtx);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     quantize_block_c(input, out, mtx)
 }
 

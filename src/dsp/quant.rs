@@ -17,10 +17,9 @@ use crate::dsp::dsp::BPS;
 
 // upstream: src/dsp/quant.h IsFlat
 /// Whether the AC levels of `num_blocks` blocks of 16 have at most `thresh`
-/// non-zero entries (C: `IsFlat_C`; the reference configuration compiles no
-/// NEON, so `IsFlat` is the portable form).
+/// non-zero entries (C: `IsFlat_C`, the portable form of `IsFlat`).
 #[must_use]
-pub fn is_flat(levels: &[i16], num_blocks: i32, thresh: i32) -> bool {
+pub fn is_flat_c(levels: &[i16], num_blocks: i32, thresh: i32) -> bool {
     let mut score = 0;
     let mut num_blocks = num_blocks;
     let mut levels = levels;
@@ -37,6 +36,24 @@ pub fn is_flat(levels: &[i16], num_blocks: i32, thresh: i32) -> bool {
         levels = &levels[16..];
     }
     true
+}
+
+// upstream: src/dsp/quant.h IsFlat
+/// Whether the AC levels of `num_blocks` blocks of 16 have at most `thresh`
+/// non-zero entries. C selects `IsFlat_NEON` at compile time with
+/// `WEBP_USE_NEON` and `IsFlat_C` otherwise; the NEON form is in
+/// `src/dsp/enc_neon.rs` (its deviation 1).
+#[must_use]
+pub fn is_flat(levels: &[i16], num_blocks: i32, thresh: i32) -> bool {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::enc_neon::is_flat(levels, num_blocks, thresh);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
+    is_flat_c(levels, num_blocks, thresh)
 }
 
 // upstream: src/dsp/quant.h IsFlatSource16
