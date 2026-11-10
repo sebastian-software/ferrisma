@@ -15,6 +15,7 @@ import subprocess
 from brotli_decoder_binding import requested_bindings
 from brotli_state_reference import ROOT, compile_options
 from box_content_decoder_corpus import encoder_requests, requests
+from rust_probe_artifacts import jxl_extern_args
 
 
 def sha(path):
@@ -164,16 +165,23 @@ def main():
         assert (out/f'captures-{graph}.txt').read_bytes()==expected_capture
     env=dict(os.environ,CARGO_BUILD_JOBS='2',RUST_TEST_THREADS='2')
     msrv=runpy.run_path(str(ROOT/'tools/check.py'))['rust_version']()
-    for profile,toolchain,release in [('debug','stable',False),('release','stable',True),('msrv',msrv,False)]:
-        cargo=['cargo']+([f'+{msrv}'] if toolchain==msrv else [])
+    # The monorepo pins nightly. Using stable rustc with the default Cargo
+    # build mixes incompatible compiler metadata; use one toolchain per graph.
+    for profile,chain,release in [('debug',[],False),('release',[],True),('msrv',[f'+{msrv}'],False)]:
+        cargo=['cargo',*chain]
         flags=['--locked','--offline','--all-features']+(['--release'] if release else [])
-        run(profile+'-library',cargo+['build',*flags],env)
+        built = subprocess.run(cargo+['build',*flags,'--lib','--message-format=json'],
+                               cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
+        (out/f'{profile}-library.log').write_bytes(built.stderr)
+        (out/f'{profile}-library.json').write_bytes(built.stdout)
+        built.check_returncode()
+        extern = jxl_extern_args(built.stdout)
         run(profile+'-tests',cargo+['test',*flags,'--test','box_content_decoder','--','--nocapture'],env)
-        lib=ROOT/'target'/('release' if release else 'debug')/'libjxl.rlib'
+        lib=Path(extern[1].split('=',1)[1])
         binary=out/f'rust-{profile}'
-        run(profile+'-probe',['rustup','run',toolchain,'rustc','--edition','2024','--cfg','feature="cpp-oracle"',
+        run(profile+'-probe',['rustc',*chain,'--edition','2024','--cfg','feature="cpp-oracle"',
             '-D','warnings','-C',f'opt-level={3 if release else 0}',ROOT/'tools/box_content_decoder_probe.rs',
-            '--extern',f'jxl={lib}','-L',f'dependency={lib.parent/"deps"}','-o',binary])
+            *extern,'-L',f'dependency={lib.parent/"deps"}','-o',binary])
         observe(binary,path,out/f'rust-{profile}.txt')
         assert sha(out/f'rust-{profile}.txt')==sha(out/'ordinary.txt')
         for graph in originals:

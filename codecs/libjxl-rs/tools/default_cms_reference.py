@@ -12,6 +12,7 @@ import shlex
 import subprocess
 import itertools
 from skcms_binding import engine_configuration, live_bindings
+from rust_probe_artifacts import jxl_extern_args
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -199,11 +200,13 @@ def audit(output, record_native=False):
         pins[path] = subprocess.check_output(["git", "-C", str(ROOT / path), "rev-parse", "HEAD"], text=True).strip()
     report["pins"] = pins
     probe = ROOT / "target/default_cms_audit_probe"
-    subprocess.run(["cargo", "build", "--locked", "--offline", "--all-features"], cwd=ROOT, check=True)
+    built = subprocess.run(["cargo", "build", "--locked", "--offline", "--lib", "--all-features",
+                            "--message-format=json"], cwd=ROOT, check=True, stdout=subprocess.PIPE)
+    extern = jxl_extern_args(built.stdout)
+    lib = Path(extern[1].split("=", 1)[1])
     with (output / "rust-probe-build.log").open("w") as log:
         subprocess.run(["rustc", "--edition=2024", str(ROOT / "tools/default_cms_probe.rs"),
-                        "--extern", f"jxl={ROOT.parents[1] / 'target/debug/libjxl.rlib'}", "-L",
-                        f"dependency={ROOT.parents[1] / 'target/debug/deps'}", "-o", str(probe)], cwd=ROOT,
+                        *extern, "-L", f"dependency={lib.parent / 'deps'}", "-o", str(probe)], cwd=ROOT,
                        env=dict(os.environ, CARGO_MANIFEST_DIR=str(ROOT)), stdout=log, stderr=subprocess.STDOUT, check=True)
     report["rust_probe_sha256"] = sha(probe)
     source_platform = (platform.system(), platform.machine()) == (manifest["reference_platform"]["system"], manifest["reference_platform"]["machine"])

@@ -10,6 +10,7 @@ import runpy
 import shlex
 import subprocess
 from skcms_binding import live_bindings
+from rust_probe_artifacts import jxl_extern_args
 ROOT = Path(__file__).resolve().parent.parent
 
 def sha(path):
@@ -128,10 +129,10 @@ def main():
     for profile,prefix,cargo_flags,rust_flags in [('debug',[],[],[]),('release',[],['--release'],['-O']),('msrv',[msrv],[],[])]:
         directory=output/profile;directory.mkdir()
         built=run(['cargo',*prefix,'build','--locked','--offline','--lib','--all-features','--message-format=json','--target-dir',str(directory/'build'),*cargo_flags],directory,'build')
-        artifacts=[r for line in built.stdout.splitlines() if (r:=json.loads(line)).get('reason')=='compiler-artifact' and r['target']['name']=='jxl']
-        lib,=[Path(f) for f in artifacts[-1]['filenames'] if f.endswith('.rlib')]
+        extern = jxl_extern_args(built.stdout)
+        lib = Path(extern[1].split('=', 1)[1])
         binary=directory/'input-probe'
-        run(['rustc',*prefix,'tools/decoder_input_probe.rs','--edition=2024','--extern',f'jxl={lib}','-L',f'dependency={lib.parent}',*rust_flags,'-o',str(binary)],directory,'probe-build')
+        run(['rustc',*prefix,'tools/decoder_input_probe.rs','--edition=2024',*extern,'-L',f'dependency={lib.parent / "deps"}',*rust_flags,'-o',str(binary)],directory,'probe-build')
         observed=run([str(binary)],directory,'observations',data=requests)
         if observed.stdout!=original or observed.stderr:
             raise RuntimeError(f'Actual Rust {profile} differs from original')
