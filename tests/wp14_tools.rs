@@ -11,8 +11,7 @@
 //! - `cwebp -metadata` on WebP input, which reads the ICC, EXIF and XMP chunks
 //!   through `WebPDemux()` and `WebPDemuxGetChunk()` (imageio's `ReadWebP`): the
 //!   oracle's `cwebp` and WP13's Rust-linked `probes/wp12/cwebp`, which the
-//!   demux link stand-ins kept from this path before WP14 (WP13's
-//!   not-applicable check 10).
+//!   demux link stand-ins kept from this path before WP14.
 //!
 //! # Checks not applicable
 //!

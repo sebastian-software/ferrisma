@@ -10,7 +10,7 @@
 //! median of repeated measurements, which makes two runs on one host agree to
 //! a few percent. Each SIMD package adds a file `examples/dsp_bench/<name>.rs`
 //! with a `pub fn cases() -> Vec<Case>` and registers it in [`MODULES`]; the
-//! tables of its status page come from this program. The scalar build
+//! tables in its pull request come from this program. The scalar build
 //! (`--no-default-features`) runs the C translation only.
 
 use std::time::Instant;
@@ -18,9 +18,9 @@ use std::time::Instant;
 /// A benchmark case: a dispatch function of one module, measured as the
 /// closure runs it on the inputs it prepared.
 pub struct Case {
-    /// The module of the status page the case belongs to (`dec`, `enc`, ...).
+    /// The module the case belongs to (`dec`, `enc`, ...).
     pub module: &'static str,
-    /// The dispatch function's name, as the status page lists it.
+    /// The dispatch function's name.
     pub function: &'static str,
     /// The variant under measurement: `C`, `SSE2`, `SSE41`, `AVX2`, `NEON`.
     pub variant: &'static str,

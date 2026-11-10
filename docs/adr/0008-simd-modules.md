@@ -36,7 +36,7 @@ tools assign ([ADR 0004](0004-c-abi-boundary.md)). The oracle of
 [ADR 0002](0002-differential-oracle.md) is built with `WEBP_ENABLE_SIMD=OFF`;
 upstream's own `test_cwebp.sh` compares its SIMD and `-noasm` outputs by
 checksum, so the SIMD variants are bit-exact with the C code they replace, and
-the port plan admits each variant only with exact parity and a reproducible
+Ferrixel's port plan admits each variant only with exact parity and a reproducible
 benchmark.
 
 ## Decision

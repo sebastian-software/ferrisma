@@ -317,8 +317,9 @@ fn cwebp_writes_the_files_and_reports_of_the_oracle() {
             let (mut c_report, mut r_report) = (c.1, r.1);
             if args.windows(2).any(|pair| pair == ["-alpha_method", "0"]) {
                 // Uncompressed alpha: C reports the lossless statistics of an
-                // uninitialized FilterTrial (undefined, docs/status/wp10.md),
-                // the translation zeros, which cwebp does not print.
+                // uninitialized FilterTrial (undefined, see `src/enc/alpha_enc.rs`,
+                // `# Excluded undefined behavior`), the translation zeros, which
+                // cwebp does not print.
                 for report in [&mut c_report, &mut r_report] {
                     if let Some(at) = report.find("Lossless-alpha compressed size") {
                         report.truncate(at);

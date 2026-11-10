@@ -84,8 +84,8 @@
 //!    the last row.
 //! 4. **Negative strides and dimensions** cannot be expressed (`u32`, `usize`),
 //!    so bottom-up rows are not accepted (C reads them upward; the translation
-//!    panics on them, see the deviation on negative strides in the picture
-//!    modules of `src/enc/`).
+//!    panics on them, see item 4 of `# Deviations from upstream` in
+//!    `src/enc/picture_enc.rs`).
 //! 5. **`Encoder::encode`** returns the bytes only on success; C's memory
 //!    writer keeps the partial output of a failed encoding. Its vector keeps
 //!    the memory writer's capacity, up to twice the length.

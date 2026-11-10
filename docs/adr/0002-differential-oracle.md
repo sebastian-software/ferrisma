@@ -15,7 +15,7 @@ Ferrixel links.
 
 **Oracle build.** `tools/build_oracle.py` configures `tools/oracle/CMakeLists.txt`,
 which adds the unmodified `upstream/libwebp` through its own CMake project in
-the reference configuration of the port plan:
+the reference configuration of Ferrixel's port plan:
 
 ```text
 -DCMAKE_BUILD_TYPE=Release -DWEBP_ENABLE_SIMD=OFF -DWEBP_USE_THREAD=ON

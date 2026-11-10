@@ -18,6 +18,9 @@
 
 //! Port of `tests/fuzzer/huffman_fuzzer.cc`: `ReadHuffmanCodesHelper` on a
 //! color cache size and a number of Huffman tree groups read from the input.
+//!
+//! The target executes few inputs per minute: most inputs ask for up to
+//! 65,535 Huffman tree groups, as in C.
 
 #![no_main]
 

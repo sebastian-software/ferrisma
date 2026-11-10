@@ -19,8 +19,8 @@ where C has a precondition: a buffer description that does not match its
 slices, or a flipped plane outside its region. Ferrixel's `webp-read` source
 (WP21) needs a safe API under its ADR-0012 contract (describe the source, then
 stream rows of a region into memory the engine budgets) and its ADR-0018
-adoption gates, and the port plan (Phase 6) lists what the decoder half must
-offer. WP16 has no upstream unit: it adds no behavior, so every decoding must
+adoption gates, and Ferrixel's port plan (Phase 6) lists what the decoder half
+must offer. WP16 has no upstream unit: it adds no behavior, so every decoding must
 equal `webp_decode` (or the incremental decoder, or the animation decoder)
 with the same configuration, and therefore the C oracle. [ADR 0006](0006-safe-encoder-api.md)
 is the model.

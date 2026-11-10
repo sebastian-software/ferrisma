@@ -300,7 +300,7 @@ selection.
 
 Resolved (2026-11-07): `WebPPictureView` borrows its source shared through the
 `Shared` storage above, which amends this record. `WebPPictureCopy` gives the
-copy no writer, progress hook, `extra_info` or `stats` (WP9 deviation); the
+copy no writer, progress hook, `extra_info` or `stats` (`src/enc/picture_enc.rs`, `# Deviations from upstream`); the
 callbacks stay boxed closures, and no shared-ownership form is introduced. A
 callback that needs a field of the picture would bring the picture parameter
 back, which amends this record.

@@ -75,8 +75,8 @@
 //! 4. **Negative strides.** A row start before the start of its slice panics. C
 //!    reads memory before the pointer in that case, which is valid only when
 //!    the caller's memory extends there. The safe encoder API
-//!    (`src/api/encode.rs`, ADR 0006) decides whether it takes a base offset;
-//!    the panic is accepted for now.
+//!    (`src/api/encode.rs`, ADR 0006) cannot express negative strides, so the
+//!    panic is reachable only through this module's own interface.
 //! 5. **`WebPMemoryWriter.mem`.** Its length is `max_size`, and
 //!    `WebPMemoryWrite` keeps `size` in step with it (`WebPMemoryWriter` in
 //!    `src/webp/encode.rs`). `WebPMemoryWriterInit` leaves `mem` empty, which

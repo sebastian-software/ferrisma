@@ -19,8 +19,8 @@ Rust (as `image-webp` shows), so libwebp-rs can be stricter.
   own change.
 - `src/lib.rs` declares `#![deny(unsafe_code)]`. The only exception is
   `#[allow(unsafe_code, reason = ...)]` on `pub mod abi`
-  ([ADR 0004](0004-c-abi-boundary.md)). The crate cannot use `forbid`, as the
-  port plan proposed, because `forbid` cannot be relaxed for the ABI module.
+  ([ADR 0004](0004-c-abi-boundary.md)). The crate cannot use `forbid`, as
+  Ferrixel's port plan proposed, because `forbid` cannot be relaxed for the ABI module.
 - Relaxing the policy for any other module needs a new ADR that names the
   modules, the operations and the local safety arguments. The wave 4 SIMD
   packages (WP18 to WP20) need such an ADR before they start: `std::arch`
