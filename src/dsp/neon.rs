@@ -70,6 +70,24 @@
 //!    "aarch64"` only (`tools/units.json`); the `!WEBP_AARCH64` branches of
 //!    the C files (`vpaddq` replacements, `vtbl` forms for 32-bit ARM) are not
 //!    translated.
+//! 6. **64-bit ARM targets without NEON** (a soft-float target with the
+//!    `neon` target feature off) are not built with the `simd` feature: the
+//!    entry points' safety argument rests on NEON being in the target's
+//!    baseline, so a compile-time guard below rejects such a build; the
+//!    scalar build (`--no-default-features`) serves them.
+
+// The entry points of the NEON modules call their `#[target_feature(enable =
+// "neon")]` bodies without a run-time test, because NEON is in the target's
+// baseline; a target without it must not compile them (checks not applicable
+// 6).
+#[cfg(all(
+    feature = "simd",
+    target_arch = "aarch64",
+    not(target_feature = "neon")
+))]
+compile_error!(
+    "the `simd` feature needs NEON on AArch64; build with `--no-default-features` for a target without it"
+);
 
 use core::arch::aarch64::{
     int16x4_t, int16x8_t, int32x4_t, int32x4x4_t, uint8x8_t, uint8x8x2_t, uint8x8x3_t, uint8x8x4_t,
