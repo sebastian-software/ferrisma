@@ -26,7 +26,7 @@
 //! These checks do not apply, or cannot be made, with the reason:
 //!
 //! 1. **`USE_GENERIC_TREE`.** The table-driven 4x4 mode parser is compiled on
-//!    x86 and the coded tree on ARM, AArch64 and WebAssembly, as in C; both
+//!    x86 and the coded tree on ARM, `AArch64` and WebAssembly, as in C; both
 //!    read the same bits. An arm64 host runs the coded tree; the Linux x86-64
 //!    CI runs the table.
 

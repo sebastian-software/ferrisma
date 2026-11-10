@@ -49,7 +49,7 @@
 //!    confirmed the overflow there (`signed integer overflow: 62027 * 35468`);
 //!    with the final seed it excludes none. The Rust code panics on such input
 //!    in the dev and `checked` profiles and wraps in release. Crafted lossy
-//!    streams reach the overflow in fuzzing (UBSan reports it in `dec.c`), and
+//!    streams reach the overflow in fuzzing (`UBSan` reports it in `dec.c`), and
 //!    the fuzz builds panic on them like the `checked` profile.
 //!
 //! # Checks not applicable

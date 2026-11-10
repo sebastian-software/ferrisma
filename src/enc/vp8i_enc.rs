@@ -51,7 +51,7 @@
 //!    passes to `VP8IteratorImport` is the iterator's `tmp_32`, and
 //!    `top_in_tmp_32` says whether `y_top` and `uv_top` point there (C's
 //!    argument is a flag here). `lf_stats` and `top_derr` record whether the
-//!    encoder has them. `i4_boundary` has 40 entries on AArch64 and 37
+//!    encoder has them. `i4_boundary` has 40 entries on `AArch64` and 37
 //!    elsewhere, as C's `WEBP_AARCH64 && BPS == 32` decides. `Default` gives
 //!    zeroed buffers where C declares an uninitialized iterator.
 //!

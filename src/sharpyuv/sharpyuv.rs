@@ -62,7 +62,7 @@
 //!      states for `VP8GetCPUInfo`. Dropping the argument would change what
 //!      `SharpYuvGetCPUInfo` answers after `SharpYuvInit(f)` once the SIMD
 //!      variants consult the query, so the function cannot be translated
-//!      faithfully. No SharpYUV C ABI is planned (ADR 0004).
+//!      faithfully. No `SharpYUV` C ABI is planned (ADR 0004).
 //!    - `sharpyuv_cpu.rs` translates `SharpYuvGetCPUInfo` as a function with
 //!      that name that calls `vp8_get_cpu_info`, with the `VP8CPUInfo`
 //!      signature. The C file is the re-compilation of `cpu.c` under another
