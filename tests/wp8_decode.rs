@@ -838,3 +838,68 @@ fn rejected_requests_fail() {
     };
     assert_eq!(message.code, J_MESSAGE_CODE::JERR_BAD_PRECISION);
 }
+
+/// Each safe-API probe supplies complete options; earlier color-space probes
+/// cannot change the header-derived default used by a later probe or start.
+#[test]
+fn default_format_is_independent_of_previous_probes() {
+    let Some(oracle) = Oracle::locate("default_format_is_independent_of_previous_probes") else {
+        return;
+    };
+    for (label, data, default, formats) in [
+        (
+            "color",
+            image("testorig.jpg"),
+            PixelFormat::Rgb,
+            vec![
+                PixelFormat::Grayscale,
+                PixelFormat::Rgba,
+                PixelFormat::YCbCr,
+            ],
+        ),
+        (
+            "grayscale",
+            encode(&oracle, &["-grayscale"]),
+            PixelFormat::Grayscale,
+            vec![PixelFormat::Rgb, PixelFormat::Rgba],
+        ),
+        (
+            "cmyk",
+            four_component(&oracle, &["cmyk"]),
+            PixelFormat::Cmyk,
+            vec![PixelFormat::Ycck, PixelFormat::Cmyk],
+        ),
+    ] {
+        let defaults = OutputOptions::default();
+        let mut fresh = Decoder::new(&data).unwrap();
+        let expected = fresh.output_info(&defaults).unwrap();
+        assert_eq!(expected.format, default, "{label}");
+        let c = run_oracle(&oracle, &defaults, &[], None, &data);
+        assert_eq!(c.error, None, "{label}");
+        assert_eq!(
+            c.dims,
+            Some((expected.width, expected.height, expected.components)),
+            "{label}"
+        );
+        let mut decoder = Decoder::new(&data).unwrap();
+        for format in formats {
+            let explicit = with(|o| o.format = Some(format));
+            assert_eq!(
+                decoder.output_info(&explicit).unwrap().format,
+                format,
+                "{label}"
+            );
+            assert_eq!(decoder.output_info(&defaults).unwrap(), expected, "{label}");
+            // Leave the last explicit probe applied before default start too.
+            decoder.output_info(&explicit).unwrap();
+        }
+        let mut actual = decoder.start(&defaults).unwrap();
+        let mut fresh = fresh.start(&defaults).unwrap();
+        assert_eq!(actual.info(), fresh.info(), "{label}");
+        let mut actual_row = vec![0; expected.row_bytes()];
+        let mut fresh_row = vec![0; expected.row_bytes()];
+        assert_eq!(actual.read_rows(&mut actual_row).unwrap(), 1, "{label}");
+        assert_eq!(fresh.read_rows(&mut fresh_row).unwrap(), 1, "{label}");
+        assert_eq!(actual_row, fresh_row, "{label}");
+    }
+}

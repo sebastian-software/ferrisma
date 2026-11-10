@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-09
+- Updated: 2026-11-10
 
 ## Context
 
@@ -46,7 +46,11 @@ needs libjpeg's scaled IDCT
    expects, and `fail_on_warning`. `OutputOptions` sets `out_color_space`,
    `scale_num` and `scale_denom`, `dct_method`, `do_fancy_upsampling` and
    `do_block_smoothing`, with libjpeg's defaults. Only in-scope values can be
-   expressed. The output formats are the 8-bit color spaces except RGB565.
+   expressed. Each `output_info` or `start` applies a complete set of options;
+   `format: None` restores the output color space chosen by `jpeg_read_header`,
+   even after a probe with an explicit format. The wrapper saves that default
+   instead of inheriting mutable state from earlier probes. The output formats
+   are the 8-bit color spaces except RGB565.
    Raw data, buffered-image mode, color quantization and suspending sources
    are not offered.
 4. **An error manager that records.** It replaces every default that prints:

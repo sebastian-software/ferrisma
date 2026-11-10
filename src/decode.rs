@@ -445,11 +445,11 @@ impl Object<'_> {
         }
     }
 
-    fn apply(&mut self, options: &OutputOptions) {
+    fn apply(&mut self, options: &OutputOptions, default_color_space: J_COLOR_SPACE) {
         let cinfo = &mut self.cinfo;
-        if let Some(format) = options.format {
-            cinfo.out_color_space = format.to_jcs();
-        }
+        cinfo.out_color_space = options
+            .format
+            .map_or(default_color_space, PixelFormat::to_jcs);
         cinfo.scale_num = options.scale.num;
         cinfo.scale_denom = options.scale.denom;
         cinfo.dct_method = options.dct_method.to_jdct();
@@ -483,6 +483,7 @@ impl Drop for Object<'_> {
 pub struct Decoder<'a> {
     object: Object<'a>,
     header: Header,
+    default_color_space: J_COLOR_SPACE,
 }
 
 impl<'a> Decoder<'a> {
@@ -542,7 +543,12 @@ impl<'a> Decoder<'a> {
             progressive: cinfo.progressive_mode,
             arithmetic: cinfo.arith_code,
         };
-        Ok(Decoder { object, header })
+        let default_color_space = cinfo.out_color_space;
+        Ok(Decoder {
+            object,
+            header,
+            default_color_space,
+        })
     }
 
     /// The header.
@@ -595,7 +601,7 @@ impl<'a> Decoder<'a> {
     /// The libjpeg error of `jpeg_calc_output_dimensions`, for example
     /// `JERR_BAD_SCALE` or `JERR_CONVERSION_NOTIMPL`.
     pub fn output_info(&mut self, options: &OutputOptions) -> Result<OutputInfo, Error> {
-        self.object.apply(options);
+        self.object.apply(options, self.default_color_space);
         let result = jpeg_calc_output_dimensions(&mut self.object.cinfo);
         self.object.check(result)?;
         self.object.output_info()
@@ -617,7 +623,7 @@ impl<'a> Decoder<'a> {
     /// precision than 8. For a progressive file this decodes every scan, so
     /// the errors and warnings of the image data can come here.
     pub fn start(mut self, options: &OutputOptions) -> Result<Scanlines<'a>, Error> {
-        self.object.apply(options);
+        self.object.apply(options, self.default_color_space);
         // The memory source never suspends, so the start completes.
         let result = jpeg_start_decompress(&mut self.object.cinfo);
         self.object.check(result)?;
