@@ -1,8 +1,8 @@
 # Translate the SIMD variants in unsafe-allowed modules behind runtime selection
 
-- Status: proposed
+- Status: accepted
 - Created: 2026-11-09
-- Updated: 2026-11-09
+- Updated: 2026-11-10
 
 ## Context
 
@@ -131,19 +131,43 @@ tables (`VP8PredLuma4` and the like) select per entry the same way.
    --variant release-simd`, upstream with `WEBP_ENABLE_SIMD=ON`), against
    which the package runs the DSP probes of WP4, WP6, WP7, WP10 and WP11,
    whose C side then calls upstream's SIMD functions through the dispatch
-   pointers, and its own tests; it is run locally and recorded on the status
-   page, not in CI, and it attributes any difference to upstream's SIMD or to
-   the port;
+   pointers, and its own tests; it is run locally and recorded in the pull
+   request description, not in CI, and it attributes any difference to
+   upstream's SIMD or to the port;
 5. upstream's test scripts through the Rust-linked tools, which compare the
    default and `-noasm` runs by checksum (the existing baseline), and
    `tools/unit_dependencies.py --check --variant release-simd`, which sees
-   the SIMD units' references.
+   the SIMD units' references (a portable unit's `Init` calling a SIMD
+   unit's `Init` is the selection above, not a package reference).
+
+**Upstream's own divergences.** Where upstream's SIMD function does not give
+the C function's bytes, the `release-simd` run shows it, and the ruling
+depends on the inputs. On inputs that valid streams and ordinary API calls
+produce, the variant is not selected: the dispatch function keeps the C
+translation on that architecture, the SIMD module records the reason under
+`# Deviations from upstream`, and the translation is parked outside the tree
+(the NEON rescaler export rows, which multiply with `vqrdmulhq_s32` by
+`scale >> 1`: issues #37 and #38). On inputs that only corrupt streams or
+probes outside the valid domain produce (the VP8 transform and `NeedsFilter`
+kernels in 16-bit lanes beyond coefficients of ±2048 and thresholds above
+255), the variant is selected as upstream selects it: the port then matches
+upstream's SIMD build, verified against `release-simd`, and the comparisons
+with the reference oracle run the scalar path for exactly those cases, with
+`VP8GetCPUInfo = NULL` on x86 and, on AArch64 where NEON is unconditional,
+the DSP probe calling the `_c` function and the decode comparison skipping
+its mutated streams with `simd` on while the scalar build keeps them; each
+such test change is its own commit with the reason, and the SIMD module
+records the functions and ranges under `# Checks not applicable`. The
+valid-domain evidence is parity rule 2 with the 131 vectors, the encoder
+matrix and the Rust-linked scripts.
 
 **Benchmark.** `examples/dsp_bench` is the harness: no dependency, seeded
 inputs, a fixed number of calls per measurement and the median of repeated
 measurements, printing nanoseconds per call for the C translation and each
 SIMD level the host has. Each package registers its module's cases there and
-records the table (host, CPU, `rustc` version) on its status page. A variant
+records the table (host, CPU, `rustc` version) in its pull request
+description; the x86 variants, which have no x86 host here, are measured by
+a non-gating job of the `Checks` workflow on the Linux runner. A variant
 slower than the C translation is recorded, not removed or tuned: this is the
 mechanical port; optimization is Ferrixel's later phase.
 
