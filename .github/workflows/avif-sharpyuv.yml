@@ -42,7 +42,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     env:
-      RUSTUP_TOOLCHAIN: nightly-2026-09-07
       CARGO_BUILD_JOBS: '2'
       CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         && 'full' || 'smoke') }}
@@ -61,7 +60,7 @@ jobs:
         else
           brew install cmake ninja pkg-config libpng jpeg-turbo libtiff giflib
         fi
-        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup show active-toolchain
         rustc --version --verbose
         cc --version
     - name: Verify immutable source and license records
@@ -128,7 +127,7 @@ jobs:
           codecs/libavif-rs/build/sharpyuv-webp-*/Testing/Temporary/LastTest.log
           codecs/libavif-rs/build/sharpyuv-webp-*-results.xml
           codecs/libavif-rs/build/sharpyuv-webp-inventory.json
-    name: 'AVIF: parity'
+    name: 'AVIF SharpYUV: parity'
     defaults:
       run:
         working-directory: codecs/libavif-rs

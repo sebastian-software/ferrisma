@@ -47,7 +47,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
-  RUSTUP_TOOLCHAIN: nightly-2026-09-07
   CARGO_TERM_COLOR: never
 jobs:
   kernels:
@@ -65,7 +64,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Install the pinned toolchain
-      run: rustup toolchain install nightly-2026-09-07 --profile minimal
+      run: rustup show active-toolchain
     - name: Record the runner CPU
       run: |
         grep -m1 'model name' /proc/cpuinfo
@@ -85,7 +84,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Install the pinned toolchain
-      run: rustup toolchain install nightly-2026-09-07 --profile minimal
+      run: rustup show active-toolchain
     - name: Record the runner CPU
       run: grep -m1 'model name' /proc/cpuinfo
     - name: Compare the SIMD kernels with their C functions
@@ -104,7 +103,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y imagemagick
-        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup show active-toolchain
     - name: Record the runner CPU
       run: |
         grep -m1 'model name' /proc/cpuinfo
@@ -142,7 +141,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Install the pinned toolchain
-      run: rustup toolchain install nightly-2026-09-07 --profile minimal
+      run: rustup show active-toolchain
     - name: Record the runner CPU
       run: grep -m1 'model name' /proc/cpuinfo
     - name: Compare AVIF output with the golden record

@@ -37,7 +37,6 @@ jobs:
       CXX: clang++-16
       LLVM_CONFIG_PATH: /usr/bin/llvm-config-16
       LIBCLANG_PATH: /usr/lib/llvm-16/lib
-      RUSTUP_TOOLCHAIN: nightly-2026-09-07
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       with:
@@ -46,7 +45,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config cmake
-        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup show active-toolchain
         rustup toolchain install 1.80.1 --profile minimal
         if [ "${{ inputs.mode }}" != compile ] && [ "${{ inputs.mode }}" != dsp ] && [ "${{ inputs.mode }}" != oracles ]; then
           cargo +1.80.1 install c2rust --version 0.21.0 --locked
@@ -60,8 +59,6 @@ jobs:
         python3 tools/check_translation.py
     - name: Check committed Rust types before building original consumers
       if: inputs.mode != 'generate'
-      env:
-        RUSTUP_TOOLCHAIN: nightly-2026-09-07
       run: |
         cargo check -p libavif-aom --locked
         cargo check -p libavif-aom --locked --release
@@ -95,8 +92,6 @@ jobs:
     - name: Compile both generated profiles and compare public codec output
       id: consumers
       if: inputs.mode != 'macros' && inputs.mode != 'dsp' && inputs.mode != 'oracles'
-      env:
-        RUSTUP_TOOLCHAIN: nightly-2026-09-07
       run: |
         python3 tools/check_translation.py
         python3 tools/build_aom_consumers.py --debug --only aomenc --only aomdec --only test_libaom
@@ -200,8 +195,6 @@ jobs:
         python3 tools/run_aom_tests.py --rust --jobs 1 --shards 1 --filter "$filter"
     - name: Compare named record layouts in both profiles
       if: ${{ !cancelled() && steps.consumers.outcome == 'success' }}
-      env:
-        RUSTUP_TOOLCHAIN: nightly-2026-09-07
       run: |
         python3 tools/check_aom_abi.py
         python3 tools/check_aom_abi.py --release
@@ -256,7 +249,7 @@ jobs:
           codecs/libavif-rs/build/aom-rust-*/tests-focused-*/*.log
           codecs/libavif-rs/build/aom-rust-*/tests-focused-*/*.xml
           codecs/libavif-rs/build/aom-rust-*/tests-focused-*/shard-*.json
-    name: 'AVIF: translate'
+    name: 'AVIF AOM translation: translate'
     defaults:
       run:
         working-directory: codecs/libavif-rs

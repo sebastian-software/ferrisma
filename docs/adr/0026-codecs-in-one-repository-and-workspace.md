@@ -176,3 +176,4 @@ evidence now, without declaring an unimplemented adapter equivalent.
   archives. Implementation and verification are separate from acceptance.
 
 - 2026-11-10 — The maintainer requested inclusion of all open changes immediately: JPEG #23, WebP #2/#40/#41/#42/#44, JXL #61 and AVIF #65. Their original commits are retained; x86 and NEON dispatch conflicts are resolved together. Stable Clippy remains explicit after verifying that the AVIF nightly rejects previously passing lint expectations.
+- 2026-11-10 — The first hosted Linux run exposed the shared workspace's registry-resolution requirement even for dependency-free codec packages. Codec CI now fetches the common lockfile before its established offline checks. AVIF workflows read the root toolchain pin instead of repeating it, and JXL's oracle cache identifies the relocated gitlink.

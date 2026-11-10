@@ -42,7 +42,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
-      RUSTUP_TOOLCHAIN: nightly-2026-09-07
       CARGO_BUILD_JOBS: '2'
       CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         && 'full' || 'smoke') }}
@@ -61,7 +60,7 @@ jobs:
         else
           brew install ninja pkg-config
         fi
-        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup show active-toolchain
         python3 -m venv build/dav1d-tools
         build/dav1d-tools/bin/python -m pip install meson==1.7.2
         python3 tools/import_dav1d.py --fetch
@@ -129,7 +128,7 @@ jobs:
           codecs/libavif-rs/build/dav1d-dsp-*/results.log
           codecs/libavif-rs/build/dav1d-dsp-*/inventory.json
           codecs/libavif-rs/build/dav1d-faults-*/summary.json
-    name: 'AVIF: parity'
+    name: 'AVIF dav1d: parity'
     defaults:
       run:
         working-directory: codecs/libavif-rs

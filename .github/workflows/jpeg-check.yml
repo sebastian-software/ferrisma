@@ -33,6 +33,8 @@ jobs:
         persist-credentials: false
     - name: Initialize the pinned JPEG reference
       run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
     - name: Install the shared lint toolchain
       run: rustup toolchain install stable --profile minimal --component clippy
     - name: Check the pin, skeleton, links, formatting, Clippy and tests
@@ -75,6 +77,8 @@ jobs:
         persist-credentials: false
     - name: Initialize the pinned JPEG reference
       run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
     - name: Build the release and asan-ubsan oracles
       run: python3 tools/build_oracle.py --variant reference
     - name: Restore the ISO/IEC 10918-2 compliance data
@@ -122,6 +126,8 @@ jobs:
         persist-credentials: false
     - name: Initialize the pinned JPEG reference
       run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
     - name: Install NASM for the x86-64 SIMD extensions
       if: runner.arch == 'X64'
       run: |
@@ -169,6 +175,8 @@ jobs:
         persist-credentials: false
     - name: Initialize the pinned JPEG reference
       run: git submodule update --init upstream/libjpeg-turbo
+    - name: Fetch the shared lockfile dependencies before offline checks
+      run: cargo fetch --locked
     - name: Install NASM for the x86-64 SIMD extensions
       if: runner.arch == 'X64'
       run: |

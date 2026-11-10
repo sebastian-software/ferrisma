@@ -82,7 +82,7 @@ jobs:
       id: inputs
       run: |
         {
-          git rev-parse HEAD:upstream/libjxl
+          git rev-parse HEAD:./upstream/libjxl
           "$CXX" --version
           if command -v dpkg-query >/dev/null; then dpkg-query -W 'libc++*'; fi
           echo "$ImageOS $ImageVersion"

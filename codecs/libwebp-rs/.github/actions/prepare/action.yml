@@ -22,3 +22,7 @@ runs:
       fi
       rustup toolchain install "${toolchains[@]}" --profile minimal --component rustfmt --component clippy
     working-directory: codecs/libwebp-rs
+  - name: Fetch the shared lockfile dependencies before offline checks
+    shell: bash
+    run: cargo fetch --locked
+    working-directory: codecs/libwebp-rs

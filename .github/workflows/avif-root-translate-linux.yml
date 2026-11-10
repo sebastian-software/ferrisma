@@ -81,7 +81,6 @@ jobs:
     env:
       CC: ${{ startsWith(inputs.runner, 'macos-') && 'clang' || 'clang-16' }}
       CXX: ${{ startsWith(inputs.runner, 'macos-') && 'clang++' || 'clang++-16' }}
-      RUSTUP_TOOLCHAIN: nightly-2026-09-07
       CARGO_BUILD_JOBS: '2'
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -112,7 +111,7 @@ jobs:
         echo "PKG_CONFIG_PATH=$(brew --prefix libxml2)/lib/pkgconfig" >> "$GITHUB_ENV"
     - name: Install pinned translation and reference prerequisites
       run: |
-        rustup toolchain install nightly-2026-09-07 --profile minimal
+        rustup show active-toolchain
         rustup toolchain install 1.80.1 --profile minimal
         cargo +1.80.1 install c2rust --version 0.21.0 --locked
         python3 -m venv build/root-tools

@@ -27,6 +27,10 @@ runs:
       fi
       rustup toolchain install "${toolchains[@]}" --profile minimal --component rustfmt --component clippy
     working-directory: codecs/libjxl-rs
+  - name: Fetch the shared lockfile dependencies before offline checks
+    shell: bash
+    run: cargo fetch --locked
+    working-directory: codecs/libjxl-rs
   - name: Install the Linux reference standard library
     if: inputs.oracle == 'true' && runner.os == 'Linux'
     shell: bash
