@@ -189,7 +189,7 @@ fn horizontal_filter_neon(
 
 /// Entry point of `HorizontalFilter_NEON` for
 /// `WebPFilters[WEBP_FILTER_HORIZONTAL]`.
-pub fn horizontal_filter(
+pub(crate) fn horizontal_filter(
     data: &[u8],
     width: i32,
     height: i32,
@@ -240,7 +240,7 @@ fn vertical_filter_neon(
 }
 
 /// Entry point of `VerticalFilter_NEON` for `WebPFilters[WEBP_FILTER_VERTICAL]`.
-pub fn vertical_filter(
+pub(crate) fn vertical_filter(
     data: &[u8],
     width: i32,
     height: i32,
@@ -342,7 +342,7 @@ fn gradient_filter_neon(
 }
 
 /// Entry point of `GradientFilter_NEON` for `WebPFilters[WEBP_FILTER_GRADIENT]`.
-pub fn gradient_filter(
+pub(crate) fn gradient_filter(
     data: &[u8],
     width: i32,
     height: i32,
@@ -391,7 +391,7 @@ fn horizontal_unfilter_neon(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], w
 
 /// Entry point of `HorizontalUnfilter_NEON` for
 /// `WebPUnfilters[WEBP_FILTER_HORIZONTAL]`.
-pub fn horizontal_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
+pub(crate) fn horizontal_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { horizontal_unfilter_neon(prev, input, out, width) }
@@ -423,7 +423,7 @@ fn vertical_unfilter_neon(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], wid
 
 /// Entry point of `VerticalUnfilter_NEON` for
 /// `WebPUnfilters[WEBP_FILTER_VERTICAL]`.
-pub fn vertical_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
+pub(crate) fn vertical_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { vertical_unfilter_neon(prev, input, out, width) }
@@ -436,7 +436,7 @@ pub fn vertical_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], widt
 /// The entry of `WebPFilters` that `VP8FiltersInitNEON` sets for `filter`, or
 /// `None` where it keeps the C entry.
 #[must_use]
-pub fn filters(filter: WEBP_FILTER_TYPE) -> Option<WebPFilterFunc> {
+pub(crate) fn filters(filter: WEBP_FILTER_TYPE) -> Option<WebPFilterFunc> {
     let filter_fn: WebPFilterFunc = match filter {
         WEBP_FILTER_TYPE::WEBP_FILTER_HORIZONTAL => horizontal_filter,
         WEBP_FILTER_TYPE::WEBP_FILTER_VERTICAL => vertical_filter,
@@ -450,7 +450,7 @@ pub fn filters(filter: WEBP_FILTER_TYPE) -> Option<WebPFilterFunc> {
 /// The entry of `WebPUnfilters` that `VP8FiltersInitNEON` sets for `filter`,
 /// or `None` where it keeps the C entry (`USE_GRADIENT_UNFILTER` is 0).
 #[must_use]
-pub fn unfilters(filter: WEBP_FILTER_TYPE) -> Option<WebPUnfilterFunc> {
+pub(crate) fn unfilters(filter: WEBP_FILTER_TYPE) -> Option<WebPUnfilterFunc> {
     let unfilter_fn: WebPUnfilterFunc = match filter {
         WEBP_FILTER_TYPE::WEBP_FILTER_HORIZONTAL => horizontal_unfilter,
         WEBP_FILTER_TYPE::WEBP_FILTER_VERTICAL => vertical_unfilter,

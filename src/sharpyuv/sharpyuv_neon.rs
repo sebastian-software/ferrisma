@@ -143,7 +143,7 @@ fn sharp_yuv_update_y_neon(
 }
 
 /// Entry point of `SharpYuvUpdateY_NEON` for `SharpYuvUpdateY`.
-pub fn sharp_yuv_update_y(
+pub(crate) fn sharp_yuv_update_y(
     r#ref: &[u16],
     src: &[u16],
     dst: &mut [u16],
@@ -185,7 +185,7 @@ fn sharp_yuv_update_rgb_neon(r#ref: &[i16], src: &[i16], dst: &mut [i16], len: i
 }
 
 /// Entry point of `SharpYuvUpdateRGB_NEON` for `SharpYuvUpdateRGB`.
-pub fn sharp_yuv_update_rgb(r#ref: &[i16], src: &[i16], dst: &mut [i16], len: i32) {
+pub(crate) fn sharp_yuv_update_rgb(r#ref: &[i16], src: &[i16], dst: &mut [i16], len: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { sharp_yuv_update_rgb_neon(r#ref, src, dst, len) }
@@ -321,7 +321,7 @@ fn sharp_yuv_filter_row_neon(
 }
 
 /// Entry point of `SharpYuvFilterRow_NEON` for `SharpYuvFilterRow`.
-pub fn sharp_yuv_filter_row(
+pub(crate) fn sharp_yuv_filter_row(
     a: &[i16],
     b: &[i16],
     len: i32,

@@ -8,7 +8,60 @@ use std::hint::black_box;
 use webp::dsp::filters as c;
 use webp::dsp::filters::{WebPFilterFunc, WebPUnfilterFunc};
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
-use webp::dsp::filters_neon as neon;
+/// The NEON level of `src/dsp/filters_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub fn gradient_filter(data: &[u8], width: i32, height: i32, stride: i32, out: &mut [u8]) {
+        webp::dsp::filters::webp_filters(
+            webp::dsp::dsp::WEBP_FILTER_TYPE::WEBP_FILTER_GRADIENT,
+            data,
+            width,
+            height,
+            stride,
+            out,
+        );
+    }
+    pub fn horizontal_filter(data: &[u8], width: i32, height: i32, stride: i32, out: &mut [u8]) {
+        webp::dsp::filters::webp_filters(
+            webp::dsp::dsp::WEBP_FILTER_TYPE::WEBP_FILTER_HORIZONTAL,
+            data,
+            width,
+            height,
+            stride,
+            out,
+        );
+    }
+    pub fn horizontal_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
+        webp::dsp::filters::webp_unfilters(
+            webp::dsp::dsp::WEBP_FILTER_TYPE::WEBP_FILTER_HORIZONTAL,
+            prev,
+            input,
+            out,
+            width,
+        );
+    }
+    pub fn vertical_filter(data: &[u8], width: i32, height: i32, stride: i32, out: &mut [u8]) {
+        webp::dsp::filters::webp_filters(
+            webp::dsp::dsp::WEBP_FILTER_TYPE::WEBP_FILTER_VERTICAL,
+            data,
+            width,
+            height,
+            stride,
+            out,
+        );
+    }
+    pub fn vertical_unfilter(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], width: i32) {
+        webp::dsp::filters::webp_unfilters(
+            webp::dsp::dsp::WEBP_FILTER_TYPE::WEBP_FILTER_VERTICAL,
+            prev,
+            input,
+            out,
+            width,
+        );
+    }
+}
 
 use super::{Case, Rng};
 

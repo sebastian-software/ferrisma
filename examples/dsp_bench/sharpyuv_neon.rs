@@ -7,7 +7,15 @@ use std::hint::black_box;
 
 use webp::sharpyuv::sharpyuv_dsp as c;
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
-use webp::sharpyuv::sharpyuv_neon as neon;
+/// The NEON level of `src/sharpyuv/sharpyuv_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::sharpyuv::sharpyuv_dsp::sharp_yuv_filter_row;
+    pub use webp::sharpyuv::sharpyuv_dsp::sharp_yuv_update_rgb;
+    pub use webp::sharpyuv::sharpyuv_dsp::sharp_yuv_update_y;
+}
 
 use super::{Case, Rng};
 

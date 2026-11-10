@@ -457,7 +457,7 @@ macro_rules! neon_upsampler {
             clippy::too_many_arguments,
             reason = "the parameters of WebPUpsampleLinePairFunc"
         )]
-        pub fn $entry(
+        pub(crate) fn $entry(
             top_y: &[u8],
             bottom: Option<(&[u8], &mut [u8])>,
             top_u: &[u8],
@@ -521,7 +521,7 @@ neon_upsampler!(
 /// The entry of `WebPUpsamplers` that `WebPInitUpsamplersNEON` sets for
 /// `mode`, or `None` for the modes it leaves (`MODE_YUV`, `MODE_YUVA`).
 #[must_use]
-pub fn upsamplers(mode: WEBP_CSP_MODE) -> Option<WebPUpsampleLinePairFunc> {
+pub(crate) fn upsamplers(mode: WEBP_CSP_MODE) -> Option<WebPUpsampleLinePairFunc> {
     let upsampler: WebPUpsampleLinePairFunc = match mode {
         WEBP_CSP_MODE::MODE_RGBA | WEBP_CSP_MODE::MODE_rgbA => upsample_rgba_line_pair,
         WEBP_CSP_MODE::MODE_BGRA | WEBP_CSP_MODE::MODE_bgrA => upsample_bgra_line_pair,

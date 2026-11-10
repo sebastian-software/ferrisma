@@ -7,7 +7,85 @@
 use super::{Case, Rng};
 use webp::dsp::dec as c;
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
-use webp::dsp::dec_neon as neon;
+/// The NEON level of `src/dsp/dec_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub fn dc16_no_left(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(5, buf, dst);
+    }
+    pub fn dc16_no_top(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(4, buf, dst);
+    }
+    pub fn dc16_no_top_left(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(6, buf, dst);
+    }
+    pub fn dc16_top_left(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(0, buf, dst);
+    }
+    pub fn dc4(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma4(0, buf, dst);
+    }
+    pub fn dc8uv(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(0, buf, dst);
+    }
+    pub fn dc8uv_no_left(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(5, buf, dst);
+    }
+    pub fn dc8uv_no_top(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(4, buf, dst);
+    }
+    pub fn dc8uv_no_top_left(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(6, buf, dst);
+    }
+    pub use webp::dsp::dec::vp8h_filter8 as h_filter8;
+    pub use webp::dsp::dec::vp8h_filter8i as h_filter8i;
+    pub use webp::dsp::dec::vp8h_filter16 as h_filter16;
+    pub use webp::dsp::dec::vp8h_filter16i as h_filter16i;
+    pub fn he16(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(3, buf, dst);
+    }
+    pub fn he8uv(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(3, buf, dst);
+    }
+    pub fn ld4(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma4(6, buf, dst);
+    }
+    pub fn rd4(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma4(4, buf, dst);
+    }
+    pub use webp::dsp::dec::vp8_simple_h_filter16 as simple_h_filter16;
+    pub use webp::dsp::dec::vp8_simple_h_filter16i as simple_h_filter16i;
+    pub use webp::dsp::dec::vp8_simple_v_filter16 as simple_v_filter16;
+    pub use webp::dsp::dec::vp8_simple_v_filter16i as simple_v_filter16i;
+    pub fn tm16(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(1, buf, dst);
+    }
+    pub fn tm4(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma4(1, buf, dst);
+    }
+    pub fn tm8uv(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(1, buf, dst);
+    }
+    pub use webp::dsp::dec::vp8_transform as transform_two;
+    pub use webp::dsp::dec::vp8_transform_ac3 as transform_ac3;
+    pub use webp::dsp::dec::vp8_transform_dc as transform_dc;
+    pub use webp::dsp::dec::vp8_transform_wht as transform_wht;
+    pub use webp::dsp::dec::vp8v_filter8 as v_filter8;
+    pub use webp::dsp::dec::vp8v_filter8i as v_filter8i;
+    pub use webp::dsp::dec::vp8v_filter16 as v_filter16;
+    pub use webp::dsp::dec::vp8v_filter16i as v_filter16i;
+    pub fn ve16(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma16(2, buf, dst);
+    }
+    pub fn ve4(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_luma4(2, buf, dst);
+    }
+    pub fn ve8uv(buf: &mut [u8], dst: usize) {
+        webp::dsp::dec::vp8_pred_chroma8(2, buf, dst);
+    }
+}
 
 const BPS: usize = 32;
 

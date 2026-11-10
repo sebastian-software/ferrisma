@@ -123,7 +123,7 @@ fn subtract_green_from_blue_and_red_neon(argb_data: &mut [u32], num_pixels: i32)
 
 /// Entry point of `SubtractGreenFromBlueAndRed_NEON` for
 /// `VP8LSubtractGreenFromBlueAndRed`.
-pub fn subtract_green_from_blue_and_red(argb_data: &mut [u32], num_pixels: i32) {
+pub(crate) fn subtract_green_from_blue_and_red(argb_data: &mut [u32], num_pixels: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { subtract_green_from_blue_and_red_neon(argb_data, num_pixels) }
@@ -203,7 +203,11 @@ fn transform_color_neon(m: &VP8LMultipliers, argb_data: &mut [u32], num_pixels: 
 }
 
 /// Entry point of `TransformColor_NEON` for `VP8LTransformColor`.
-pub fn transform_color(m: &VP8LMultipliers, argb_data: &mut [u32], num_pixels: i32) {
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "the signature of the dispatch function; C passes the multipliers by pointer"
+)]
+pub(crate) fn transform_color(m: &VP8LMultipliers, argb_data: &mut [u32], num_pixels: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { transform_color_neon(m, argb_data, num_pixels) }

@@ -166,7 +166,13 @@ fn apply_alpha_multiply_neon(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32,
 }
 
 /// Entry point of `ApplyAlphaMultiply_NEON` for `WebPApplyAlphaMultiply`.
-pub fn apply_alpha_multiply(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, stride: i32) {
+pub(crate) fn apply_alpha_multiply(
+    rgba: &mut [u8],
+    alpha_first: bool,
+    w: i32,
+    h: i32,
+    stride: i32,
+) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { apply_alpha_multiply_neon(rgba, alpha_first, w, h, stride) }
@@ -228,7 +234,7 @@ fn dispatch_alpha_neon(
 }
 
 /// Entry point of `DispatchAlpha_NEON` for `WebPDispatchAlpha`.
-pub fn dispatch_alpha(
+pub(crate) fn dispatch_alpha(
     alpha: &[u8],
     alpha_stride: i32,
     width: i32,
@@ -274,7 +280,7 @@ fn dispatch_alpha_to_green_neon(
 }
 
 /// Entry point of `DispatchAlphaToGreen_NEON` for `WebPDispatchAlphaToGreen`.
-pub fn dispatch_alpha_to_green(
+pub(crate) fn dispatch_alpha_to_green(
     alpha: &[u8],
     alpha_stride: i32,
     width: i32,
@@ -326,7 +332,7 @@ fn extract_alpha_neon(
 }
 
 /// Entry point of `ExtractAlpha_NEON` for `WebPExtractAlpha`.
-pub fn extract_alpha(
+pub(crate) fn extract_alpha(
     argb: &[u8],
     argb_stride: i32,
     width: i32,
@@ -357,7 +363,7 @@ fn extract_green_neon(argb: &[u32], alpha: &mut [u8], size: i32) {
 }
 
 /// Entry point of `ExtractGreen_NEON` for `WebPExtractGreen`.
-pub fn extract_green(argb: &[u32], alpha: &mut [u8], size: i32) {
+pub(crate) fn extract_green(argb: &[u32], alpha: &mut [u8], size: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { extract_green_neon(argb, alpha, size) }

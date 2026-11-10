@@ -161,7 +161,7 @@ fn convert_bgra_to_rgba_neon(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
 }
 
 /// Entry point of `ConvertBGRAToRGBA_NEON` for `VP8LConvertBGRAToRGBA`.
-pub fn convert_bgra_to_rgba(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+pub(crate) fn convert_bgra_to_rgba(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_bgra_to_rgba_neon(src, num_pixels, dst) }
@@ -184,7 +184,7 @@ fn convert_bgra_to_bgr_neon(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
 }
 
 /// Entry point of `ConvertBGRAToBGR_NEON` for `VP8LConvertBGRAToBGR`.
-pub fn convert_bgra_to_bgr(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+pub(crate) fn convert_bgra_to_bgr(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_bgra_to_bgr_neon(src, num_pixels, dst) }
@@ -207,7 +207,7 @@ fn convert_bgra_to_rgb_neon(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
 }
 
 /// Entry point of `ConvertBGRAToRGB_NEON` for `VP8LConvertBGRAToRGB`.
-pub fn convert_bgra_to_rgb(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+pub(crate) fn convert_bgra_to_rgb(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_bgra_to_rgb_neon(src, num_pixels, dst) }
@@ -310,7 +310,7 @@ fn predictor5_neon(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -
 
 /// Entry point of `Predictor5_NEON` for `VP8LPredictors[5]`.
 #[must_use]
-pub fn predictor5(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+pub(crate) fn predictor5(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { predictor5_neon(left, left_pos, top, top_pos) }
@@ -325,7 +325,7 @@ fn predictor6_neon(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -
 
 /// Entry point of `Predictor6_NEON` for `VP8LPredictors[6]`.
 #[must_use]
-pub fn predictor6(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+pub(crate) fn predictor6(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { predictor6_neon(left, left_pos, top, top_pos) }
@@ -340,7 +340,7 @@ fn predictor7_neon(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -
 
 /// Entry point of `Predictor7_NEON` for `VP8LPredictors[7]`.
 #[must_use]
-pub fn predictor7(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+pub(crate) fn predictor7(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { predictor7_neon(left, left_pos, top, top_pos) }
@@ -355,7 +355,7 @@ fn predictor13_neon(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) 
 
 /// Entry point of `Predictor13_NEON` for `VP8LPredictors[13]`.
 #[must_use]
-pub fn predictor13(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+pub(crate) fn predictor13(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { predictor13_neon(left, left_pos, top, top_pos) }
@@ -393,7 +393,7 @@ fn predictor_add0_neon(
 }
 
 /// Entry point of `PredictorAdd0_NEON` for `VP8LPredictorsAdd[0]`.
-pub fn predictor_add0(
+pub(crate) fn predictor_add0(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -445,7 +445,7 @@ fn predictor_add1_neon(
 }
 
 /// Entry point of `PredictorAdd1_NEON` for `VP8LPredictorsAdd[1]`.
-pub fn predictor_add1(
+pub(crate) fn predictor_add1(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -496,7 +496,7 @@ generate_predictor_1!(predictor_add3_neon, 3, upper, i => upper + i + 1);
 generate_predictor_1!(predictor_add4_neon, 4, upper, i => upper + i - 1);
 
 /// Entry point of `PredictorAdd2_NEON` for `VP8LPredictorsAdd[2]`.
-pub fn predictor_add2(
+pub(crate) fn predictor_add2(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -509,7 +509,7 @@ pub fn predictor_add2(
 }
 
 /// Entry point of `PredictorAdd3_NEON` for `VP8LPredictorsAdd[3]`.
-pub fn predictor_add3(
+pub(crate) fn predictor_add3(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -522,7 +522,7 @@ pub fn predictor_add3(
 }
 
 /// Entry point of `PredictorAdd4_NEON` for `VP8LPredictorsAdd[4]`.
-pub fn predictor_add4(
+pub(crate) fn predictor_add4(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -578,7 +578,7 @@ fn predictor_add5_neon(
 }
 
 /// Entry point of `PredictorAdd5_NEON` for `VP8LPredictorsAdd[5]`.
-pub fn predictor_add5(
+pub(crate) fn predictor_add5(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -632,7 +632,7 @@ fn predictor_add6_neon(
 }
 
 /// Entry point of `PredictorAdd6_NEON` for `VP8LPredictorsAdd[6]`.
-pub fn predictor_add6(
+pub(crate) fn predictor_add6(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -686,7 +686,7 @@ fn predictor_add7_neon(
 }
 
 /// Entry point of `PredictorAdd7_NEON` for `VP8LPredictorsAdd[7]`.
-pub fn predictor_add7(
+pub(crate) fn predictor_add7(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -736,7 +736,7 @@ generate_predictor_2!(predictor_add8_neon, 8, upper, i => upper + i - 1);
 generate_predictor_2!(predictor_add9_neon, 9, upper, i => upper + i + 1);
 
 /// Entry point of `PredictorAdd8_NEON` for `VP8LPredictorsAdd[8]`.
-pub fn predictor_add8(
+pub(crate) fn predictor_add8(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -749,7 +749,7 @@ pub fn predictor_add8(
 }
 
 /// Entry point of `PredictorAdd9_NEON` for `VP8LPredictorsAdd[9]`.
-pub fn predictor_add9(
+pub(crate) fn predictor_add9(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -807,7 +807,7 @@ fn predictor_add10_neon(
 }
 
 /// Entry point of `PredictorAdd10_NEON` for `VP8LPredictorsAdd[10]`.
-pub fn predictor_add10(
+pub(crate) fn predictor_add10(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -870,7 +870,7 @@ fn predictor_add11_neon(
 }
 
 /// Entry point of `PredictorAdd11_NEON` for `VP8LPredictorsAdd[11]`.
-pub fn predictor_add11(
+pub(crate) fn predictor_add11(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -940,7 +940,7 @@ fn predictor_add12_neon(
 }
 
 /// Entry point of `PredictorAdd12_NEON` for `VP8LPredictorsAdd[12]`.
-pub fn predictor_add12(
+pub(crate) fn predictor_add12(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -1004,7 +1004,7 @@ fn predictor_add13_neon(
 }
 
 /// Entry point of `PredictorAdd13_NEON` for `VP8LPredictorsAdd[13]`.
-pub fn predictor_add13(
+pub(crate) fn predictor_add13(
     data: &mut [u32],
     in_pos: usize,
     upper_pos: usize,
@@ -1056,7 +1056,7 @@ fn add_green_to_blue_and_red_neon(
 
 /// Entry point of `AddGreenToBlueAndRed_NEON` for
 /// `VP8LAddGreenToBlueAndRed`.
-pub fn add_green_to_blue_and_red(
+pub(crate) fn add_green_to_blue_and_red(
     data: &mut [u32],
     src_pos: usize,
     num_pixels: i32,
@@ -1151,7 +1151,11 @@ fn transform_color_inverse_neon(
 
 /// Entry point of `TransformColorInverse_NEON` for
 /// `VP8LTransformColorInverse`.
-pub fn transform_color_inverse(
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "the signature of the dispatch function; C passes the multipliers by pointer"
+)]
+pub(crate) fn transform_color_inverse(
     m: &VP8LMultipliers,
     data: &mut [u32],
     src_pos: usize,

@@ -13,10 +13,197 @@ mod support;
 use support::Rng;
 use webp::dsp::upsampling as c;
 use webp::dsp::upsampling::WebPUpsampleLinePairFunc;
-use webp::dsp::upsampling_neon as neon;
+/// The NEON level of `src/dsp/upsampling_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_argb_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_ARGB,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_bgr_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_BGR,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_bgra_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_BGRA,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_rgb565_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_RGB_565,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_rgb_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_RGB,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_rgba4444_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_RGBA_4444,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parameters of WebPUpsampleLinePairFunc"
+    )]
+    pub fn upsample_rgba_line_pair(
+        top_y: &[u8],
+        bottom: Option<(&[u8], &mut [u8])>,
+        top_u: &[u8],
+        top_v: &[u8],
+        cur_u: &[u8],
+        cur_v: &[u8],
+        top_dst: &mut [u8],
+        len: i32,
+    ) {
+        webp::dsp::upsampling::webp_upsamplers(
+            webp::webp::decode::WEBP_CSP_MODE::MODE_RGBA,
+            top_y,
+            bottom,
+            top_u,
+            top_v,
+            cur_u,
+            cur_v,
+            top_dst,
+            len,
+        );
+    }
+}
 use webp::webp::decode::WEBP_CSP_MODE;
 
-/// The formats: C function, NEON entry point, bytes per pixel, modes.
+/// The formats: C function, NEON variant, bytes per pixel, modes.
 fn formats() -> Vec<(
     WebPUpsampleLinePairFunc,
     WebPUpsampleLinePairFunc,

@@ -167,8 +167,10 @@
 //! - `src/dsp/rescaler.rs`: none; the NEON export rows are not selected
 //!   (`src/dsp/rescaler_neon.rs`).
 //!
-//! The replaced private `fn xxx_c` functions became plain `pub fn xxx_c` for
-//! the parity tests, with `# Panics` sections and `#[must_use]` where Clippy
+//! The NEON entry points are `pub(crate)`, as WP18's are, so that only the
+//! dispatch functions run them; the parity tests and the benchmark reach them
+//! through the dispatch functions. The replaced private `fn xxx_c` functions
+//! became plain `pub fn xxx_c` for the parity tests, with `# Panics` sections and `#[must_use]` where Clippy
 //! asked and nothing else changed on the line; make the identical change if
 //! you need the same function. `src/dsp/cpu.rs` gained `Features::query_neon`,
 //! and `vp8_get_cpu_info` and the C ABI's `VP8GetCPUInfo` answer `kNEON` only
@@ -932,7 +934,7 @@ fn simple_v_filter16_neon(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 /// Entry point of `SimpleVFilter16_NEON` for `VP8SimpleVFilter16`.
-pub fn simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub(crate) fn simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { simple_v_filter16_neon(p, pos, stride, thresh) }
@@ -950,7 +952,7 @@ fn simple_h_filter16_neon(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 /// Entry point of `SimpleHFilter16_NEON` for `VP8SimpleHFilter16`.
-pub fn simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub(crate) fn simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { simple_h_filter16_neon(p, pos, stride, thresh) }
@@ -967,7 +969,7 @@ fn simple_v_filter16i_neon(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 /// Entry point of `SimpleVFilter16i_NEON` for `VP8SimpleVFilter16i`.
-pub fn simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub(crate) fn simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { simple_v_filter16i_neon(p, pos, stride, thresh) }
@@ -984,7 +986,7 @@ fn simple_h_filter16i_neon(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
 }
 
 /// Entry point of `SimpleHFilter16i_NEON` for `VP8SimpleHFilter16i`.
-pub fn simple_h_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
+pub(crate) fn simple_h_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { simple_h_filter16i_neon(p, pos, stride, thresh) }
@@ -1220,7 +1222,7 @@ fn v_filter16_neon(
 }
 
 /// Entry point of `VFilter16_NEON` for `VP8VFilter16`.
-pub fn v_filter16(
+pub(crate) fn v_filter16(
     p: &mut [u8],
     pos: usize,
     stride: i32,
@@ -1256,7 +1258,7 @@ fn h_filter16_neon(
 }
 
 /// Entry point of `HFilter16_NEON` for `VP8HFilter16`.
-pub fn h_filter16(
+pub(crate) fn h_filter16(
     p: &mut [u8],
     pos: usize,
     stride: i32,
@@ -1299,7 +1301,7 @@ fn v_filter16i_neon(
 }
 
 /// Entry point of `VFilter16i_NEON` for `VP8VFilter16i`.
-pub fn v_filter16i(
+pub(crate) fn v_filter16i(
     p: &mut [u8],
     pos: usize,
     stride: i32,
@@ -1339,7 +1341,7 @@ fn h_filter16i_neon(
 }
 
 /// Entry point of `HFilter16i_NEON` for `VP8HFilter16i`.
-pub fn h_filter16i(
+pub(crate) fn h_filter16i(
     p: &mut [u8],
     pos: usize,
     stride: i32,
@@ -1402,7 +1404,7 @@ fn v_filter8_neon(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-pub fn v_filter8(
+pub(crate) fn v_filter8(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1449,7 +1451,7 @@ fn v_filter8i_neon(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-pub fn v_filter8i(
+pub(crate) fn v_filter8i(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1495,7 +1497,7 @@ fn h_filter8_neon(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-pub fn h_filter8(
+pub(crate) fn h_filter8(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1542,7 +1544,7 @@ fn h_filter8i_neon(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
 )]
-pub fn h_filter8i(
+pub(crate) fn h_filter8i(
     u: &mut [u8],
     u_pos: usize,
     v: &mut [u8],
@@ -1644,7 +1646,7 @@ fn transform_two_neon(input: &[i16], dst: &mut [u8], do_two: bool) {
 }
 
 /// Entry point of `TransformTwo_NEON` for `VP8Transform`.
-pub fn transform_two(input: &[i16], dst: &mut [u8], do_two: bool) {
+pub(crate) fn transform_two(input: &[i16], dst: &mut [u8], do_two: bool) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { transform_two_neon(input, dst, do_two) }
@@ -1658,7 +1660,7 @@ fn transform_dc_neon(input: &[i16], dst: &mut [u8]) {
 }
 
 /// Entry point of `TransformDC_NEON` for `VP8TransformDC`.
-pub fn transform_dc(input: &[i16], dst: &mut [u8]) {
+pub(crate) fn transform_dc(input: &[i16], dst: &mut [u8]) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { transform_dc_neon(input, dst) }
@@ -1735,7 +1737,7 @@ fn transform_wht_neon(input: &[i16], out: &mut [i16]) {
 }
 
 /// Entry point of `TransformWHT_NEON` for `VP8TransformWHT`.
-pub fn transform_wht(input: &[i16], out: &mut [i16]) {
+pub(crate) fn transform_wht(input: &[i16], out: &mut [i16]) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { transform_wht_neon(input, out) }
@@ -1770,7 +1772,7 @@ fn transform_ac3_neon(input: &[i16], dst: &mut [u8]) {
 }
 
 /// Entry point of `TransformAC3_NEON` for `VP8TransformAC3`.
-pub fn transform_ac3(input: &[i16], dst: &mut [u8]) {
+pub(crate) fn transform_ac3(input: &[i16], dst: &mut [u8]) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { transform_ac3_neon(input, dst) }
@@ -1802,7 +1804,7 @@ fn dc4_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC4_NEON` for `VP8PredLuma4[0]`.
-pub fn dc4(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc4(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc4_neon(buf, dst) }
@@ -1856,7 +1858,7 @@ fn tm4_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `TM4_NEON` for `VP8PredLuma4[1]`.
-pub fn tm4(buf: &mut [u8], dst: usize) {
+pub(crate) fn tm4(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { tm4_neon(buf, dst) }
@@ -1881,7 +1883,7 @@ fn ve4_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `VE4_NEON` for `VP8PredLuma4[2]`.
-pub fn ve4(buf: &mut [u8], dst: usize) {
+pub(crate) fn ve4(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { ve4_neon(buf, dst) }
@@ -1924,7 +1926,7 @@ fn rd4_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `RD4_NEON` for `VP8PredLuma4[4]`.
-pub fn rd4(buf: &mut [u8], dst: usize) {
+pub(crate) fn rd4(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { rd4_neon(buf, dst) }
@@ -1954,7 +1956,7 @@ fn ld4_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `LD4_NEON` for `VP8PredLuma4[6]`.
-pub fn ld4(buf: &mut [u8], dst: usize) {
+pub(crate) fn ld4(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { ld4_neon(buf, dst) }
@@ -1974,7 +1976,7 @@ fn ve8uv_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `VE8uv_NEON` for `VP8PredChroma8[2]`.
-pub fn ve8uv(buf: &mut [u8], dst: usize) {
+pub(crate) fn ve8uv(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { ve8uv_neon(buf, dst) }
@@ -1993,7 +1995,7 @@ fn he8uv_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `HE8uv_NEON` for `VP8PredChroma8[3]`.
-pub fn he8uv(buf: &mut [u8], dst: usize) {
+pub(crate) fn he8uv(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { he8uv_neon(buf, dst) }
@@ -2056,7 +2058,7 @@ fn dc8uv_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC8uv_NEON` for `VP8PredChroma8[0]`.
-pub fn dc8uv(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc8uv(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc8uv_neon(buf, dst) }
@@ -2069,7 +2071,7 @@ fn dc8uv_no_top_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC8uvNoTop_NEON` for `VP8PredChroma8[4]`.
-pub fn dc8uv_no_top(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc8uv_no_top(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc8uv_no_top_neon(buf, dst) }
@@ -2082,7 +2084,7 @@ fn dc8uv_no_left_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC8uvNoLeft_NEON` for `VP8PredChroma8[5]`.
-pub fn dc8uv_no_left(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc8uv_no_left(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc8uv_no_left_neon(buf, dst) }
@@ -2095,7 +2097,7 @@ fn dc8uv_no_top_left_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC8uvNoTopLeft_NEON` for `VP8PredChroma8[6]`.
-pub fn dc8uv_no_top_left(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc8uv_no_top_left(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc8uv_no_top_left_neon(buf, dst) }
@@ -2108,7 +2110,7 @@ fn tm8uv_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `TM8uv_NEON` for `VP8PredChroma8[1]`.
-pub fn tm8uv(buf: &mut [u8], dst: usize) {
+pub(crate) fn tm8uv(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { tm8uv_neon(buf, dst) }
@@ -2128,7 +2130,7 @@ fn ve16_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `VE16_NEON` for `VP8PredLuma16[2]`.
-pub fn ve16(buf: &mut [u8], dst: usize) {
+pub(crate) fn ve16(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { ve16_neon(buf, dst) }
@@ -2147,7 +2149,7 @@ fn he16_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `HE16_NEON` for `VP8PredLuma16[3]`.
-pub fn he16(buf: &mut [u8], dst: usize) {
+pub(crate) fn he16(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { he16_neon(buf, dst) }
@@ -2216,7 +2218,7 @@ fn dc16_top_left_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC16TopLeft_NEON` for `VP8PredLuma16[0]`.
-pub fn dc16_top_left(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc16_top_left(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc16_top_left_neon(buf, dst) }
@@ -2229,7 +2231,7 @@ fn dc16_no_top_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC16NoTop_NEON` for `VP8PredLuma16[4]`.
-pub fn dc16_no_top(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc16_no_top(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc16_no_top_neon(buf, dst) }
@@ -2242,7 +2244,7 @@ fn dc16_no_left_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC16NoLeft_NEON` for `VP8PredLuma16[5]`.
-pub fn dc16_no_left(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc16_no_left(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc16_no_left_neon(buf, dst) }
@@ -2255,7 +2257,7 @@ fn dc16_no_top_left_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `DC16NoTopLeft_NEON` for `VP8PredLuma16[6]`.
-pub fn dc16_no_top_left(buf: &mut [u8], dst: usize) {
+pub(crate) fn dc16_no_top_left(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { dc16_no_top_left_neon(buf, dst) }
@@ -2301,7 +2303,7 @@ fn tm16_neon(buf: &mut [u8], dst: usize) {
 }
 
 /// Entry point of `TM16_NEON` for `VP8PredLuma16[1]`.
-pub fn tm16(buf: &mut [u8], dst: usize) {
+pub(crate) fn tm16(buf: &mut [u8], dst: usize) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { tm16_neon(buf, dst) }

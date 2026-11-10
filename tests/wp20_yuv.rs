@@ -17,7 +17,17 @@ mod support;
 
 use support::{Rng, widths};
 use webp::dsp::yuv as c;
-use webp::dsp::yuv_neon as neon;
+/// The NEON level of `src/dsp/yuv_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::yuv::webp_convert_argb_to_uv as convert_argb_to_uv;
+    pub use webp::dsp::yuv::webp_convert_argb_to_y as convert_argb_to_y;
+    pub use webp::dsp::yuv::webp_convert_bgr24_to_y as convert_bgr24_to_y;
+    pub use webp::dsp::yuv::webp_convert_rgb24_to_y as convert_rgb24_to_y;
+    pub use webp::dsp::yuv::webp_convert_rgba32_to_uv as convert_rgba32_to_uv;
+}
 
 #[test]
 fn rgb_to_y_covers_every_red_green_pair() {

@@ -78,7 +78,7 @@ fn set_residual_coeffs_neon<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
 }
 
 /// Entry point of `SetResidualCoeffs_NEON` for `VP8SetResidualCoeffs`.
-pub fn set_residual_coeffs<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
+pub(crate) fn set_residual_coeffs<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for;
     // upstream's `VP8EncDspCostInit` selects this variant when the CPU query
     // answers `kNEON` (ADR 0008).
@@ -163,7 +163,7 @@ fn get_residual_cost_neon(ctx0: i32, res: &VP8Residual<'_>) -> i32 {
 
 /// Entry point of `GetResidualCost_NEON` for `VP8GetResidualCost`.
 #[must_use]
-pub fn get_residual_cost(ctx0: i32, res: &VP8Residual<'_>) -> i32 {
+pub(crate) fn get_residual_cost(ctx0: i32, res: &VP8Residual<'_>) -> i32 {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for;
     // upstream's `VP8EncDspCostInit` selects this variant when the CPU query
     // answers `kNEON` (ADR 0008).

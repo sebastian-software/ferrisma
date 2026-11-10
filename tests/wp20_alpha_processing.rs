@@ -1,7 +1,7 @@
 //! WP20 parity test: the NEON variants of `src/dsp/alpha_processing_neon.c`
 //! against the C translations they replace (`src/dsp/alpha_processing.rs`),
-//! Rust against Rust, and the dispatch functions against the NEON entry
-//! points. Buffers end exactly at the last byte the C function touches, and
+//! Rust against Rust, through the dispatch functions, which select the NEON
+//! variants. Buffers end exactly at the last byte the C function touches, and
 //! start at every offset 0 to 3 of a larger allocation, so an access outside
 //! the C function's range panics.
 
@@ -12,7 +12,17 @@ mod support;
 
 use support::{Rng, widths};
 use webp::dsp::alpha_processing as c;
-use webp::dsp::alpha_processing_neon as neon;
+/// The NEON level of `src/dsp/alpha_processing_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::alpha_processing::webp_apply_alpha_multiply as apply_alpha_multiply;
+    pub use webp::dsp::alpha_processing::webp_dispatch_alpha as dispatch_alpha;
+    pub use webp::dsp::alpha_processing::webp_dispatch_alpha_to_green as dispatch_alpha_to_green;
+    pub use webp::dsp::alpha_processing::webp_extract_alpha as extract_alpha;
+    pub use webp::dsp::alpha_processing::webp_extract_green as extract_green;
+}
 
 /// A buffer of `len` bytes after `offset` bytes of padding, from `rng`.
 fn padded(rng: &mut Rng, offset: usize, len: usize) -> Vec<u8> {

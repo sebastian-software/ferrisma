@@ -7,7 +7,17 @@ use std::hint::black_box;
 
 use webp::dsp::alpha_processing as c;
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
-use webp::dsp::alpha_processing_neon as neon;
+/// The NEON level of `src/dsp/alpha_processing_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::alpha_processing::webp_apply_alpha_multiply as apply_alpha_multiply;
+    pub use webp::dsp::alpha_processing::webp_dispatch_alpha as dispatch_alpha;
+    pub use webp::dsp::alpha_processing::webp_dispatch_alpha_to_green as dispatch_alpha_to_green;
+    pub use webp::dsp::alpha_processing::webp_extract_alpha as extract_alpha;
+    pub use webp::dsp::alpha_processing::webp_extract_green as extract_green;
+}
 
 use super::{Case, Rng};
 

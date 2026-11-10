@@ -16,7 +16,14 @@ use support::Rng;
 use webp::dsp::cost::{
     get_residual_cost_c, set_residual_coeffs_c, vp8_get_residual_cost, vp8_set_residual_coeffs,
 };
-use webp::dsp::cost_neon as neon;
+/// The NEON level of `src/dsp/cost_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::cost::vp8_get_residual_cost as get_residual_cost;
+    pub use webp::dsp::cost::vp8_set_residual_coeffs as set_residual_coeffs;
+}
 use webp::enc::cost_enc::{vp8_calculate_level_costs, vp8_init_residual};
 use webp::enc::picture_enc::webp_picture_alloc;
 use webp::enc::vp8i_enc::VP8Encoder;

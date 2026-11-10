@@ -136,7 +136,7 @@ fn convert_rgb24_to_y_neon(rgb: &[u8], y: &mut [u8], width: i32) {
 }
 
 /// Entry point of `ConvertRGB24ToY_NEON` for `WebPConvertRGB24ToY`.
-pub fn convert_rgb24_to_y(rgb: &[u8], y: &mut [u8], width: i32) {
+pub(crate) fn convert_rgb24_to_y(rgb: &[u8], y: &mut [u8], width: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_rgb24_to_y_neon(rgb, y, width) }
@@ -169,7 +169,7 @@ fn convert_bgr24_to_y_neon(bgr: &[u8], y: &mut [u8], width: i32) {
 }
 
 /// Entry point of `ConvertBGR24ToY_NEON` for `WebPConvertBGR24ToY`.
-pub fn convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
+pub(crate) fn convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_bgr24_to_y_neon(bgr, y, width) }
@@ -204,7 +204,7 @@ fn convert_argb_to_y_neon(argb: &[u32], y: &mut [u8], width: i32) {
 }
 
 /// Entry point of `ConvertARGBToY_NEON` for `WebPConvertARGBToY`.
-pub fn convert_argb_to_y(argb: &[u32], y: &mut [u8], width: i32) {
+pub(crate) fn convert_argb_to_y(argb: &[u32], y: &mut [u8], width: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_argb_to_y_neon(argb, y, width) }
@@ -291,7 +291,7 @@ fn convert_rgba32_to_uv_neon(rgb: &[u16], u: &mut [u8], v: &mut [u8], width: i32
 }
 
 /// Entry point of `ConvertRGBA32ToUV_NEON` for `WebPConvertRGBA32ToUV`.
-pub fn convert_rgba32_to_uv(rgb: &[u16], u: &mut [u8], v: &mut [u8], width: i32) {
+pub(crate) fn convert_rgba32_to_uv(rgb: &[u16], u: &mut [u8], v: &mut [u8], width: i32) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_rgba32_to_uv_neon(rgb, u, v, width) }
@@ -347,7 +347,13 @@ fn convert_argb_to_uv_neon(
 }
 
 /// Entry point of `ConvertARGBToUV_NEON` for `WebPConvertARGBToUV`.
-pub fn convert_argb_to_uv(argb: &[u32], u: &mut [u8], v: &mut [u8], src_width: i32, do_store: i32) {
+pub(crate) fn convert_argb_to_uv(
+    argb: &[u32],
+    u: &mut [u8],
+    v: &mut [u8],
+    src_width: i32,
+    do_store: i32,
+) {
     // SAFETY: NEON is in the AArch64 baseline that this module is compiled for,
     // and upstream selects the NEON variant there unconditionally (ADR 0008).
     unsafe { convert_argb_to_uv_neon(argb, u, v, src_width, do_store) }

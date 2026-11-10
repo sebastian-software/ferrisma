@@ -7,7 +7,155 @@ use std::hint::black_box;
 
 use webp::dsp::lossless::{self as c, VP8LMultipliers, VP8LPredictorFunc};
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
-use webp::dsp::lossless_neon as neon;
+/// The NEON level of `src/dsp/lossless_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::lossless::vp8l_add_green_to_blue_and_red as add_green_to_blue_and_red;
+    pub use webp::dsp::lossless::vp8l_convert_bgra_to_bgr as convert_bgra_to_bgr;
+    pub use webp::dsp::lossless::vp8l_convert_bgra_to_rgb as convert_bgra_to_rgb;
+    pub use webp::dsp::lossless::vp8l_convert_bgra_to_rgba as convert_bgra_to_rgba;
+    pub fn predictor13(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+        webp::dsp::lossless::vp8l_predictors(13, left, left_pos, top, top_pos)
+    }
+    pub fn predictor5(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+        webp::dsp::lossless::vp8l_predictors(5, left, left_pos, top, top_pos)
+    }
+    pub fn predictor6(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+        webp::dsp::lossless::vp8l_predictors(6, left, left_pos, top, top_pos)
+    }
+    pub fn predictor7(left: &[u32], left_pos: usize, top: &[u32], top_pos: usize) -> u32 {
+        webp::dsp::lossless::vp8l_predictors(7, left, left_pos, top, top_pos)
+    }
+    pub fn predictor_add0(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(0, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add1(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(1, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add10(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(10, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add11(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(11, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add12(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(12, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add13(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(13, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add2(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(2, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add3(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(3, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add4(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(4, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add5(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(5, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add6(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(6, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add7(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(7, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add8(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(8, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub fn predictor_add9(
+        data: &mut [u32],
+        in_pos: usize,
+        upper_pos: usize,
+        num_pixels: i32,
+        out_pos: usize,
+    ) {
+        webp::dsp::lossless::vp8l_predictors_add(9, data, in_pos, upper_pos, num_pixels, out_pos);
+    }
+    pub use webp::dsp::lossless::vp8l_transform_color_inverse as transform_color_inverse;
+}
 
 use super::{Case, Rng};
 

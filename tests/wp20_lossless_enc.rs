@@ -13,7 +13,14 @@ mod support;
 use support::{Rng, widths};
 use webp::dsp::lossless::VP8LMultipliers;
 use webp::dsp::lossless_enc as c;
-use webp::dsp::lossless_enc_neon as neon;
+/// The NEON level of `src/dsp/lossless_enc_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::lossless_enc::vp8l_subtract_green_from_blue_and_red as subtract_green_from_blue_and_red;
+    pub use webp::dsp::lossless_enc::vp8l_transform_color as transform_color;
+}
 
 /// Words whose bytes are edge values a quarter of the time.
 fn edge_words(rng: &mut Rng, count: usize) -> Vec<u32> {

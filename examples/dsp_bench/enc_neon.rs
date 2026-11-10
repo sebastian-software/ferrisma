@@ -1,7 +1,7 @@
 //! Cases of the encoder DSP functions that `src/dsp/enc_neon.rs` serves
 //! (WP20): the C translation of each dispatch function of `src/dsp/enc.rs`
 //! and `IsFlat` of `src/dsp/quant.rs`, and with `simd` on 64-bit ARM the
-//! NEON entry point, over the same seeded blocks.
+//! NEON variant through the dispatch function, over the same seeded blocks.
 
 use std::hint::black_box;
 
@@ -9,7 +9,27 @@ use super::{Case, Rng};
 use webp::dsp::dsp::{BPS, VP8Histogram};
 use webp::dsp::enc as c;
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
-use webp::dsp::enc_neon as neon;
+/// The NEON level of `src/dsp/enc_neon.rs`, reached through the dispatch
+/// functions, which select its crate-private entry points with `simd` on
+/// 64-bit ARM (the residual costs while the `VP8GetCPUInfo` query answers
+/// `kNEON`, as it does by default); named as the entry points.
+mod neon {
+    pub use webp::dsp::enc::vp8_collect_histogram as collect_histogram;
+    pub use webp::dsp::enc::vp8_enc_pred_luma4 as intra4_preds;
+    pub use webp::dsp::enc::vp8_enc_pred_luma16 as intra16_preds;
+    pub use webp::dsp::enc::vp8_enc_quantize_block as quantize_block;
+    pub use webp::dsp::enc::vp8_enc_quantize2_blocks as quantize2_blocks;
+    pub use webp::dsp::enc::vp8f_transform as f_transform;
+    pub use webp::dsp::enc::vp8f_transform_wht as f_transform_wht;
+    pub use webp::dsp::enc::vp8i_transform as i_transform;
+    pub use webp::dsp::enc::vp8sse4x4 as sse4x4;
+    pub use webp::dsp::enc::vp8sse8x8 as sse8x8;
+    pub use webp::dsp::enc::vp8sse16x8 as sse16x8;
+    pub use webp::dsp::enc::vp8sse16x16 as sse16x16;
+    pub use webp::dsp::enc::vp8t_disto4x4 as disto4x4;
+    pub use webp::dsp::enc::vp8t_disto16x16 as disto16x16;
+    pub use webp::dsp::quant::is_flat;
+}
 use webp::dsp::quant;
 use webp::enc::vp8i_enc::{PRED_SIZE_ENC, VP8Matrix};
 
