@@ -175,8 +175,8 @@ fn premultiply(x: u8, m: u32) -> u8 {
 ///
 /// # Panics
 ///
-/// Panics when a stride is negative or a slice is shorter than the
-/// elements the C function addresses.
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
 pub fn apply_alpha_multiply_c(rgba: &mut [u8], alpha_first: bool, w: i32, h: i32, stride: i32) {
     let w = usize::try_from(w).unwrap_or(0);
     let stride = usize::try_from(stride).expect("the stride is not negative");
@@ -293,8 +293,8 @@ pub fn webp_apply_alpha_multiply4444(rgba4444: &mut [u8], w: i32, h: i32, stride
 ///
 /// # Panics
 ///
-/// Panics when a stride is negative or a slice is shorter than the
-/// elements the C function addresses.
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
 pub fn dispatch_alpha_c(
     alpha: &[u8],
     alpha_stride: i32,
@@ -352,8 +352,8 @@ pub fn webp_dispatch_alpha(
 ///
 /// # Panics
 ///
-/// Panics when a stride is negative or a slice is shorter than the
-/// elements the C function addresses.
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
 pub fn dispatch_alpha_to_green_c(
     alpha: &[u8],
     alpha_stride: i32,
@@ -407,8 +407,8 @@ pub fn webp_dispatch_alpha_to_green(
 ///
 /// # Panics
 ///
-/// Panics when a stride is negative or a slice is shorter than the
-/// elements the C function addresses.
+/// Panics when a width or stride is negative or a slice is shorter than
+/// the elements the C function addresses.
 pub fn extract_alpha_c(
     argb: &[u8],
     argb_stride: i32,
