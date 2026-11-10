@@ -479,39 +479,65 @@ macro_rules! neon_upsampler {
 // upstream: src/dsp/upsampling_neon.c UpsampleRgbaLinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleRgbaLinePair_NEON`.
-    "UpsampleRgbaLinePair_NEON", upsample_rgba_line_pair_neon, upsample_rgba_line_pair, RGBA, 4
+    "UpsampleRgbaLinePair_NEON",
+    upsample_rgba_line_pair_neon,
+    upsample_rgba_line_pair,
+    RGBA,
+    4
 );
 // upstream: src/dsp/upsampling_neon.c UpsampleBgraLinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleBgraLinePair_NEON`.
-    "UpsampleBgraLinePair_NEON", upsample_bgra_line_pair_neon, upsample_bgra_line_pair, BGRA, 4
+    "UpsampleBgraLinePair_NEON",
+    upsample_bgra_line_pair_neon,
+    upsample_bgra_line_pair,
+    BGRA,
+    4
 );
 // upstream: src/dsp/upsampling_neon.c UpsampleRgbLinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleRgbLinePair_NEON`.
-    "UpsampleRgbLinePair_NEON", upsample_rgb_line_pair_neon, upsample_rgb_line_pair, RGB, 3
+    "UpsampleRgbLinePair_NEON",
+    upsample_rgb_line_pair_neon,
+    upsample_rgb_line_pair,
+    RGB,
+    3
 );
 // upstream: src/dsp/upsampling_neon.c UpsampleBgrLinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleBgrLinePair_NEON`.
-    "UpsampleBgrLinePair_NEON", upsample_bgr_line_pair_neon, upsample_bgr_line_pair, BGR, 3
+    "UpsampleBgrLinePair_NEON",
+    upsample_bgr_line_pair_neon,
+    upsample_bgr_line_pair,
+    BGR,
+    3
 );
 // upstream: src/dsp/upsampling_neon.c UpsampleArgbLinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleArgbLinePair_NEON`.
-    "UpsampleArgbLinePair_NEON", upsample_argb_line_pair_neon, upsample_argb_line_pair, ARGB, 4
+    "UpsampleArgbLinePair_NEON",
+    upsample_argb_line_pair_neon,
+    upsample_argb_line_pair,
+    ARGB,
+    4
 );
 // upstream: src/dsp/upsampling_neon.c UpsampleRgba4444LinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleRgba4444LinePair_NEON`.
-    "UpsampleRgba4444LinePair_NEON", upsample_rgba4444_line_pair_neon,
-    upsample_rgba4444_line_pair, RGBA4444, 2
+    "UpsampleRgba4444LinePair_NEON",
+    upsample_rgba4444_line_pair_neon,
+    upsample_rgba4444_line_pair,
+    RGBA4444,
+    2
 );
 // upstream: src/dsp/upsampling_neon.c UpsampleRgb565LinePair_NEON
 neon_upsampler!(
     /// Entry point of `UpsampleRgb565LinePair_NEON`.
-    "UpsampleRgb565LinePair_NEON", upsample_rgb565_line_pair_neon, upsample_rgb565_line_pair,
-    RGB565, 2
+    "UpsampleRgb565LinePair_NEON",
+    upsample_rgb565_line_pair_neon,
+    upsample_rgb565_line_pair,
+    RGB565,
+    2
 );
 
 //------------------------------------------------------------------------------
