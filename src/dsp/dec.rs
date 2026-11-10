@@ -1273,6 +1273,8 @@ pub type VP8ChromaFilterFunc = fn(&mut [u8], usize, &mut [u8], usize, i32, i32, 
 
 // upstream: src/dsp/dec.c VP8VFilter16
 /// Filters the horizontal macroblock edge above `pos` (C: `VFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_t: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -1287,6 +1289,8 @@ pub fn vp8v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh
 
 // upstream: src/dsp/dec.c VP8HFilter16
 /// Filters the vertical macroblock edge left of `pos` (C: `HFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh: i32, hev_t: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -1301,6 +1305,8 @@ pub fn vp8h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32, ithresh
 
 // upstream: src/dsp/dec.c VP8VFilter8
 /// Chroma variant of [`vp8v_filter16`] (C: `VFilter8_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1328,6 +1334,8 @@ pub fn vp8v_filter8(
 
 // upstream: src/dsp/dec.c VP8HFilter8
 /// Chroma variant of [`vp8h_filter16`] (C: `HFilter8_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1355,6 +1363,8 @@ pub fn vp8h_filter8(
 
 // upstream: src/dsp/dec.c VP8VFilter16i
 /// Filters the three inner horizontal edges (C: `VFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8v_filter16i(
     p: &mut [u8],
     pos: usize,
@@ -1376,6 +1386,8 @@ pub fn vp8v_filter16i(
 
 // upstream: src/dsp/dec.c VP8HFilter16i
 /// Filters the three inner vertical edges (C: `HFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8h_filter16i(
     p: &mut [u8],
     pos: usize,
@@ -1397,6 +1409,8 @@ pub fn vp8h_filter16i(
 
 // upstream: src/dsp/dec.c VP8VFilter8i
 /// Chroma variant of [`vp8v_filter16i`] (C: `VFilter8i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1426,6 +1440,8 @@ pub fn vp8v_filter8i(
 
 // upstream: src/dsp/dec.c VP8HFilter8i
 /// Chroma variant of [`vp8h_filter16i`] (C: `HFilter8i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "the C parameters with two positions"
@@ -1455,6 +1471,8 @@ pub fn vp8h_filter8i(
 
 // upstream: src/dsp/dec.c VP8SimpleVFilter16
 /// Simple filter of the horizontal macroblock edge (C: `SimpleVFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -1469,6 +1487,8 @@ pub fn vp8_simple_v_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32)
 
 // upstream: src/dsp/dec.c VP8SimpleHFilter16
 /// Simple filter of the vertical macroblock edge (C: `SimpleHFilter16_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -1483,6 +1503,8 @@ pub fn vp8_simple_h_filter16(p: &mut [u8], pos: usize, stride: i32, thresh: i32)
 
 // upstream: src/dsp/dec.c VP8SimpleVFilter16i
 /// Simple filter of the three inner horizontal edges (C: `SimpleVFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -1497,6 +1519,8 @@ pub fn vp8_simple_v_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32
 
 // upstream: src/dsp/dec.c VP8SimpleHFilter16i
 /// Simple filter of the three inner vertical edges (C: `SimpleHFilter16i_C`).
+/// With `simd` on 64-bit ARM, thresholds above 254 follow upstream's NEON
+/// filter, not the C function (`src/dsp/dec_neon.rs`, checks not applicable 5).
 pub fn vp8_simple_h_filter16i(p: &mut [u8], pos: usize, stride: i32, thresh: i32) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {

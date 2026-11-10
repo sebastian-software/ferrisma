@@ -105,7 +105,10 @@
 //!    threshold from 0 to 254, which covers what the decoder passes (at most
 //!    `2 * 63 + 63 + 4`); the parity test covers that range. Above it
 //!    upstream's NEON and C functions differ, and the translation keeps the
-//!    NEON conversion.
+//!    NEON conversion. `tests/wp6_dsp.rs`, whose filter records draw
+//!    thresholds up to 1200, verifies the C translations directly (decided on
+//!    issue #28); against the `release-simd` oracle the Rust filters gave
+//!    upstream's NEON bytes for those records.
 //! 6. **Transform coefficients beyond ±2048.** `TransformOne_NEON` (and with
 //!    it `TransformTwo_NEON`, and `TransformUV_C` through `VP8Transform`)
 //!    computes both passes in saturating 16-bit arithmetic (`vqadd_s16`,
