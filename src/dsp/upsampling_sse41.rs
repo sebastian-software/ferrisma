@@ -26,9 +26,9 @@
 //! before `features().sse2`.
 //!
 //! - `WebPInitUpsamplersSSE41` assigns `WebPUpsamplers[MODE_RGB, MODE_BGR]`:
-//!   [`upsample_rgb_line_pair`], [`upsample_bgr_line_pair`].
+//!   `upsample_rgb_line_pair`, `upsample_bgr_line_pair`.
 //! - `WebPInitYUV444ConvertersSSE41` assigns `WebPYUV444Converters[MODE_RGB,
-//!   MODE_BGR]`: [`yuv444_to_rgb`], [`yuv444_to_bgr`].
+//!   MODE_BGR]`: `yuv444_to_rgb`, `yuv444_to_bgr`.
 //!
 //! The file repeats the upsampling macros of `upsampling_sse2.c` compiled
 //! with SSE4.1; they are translated again here, as SSE4.1 functions, rather

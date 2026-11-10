@@ -25,18 +25,18 @@
 //! without the suffix, which the dispatch function calls after testing
 //! `features().sse2`. `VP8LDspInitSSE2` assigns:
 //!
-//! - `VP8LPredictors[5..14]`: [`predictor5`] to [`predictor13`], behind
+//! - `VP8LPredictors[5..14]`: `predictor5` to `predictor13`, behind
 //!   `vp8l_predictors`;
-//! - `VP8LPredictorsAdd[0..14]`: [`predictor_add0`] to [`predictor_add13`],
+//! - `VP8LPredictorsAdd[0..14]`: `predictor_add0` to `predictor_add13`,
 //!   behind `vp8l_predictors_add` (`VP8LPredictorsAdd_C` keeps the C
 //!   functions);
-//! - `VP8LAddGreenToBlueAndRed`: [`add_green_to_blue_and_red`];
-//! - `VP8LTransformColorInverse`: [`transform_color_inverse`];
+//! - `VP8LAddGreenToBlueAndRed`: `add_green_to_blue_and_red`;
+//! - `VP8LTransformColorInverse`: `transform_color_inverse`;
 //! - `VP8LConvertBGRAToRGB`, `VP8LConvertBGRAToRGBA`,
 //!   `VP8LConvertBGRAToRGBA4444`, `VP8LConvertBGRAToRGB565`,
-//!   `VP8LConvertBGRAToBGR`: [`convert_bgra_to_rgb`], [`convert_bgra_to_rgba`],
-//!   [`convert_bgra_to_rgba4444`], [`convert_bgra_to_rgb565`],
-//!   [`convert_bgra_to_bgr`];
+//!   `VP8LConvertBGRAToBGR`: `convert_bgra_to_rgb`, `convert_bgra_to_rgba`,
+//!   `convert_bgra_to_rgba4444`, `convert_bgra_to_rgb565`,
+//!   `convert_bgra_to_bgr`;
 //! - the "SSE exports for AVX and above" `VP8LPredictorsAdd_SSE`,
 //!   `VP8LAddGreenToBlueAndRed_SSE`, `VP8LTransformColorInverse_SSE`,
 //!   `VP8LConvertBGRAToRGB_SSE` and `VP8LConvertBGRAToRGBA_SSE`, which

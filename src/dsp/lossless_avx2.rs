@@ -25,15 +25,15 @@
 //! `features().sse4_1` and `features().avx2` all hold, before the SSE4.1 and
 //! SSE2 variants. `VP8LDspInitAVX2` assigns:
 //!
-//! - `VP8LPredictorsAdd[0, 1, 2, 3, 4, 8, 9, 10, 11, 12]`: [`predictor_add0`]
-//!   to [`predictor_add4`], [`predictor_add8`] to [`predictor_add12`], behind
+//! - `VP8LPredictorsAdd[0, 1, 2, 3, 4, 8, 9, 10, 11, 12]`: `predictor_add0`
+//!   to `predictor_add4`, `predictor_add8` to `predictor_add12`, behind
 //!   `vp8l_predictors_add`;
-//! - `VP8LAddGreenToBlueAndRed`: [`add_green_to_blue_and_red`];
-//! - `VP8LTransformColorInverse`: [`transform_color_inverse`];
-//! - `VP8LConvertBGRAToRGBA`: [`convert_bgra_to_rgba`].
+//! - `VP8LAddGreenToBlueAndRed`: `add_green_to_blue_and_red`;
+//! - `VP8LTransformColorInverse`: `transform_color_inverse`;
+//! - `VP8LConvertBGRAToRGBA`: `convert_bgra_to_rgba`.
 //!
 //! The module also holds the checked 256-bit loads and stores of ADR 0008,
-//! operation 1: [`loadu_si256`] and [`storeu_si256`] assert that the slice
+//! operation 1: `loadu_si256` and `storeu_si256` assert that the slice
 //! spans the 32 bytes the intrinsic reads or writes and then perform the one
 //! unsafe operation, as `common_sse2.rs` does for 128 bits. They are
 //! `pub(crate)` for WP19's `lossless_enc_avx2.rs`.

@@ -20,7 +20,7 @@
 //! The SSE4.1 horizontal 16x16 predictor that `VP8DspInitSSE41` assigns to
 //! `VP8PredLuma16[3]`, behind `vp8_pred_luma16` in `src/dsp/dec.rs` (ADR
 //! 0008). `VP8DspInit` runs `VP8DspInitSSE41` only inside its SSE2 branch, so
-//! the dispatch function selects [`he16`] when both `features().sse2` and
+//! the dispatch function selects `he16` when both `features().sse2` and
 //! `features().sse4_1` hold, before the SSE2 variant.
 //!
 //! # Deviations from upstream

@@ -26,20 +26,20 @@
 //! without the suffix, which the dispatch function calls after testing
 //! `features().sse2`. `VP8DspInitSSE2` assigns:
 //!
-//! - `VP8Transform`: [`transform`];
+//! - `VP8Transform`: `transform`;
 //! - `VP8VFilter16`, `VP8HFilter16`, `VP8VFilter8`, `VP8HFilter8`,
 //!   `VP8VFilter16i`, `VP8HFilter16i`, `VP8VFilter8i`, `VP8HFilter8i`:
-//!   [`v_filter16`], [`h_filter16`], [`v_filter8`], [`h_filter8`],
-//!   [`v_filter16i`], [`h_filter16i`], [`v_filter8i`], [`h_filter8i`];
+//!   `v_filter16`, `h_filter16`, `v_filter8`, `h_filter8`,
+//!   `v_filter16i`, `h_filter16i`, `v_filter8i`, `h_filter8i`;
 //! - `VP8SimpleVFilter16`, `VP8SimpleHFilter16`, `VP8SimpleVFilter16i`,
-//!   `VP8SimpleHFilter16i`: [`simple_v_filter16`], [`simple_h_filter16`],
-//!   [`simple_v_filter16i`], [`simple_h_filter16i`];
-//! - `VP8PredLuma4[1, 2, 4, 5, 6, 7]`: [`tm4`], [`ve4`], [`rd4`], [`vr4`],
-//!   [`ld4`], [`vl4`];
-//! - `VP8PredLuma16[0..7]`: [`dc16`], [`tm16`], [`ve16`], [`he16`],
-//!   [`dc16_no_top`], [`dc16_no_left`], [`dc16_no_top_left`];
-//! - `VP8PredChroma8[0, 1, 2, 4, 5, 6]`: [`dc8uv`], [`tm8uv`], [`ve8uv`],
-//!   [`dc8uv_no_top`], [`dc8uv_no_left`], [`dc8uv_no_top_left`].
+//!   `VP8SimpleHFilter16i`: `simple_v_filter16`, `simple_h_filter16`,
+//!   `simple_v_filter16i`, `simple_h_filter16i`;
+//! - `VP8PredLuma4[1, 2, 4, 5, 6, 7]`: `tm4`, `ve4`, `rd4`, `vr4`,
+//!   `ld4`, `vl4`;
+//! - `VP8PredLuma16[0..7]`: `dc16`, `tm16`, `ve16`, `he16`,
+//!   `dc16_no_top`, `dc16_no_left`, `dc16_no_top_left`;
+//! - `VP8PredChroma8[0, 1, 2, 4, 5, 6]`: `dc8uv`, `tm8uv`, `ve8uv`,
+//!   `dc8uv_no_top`, `dc8uv_no_left`, `dc8uv_no_top_left`.
 //!
 //! The buffers and positions follow `src/dsp/dec.rs`: a transform takes the
 //! coefficients and the block from its first sample, a predictor the work

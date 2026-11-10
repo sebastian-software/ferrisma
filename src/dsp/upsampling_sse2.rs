@@ -28,18 +28,18 @@
 //! override these whenever `features().sse4_1` holds.
 //!
 //! - `WebPInitUpsamplersSSE2` assigns `WebPUpsamplers[MODE_RGBA, MODE_rgbA]`:
-//!   [`upsample_rgba_line_pair`]; `[MODE_BGRA, MODE_bgrA]`:
-//!   [`upsample_bgra_line_pair`]; `[MODE_RGB]`: [`upsample_rgb_line_pair`];
-//!   `[MODE_BGR]`: [`upsample_bgr_line_pair`]; `[MODE_ARGB, MODE_Argb]`:
-//!   [`upsample_argb_line_pair`]; `[MODE_RGB_565]`:
-//!   [`upsample_rgb565_line_pair`]; `[MODE_RGBA_4444, MODE_rgbA_4444]`:
-//!   [`upsample_rgba4444_line_pair`]. `webp_get_line_pair_converter`
+//!   `upsample_rgba_line_pair`; `[MODE_BGRA, MODE_bgrA]`:
+//!   `upsample_bgra_line_pair`; `[MODE_RGB]`: `upsample_rgb_line_pair`;
+//!   `[MODE_BGR]`: `upsample_bgr_line_pair`; `[MODE_ARGB, MODE_Argb]`:
+//!   `upsample_argb_line_pair`; `[MODE_RGB_565]`:
+//!   `upsample_rgb565_line_pair`; `[MODE_RGBA_4444, MODE_rgbA_4444]`:
+//!   `upsample_rgba4444_line_pair`. `webp_get_line_pair_converter`
 //!   returns the BGRA or ARGB entry point, as `WebPGetLinePairConverter`
 //!   returns the pointer after `WebPInitUpsamplers`.
 //! - `WebPInitYUV444ConvertersSSE2` assigns `WebPYUV444Converters` for the
-//!   same modes: [`yuv444_to_rgba`], [`yuv444_to_bgra`], [`yuv444_to_rgb`],
-//!   [`yuv444_to_bgr`], [`yuv444_to_argb`], [`yuv444_to_rgb565`],
-//!   [`yuv444_to_rgba4444`].
+//!   same modes: `yuv444_to_rgba`, `yuv444_to_bgra`, `yuv444_to_rgb`,
+//!   `yuv444_to_bgr`, `yuv444_to_argb`, `yuv444_to_rgb565`,
+//!   `yuv444_to_rgba4444`.
 //!
 //! # Deviations from upstream
 //!

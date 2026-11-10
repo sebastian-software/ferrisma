@@ -28,14 +28,14 @@
 //! overrides these whenever `features().sse4_1` holds.
 //!
 //! - `WebPInitSamplersSSE2` assigns `WebPSamplers[MODE_RGB, MODE_RGBA,
-//!   MODE_BGR, MODE_BGRA, MODE_ARGB]`: [`yuv_to_rgb_row`],
-//!   [`yuv_to_rgba_row`], [`yuv_to_bgr_row`], [`yuv_to_bgra_row`],
-//!   [`yuv_to_argb_row`] behind `webp_samplers`.
+//!   MODE_BGR, MODE_BGRA, MODE_ARGB]`: `yuv_to_rgb_row`,
+//!   `yuv_to_rgba_row`, `yuv_to_bgr_row`, `yuv_to_bgra_row`,
+//!   `yuv_to_argb_row` behind `webp_samplers`.
 //! - `WebPInitConvertARGBToYUVSSE2` assigns `WebPConvertARGBToY`,
 //!   `WebPConvertARGBToUV`, `WebPConvertRGB24ToY`, `WebPConvertBGR24ToY` and
-//!   `WebPConvertRGBA32ToUV`: [`convert_argb_to_y`], [`convert_argb_to_uv`],
-//!   [`convert_rgb24_to_y`], [`convert_bgr24_to_y`],
-//!   [`convert_rgba32_to_uv`].
+//!   `WebPConvertRGBA32ToUV`: `convert_argb_to_y`, `convert_argb_to_uv`,
+//!   `convert_rgb24_to_y`, `convert_bgr24_to_y`,
+//!   `convert_rgba32_to_uv`.
 //!
 //! The 32-pixel converters `VP8YuvToRgba32_SSE2` and its siblings are
 //! `pub(crate)` `#[target_feature]` functions for `upsampling_sse2.rs`, as

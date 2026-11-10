@@ -28,12 +28,12 @@
 //! `features().sse4_1` alone, before `features().sse2`.
 //!
 //! - `WebPInitSamplersSSE41` assigns `WebPSamplers[MODE_RGB, MODE_BGR]`:
-//!   [`yuv_to_rgb_row`], [`yuv_to_bgr_row`] behind `webp_samplers`.
+//!   `yuv_to_rgb_row`, `yuv_to_bgr_row` behind `webp_samplers`.
 //! - `WebPInitConvertARGBToYUVSSE41` assigns `WebPConvertARGBToY`,
 //!   `WebPConvertARGBToUV`, `WebPConvertRGB24ToY`, `WebPConvertBGR24ToY` and
-//!   `WebPConvertRGBA32ToUV`: [`convert_argb_to_y`], [`convert_argb_to_uv`],
-//!   [`convert_rgb24_to_y`], [`convert_bgr24_to_y`],
-//!   [`convert_rgba32_to_uv`].
+//!   `WebPConvertRGBA32ToUV`: `convert_argb_to_y`, `convert_argb_to_uv`,
+//!   `convert_rgb24_to_y`, `convert_bgr24_to_y`,
+//!   `convert_rgba32_to_uv`.
 //!
 //! `VP8YuvToRgb32_SSE41` and `VP8YuvToBgr32_SSE41` are `pub(crate)`
 //! `#[target_feature]` functions for `upsampling_sse41.rs`.

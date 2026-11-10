@@ -22,9 +22,9 @@
 //! points when both `features().sse2` and `features().sse4_1` hold, before the
 //! SSE2 variant. `VP8LDspInitSSE41` assigns:
 //!
-//! - `VP8LTransformColorInverse`: [`transform_color_inverse`];
-//! - `VP8LConvertBGRAToRGB`: [`convert_bgra_to_rgb`];
-//! - `VP8LConvertBGRAToBGR`: [`convert_bgra_to_bgr`];
+//! - `VP8LTransformColorInverse`: `transform_color_inverse`;
+//! - `VP8LConvertBGRAToRGB`: `convert_bgra_to_rgb`;
+//! - `VP8LConvertBGRAToBGR`: `convert_bgra_to_bgr`;
 //! - the "SSE exports for AVX and above" `VP8LTransformColorInverse_SSE` and
 //!   `VP8LConvertBGRAToRGB_SSE`, which `lossless_avx2.rs` reaches directly:
 //!   `transform_color_inverse_sse41` is `pub(crate)` for it.

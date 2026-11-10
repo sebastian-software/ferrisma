@@ -25,8 +25,8 @@
 //!
 //! The module also holds the checked vector loads and stores that the SIMD
 //! modules make their `unsafe` loads and stores through (ADR 0008, operation
-//! 1): [`loadu_si128`], [`storeu_si128`], [`loadl_epi64`] and
-//! [`storel_epi64`] take a slice, assert that it spans the bytes the
+//! 1): `loadu_si128`, `storeu_si128`, `loadl_epi64` and
+//! `storel_epi64` take a slice, assert that it spans the bytes the
 //! intrinsic reads or writes, and then perform the one unsafe operation. They
 //! have no upstream counterpart; a C pointer cast to `__m128i*` becomes the
 //! sub-slice at the pointer's index.
@@ -63,8 +63,8 @@
 //! - **Helpers.** `vp8_horizontal_add8b`, `vp8_transpose_2_4x4_16b`,
 //!   `vp8_planar_to24b_sse2` and `vp8l32b_to_planar_sse2` keep the C names
 //!   under ADR 0001's rule and the C argument order; out-parameters are
-//!   `&mut __m128i`. Load and store through [`loadu_si128`],
-//!   [`storeu_si128`], [`loadl_epi64`] and [`storel_epi64`] on the sub-slice
+//!   `&mut __m128i`. Load and store through `loadu_si128`,
+//!   `storeu_si128`, `loadl_epi64` and `storel_epi64` on the sub-slice
 //!   at the C pointer, and read or write four bytes with
 //!   `webp_mem_to_int32`/`webp_int32_to_mem` of `src/utils/utils.rs`, as
 //!   upstream does with `WebPMemToInt32`/`WebPInt32ToMem`.
