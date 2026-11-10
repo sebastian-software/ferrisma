@@ -213,6 +213,7 @@ def main():
         raise SystemExit('Strict downstream image parity not established')
     record['local_integration']['differential'] = {'exact_avif_scenarios': 10, 'exact_png_scenarios': 10,
                                                   'summary_sha256': digest(differential)}
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(record, indent=2) + '\n')
     print('Recorded four native decoder profiles, original test inventories, and downstream integration')
 

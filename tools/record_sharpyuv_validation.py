@@ -117,6 +117,7 @@ def main():
         'exact_png_scenarios': sum(value['png_byte_equal'] for value in diagnostic),
         'confirmed_noncontracting_matches': sum(value['matches_noncontracting_c'] is True for value in diagnostic),
         'results_sha256': digest(diagnostic_path)}
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(record, indent=2) + '\n')
     print('Recorded four native profiles, original consumer inventories, and local integration evidence')
 

@@ -59,5 +59,7 @@ report["differential"] = {
     "confirmed_noncontracting_c_matches": sum(item["matches_noncontracting_c"] is True for item in scenarios),
     "strict_png_byte_parity": all(item["png_byte_equal"] for item in scenarios),
 }
-(ROOT / "build/validation-results.json").write_text(json.dumps(report, indent=2) + "\n")
+output = ROOT / "build/validation-results.json"
+output.parent.mkdir(parents=True, exist_ok=True)
+output.write_text(json.dumps(report, indent=2) + "\n")
 print(f"Recorded {len(profiles)} passing C/Rust profile comparisons and explicit ABI/differential limits")

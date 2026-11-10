@@ -156,6 +156,7 @@ def main():
                 for n, s, o, p in CORPUS],
         encoder='examples/encode_still.rs (avifImageRGBToYUV, avifEncoderWrite; autoTiling when threads != 1)',
         cases=cases, identical=len(cases) - len(failures), failed=failures)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + '\n')
     print(f'{len(cases) - len(failures)} of {len(cases)} cases byte-identical; report: {args.output}')
     if failures:
