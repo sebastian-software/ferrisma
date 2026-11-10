@@ -64,11 +64,18 @@
 //!
 //! # Excluded undefined behavior
 //!
-//! None. Every function gives the bytes of the C function it replaces for
-//! every input (`yuv.h` defines the C conversions to emulate these 16-bit
-//! lanes, `MultHi` for `_mm_mulhi_epu16`), so the parity tests draw all byte
-//! values and, for `WebPConvertRGBA32ToUV`, the sums of up to four pixels
-//! that its callers accumulate.
+//! 1. **`WebPConvertRGBA32ToUV` inputs from 32768 up.** `ConvertRGBA32ToUV_SSE2`
+//!    multiplies the `uint16_t` samples in signed 16-bit lanes
+//!    (`_mm_madd_epi16`), which read a value from 32768 up as negative, where
+//!    `WebPConvertRGBA32ToUV_C` computes in `int`; upstream's SSE2 and C
+//!    outputs differ there. This is upstream's divergence, not undefined
+//!    behavior: the port reproduces upstream's SSE2 arithmetic, and the WP4
+//!    differential test passes against the `release-simd` oracle. Its callers
+//!    (`picture_csp_enc.c`) pass sums of at most four pixels, 0 to 1020, so
+//!    the parity tests draw values up to 32767 only, where SSE2 and C agree.
+//!    Every other function gives the bytes of the C function it replaces for
+//!    every input (`yuv.h` defines the C conversions to emulate these 16-bit
+//!    lanes, `MultHi` for `_mm_mulhi_epu16`).
 //!
 //! # Checks not applicable
 //!

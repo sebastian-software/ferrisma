@@ -58,8 +58,11 @@
 //!
 //! # Excluded undefined behavior
 //!
-//! None, as in `yuv_sse2.rs`: every function gives the bytes of the C
-//! function it replaces for every input.
+//! 1. **`WebPConvertRGBA32ToUV` inputs from 32768 up**, as in `yuv_sse2.rs`
+//!    (exclusion 1): `ConvertRGBA32ToUV_SSE41` reads them as negative 16-bit
+//!    values where the C function computes in `int`, which is upstream's
+//!    divergence; the parity tests draw values up to 32767. Every other
+//!    function gives the bytes of the C function for every input.
 //!
 //! # Checks not applicable
 //!
