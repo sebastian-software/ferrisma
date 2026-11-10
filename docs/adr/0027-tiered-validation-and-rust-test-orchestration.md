@@ -78,10 +78,7 @@ deletion, and invalid-revision failure paths. All four codec PR stages passed
 locally on a warm macOS ARM checkout. Actionlint passed for all 27 workflow
 YAML files. These local results do not establish hosted timing or coverage.
 
-The new fast CI has not yet run on hosted runners. Verify the workflow on
-representative documentation, codec, common-configuration, and high-risk
-changes, including missing-oracle failure and native architecture coverage.
-Record actual timings and failures before claiming the budget is met.
+Hosted PR runs [42805567476](https://github.com/sebastian-software/ferrixel/actions/runs/42805567476) and [42819064673](https://github.com/sebastian-software/ferrixel/actions/runs/42819064673) completed successfully on 2026-11-10. These runs demonstrate their tested revisions and scopes, not a timing guarantee for all PRs. Continue validating representative documentation, codec, common-configuration, and high-risk changes, including missing-oracle failure and native architecture coverage. Record timings and failures before claiming the budget is met.
 
 ## Review when
 
@@ -95,3 +92,5 @@ measured, a supported host changes, or fixture and live oracle results diverge.
   superseded only where specified above.
 
 - 2026-11-10 — Recorded local orchestration and workflow-lint evidence; hosted fast CI validation remains pending.
+
+- 2026-11-10 — Recorded two successful hosted PR runs; broad timing and deep-tier evidence remain separate.

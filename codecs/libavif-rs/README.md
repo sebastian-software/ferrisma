@@ -1,6 +1,10 @@
 # libavif-rs
 
-This port is maintained in the Ferrixel monorepo. See the [shared workspace guide](../../docs/codecs.md) for setup and checks; local porting contracts and licenses still apply.
+This port is maintained in the [Ferrixel workspace](../../README.md). See the
+[project status](../../docs/status.md) and [codec guide](../../docs/codecs.md)
+for integration and checks; local porting contracts and licenses still apply.
+The separate [ferrixel-libavif adapter](../../crates/ferrixel-libavif/README.md)
+connects its AOM encoder to Ferrixel; it is not Ferrixel's built-in AVIF backend.
 
 A mechanical Rust port of [libavif](https://github.com/AOMediaCodec/libavif).
 
@@ -26,10 +30,13 @@ translated without VMAF tuning, so libvmaf is not a dependency ([ADR 0057](docs/
 
 ## Status
 
-Complete applies to the stated scope. The selected portable library
+Complete applies to the stated mechanical-port scope, not a stable safe Rust API
+or an unrestricted release approval. The selected portable library
 implementations and their default integration are delivered; open work is
 tracked in [GitHub issues](https://github.com/sebastian-software/ferrixel/issues)
-and decisions in [`docs/adr/`](docs/adr).
+and decisions in [`docs/adr/`](docs/adr). The evidence in this table describes
+recorded runs for their stated configurations; it is not a release claim for
+the current workspace revision.
 
 | Capability | Delivered scope |
 | --- | --- |
@@ -47,7 +54,8 @@ native ([ADR 0010](docs/adr/0010-port-native-libraries-from-their-original-sourc
 
 ## Build and test
 
-Use Rust nightly, CMake, Ninja, Python 3.9+, pkg-config, and development packages
+Run the commands below from `codecs/libavif-rs`. Use the workspace-pinned Rust
+nightly, CMake, Ninja, Python 3.9+, pkg-config, and development packages
 for PNG, JPEG, and libxml2. The original C baseline and CMake test setup
 also require native dav1d and SharpYUV development packages; the Rust library
 uses their workspace crates. The pinned portable C AOM archive supplies the
@@ -56,7 +64,7 @@ recorded runs (compilers, CMake, GoogleTest, libargparse) is in the docstring of
 `tools/check_abi.py`.
 
 ```sh
-cargo build --release --locked
+cargo build -p libavif-rs --release --locked
 python3 tools/build_aom.py --jobs 1 --library-only
 python3 tools/build.py baseline --fetch-deps --aom-reference-build build/aom-native-release
 python3 tools/run_tests.py build/baseline-aom-reference
@@ -68,12 +76,14 @@ python3 tools/check_abi.py --build build/baseline-aom-reference
 python3 tools/smoke_shared.py
 ```
 
-The default configuration passes the same 64 upstream test registrations in C
-and Rust. The complete supported feature configuration passes 70 registrations
+The recorded default-configuration runs passed the same 64 upstream test registrations in C
+and Rust. The recorded complete supported-feature configuration passed 70 registrations
 containing 9,555 GoogleTest cases, plus the original C and shell integration
-tests. AddressSanitizer parity also passes the 64 default registrations.
+tests. AddressSanitizer parity was also recorded for the 64 default registrations.
+These are historical results for their tested revisions, not an assertion that
+all release gates have passed for the current workspace revision.
 
-Cargo emits `target/release/libavif.a`, `libavif.dylib` (`libavif.so` on
+Cargo emits `../../target/release/libavif.a`, `libavif.dylib` (`libavif.so` on
 Linux), and `libavif.rlib`. On Linux, the engine features additionally require
 the pinned engine builds from `tools/prepare_optional_deps.py`.
 Use the original headers in `upstream/libavif/include`. Exported Rust functions

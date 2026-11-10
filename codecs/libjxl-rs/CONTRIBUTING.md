@@ -1,5 +1,9 @@
 # Contributing
 
+This guide uses `codecs/libjxl-rs` as its working directory. See the
+[Ferrixel README](../../README.md), [project status](../../docs/status.md),
+and [codec guide](../../docs/codecs.md) for workspace setup and current gates.
+
 Use US English in all project artifacts and Conventional Commits for every
 commit, for example `feat(bitstream): port header serialization` or
 `fix(fields): preserve truncated-read status`. Keep algorithm improvements
@@ -116,7 +120,7 @@ dependencies. The oracle builds the complete original static codec library
 through upstream CMake, including its default color management implementation:
 
 ```sh
-git submodule update --init --depth 1 upstream/libjxl
+git -C ../.. submodule update --init --depth 1 codecs/libjxl-rs/upstream/libjxl
 git -C upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
 ```
 
@@ -162,11 +166,11 @@ that `--stage test --filter default_cms::` captures for each oracle graph.
 Focused checks:
 
 ```sh
-cargo test --locked --offline --test bitstream
-cargo test --locked --offline --test headers
+cargo test -p libjxl-rs --locked --offline --test bitstream
+cargo test -p libjxl-rs --locked --offline --test headers
 cmake -S tools/oracle -B target/oracle -DCMAKE_BUILD_TYPE=Release
 cmake --build target/oracle --target jxl_oracle --parallel 4
-cargo test --locked --offline --profile checked --features cpp-oracle --test parity -- --nocapture
+cargo test -p libjxl-rs --locked --offline --profile checked --features cpp-oracle --test parity -- --nocapture
 ```
 
 Set `JXL_CPP_ORACLE` to an absolute path when using a separately built oracle.
@@ -174,35 +178,15 @@ The default is `target/oracle/jxl_oracle`. Oracle comparisons use the source's
 release status behavior; debug-only abort and diagnostic instrumentation is
 outside the current parity contract.
 
-GitHub Actions runs the checks in two tiers:
-
-- The fast gate runs on Linux for every pull request and every push to `main`:
-  the static stage with the MSRV compile check, and the `checked` tests against
-  the ordinary oracle in four partitions. It reuses a cached oracle build whose
-  key covers the submodule revision, `tools/oracle`, the check tools, and the
-  compiler.
-- The deep gate adds the ASan/UBSan oracle and every original-source audit,
-  each in its own parallel job, and builds every oracle from source. Nightly
-  runs on `main` cover Linux and macOS. A manual dispatch covers Linux unless
-  it sets the `macos` input. A failed nightly run opens an issue titled
-  "Nightly deep check failed", or comments on the open one. Fix such a failure
-  forward in a new pull request.
-
-The `Checks passed` job summarizes the jobs of a run and is the single required
-status check for pull requests. To run the deep gate on a branch before
-merging, for example after changing an oracle or a sanitizer setting, start it
-manually:
-
-```sh
-gh workflow run check.yml --ref <branch>                # Linux deep gate
-gh workflow run check.yml --ref <branch> -f macos=true  # also hosted macOS
-```
-
-A local result does not imply that those hosted jobs have run.
-
+The shared [PR workflow](../../.github/workflows/ci.yml) selects affected
+components. For JXL it runs checked-profile Rust tests and retained captures on
+Linux x86-64 and ARM, with static checks and MSRV on x86-64. It does not build
+the C++ oracle in the PR tier. Nightly and manually dispatched deep workflows
+retain the live oracle and broader audits. See
 [Ferrixel ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md)
-now governs PR and deep validation cadence. A release or a macOS acceptance
-claim still needs relevant native evidence for the exact revision.
+for cadence and high-risk change requirements. Historical results in
+[PORT_STATUS.md](docs/PORT_STATUS.md) apply to their stated revisions; a local
+result does not establish hosted or release acceptance.
 
 The minimum supported Rust version trails stable by about four releases, or
 about six months. Raise it deliberately at regular intervals in its own change:
@@ -214,8 +198,8 @@ translated code, keep the source's form and add a function-scoped
 from the source's `%` test for a zero divisor.
 
 Keep [PORT_STATUS.md](docs/PORT_STATUS.md) current as units and evidence change.
-Update an existing ADR in place when changing its decision and its `Updated`
-date, instead of appending a chain of replacement records for the same topic.
+Update the relevant ADR and its evidence when a decision changes, and record
+replacements or supersessions explicitly under the workspace policy.
 
 
 The same check command builds sixteen pinned-original Brotli support observers

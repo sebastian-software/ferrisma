@@ -431,7 +431,7 @@ Neither disabling unrolling nor O1 stabilized its ordinary/instrumented graphs;
 O0 alone retained twelve mismatched requests. Actual strict-O0 native source
 objects agree on all 1,928 diagnostic requests, and all 1,632 finite requests
 match both untouched optimized graphs in
-[native run 41446120185](https://github.com/sebastian-software/libjxl-rs/actions/runs/41446120185).
+native run 41446120185 (retired libjxl-rs repository).
 Strict-O3 still differs on 68 requests. Native disassembly confirms that strict-O0
 retains the literal outer subtraction in new alpha and foreground-first addition;
 non-strict O0 can negate the product and add one, changing a NaN sign. This source
@@ -596,7 +596,7 @@ undefined writes. Uint16 output uses StoreLE16 byte stores and Float32 uses
 byte-order memcpy stores, so their odd-stride requests remain defined and
 unchanged. No sanitizer flag or source algorithm is altered.
 
-Native [run 41459406348](https://github.com/sebastian-software/libjxl-rs/actions/runs/41459406348) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
+Native run 41459406348 (retired libjxl-rs repository) confirms the corrected alpha and patch component on Linux and macOS. The independent Linux census executes every original tree request in each graph: ordinary execution diagnoses none; full ASan/UBSan diagnoses exactly the 48 predicted calls at alpha.cc:70. All 1,680 defined observations stay exact. This confirms the recorded source boundary and configuration; combined decoder integrations still need their own gates.
 
 
 The complete output-stage observer calls the original public

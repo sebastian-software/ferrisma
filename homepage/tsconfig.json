@@ -1,0 +1,9 @@
+{
+  "extends": "ardo/tsconfig",
+  "compilerOptions": {
+    "allowJs": true,
+    "skipLibCheck": true
+  },
+  "include": ["app/**/*", "scripts/**/*.ts", "*.ts"],
+  "exclude": ["node_modules", "build"]
+}

@@ -47,7 +47,7 @@ both without compiling, linking or invoking C++. Broader generated effects and
 error comparisons remain in the opt-in differential suite.
 
 The additional `.x86_64.f32le` files were independently captured from both native
-x86_64 original graphs in [CI run 41440766024](https://github.com/sebastian-software/libjxl-rs/actions/runs/41440766024),
+x86_64 original graphs in CI run 41440766024 (retired libjxl-rs repository),
 job 125261745194. The ordinary and ASan/UBSan originals agree on every captured
 word for each unchanged `.jxl` file. Their values were printed by the original
 `vd-decode` entry point, independently of Rust's failed comparison. The existing

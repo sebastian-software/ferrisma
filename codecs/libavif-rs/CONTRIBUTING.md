@@ -1,5 +1,9 @@
 # Working on the mechanical port
 
+Run commands in this guide from `codecs/libavif-rs` unless stated otherwise.
+See the [Ferrixel README](../../README.md), [project status](../../docs/status.md),
+and [codec guide](../../docs/codecs.md) for workspace setup and current gates.
+
 Use US English and Conventional Commits. Commit coherent verified steps
 separately. Keep algorithms, names, data layout, numeric behavior, and ownership
 close to the pinned C source. Record lasting decisions in `docs/adr/`. Open work,
@@ -420,24 +424,19 @@ requires every registration from the native CMake inventory and the exact ordere
 original GoogleTest cases. With `--package production` both tiers link the
 consumers to the real package.
 
-Root CI (`root.yml`) uses these same tools in two tiers. Pull requests and pushes
-to `main` run Linux x86-64 Release for the default container configuration with
-the production package. The nightly run at 02:17 UTC and manual dispatch run the
-complete suites for every admitted configuration, plus the AddressSanitizer job.
-The standalone dav1d and SharpYUV workflows split the same way (nightly at 02:47
-UTC, ADR 0055), and `aom-simd-linux.yml` runs on pull requests that touch
-`crates/aom`. Only pull-request runs cancel an earlier run of the same pull
-request; up to two nightly container configurations per native OS run
-concurrently and each job limits compiler and test processes to two. The reusable
-`root-translate-linux.yml` keeps its file name for existing dispatches. Its
-`runner` input selects the native host. A workflow status alone is not evidence of
-complete target acceptance: read the retained XML, logs, and paired reports.
+The imported root-profile workflows are manually dispatched for exhaustive
+acceptance. The shared [PR workflow](../../.github/workflows/ci.yml) instead
+selects affected components and runs the bounded Rust, provenance, translation,
+license, SharpYUV cross-port, and C-confirmed AOM golden checks. The central
+nightly and manual deep runs retain broader reference coverage; some exhaustive
+AOM original-consumer, recovery, and translation workflows remain manual. See
+[Ferrixel ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md).
+A workflow status alone does not establish complete target or release acceptance:
+review the reports for the exact revision and configuration.
 
 ## Hosted macOS checks during development
 
-Pull requests run hosted checks on Linux x86-64 only; macOS runs nightly and on
-manual dispatch (ADR 0055). Before merging a change that affects macOS
-builds or translations, run the applicable checks locally on macOS ARM64 and
-record the commands and results in the pull request. Hosted macOS runs are
-still required for a release, a new target admission, or a hosted macOS
-validation claim.
+PR codec checks use supported Linux runners. Record applicable native macOS
+results for changes that affect macOS, and obtain the relevant hosted or local
+native evidence for release or platform acceptance. Historical runs do not
+validate a later revision.

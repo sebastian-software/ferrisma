@@ -82,7 +82,7 @@ need a C ABI; the damaged-stream tests of each package cover corrupt input
 against the oracle instead, and
 coverage-guided fuzzing in Rust is a separate decision, since it needs a
 development dependency ([ADR 0003](0003-toolchain-and-unsafe-policy.md),
-[#18](https://github.com/sebastian-software/libjpeg-turbo-rs/issues/18)).
+[ferrixel#73](https://github.com/sebastian-software/ferrixel/issues/73), formerly libjpeg-turbo-rs#18).
 
 **Mutations.** A passing test shows nothing unless it can fail. Each change
 that adds or changes translated code or a check shows, before it merges, that
@@ -160,4 +160,4 @@ check.
 Revisit when the pin, the reference configuration, the compiler or a CI host
 changes, when a unit cannot be observed through a probe, or when the
 tolerance of ISO/IEC 10918-2 clause 7 becomes available
-([#19](https://github.com/sebastian-software/libjpeg-turbo-rs/issues/19)).
+([ferrixel#72](https://github.com/sebastian-software/ferrixel/issues/72), formerly libjpeg-turbo-rs#19).

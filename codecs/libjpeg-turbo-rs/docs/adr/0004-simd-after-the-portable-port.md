@@ -53,5 +53,5 @@ is bounded by the share of decode time in SIMD code and is measured per kernel.
 
 Revisit when the portable decoder passes its gates, when an intrinsics kernel
 cannot reach the assembly's speed
-([#17](https://github.com/sebastian-software/libjpeg-turbo-rs/issues/17)), or
+([ferrixel#74](https://github.com/sebastian-software/ferrixel/issues/74), formerly libjpeg-turbo-rs#17), or
 when upstream changes its SIMD layout.

@@ -8,6 +8,8 @@
 - **Companion research:** [Encoder and color-management candidates](../research/2026-10-31-encoder-and-cms-candidates.md)
 - **Architecture direction:** [ADR-0016](../adr/0016-working-color-space-and-transform-boundaries.md) (Proposed)
 
+For the current implementation and remaining gates, see [status](../status.md) and [M1 evidence](M1-evidence-and-gates.md). The acceptance contract below remains the release criterion.
+
 ## Milestone statement
 
 > Ferrixel can read a real JPEG or JPEG XL image, interpret its *rendered* color meaning under an explicit policy, crop and resize with an image-quality reference, and produce a valid AVIF file using the **Ferrixel pipeline** rather than an eager general-purpose image-library pipeline.

@@ -1,5 +1,8 @@
 # ferrixel-libavif
 
+See the [Ferrixel README](../../README.md), [project status](../../docs/status.md),
+and [codec guide](../../docs/codecs.md) for workspace context and current gates.
+
 [libavif-rs](../../codecs/libavif-rs), the mechanical Rust port of libavif with its Rust AOM encoder, as an output encoder for Ferrixel ([ADR-0024](../../docs/adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
 
 ```rust
@@ -14,7 +17,7 @@ Ferrixel decodes, converts color, crops, resamples and quantizes as usual; this 
 The `ferrixel-libavif` command (feature `cli`) is Ferrixel's command line with this backend: same arguments, same `report:` line, with `encoder=libavif-rs/aom`.
 
 ```sh
-cargo run --release --features cli -- input.jpg output.avif 1600 1067 --assume-srgb --quality=56 --speed=6 --encoder-threads=0
+cargo run -p ferrixel-libavif --release --features cli -- input.jpg output.avif 1600 1067 --assume-srgb --quality=56 --speed=6 --encoder-threads=0
 ```
 
 ## Requirements and limits

@@ -6,3 +6,11 @@
 *.heaptrack
 *.dSYM/
 .DS_Store
+
+# Ardo site and routes generated from canonical repository Markdown.
+/homepage/node_modules/
+/homepage/build/
+/homepage/.ardo/
+/homepage/.react-router/
+/homepage/app/routes/guide/
+/homepage/app/routes/codecs/

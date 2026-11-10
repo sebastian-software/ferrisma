@@ -1,13 +1,13 @@
 # M1 evidence, open risks and release decision gates
 
-**Status:** Implementation under validation, not M1-RC. This file records reproducible observations and outstanding work, not completion claims. Tracking: [M1 issue #8](https://github.com/sebastian-software/ferrixel/issues/8) and [PR #11](https://github.com/sebastian-software/ferrixel/pull/11).
+**Status:** Implementation under validation, not M1-RC. This file records reproducible observations and outstanding work, not completion claims. See [current status](../status.md) and the [documentation guide](../README.md). Tracking: [M1 issue #8](https://github.com/sebastian-software/ferrixel/issues/8) and [PR #11](https://github.com/sebastian-software/ferrixel/pull/11).
 
-## Implemented on the feature branch
+## Implemented experimental pipeline
 
 - Semantic color-conversion, quality-resample and output-encoding nodes, with region planning and bounded cache/row-buffer ownership.
 - CPU scalar SDR sRGB / Display P3 transfer and gamut conversion, explicit straight-alpha association, Area and Lanczos3 filters, and a separate final sRGB8 quantization step.
 - Optional read-only JPEG, JPEG XL and AVIF sources and optional AVIF writer; the AVIF writer declares and budgets its required full-frame output surface.
-- AVIF color evidence comes from the primary item's `colr` (`nclx` or ICC) property and the AV1 sequence header, read by a bounds-checked parser before any pixel decode. The adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]`, rejects `nclx` that contradicts the matrix, range, primaries or transfer the decoder actually uses, and fails closed on `irot`/`imir`/`clap` and unknown essential properties.
+- AVIF color evidence comes from the primary item's `colr` (`nclx` or ICC) property and the AV1 sequence header, read by a bounds-checked parser before any pixel decode. The adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]`, rejects `nclx` that contradicts the matrix, range, primaries or transfer the decoder actually uses, applies supported `irot`/`imir` orientation before cropping, and fails closed on `clap`, unsupported transform ordering, and unknown essential properties.
 - A small Rust facade and CLI using the same graph/executor. Untagged inputs require an **explicit** sRGB assumption or an ICC path when supported.
 - Optional `moxcms` rendered-ICC-to-sRGB source adapter with an explicit user policy. It is not arbitrary ICC/CICP equivalence or HDR handling.
 - Property/golden tests, malformed-input smoke tests, a libFuzzer target, an MSRV 1.98 CI job, single-feature compilation checks and an SPDX metadata inventory.
@@ -22,7 +22,7 @@
 | 3. Codec capabilities | Reports ROI versus full-frame fallback | Measure internal decoder work and source overfetch on real formats |
 | 4. Engine memory | RAII frame, row and scratch reservations; cancellation tests | Planner metadata is not fully charged; AVIF decoder and encoders have opaque allocations; test peak process RSS and bombs |
 | 5. Correctness and errors | Geometry, invalid options, truncated headers, AVIF container/bitstream color conflicts; JPEG EXIF, JPEG XL and AVIF `irot`/`imir` orientation applied and checked against ImageMagick/libheif/libjxl fixtures (ADR-0019) | Larger malicious corpus, AVIF `clap`, alpha and ICC conflict cases |
-| 6. Quality/performance baseline | Synthetic CI smoke (0.69 s per run, ~24–25 MiB peak RSS) | Quality-matched libvips/Sharp AVIF corpus with equal outputs and p50/p95; runner libvips AVIF encoder unavailable |
+| 6. Quality/performance baseline | Initial synthetic CI smoke; subsequent [quality-matched Sharp comparison](../benchmarks/M2-sharp-comparison.md) and [libavif backend comparison](../benchmarks/M2-libavif-backend.md), each with a recorded corpus and host | Independent libvips CLI and Butteraugli evidence, larger photographs, broader color/corpus coverage, and representative latency distributions |
 | 7. Release/audit | MSRV check, Cargo feature checks, metadata audit and fuzz harness | Extended fuzz campaign, native/unsafe review, third-party license notices and release decision |
 
 ## Crucial engineering findings

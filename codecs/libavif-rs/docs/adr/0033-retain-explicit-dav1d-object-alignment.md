@@ -10,5 +10,5 @@ Release corpus passed before this correction, but 1,182 Debug cases exposed
 the missing alignment of `mask_edges_inter`'s `txa` buffer.
 
 The original corpus reproducer is `av1-1-b8-23-film_grain-50` in
-[the native comparison run](https://github.com/sebastian-software/libavif-rs/actions/runs/41352172727).
+the native comparison run (retired libavif-rs repository, run 41352172727).
 Keep that original test and its expected output unchanged.
