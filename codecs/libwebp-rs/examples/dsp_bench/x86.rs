@@ -4,14 +4,12 @@
 //! do. The C level installs `NULL` (`-noasm`); a SIMD level installs a query
 //! that answers the running CPU's flags up to that level, so that the dispatch
 //! functions select exactly the variants that upstream's `Init` functions
-//! assign there. Each run stores the pointer again before the call; the store
-//! is a plain write, and `features()` stays cached while the pointer is the
-//! same.
+//! assign there. Each run selects its query through an atomic setter before
+//! the call, and `features()` stays cached while the pointer is the same.
 
-use core::ffi::{c_int, c_void};
-use std::sync::atomic::Ordering;
+use core::ffi::c_int;
 
-use webp::abi::decode::VP8_GET_CPU_INFO;
+use webp::abi::decode::{disable_cpu_query, set_cpu_query_callback};
 use webp::dsp::cpu::{CPUFeature, vp8_get_cpu_info};
 
 use crate::Case;
@@ -62,18 +60,16 @@ extern "C" fn query_avx2(feature: CPUFeature) -> c_int {
 }
 
 impl Level {
-    fn pointer(self) -> *mut c_void {
-        match self.highest {
-            None => core::ptr::null_mut(),
-            Some(CPUFeature::kSSE2) => query_sse2 as *mut c_void,
-            Some(CPUFeature::kSSE4_1) => query_sse41 as *mut c_void,
-            Some(_) => query_avx2 as *mut c_void,
-        }
-    }
-
     /// Installs the level for the next dispatch calls.
     pub fn select(self) {
-        VP8_GET_CPU_INFO.store(self.pointer(), Ordering::Relaxed);
+        match self.highest {
+            None => disable_cpu_query(),
+            // SAFETY: these static callbacks only report features supported by
+            // the host. The benchmark runs the cases sequentially.
+            Some(CPUFeature::kSSE2) => unsafe { set_cpu_query_callback(query_sse2) },
+            Some(CPUFeature::kSSE4_1) => unsafe { set_cpu_query_callback(query_sse41) },
+            Some(_) => unsafe { set_cpu_query_callback(query_avx2) },
+        }
     }
 
     /// A case of `function` at this level: `run` after the selection.

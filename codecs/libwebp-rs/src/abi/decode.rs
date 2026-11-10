@@ -93,7 +93,9 @@
 //! scalar build on 64-bit ARM, it is `NULL`, as in the reference
 //! configuration. The tools' `-noasm` stores `NULL`, which turns off every
 //! selection that consults the query; the NEON variants that upstream
-//! compiles in unconditionally stay selected.
+//! compiles in unconditionally stay selected. Rust callers cannot write this
+//! data symbol directly: safe functions select `NULL` or the built-in query,
+//! and a typed unsafe setter accepts custom callbacks.
 
 use core::ffi::{c_int, c_void};
 use core::mem::ManuallyDrop;
@@ -635,11 +637,12 @@ extern "C" fn x86_cpu_info(feature: CPUFeature) -> c_int {
 /// The CPU query that `src/dsp/cpu.h` declares as a function pointer, which the
 /// upstream tools set to `NULL` for `-noasm` (ADR 0004, data symbols). It points
 /// at the translation's query on x86, and is `NULL` elsewhere, as in the
-/// reference configuration. No dispatch reads it before wave 4 (ADR 0003).
-/// Exported here because `dwebp` assigns it.
+/// reference configuration. Dispatch reads it through ADR 0008's feature cache.
+/// Exported here because `dwebp` assigns it. Rust callers use the setters
+/// below; exposing the atomic would let safe code install an invalid address.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[unsafe(export_name = "VP8GetCPUInfo")]
-pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(x86_cpu_info as *mut c_void);
+static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(x86_cpu_info as *mut c_void);
 
 /// `VP8GetCPUInfo` as C calls it in the NEON build (C: `armCPUInfo`).
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
@@ -653,7 +656,7 @@ extern "C" fn arm_cpu_info(feature: CPUFeature) -> c_int {
 /// (WP20, ADR 0008); the tools' `-noasm` sets it to `NULL`.
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
 #[unsafe(export_name = "VP8GetCPUInfo")]
-pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(arm_cpu_info as *mut c_void);
+static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(arm_cpu_info as *mut c_void);
 
 // upstream: src/dsp/cpu.c VP8GetCPUInfo
 /// See the x86 definition: `NULL` without an x86 query, and in the scalar
@@ -664,7 +667,72 @@ pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(arm_cpu_info as 
     all(feature = "simd", target_arch = "aarch64")
 )))]
 #[unsafe(export_name = "VP8GetCPUInfo")]
-pub static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+static VP8_GET_CPU_INFO: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+
+/// Disables the CPU query, as the C tools' `-noasm` option does.
+///
+/// This changes process-wide dispatch selection. Concurrent dispatch remains
+/// memory-safe when every installed callback meets its safety contract, but
+/// coordinate changes with codec use when a particular mode must apply to a
+/// complete operation.
+pub fn disable_cpu_query() {
+    VP8_GET_CPU_INFO.store(ptr::null_mut(), Ordering::Release);
+}
+
+/// Restores the built-in query for this build and target. On targets without
+/// a built-in query, this selects the same `NULL` state as [`disable_cpu_query`].
+///
+/// This changes process-wide dispatch selection. Concurrent dispatch remains
+/// memory-safe when every installed callback meets its safety contract, but
+/// coordinate changes with codec use when a particular mode must apply to a
+/// complete operation.
+pub fn use_builtin_cpu_query() {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    let pointer = x86_cpu_info as *mut c_void;
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    let pointer = arm_cpu_info as *mut c_void;
+    #[cfg(not(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        all(feature = "simd", target_arch = "aarch64")
+    )))]
+    let pointer = ptr::null_mut();
+    VP8_GET_CPU_INFO.store(pointer, Ordering::Release);
+}
+
+/// Whether the C ABI's CPU query pointer is non-null.
+#[must_use]
+pub fn cpu_query_is_installed() -> bool {
+    !VP8_GET_CPU_INFO.load(Ordering::Acquire).is_null()
+}
+
+/// Installs a typed CPU query in the exported `VP8GetCPUInfo` pointer.
+///
+/// # Safety
+///
+/// `query` must remain callable for as long as it can be observed, including
+/// calls already in progress when it is replaced. It must return nonzero only
+/// for features supported by the running CPU and OS; a false positive can run
+/// unsupported SIMD instructions. The callback must be safe to invoke
+/// concurrently from codec threads. Coordinate changes to this process-wide
+/// query with codec use and other query changes, including C callers, if a
+/// particular mode must apply to a complete operation. Mixing truthful feature
+/// sets is memory-safe but can change dispatch results.
+///
+/// ```compile_fail
+/// use webp::abi::decode::set_cpu_query_callback;
+/// use webp::dsp::cpu::CPUFeature;
+/// extern "C" fn query(_: CPUFeature) -> i32 { 0 }
+/// set_cpu_query_callback(query); // A custom callback requires unsafe.
+/// ```
+///
+/// ```compile_fail
+/// use webp::abi::decode::VP8_GET_CPU_INFO;
+/// let _ = VP8_GET_CPU_INFO; // The raw C symbol is private to this module.
+/// ```
+pub unsafe fn set_cpu_query_callback(query: extern "C" fn(CPUFeature) -> c_int) {
+    VP8_GET_CPU_INFO.store(query as *mut c_void, Ordering::Release);
+}
 
 /// A token of the current `VP8GetCPUInfo` pointer for the dispatch cache of
 /// `crate::dsp::cpu::features` (ADR 0008): 0 for `NULL` (`-noasm`), 1 for the
@@ -708,9 +776,10 @@ pub(crate) fn cpu_feature_query(feature: CPUFeature) -> Option<bool> {
     if pointer == arm_cpu_info as *mut c_void {
         return Some(crate::dsp::cpu::vp8_get_cpu_info(feature));
     }
-    // SAFETY: a non-null pointer that a caller stored in `VP8GetCPUInfo`, which
-    // `cpu.h` declares as `VP8CPUInfo`, a function of one `CPUFeature`
-    // returning `int`; calling it with a valid feature is its contract.
+    // SAFETY: Rust can install a custom pointer only through the unsafe typed
+    // setter, whose contract requires a callable callback. C writes to the
+    // exported symbol carry the same C-side contract. `feature` has the C
+    // `CPUFeature` representation and the callback returns `int`.
     let query =
         unsafe { core::mem::transmute::<*mut c_void, extern "C" fn(CPUFeature) -> c_int>(pointer) };
     Some(query(feature) != 0)

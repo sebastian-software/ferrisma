@@ -18,12 +18,11 @@
     reason = "each test crate uses a different subset of the helpers"
 )]
 
-use core::ffi::{c_int, c_void};
+use core::ffi::c_int;
 use std::fmt::Debug;
-use std::sync::atomic::Ordering;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use webp::abi::decode::VP8_GET_CPU_INFO;
+use webp::abi::decode::{disable_cpu_query, set_cpu_query_callback, use_builtin_cpu_query};
 use webp::dsp::cpu::{CPUFeature, vp8_get_cpu_info};
 
 /// A selection level of the dispatch functions.
@@ -50,13 +49,15 @@ impl Level {
         }
     }
 
-    /// The level's `VP8GetCPUInfo` pointer.
-    fn pointer(self) -> *mut c_void {
+    /// Installs the level's query.
+    fn select(self) {
         match self {
-            Self::C => core::ptr::null_mut(),
-            Self::Sse2 => query_sse2 as *mut c_void,
-            Self::Sse41 => query_sse41 as *mut c_void,
-            Self::Avx2 => query_avx2 as *mut c_void,
+            Self::C => disable_cpu_query(),
+            // SAFETY: each callback only reports host-supported features,
+            // is a static function, and the guard serializes these tests.
+            Self::Sse2 => unsafe { set_cpu_query_callback(query_sse2) },
+            Self::Sse41 => unsafe { set_cpu_query_callback(query_sse41) },
+            Self::Avx2 => unsafe { set_cpu_query_callback(query_avx2) },
         }
     }
 }
@@ -90,26 +91,22 @@ pub fn simd_levels() -> Vec<Level> {
 /// Serializes the installation of a level within one test binary.
 static LOCK: Mutex<()> = Mutex::new(());
 
-/// Holds a level installed until it is dropped, then restores the pointer.
+/// Holds a level installed until it is dropped, then restores the built-in query.
 pub struct Installed {
-    previous: *mut c_void,
     _guard: MutexGuard<'static, ()>,
 }
 
 impl Drop for Installed {
     fn drop(&mut self) {
-        VP8_GET_CPU_INFO.store(self.previous, Ordering::Release);
+        use_builtin_cpu_query();
     }
 }
 
 /// Installs `level` until the result is dropped.
 pub fn install(level: Level) -> Installed {
     let guard = LOCK.lock().unwrap_or_else(PoisonError::into_inner);
-    let previous = VP8_GET_CPU_INFO.swap(level.pointer(), Ordering::AcqRel);
-    Installed {
-        previous,
-        _guard: guard,
-    }
+    level.select();
+    Installed { _guard: guard }
 }
 
 /// Runs `run` at `level`.

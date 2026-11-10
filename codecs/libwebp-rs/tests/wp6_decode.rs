@@ -32,13 +32,11 @@ mod oracle;
 #[path = "wp6_support/mod.rs"]
 mod wp6_support;
 
-use core::ptr;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
-use std::sync::atomic::Ordering;
 
 use oracle::Oracle;
-use webp::abi::decode::VP8_GET_CPU_INFO;
+use webp::abi::decode::{disable_cpu_query, use_builtin_cpu_query};
 use webp::dec::alpha_dec::vp8_decompress_alpha_rows;
 use webp::dec::frame_dec::{vp8_enter_critical, vp8_init_dithering, vp8_init_frame};
 use webp::dec::tree_dec::vp8_parse_intra_mode_row;
@@ -646,9 +644,9 @@ fn vp8_decoder_matches_the_c_decoder() {
                 // The C translation, as `-noasm` selects it, for a stream whose
                 // coefficients can leave the domain of upstream's SSE2
                 // transform; the pointer comes back for the next case.
-                let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
+                disable_cpu_query();
                 let out = run_decode(case, &file);
-                VP8_GET_CPU_INFO.store(previous, Ordering::Release);
+                use_builtin_cpu_query();
                 out
             } else {
                 run_decode(case, &file)

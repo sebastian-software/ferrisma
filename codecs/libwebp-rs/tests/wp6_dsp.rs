@@ -19,12 +19,10 @@ mod oracle;
 #[path = "wp6_support/mod.rs"]
 mod wp6_support;
 
-use core::ptr;
 use std::fmt::Write as _;
-use std::sync::atomic::Ordering;
 
 use oracle::Oracle;
-use webp::abi::decode::VP8_GET_CPU_INFO;
+use webp::abi::decode::{disable_cpu_query, use_builtin_cpu_query};
 use webp::dsp::dec::{
     h_filter8_c, h_filter8i_c, h_filter16_c, h_filter16i_c, simple_h_filter16_c,
     simple_h_filter16i_c, simple_v_filter16_c, simple_v_filter16i_c, transform_ac3_c,
@@ -343,13 +341,13 @@ fn decoder_dsp_matches_the_c_functions() {
     let mut script = Script::new();
     // The C translation, as `-noasm` selects it: the inputs leave the domain of
     // upstream's SSE2 transform and filters (see the module documentation).
-    let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
+    disable_cpu_query();
     tables(&mut script);
     transforms(&mut script, &mut rng);
     predictors(&mut script, &mut rng);
     filters(&mut script, &mut rng);
     dithering(&mut script, &mut rng);
-    VP8_GET_CPU_INFO.store(previous, Ordering::Release);
+    use_builtin_cpu_query();
     let output = probe.run::<&str>(&[], script.commands.as_bytes());
     output.success();
     compare("dsp", &output.stdout, &script.expected);
