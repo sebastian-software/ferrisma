@@ -13,16 +13,26 @@
 //! truncated at and around every partition boundary. The test compares the
 //! header state, the io, every `put()` (position, size and the visible Y, U, V
 //! and alpha rows), the teardown, the result, the status and its message.
+//!
+//! The streams with mutated bytes are decoded with the C translation, selected
+//! through `VP8GetCPUInfo = NULL` as `-noasm` does: their coefficients can
+//! leave the 16-bit range in which upstream's SSE2 transform equals the C
+//! function, and the reference oracle has no SIMD code (ADR 0008;
+//! `src/dsp/dec_sse2.rs`, checks not applicable). The other streams run the
+//! SIMD variants the host selects.
 
 #[path = "support/oracle.rs"]
 mod oracle;
 #[path = "wp6_support/mod.rs"]
 mod wp6_support;
 
+use core::ptr;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
+use std::sync::atomic::Ordering;
 
 use oracle::Oracle;
+use webp::abi::decode::VP8_GET_CPU_INFO;
 use webp::dec::alpha_dec::vp8_decompress_alpha_rows;
 use webp::dec::frame_dec::{vp8_enter_critical, vp8_init_dithering, vp8_init_frame};
 use webp::dec::tree_dec::vp8_parse_intra_mode_row;
@@ -607,7 +617,17 @@ fn vp8_decoder_matches_the_c_decoder() {
         }
         for case in &cases {
             commands.push_str(&case.command(&file));
-            let out = run_decode(case, &file);
+            let out = if case.mutated.is_some() {
+                // The C translation, as `-noasm` selects it, for a stream whose
+                // coefficients can leave the domain of upstream's SSE2
+                // transform; the pointer comes back for the next case.
+                let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
+                let out = run_decode(case, &file);
+                VP8_GET_CPU_INFO.store(previous, Ordering::Release);
+                out
+            } else {
+                run_decode(case, &file)
+            };
             for line in out.lines() {
                 if let Some(rest) = line.strip_prefix("decode=") {
                     let status: u32 = rest
