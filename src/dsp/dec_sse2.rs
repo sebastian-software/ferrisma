@@ -68,21 +68,8 @@
 //!
 //! # Excluded undefined behavior
 //!
-//! 1. **16-bit transform arithmetic.** `Transform_SSE2` computes in wrapping
-//!    16-bit lanes where `TransformOne_C` computes in `int`. Both agree while
-//!    the intermediate sums stay within 16 bits, which the coefficients of a
-//!    valid stream keep (upstream's own `-noasm` comparison relies on it);
-//!    outside that range upstream's SSE2 and C outputs differ, so the parity
-//!    tests draw coefficients within ±2048 and do not compare larger ones.
-//!    This is upstream's divergence, not undefined behavior, and the port
-//!    reproduces upstream's SSE2 arithmetic exactly.
-//! 2. **Filter thresholds.** `NeedsFilter_SSE2` tests
-//!    `2 * |p0 - q0| + |p1 - q1| / 2 <= thresh` in saturating 8-bit lanes with
-//!    `thresh` truncated to 8 bits, which equals the C test
-//!    `4 * |p0 - q0| + |p1 - q1| <= 2 * thresh + 1` for `thresh` below 255;
-//!    the decoder passes at most 193 (`2 * 63 + 63 + 4`). `hev_thresh` and
-//!    `ithresh` are truncated to 8 bits as well. The parity tests draw the
-//!    thresholds from the decoder's ranges.
+//! None: the functions read and write only the bytes of their slices, and
+//! their arithmetic is defined in every lane.
 //!
 //! # Checks not applicable
 //!
@@ -95,6 +82,32 @@
 //!    the C translation it replaces (`tests/wp18_dec.rs`); the C oracle in the
 //!    reference configuration has no SSE2 code, and the diagnostic
 //!    `release-simd` oracle runs the WP6 probes against upstream's SSE2.
+//! 4. **Comparison with the reference oracle outside the shared domain.**
+//!    Upstream's SSE2 functions equal the C functions they replace only in a
+//!    domain that valid streams stay in, and differ outside it in upstream
+//!    itself:
+//!    - `Transform_SSE2` (`vp8_transform`, and `vp8_transform_uv` through it)
+//!      computes in wrapping 16-bit lanes where `TransformOne_C` computes in
+//!      `int`; they agree for coefficients within ±2048, the range the
+//!      parity tests draw from, and differ for larger ones, which only corrupt
+//!      streams and probes produce.
+//!    - `NeedsFilter_SSE2` (every loop filter) tests
+//!      `2 * |p0 - q0| + |p1 - q1| / 2 <= thresh` in saturating 8-bit lanes
+//!      with `thresh` truncated to 8 bits, which equals the C test
+//!      `4 * |p0 - q0| + |p1 - q1| <= 2 * thresh + 1` for `thresh` up to 254;
+//!      `ithresh` and `hev_thresh` are truncated to 8 bits as well and agree
+//!      up to 255. The decoder passes `thresh` up to 193 (`2 * 63 + 63 + 4`),
+//!      `ithresh` up to 63 and `hev_thresh` up to 2.
+//!
+//!    Outside that domain the port computes what upstream's SSE2 build
+//!    computes: `tests/wp6_dsp.rs` (coefficients to ±15000, thresholds to
+//!    1200) and `tests/wp6_decode.rs` (mutated streams) matched the
+//!    `release-simd` oracle byte for byte with the SSE2 variants selected.
+//!    Their comparisons with the reference oracle, which has no SIMD code,
+//!    select the C translation for exactly those cases through
+//!    `VP8GetCPUInfo = NULL`, as `-noasm` does (ADR 0008). The valid-domain
+//!    evidence with SSE2 selected is the decoding of the 131 test vectors,
+//!    the encoder matrix and the Rust-linked upstream scripts.
 //!
 //! # Notes for WP20
 //!

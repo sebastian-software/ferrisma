@@ -8,7 +8,7 @@
 //! planes, and the full threshold ranges in which upstream's SSE2 and C
 //! filters agree (`thresh` 0 to 254, `ithresh` and `hev_thresh` 0 to 255).
 //! Transform coefficients stay within ±2048, where the 16-bit lanes of
-//! `Transform_SSE2` cannot wrap (`dec_sse2.rs`, excluded behavior 1); the
+//! `Transform_SSE2` cannot wrap (`dec_sse2.rs`, checks not applicable 4); the
 //! extremes are drawn often.
 
 #![cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
@@ -264,7 +264,7 @@ fn filters(levels: &[Level], tally: &mut Tally, rng: &mut Rng) {
 fn decoder_simd_matches_the_c_translation() {
     let levels = simd_levels();
     assert!(!levels.is_empty(), "an x86 host has SSE2");
-    let mut rng = Rng(0x5750_3138_4445_43);
+    let mut rng = Rng(0x0057_5031_3844_4543);
     let mut tally = Tally::default();
     transforms(&levels, &mut tally, &mut rng);
     predictors(&levels, &mut tally, &mut rng);
