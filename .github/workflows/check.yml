@@ -6,7 +6,8 @@ name: Checks
 # rust-version toolchain; the oracle job builds the C oracle in its three
 # reference variants on both systems, runs the differential tests against the
 # release and asan-ubsan variants (and the scalar build against the release
-# variant on Linux), and records the dwebp baseline per variant.
+# variant on Linux), and records the dwebp baseline per variant. The bench job
+# runs examples/dsp_bench on Linux x86-64 and gates nothing.
 on:
   pull_request:
   push:
@@ -96,6 +97,24 @@ jobs:
             build/oracle/*/baseline/*.log
           if-no-files-found: error
           retention-days: 30
+
+  # The DSP micro-benchmarks of ADR 0008 on the hosted x86-64 runner, for the
+  # tables of the SIMD packages' pull requests. Not gating: "Checks passed"
+  # does not need it.
+  bench:
+    name: Bench (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/prepare
+      - name: Host
+        run: |
+          lscpu | grep 'Model name'
+          rustc --version
+      - name: DSP benchmarks
+        run: cargo run --release --example dsp_bench
 
   # The single required status check: any failed or cancelled job fails it.
   checks-passed:
