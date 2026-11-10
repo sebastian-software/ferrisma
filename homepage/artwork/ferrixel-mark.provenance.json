@@ -1,0 +1,105 @@
+{
+  "product": "Ferrixel",
+  "role": "Transparent native Blender raster loupe product mark master",
+  "meaning": "A polished steel loupe frames seven raised raster cells; a single oxide collar marks the handle.",
+  "renderer": "Blender 5.3.0, Cycles",
+  "dimensions": "1600x1600",
+  "samples": 160,
+  "colorManagement": "AgX Medium High Contrast, sRGB alpha",
+  "familySourceCommit": "5284a1264ed78f71c72387621e63fb997b7a8842",
+  "familySourceHashes": {
+    "studio.py": "7b0616e4bc8899ccd98f93fb5f61337d21e21da0b8aa90df60bd36f469d824b7",
+    "hero_geometry.py": "060cd7feb85d6477e6a79d97c26e41f87bdd7f6d3899a36981b8e8a89fabdd17"
+  },
+  "constructionSha256": "7793c8ac8c2ede73e26191736aaf6b1a2a820443697cadf17a98cbe8d519609d",
+  "masterSha256": "f12bba5fa8a40485324e02da1a7d74bc863f349b1a679991174e137d9f16b86a",
+  "geometryVerification": [
+    {
+      "body": "Graphite lens depth",
+      "closedManifold": true,
+      "volume": 0.199970019,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Bright steel loupe rim",
+      "closedManifold": true,
+      "volume": 0.407292209,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Recessed steel lens ground",
+      "closedManifold": true,
+      "volume": 0.083877447,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 0-0",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 0-1",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 1-0",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 1-1",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 1-2",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 2-1",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Raised raster cell 2-2",
+      "closedManifold": true,
+      "volume": 0.006809953,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Steel loupe handle",
+      "closedManifold": true,
+      "volume": 0.068053994,
+      "machinedPockets": 0
+    },
+    {
+      "body": "Oxide handle collar",
+      "closedManifold": true,
+      "volume": 0.023858972,
+      "machinedPockets": 0
+    }
+  ],
+  "verificationScope": "Each evaluated mesh is closed and has positive volume; assembly contacts are not generally collision-checked.",
+  "export": {
+    "pipeline": "10% alpha bounds; 12.5% transparent padding; Lanczos resize; 32/48/64 ICO; 256 lossless WebP; 512 PNG; 180 paper touch icon",
+    "alphaBounds": "1395x1323+104+140",
+    "familyTokensSha256": "1db5c57209f4cec921d2b303f548e7f2dfa112fb81e6b14a43b7621c0733f725",
+    "paper": "#F4F0E6",
+    "imageMagick": "Version: ImageMagick 7.1.2-35 Q16-HDRI aarch64 acaf7e418:20261031 https://imagemagick.org",
+    "exporterSha256": "e6d007ebaa5655324bfc46287386f04c96a9576350084d832c056a52110062cf",
+    "files": {
+      "ferrixel-mark-512.png": "2b6a9bfd086787fd341cb28c4005d63de51c478288f66fb4d6a17aacd1bc6ed3",
+      "ferrixel-mark.webp": "b952e7b49c92d43b0efeaecc8ac7d1178d6d7e9deabea06f740802f170426d05",
+      "favicon.ico": "2e3105b5f462a38ff8770185b3733beff1344b3469745e28eb8f55869e3bcad1",
+      "apple-touch-icon.png": "53ccd3537dc13c4aad09db326f814123a8384a219893ba10142e57cf030616ae"
+    }
+  }
+}

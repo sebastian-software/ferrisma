@@ -166,7 +166,7 @@ function Opening() {
           width="2400"
           height="1200"
           fetchPriority="high"
-          alt="Ferrixel's instrument: a steel image registration bench with a pixel mosaic, an oxide crop frame, a filter carriage and a smaller output mosaic."
+          alt="Ferrixel's raster loupe: a bright steel inspection ring over an enlarged pixel grid, beside a fine raster on a plate with recessed hex screws."
         />
       </figure>
       <p className="mono-kicker">Ferrixel, an experimental image pipeline in Rust</p>

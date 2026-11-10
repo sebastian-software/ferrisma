@@ -1,10 +1,11 @@
 # Ferrixel homepage
 
 This Ardo site uses the Ferramenta family's pinned Monografie package. Ferrixel
-is not yet a registered family identity, so its header, footer and instrument
+is not yet a registered family identity, so its header, footer and artwork
 are site-local; shared typography, color and reading components come from the
-package. The original Ferrixel instrument is rendered in Blender using the
-family's pinned studio; its editable recipe and provenance are in
+package. Ferrixel's raster loupe and matching product mark are rendered in
+Blender using the family's pinned studio. Their editable recipes, favicon and
+touch-icon export commands, and provenance are in
 [artwork/](artwork/README.md). Blender is not needed to build or test the site.
 
 From `homepage/`, run `pnpm install --frozen-lockfile`, then `pnpm dev`.

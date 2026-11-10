@@ -340,6 +340,10 @@
   }
 }
 @media (max-width: 42rem) {
+  .fx-status {
+    display: block;
+    margin: 0.3rem 0 0;
+  }
   .mono section.fx-opening {
     padding-top: 2.5rem;
   }
