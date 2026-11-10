@@ -100,7 +100,7 @@ jobs:
         path: |
           codecs/libavif-rs/build/aom-paired-release-${{ matrix.program }}/
           codecs/libavif-rs/build/aom-native-release/reference-profile.json
-    name: 'AVIF: paired'
+    name: 'AVIF: paired (${{ matrix.program }}, ${{ matrix.shards }}, ${{ matrix.index }})'
     defaults:
       run:
         working-directory: codecs/libavif-rs
