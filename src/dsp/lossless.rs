@@ -492,8 +492,27 @@ pub fn vp8l_predictors_add(
 ) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
+        use crate::dsp::lossless_avx2 as avx2;
         use crate::dsp::lossless_sse2 as sse2;
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            let add: Option<VP8LPredictorAddSubFunc> = match mode {
+                0 => Some(avx2::predictor_add0),
+                1 => Some(avx2::predictor_add1),
+                2 => Some(avx2::predictor_add2),
+                3 => Some(avx2::predictor_add3),
+                4 => Some(avx2::predictor_add4),
+                8 => Some(avx2::predictor_add8),
+                9 => Some(avx2::predictor_add9),
+                10 => Some(avx2::predictor_add10),
+                11 => Some(avx2::predictor_add11),
+                12 => Some(avx2::predictor_add12),
+                _ => None,
+            };
+            if let Some(add) = add {
+                return add(data, in_pos, upper_pos, num_pixels, out_pos);
+            }
+        }
         if features.sse2 {
             let add: Option<VP8LPredictorAddSubFunc> = match mode {
                 0 => Some(sse2::predictor_add0),
@@ -643,6 +662,11 @@ pub fn vp8l_add_green_to_blue_and_red(
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_avx2::add_green_to_blue_and_red(
+                data, src_pos, num_pixels, dst_pos,
+            );
+        }
         if features.sse2 {
             return crate::dsp::lossless_sse2::add_green_to_blue_and_red(
                 data, src_pos, num_pixels, dst_pos,
@@ -723,6 +747,11 @@ pub fn vp8l_transform_color_inverse(
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_avx2::transform_color_inverse(
+                m, data, src_pos, num_pixels, dst_pos,
+            );
+        }
         if features.sse2 && features.sse4_1 {
             return crate::dsp::lossless_sse41::transform_color_inverse(
                 m, data, src_pos, num_pixels, dst_pos,
@@ -1123,6 +1152,9 @@ pub fn vp8l_convert_bgra_to_rgba(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_avx2::convert_bgra_to_rgba(src, num_pixels, dst);
+        }
         if features.sse2 {
             return crate::dsp::lossless_sse2::convert_bgra_to_rgba(src, num_pixels, dst);
         }
