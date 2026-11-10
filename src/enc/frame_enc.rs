@@ -16,6 +16,31 @@
 //! Translation of `src/enc/frame_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Uninitialized bit counts in `extra_info` type 6.** `StoreSideInfo`
+//!    reads `it->luma_bits` and `it->uv_bits`, which only `CodeResiduals`
+//!    writes: the token loop never does, and `VP8EncLoop` not before the first
+//!    coded macroblock. Type 6 is compared only for `VP8EncLoop` on noise
+//!    pictures, whose first macroblock is coded; Rust starts from 0.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Compile-time switches off in the reference configuration.**
+//!    `WEBP_DISABLE_STATS`, `WEBP_REDUCE_SIZE`, `DISABLE_TOKEN_BUFFER`,
+//!    `PRINT_MEMORY_INFO`, `DEBUG_BLOCK` and `WEBP_MSAN` are undefined, and
+//!    `SEGMENT_VISU` and `DEBUG_SEARCH` are 0, so their branches are not
+//!    translated. `USE_TDISTO` is 1 and `USE_LEVEL_CODE_TABLE` is defined, so
+//!    only those variants are translated. `DO_TRELLIS_UV` is 0; its branch is
+//!    translated and never taken.
+//! 2. **Floating point.** See `src/enc/quant_enc.rs`,
+//!    `# Checks not applicable`, item 1.
 
 use crate::dec::common_dec::{NUM_BANDS, NUM_CTX, NUM_MB_SEGMENTS, NUM_PROBAS, NUM_TYPES};
 use crate::dsp::cost::VP8_ENC_BANDS;

@@ -21,6 +21,81 @@
 //! `VP8LEncoderNew` keeps no pointer to the configuration and the picture:
 //! the functions take them per call. The side context of `VP8LEncodeStream`
 //! runs on a scoped thread (see `vp8l_encode_stream`).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Threads (ADR 0003, threads: a worker whose life lies inside one
+//!    call).** The side context runs on a `std::thread::scope` thread, the main
+//!    context on the calling thread. `WebPPicture` holds the writer and
+//!    progress closures, which are not `Send`, so the side picture, a view of
+//!    the whole picture as in C, crosses the thread as `PictureViewParts` (its
+//!    fields without the four that a view has as `None`) and is rebuilt on the
+//!    thread. While the side thread borrows the planes, the main context works
+//!    on a second view of the picture whose progress hook forwards to the
+//!    picture's hook; the picture's `stats` and progress hook leave the picture
+//!    for that time and come back afterwards, and the view's error code is
+//!    recorded on the picture after the join, before C's test of
+//!    `picture->error_code`. With one context the main context works on the
+//!    picture itself. A thread that cannot be created is C's failed `Reset` and
+//!    records `VP8_ENC_ERROR_OUT_OF_MEMORY`. A panicking side context counts as
+//!    a failed hook; its error code is then unknown, which C asserts cannot
+//!    happen: the Rust code debug-asserts and otherwise behaves as C does when
+//!    the side's error code is `VP8_ENC_OK`.
+//! 2. **`ApplyPalette`** returns the error code that C records on the picture
+//!    after its row allocation fails, and `MapImageFromPalette` records it,
+//!    because the source pixels are borrowed from the picture. The outcome is
+//!    the same. `APPLY_PALETTE_FOR` is a function over the color-to-index
+//!    closure.
+//! 3. **Return types (ADR 0003, errors).** Functions whose every failure
+//!    records an error return `Result` with the recorded code; those that end
+//!    with `return pic->error_code == VP8_ENC_OK` return that state as a
+//!    `Result` (`VP8LGetHistoImageSymbols`, `EncodeImageNoHuffman`,
+//!    `EncodeImageInternal`, `VP8LEncodeStream`, `VP8LEncodeImage`). Functions
+//!    with a failure that records no error stay `bool`: `VP8LResidualImage` and
+//!    `ApplyPredictFilter` (a failed modes allocation), `VP8ApplyNearLossless`,
+//!    `EncoderAnalyze`, `EncoderInit`, `GetHuffBitLengthsAndCodes`, the write
+//!    helpers and `EncodeStreamHook`.
+//! 4. **`VP8LEncodeImage`** takes `&mut WebPPicture`, because C records the
+//!    error and writes `stats` and `extra_info` through its `const` pointer. A
+//!    missing writer panics where C calls `NULL` (see
+//!    `# Excluded undefined behavior`, item 1).
+//! 5. **`use_delta_palette`.** v1.6.0 declares the field "reserved" in
+//!    `encode.h` and reads it nowhere, so the Rust encoder does not read it
+//!    either; the probe (`tools/oracle/probes/wp11/encode.c`) shows identical
+//!    bytes for both values. `WebPConfigInit` does not write it either
+//!    (`src/webp/encode.rs`).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. A picture without a writer: C calls the `NULL` pointer; Rust panics.
+//! 2. `thread_level > 0` with `use_argb == 0` but an ARGB plane: the side
+//!    picture, a view, gets no ARGB plane and C reads through `NULL`.
+//! 3. Configurations and pictures that `WebPValidateConfig` and
+//!    `WebPValidatePicture` reject (quality outside 0 to 100, where the `int`
+//!    conversion is undefined for NaN and infinities; method outside 0 to 6;
+//!    dimensions outside 1 to 16,383), and an `extra_info` shorter than the
+//!    macroblock count, which C overruns.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`WEBP_DISABLE_STATS`** is unset in the reference configuration, so the
+//!    statistics code is translated and compared.
+//! 2. **Thread creation failure** (C's failed `WebPWorker` `Reset`) and a
+//!    panicking side context cannot be provoked; `# Deviations from upstream`,
+//!    item 1, says what the Rust code does.
+//! 3. **Uninitialized C memory.** The transform buffer, the histograms, the
+//!    queue and the block storage are `malloc`ed in C and zeroed in Rust
+//!    (ADR 0003). Every compared output is written before it is read; the
+//!    predictor probe fills its scratch rows with 0xa5 bytes against the Rust
+//!    zeros and still matches (`tests/wp11_predictor.rs`).
 
 use crate::dsp::lossless_common::{
     vp8l_fast_log2, vp8l_prefix_encode, vp8l_sub_pixels, vp8l_sub_sample_size,
@@ -695,8 +770,9 @@ fn encoder_init(enc: &mut VP8LEncoder, pic: &WebPPicture<'_>) -> bool {
 // upstream: src/enc/vp8l_enc.c GetHuffBitLengthsAndCodes
 /// Returns false in case of memory error. The C code carves the code lengths
 /// and codes of every code from one allocation; the Rust code tests that total
-/// and gives each `HuffmanTreeCode` its own arrays (WP3 deviation 7). The
-/// histograms are modified by `VP8LCreateHuffmanTree`, as in C.
+/// and gives each `HuffmanTreeCode` its own arrays (see `HuffmanTreeCode` in
+/// `src/utils/huffman_encode_utils.rs`). The histograms are modified by
+/// `VP8LCreateHuffmanTree`, as in C.
 fn get_huff_bit_lengths_and_codes(
     histogram_image: &mut VP8LHistogramSet,
     huffman_codes: &mut [HuffmanTreeCode],
@@ -2592,9 +2668,9 @@ fn encode_stream_hook(params: &mut StreamEncodeContext<'_, '_>) -> bool {
 }
 
 /// The fields of a picture view that a thread can receive (Rust-only). A view
-/// holds no writer, progress hook, `extra_info` or `stats` (WP9 deviation 9),
-/// so the two callback fields, which are not `Send`, are left out, and every
-/// field that remains is `Send`.
+/// holds no writer, progress hook, `extra_info` or `stats` (ADR 0003, shared
+/// views), so the two callback fields, which are not `Send`, are left out, and
+/// every field that remains is `Send`.
 struct PictureViewParts<'s> {
     use_argb: i32,
     colorspace: WebPEncCSP,
@@ -2695,16 +2771,16 @@ struct ContextOutcome {
 /// Encodes the main image stream using the supplied bit writer.
 /// Returns false in case of error (stored in `picture.error_code`).
 ///
-/// Threads (integrator decision of 2026-11-07, recorded in the WP11 status
-/// page): when `thread_level > 0` splits the configurations, the side context
-/// runs on a `std::thread::scope` thread and the main context on the calling
-/// thread, as C's `Launch` and `Execute` do; the two `Sync` calls are the join
-/// of the scope. Thread creation failure is C's failed `Reset`, and a panicking
-/// side context counts as a failed hook. While the side thread borrows the
-/// picture's planes through a view, the main context works on a second view of
-/// the picture, which forwards to the picture's progress hook; its error code
-/// is recorded on the picture afterwards. The contexts share nothing they write,
-/// so the bytes do not depend on scheduling.
+/// Threads (ADR 0003, threads; see the `# Deviations from upstream` section of
+/// this module, item 1): when `thread_level > 0` splits the configurations, the
+/// side context runs on a `std::thread::scope` thread and the main context on
+/// the calling thread, as C's `Launch` and `Execute` do; the two `Sync` calls
+/// are the join of the scope. Thread creation failure is C's failed `Reset`,
+/// and a panicking side context counts as a failed hook. While the side thread
+/// borrows the picture's planes through a view, the main context works on a
+/// second view of the picture, which forwards to the picture's progress hook;
+/// its error code is recorded on the picture afterwards. The contexts share
+/// nothing they write, so the bytes do not depend on scheduling.
 ///
 /// # Panics
 ///

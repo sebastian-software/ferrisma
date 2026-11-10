@@ -16,6 +16,53 @@
 //! Translation of `src/enc/vp8i_enc.h` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Representation
+//!
+//! 1. **Statistics.** The fields that `StoreStats` (`src/enc/webp_enc.rs`)
+//!    copies stay encoder fields; where C writes `pic->stats` directly, the
+//!    Rust code does too.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Encoder memory.** C carves `mb_info`, `preds`, `nz`, `lf_stats`,
+//!    `y_top`, `uv_top` and `top_derr` from one block behind the encoder; here
+//!    they are vectors, allocated with a fallible reservation after the size
+//!    test of `WebPSafeMalloc` on C's total (with `sizeof(VP8Encoder)` and the
+//!    `WEBP_ALIGN_CST` padding). The pointers are positions: C's `enc->preds`
+//!    is `preds_base()` in the whole `preds` plane, `enc->nz` is position 1 of
+//!    `nz` (`nz[-1]` is position 0), and `uv_top` is a position in `y_top`.
+//!    `lf_stats` and `top_derr` are `Option` (C's `NULL`), `proba` is boxed,
+//!    and `InitVP8Encoder` returns
+//!    `Result<Box<VP8Encoder>, WebPEncodingError>`. Rust zero-initializes the
+//!    arrays that C leaves uninitialized; every element is written before it is
+//!    read on the compared inputs.
+//! 2. **Iterator.** `VP8EncIterator` holds positions instead of pointers: `mb`,
+//!    `bw`, `preds`, `nz`, `y_top`, `uv_top` into the encoder, `y_left`,
+//!    `u_left`, `v_left` into `yuv_left_mem`, `i4_top` into `i4_boundary`.
+//!    `yuv_in`, `yuv_out`, `yuv_out2` and `yuv_p` are four buffers instead of
+//!    four parts of `yuv_mem`, so `SwapOut` swaps two buffers. A function that
+//!    C gives a destination inside the iterator (`ReconstructIntra16`,
+//!    `ReconstructUV`, the loop of `PickBestIntra4`) gets the buffer moved out
+//!    of the iterator for the call. The 32-byte scratch that the analysis
+//!    passes to `VP8IteratorImport` is the iterator's `tmp_32`, and
+//!    `top_in_tmp_32` says whether `y_top` and `uv_top` point there (C's
+//!    argument is a flag here). `lf_stats` and `top_derr` record whether the
+//!    encoder has them. `i4_boundary` has 40 entries on AArch64 and 37
+//!    elsewhere, as C's `WEBP_AARCH64 && BPS == 32` decides. `Default` gives
+//!    zeroed buffers where C declares an uninitialized iterator.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **32-bit C size.** `VP8Encoder::C_SIZE` is 23,704 on the 64-bit hosts,
+//!    which the constants probe confirms (`tests/wp10_constants.rs`), and
+//!    22,680 for i386 (from the C compiler's i386 target); 32-bit targets are
+//!    not run.
 
 use crate::dec::common_dec::{
     MAX_NUM_PARTITIONS, NUM_BANDS, NUM_CTX, NUM_MB_SEGMENTS, NUM_PROBAS, NUM_TYPES,

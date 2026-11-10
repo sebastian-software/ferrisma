@@ -30,6 +30,27 @@
 //! Translation of `src/enc/histogram_enc.c` and `src/enc/histogram_enc.h` from libwebp v1.6.0.
 //!
 //! Work package: WP11 (VP8L encoder).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Free-only functions.** `VP8LFreeHistogram`, `VP8LFreeHistogramSet` and
+//!    `VP8LEncoderDelete` only free; their owners drop the values at the same
+//!    points, as for `VP8LHtreeGroupsFree` (`src/utils/huffman_utils.rs`).
+//!    `DeleteIntervalList` is kept, but the intervals live in the manager's
+//!    arena until `CostManagerClear` drops it.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Floating point.** `GetBinIdForEntropy` computes in `double`, and the
+//!    slow logarithms use `log` above 65,535. They are compared bit for bit on
+//!    the development host (macOS on Apple Silicon, Apple clang,
+//!    `-ffp-contract=off`), through the clustering and the encoded files;
+//!    equality on other hosts is recorded, not assumed.
 
 use crate::dsp::lossless::{VP8LBitEntropy, VP8LStreaks};
 use crate::dsp::lossless_common::{

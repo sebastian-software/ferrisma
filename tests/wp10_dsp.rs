@@ -305,8 +305,9 @@ fn encoder_dsp_matches_the_c_functions() {
         let mut r = record(&mut rng, OP_ITRANSFORM);
         r.p[0] = rng.below(2) as i32;
         // Above about 15,700 in magnitude the int products of the horizontal
-        // pass overflow, which is undefined in C (see the status page); the
-        // encoder's dequantized levels stay far below.
+        // pass overflow, which is undefined in C (see `src/dsp/enc.rs`,
+        // `# Excluded undefined behavior`, item 1); the encoder's dequantized
+        // levels stay far below.
         let bound = [16_i64, 256, 2048, 8192, 15_000][rng.below(5) as usize];
         for value in &mut r.input {
             *value = (rng.below(2 * bound as u64 + 1) as i64 - bound) as i16;

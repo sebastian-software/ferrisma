@@ -16,6 +16,56 @@
 //! Translation of `src/enc/alpha_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Alpha worker (ADR 0003, threads: a worker that outlives one call).**
+//!    The worker's job is `VP8EncAlphaJob`: the copy of the alpha plane without
+//!    stride (the first step of C's `EncodeAlpha`, made on the calling thread
+//!    before `Launch`; `None` when its allocation fails, which the job reports
+//!    as C would), the dimensions, `method`, `alpha_quality`,
+//!    `alpha_compression` and `alpha_filtering`, a copy of the picture's
+//!    statistics, and the results: the alpha data and size, `sse[3]`, the job's
+//!    error code and statistics. They move into the encoder and the picture at
+//!    `Sync` in `VP8EncFinishAlpha`, or in `VP8EncDeleteAlpha` when the loop
+//!    failed; only the ten statistics fields that C's job writes are copied
+//!    back, and the main thread writes none of them meanwhile. C sets the hook
+//!    in `VP8EncInitAlpha`; the job is set at `VP8EncStartAlpha`, after
+//!    `Reset`, because it carries the plane. In place (`thread_level` 0) the
+//!    same job runs in `VP8EncStartAlpha` and its results move at once, which
+//!    is C's order exactly. With the thread, C's worker records its error on
+//!    the picture whenever it fails, racing with the main thread; the Rust
+//!    job's error is recorded at `Sync`, after any error of the main thread.
+//!    The order only matters when both fail, which needs an allocation failure
+//!    in the job.
+//! 2. **Allocation helpers.** `ApplyFiltersAndEncode` and the alpha copy: see
+//!    `src/enc/analysis_enc.rs`, `# Deviations from upstream`, item 2.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **Uninitialized lossless statistics of uncompressed alpha.** With
+//!    `alpha_compression` 0, `EncodeAlphaInternal` never writes the statistics
+//!    of its `FilterTrial`, an uninitialized stack object, and
+//!    `ApplyFiltersAndEncode` copies them into `pic->stats`. The encode tests
+//!    do not request statistics for pictures with alpha and `alpha_compression`
+//!    0; Rust copies zeros.
+//! 2. **Data races of the threaded alpha job on failure.** When the main loop
+//!    fails with alpha and `thread_level > 0`, C's `StoreStats` runs while the
+//!    worker may still write `pic->stats`; such cases do not request
+//!    statistics.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Assertions** are `debug_assert!`;
+//!    `assert(sizeof(header) == ALPHA_HEADER_LEN)` is a constant assertion.
 
 use crate::dsp::alpha_processing::webp_dispatch_alpha_to_green;
 use crate::dsp::dsp::WEBP_FILTER_TYPE;

@@ -21,6 +21,13 @@
 //! Translation of `src/enc/token_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP10 (VP8 encoder core).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **Compile-time switches.** `DISABLE_TOKEN_BUFFER` is undefined; see
+//!    `src/enc/frame_enc.rs`, `# Checks not applicable`, item 1.
 
 use crate::dec::common_dec::{NUM_BANDS, NUM_CTX, NUM_PROBAS};
 use crate::dsp::cost::VP8_ENC_BANDS;

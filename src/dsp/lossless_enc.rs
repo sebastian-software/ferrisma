@@ -18,6 +18,39 @@
 //! Translation of `src/dsp/lossless_enc.c` from libwebp v1.6.0.
 //!
 //! Work package: WP11 (VP8L encoder).
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **Predictor signatures.** The encoder form of the batch predictors,
+//!    `PredictorSubFunc`, is `(data, in, upper, num_pixels, out)`: the input
+//!    row and the row above are positions in one buffer (the scratch rows), and
+//!    the residuals go to a separate slice (as for the decoder's predictors in
+//!    `src/dsp/lossless.rs`). C passes `NULL` as the row above to modes 0 and
+//!    1, which do not read it; position 0 stands for it. The C
+//!    `assert(upper != NULL)` has no counterpart.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. `VP8LExtraCost` with an odd or short length; see
+//!    `src/enc/near_lossless_enc.rs`, `# Excluded undefined behavior`, item 1.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **SIMD variants.** `lossless_enc_sse2.c`, `lossless_enc_sse41.c`,
+//!    `lossless_enc_avx2.c`, `lossless_enc_neon.c` and the `_SSE` pointers of
+//!    `lossless.h` belong to the SIMD modules (ADR 0008). MIPS
+//!    (`lossless_enc_mips32.c`, `lossless_enc_mips_dsp_r2.c`,
+//!    `lossless_enc_msa.c`) is excluded in `tools/units.json`.
+//! 2. **Floating point.** See `src/enc/histogram_enc.rs`,
+//!    `# Checks not applicable`, item 1.
 
 use crate::dsp::lossless::{
     VP8LBitEntropy, VP8LMultipliers, VP8LStreaks, vp8l_predictor2_c, vp8l_predictor3_c,
@@ -1338,7 +1371,8 @@ fn add_vector_eq_c(a: &[u32], out: &mut [u32], size: i32) {
 //------------------------------------------------------------------------------
 // Image transforms.
 
-/// The encoder form of `VP8LPredictorAddSubFunc` (Rust-only, WP3 deviation 15):
+/// The encoder form of `VP8LPredictorAddSubFunc` (Rust-only; see the
+/// `# Deviations from upstream` section of this module, item 1):
 /// `(data, in, upper, num_pixels, out)`, where `in` and `upper` are positions
 /// in `data`, the buffer of the input rows, and the residuals go to
 /// `out[..num_pixels]`. `data[in - 1]` and `data[upper - 1 ..= upper + num_pixels]`
