@@ -7,7 +7,8 @@
 //! error string, the number of progress-hook calls and the size and digest of
 //! every assembled animation (byte-identical output). The one recorded
 //! deviation is the hook that C calls again in `WebPAnimEncoderAssemble`
-//! (`wp15_support::ANIM_DEVIATION_KEYS`). The assembled animations are then
+//! (`wp15_support::ANIM_DEVIATION_KEYS`; `src/mux/anim_encode.rs`,
+//! `# Deviations from upstream`, item 2). The assembled animations are then
 //! decoded with WP14's animation decoder and compared with the C decoder
 //! (`tests/wp14_support::anim_report` against `probes/wp14/anim`).
 //!

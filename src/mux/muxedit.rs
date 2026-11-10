@@ -21,8 +21,29 @@
 //! The setters take the caller's [`WebPData`] by reference: with
 //! `copy_data == 0` the mux keeps the bytes for `'a` when the `WebPData`
 //! borrows them, and copies them when it owns them (a Rust value cannot be
-//! aliased; `docs/status/wp15.md`). C's checks for `NULL` arguments and
-//! `NULL` bytes exist only at the C ABI (PORTING rule 8).
+//! aliased; see the `# Representation` section of `src/webp/mux.rs`). C's
+//! checks for `NULL` arguments and `NULL` bytes exist only at the C ABI
+//! (PORTING rule 8).
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`WebPMuxSetCanvasSize` with an area from 2^31 to 2^32:** after the area
+//!    test in `uint64_t`, C computes `width * height` in `int`, which
+//!    overflows. The translation panics in the dev and `checked` profiles and
+//!    wraps in release, where the result is C's on wrapping hardware. The
+//!    generated canvas sizes avoid this range; `WebPAnimEncoderAssemble`
+//!    reaches it only for canvases of 2^31 pixels and more.
+//! 2. **`GetAdjustedCanvasSize`'s `assert(x_offset < MAX_POSITION_OFFSET)`**
+//!    (and the one for `y_offset`), which the `debug` oracle aborts on and the
+//!    translation's `debug_assert!` fails in the dev and `checked` profiles: a
+//!    parsed `ANMF` chunk holds offsets up to `2 * (2^24 - 1)`, so
+//!    `WebPMuxAssemble` of a parsed animation with such a frame fails the
+//!    assertion; in release, C and the translation go on and refuse the canvas
+//!    size. The truncation test skips bit flips that give such a frame
+//!    (`asserts_in_assembly`).
 
 use std::borrow::Cow;
 
@@ -501,7 +522,8 @@ pub fn webp_mux_set_animation_params(
 /// Sets the canvas size for the mux object: explicit, or `(0, 0)` for the
 /// bounding box of the frames at `WebPMuxAssemble`. C first returns
 /// `WEBP_MUX_INVALID_ARGUMENT` for a `NULL` mux. C computes `width * height` in
-/// `int`, which overflows for areas from 2^31 on (`docs/status/wp15.md`).
+/// `int`, which overflows for areas from 2^31 on (the module documentation,
+/// `# Excluded undefined behavior`, item 1).
 ///
 /// # Errors
 ///

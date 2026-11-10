@@ -1,4 +1,4 @@
-# WP15 consumer builds (ADR 0004, docs/status/wp15.md).
+# WP15 consumer builds (ADR 0004).
 #
 # webpmux: upstream's examples/webpmux.c, unmodified. The reference
 # configuration turns WEBP_BUILD_WEBPMUX off, so the oracle has no webpmux;

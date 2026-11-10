@@ -15,6 +15,17 @@
 //!
 //! Each run of a tool happens in an empty directory; its exit status, standard
 //! output and error and every file it writes must agree.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **GIF input** to `anim_diff` and `img2webp` needs giflib, which neither
+//!    build uses; `img2webp`'s PNG, JPEG and TIFF readers depend on the host's
+//!    libraries, which both builds share, and the tests read PAM.
+//!    `img2webp -version` calls `SharpYuvGetVersion`, which the Rust library
+//!    does not export (the link stand-in `wp13_link_shim` aborts), and is not
+//!    run.
 
 #[path = "support/oracle.rs"]
 mod oracle;

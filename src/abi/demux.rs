@@ -53,6 +53,41 @@
 //! lives, which the header asks for; C itself would only read the changed
 //! bytes. The canvas that `WebPAnimDecoderGetNext()` returns may be read until
 //! the next call on the decoder, as the header says.
+//!
+//! # Deviations from upstream
+//!
+//! Changes of representation that the ADRs allow, or behavior that the Rust
+//! side cannot reproduce exactly. Each records the reason.
+//!
+//! 1. **`WebPData` mirror.** `mux_types.h` has no ABI module, so
+//!    `src/abi/demux.rs` defines the `repr(C)` `WebPData` (public, for
+//!    `src/abi/mux.rs`).
+//! 2. **C ABI iterators.** `Next` and `Prev` rebuild the Rust iterator from
+//!    `frame_num` (or `chunk_num`) and `private_` and write back the fields
+//!    that C writes on success (none on failure); `pad` and `private_` are
+//!    never written after `Get`. `WebPDemuxGetFrame` and `WebPDemuxGetChunk`
+//!    write the caller's iterator whole, so it may be uninitialized.
+//!
+//! # Excluded undefined behavior
+//!
+//! Inputs that are undefined behavior (or assertion failures) in C and are
+//! therefore excluded from the oracle comparison (PORTING rule 8):
+//!
+//! 1. **`WebPDemuxNextChunk` and `WebPDemuxPrevChunk` on an iterator whose
+//!    `chunk.bytes` is `NULL`** (a failed `WebPDemuxGetChunk` with a demuxer),
+//!    or points outside the input: C computes the tag address from it and reads
+//!    there. The C ABI returns 0 (`chunk_tag`); the probe never calls it.
+//! 2. **`WebPDemuxNextFrame` and `WebPDemuxNextChunk` with `frame_num` or
+//!    `chunk_num` at `INT_MAX`:** the `int` sum overflows. The C ABI returns 0,
+//!    which is what the wrapped value gives in C.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **`NULL` arguments** exist only at the C ABI (PORTING rule 8); every
+//!    `NULL` case of `demux.h` is compared there
+//!    (`abi_answers_null_and_invalid_arguments_as_c`).
 
 use core::ffi::{c_char, c_int, c_void};
 use core::mem::ManuallyDrop;
@@ -300,7 +335,8 @@ fn chunk_iterator_to_c(it: &RsChunkIterator<'_>, c: &mut WebPChunkIterator) {
 /// demuxer's input. `None` when those four bytes are not inside the input, which
 /// an iterator that `WebPDemuxGetChunk()` filled never gives: a zeroed iterator
 /// (C computes the tag address from `NULL`) or a changed `chunk.bytes` make C
-/// read outside the input, which is undefined (`docs/status/wp14.md`).
+/// read outside the input, which is undefined (the module documentation,
+/// `# Excluded undefined behavior`, item 1).
 fn chunk_tag(c: &WebPChunkIterator, dmux: &RsDemuxer<'_>) -> Option<[u8; TAG_SIZE]> {
     let input = dmux.input();
     if c.chunk.bytes.is_null() {

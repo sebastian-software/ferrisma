@@ -28,7 +28,8 @@ use wp15_support::{
 
 /// Runs `script` through the C-linked and the Rust-linked probe `name` and
 /// compares their outputs; returns the number of `assemble.hook` lines where
-/// C's encoder called the hook again (a recorded deviation).
+/// C's encoder called the hook again (a recorded deviation, see
+/// `src/mux/anim_encode.rs`, `# Deviations from upstream`, item 2).
 fn check(oracle: &Oracle, name: &str, test: &str, script: &str) -> usize {
     let c: Output = oracle
         .probe("wp15", name)

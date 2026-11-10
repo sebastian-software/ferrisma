@@ -9,6 +9,15 @@
 //! `WebPAnimDecoderReset` in the middle and the frames after it, a whole canvas
 //! in hex, and the end state. `wp14_support::anim_report` builds the same lines
 //! from the translation; each command is compared on its own.
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **The largest vectors in the debug matrix.** The translation's
+//!    still-image test decodes the vectors of at most 200,000 pixels; all of
+//!    them go through the Rust library's C ABI in
+//!    `abi_animation_decoder_matches_the_c_library` (`tests/wp14_abi.rs`).
 
 #[path = "support/oracle.rs"]
 mod oracle;

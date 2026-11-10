@@ -13,6 +13,15 @@
 //!   oracle's `cwebp` and WP13's Rust-linked `probes/wp12/cwebp`, which the
 //!   demux link stand-ins kept from this path before WP14 (WP13's
 //!   not-applicable check 10).
+//!
+//! # Checks not applicable
+//!
+//! These checks do not apply, or cannot be made, with the reason:
+//!
+//! 1. **GIF input to `anim_dump`** needs giflib and is not built (see
+//!    `tools/oracle/probes/wp14/oracle.cmake`); PNG output needs libpng in
+//!    imageio, whose flags both builds share, so the two agree whether or not
+//!    the host has it.
 
 #[path = "support/oracle.rs"]
 mod oracle;

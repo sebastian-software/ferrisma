@@ -1,4 +1,4 @@
-# WP14 consumer builds (ADR 0004, docs/status/wp14.md).
+# WP14 consumer builds (ADR 0004).
 #
 # anim_dump: upstream's examples/anim_dump.c with anim_util.c and gifdec.c,
 # unmodified. Upstream's CMake builds it only with WEBP_BUILD_ANIM_UTILS, which

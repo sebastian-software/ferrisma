@@ -29,8 +29,24 @@
 //! Functions that C writes through output pointers return `Result<T,
 //! WebPMuxError>`, whose `Err` never holds `WEBP_MUX_OK` (ADR 0003, "Errors").
 //! A mux keeps the chunks that it was given without copying (`copy_data == 0`)
-//! as borrowed bytes for `'a`; see `docs/status/wp15.md` for how the lifetime
-//! is chosen.
+//! as borrowed bytes for `'a`; the `# Representation` section below says how
+//! the lifetime is chosen.
+//!
+//! # Representation
+//!
+//! - **Lifetimes of lent bytes.** Every function that takes data from the
+//!   caller takes `&WebPData<'a>`, the bytes' lifetime, not `&'a WebPData<'_>`
+//!   for `webp_mux_create`. With `copy_data == 0` the mux keeps borrowed bytes
+//!   for `'a`; with `copy_data == 1` the data may be a short borrow, which the
+//!   animation encoder needs to push its own frames into its mux.
+//!   `GetImageData` calls `WebPMuxCreate(bitstream, 0)` on the caller's
+//!   bitstream and keeps the image and alpha bytes of that temporary mux for
+//!   the caller's mux; with a borrow of the `WebPData` struct
+//!   (`&'a WebPData<'_>`) those bytes could not outlive the temporary. The lent
+//!   and the merely readable bytes are told apart by `ChunkBytes`
+//!   (`src/mux/muxi.rs`; `ChunkAssignData` in `src/mux/muxinternal.rs` copies
+//!   the readable ones). A `WebPData` that owns its bytes cannot be lent and is
+//!   copied even without copying.
 
 use crate::mux::anim_encode::{WebPAnimEncoder, webp_anim_encoder_new_internal};
 use crate::mux::muxedit::webp_new_internal;
