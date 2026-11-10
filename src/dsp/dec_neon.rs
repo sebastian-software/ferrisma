@@ -109,20 +109,93 @@
 //!    thresholds up to 1200, verifies the C translations directly (decided on
 //!    issue #28); against the `release-simd` oracle the Rust filters gave
 //!    upstream's NEON bytes for those records.
-//! 6. **Transform coefficients beyond ±2048.** `TransformOne_NEON` (and with
-//!    it `TransformTwo_NEON`, and `TransformUV_C` through `VP8Transform`)
-//!    computes both passes in saturating 16-bit arithmetic (`vqadd_s16`,
-//!    `vqdmulhq_n_s16`), where `TransformOne_C` computes in `int`;
-//!    `TransformAC3_NEON` likewise. The two agree for coefficients within
-//!    ±2048, the input range the C function documents and the range of the
-//!    coefficients of streams that an encoder produces; the parity test
-//!    covers it, with every sign pattern of the bounds. A stream that codes
-//!    larger coefficients (a corrupt or crafted one) can decode differently
-//!    in upstream's NEON and C builds: the mutated `lossy_alpha1.webp` of
-//!    `tests/wp6_decode.rs` codes -21546 at `in[15]` of a block and differs
-//!    in one luma row. The translation keeps upstream's NEON arithmetic, so on
-//!    64-bit ARM it decodes such streams as upstream's NEON build does, which
-//!    the WP6 tests show against the `release-simd` oracle.
+//! 6. **Transform coefficients outside `[-2048, 2047]`.** `TransformOne_NEON`
+//!    (and with it `TransformTwo_NEON`, which `VP8Transform` and
+//!    `TransformUV_C` reach) and `TransformAC3_NEON` compute in saturating
+//!    16-bit lanes (`vqadd_s16`, `vqdmulhq_n_s16`), where `TransformOne_C` and
+//!    `TransformAC3_C` compute in `int`. The two agree for coefficients in
+//!    `[-2048, 2047]`, the input range that `TransformOne_C`'s own comment
+//!    assumes and that the coefficients of encoded streams stay in; the parity
+//!    test covers it, with every sign pattern of the bounds. A corrupt or
+//!    crafted stream can code larger dequantized coefficients, and decodes
+//!    differently in upstream's NEON and C builds; the translation keeps
+//!    upstream's NEON arithmetic and selection, so on 64-bit ARM it decodes
+//!    such streams as upstream's NEON build does (admitted on issue #28,
+//!    checkpoint 4; ADR 0008 through #41). `tests/wp6_dsp.rs` verifies the C
+//!    transforms directly for its records of up to ±15000, and
+//!    `tests/wp6_decode.rs` skips, with `simd` on 64-bit ARM only, the
+//!    mutated streams that code a block outside the range, such as the
+//!    mutated `lossy_alpha1.webp` that codes -21546 at `in[15]`; against the
+//!    `release-simd` oracle both gave upstream's NEON bytes.
+//!
+//! # Notes for WP18 and WP19
+//!
+//! WP20 added its 64-bit ARM selection to these dispatch functions, each in the
+//! layout of the brief: the `#[cfg(all(feature = "simd", target_arch =
+//! "aarch64"))]` block that returns the NEON entry point directly above the
+//! C call, which carries `#[allow(unreachable_code, reason = "the C path is
+//! reached only without a SIMD variant")]`. The x86 block goes above the
+//! 64-bit ARM block, so a merge keeps both.
+//!
+//! - `src/dsp/dec.rs`: `vp8_transform`, `vp8_transform_ac3`,
+//!   `vp8_transform_dc`, `vp8_transform_wht`, the twelve loop filters
+//!   (`vp8_simple_v_filter16` to `vp8h_filter8i`); the tables
+//!   `vp8_pred_luma4`, `vp8_pred_luma16` and `vp8_pred_chroma8` select per
+//!   entry from a NEON table before indexing the C table (`VP8PredLuma4`
+//!   entries 0, 1, 2, 4 and 6 only). `vp8_transform_uv`, `vp8_transform_dcuv`
+//!   and `vp8_dither_combine8x8` have no NEON variant.
+//! - `src/dsp/enc.rs`: `vp8_collect_histogram`, `vp8i_transform`,
+//!   `vp8f_transform`, `vp8f_transform_wht`, `vp8_enc_pred_luma4`,
+//!   `vp8_enc_pred_luma16`, `vp8sse16x16`, `vp8sse16x8`, `vp8sse8x8`,
+//!   `vp8sse4x4`, `vp8t_disto4x4`, `vp8t_disto16x16` and the three quantizers;
+//!   `src/dsp/quant.rs`: `is_flat` (whose portable body is now `is_flat_c`).
+//! - `src/dsp/cost.rs`: `vp8_get_residual_cost` and `vp8_set_residual_coeffs`
+//!   select on `Features::query_neon` (the query's `kNEON` answer), as
+//!   `VP8EncDspCostInit` does, and fall through to the C call.
+//! - `src/dsp/lossless.rs`: `vp8l_add_green_to_blue_and_red`,
+//!   `vp8l_transform_color_inverse`, the converters to RGBA, BGR and RGB; the
+//!   tables `vp8l_predictors` (entries 5, 6, 7, 13) and `vp8l_predictors_add`
+//!   (0 to 13) select per entry. `src/dsp/lossless_enc.rs`:
+//!   `vp8l_subtract_green_from_blue_and_red`, `vp8l_transform_color`.
+//! - `src/dsp/alpha_processing.rs`: `webp_apply_alpha_multiply`,
+//!   `webp_dispatch_alpha`, `webp_dispatch_alpha_to_green`,
+//!   `webp_extract_alpha`, `webp_extract_green`. `src/dsp/yuv.rs`: the five
+//!   `webp_convert_*` functions. `src/dsp/upsampling.rs`: `webp_upsamplers`
+//!   and `webp_get_line_pair_converter` per mode. `src/dsp/filters.rs`:
+//!   `webp_filters` and `webp_unfilters` per filter type.
+//!   `src/sharpyuv/sharpyuv_dsp.rs`: the three dispatch functions.
+//! - `src/dsp/rescaler.rs`: none; the NEON export rows are not selected
+//!   (`src/dsp/rescaler_neon.rs`).
+//!
+//! The replaced private `fn xxx_c` functions became plain `pub fn xxx_c` for
+//! the parity tests, with `# Panics` sections and `#[must_use]` where Clippy
+//! asked and nothing else changed on the line; make the identical change if
+//! you need the same function. `src/dsp/cpu.rs` gained `Features::query_neon`,
+//! and `vp8_get_cpu_info` and the C ABI's `VP8GetCPUInfo` answer `kNEON` only
+//! with `simd` on 64-bit ARM. The benchmark modules are named after the NEON
+//! modules (`examples/dsp_bench/dec_neon.rs` and so on) and registered under
+//! `#[cfg(target_arch = "aarch64")]`.
+//!
+//! # Notes for Ferrixel
+//!
+//! With the default `simd` feature on 64-bit ARM, these functions have a NEON
+//! path, selected without a run-time query as upstream does (`-noasm` through
+//! the C ABI turns off only the residual cost functions): the decoder's
+//! inverse transforms, loop filters and intra predictors; the encoder's
+//! transforms, distortions, sums of squared errors, histogram, quantizers,
+//! intra predictors, flatness test and residual costs; the lossless decoder's
+//! predictors, inverse transforms and color converters, and the lossless
+//! encoder's subtract-green and color transforms; the alpha dispatch,
+//! extraction and premultiplication; the RGB to YUV converters; the fancy
+//! upsamplers; the alpha-plane filters; and the `SharpYUV` kernels. The
+//! rescaler's export rows stay scalar (issue #38). Each NEON function gives
+//! the C function's bytes on the inputs the library passes; the recorded
+//! exceptions are corrupt or crafted streams whose transform coefficients
+//! leave `[-2048, 2047]` (checks not applicable 6), which decode as upstream's
+//! NEON build decodes them. `--no-default-features` builds the scalar
+//! translation. The benchmark table (host, CPU, `rustc`) is in the
+//! description of the WP20 pull request; `cargo run --release --example
+//! dsp_bench` reproduces it.
 
 use core::arch::aarch64::{
     int8x16_t, int16x8_t, int16x8x2_t, int32x4x4_t, uint8x8_t, uint8x8x2_t, uint8x8x3_t,

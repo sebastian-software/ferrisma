@@ -230,6 +230,9 @@ pub type VP8DecIdct = fn(&[i16], &mut [u8]);
 // upstream: src/dsp/dec.c VP8Transform
 /// Inverse transform of one block, or two when `do_two` is set, added to `dst`
 /// (C: the `VP8Transform` pointer, `TransformTwo_C`).
+/// With `simd` on 64-bit ARM, coefficients outside `[-2048, 2047]` follow
+/// upstream's NEON transform, not the C function (`src/dsp/dec_neon.rs`,
+/// checks not applicable 6).
 pub fn vp8_transform(input: &[i16], dst: &mut [u8], do_two: bool) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -245,6 +248,9 @@ pub fn vp8_transform(input: &[i16], dst: &mut [u8], do_two: bool) {
 // upstream: src/dsp/dec.c VP8TransformAC3
 /// Inverse transform when only `in[0]`, `in[1]` and `in[4]` are non-zero (C:
 /// the `VP8TransformAC3` pointer, `TransformAC3_C`).
+/// With `simd` on 64-bit ARM, coefficients outside `[-2048, 2047]` follow
+/// upstream's NEON transform, not the C function (`src/dsp/dec_neon.rs`,
+/// checks not applicable 6).
 pub fn vp8_transform_ac3(input: &[i16], dst: &mut [u8]) {
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
@@ -260,6 +266,9 @@ pub fn vp8_transform_ac3(input: &[i16], dst: &mut [u8]) {
 // upstream: src/dsp/dec.c VP8TransformUV
 /// Inverse transform of the four blocks of one chroma plane (C: the
 /// `VP8TransformUV` pointer, `TransformUV_C`).
+/// With `simd` on 64-bit ARM, coefficients outside `[-2048, 2047]` follow
+/// upstream's NEON transform, not the C function (`src/dsp/dec_neon.rs`,
+/// checks not applicable 6).
 pub fn vp8_transform_uv(input: &[i16], dst: &mut [u8]) {
     transform_uv_c(input, dst);
 }
