@@ -450,6 +450,20 @@ pub fn vp8l_predictors(
     top: &[u32],
     top_pos: usize,
 ) -> u32 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        // `VP8LDspInitNEON` assigns the entries 5, 6, 7 and 13.
+        let neon: Option<VP8LPredictorFunc> = match mode {
+            5 => Some(crate::dsp::lossless_neon::predictor5),
+            6 => Some(crate::dsp::lossless_neon::predictor6),
+            7 => Some(crate::dsp::lossless_neon::predictor7),
+            13 => Some(crate::dsp::lossless_neon::predictor13),
+            _ => None,
+        };
+        if let Some(predictor) = neon {
+            return predictor(left, left_pos, top, top_pos);
+        }
+    }
     VP8L_PREDICTORS[mode](left, left_pos, top, top_pos)
 }
 
@@ -468,6 +482,31 @@ pub fn vp8l_predictors_add(
     num_pixels: i32,
     out_pos: usize,
 ) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        // `VP8LDspInitNEON` assigns the entries 0 to 13; 14 and 15 keep the
+        // C padding sentinels.
+        let neon: Option<VP8LPredictorAddSubFunc> = match mode {
+            0 => Some(crate::dsp::lossless_neon::predictor_add0),
+            1 => Some(crate::dsp::lossless_neon::predictor_add1),
+            2 => Some(crate::dsp::lossless_neon::predictor_add2),
+            3 => Some(crate::dsp::lossless_neon::predictor_add3),
+            4 => Some(crate::dsp::lossless_neon::predictor_add4),
+            5 => Some(crate::dsp::lossless_neon::predictor_add5),
+            6 => Some(crate::dsp::lossless_neon::predictor_add6),
+            7 => Some(crate::dsp::lossless_neon::predictor_add7),
+            8 => Some(crate::dsp::lossless_neon::predictor_add8),
+            9 => Some(crate::dsp::lossless_neon::predictor_add9),
+            10 => Some(crate::dsp::lossless_neon::predictor_add10),
+            11 => Some(crate::dsp::lossless_neon::predictor_add11),
+            12 => Some(crate::dsp::lossless_neon::predictor_add12),
+            13 => Some(crate::dsp::lossless_neon::predictor_add13),
+            _ => None,
+        };
+        if let Some(predictor_add) = neon {
+            return predictor_add(data, in_pos, upper_pos, num_pixels, out_pos);
+        }
+    }
     VP8L_PREDICTORS_ADD[mode](data, in_pos, upper_pos, num_pixels, out_pos);
 }
 
@@ -586,6 +625,16 @@ pub fn vp8l_add_green_to_blue_and_red(
     num_pixels: i32,
     dst_pos: usize,
 ) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_neon::add_green_to_blue_and_red(
+            data, src_pos, num_pixels, dst_pos,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_add_green_to_blue_and_red_c(data, src_pos, num_pixels, dst_pos);
 }
 
@@ -652,6 +701,16 @@ pub fn vp8l_transform_color_inverse(
     num_pixels: i32,
     dst_pos: usize,
 ) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_neon::transform_color_inverse(
+            m, data, src_pos, num_pixels, dst_pos,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_transform_color_inverse_c(m, data, src_pos, num_pixels, dst_pos);
 }
 
@@ -1011,6 +1070,14 @@ pub fn vp8l_convert_bgra_to_bgr_c(src: &[u32], num_pixels: i32, dst: &mut [u8]) 
 /// Calls the portable [`vp8l_convert_bgra_to_rgb_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_rgb(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_neon::convert_bgra_to_rgb(src, num_pixels, dst);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_rgb_c(src, num_pixels, dst);
 }
 
@@ -1018,6 +1085,14 @@ pub fn vp8l_convert_bgra_to_rgb(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
 /// Calls the portable [`vp8l_convert_bgra_to_rgba_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_rgba(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_neon::convert_bgra_to_rgba(src, num_pixels, dst);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_rgba_c(src, num_pixels, dst);
 }
 
@@ -1039,6 +1114,14 @@ pub fn vp8l_convert_bgra_to_rgb565(src: &[u32], num_pixels: i32, dst: &mut [u8])
 /// Calls the portable [`vp8l_convert_bgra_to_bgr_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_bgr(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::lossless_neon::convert_bgra_to_bgr(src, num_pixels, dst);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_bgr_c(src, num_pixels, dst);
 }
 

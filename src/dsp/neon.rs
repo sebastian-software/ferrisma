@@ -242,3 +242,37 @@ pub fn load_u32_ne(src: &[u8]) -> u32 {
 pub fn store_u32_ne(dst: &mut [u8], value: u32) {
     dst[..4].copy_from_slice(&value.to_ne_bytes());
 }
+
+//------------------------------------------------------------------------------
+// Helpers first used by lossless_neon.rs
+
+/// `vld1q_u8` on the bytes of the first 4 words of `src`, as C casts a
+/// `uint32_t*` to `uint8_t*` for the load.
+#[inline]
+#[must_use]
+pub fn vld1q_u8_words(src: &[u32]) -> core::arch::aarch64::uint8x16_t {
+    let src = &src[..4];
+    // SAFETY: the 4 words of `src` (checked by the slice above) are the 16
+    // bytes that the load reads; a byte pointer needs no alignment.
+    unsafe { core::arch::aarch64::vld1q_u8(src.as_ptr().cast::<u8>()) }
+}
+
+/// `vst1q_u8` to the bytes of the first 4 words of `dst`, as C casts a
+/// `uint32_t*` to `uint8_t*` for the store.
+#[inline]
+pub fn vst1q_u8_words(dst: &mut [u32], value: core::arch::aarch64::uint8x16_t) {
+    let dst = &mut dst[..4];
+    // SAFETY: the 4 words of `dst` (checked by the slice above) are the 16
+    // bytes that the store writes; a byte pointer needs no alignment.
+    unsafe { core::arch::aarch64::vst1q_u8(dst.as_mut_ptr().cast::<u8>(), value) }
+}
+
+/// `vst1q_s8` to the bytes of the first 4 words of `dst`, as C casts a
+/// `uint32_t*` to `int8_t*` for the store.
+#[inline]
+pub fn vst1q_s8_words(dst: &mut [u32], value: core::arch::aarch64::int8x16_t) {
+    let dst = &mut dst[..4];
+    // SAFETY: the 4 words of `dst` (checked by the slice above) are the 16
+    // bytes that the store writes; a byte pointer needs no alignment.
+    unsafe { core::arch::aarch64::vst1q_s8(dst.as_mut_ptr().cast::<i8>(), value) }
+}
