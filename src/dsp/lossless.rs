@@ -450,6 +450,28 @@ pub fn vp8l_predictors(
     top: &[u32],
     top_pos: usize,
 ) -> u32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            match mode {
+                5 => return crate::dsp::lossless_sse2::predictor5(left, left_pos, top, top_pos),
+                6 => return crate::dsp::lossless_sse2::predictor6(left, left_pos, top, top_pos),
+                7 => return crate::dsp::lossless_sse2::predictor7(left, left_pos, top, top_pos),
+                8 => return crate::dsp::lossless_sse2::predictor8(left, left_pos, top, top_pos),
+                9 => return crate::dsp::lossless_sse2::predictor9(left, left_pos, top, top_pos),
+                10 => return crate::dsp::lossless_sse2::predictor10(left, left_pos, top, top_pos),
+                11 => return crate::dsp::lossless_sse2::predictor11(left, left_pos, top, top_pos),
+                12 => return crate::dsp::lossless_sse2::predictor12(left, left_pos, top, top_pos),
+                13 => return crate::dsp::lossless_sse2::predictor13(left, left_pos, top, top_pos),
+                _ => {}
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     VP8L_PREDICTORS[mode](left, left_pos, top, top_pos)
 }
 
@@ -468,6 +490,37 @@ pub fn vp8l_predictors_add(
     num_pixels: i32,
     out_pos: usize,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        use crate::dsp::lossless_sse2 as sse2;
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            let add: Option<VP8LPredictorAddSubFunc> = match mode {
+                0 => Some(sse2::predictor_add0),
+                1 => Some(sse2::predictor_add1),
+                2 => Some(sse2::predictor_add2),
+                3 => Some(sse2::predictor_add3),
+                4 => Some(sse2::predictor_add4),
+                5 => Some(sse2::predictor_add5),
+                6 => Some(sse2::predictor_add6),
+                7 => Some(sse2::predictor_add7),
+                8 => Some(sse2::predictor_add8),
+                9 => Some(sse2::predictor_add9),
+                10 => Some(sse2::predictor_add10),
+                11 => Some(sse2::predictor_add11),
+                12 => Some(sse2::predictor_add12),
+                13 => Some(sse2::predictor_add13),
+                _ => None,
+            };
+            if let Some(add) = add {
+                return add(data, in_pos, upper_pos, num_pixels, out_pos);
+            }
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     VP8L_PREDICTORS_ADD[mode](data, in_pos, upper_pos, num_pixels, out_pos);
 }
 
@@ -578,7 +631,8 @@ pub fn vp8l_add_green_to_blue_and_red_c(
 }
 
 // upstream: src/dsp/lossless.c VP8LAddGreenToBlueAndRed
-/// Calls the portable [`vp8l_add_green_to_blue_and_red_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_add_green_to_blue_and_red_c`].
 #[inline]
 pub fn vp8l_add_green_to_blue_and_red(
     data: &mut [u32],
@@ -586,6 +640,19 @@ pub fn vp8l_add_green_to_blue_and_red(
     num_pixels: i32,
     dst_pos: usize,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::add_green_to_blue_and_red(
+                data, src_pos, num_pixels, dst_pos,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_add_green_to_blue_and_red_c(data, src_pos, num_pixels, dst_pos);
 }
 
@@ -643,7 +710,8 @@ pub fn vp8l_transform_color_inverse_c(
 }
 
 // upstream: src/dsp/lossless.c VP8LTransformColorInverse
-/// Calls the portable [`vp8l_transform_color_inverse_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_transform_color_inverse_c`].
 #[inline]
 pub fn vp8l_transform_color_inverse(
     m: &VP8LMultipliers,
@@ -652,6 +720,19 @@ pub fn vp8l_transform_color_inverse(
     num_pixels: i32,
     dst_pos: usize,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::transform_color_inverse(
+                m, data, src_pos, num_pixels, dst_pos,
+            );
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_transform_color_inverse_c(m, data, src_pos, num_pixels, dst_pos);
 }
 
@@ -1008,37 +1089,97 @@ pub fn vp8l_convert_bgra_to_bgr_c(src: &[u32], num_pixels: i32, dst: &mut [u8]) 
 }
 
 // upstream: src/dsp/lossless.c VP8LConvertBGRAToRGB
-/// Calls the portable [`vp8l_convert_bgra_to_rgb_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_convert_bgra_to_rgb_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_rgb(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::convert_bgra_to_rgb(src, num_pixels, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_rgb_c(src, num_pixels, dst);
 }
 
 // upstream: src/dsp/lossless.c VP8LConvertBGRAToRGBA
-/// Calls the portable [`vp8l_convert_bgra_to_rgba_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_convert_bgra_to_rgba_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_rgba(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::convert_bgra_to_rgba(src, num_pixels, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_rgba_c(src, num_pixels, dst);
 }
 
 // upstream: src/dsp/lossless.c VP8LConvertBGRAToRGBA4444
-/// Calls the portable [`vp8l_convert_bgra_to_rgba4444_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_convert_bgra_to_rgba4444_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_rgba4444(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::convert_bgra_to_rgba4444(src, num_pixels, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_rgba4444_c(src, num_pixels, dst);
 }
 
 // upstream: src/dsp/lossless.c VP8LConvertBGRAToRGB565
-/// Calls the portable [`vp8l_convert_bgra_to_rgb565_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_convert_bgra_to_rgb565_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_rgb565(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::convert_bgra_to_rgb565(src, num_pixels, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_rgb565_c(src, num_pixels, dst);
 }
 
 // upstream: src/dsp/lossless.c VP8LConvertBGRAToBGR
-/// Calls the portable [`vp8l_convert_bgra_to_bgr_c`].
+/// Calls the SIMD variant that `VP8LDspInit` selects (ADR 0008), or the
+/// portable [`vp8l_convert_bgra_to_bgr_c`].
 #[inline]
 pub fn vp8l_convert_bgra_to_bgr(src: &[u32], num_pixels: i32, dst: &mut [u8]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::lossless_sse2::convert_bgra_to_bgr(src, num_pixels, dst);
+        }
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     vp8l_convert_bgra_to_bgr_c(src, num_pixels, dst);
 }
 
