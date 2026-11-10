@@ -251,6 +251,10 @@ pub fn webp_rescaler_import_row_shrink(wrk: &mut WebPRescaler, src: &[u8]) {
 // upstream: src/dsp/rescaler.c WebPRescalerExportRowExpand
 /// The export of a row for a rescaler that expands in y. The C dispatch
 /// pointer is `WebPRescalerExportRowExpand_C`.
+///
+/// On 64-bit ARM upstream selects `RescalerExportRowExpand_NEON`, which is not
+/// bit-exact with the C function; the port keeps the C function there
+/// (`src/dsp/rescaler_neon.rs`, deviation 1).
 pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     webp_rescaler_export_row_expand_c(wrk, dst);
 }
@@ -258,6 +262,10 @@ pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
 // upstream: src/dsp/rescaler.c WebPRescalerExportRowShrink
 /// The export of a row for a rescaler that shrinks in y. The C dispatch
 /// pointer is `WebPRescalerExportRowShrink_C`.
+///
+/// On 64-bit ARM upstream selects `RescalerExportRowShrink_NEON`, which is not
+/// bit-exact with the C function; the port keeps the C function there
+/// (`src/dsp/rescaler_neon.rs`, deviation 1).
 pub fn webp_rescaler_export_row_shrink(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     webp_rescaler_export_row_shrink_c(wrk, dst);
 }
