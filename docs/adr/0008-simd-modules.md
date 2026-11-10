@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Created: 2026-11-09
-- Updated: 2026-11-10
+- Updated: 2026-11-09
 
 ## Context
 
@@ -114,11 +114,7 @@ over SSE4.1 over SSE2 over the C function on x86, in the order
 each consulting `features()` and calling the SIMD module's entry point. A
 SIMD package makes these additions in the portable modules without a further
 integrator decision; they change no signature and no scalar result. Function
-tables (`VP8PredLuma4` and the like) select per entry the same way. A variant
-whose upstream kernel is not bit-exact with the C function for inputs the
-library passes is not selected, and its module records why (amended
-2026-11-10, WP20): the NEON rescaler export rows are the case
-([#38](https://github.com/sebastian-software/libwebp-rs/issues/38)).
+tables (`VP8PredLuma4` and the like) select per entry the same way.
 
 **Parity.** A SIMD function is admitted only with all of:
 
