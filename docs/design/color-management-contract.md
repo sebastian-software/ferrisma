@@ -1,6 +1,13 @@
 # Color evidence and conversion planning: first contract
 
-**Status: experimental.** This document describes what the planner can *tell apart*, not what the executor can yet convert. The source of truth is [ADR-0015](../adr/0015-typed-output-color-signals.md).
+**Scope: experimental inspection contract.** This document records the
+[ADR-0015](../adr/0015-typed-output-color-signals.md) design boundary and its
+early execution assumptions. Later work added supported color conversion and
+codec paths; see [current status](../status.md) for their present scope and
+[ADR-0016](../adr/0016-working-color-space-and-transform-boundaries.md) and
+[ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md) for the related
+decisions. The historical statements below describe this inspection experiment,
+not a complete inventory of today's executor capabilities.
 
 ## Input contract
 

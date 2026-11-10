@@ -1,4 +1,4 @@
-/* Ferrixel-specific composition; Monografie owns the shared type and palette. */
+/* Monografie owns the shared palette, reading axis, type and specimens. */
 .fx-header .mono-header-in {
   gap: 2rem;
 }
@@ -21,106 +21,386 @@
 .fx-nav a:focus-visible {
   text-decoration: underline;
 }
-.fx-opening {
-  padding: clamp(4rem, 9vw, 8rem) 1.5rem 3rem;
-}
-.fx-opening-inner {
-  max-width: 70rem;
-  margin: 0 auto;
-  text-align: center;
-}
-.fx-kicker {
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-.fx-kicker span {
-  color: var(--mono-oxide, #a74d36);
-  padding: 0 0.35rem;
-}
-.fx-opening h1 {
-  max-width: 17ch;
-  margin: 1.2rem auto;
-  font-size: clamp(3rem, 7vw, 6rem);
-  line-height: 0.98;
-}
-.fx-opening .mono-standfirst {
-  max-width: 46rem;
-  margin: 0 auto 2rem;
-}
-.fx-opening .mono-actions {
-  justify-content: center;
-}
-.fx-pipeline {
-  max-width: 52rem;
-  margin: 3.5rem auto 0;
-}
-.fx-pipeline svg {
+.fx-instrument img {
   display: block;
   width: 100%;
   height: auto;
+  position: relative;
+  z-index: 1;
 }
-.fx-pipeline figcaption {
-  max-width: 36rem;
-  margin: 0.8rem auto 0;
-  font-size: 0.8rem;
-  line-height: 1.5;
+.fx-opening h1 {
+  max-width: 20ch;
+  margin-inline: auto;
 }
-.fx-paper {
-  fill: var(--mono-steel);
-  stroke: var(--mono-steel-3);
+.mono .fx-facts {
+  margin-top: 4.5rem;
+  gap: 2rem;
 }
-.fx-rail {
-  fill: none;
-  stroke: var(--mono-oxide);
-  stroke-width: 3;
+.fx-facts strong {
+  font-family: var(--mono-sans);
+  font-size: 1.1rem;
 }
-.fx-station rect {
-  fill: var(--mono-paper);
-  stroke: var(--mono-ink-2);
-  stroke-width: 2;
+.fx-contents {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem 1.6rem;
+  margin: 3rem auto 0;
+  font-size: 0.9rem;
 }
-.fx-lens {
-  fill: none;
-  stroke: var(--mono-ink-2);
-  stroke-width: 2;
-}
-.fx-svg-label {
-  fill: var(--mono-ink-2);
-  font: 600 12px sans-serif;
-  text-anchor: middle;
+.fx-contents a {
+  padding: 0.35rem 0;
+  text-underline-offset: 0.25rem;
 }
 .fx-home > .mono-engraving {
   display: block;
-  margin: 1rem auto;
+  margin: 5rem auto;
+}
+.fx-home section[id] {
+  scroll-margin-top: 6rem;
+}
+.fx-section-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-top: 2rem;
+  font-size: 0.95rem;
+}
+.fx-detail {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--mono-ink-2);
+}
+.fx-flow {
+  margin: 2.75rem 0 0;
+  background: var(--mono-sheet);
+  border: 1px solid var(--mono-hair);
+}
+.fx-flow > figcaption {
+  padding: 1.15rem 1.5rem;
+  font-size: 0.9rem;
+  color: var(--mono-ink-2);
+  border-bottom: 1px solid var(--mono-hair);
+}
+.fx-flow-stages {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 0;
+  padding: 0;
+}
+.fx-flow-stages li {
+  min-width: 0;
+}
+.fx-flow-stages button {
+  display: flex;
+  width: 100%;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: center;
+  padding: 1.3rem 0.6rem;
+  min-height: 4rem;
+  font: 500 0.95rem/1.3 var(--mono-sans);
+  color: var(--mono-ink-2);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid var(--mono-hair);
+  cursor: pointer;
+}
+.fx-flow-stages button:hover {
+  background: var(--mono-paper);
+}
+.fx-flow-stages button[aria-pressed="true"] {
+  color: var(--mono-oxide);
+  border-bottom-color: var(--mono-oxide);
+  background: var(--mono-oxide-wash);
+}
+.fx-step-number {
+  font-family: var(--mono-serif);
+  font-size: 1.3rem;
+}
+.fx-flow-explanation {
+  padding: 2.5rem max(1.5rem, calc((100% - 42rem) / 2));
+  min-height: 16rem;
+}
+.fx-flow-explanation h3 {
+  margin-bottom: 1rem;
+}
+.fx-flow-explanation p:last-child {
+  margin-bottom: 0;
+}
+.fx-rust-example {
+  margin-top: 1rem;
+  border-block: 1px solid var(--mono-hair);
+  padding: 1.1rem 0;
+}
+.fx-rust-example summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.fx-rust-example[open] summary {
+  margin-bottom: 1.5rem;
+}
+.fx-rust-example > p {
+  font-size: 0.95rem;
+}
+.fx-home .mono-code {
+  margin: 1.5rem 0;
+}
+.fx-home .mono-code pre {
+  font-size: 0.92rem;
+}
+.fx-home .mono-code code {
+  font-size: 1em;
+}
+.fx-table-wrap {
+  overflow-x: auto;
+  margin: 2.5rem 0 1.2rem;
+}
+.fx-table-hint {
+  display: none;
+}
+.fx-codec-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.94rem;
+}
+.fx-codec-table th,
+.fx-codec-table td {
+  border-bottom: 1px solid var(--mono-hair);
+  padding: 1.3rem 1.1rem;
+  vertical-align: top;
+  line-height: 1.6;
+}
+.fx-codec-table thead {
+  background: var(--mono-sheet);
+  font-size: 0.85rem;
+}
+.fx-codec-table tbody th {
+  width: 19%;
+}
+.fx-codec-table td {
+  width: 27%;
+}
+.fx-codec-table tbody th a {
+  font: 600 1.35rem/1.3 var(--mono-serif);
+}
+.fx-codec-table small {
+  display: block;
+  margin-top: 0.45rem;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--mono-ink-2);
+}
+.fx-color-example {
+  margin-bottom: 2.5rem;
+}
+.fx-color-example .mono-facing {
+  margin-top: 2rem;
+}
+.fx-color-swatch {
+  height: 7.5rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--mono-hair);
+}
+.fx-color-example .mono-sheet > p {
+  margin-bottom: 0.5rem;
+}
+.fx-color-example .mono-sheet strong {
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+.fx-color-control {
+  max-width: 36rem;
+  margin: 2rem auto 1rem;
+}
+.fx-color-control label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.7rem;
+}
+.fx-color-control > div {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+.fx-color-control input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  margin: 0;
+  accent-color: var(--mono-oxide);
+}
+.fx-color-control output {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+.fx-memory-path {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+  margin: 2.5rem 0;
+  padding: 2.5rem 2rem 1.5rem;
+  border-block: 1px solid var(--mono-hair);
+}
+.fx-memory-path > div {
+  min-width: 0;
+}
+.fx-memory-path h3 {
+  font-size: 1.2rem;
+}
+.fx-memory-path p {
+  font-size: 0.92rem;
+}
+.fx-memory-path figcaption {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: var(--mono-ink-2);
+}
+.fx-buffer-frame,
+.fx-buffer-rows {
+  display: block;
+  width: 7rem;
+  height: 5rem;
+  margin-bottom: 1.7rem;
+}
+.fx-buffer-frame {
+  border: 1px solid var(--mono-steel-3);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 11px,
+      var(--mono-hair) 11px,
+      var(--mono-hair) 12px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      var(--mono-sheet) 0,
+      var(--mono-sheet) 11px,
+      var(--mono-hair) 11px,
+      var(--mono-hair) 12px
+    );
+}
+.fx-buffer-output {
+  box-shadow:
+    5px 5px 0 var(--mono-paper),
+    6px 6px 0 var(--mono-steel);
+}
+.fx-buffer-rows {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-block: 0.35rem;
+}
+.fx-buffer-rows i {
+  height: 0.7rem;
+  border: 1px solid var(--mono-oxide);
+  background: var(--mono-oxide-wash);
+}
+.fx-validation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2.5rem;
+  margin: 2.5rem 0 2rem;
+  padding-block: 2rem 0.7rem;
+  border-block: 1px solid var(--mono-hair);
+}
+.fx-validation h3 {
+  font-size: 1.35rem;
+  margin-bottom: 1.2rem;
+}
+.fx-validation p {
+  font-size: 0.95rem;
+}
+.fx-validation .fx-detail {
+  color: var(--mono-oxide);
+}
+.fx-home :is(button, summary, input, a):focus-visible {
+  outline: 2px solid var(--mono-oxide);
+  outline-offset: 4px;
 }
 @media (max-width: 60rem) {
+  .fx-table-hint {
+    display: block;
+    margin: 2rem 0 -1.5rem;
+    color: var(--mono-ink-2);
+    font-size: 0.85rem;
+  }
   .fx-nav {
     display: none;
   }
   .fx-header .mono-header-actions {
     margin-left: auto;
   }
-}
-@media (max-width: 35rem) {
-  .fx-opening {
-    padding-top: 3rem;
-  }
-  .fx-svg-label {
-    font-size: 32px;
+  .fx-codec-table {
+    min-width: 50rem;
   }
 }
-
-.fx-table-wrap {
-  overflow-x: auto;
-}
-.fx-codec-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-.fx-codec-table th,
-.fx-codec-table td {
-  border-bottom: 1px solid var(--mono-steel);
-  padding: 0.8rem;
-  vertical-align: top;
+@media (max-width: 42rem) {
+  .mono section.fx-opening {
+    padding-top: 2.5rem;
+  }
+  .fx-opening .mono-kicker {
+    margin-top: 1.5rem;
+  }
+  .mono .fx-facts {
+    gap: 1.75rem;
+    margin-top: 3rem;
+  }
+  .fx-home > .mono-engraving {
+    margin: 3.5rem auto;
+  }
+  .fx-flow-stages {
+    grid-template-columns: 1fr;
+  }
+  .fx-flow-stages button {
+    justify-content: flex-start;
+    padding: 0.8rem 1.5rem;
+    min-height: 3.25rem;
+    border-bottom-width: 1px;
+    border-left: 3px solid transparent;
+  }
+  .fx-flow-stages button[aria-pressed="true"] {
+    border-left-color: var(--mono-oxide);
+    border-bottom-color: var(--mono-hair);
+  }
+  .fx-flow-explanation {
+    padding: 1.5rem;
+    min-height: 20rem;
+  }
+  .fx-memory-path,
+  .fx-validation {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 1.75rem 0;
+  }
+  .fx-memory-path > div {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    column-gap: 1.5rem;
+  }
+  .fx-memory-path h3 {
+    grid-column: 2;
+    align-self: end;
+  }
+  .fx-memory-path p {
+    grid-column: 2;
+    margin-bottom: 0;
+  }
+  .fx-buffer-frame,
+  .fx-buffer-rows {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 5rem;
+    height: 4rem;
+    align-self: center;
+    margin: 0;
+  }
+  .fx-validation > div + div {
+    border-top: 1px solid var(--mono-hair);
+    padding-top: 1.5rem;
+  }
 }

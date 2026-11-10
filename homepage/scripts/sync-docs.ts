@@ -12,6 +12,9 @@ const pages = [
   ["docs/getting-started.md", "/guide/getting-started"],
   ["docs/status.md", "/guide/status"],
   ["docs/architecture.md", "/guide/architecture"],
+  ["docs/design/color-management-contract.md", "/guide/color"],
+  ["docs/codecs.md", "/guide/codec-development"],
+  ["docs/milestones/M1-evidence-and-gates.md", "/guide/release-gates"],
   ["CONTRIBUTING.md", "/guide/development"],
   ["docs/validation.md", "/guide/validation"],
   ["codecs/libjpeg-turbo-rs/README.md", "/codecs/jpeg"],
@@ -19,7 +22,9 @@ const pages = [
   ["codecs/libjxl-rs/README.md", "/codecs/jpeg-xl"],
   ["codecs/libavif-rs/README.md", "/codecs/avif"],
 ] as const;
-const routes = new Map<string, string>(pages.map(([source, route]) => [resolve(root, source), route]));
+const routes = new Map<string, string>(
+  pages.map(([source, route]) => [resolve(root, source), route]),
+);
 
 export function rewriteTarget(source: string, target: string): string {
   if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#|\/)/i.test(target)) return target;
@@ -27,7 +32,8 @@ export function rewriteTarget(source: string, target: string): string {
   if (!match || !match[1]) return target;
   const path = resolve(dirname(source), decodeURI(match[1]));
   const repoPath = relative(root, path);
-  if (repoPath === ".." || repoPath.startsWith(`..${sep}`)) throw Error(`Link escapes repository: ${target}`);
+  if (repoPath === ".." || repoPath.startsWith(`..${sep}`))
+    throw Error(`Link escapes repository: ${target}`);
   const stats = statSync(path); // Missing targets fail the build, including mapped pages.
   const route = routes.get(path);
   if (route) return route + match[2];
@@ -35,16 +41,26 @@ export function rewriteTarget(source: string, target: string): string {
   return `https://github.com/sebastian-software/ferrixel/${kind}/main/${repoPath.split(sep).map(encodeURIComponent).join("/")}${match[2]}`;
 }
 
-type Node = { type: string; url?: string; children?: Node[]; position?: { start: { offset?: number }; end: { offset?: number } } };
+type Node = {
+  type: string;
+  url?: string;
+  children?: Node[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+};
 const parser = unified().use(remarkParse).use(remarkGfm);
 
 export function render(source: string, markdown: string): string {
   const changes: { start: number; end: number; text: string }[] = [];
   function walk(node: Node): void {
-    if ((node.type === "link" || node.type === "image" || node.type === "definition") && node.url && node.position) {
+    if (
+      (node.type === "link" || node.type === "image" || node.type === "definition") &&
+      node.url &&
+      node.position
+    ) {
       const start = node.position.start.offset;
       const end = node.position.end.offset;
-      if (start === undefined || end === undefined) throw Error("Markdown node has no source position");
+      if (start === undefined || end === undefined)
+        throw Error("Markdown node has no source position");
       const replacement = rewriteTarget(source, node.url);
       if (replacement !== node.url) {
         // Rewrite the destination within its own parsed node, preserving all surrounding Markdown.
@@ -71,7 +87,10 @@ export function sync(): void {
     if (!title) throw Error(`Canonical guide has no title: ${sourceName}`);
     const destination = resolve(homepage, "app/routes", `${route.slice(1)}.md`);
     mkdirSync(dirname(destination), { recursive: true });
-    writeFileSync(destination, `---\ntitle: ${JSON.stringify(title)}\n---\n\n${render(source, markdown)}`);
+    writeFileSync(
+      destination,
+      `---\ntitle: ${JSON.stringify(title)}\n---\n\n${render(source, markdown)}`,
+    );
   }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) sync();
